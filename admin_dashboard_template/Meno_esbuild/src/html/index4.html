@@ -1,0 +1,961 @@
+<!-- include mainhead.html"-->
+
+</head>
+
+<body>
+
+    <!-- include switcher.html"-->
+   <!-- include loader.html"-->
+
+    <div class="page">
+        <!-- include header.html"-->
+         <!-- include sidebar.html"-->
+
+        <!-- Start::app-content -->
+        <div class="main-content app-content">
+            <div class="container-fluid">
+
+                <!-- Start::page-header -->
+                <div class="my-4 page-header-breadcrumb d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h1 class="page-title fw-medium fs-18 mb-2">CRM</h1>
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item">
+                                <a href="javascript:void(0);">
+                                    Dashboards
+                                </a>
+                            </li>
+                            <li class="breadcrumb-item active" aria-current="page">CRM</li>
+                        </ol>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="d-flex gap-2">
+                            <div class="position-relative">
+                                <button class="btn btn-primary btn-wave" type="button"
+                                    id="dropdownMenuClickableInside" data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside" aria-expanded="false">
+                                    Filter By <i class="ri-arrow-down-s-fill ms-1"></i>
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenuClickableInside">
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Today</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Yesterday</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 7 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 30 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 6 Months</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last Year</a></li>
+                                </ul>
+                            </div>
+                            <button class="btn btn-secondary btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Download">
+                                <i class="ti ti-download"></i>
+                            </button>
+                            <button class="btn btn-success btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Share">
+                                <i class="ti ti-share-3"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- End::page-header -->
+
+                <!-- Start:: row-1 -->
+                <div class="row">
+                    <div class="col-xxl-3 col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
+                        <div class="card custom-card">
+                            <div class="card-body p-4">
+                                <div class="d-flex align-items-start justify-content-between mb-1">
+                                    <div>
+                                        <p class="mb-0">Conversion Ratio</p>
+                                    </div>
+                                    <div class="main-card-icon">
+                                        <div class="avatar avatar-sm bg-primary border border-primary border-opacity-10">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><defs><mask id="ipTChartHistogramTwo0"><g fill="none"><path fill="#555555" fill-rule="evenodd" d="M4 42h40z" clip-rule="evenodd"/><path stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M4 42h40"/><path fill="#555555" stroke="#fff" stroke-linejoin="round" stroke-width="4" d="M8 28h6v14H8zm13-10h6v24h-6zM34 6h6v36h-6z"/></g></mask></defs><path fill="currentColor" d="M0 0h48v48H0z" mask="url(#ipTChartHistogramTwo0)"/></svg>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2 align-items-center justify-content-between">
+                                    <div>
+                                        <h5 class="mb-3 fw-semibold">23.86%</h5>
+                                        <span class="badge bg-success-transparent"><i class="ti ti-trending-up me-1 align-middle d-inline-block"></i>4.3%</span><span class="text-muted ms-1 d-inline-block fs-12"> From Last Month</span>
+                                    </div>
+                                    <div id="conversion-ratio" class="ms-auto mt-3"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3 col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
+                        <div class="card custom-card">
+                            <div class="card-body p-4">
+                                <div class="d-flex align-items-start justify-content-between mb-1">
+                                    <div>
+                                        <p class="mb-0">Total Customers</p>
+                                    </div>
+                                    <div class="main-card-icon">
+                                        <div class="avatar avatar-sm bg-secondary border border-secondary border-opacity-10">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><defs><mask id="ipTEveryUser0"><g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"><circle cx="14" cy="29" r="5" fill="#555555"/><circle cx="34" cy="29" r="5" fill="#555555"/><circle cx="24" cy="9" r="5" fill="#555555"/><path d="M24 44c0-5.523-4.477-10-10-10S4 38.477 4 44m40 0c0-5.523-4.477-10-10-10s-10 4.477-10 10m10-20c0-5.523-4.477-10-10-10s-10 4.477-10 10"/></g></mask></defs><path fill="currentColor" d="M0 0h48v48H0z" mask="url(#ipTEveryUser0)"/></svg>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2 align-items-center justify-content-between">
+                                    <div>
+                                        <h5 class="mb-3 fw-semibold">3,245</h5>
+                                        <span class="badge bg-success-transparent"><i class="ti ti-trending-up me-1 align-middle d-inline-block"></i>4.3%</span><span class="text-muted ms-1 d-inline-block fs-12"> From Last Month</span>
+                                    </div>
+                                    <div id="total-customers" class="ms-auto mt-3"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3 col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
+                        <div class="card custom-card">
+                            <div class="card-body p-4">
+                                <div class="d-flex align-items-start justify-content-between mb-1">
+                                    <div>
+                                        <p class="mb-0">Total Leads</p>
+                                    </div>
+                                    <div class="main-card-icon">
+                                        <div class="avatar avatar-sm bg-success border border-success border-opacity-10">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><defs><mask id="ipTBuildingOne0"><g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"><path fill="#555555" fill-rule="evenodd" d="M11 14L25 4v40H11z" clip-rule="evenodd"/><path d="m25 13l14 10v21M4 44h40"/></g></mask></defs><path fill="currentColor" d="M0 0h48v48H0z" mask="url(#ipTBuildingOne0)"/></svg>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2 align-items-center justify-content-between">
+                                    <div>
+                                        <h5 class="mb-3 fw-semibold">3,654</h5>
+                                        <span class="badge bg-danger-transparent"><i class="ti ti-trending-down me-1 align-middle d-inline-block"></i>4.3%</span><span class="text-muted ms-1 d-inline-block fs-12"> From Last Month</span>
+                                    </div>
+                                    <div id="total-leads" class="ms-auto mt-3"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3 col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
+                        <div class="card custom-card">
+                            <div class="card-body p-4">
+                                <div class="d-flex align-items-start justify-content-between mb-1">
+                                    <div>
+                                        <p class="mb-0">Total Deals</p>
+                                    </div>
+                                    <div class="main-card-icon">
+                                        <div class="avatar avatar-sm bg-pink border border-pink border-opacity-10">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><defs><mask id="ipTThumbsUp0"><g fill="none" stroke="#fff" stroke-linejoin="round" stroke-width="4"><path d="M27.6 18.6v-7.2A5.4 5.4 0 0 0 22.2 6L15 22.2V42h20.916a3.6 3.6 0 0 0 3.6-3.06L42 22.74a3.6 3.6 0 0 0-3.6-4.14z"/><path fill="#555555" d="M15 22h-4.806C8.085 21.963 6.283 23.71 6 25.8v12.6a4.16 4.16 0 0 0 4.194 3.6H15z"/></g></mask></defs><path fill="currentColor" d="M0 0h48v48H0z" mask="url(#ipTThumbsUp0)"/></svg>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2 align-items-center justify-content-between">
+                                    <div>
+                                        <h5 class="mb-3 fw-semibold">3,654</h5>
+                                        <span class="badge bg-danger-transparent"><i class="ti ti-trending-down me-1 align-middle d-inline-block"></i>4.3%</span><span class="text-muted ms-1 d-inline-block fs-12"> From Last Month</span>
+                                    </div>
+                                    <div id="total-deals" class="ms-auto mt-3"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-1 -->
+
+                <!-- Start:: row-2 -->
+                <div class="row">
+                    <div class="col-xxl-9">
+                        <div class="card custom-card">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Revenue Analytics
+                                </div>
+                                <div class="dropdown"> 
+                                    <a href="javascript:void(0);" class="p-2 fs-12 text-muted" data-bs-toggle="dropdown" aria-expanded="true"> Sort By <i class="ri-arrow-down-s-line align-middle ms-1 d-inline-block"></i> </a> 
+                                    <ul class="dropdown-menu"> 
+                                        <li><a class="dropdown-item" href="javascript:void(0);">This Week</a></li>
+                                         <li><a class="dropdown-item" href="javascript:void(0);">Last Week</a></li> 
+                                         <li><a class="dropdown-item" href="javascript:void(0);">This Month</a></li> 
+                                    </ul> 
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="revenue-analytics"></div>                                
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3">
+                        <div class="card custom-card overflow-hidden">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Customers By Region
+                                </div>
+                                <a href="javascript:void(0);" class="fs-12 text-muted"> View All<i class="ti ti-arrow-narrow-right ms-1"></i> </a>
+                            </div> 
+                            <div class="card-body p-0">
+                                <ul class="list-group list-group-flush active-customers-list">
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center justify-content-between flex-wrap">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="lh-1">
+                                                    <span class="avatar avatar-xs avatar-rounded">
+                                                        <img src="../assets/images/flags/us_flag.jpg" alt="">
+                                                    </span>
+                                                </div>
+                                                <div class="fw-medium">United States</div>
+                                            </div>
+                                            <div>
+                                                <span class="fw-medium">(32,879)</span><span class="text-success fs-12 ms-1"><i class="ti ti-trending-up me-1 align-middle"></i>0.65%</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center justify-content-between flex-wrap">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="lh-1">
+                                                    <span class="avatar avatar-xs avatar-rounded">
+                                                        <img src="../assets/images/flags/russia_flag.jpg" alt="">
+                                                    </span>
+                                                </div>
+                                                <div class="fw-medium">Russia</div>
+                                            </div>
+                                            <div>
+                                                <span class="fw-medium">(22,710)</span><span class="text-success fs-12 ms-2"><i class="ti ti-trending-up me-1 align-middle"></i>0.55%</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center justify-content-between flex-wrap">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="lh-1">
+                                                    <span class="avatar avatar-xs avatar-rounded">
+                                                        <img src="../assets/images/flags/germany_flag.jpg" alt="">
+                                                    </span>
+                                                </div>
+                                                <div class="fw-medium">Germany</div>
+                                            </div>
+                                            <div>
+                                                <span class="fw-medium">(36,291)</span><span class="text-danger fs-12 ms-2"><i class="ti ti-trending-down me-1 align-middle"></i>0.69%</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center justify-content-between flex-wrap">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="lh-1">
+                                                    <span class="avatar avatar-xs avatar-rounded">
+                                                        <img src="../assets/images/flags/italy_flag.jpg" alt="">
+                                                    </span>
+                                                </div>
+                                                <div class="fw-medium">Italy</div>
+                                            </div>
+                                            <div>
+                                                <span class="fw-medium">(45,870)</span><span class="text-success fs-12 ms-2"><i class="ti ti-trending-up me-1 align-middle"></i>0.86%</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center justify-content-between flex-wrap">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="lh-1">
+                                                    <span class="avatar avatar-xs avatar-rounded">
+                                                        <img src="../assets/images/flags/uae_flag.jpg" alt="">
+                                                    </span>
+                                                </div>
+                                                <div class="fw-medium">Uae</div>
+                                            </div>
+                                            <div>
+                                                <span class="fw-medium">(37,357)</span><span class="text-success fs-12 ms-2"><i class="ti ti-trending-up me-1 align-middle"></i>0.73%</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center justify-content-between flex-wrap">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="lh-1">
+                                                    <span class="avatar avatar-xs avatar-rounded">
+                                                        <img src="../assets/images/flags/spain_flag.jpg" alt="">
+                                                    </span>
+                                                </div>
+                                                <div class="fw-medium">Spain</div>
+                                            </div>
+                                            <div>
+                                                <span class="fw-medium">(34,798)</span><span class="text-danger fs-12 ms-2"><i class="ti ti-trending-down me-1 align-middle"></i>0.64%</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center justify-content-between flex-wrap">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="lh-1" >
+                                                    <span class="avatar avatar-xs avatar-rounded">
+                                                        <img src="../assets/images/flags/argentina_flag.jpg" alt="">
+                                                    </span>
+                                                </div>
+                                                <div class="fw-medium">Argentina</div>
+                                            </div>
+                                            <div>
+                                                <span class="fw-medium">(24,667)</span><span class="text-success fs-12 ms-2"><i class="ti ti-trending-up me-1 align-middle"></i>0.42%</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center justify-content-between flex-wrap">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="lh-1" >
+                                                    <span class="avatar avatar-xs avatar-rounded">
+                                                        <img src="../assets/images/flags/mexico_flag.jpg" alt="">
+                                                    </span>
+                                                </div>
+                                                <div class="fw-medium">Mexico</div>
+                                            </div>
+                                            <div>
+                                                <span class="fw-medium">(24,667)</span><span class="text-success fs-12 ms-2"><i class="ti ti-trending-up me-1 align-middle"></i>0.42%</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-2 -->
+
+                <!-- Start:: row-3 -->
+                <div class="row">
+                    <div class="col-xxl-6">
+                        <div class="card custom-card overflow-hidden">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Top Deals
+                                </div>
+                                <a href="javascript:void(0);" class="fs-12 text-muted tag-link"> View All<i
+                                        class="ti ti-arrow-narrow-right ms-1"></i> </a>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <tbody>
+                                            <tr>
+                                                <th>Deal</th>
+                                                <th>Value</th>
+                                                <th>Status</th>
+                                                <th class="text-center">Probability</th>
+                                                <th>Action</th>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center lh-1">
+                                                        <span class="avatar-main1 me-2">
+                                                            <span class="avatar bg-primary-transparent text-primary avatar-rounded avatar-sm"><i class="ri-suitcase-fill fs-18"></i>
+                                                            </span>
+                                                        </span>
+                                                        <div class="d-flex flex-column">
+                                                            <a href="javascript:void(0);" class="fw-medium">Et
+                                                                Management</a>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>$121K</td>
+                                                <td><span class="badge bg-primary-transparent">Contract Sent</span></td>
+                                                <td class="text-center">50%</td>
+                                                <td class="text-center">
+                                                    <div class="d-flex gap-2">
+                                                        <a href="javascript:void(0);" class="text-secondary" data-bs-toggle="tooltip" title="" data-bs-original-title="Edit" aria-label="Edit"><i class="bi bi-pencil-square"></i></a>
+                                                        <a href="javascript:void(0);" class="text-danger" data-bs-toggle="tooltip" title="" data-bs-original-title="Delete" aria-label="Delete"><i class="bi bi-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center lh-1">
+                                                        <span class="avatar-main2 me-2">
+                                                            <span class="avatar bg-secondary-transparent text-secondary avatar-rounded avatar-sm"><i class="ri-building-2-fill fs-18"></i>
+                                                            </span>
+                                                        </span>
+                                                        <div class="d-flex flex-column">
+                                                            <a href="javascript:void(0);" class="fw-medium">Raslk Assoc</a>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>$68K</td>
+                                                <td><span class="badge bg-warning-transparent">On Hold</span></td>
+                                                <td class="text-center">70%</td>
+                                                <td class="text-center">
+                                                    <div class="d-flex gap-2">
+                                                        <a href="javascript:void(0);" class="text-secondary" data-bs-toggle="tooltip" title="" data-bs-original-title="Edit" aria-label="Edit"><i class="bi bi-pencil-square"></i></a>
+                                                        <a href="javascript:void(0);" class="text-danger" data-bs-toggle="tooltip" title="" data-bs-original-title="Delete" aria-label="Delete"><i class="bi bi-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center lh-1">
+                                                        <span class="avatar-main3 me-2">
+                                                            <span class="avatar bg-success-transparent text-success avatar-rounded avatar-sm"><i class="ri-mac-fill fs-18"></i>
+                                                            </span>
+                                                        </span>
+                                                        <div class="d-flex flex-column">
+                                                            <a href="javascript:void(0);" class="fw-medium">Sed Systems</a>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>$221K</td>
+                                                <td><span class="badge bg-danger-transparent">Contract Failed</span>
+                                                <td class="text-center">10%</td>
+                                                </td>
+                                                <td class="text-center">
+                                                    <div class="d-flex gap-2">
+                                                        <a href="javascript:void(0);" class="text-secondary" data-bs-toggle="tooltip" title="" data-bs-original-title="Edit" aria-label="Edit"><i class="bi bi-pencil-square"></i></a>
+                                                        <a href="javascript:void(0);" class="text-danger" data-bs-toggle="tooltip" title="" data-bs-original-title="Delete" aria-label="Delete"><i class="bi bi-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center lh-1">
+                                                        <span class="avatar-main4 me-2">
+                                                            <span class="avatar bg-danger-transparent text-danger avatar-rounded avatar-sm"><i class="ri-government-fill fs-18"></i>
+                                                            </span>
+                                                        </span>
+                                                        <div class="d-flex flex-column">
+                                                            <a href="javascript:void(0);" class="fw-medium">Justo
+                                                                Manufacturers</a>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>$521K</td>
+                                                <td><span class="badge bg-success-transparent">Won</span></td>
+                                                <td class="text-center">70%</td>
+                                                <td class="text-center">
+                                                    <div class="d-flex gap-2">
+                                                        <a href="javascript:void(0);" class="text-secondary" data-bs-toggle="tooltip" title="" data-bs-original-title="Edit" aria-label="Edit"><i class="bi bi-pencil-square"></i></a>
+                                                        <a href="javascript:void(0);" class="text-danger" data-bs-toggle="tooltip" title="" data-bs-original-title="Delete" aria-label="Delete"><i class="bi bi-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td  class="border-bottom-0">
+                                                    <div class="d-flex align-items-center lh-1">
+                                                        <span class="avatar-main5 me-2">
+                                                            <span class="avatar bg-info-transparent text-info avatar-rounded avatar-sm"><i class="ri-code-box-fill fs-18"></i>
+                                                            </span>
+                                                        </span>
+                                                        <div class="d-flex flex-column">
+                                                            <a href="javascript:void(0);" class="fw-medium">At
+                                                                Developers</a>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td  class="border-bottom-0">$51K</td>
+                                                <td  class="border-bottom-0"><span class="badge bg-primary-transparent">Contract Sent</span></td>
+                                                <td class="text-center border-bottom-0">90%</td>
+                                                <td class="text-center border-bottom-0">
+                                                    <div class="d-flex gap-2">
+                                                        <a href="javascript:void(0);" class="text-secondary" data-bs-toggle="tooltip" title="" data-bs-original-title="Edit" aria-label="Edit"><i class="bi bi-pencil-square"></i></a>
+                                                        <a href="javascript:void(0);" class="text-danger" data-bs-toggle="tooltip" title="" data-bs-original-title="Delete" aria-label="Delete"><i class="bi bi-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3 col-xl-6">
+                        <div class="card custom-card">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Deals Overview
+                                </div>
+                                <div class="dropdown">
+                                    <a href="javascript:void(0);" class="p-2 fs-12 text-muted" data-bs-toggle="dropdown" aria-expanded="false">
+                                        View All<i class="ri-arrow-down-s-line align-middle ms-1 d-inline-block"></i>
+                                    </a>
+                                    <ul class="dropdown-menu" role="menu">
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Today</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);">This Week</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Last Week</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex align-items-start gap-3 mb-3">
+                                    <div class="avatar avatar-lg bg-pink-transparent">
+                                        <i class="ri-shake-hands-line fs-5"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-muted mb-1">Total Deals</p>
+                                        <h5 class="fw-semibold">4,289</h5>
+                                    </div>
+                                    <div class="ms-auto align-self-end text-end">
+                                        <span class="badge bg-success-transparent">1.02<i class="ri-arrow-up-s-fill align-mmiddle ms-1"></i></span>
+                                        <div class="text-muted mt-3">From last Month</div>
+                                    </div>
+                                </div>
+                                <div class="progress-stacked progress-animate progress-lg p-1 bg-pink-transparent gap-1 mb-4">
+                                    <div class="progress-bar" role="progressbar" style="width: 21%" aria-valuenow="21" aria-valuemin="0" aria-valuemax="100"></div>
+                                    <div class="progress-bar bg-secondary" role="progressbar" style="width: 26%" aria-valuenow="26" aria-valuemin="0" aria-valuemax="100"></div>
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: 35%" aria-valuenow="35" aria-valuemin="0" aria-valuemax="100"></div>
+                                    <div class="progress-bar bg-primary bg-opacity-25" role="progressbar" style="width: 18%" aria-valuenow="18" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                                <ul class="list-unstyled mb-0 pe-3 py-3 crm-deals-status bg-light rounded-3">
+                                    <li class="primary">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <i class="ri-circle-fill text-primary lh-1"></i>
+                                            <div class="fs-14 fw-medium">Finished Deals</div>
+                                            <div class="fs-12 text-muted ms-auto">987 deals</div>
+                                        </div>
+                                    </li>
+                                    <li class="info">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <i class="ri-circle-fill text-secondary lh-1"></i>
+                                            <div class="fs-14 fw-medium">Pending Deals</div>
+                                            <div class="fs-12 text-muted ms-auto">1,073 deals</div>
+                                        </div>
+                                    </li>
+                                    <li class="warning">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <i class="ri-circle-fill text-success lh-1"></i>
+                                            <div class="fs-14 fw-medium">Rejected Deals</div>
+                                            <div class="fs-12 text-muted ms-auto">1,674 deals</div>
+                                        </div>
+                                    </li>
+                                    <li class="success">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <i class="ri-circle-fill text-primary op-2 lh-1"></i>
+                                            <div class="fs-14 fw-medium">Upcoming Deals</div>
+                                            <div class="fs-12 text-muted ms-auto">921 deals</div>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3 col-xl-6">
+                        <div class="card custom-card">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Active customers
+                                </div>
+                                <div class="dropdown"> 
+                                    <a href="javascript:void(0);" class="p-2 fs-12 text-muted" data-bs-toggle="dropdown" aria-expanded="true"> Sort By <i class="ri-arrow-down-s-line align-middle ms-1 d-inline-block"></i> </a> 
+                                    <ul class="dropdown-menu"> 
+                                        <li><a class="dropdown-item" href="javascript:void(0);">This Week</a></li>
+                                         <li><a class="dropdown-item" href="javascript:void(0);">Last Week</a></li> 
+                                         <li><a class="dropdown-item" href="javascript:void(0);">This Month</a></li> 
+                                    </ul> 
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="active-customers"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-3 -->
+
+                <!-- Start:: row-4 -->
+                <div class="row">
+                    <div class="col-xxl-9">
+                        <div class="card custom-card overflow-hidden">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Leads Report
+                                </div>
+                                <div class="dropdown">
+                                    <div class="btn btn-outline-light border btn-full btn-sm" data-bs-toggle="dropdown">View All<i class="ti ti-chevron-down ms-1"></i>
+                                    </div>
+                                    <ul class="dropdown-menu" role="menu">
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Download</a>
+                                        </li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Import</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Export</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table text-nowrap">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">S.NO</th>
+                                                <th scope="col">Lead</th>
+                                                <th scope="col">Phone Number</th>
+                                                <th scope="col">Company Name</th>
+                                                <th scope="col">Location</th>
+                                                <th scope="col">Status</th>
+                                                <th scope="col">Date</th>
+                                                <th scope="col">Amount</th>
+                                                <th scope="col">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    <span class="">1</span>
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex">
+                                                        <span class="avatar avatar-sm">
+                                                            <img src="../assets/images/faces/2.jpg" class="" alt="">
+                                                        </span>
+                                                        <div class="flex-1 ms-2">
+                                                            <span class="d-block fw-semibold lh-1">Socrates Itumay</span>
+                                                            <a href="javascript:void(0);" class="text-muted fs-12">socratesitumay@gmail.com</a>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="">+1(555) 354 2345</span>
+                                                </td>
+                                                <td>
+                                                    <span class="">Beckle Heth Corp.</span>
+                                                </td>
+                                                <td>
+                                                    <span><i class="ri-map-pin-fill text-muted me-1"></i>Germany</span>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-success-transparent">Won Lead</span>
+                                                </td>
+                                                <td>
+                                                    <span>02-04-2024</span>
+                                                </td>
+                                                <td>
+                                                    <span>$1500</span>
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn btn-sm btn-icon btn-primary-light"><i class="ti ti-eye"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn btn-sm btn-icon btn-success-light"><i class="ti ti-pencil"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn btn-sm btn-icon  btn-danger-light"><i class="ti ti-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <span class="">2</span>
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex">
+                                                        <span class="avatar avatar-sm">
+                                                            <img src="../assets/images/faces/12.jpg" class="" alt="">
+                                                        </span>
+                                                        <div class="flex-1 ms-2">
+                                                            <span class="d-block fw-semibold lh-1">Luke Cooper</span>
+                                                            <a href="javascript:void(0);" class="text-muted fs-12">LukeCooper@gmail.com</a>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="">+1(555) 873 8923</span>
+                                                </td>
+                                                <td>
+                                                    <span class="">Lackme Info Et.</span>
+                                                </td>
+                                                <td>
+                                                    <span><i class="ri-map-pin-fill text-muted me-1"></i>London</span>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-primary-transparent">New Lead</span>
+                                                </td>
+                                                <td>
+                                                    <span>03-04-2024</span>
+                                                </td>
+                                                <td>
+                                                    <span>$20000</span>
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn btn-sm btn-icon btn-primary-light"><i class="ti ti-eye"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn btn-sm btn-icon btn-success-light"><i class="ti ti-pencil"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn btn-sm btn-icon  btn-danger-light"><i class="ti ti-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <span class="">3</span>
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex">
+                                                        <span class="avatar avatar-sm">
+                                                            <img src="../assets/images/faces/14.jpg" class="" alt="">
+                                                        </span>
+                                                        <div class="flex-1 ms-2">
+                                                            <span class="d-block fw-semibold lh-1">Rony Brad</span>
+                                                            <a href="javascript:void(0);" class="text-muted fs-12">RonyBrad@gmail.com</a>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="">+1(555) 347 0923</span>
+                                                </td>
+                                                <td>
+                                                    <span class="">Mevengo Tech Et Sed</span>
+                                                </td>
+                                                <td>
+                                                    <span><i class="ri-map-pin-fill text-muted me-1"></i>Usa</span>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-primary-transparent">New Lead</span>
+                                                </td>
+                                                <td>
+                                                    <span>04-04-2024</span>
+                                                </td>
+                                                <td>
+                                                    <span>$10000</span>
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn btn-sm btn-icon btn-primary-light"><i class="ti ti-eye"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn btn-sm btn-icon btn-success-light"><i class="ti ti-pencil"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn btn-sm btn-icon  btn-danger-light"><i class="ti ti-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <span class="">4</span>
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex">
+                                                        <span class="avatar avatar-sm">
+                                                            <img src="../assets/images/faces/4.jpg" class="" alt="">
+                                                        </span>
+                                                        <div class="flex-1 ms-2">
+                                                            <span class="d-block fw-semibold lh-1">Sophia Khud</span>
+                                                            <a href="javascript:void(0);" class="text-muted fs-12">RonyBrad@gmail.com</a>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="">+1(555) 674 7824</span>
+                                                </td>
+                                                <td>
+                                                    <span class="">Jeveda Group En.</span>
+                                                </td>
+                                                <td>
+                                                    <span><i class="ri-map-pin-fill text-muted me-1"></i>Canada</span>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-danger-transparent">Lost Lead</span>
+                                                </td>
+                                                <td>
+                                                    <span>05-04-2024</span>
+                                                </td>
+                                                <td>
+                                                    <span>$30000</span>
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn btn-sm btn-icon btn-primary-light"><i class="ti ti-eye"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn btn-sm btn-icon btn-success-light"><i class="ti ti-pencil"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn btn-sm btn-icon  btn-danger-light"><i class="ti ti-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="border-bottom-0">
+                                                    <span class="">5</span>
+                                                </td>
+                                                <td class="border-bottom-0">
+                                                    <div class="d-flex">
+                                                        <span class="avatar avatar-sm">
+                                                            <img src="../assets/images/faces/3.jpg" class="" alt="">
+                                                        </span>
+                                                        <div class="flex-1 ms-2">
+                                                            <span class="d-block fw-semibold lh-1">Cooper Hard</span>
+                                                            <a href="javascript:void(0);" class="text-muted fs-12">CooperHard@gmail.com</a>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="border-bottom-0">
+                                                    <span class="">+1(555) 985 2893</span>
+                                                </td>
+                                                <td class="border-bottom-0">
+                                                    <span class="">Neveia Exp Sid.</span>
+                                                </td>
+                                                <td class="border-bottom-0">
+                                                    <span><i class="ri-map-pin-fill text-muted me-1"></i>England</span>
+                                                </td>
+                                                <td class="border-bottom-0">
+                                                    <span class="badge bg-primary-transparent">New Lead</span>
+                                                </td>
+                                                <td class="border-bottom-0">
+                                                    <span>06-04-2024</span>
+                                                </td>
+                                                <td class="border-bottom-0">
+                                                    <span>$10000</span>
+                                                </td>
+                                                <td class="border-bottom-0">
+                                                    <div class="btn-list">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn btn-sm btn-icon btn-primary-light"><i class="ti ti-eye"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn btn-sm btn-icon btn-success-light"><i class="ti ti-pencil"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn btn-sm btn-icon  btn-danger-light"><i class="ti ti-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <div class="d-flex align-items-center">
+                                    <div>Showing 5 Entries <i class="bi bi-arrow-right ms-2 fw-semibold"></i></div>
+                                    <div class="ms-auto">
+                                        <nav aria-label="Page navigation" class="pagination-style-4">
+                                            <ul class="pagination mb-0">
+                                                <li class="page-item disabled"><a class="page-link" href="javascript:void(0);">Prev</a></li>
+                                                <li class="page-item active"><a class="page-link" href="javascript:void(0);">1</a></li>
+                                                <li class="page-item"><a class="page-link" href="javascript:void(0);">2</a></li>
+                                                <li class="page-item"><a class="page-link text-primary" href="javascript:void(0);">Next</a></li>
+                                            </ul>
+                                        </nav>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3">
+                        <div class="card custom-card">
+                            <div class="card-header  justify-content-between">
+                                <div class="card-title">
+                                    New Leads
+                                </div>
+                                <div class="dropdown">
+                                    <a aria-label="anchor" href="javascript:void(0);" class="btn btn-icon btn-sm btn-light" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fe fe-more-vertical"></i>
+                                    </a>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Week</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Month</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Year</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-unstyled crm-top-leads mb-0">
+                                    <li>
+                                        <div class="d-flex align-items-top flex-wrap">
+                                            <div class="me-2">
+                                                <span class="avatar avatar-sm avatar-rounded">
+                                                    <img src="../assets/images/faces/10.jpg" alt="">
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill">
+                                                <p class="fw-semibold mb-0">Michael Jordan</p>
+                                                <span class="text-muted fs-12">michael.jordan@example.com</span>
+                                            </div>
+                                            <div class="fw-semibold fs-15">$2,893</div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex align-items-top flex-wrap">
+                                            <div class="me-2">
+                                                <span class="avatar avatar-sm avatar-rounded bg-warning-transparent fw-semibold">
+                                                    EK
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill">
+                                                <p class="fw-semibold mb-0">Emigo Kiaren</p>
+                                                <span class="text-muted fs-12">emigo.kiaren@gmail.com</span>
+                                            </div>
+                                            <div class="fw-semibold fs-15">$4,289</div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex align-items-top flex-wrap">
+                                            <div class="me-2">
+                                                <span class="avatar avatar-sm avatar-rounded">
+                                                    <img src="../assets/images/faces/12.jpg" alt="">
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill">
+                                                <p class="fw-semibold mb-0">Randy Origoan</p>
+                                                <span class="text-muted fs-12">randy.origoan@gmail.com</span>
+                                            </div>
+                                            <div class="fw-semibold fs-15">$6,347</div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex align-items-top flex-wrap">
+                                            <div class="me-2">
+                                                <span class="avatar avatar-sm avatar-rounded bg-success-transparent fw-semibold">
+                                                    GP
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill">
+                                                <p class="fw-semibold mb-0">George Pieterson</p>
+                                                <span class="text-muted fs-12">george.pieterson@gmail.com</span>
+                                            </div>
+                                            <div class="fw-semibold fs-15">$3,894</div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex align-items-top flex-wrap">
+                                            <div class="me-2">
+                                                <span class="avatar avatar-sm avatar-rounded">
+                                                    <img src="../assets/images/faces/14.jpg" alt="Lead Image">
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill">
+                                                <p class="fw-semibold mb-0">John Smith</p>
+                                                <span class="text-muted fs-12">john.smith@example.com</span>
+                                            </div>
+                                            <div class="fw-semibold fs-15">$2,850</div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex align-items-top flex-wrap">
+                                            <div class="me-2">
+                                                <span class="avatar avatar-sm avatar-rounded bg-warning-transparent fw-semibold">
+                                                    AC
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill">
+                                                <p class="fw-semibold mb-0">Anna Collins</p>
+                                                <span class="text-muted fs-12">anna.collins@example.com</span>
+                                            </div>
+                                            <div class="fw-semibold fs-15">$1,410</div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex align-items-top flex-wrap">
+                                            <div class="me-2">
+                                                <span class="avatar avatar-sm avatar-rounded bg-primary-transparent fw-semibold">
+                                                    KA
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill">
+                                                <p class="fw-semibold mb-0">Kiara Advain</p>
+                                                <span class="text-muted fs-12">kiaraadvain214@gmail.com</span>
+                                            </div>
+                                            <div class="fw-semibold fs-15">$2,679</div>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-4 -->
+
+            </div>
+        </div>
+        <!-- End::app-content -->
+
+
+       <!-- include footer.html"-->
+        <!-- include responsive-search-modal.html"-->
+
+    </div>
+
+   <!-- include commonjs.html"-->
+
+    <!-- Apex Charts JS -->
+    <script src="../assets/libs/apexcharts/apexcharts.min.js"></script>
+
+    <!-- CRM Dashboard --> 
+    <script src="../assets/js/crm-dashboard.js"></script>
+
+    <!-- Custom JS -->
+    <script src="../assets/js/custom.js"></script>
+ 
+    <!-- include custom-switcherjs.html"-->
+    
+</body>
+
+</html> 

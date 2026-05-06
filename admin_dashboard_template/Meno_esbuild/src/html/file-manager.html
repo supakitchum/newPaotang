@@ -1,0 +1,975 @@
+<!-- include mainhead.html"-->
+
+</head>
+
+<body>
+
+    <!-- include switcher.html"-->
+   <!-- include loader.html"-->
+
+    <div class="page">
+        <!-- include header.html"-->
+         <!-- include sidebar.html"-->
+
+            <!-- Start::app-content -->
+            <div class="main-content app-content">
+                <div class="container-fluid">
+
+                    <!-- Page Header -->
+                    <div class="my-4 page-header-breadcrumb d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div>
+                            <h1 class="page-title fw-medium fs-18 mb-2">File Manager</h1>
+                            <div class="">
+                                <nav>
+                                    <ol class="breadcrumb mb-0">
+                                        <li class="breadcrumb-item"><a href="javascript:void(0);">Pages</a></li>
+                                        <li class="breadcrumb-item active" aria-current="page">File Manager</li>
+                                    </ol>
+                                </nav>
+                            </div>
+                        </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="d-flex gap-2">
+                            <div class="position-relative">
+                                <button class="btn btn-primary btn-wave" type="button"
+                                    id="dropdownMenuClickableInside" data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside" aria-expanded="false">
+                                    Filter By <i class="ri-arrow-down-s-fill ms-1"></i>
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenuClickableInside">
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Today</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Yesterday</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 7 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 30 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 6 Months</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last Year</a></li>
+                                </ul>
+                            </div>
+                            <button class="btn btn-secondary btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Download">
+                                <i class="ti ti-download"></i>
+                            </button>
+                            <button class="btn btn-success btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Share">
+                                <i class="ti ti-share-3"></i>
+                            </button>
+                        </div>
+                    </div>
+                    </div>
+                    <!-- Page Header Close -->
+
+                    <!-- Start:: row-1 -->
+                    <div class="row">
+                        <div class="col-xxl-3 col-xl-4">
+                            <div class="row">
+                                <div class="col-xl-12">
+                                    <div class="card custom-card">
+                                        <div class="card-body">
+                                            <div class="pb-3">
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control" placeholder="Search Files" aria-label="Search Files" aria-describedby="button-addon2">
+                                                    <button class="btn btn-primary" type="button" id="button-addon2">
+                                                        <i class="ri-search-line"></i>
+                                                    </button>
+                                                </div>
+                                            </div>                                            
+                                            <ul class="list-unstyled files-main-nav" id="files-main-nav">
+                                                <li class="active files-type">
+                                                    <a href="javascript:void(0)">
+                                                        <div class="d-flex align-items-center">
+                                                            <div class="me-2">
+                                                                <i class="ri-folder-2-line fs-16"></i>
+                                                            </div>
+                                                            <span class="flex-fill text-nowrap">
+                                                                My Files
+                                                            </span>
+                                                            <span class="badge bg-pink">322</span>
+                                                        </div>
+                                                    </a>
+                                                </li>
+                                                <li class="files-type">
+                                                    <a href="javascript:void(0)">
+                                                        <div class="d-flex align-items-center">
+                                                            <div class="me-2">
+                                                                <i class="ri-star-s-line fs-16"></i>
+                                                            </div>
+                                                            <span class="flex-fill text-nowrap">
+                                                                favourites
+                                                            </span>
+                                                        </div>
+                                                    </a>
+                                                </li>
+                                                <li class="files-type">
+                                                    <a href="javascript:void(0)">
+                                                        <div class="d-flex align-items-center">
+                                                            <div class="me-2">
+                                                                <i class="ri-share-forward-line fs-16"></i>
+                                                            </div>
+                                                            <span class="flex-fill text-nowrap">
+                                                                Shared Files
+                                                            </span>
+                                                        </div>
+                                                    </a>
+                                                </li>
+                                                <li class="files-type">
+                                                    <a href="javascript:void(0)">
+                                                        <div class="d-flex align-items-center">
+                                                            <div class="me-2">
+                                                                <i class="ri-delete-bin-line fs-16"></i>
+                                                            </div>
+                                                            <span class="flex-fill text-nowrap">
+                                                                Recycle Bin
+                                                            </span>
+                                                        </div>
+                                                    </a>
+                                                </li>
+                                                <li class="files-type">
+                                                    <a href="javascript:void(0)">
+                                                        <div class="d-flex align-items-center">
+                                                            <div class="me-2">
+                                                                <i class="ri-history-fill fs-16"></i>
+                                                            </div>
+                                                            <span class="flex-fill text-nowrap">
+                                                                Recent Files
+                                                            </span>
+                                                        </div>
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a href="javascript:void(0)">
+                                                        <div class="d-flex align-items-center">
+                                                            <div class="me-2">
+                                                                <i class="ri-settings-3-line fs-16"></i>
+                                                            </div>
+                                                            <span class="flex-fill text-nowrap">
+                                                                Settings
+                                                            </span>
+                                                        </div>
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a href="javascript:void(0)">
+                                                        <div class="d-flex align-items-center">
+                                                            <div class="me-2">
+                                                                <i class="ri-questionnaire-line fs-16"></i>
+                                                            </div>
+                                                            <span class="flex-fill text-nowrap">
+                                                                Help Center
+                                                            </span>
+                                                        </div>
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a href="javascript:void(0)">
+                                                        <div class="d-flex align-items-center">
+                                                            <div class="me-2">
+                                                                <i class="ri-logout-box-line fs-16"></i>
+                                                            </div>
+                                                            <span class="flex-fill text-nowrap">
+                                                                Log out
+                                                            </span>
+                                                        </div>
+                                                    </a>
+                                                </li>
+                                                <li> 
+                                                    <div class="d-flex align-items-center gap-3">
+                                                        <div class="flex-fill">
+                                                            <div class=" mb-2"> 
+                                                                <p class="mb-0"><span class="fw-bold fs-14">56.34GB</span> Used</p>
+                                                                <p class="fs-12 text-muted mb-0">58% Used - 51.04Gb free</p>
+                                                            </div> 
+                                                        </div>
+                                                        <div class="ms-auto">
+                                                            <span class="avatar avatar-md bg-primary-transparent svg-primary">
+                                                                <i class="ri-database-2-line fs-15"></i>
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                        <div class="progress progress-xs"> 
+                                                            <div class="progress-bar bg-primary progress-bar-animated progress-bar-striped" role="progressbar" style="width: 58%" aria-valuenow="58" aria-valuemin="0" aria-valuemax="100"> 
+                                                            </div> 
+                                                        </div>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-xl-12">
+                                    <div class="card custom-card overflow-hidden">
+                                        <div class="card-body">
+                                            <div id="file-manager-storage" class="bg-light"></div>
+                                        </div>
+                                        <div class="card-footer p-0">
+                                            <ul class="list-group list-group-flush">
+                                                <li class="list-group-item border-0 pb-1">
+                                                    <div class="d-flex align-items-center gap-3">
+                                                        <div class="main-card-icon primary">
+                                                            <div class="avatar avatar-md avatar-rounded bg-primary border border-primary border-opacity-10">
+                                                                <i class="ri-image-line fs-18"></i>
+                                                            </div>
+                                                        </div>
+                                                        <div class="flex-fill">
+                                                            <span class="fw-semibold">Media</span>
+                                                            <span class="text-muted fs-12 d-block">2,872 files</span>
+                                                        </div>
+                                                        <div>
+                                                            <span class="fw-medium text-primary mb-0 fs-14">35GB</span>
+                                                        </div>
+                                                    </div>
+                                                </li>
+                                                <li class="list-group-item border-0 pb-1">
+                                                    <div class="d-flex align-items-center gap-3">
+                                                        <div class="main-card-icon secondary">
+                                                            <div class="avatar avatar-md avatar-rounded bg-secondary border border-secondary border-opacity-10">
+                                                                <i class="ri-download-2-line fs-18"></i>
+                                                            </div>
+                                                        </div>
+                                                        <div class="flex-fill">
+                                                            <span class="fw-semibold">Downloads</span>
+                                                            <span class="text-muted fs-12 d-block">644 files</span>
+                                                        </div>
+                                                        <div>
+                                                            <span class="fw-medium text-secondary mb-0 fs-14">34GB</span>
+                                                        </div>
+                                                    </div>
+                                                </li>
+                                                <li class="list-group-item border-0 pb-1">
+                                                    <div class="d-flex align-items-center gap-3">
+                                                        <div class="main-card-icon success">
+                                                            <div class="avatar avatar-md avatar-rounded bg-success border border-success border-opacity-10">
+                                                                <i class="ri-apps-2-line fs-18"></i>
+                                                            </div>
+                                                        </div>
+                                                        <div class="flex-fill">
+                                                            <span class="fw-semibold">Apps</span>
+                                                            <span class="text-muted fs-12 d-block">64 files</span>
+                                                        </div>
+                                                        <div>
+                                                            <span class="fw-medium text-success mb-0 fs-14">26GB</span>
+                                                        </div>
+                                                    </div>
+                                                </li>
+                                                <li class="list-group-item border-0">
+                                                    <div class="d-flex align-items-center gap-3">
+                                                        <div class="main-card-icon pink">
+                                                            <div class="avatar avatar-md avatar-rounded bg-pink border border-pink border-opacity-10">
+                                                                <i class="ri-file-add-line fs-18"></i>
+                                                            </div>
+                                                        </div>
+                                                        <div class="flex-fill">
+                                                            <span class="fw-semibold">Documents</span>
+                                                            <span class="text-muted fs-12 d-block">3,271 files</span>
+                                                        </div>
+                                                        <div>
+                                                            <span class="fw-medium text-pink mb-0 fs-14">29GB </span>
+                                                        </div>
+                                                    </div>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-xl-12">
+                                    <div class="card custom-card">
+                                        <div class="card-body">
+                                            <div class="filemanager-upgrade-storage w-100 d-flex gap-3 align-items-start">
+                                                <div>
+                                                    <span class="fs-17 fw-semibold text-default">Upgrade To PRO</span>
+                                                    <span class="d-block text-muted mt-2 mb-4">Unlock advanced features with PRO. Get more benefits today</span> 
+                                                    <div class="d-grid"> <button class="btn btn-primary btn-wave">Upgrade Now</button> </div>
+                                                </div> 
+                                                <div class="flex-shrink-0">
+                                                    <span class="d-block mb-3"> <img src="../assets/images/media/file-manager/2.png" alt="" class="filemag-image"> </span>
+                                                </div>
+                                            </div> 
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xxl-9 col-xl-8">
+                            <div class="card custom-card overflow-hidden">
+                                <div class="card-body p-0">
+                                    <div class="file-manager-folders">
+                                        <div class="d-flex p-3 flex-wrap gap-2 align-items-center justify-content-between border-bottom">
+                                            <div class="flex-fill">
+                                                <h6 class="fw-medium mb-0">Folders</h6>
+                                            </div>
+                                            <div class="d-flex gap-2 flex-wrap justify-content-sm-end w-75">
+                                                <button class="btn btn-primary btn-w-md d-flex align-items-center justify-content-center btn-wave waves-light"
+                                                    data-bs-toggle="modal" data-bs-target="#create-folder">
+                                                    <i class="ri-add-circle-line align-middle me-1"></i>Create Folder
+                                                </button>
+                                                <div class="modal fade" id="create-folder" tabindex="-1"
+                                                                aria-labelledby="create-folder" data-bs-keyboard="false"
+                                                                aria-hidden="true">
+                                                    <div class="modal-dialog modal-dialog-centered">
+                                                        <div class="modal-content">
+                                                            <div class="modal-header">
+                                                                <h6 class="modal-title" id="staticBackdropLabel">Create Folder
+                                                                </h6>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                                                    aria-label="Close"></button>
+                                                            </div>
+                                                            <div class="modal-body">
+                                                                <label for="create-folder1" class="form-label">Folder Name</label>
+                                                                <input type="text" class="form-control" id="create-folder1" placeholder="Folder Name">
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-sm btn-icon btn-light"
+                                                                    data-bs-dismiss="modal"><i class="ri-close-fill"></i></button>
+                                                                <button type="button" class="btn btn-sm btn-success">Create</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <button class="btn btn-secondary-light btn-w-md d-flex align-items-center justify-content-center btn-wave waves-light"
+                                                    data-bs-toggle="modal" data-bs-target="#create-file">
+                                                    <i class="ri-add-circle-line align-middle me-1"></i>Create File
+                                                </button>
+                                                <div class="modal fade" id="create-file" tabindex="-1"
+                                                                aria-labelledby="create-file" data-bs-keyboard="false"
+                                                                aria-hidden="true">
+                                                    <div class="modal-dialog modal-dialog-centered">
+                                                        <div class="modal-content">
+                                                            <div class="modal-header">
+                                                                <h6 class="modal-title" id="staticBackdropLabel1">Create File
+                                                                </h6>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                                                    aria-label="Close"></button>
+                                                            </div>
+                                                            <div class="modal-body">
+                                                                <label for="create-file1" class="form-label">File Name</label>
+                                                                <input type="text" class="form-control" id="create-file1" placeholder="File Name">
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-sm btn-icon btn-light"
+                                                                    data-bs-dismiss="modal"><i class="ri-close-fill"></i></button>
+                                                                <button type="button" class="btn btn-sm btn-success">Create</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="p-3 file-folders-container">
+                                            <div class="d-flex mb-3 align-items-center justify-content-between">
+                                                <p class="mb-0 fw-medium fs-14">Quick Access</p>
+                                                <a href="javascript:void(0);" class="fs-12 text-muted fw-medium"> View All<i class="ti ti-arrow-narrow-right ms-1"></i> </a>
+                                            </div>
+                                            <div class="row mb-3">
+                                                <div class="col-xxl-4 col-xl-6 col-lg-6 col-md-6">
+                                                    <div class="card custom-card shadow-none">
+                                                        <div class="card-body m-1 bg-primary-transparent rounded">
+                                                            <div class="d-flex align-items-center gap-3">
+                                                                <div class="main-card-icon primary">
+                                                                    <div class="avatar avatar-lg bg-primary border border-primary border-opacity-10">
+                                                                        <div class="avatar avatar-sm svg-white">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><rect x="32" y="48" width="192" height="160" rx="8" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><circle cx="156" cy="100" r="12"/><path d="M147.31,164,173,138.34a8,8,0,0,1,11.31,0L224,178.06" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M32,168.69l54.34-54.35a8,8,0,0,1,11.32,0L191.31,208" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="flex-fill">
+                                                                    <a href="javascript:void(0);" class="d-block fw-medium">Images</a>
+                                                                    <span class="fs-12 text-muted">26% Used</span>
+                                                                </div>
+                                                                <div class="text-end">
+                                                                    <span class="d-block fs-12 fw-medium">36.65GB</span>
+                                                                    <span class="fs-12 text-muted">357 files</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-xxl-4 col-xl-6 col-lg-6 col-md-6">
+                                                    <div class="card custom-card shadow-none">
+                                                        <div class="card-body m-1 bg-secondary-transparent rounded">
+                                                            <div class="d-flex align-items-center gap-3">
+                                                                <div class="main-card-icon secondary">
+                                                                    <div class="avatar avatar-lg bg-secondary border border-secondary border-opacity-10">
+                                                                        <div class="avatar avatar-sm svg-white">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><polygon points="160 112 112 80 112 144 160 112" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><rect x="32" y="48" width="192" height="128" rx="8" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="32" y1="208" x2="224" y2="208" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="flex-fill">
+                                                                    <a href="javascript:void(0);" class="d-block fw-medium">Videos</a>
+                                                                    <span class="fs-12 text-muted">18% Used</span>
+                                                                </div>
+                                                                <div class="text-end">
+                                                                    <span class="d-block fs-12 fw-medium">18.12GB</span>
+                                                                    <span class="fs-12 text-muted">224 files</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-xxl-4 col-xl-6 col-lg-6 col-md-6">
+                                                    <div class="card custom-card shadow-none">
+                                                        <div class="card-body m-1 bg-success-transparent rounded">
+                                                            <div class="d-flex align-items-center gap-3">
+                                                                <div class="main-card-icon success">
+                                                                    <div class="avatar avatar-lg bg-success border border-success border-opacity-10">
+                                                                        <div class="avatar avatar-sm svg-white">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><path d="M224,136H192a16,16,0,0,0-16,16v40a16,16,0,0,0,16,16h16a16,16,0,0,0,16-16V136a96,96,0,1,0-192,0v56a16,16,0,0,0,16,16H64a16,16,0,0,0,16-16V152a16,16,0,0,0-16-16H32" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="flex-fill">
+                                                                    <a href="javascript:void(0);" class="d-block fw-medium">Audio</a>
+                                                                    <span class="fs-12 text-muted">33% Used</span>
+                                                                </div>
+                                                                <div class="text-end">
+                                                                    <span class="d-block fs-12 fw-medium">38.55GB</span>
+                                                                    <span class="fs-12 text-muted">455 files</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-xxl-4 col-xl-6 col-lg-6 col-md-6">
+                                                    <div class="card custom-card shadow-none">
+                                                        <div class="card-body m-1 bg-pink-transparent rounded">
+                                                            <div class="d-flex align-items-center gap-3">
+                                                                <div class="main-card-icon pink">
+                                                                    <div class="avatar avatar-lg bg-pink border border-pink border-opacity-10">
+                                                                        <div class="avatar avatar-sm svg-white">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><rect x="48" y="48" width="64" height="64" rx="8" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><rect x="144" y="48" width="64" height="64" rx="8" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><rect x="48" y="144" width="64" height="64" rx="8" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><rect x="144" y="144" width="64" height="64" rx="8" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="flex-fill">
+                                                                    <a href="javascript:void(0);" class="d-block fw-medium">Apps</a>
+                                                                    <span class="fs-12 text-muted">51% Used</span>
+                                                                </div>
+                                                                <div class="text-end">
+                                                                    <span class="d-block fs-12 fw-medium">65.23GB</span>
+                                                                    <span class="fs-12 text-muted">16 files</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-xxl-4 col-xl-6 col-lg-6 col-md-6">
+                                                    <div class="card custom-card shadow-none">
+                                                        <div class="card-body m-1 bg-info-transparent rounded">
+                                                            <div class="d-flex align-items-center gap-3">
+                                                                <div class="main-card-icon info">
+                                                                    <div class="avatar avatar-lg bg-info border border-info border-opacity-10">
+                                                                        <div class="avatar avatar-sm svg-white">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><path d="M36,152v56H52a28,28,0,0,0,0-56Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M216,200.87A22.12,22.12,0,0,1,200,208c-13.26,0-24-12.54-24-28s10.74-28,24-28a22.12,22.12,0,0,1,16,7.13" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M48,112V40a8,8,0,0,1,8-8h96l56,56v24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polyline points="152 32 152 88 208 88" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><ellipse cx="128" cy="180" rx="24" ry="28" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="flex-fill">
+                                                                    <a href="javascript:void(0);" class="d-block fw-medium">Docs</a>
+                                                                    <span class="fs-12 text-muted">11% Used</span>
+                                                                </div>
+                                                                <div class="text-end">
+                                                                    <span class="d-block fs-12 fw-medium">6.63GB</span>
+                                                                    <span class="fs-12 text-muted">45 files</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-xxl-4 col-xl-6 col-lg-6 col-md-6">
+                                                    <div class="card custom-card shadow-none">
+                                                        <div class="card-body m-1 bg-warning-transparent rounded">
+                                                            <div class="d-flex align-items-center gap-3">
+                                                                <div class="main-card-icon warning">
+                                                                    <div class="avatar avatar-lg bg-warning border border-warning border-opacity-10">
+                                                                        <div class="avatar avatar-sm svg-white">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><path d="M184,128h40a8,8,0,0,1,8,8v64a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V136a8,8,0,0,1,8-8H72" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="128" y1="24" x2="128" y2="128" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polyline points="80 80 128 128 176 80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><circle cx="188" cy="168" r="12"/></svg>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="flex-fill">
+                                                                    <a href="javascript:void(0);" class="d-block fw-medium">Downloads</a>
+                                                                    <span class="fs-12 text-muted">4% Used</span>
+                                                                </div>
+                                                                <div class="text-end">
+                                                                    <span class="d-block fs-12 fw-medium">2.24GB</span>
+                                                                    <span class="fs-12 text-muted">8 files</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="d-flex mb-3 align-items-center justify-content-between">
+                                                <p class="mb-0 fw-medium fs-14">Folders</p>
+                                                <a href="javascript:void(0);" class="fs-12 text-muted fw-medium"> View All<i class="ti ti-arrow-narrow-right ms-1"></i> </a>
+                                            </div>
+                                            <div class="row mb-3">
+                                                <div class="col-xxl-3 col-xl-6 col-lg-6 col-md-6">
+                                                    <div class="card custom-card shadow-none">
+                                                        <div class="card-body">
+                                                            <div class="mb-4 folder-svg-container d-flex flex-wrap justify-content-between align-items-top">
+                                                                <div class="svg-primary text-primary">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><path d="M69.77,112H208V88a8,8,0,0,0-8-8H130.67a8,8,0,0,1-4.8-1.6L98.13,57.6a8,8,0,0,0-4.8-1.6H40a8,8,0,0,0-8,8V208l30.18-90.53A8,8,0,0,1,69.77,112Z" opacity="0.2"/><path d="M32,208V64a8,8,0,0,1,8-8H93.33a8,8,0,0,1,4.8,1.6l27.74,20.8a8,8,0,0,0,4.8,1.6H200a8,8,0,0,1,8,8v24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M32,208l30.18-90.53A8,8,0,0,1,69.77,112H232a8,8,0,0,1,7.59,10.53L211.09,208Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
+                                                                </div>
+                                                                <div>
+                                                                    <div class="dropdown">
+                                                                        <a href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
+                                                                            <i class="ri-more-2-fill fw-semibold text-muted p-2 bg-light lh-1 rounded-circle"></i>
+                                                                        </a>
+                                                                        <ul class="dropdown-menu">
+                                                                            <li><a class="dropdown-item" href="javascript:void(0);">Delete</a></li>
+                                                                            <li><a class="dropdown-item" href="javascript:void(0);">Rename</a></li>
+                                                                            <li><a class="dropdown-item" href="javascript:void(0);">Hide Folder</a></li>
+                                                                        </ul>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <p class="fs-14 fw-medium mb-1 lh-1">
+                                                                <a href="javascript:void(0);">Images</a>
+                                                            </p>
+                                                            <div class="d-flex align-items-center justify-content-between flex-wrap">
+                                                                <div>
+                                                                    <span class="text-muted fs-12">
+                                                                        246 Files
+                                                                    </span>
+                                                                </div>
+                                                                <div>
+                                                                    <span class="text-default fw-medium">
+                                                                        214.32MB
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-xxl-3 col-xl-6 col-lg-6 col-md-6">
+                                                    <div class="card custom-card shadow-none">
+                                                        <div class="card-body">
+                                                            <div class="mb-4 folder-svg-container d-flex flex-wrap justify-content-between align-items-top">
+                                                                <div class="svg-primary text-primary">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><path d="M69.77,112H208V88a8,8,0,0,0-8-8H130.67a8,8,0,0,1-4.8-1.6L98.13,57.6a8,8,0,0,0-4.8-1.6H40a8,8,0,0,0-8,8V208l30.18-90.53A8,8,0,0,1,69.77,112Z" opacity="0.2"/><path d="M32,208V64a8,8,0,0,1,8-8H93.33a8,8,0,0,1,4.8,1.6l27.74,20.8a8,8,0,0,0,4.8,1.6H200a8,8,0,0,1,8,8v24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M32,208l30.18-90.53A8,8,0,0,1,69.77,112H232a8,8,0,0,1,7.59,10.53L211.09,208Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
+                                                                </div>
+                                                                <div>
+                                                                    <div class="dropdown">
+                                                                        <a href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
+                                                                            <i class="ri-more-2-fill fw-semibold text-muted p-2 bg-light lh-1 rounded-circle"></i>
+                                                                        </a>
+                                                                        <ul class="dropdown-menu">
+                                                                            <li><a class="dropdown-item" href="javascript:void(0);">Delete</a></li>
+                                                                            <li><a class="dropdown-item" href="javascript:void(0);">Rename</a></li>
+                                                                            <li><a class="dropdown-item" href="javascript:void(0);">Hide Folder</a></li>
+                                                                        </ul>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <p class="fs-14 fw-medium mb-1 lh-1">
+                                                                <a href="javascript:void(0);">Docs</a>
+                                                            </p>
+                                                            <div class="d-flex align-items-center justify-content-between flex-wrap">
+                                                                <div>
+                                                                    <span class="text-muted fs-12">
+                                                                        17 Files
+                                                                    </span>
+                                                                </div>
+                                                                <div>
+                                                                    <span class="text-default fw-medium">
+                                                                        432.39KB
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-xxl-3 col-xl-6 col-lg-6 col-md-6">
+                                                    <div class="card custom-card shadow-none">
+                                                        <div class="card-body">
+                                                            <div class="mb-4 folder-svg-container d-flex flex-wrap justify-content-between align-items-top">
+                                                                <div class="svg-primary text-primary">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><path d="M69.77,112H208V88a8,8,0,0,0-8-8H130.67a8,8,0,0,1-4.8-1.6L98.13,57.6a8,8,0,0,0-4.8-1.6H40a8,8,0,0,0-8,8V208l30.18-90.53A8,8,0,0,1,69.77,112Z" opacity="0.2"/><path d="M32,208V64a8,8,0,0,1,8-8H93.33a8,8,0,0,1,4.8,1.6l27.74,20.8a8,8,0,0,0,4.8,1.6H200a8,8,0,0,1,8,8v24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M32,208l30.18-90.53A8,8,0,0,1,69.77,112H232a8,8,0,0,1,7.59,10.53L211.09,208Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
+                                                                </div>
+                                                                <div>
+                                                                    <div class="dropdown">
+                                                                        <a href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
+                                                                            <i class="ri-more-2-fill fw-semibold text-muted p-2 bg-light lh-1 rounded-circle"></i>
+                                                                        </a>
+                                                                        <ul class="dropdown-menu">
+                                                                            <li><a class="dropdown-item" href="javascript:void(0);">Delete</a></li>
+                                                                            <li><a class="dropdown-item" href="javascript:void(0);">Rename</a></li>
+                                                                            <li><a class="dropdown-item" href="javascript:void(0);">Hide Folder</a></li>
+                                                                        </ul>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <p class="fs-14 fw-medium mb-1 lh-1">
+                                                                <a href="javascript:void(0);">Downloads</a>
+                                                            </p>
+                                                            <div class="d-flex align-items-center justify-content-between flex-wrap">
+                                                                <div>
+                                                                    <span class="text-muted fs-12">
+                                                                        437 Files
+                                                                    </span>
+                                                                </div>
+                                                                <div>
+                                                                    <span class="text-default fw-medium">
+                                                                        3.12GB
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-xxl-3 col-xl-6 col-lg-6 col-md-6">
+                                                    <div class="card custom-card shadow-none">
+                                                        <div class="card-body">
+                                                            <div class="mb-4 folder-svg-container d-flex flex-wrap justify-content-between align-items-top">
+                                                                <div class="svg-primary text-primary">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><path d="M69.77,112H208V88a8,8,0,0,0-8-8H130.67a8,8,0,0,1-4.8-1.6L98.13,57.6a8,8,0,0,0-4.8-1.6H40a8,8,0,0,0-8,8V208l30.18-90.53A8,8,0,0,1,69.77,112Z" opacity="0.2"/><path d="M32,208V64a8,8,0,0,1,8-8H93.33a8,8,0,0,1,4.8,1.6l27.74,20.8a8,8,0,0,0,4.8,1.6H200a8,8,0,0,1,8,8v24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M32,208l30.18-90.53A8,8,0,0,1,69.77,112H232a8,8,0,0,1,7.59,10.53L211.09,208Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
+                                                                </div>
+                                                                <div>
+                                                                    <div class="dropdown">
+                                                                        <a href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
+                                                                            <i class="ri-more-2-fill fw-semibold text-muted p-2 bg-light lh-1 rounded-circle"></i>
+                                                                        </a>
+                                                                        <ul class="dropdown-menu">
+                                                                            <li><a class="dropdown-item" href="javascript:void(0);">Delete</a></li>
+                                                                            <li><a class="dropdown-item" href="javascript:void(0);">Rename</a></li>
+                                                                            <li><a class="dropdown-item" href="javascript:void(0);">Hide Folder</a></li>
+                                                                        </ul>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <p class="fs-14 fw-medium mb-1 lh-1">
+                                                                <a href="javascript:void(0);">Apps</a>
+                                                            </p>
+                                                            <div class="d-flex align-items-center justify-content-between flex-wrap">
+                                                                <div>
+                                                                    <span class="text-muted fs-12">
+                                                                        165 Files
+                                                                    </span>
+                                                                </div>
+                                                                <div>
+                                                                    <span class="text-default fw-medium">
+                                                                        12.56GB
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="d-flex mb-3 align-items-center justify-content-between">
+                                                <p class="mb-0 fw-medium fs-14">Recent Files</p>
+                                                <a href="javascript:void(0);" class="fs-12 text-muted fw-medium"> View All<i class="ti ti-arrow-narrow-right ms-1"></i> </a>
+                                            </div>
+                                            <div class="row mb-2">
+                                                <div class="col-xl-12">
+                                                    <div class="table-responsive border border-bottom-0">
+                                                        <table class="table text-nowrap table-hover">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th scope="col">File Name</th>
+                                                                    <th scope="col">Category</th>
+                                                                    <th scope="col">Size</th>
+                                                                    <th scope="col">Date Modified</th>
+                                                                    <th scope="col">Action</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody class="files-list">
+                                                                <tr>
+                                                                    <th scope="row">
+                                                                        <div class="d-flex align-items-center">
+                                                                            <div class="me-0">
+                                                                                <span class="avatar avatar-md svg-primary text-primary">
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><path d="M112,175.67V168a8,8,0,0,0-8-8H48a8,8,0,0,0-8,8v40a8,8,0,0,0,8,8h56a8,8,0,0,0,8-8v-8.82L144,216V160Z" opacity="0.2"/><polyline points="112 175.67 144 160 144 216 112 199.18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><rect x="40" y="160" width="72" height="56" rx="8" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polygon points="152 32 152 88 208 88 152 32" opacity="0.2"/><polyline points="152 32 152 88 208 88" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M176,224h24a8,8,0,0,0,8-8V88L152,32H56a8,8,0,0,0-8,8v88" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
+                                                                                </span>
+                                                                            </div>
+                                                                            <div>
+                                                                                <a href="javascript:void(0);" data-bs-toggle="offcanvas"
+                                                                                data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">VID-00292312-SPK823.mp4</a>
+                                                                            </div>
+                                                                        </div>
+                                                                    </th>
+                                                                    <td>Videos</td>
+                                                                    <td>87MB</td>
+                                                                    <td>22,Nov 2024</td>
+                                                                    <td>
+                                                                        <div class="hstack gap-2 fs-15">
+                                                                            <a href="javascript:void(0);" class="btn btn-icon btn-sm btn-info-light"><i class="ri-eye-line"></i></a>
+                                                                            <a href="javascript:void(0);" class="btn btn-icon btn-sm btn-danger-light"><i class="ri-delete-bin-line"></i></a>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <th scope="row">
+                                                                        <div class="d-flex align-items-center">
+                                                                            <div class="me-0">
+                                                                                <span class="avatar avatar-md svg-secondary text-secondary">
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><polygon points="152 224 104 152 76.36 193.46 60 168 24 224 152 224" opacity="0.2"/><polygon points="152 224 104 152 76.36 193.46 60 168 24 224 152 224" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polygon points="152 32 152 88 208 88 152 32" opacity="0.2"/><polyline points="152 32 152 88 208 88" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M192,224h8a8,8,0,0,0,8-8V88L152,32H56a8,8,0,0,0-8,8v96" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
+                                                                                </span>
+                                                                            </div>
+                                                                            <div>
+                                                                                <a href="javascript:void(0);" data-bs-toggle="offcanvas"
+                                                                                data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">IMG-09123878-SPK734.jpeg</a>
+                                                                            </div>
+                                                                        </div>
+                                                                    </th>
+                                                                    <td>Images</td>
+                                                                    <td>1.35MB</td>
+                                                                    <td>25,Nov 2024</td>
+                                                                    <td>
+                                                                        <div class="hstack gap-2 fs-15">
+                                                                            <a href="javascript:void(0);" class="btn btn-icon btn-sm btn-info-light"><i class="ri-eye-line"></i></a>
+                                                                            <a href="javascript:void(0);" class="btn btn-icon btn-sm btn-danger-light"><i class="ri-delete-bin-line"></i></a>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                                <tr class="table-active">
+                                                                    <th scope="row">
+                                                                        <div class="d-flex align-items-center">
+                                                                            <div class="me-0">
+                                                                                <span class="avatar avatar-md svg-success text-success">
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><path d="M168,192h16a20,20,0,0,0,0-40H168v56" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="128" y1="152" x2="128" y2="208" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polyline points="56 152 88 152 56 208 88 208" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polygon points="152 32 152 88 208 88 152 32" opacity="0.2"/><path d="M48,112V40a8,8,0,0,1,8-8h96l56,56v24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polyline points="152 32 152 88 208 88" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
+                                                                                </span>
+                                                                            </div>
+                                                                            <div>
+                                                                                <a href="javascript:void(0);" data-bs-toggle="offcanvas"
+                                                                                data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">AMB-2012.zip</a>
+                                                                            </div>
+                                                                        </div>
+                                                                    </th>
+                                                                    <td>Archives</td>
+                                                                    <td>422KB</td>
+                                                                    <td>23,Nov 2024</td>
+                                                                    <td>
+                                                                        <div class="hstack gap-2 fs-15">
+                                                                            <a href="javascript:void(0);" class="btn btn-icon btn-sm btn-info-light"><i class="ri-eye-line"></i></a>
+                                                                            <a href="javascript:void(0);" class="btn btn-icon btn-sm btn-danger-light"><i class="ri-delete-bin-line"></i></a>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <th scope="row">
+                                                                        <div class="d-flex align-items-center">
+                                                                            <div class="me-0">
+                                                                                <span class="avatar avatar-md svg-pink text-pink">
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><polygon points="48 200 48 160 72 160 96 136 96 224 72 200 48 200" opacity="0.2"/><polygon points="48 200 48 160 72 160 96 136 96 224 72 200 48 200" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M128,152a32.5,32.5,0,0,1,0,56" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polygon points="152 32 152 88 208 88 152 32" opacity="0.2"/><polyline points="152 32 152 88 208 88" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M168,224h32a8,8,0,0,0,8-8V88L152,32H56a8,8,0,0,0-8,8v80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
+                                                                                </span>
+                                                                            </div>
+                                                                            <div>
+                                                                                <a href="javascript:void(0);" data-bs-toggle="offcanvas"
+                                                                                data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">AUD-1002-2012.mp3</a>
+                                                                            </div>
+                                                                        </div>
+                                                                    </th>
+                                                                    <td>Archives</td>
+                                                                    <td>422KB</td>
+                                                                    <td>23,Nov 2024</td>
+                                                                    <td>
+                                                                        <div class="hstack gap-2 fs-15">
+                                                                            <a href="javascript:void(0);" class="btn btn-icon btn-sm btn-info-light"><i class="ri-eye-line"></i></a>
+                                                                            <a href="javascript:void(0);" class="btn btn-icon btn-sm btn-danger-light"><i class="ri-delete-bin-line"></i></a>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <th scope="row">
+                                                                        <div class="d-flex align-items-center">
+                                                                            <div class="me-0">
+                                                                                <span class="avatar avatar-md svg-pink text-pink">
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><polygon points="152 224 104 152 76.36 193.46 60 168 24 224 152 224" opacity="0.2"/><polygon points="152 224 104 152 76.36 193.46 60 168 24 224 152 224" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polygon points="152 32 152 88 208 88 152 32" opacity="0.2"/><polyline points="152 32 152 88 208 88" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M192,224h8a8,8,0,0,0,8-8V88L152,32H56a8,8,0,0,0-8,8v96" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
+                                                                                </span>
+                                                                            </div>
+                                                                            <div>
+                                                                                <a href="javascript:void(0);" data-bs-toggle="offcanvas"
+                                                                                data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">IMG-09123878-SPK734.jpeg</a>
+                                                                            </div>
+                                                                        </div>
+                                                                    </th>
+                                                                    <td>Images</td>
+                                                                    <td>1.35MB</td>
+                                                                    <td>25,Nov 2024</td>
+                                                                    <td>
+                                                                        <div class="hstack gap-2 fs-15">
+                                                                            <a href="javascript:void(0);" class="btn btn-icon btn-sm btn-info-light"><i class="ri-eye-line"></i></a>
+                                                                            <a href="javascript:void(0);" class="btn btn-icon btn-sm btn-danger-light"><i class="ri-delete-bin-line"></i></a>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <th scope="row">
+                                                                        <div class="d-flex align-items-center">
+                                                                            <div class="me-0">
+                                                                                <span class="avatar avatar-md svg-info text-info">
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><polygon points="152 32 152 88 208 88 152 32" opacity="0.2"/><path d="M48,112V40a8,8,0,0,1,8-8h96l56,56v24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polyline points="152 32 152 88 208 88" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polyline points="216 152 184 152 184 208" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="208" y1="184" x2="184" y2="184" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M48,192H64a20,20,0,0,0,0-40H48v56" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M112,152v56h16a28,28,0,0,0,0-56Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
+                                                                                </span>
+                                                                            </div>
+                                                                            <div>
+                                                                                <a href="javascript:void(0);" data-bs-toggle="offcanvas"
+                                                                                data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">Document-02.pdf</a>
+                                                                            </div>
+                                                                        </div>
+                                                                    </th>
+                                                                    <td>Documents</td>
+                                                                    <td>1.69MB</td>
+                                                                    <td>2,Dec 2024</td>
+                                                                    <td>
+                                                                        <div class="hstack gap-2 fs-15">
+                                                                            <a href="javascript:void(0);" class="btn btn-icon btn-sm btn-info-light"><i class="ri-eye-line"></i></a>
+                                                                            <a href="javascript:void(0);" class="btn btn-icon btn-sm btn-danger-light"><i class="ri-delete-bin-line"></i></a>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            </tbody>
+                                                            <tfoot>
+                                                                <tr>
+                                                                    <td colspan="5">
+                                                                        <nav aria-label="Page navigation">
+                                                                            <ul class="pagination justify-content-end mb-0">
+                                                                                <li class="page-item disabled"><a class="page-link" href="javascript:void(0);">Previous</a></li>
+                                                                                <li class="page-item"><a class="page-link" href="javascript:void(0);">1</a></li>
+                                                                                <li class="page-item"><a class="page-link" href="javascript:void(0);">2</a></li>
+                                                                                <li class="page-item"><a class="page-link" href="javascript:void(0);">Next</a></li>
+                                                                            </ul>
+                                                                        </nav>
+                                                                    </td>
+                                                                </tr>
+                                                            </tfoot>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- End:: row-1 -->
+
+                </div>
+            </div>
+            <!-- End::app-content -->
+
+            <!-- Start::mail information offcanvas -->
+            <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasRight">
+                <div class="offcanvas-body p-0">
+                <div class="selected-file-details">
+                        <div class="d-flex p-3 align-items-center justify-content-between border-bottom">
+                            <div>
+                                <h6 class="fw-medium mb-0">File Details</h6>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <div class="dropdown me-1">
+                                    <button class="btn btn-sm btn-icon btn-primary-light btn-wave waves-light waves-effect waves-light" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="ri-more-2-fill"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Share</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Copy</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Move</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Delete</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Raname</a></li>
+                                    </ul>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-icon btn-outline-light border" data-bs-dismiss="offcanvas"
+                                    aria-label="Close"><i class="ri-close-line"></i></button>
+                            </div>
+                        </div>
+                        <div class="filemanager-file-details" id="filemanager-file-details">
+                            <div class="p-3 text-center border-bottom border-block-end-dashed">
+                                <div class="file-details mb-3">
+                                    <img src="../assets/images/media/blog/9.jpg" alt="">
+                                </div>
+                                <div>
+                                    <p class="mb-0 fw-medium fs-16">IMG-09123878-SPK734.jpeg</p>
+                                    <p class="mb-0 text-muted fs-10">422KB | 23,Nov 2024</p>
+                                </div>
+                            </div>
+                            <div class="p-3 border-bottom border-block-end-dashed">
+                                <ul class="list-group">
+                                    <li class="list-group-item">
+                                        <div>
+                                            <span class="fw-medium">File Format : </span><span class="fs-12 text-muted">jpeg</span>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div>
+                                            <p class="fw-medium mb-0">File Description : </p>
+                                            <span class="fs-12 text-muted">This file contains 3 folder Meno.main & Meno.premium & Meno.featured and 42 images and layout styles are added in this update.</span>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <p class="fw-medium mb-0">File Location : </p>
+                                        <span class="fs-12 text-muted">Device/Storage/Archives/IMG-09123878-SPK734.jpeg</span>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="p-3 border-bottom border-block-end-dashed">
+                                <p class="mb-1 fw-medium fs-14">Downloaded from :</p>
+                                <a class="text-primary fw-medium text-break" href="https://themeforest.net/user/spruko/portfolio" target="_blank">
+                                    <u>https://themeforest.net/user/spruko/portfolio</u>
+                                </a>
+                            </div>
+                            <div class="p-3">
+                                <p class="mb-2 fw-medium fs-14">Shared With :</p>
+                                <a href="javascript:void(0);">
+                                        <div class="d-flex align-items-center p-2 mb-1">
+                                        <span class="avatar avatar-sm me-2 avatar-rounded">
+                                            <img src="../assets/images/faces/1.jpg" alt="">
+                                        </span>
+                                        <span class="fw-medium flex-fill">Akira Susan</span>
+                                        <span class="badge bg-success-transparent fw-normal">28,Nov 2024</span>
+                                    </div>
+                                </a>
+                                <a href="javascript:void(0);">
+                                    <div class="d-flex align-items-center p-2 mb-1">
+                                        <span class="avatar avatar-sm me-2 avatar-rounded">
+                                            <img src="../assets/images/faces/15.jpg" alt="">
+                                        </span>
+                                        <span class="fw-medium flex-fill">Khalid Ahmad</span>
+                                        <span class="badge bg-success-transparent fw-normal">16,Oct 2024</span>
+                                    </div>
+                                </a>
+                                <a href="javascript:void(0);">
+                                    <div class="d-flex align-items-center p-2 mb-1">
+                                        <span class="avatar avatar-sm me-2 avatar-rounded">
+                                            <img src="../assets/images/faces/8.jpg" alt="">
+                                        </span>
+                                        <span class="fw-medium flex-fill">Jeremiah Jackson</span>
+                                        <span class="badge bg-success-transparent fw-normal">05,Dec 2024</span>
+                                    </div>
+                                </a>    
+                                <a href="javascript:void(0);">
+                                    <div class="d-flex align-items-center p-2">
+                                        <span class="avatar avatar-sm me-2 avatar-rounded">
+                                            <img src="../assets/images/faces/13.jpg" alt="">
+                                        </span>
+                                        <span class="fw-medium flex-fill">Brigo Jhonson</span>
+                                        <span class="badge bg-success-transparent fw-normal">13,Nov 2024</span>
+                                    </div>
+                                </a>    
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- End::mail information offcanvas -->
+
+
+           <!-- include footer.html"-->
+        <!-- include responsive-search-modal.html"-->
+
+        </div>
+
+       <!-- include commonjs.html"-->
+
+        <!-- include custom-switcherjs.html"-->
+
+        <!-- Apex Charts JS -->
+        <script src="../assets/libs/apexcharts/apexcharts.min.js"></script>
+
+        <!-- Internal File Manager JS -->
+        <script src="../assets/js/file-manager.js"></script>
+
+        <!-- Custom JS -->
+        <script src="../assets/js/custom.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,1115 @@
+<!-- include mainhead.html"-->
+
+</head>
+
+<body>
+
+    <!-- include switcher.html"-->
+   <!-- include loader.html"-->
+
+    <div class="page">
+        <!-- include header.html"-->
+         <!-- include sidebar.html"-->
+
+        <!-- Start::app-content -->
+        <div class="main-content app-content">
+            <div class="container-fluid">
+
+                <!-- Start::page-header -->
+                <div class="my-4 page-header-breadcrumb d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h1 class="page-title fw-medium fs-18 mb-2">Courses</h1>
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item">
+                                <a href="javascript:void(0);">
+                                    Dashboards
+                                </a>
+                            </li>
+                            <li class="breadcrumb-item active" aria-current="page">Courses</li>
+                        </ol>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="d-flex gap-2">
+                            <div class="position-relative">
+                                <button class="btn btn-primary btn-wave" type="button"
+                                    id="dropdownMenuClickableInside" data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside" aria-expanded="false">
+                                    Filter By <i class="ri-arrow-down-s-fill ms-1"></i>
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenuClickableInside">
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Today</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Yesterday</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 7 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 30 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 6 Months</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last Year</a></li>
+                                </ul>
+                            </div>
+                            <button class="btn btn-secondary btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Download">
+                                <i class="ti ti-download"></i>
+                            </button>
+                            <button class="btn btn-success btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Share">
+                                <i class="ti ti-share-3"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- End::page-header -->
+
+                <!-- Start:: row-1 -->
+                <div class="row">
+                    <div class="col-xxl-5 col-xl-12">
+                        <div class="row">
+                            <div class="col-xxl-6 col-xl-6 col-sm-6 col-12">
+                                <div class="card custom-card overflow-hidden shadow-none">
+                                    <div class="card-body p-0">
+                                        <div class="p-3 d-flex gap-2 align-items-start">
+                                            <div class="main-card-icon primary">
+                                                <div class="avatar avatar-md fs-15 bg-primary border border-primary border-opacity-10">
+                                                    <i class="fe fe-user-check"></i>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span class="d-block mb-1">Total Students</span>
+                                                <h4 class="fw-semibold mb-1">13,776</h4>
+                                                <span class="fs-12 text-muted ms-2">From Last Week</span><span class="fs-12 text-success ms-2"><i class="ri-arrow-up-s-line fs-16 align-middle me-1"></i>0.67%</span>
+                                            </div>
+                                         </div>
+                                        <div id="total-students"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xxl-6 col-xl-6 col-sm-6 col-12">
+                                <div class="card custom-card overflow-hidden shadow-none">
+                                    <div class="card-body p-0">
+                                        <div class="p-3 d-flex gap-2 align-items-start">
+                                            <div class="main-card-icon secondary">
+                                                <div class="avatar avatar-md fs-15 bg-secondary border border-secondary border-opacity-10">
+                                                    <i class="fe fe-user"></i>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span class="d-block mb-1">Total Instructors</span>
+                                                <h4 class="fw-semibold mb-1">545</h4>
+                                                <span class="fs-12 text-danger ms-2"><i class="ri-arrow-down-s-line fs-16 align-middle me-1"></i>2.45%</span><span class="fs-12 text-muted ms-2">From Last Week</span>
+                                            </div>
+                                        </div>
+                                        <div id="instructors"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xxl-6 col-xl-6 col-sm-6 col-12">
+                                <div class="card custom-card overflow-hidden shadow-none">
+                                    <div class="card-body p-0">
+                                        <div class="p-3 d-flex gap-2 align-items-start">
+                                            <div class="main-card-icon success">
+                                                <div class="avatar avatar-md fs-15 bg-success border border-success border-opacity-10">
+                                                    <i class="fe fe-layers"></i>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span class="d-block mb-1">Total Courses</span>
+                                                <h4 class="fw-semibold mb-1">1,467</h4>
+                                                <span class="fs-12 text-success ms-2"><i class="ri-arrow-up-s-line fs-16 align-middle me-1"></i>1.12%</span><span class="fs-12 text-muted ms-2">From Last Week</span>
+                                            </div>
+                                        </div>
+                                        <div id="courses"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xxl-6 col-xl-6 col-sm-6 col-12">
+                                <div class="card custom-card overflow-hidden shadow-none">
+                                    <div class="card-body p-0">
+                                        <div class="p-3 d-flex gap-2 align-items-start">
+                                            <div class="main-card-icon pink">
+                                                <div class="avatar avatar-md fs-15 bg-pink border border-pink border-opacity-10">
+                                                    <i class="fe fe-dollar-sign"></i>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span class="d-block mb-1">Total Revenue</span>
+                                                <h4 class="fw-semibold mb-1">435</h4>
+                                                <span class="fs-12 text-success ms-2"><i class="ri-arrow-up-s-line fs-16 align-middle me-1"></i>4.98%</span><span class="fs-12 text-muted ms-2">From Last Week</span>
+                                            </div>
+                                        </div>
+                                        <div id="courses-revenue"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card custom-card overflow-hidden">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    POPULAR CLASSES
+                                </div>
+                                <a href="javascript:void(0);" class="fs-12 text-muted"> View All<i class="ti ti-arrow-narrow-right ms-1"></i> </a>
+                            </div>
+                            <div class="card-body p-0">
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center flex-wrap">
+                                            <a href="javascript:void(0);" class="pe-3 d-inline-block lh-1">
+                                                <span class="avatar avatar-md">
+                                                    <img src="../assets/images/media/media-25.jpg" alt="img">
+                                                </span>
+                                            </a>
+                                            <div class="flex-fill fw-medium">
+                                                <a href="javascript:void(0);" class="text-muted d-block mb-1 fs-10" title="Category"><i class="ti ti-tag fs-11 align-middle"></i>&nbsp;UI/UX</a>
+                                                <a href="javascript:void(0);" class="d-block mb-2 fs-14">CSS Zero to Hero Class-11</a>
+                                            </div>
+                                            <div class="d-flex align-items-center flex-wrap gap-3">
+                                                <div class="d-flex align-items-center">
+                                                    <a href="javascript:void(0);" class="me-2 lh-1">
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/1.jpg" alt="img">
+                                                        </span>
+                                                    </a>
+                                                    <a href="javascript:void(0);" class="flex-fill fs-12">Natasha Sil</a>
+                                                </div>
+                                                <div class="fs-12">
+                                                    <span class="me-2">2,189 Views</span>
+                                                    <span><i class="ri-star-fill fs-16 text-warning me-1"></i>(4.2)</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center flex-wrap">
+                                            <a href="javascript:void(0);" class="pe-3 d-inline-block lh-1">
+                                                <span class="avatar avatar-md">
+                                                    <img src="../assets/images/media/media-13.jpg" alt="img">
+                                                </span>
+                                            </a>
+                                            <div class="flex-fill fw-medium">
+                                                <a href="javascript:void(0);" class="text-muted d-block mb-1 fs-10" title="Category"><i class="ti ti-tag fs-11 align-middle"></i>&nbsp;Marketing</a>
+                                                <a href="javascript:void(0);" class="d-block mb-2 fs-14">Marketing Class-27</a>
+                                            </div>
+                                            <div class="d-flex align-items-center flex-wrap gap-3">
+                                                <div class="d-flex align-items-center">
+                                                    <a href="javascript:void(0);" class="me-2 lh-1">
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/13.jpg" alt="img">
+                                                        </span>
+                                                    </a>
+                                                    <a href="javascript:void(0);" class="flex-fill fs-12">John Doe</a>
+                                                </div>
+                                                <div class="fs-12">
+                                                    <span class="me-2">1,116 Views</span>
+                                                    <span><i class="ri-star-fill fs-16 text-warning me-1"></i>(4.5)</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center flex-wrap">
+                                            <a href="javascript:void(0);" class="pe-3 d-inline-block lh-1">
+                                                <span class="avatar avatar-md">
+                                                    <img src="../assets/images/media/media-24.jpg" alt="img">
+                                                </span>
+                                            </a>
+                                            <div class="flex-fill fw-medium">
+                                                <a href="javascript:void(0);" class="text-muted d-block mb-1 fs-10" title="Category"><i class="ti ti-tag fs-11 align-middle"></i>&nbsp;Programming</a>
+                                                <a href="javascript:void(0);" class="d-block mb-2 fs-14">Learn Python-16</a>
+                                            </div>
+                                            <div class="d-flex align-items-center flex-wrap gap-3">
+                                                <div class="d-flex align-items-center">
+                                                    <a href="javascript:void(0);" class="me-2 lh-1">
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/5.jpg" alt="img">
+                                                        </span>
+                                                    </a>
+                                                    <a href="javascript:void(0);" class="flex-fill fs-12">Jane Smith</a>
+                                                </div>
+                                                <div class="fs-12">
+                                                    <span class="me-2">2,125 Views</span>
+                                                    <span><i class="ri-star-fill fs-16 text-warning me-1"></i>(4.8)</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center flex-wrap">
+                                            <a href="javascript:void(0);" class="pe-3 d-inline-block lh-1">
+                                                <span class="avatar avatar-md">
+                                                    <img src="../assets/images/media/media-18.jpg" alt="img">
+                                                </span>
+                                            </a>
+                                            <div class="flex-fill fw-medium">
+                                                <a href="javascript:void(0);" class="text-muted d-block mb-1 fs-10" title="Category"><i class="ti ti-tag fs-11 align-middle"></i>&nbsp;UI/UX Design</a>
+                                                <a href="javascript:void(0);" class="d-block mb-2 fs-14">Javascript-45</a>
+                                            </div>
+                                            <div class="d-flex align-items-center flex-wrap gap-3">
+                                                <div class="d-flex align-items-center">
+                                                    <a href="javascript:void(0);" class="me-2 lh-1">
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/10.jpg" alt="img">
+                                                        </span>
+                                                    </a>
+                                                    <a href="javascript:void(0);" class="flex-fill fs-12">Robert White</a>
+                                                </div>
+                                                <div class="fs-12">
+                                                    <span class="me-2">3,677 Views</span>
+                                                    <span><i class="ri-star-fill fs-16 text-warning me-1"></i>(4.9)</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-7 col-xl-12">
+                        <div class="row">
+                            <div class="col-xl-12">
+                                <div class="card custom-card card-bg-primary border-0 shadow-none overflow-hidden courses-banner-card">
+                                    <div class="card-body p-5">
+                                        <div class="row justify-content-between">
+                                            <div class="col-xxl-3 col-xl-4 col-lg-4 col-md-4 col-sm-4 d-sm-block d-none">
+                                                <div>
+                                                    <img src="../assets/images/media/media-67.png" alt="" class="position-absolute img-fluid">
+                                                </div>
+                                            </div>
+                                            <div class="col-xxl-8 col-xl-8 col-lg-8 col-md-8 col-sm-8">
+                                                <h4 class="text-fixed-white mb-3">Get Ready to Grab Our Courses!</h4>
+                                                <p class="mb-4 op-8">Unlock a world of opportunities with our expert-led courses. Level up your skills and start your learning journey today, anytime, anywhere.</p>
+                                                <button class="btn btn-warning btn-wave waves-effect waves-light">Grab a Course Now</button>
+                                            </div>                                            
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-12">
+                                <div class="card custom-card">
+                                    <div class="card-header justify-content-between">
+                                        <div class="card-title">
+                                            Revenue Statistics
+                                        </div>
+                                        <div class="dropdown"> 
+                                            <a href="javascript:void(0);" class="p-2 fs-12 text-muted" data-bs-toggle="dropdown" aria-expanded="true"> Sort By <i class="ri-arrow-down-s-line align-middle ms-1 d-inline-block"></i> </a> 
+                                            <ul class="dropdown-menu"> 
+                                                <li><a class="dropdown-item" href="javascript:void(0);">This Week</a></li>
+                                                 <li><a class="dropdown-item" href="javascript:void(0);">Last Week</a></li> 
+                                                 <li><a class="dropdown-item" href="javascript:void(0);">This Month</a></li> 
+                                            </ul> 
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="courses-revenue-stat"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-1 -->
+
+                <!-- Start:: row-2 -->
+                <div class="row">
+                    <div class="col-xxl-4 col-lg-6">
+                        <div class="card custom-card">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Courses Statistics
+                                </div>
+                                <div class="dropdown"> 
+                                    <a href="javascript:void(0);" class="p-2 fs-12 text-muted" data-bs-toggle="dropdown" aria-expanded="true"> Sort By <i class="ri-arrow-down-s-line align-middle ms-1 d-inline-block"></i> </a> 
+                                    <ul class="dropdown-menu"> 
+                                        <li><a class="dropdown-item" href="javascript:void(0);">This Week</a></li>
+                                         <li><a class="dropdown-item" href="javascript:void(0);">Last Week</a></li> 
+                                         <li><a class="dropdown-item" href="javascript:void(0);">This Month</a></li> 
+                                    </ul> 
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="course-statistics"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3 col-lg-6">
+                        <div class="card custom-card overflow-hidden">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Top Courses
+                                </div>
+                                <a href="javascript:void(0);" class="fs-12 text-muted"> View All<i class="ti ti-arrow-narrow-right ms-1"></i> </a>
+                            </div>
+                            <div class="card-body p-0">
+                                <ul class="list-group list-group-flush my-1">
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div>
+                                                <span class="avatar avatar-sm bg-primary fs-20">
+                                                    UI
+                                                </span>
+                                            </div> 
+                                            <div class="flex-fill">
+                                                <span class="fw-semibold">UI/UX Design</span>
+                                                <span class="d-block fw-medium text-muted fs-12">40 Courses</span>
+                                            </div>
+                                            <div>
+                                                <span class="badge bg-primary-transparent">120+ classes</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div>
+                                                <span class="avatar avatar-sm bg-secondary fs-20">
+                                                    QA
+                                                </span>
+                                            </div> 
+                                            <div class="flex-fill">
+                                                <span class="fw-semibold">QA Analyst</span>
+                                                <span class="d-block fw-medium text-muted fs-12">35 Courses</span>
+                                            </div>
+                                            <div>
+                                                <span class="badge bg-secondary-transparent">260+ classes</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div>
+                                                <span class="avatar avatar-sm bg-success fs-20">
+                                                    DM
+                                                </span>
+                                            </div> 
+                                            <div class="flex-fill">
+                                                <span class="fw-semibold">Digital Marketing</span>
+                                                <span class="d-block fw-medium text-muted fs-12">60 Courses</span>
+                                            </div>
+                                            <div>
+                                                <span class="badge bg-success-transparent">420+ classes</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div>
+                                                <span class="avatar avatar-sm bg-info fs-20">
+                                                    M
+                                                </span>
+                                            </div> 
+                                            <div class="flex-fill">
+                                                <span class="fw-semibold">Marketing</span>
+                                                <span class="d-block fw-medium text-muted fs-12">150 Courses</span>
+                                            </div>
+                                            <div>
+                                                <span class="badge bg-info-transparent">100+ classes</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div>
+                                                <span class="avatar avatar-sm bg-orange fs-20">
+                                                    DP
+                                                </span>
+                                            </div> 
+                                            <div class="flex-fill">
+                                                <span class="fw-semibold">Devops Pro</span>
+                                                <span class="d-block fw-medium text-muted fs-12">15 Courses</span>
+                                            </div>
+                                            <div>
+                                                <span class="badge bg-orange-transparent">120+ classes</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div>
+                                                <span class="avatar avatar-sm bg-danger fs-20">
+                                                    P
+                                                </span>
+                                            </div> 
+                                            <div class="flex-fill">
+                                                <span class="fw-semibold">Programming</span>
+                                                <span class="d-block fw-medium text-muted fs-12">120 Courses</span>
+                                            </div>
+                                            <div>
+                                                <span class="badge bg-danger-transparent">130+ classes</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-5 col-lg-12">
+                        <div class="card custom-card">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    On Going Courses
+                                </div>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <div>
+                                        <input class="form-control form-control-sm" type="text" placeholder="Search Here" aria-label=" example">
+                                    </div>
+                                    <div class="dropdown">
+                                        <a href="javascript:void(0);" class="btn btn-sm btn-primary" data-bs-toggle="dropdown" aria-expanded="false">
+                                            Sort By<i class="ri-arrow-down-s-line align-middle ms-1"></i>
+                                        </a>
+                                        <ul class="dropdown-menu" role="menu">
+                                            <li><a class="dropdown-item" href="javascript:void(0);">New</a></li>
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Popular</a></li>
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Relevant</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table text-nowrap">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">S.No</th>
+                                                <th scope="col">Course</th>
+                                                <th scope="col" class="text-center">Classes</th>
+                                                <th scope="col">Last Updated</th>
+                                                <th scope="col">Instructor</th>
+                                                <th scope="col">Students</th>
+                                                <th scope="col">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    1
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex align-items-center lh-1">
+                                                        <div class="me-2">
+                                                            <span class="avatar avatar-md">
+                                                                <img src="../assets/images/media/media-1.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="fs-14 fw-medium mb-1">CSS Zero to Hero Master Class</p>
+                                                            <p class="fs-12 text-muted mb-0">UI/UX Designing</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="text-center">
+                                                    51
+                                                </td>
+                                                <td>
+                                                    22-06-2024
+                                                </td>
+                                                <td>
+                                                    Burak Oin
+                                                </td>
+                                                <td>
+                                                    252
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list mb-0">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn btn-icon btn-sm btn-primary-light mb-0"><i class="ri-eye-line"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn btn-icon btn-sm btn-success-light mb-0"><i class="ri-edit-line"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn btn-icon btn-sm btn-danger-light mb-0"><i class="ri-delete-bin-line"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    2
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex align-items-center lh-1">
+                                                        <div class="me-2">
+                                                            <span class="avatar avatar-md">
+                                                                <img src="../assets/images/media/media-4.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="fs-14 fw-medium mb-1">Digital Marketing Course From Scratch</p>
+                                                            <p class="fs-12 text-muted mb-0">Marketing</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="text-center">
+                                                    115
+                                                </td>
+                                                <td>
+                                                    21-06-2024
+                                                </td>
+                                                <td>
+                                                    Stuart Little
+                                                </td>
+                                                <td>
+                                                    1,189
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list mb-0">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn btn-icon btn-sm btn-primary-light mb-0"><i class="ri-eye-line"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn btn-icon btn-sm btn-success-light mb-0"><i class="ri-edit-line"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn btn-icon btn-sm  btn-danger-light mb-0"><i class="ri-delete-bin-line"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    3
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex align-items-center lh-1">
+                                                        <div class="me-2">
+                                                            <span class="avatar avatar-md">
+                                                                <img src="../assets/images/media/media-45.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="fs-14 fw-medium mb-1">Digital Marketing Course From Scratch</p>
+                                                            <p class="fs-12 text-muted mb-0">Programming</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="text-center">
+                                                    30
+                                                </td>
+                                                <td>
+                                                    15-06-2024
+                                                </td>
+                                                <td>
+                                                    Boran Ray
+                                                </td>
+                                                <td>
+                                                    3,365
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list mb-0">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn btn-icon btn-sm btn-primary-light mb-0"><i class="ri-eye-line"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn btn-icon btn-sm btn-success-light mb-0"><i class="ri-edit-line"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn btn-icon btn-sm  btn-danger-light mb-0"><i class="ri-delete-bin-line"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    4
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex align-items-center lh-1">
+                                                        <div class="me-2">
+                                                            <span class="avatar avatar-md">
+                                                                <img src="../assets/images/media/media-15.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="fs-14 fw-medium mb-1">Master Linear Algebra Medium Level</p>
+                                                            <p class="fs-12 text-muted mb-0">Mathematics</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="text-center">
+                                                    90
+                                                </td>
+                                                <td>
+                                                    11-06-2024
+                                                </td>
+                                                <td>
+                                                    Arya Neo
+                                                </td>
+                                                <td>
+                                                    773
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list mb-0">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn btn-icon btn-sm btn-primary-light mb-0"><i class="ri-eye-line"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn btn-icon btn-sm btn-success-light mb-0"><i class="ri-edit-line"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn btn-icon btn-sm  btn-danger-light mb-0"><i class="ri-delete-bin-line"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="border-bottom-0">
+                                                    5
+                                                </td>
+                                                <td class="border-bottom-0">
+                                                    <div class="d-flex align-items-center lh-1">
+                                                        <div class="me-2">
+                                                            <span class="avatar avatar-md">
+                                                                <img src="../assets/images/media/media-17.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="fs-14 fw-medium mb-1">Learn How to Trade &amp; Invest</p>
+                                                            <p class="fs-12 text-muted mb-0">Stocks &amp; Trading</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="text-center border-bottom-0">
+                                                    161
+                                                </td>
+                                                <td class="border-bottom-0">
+                                                    10-06-2024
+                                                </td>
+                                                <td class="border-bottom-0">
+                                                    Sia Niu
+                                                </td>
+                                                <td class="border-bottom-0">
+                                                    51
+                                                </td>
+                                                <td class="border-bottom-0">
+                                                    <div class="btn-list mb-0">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn btn-icon btn-sm btn-primary-light mb-0"><i class="ri-eye-line"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn btn-icon btn-sm btn-success-light mb-0"><i class="ri-edit-line"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn btn-icon btn-sm btn-danger-light mb-0"><i class="ri-delete-bin-line"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-2 -->
+
+                <!-- Start:: row-3 -->
+                <div class="row">
+                    <div class="col-xxl-3">
+                        <div class="card custom-card">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Top Professors
+                                </div>
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-light">View All</button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-unstyled courses-instructors mb-0">
+                                    <li>
+                                        <div class="d-flex">
+                                            <div class="d-flex flex-fill align-items-center">
+                                                <div class="me-2">
+                                                    <span class="avatar avatar-sm avatar-rounded">
+                                                        <img src="../assets/images/faces/2.jpg" alt="">
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <span class="d-block fw-medium">John Henry</span>
+                                                    <span class="text-muted">M.Tech</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="d-block fw-medium text-primary">321 Classes</span>
+                                                <span class="text-muted">Digital Marketing</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex">
+                                            <div class="d-flex flex-fill align-items-center">
+                                                <div class="me-2">
+                                                    <span class="avatar avatar-sm avatar-rounded">
+                                                        <img src="../assets/images/faces/12.jpg" alt="">
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <span class="d-block fw-medium">Mortal Yun</span>
+                                                    <span class="text-muted">P.H.D</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="d-block fw-medium text-secondary">25 Classes</span>
+                                                <span class="text-muted">Stocks &amp; Trading</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex">
+                                            <div class="d-flex flex-fill align-items-center">
+                                                <div class="me-2">
+                                                    <span class="avatar avatar-sm avatar-rounded">
+                                                        <img src="../assets/images/faces/13.jpg" alt="">
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <span class="d-block fw-medium">Trex Con</span>
+                                                    <span class="text-muted">MBBS</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="d-block fw-medium text-pink">39 Classes</span>
+                                                <span class="text-muted">Science</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex">
+                                            <div class="d-flex flex-fill align-items-center">
+                                                <div class="me-2">
+                                                    <span class="avatar avatar-sm avatar-rounded">
+                                                        <img src="../assets/images/faces/3.jpg" alt="">
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <span class="d-block fw-medium">Saiu Sarah</span>
+                                                    <span class="text-muted">P.H.D</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="d-block fw-medium text-danger">11 Classes</span>
+                                                <span class="text-muted">Science</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex">
+                                            <div class="d-flex flex-fill align-items-center">
+                                                <div class="me-2">
+                                                    <span class="avatar avatar-sm avatar-rounded">
+                                                        <img src="../assets/images/faces/4.jpg" alt="">
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <span class="d-block fw-medium">Ion Hau</span>
+                                                    <span class="text-muted">M.Tech</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="d-block fw-medium text-warning">124 Classes</span>
+                                                <span class="text-muted">Web Development</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex">
+                                            <div class="d-flex flex-fill align-items-center">
+                                                <div class="me-2">
+                                                    <span class="avatar avatar-sm avatar-rounded">
+                                                        <img src="../assets/images/faces/14.jpg" alt="">
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <span class="d-block fw-medium">Roman Killon</span>
+                                                    <span class="text-muted">M.Tech</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="d-block fw-medium text-info">1263 Classes</span>
+                                                <span class="text-muted">Ui / Ux Designing</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex">
+                                            <div class="d-flex flex-fill align-items-center">
+                                                <div class="me-2">
+                                                    <span class="avatar avatar-sm avatar-rounded">
+                                                        <img src="../assets/images/faces/5.jpg" alt="">
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <span class="d-block fw-medium">Suzika Stallone</span>
+                                                    <span class="text-muted">Phd</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="d-block fw-medium text-primary">110 Classes</span>
+                                                <span class="text-muted">Machine Leadning</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex">
+                                            <div class="d-flex flex-fill align-items-center">
+                                                <div class="me-2">
+                                                    <span class="avatar avatar-sm avatar-rounded">
+                                                        <img src="../assets/images/faces/15.jpg" alt="">
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <span class="d-block fw-medium">Robert Lewis</span>
+                                                    <span class="text-muted">Phd</span>
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="d-block fw-medium text-pink">150 Classes</span>
+                                                <span class="text-muted">Java Development</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-9">
+                        <div class="card custom-card">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Course List
+                                </div>
+                                <div class="d-flex flex-wrap">
+                                    <div class="dropdown m-1">
+                                        <a href="javascript:void(0);" class="btn btn-light btn-sm" data-bs-toggle="dropdown" aria-expanded="false">
+                                            View All<i class="ri-arrow-down-s-line align-middle ms-1 d-inline-block"></i>
+                                        </a>
+                                        <ul class="dropdown-menu" role="menu">
+                                            <li><a class="dropdown-item" href="javascript:void(0);">New</a></li>
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Popular</a></li>
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Relevant</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table text-nowrap table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">S.No</th>
+                                                <th scope="col">Course</th>
+                                                <th scope="col">Classes</th>
+                                                <th scope="col">Last Updated</th>
+                                                <th scope="col">Instructor</th>
+                                                <th scope="col">Students</th>
+                                                <th scope="col">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    1
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex align-items-center lh-1">
+                                                        <div class="me-2">
+                                                            <span class="avatar avatar-md">
+                                                                <img src="../assets/images/media/media-1.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="fs-14 fw-medium mb-1">CSS Zero to Hero Master Class</p>
+                                                            <p class="fs-12 text-muted mb-0">UI/UX Designing</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    51
+                                                </td>
+                                                <td>
+                                                    22-06-2023
+                                                </td>
+                                                <td>
+                                                    Burak Oin
+                                                </td>
+                                                <td>
+                                                    252
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list mb-0">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn  btn-sm rounded-pill btn-primary-light mb-0"><i class="ti ti-eye"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn  btn-sm rounded-pill btn-secondary-light mb-0"><i class="ti ti-pencil"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn  btn-sm rounded-pill  btn-danger-light mb-0"><i class="ti ti-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    2
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex align-items-center lh-1">
+                                                        <div class="me-2">
+                                                            <span class="avatar avatar-md">
+                                                                <img src="../assets/images/media/media-4.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="fs-14 fw-medium mb-1">Digital Marketing Course From Scratch</p>
+                                                            <p class="fs-12 text-muted mb-0">Marketing</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    115
+                                                </td>
+                                                <td>
+                                                    21-06-2023
+                                                </td>
+                                                <td>
+                                                    Stuart Little
+                                                </td>
+                                                <td>
+                                                    1,189
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list mb-0">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn  btn-sm rounded-pill btn-primary-light mb-0"><i class="ti ti-eye"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn  btn-sm rounded-pill btn-secondary-light mb-0"><i class="ti ti-pencil"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn  btn-sm rounded-pill  btn-danger-light mb-0"><i class="ti ti-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    3
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex align-items-center lh-1">
+                                                        <div class="me-2">
+                                                            <span class="avatar avatar-md">
+                                                                <img src="../assets/images/media/media-45.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="fs-14 fw-medium mb-1">Digital Marketing Course From Scratch</p>
+                                                            <p class="fs-12 text-muted mb-0">Programming</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    30
+                                                </td>
+                                                <td>
+                                                    15-06-2023
+                                                </td>
+                                                <td>
+                                                    Boran Ray
+                                                </td>
+                                                <td>
+                                                    3,365
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list mb-0">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn  btn-sm rounded-pill btn-primary-light mb-0"><i class="ti ti-eye"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn  btn-sm rounded-pill btn-secondary-light mb-0"><i class="ti ti-pencil"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn  btn-sm rounded-pill  btn-danger-light mb-0"><i class="ti ti-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    4
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex align-items-center lh-1">
+                                                        <div class="me-2">
+                                                            <span class="avatar avatar-md">
+                                                                <img src="../assets/images/media/media-15.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="fs-14 fw-medium mb-1">Master Linear Algebra Medium Level</p>
+                                                            <p class="fs-12 text-muted mb-0">Mathematics</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    90
+                                                </td>
+                                                <td>
+                                                    11-06-2023
+                                                </td>
+                                                <td>
+                                                    Arya Neo
+                                                </td>
+                                                <td>
+                                                    773
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list mb-0">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn  btn-sm rounded-pill btn-primary-light mb-0"><i class="ti ti-eye"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn  btn-sm rounded-pill btn-secondary-light mb-0"><i class="ti ti-pencil"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn  btn-sm rounded-pill  btn-danger-light mb-0"><i class="ti ti-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    5
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex align-items-center lh-1">
+                                                        <div class="me-2">
+                                                            <span class="avatar avatar-md">
+                                                                <img src="../assets/images/media/media-17.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="fs-14 fw-medium mb-1">Learn How to Trade &amp; Invest</p>
+                                                            <p class="fs-12 text-muted mb-0">Stocks &amp; Trading</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    161
+                                                </td>
+                                                <td>
+                                                    10-06-2023
+                                                </td>
+                                                <td>
+                                                    Sia Niu
+                                                </td>
+                                                <td>
+                                                    51
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list mb-0">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn  btn-sm rounded-pill btn-primary-light mb-0"><i class="ti ti-eye"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn  btn-sm rounded-pill btn-secondary-light mb-0"><i class="ti ti-pencil"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn  btn-sm rounded-pill  btn-danger-light mb-0"><i class="ti ti-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="d-flex flex-wrap align-items-center mt-3">
+                                    <div>
+                                        Showing 5 Entries <i class="bi bi-arrow-right ms-2 fw-semibold"></i>
+                                    </div>
+                                    <div class="ms-auto">
+                                        <nav aria-label="Page navigation" class="pagination-style-4">
+                                            <ul class="pagination mb-0">
+                                                <li class="page-item disabled">
+                                                    <a class="page-link" href="javascript:void(0);">
+                                                        Prev
+                                                    </a>
+                                                </li>
+                                                <li class="page-item active"><a class="page-link" href="javascript:void(0);">1</a></li>
+                                                <li class="page-item"><a class="page-link" href="javascript:void(0);">2</a></li>
+                                                <li class="page-item">
+                                                    <a class="page-link text-primary" href="javascript:void(0);">
+                                                        next
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </nav>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-3 -->
+
+            </div>
+        </div> 
+        <!-- End::app-content -->
+
+
+       <!-- include footer.html"-->
+        <!-- include responsive-search-modal.html"-->
+
+    </div>
+
+   <!-- include commonjs.html"-->
+
+    <!-- Apex Charts JS -->
+    <script src="../assets/libs/apexcharts/apexcharts.min.js"></script>
+
+    <!-- Courses Dashboard --> 
+    <script src="../assets/js/courses-dashboard.js"></script>
+
+    <!-- Custom JS -->
+    <script src="../assets/js/custom.js"></script>
+ 
+    <!-- include custom-switcherjs.html"-->
+    
+</body>
+
+</html> 

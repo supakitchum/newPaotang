@@ -1,0 +1,714 @@
+<!-- include mainhead.html"-->
+
+<!-- Jsvector Maps -->
+<link rel="stylesheet" href="../assets/libs/jsvectormap/jsvectormap.min.css">
+
+</head>
+
+<body>
+
+    <!-- include switcher.html"-->
+   <!-- include loader.html"-->
+
+    <div class="page">
+        <!-- include header.html"-->
+         <!-- include sidebar.html"-->
+
+        <!-- Start::app-content -->
+        <div class="main-content app-content">
+            <div class="container-fluid">
+
+                <!-- Start::page-header -->
+                <div class="my-4 page-header-breadcrumb d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h1 class="page-title fw-medium fs-18 mb-2">Social Media</h1>
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item">
+                                <a href="javascript:void(0);">
+                                    Dashboards
+                                </a>
+                            </li>
+                            <li class="breadcrumb-item active" aria-current="page">Social Media</li>
+                        </ol>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="d-flex gap-2">
+                            <div class="position-relative">
+                                <button class="btn btn-primary btn-wave" type="button"
+                                    id="dropdownMenuClickableInside" data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside" aria-expanded="false">
+                                    Filter By <i class="ri-arrow-down-s-fill ms-1"></i>
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenuClickableInside">
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Today</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Yesterday</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 7 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 30 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 6 Months</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last Year</a></li>
+                                </ul>
+                            </div>
+                            <button class="btn btn-secondary btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Download">
+                                <i class="ti ti-download"></i>
+                            </button>
+                            <button class="btn btn-success btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Share">
+                                <i class="ti ti-share-3"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- End::page-header -->
+
+                <!-- Start:: row-1 -->
+                <div class="row">
+                    <div class="col-xxl-3 col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
+                        <div class="card custom-card">
+                            <div class="card-body">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div class="main-card-icon primary">
+                                        <div class="avatar avatar-md bg-primary border border-primary border-opacity-10 rounded-circle">
+                                            <i class="ri-facebook-line fs-25"></i>
+                                        </div>
+                                    </div>
+                                    <div class="flex-fill">
+                                        <h4 class="fw-semibold mb-1">512,345</h4>
+                                        <span class="text-muted fs-12">Subscribers<span class="text-success ms-2 d-inline-block">0.45%<i class="ti ti-arrow-narrow-up"></i></span></span>
+                                        <div id="youtube-subscribers" class="mt-3"></div>
+                                    </div>
+                                    <div class="dropdown"> 
+                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="dropdown"> 
+                                            <i class="ri-more-fill fs-5 text-muted p-2 bg-light rounded-circle lh-1 "></i>
+                                        </a> 
+                                        <ul class="dropdown-menu" role="menu"> 
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Week</a></li> 
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Day</a></li> 
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Year</a></li> 
+                                        </ul> 
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3 col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
+                        <div class="card custom-card">
+                            <div class="card-body">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div class="main-card-icon secondary">
+                                        <div class="avatar avatar-md bg-secondary border border-secondary border-opacity-10 rounded-circle">
+                                            <i class="ri-instagram-line fs-20"></i>
+                                        </div>
+                                    </div>
+                                    <div class="flex-fill">
+                                        <h4 class="fw-semibold mb-1">154,678</h4>
+                                        <span class="text-muted fs-12">Followers<span class="text-success ms-2 d-inline-block">0.45%<i class="ti ti-arrow-narrow-up"></i></span></span>
+                                        <div id="twitter-followers" class="mt-3"></div>
+                                    </div>
+                                    <div class="dropdown"> 
+                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="dropdown"> 
+                                            <i class="ri-more-fill fs-5 text-muted p-2 bg-light rounded-circle lh-1 "></i>
+                                        </a> 
+                                        <ul class="dropdown-menu" role="menu"> 
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Week</a></li> 
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Day</a></li> 
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Year</a></li> 
+                                        </ul> 
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3 col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
+                        <div class="card custom-card">
+                            <div class="card-body">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div class="main-card-icon success">
+                                        <div class="avatar avatar-md bg-success border border-success border-opacity-10 rounded-circle">
+                                            <i class="ri-twitter-x-line fs-20"></i>
+                                        </div>
+                                    </div>
+                                    <div class="flex-fill">
+                                        <h4 class="fw-semibold mb-1">307,892</h4>
+                                        <span class="text-muted fs-12">Followers<span class="text-success ms-2 d-inline-block">0.45%<i class="ti ti-arrow-narrow-up"></i></span></span>
+                                        <div id="facebook-followers" class="mt-3"></div>
+                                    </div>
+                                    <div class="dropdown"> 
+                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="dropdown"> 
+                                            <i class="ri-more-fill fs-5 text-muted p-2 bg-light rounded-circle lh-1 "></i>
+                                        </a> 
+                                        <ul class="dropdown-menu" role="menu"> 
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Week</a></li> 
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Day</a></li> 
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Year</a></li> 
+                                        </ul> 
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3 col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
+                        <div class="card custom-card">
+                            <div class="card-body">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div class="main-card-icon orange">
+                                        <div class="avatar avatar-md bg-pink border border-pink border-opacity-10 rounded-circle">
+                                            <i class="ri-youtube-line fs-20"></i>
+                                        </div>
+                                    </div>
+                                    <div class="flex-fill">
+                                        <h4 class="fw-semibold mb-1">198,765</h4>
+                                        <span class="text-muted fs-12">Followers<span class="text-success ms-2 d-inline-block">0.45%<i class="ti ti-arrow-narrow-up"></i></span></span>
+                                        <div id="instagram-followers" class="mt-3"></div>
+                                    </div>
+                                    <div class="dropdown"> 
+                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="dropdown"> 
+                                            <i class="ri-more-fill fs-5 text-muted p-2 bg-light rounded-circle lh-1 "></i>
+                                        </a> 
+                                        <ul class="dropdown-menu" role="menu"> 
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Week</a></li> 
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Day</a></li> 
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Year</a></li> 
+                                        </ul> 
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-1 -->
+
+                <!-- Start:: row-2 -->
+                <div class="row">
+                    <div class="col-xxl-9">
+                        <div class="card custom-card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    Audience Report
+                                </div>  
+                            </div>
+                            <div class="card-body">
+                                <div class="row gy-3">
+                                    <div class="col-xl-4">
+                                        <div class="p-3 text-default rounded border">
+                                            <div class="d-flex align-items-center justify-content-between flex-wrap">
+                                                <div>
+                                                    <span class="d-block mb-1">Followers</span>
+                                                    <h5 class="fw-semibold lh-1 mb-0">2.56M<span class="text-success fw-semibold fs-13 ms-2 d-inline-flex align-items-center">0.64%<i class="ri-arrow-up-s-line ms-1"></i></span></h5>
+                                                </div>
+                                                <div class="lh-1">
+                                                    <span class="avatar avatar-md bg-primary">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><path d="M32,104H80a0,0,0,0,1,0,0V208a0,0,0,0,1,0,0H32a8,8,0,0,1-8-8V112A8,8,0,0,1,32,104Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M80,104l40-80a32,32,0,0,1,32,32V80h64a16,16,0,0,1,15.87,18l-12,96A16,16,0,0,1,204,208H80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-xl-4">
+                                        <div class="p-3 text-default rounded border">
+                                            <div class="d-flex align-items-center justify-content-between flex-wrap">
+                                                <div>
+                                                    <span class="d-block mb-1">Amount Spent</span>
+                                                    <h5 class="fw-semibold lh-1 mb-0">$14,642<span class="text-success fw-semibold fs-13 ms-2 d-inline-flex align-items-center">0.64%<i class="ri-arrow-up-s-line ms-1"></i></span></h5>
+                                                </div>
+                                                <div class="lh-1">
+                                                    <span class="avatar avatar-md bg-secondary-transparent text-secondary border">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><line x1="128" y1="24" x2="128" y2="48" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="128" y1="208" x2="128" y2="232" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M184,88a40,40,0,0,0-40-40H112a40,40,0,0,0,0,80h40a40,40,0,0,1,0,80H104a40,40,0,0,1-40-40" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-xl-4">
+                                        <div class="p-3 text-default rounded border">
+                                            <div class="d-flex align-items-center justify-content-between flex-wrap">
+                                                <div>
+                                                    <span class="d-block mb-1">Reach</span>
+                                                    <h5 class="fw-semibold lh-1 mb-0">12,326<span class="text-danger fw-semibold fs-13 ms-2 d-inline-flex align-items-center">5.31%<i class="ri-arrow-down-s-line ms-1"></i></span></h5>
+                                                </div>
+                                                <div class="lh-1">
+                                                    <span class="avatar avatar-md bg-success-transparent text-success border">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><circle cx="128" cy="96" r="64" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M32,216c19.37-33.47,54.55-56,96-56s76.63,22.53,96,56" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="audience-report"></div>                                
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3">
+                        <div class="card custom-card">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Audience Age Metrics
+                                </div>
+                            </div>
+                            <div class="card-body py-0">
+                                <div id="audience-age-metrics"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-2 -->
+
+                <!-- Start:: row-3 -->
+                <div class="row">
+                    <div class="col-xxl-3">
+                        <div class="card custom-card overflow-hidden">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Audience Reached
+                                </div>
+                                <div class="dropdown"> 
+                                    <a href="javascript:void(0);" class="p-2 fs-12 text-muted" data-bs-toggle="dropdown" aria-expanded="true"> Sort By <i class="ri-arrow-down-s-line align-middle ms-1 d-inline-block"></i> </a> 
+                                    <ul class="dropdown-menu"> 
+                                        <li><a class="dropdown-item" href="javascript:void(0);">This Week</a></li>
+                                         <li><a class="dropdown-item" href="javascript:void(0);">Last Week</a></li> 
+                                         <li><a class="dropdown-item" href="javascript:void(0);">This Month</a></li> 
+                                    </ul> 
+                                </div>
+                            </div>
+                            <div class="card-body px-0">
+                                <div id="audience-reached"></div>
+                            </div>
+                            <div class="card-footer py-0">
+                                <ul class="list-group list-group-flush audience-reached-list">
+                                    <li class="list-group-item border-bottom-0">
+                                        <div class="d-flex align-items-start justify-content-between">
+                                            <div class="lh-1">
+                                                <div class="fw-medium mb-1">Men</div>
+                                            </div>
+                                            <div class="lh-1 text-end">
+                                                <span class="d-block fw-semibold mb-0">60.64%</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-start justify-content-between">
+                                            <div class="lh-1">
+                                                <div class="fw-medium mb-1">Women</div>
+                                            </div>
+                                            <div class="lh-1 text-end">
+                                                <span class="d-block fw-semibold mb-0">59.36%</span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-6">
+                        <div class="card custom-card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    Audience Top Countries
+                                </div>  
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-xl-4 my-auto">
+                                        <ul class="list-unstyled mb-0 bg-light p-3 rounded">
+                                            <li class="mb-3">
+                                                <span class="fs-12"><i class="ri-checkbox-blank-circle-fill align-middle me-2 d-inline-block text-primary"></i>Usa</span><span class="fw-medium float-end">3,201</span>
+                                            </li>
+                                            <li class="mb-3">
+                                                <span class="fs-12"><i class="ri-checkbox-blank-circle-fill align-middle me-2 d-inline-block text-secondary"></i>India</span><span class="fw-medium float-end">2,345</span>
+                                            </li>
+                                            <li class="mb-3">
+                                                <span class="fs-12"><i class="ri-checkbox-blank-circle-fill align-middle me-2 d-inline-block text-danger"></i>Vatican City</span><span class="fw-medium float-end">106</span>
+                                            </li>
+                                            <li class="mb-3">
+                                                <span class="fs-12"><i class="ri-checkbox-blank-circle-fill align-middle me-2 d-inline-block text-info"></i>Canada</span><span class="fw-medium float-end">2,857</span>
+                                            </li>
+                                            <li class="mb-3">
+                                                <span class="fs-12"><i class="ri-checkbox-blank-circle-fill align-middle me-2 d-inline-block text-orange"></i>Mauritius</span><span class="fw-medium float-end">169</span>
+                                            </li>
+                                            <li class="mb-3">
+                                                <span class="fs-12"><i class="ri-checkbox-blank-circle-fill align-middle me-2 d-inline-block text-warning"></i>Singapore</span><span class="fw-medium float-end">1,950</span>
+                                            </li>
+                                            <li class="mb-3">
+                                                <span class="fs-12"><i class="ri-checkbox-blank-circle-fill align-middle me-2 d-inline-block text-success"></i>Palau</span><span class="fw-medium float-end">224</span>
+                                            </li>
+                                            <li class="mb-0">
+                                                <span class="fs-12"><i class="ri-checkbox-blank-circle-fill align-middle me-2 d-inline-block text-pink"></i>Maldives</span><span class="fw-medium float-end">147</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-xl-8">
+                                        <div id="visitors-countries" class="text-center"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3">
+                        <div class="card custom-card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    Requests
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-unstyled social-requests-list">
+                                    <li>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div>
+                                                <span class="avatar avatar-md avatar-rounded bg-primary-transparent p-1">
+                                                    SI
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill">
+                                                <span class="fw-semibold d-block mb-0">Socrates Itumay</span>
+                                                <span class="text-muted d-block fs-13">Sent you a request from <span class="fw-semibold text-pink">Instagram</span></span>
+                                            </div>
+                                            <div class="dropdown"> 
+                                                <a aria-label="anchor" class="btn btn-primary-light btn-icon btn-sm" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false"> <i class="ri-more-2-fill"></i> </a> 
+                                                <ul class="dropdown-menu" role="menu"> 
+                                                    <li><a class="dropdown-item text-success" href="javascript:void(0);"><i class="ri-check-line me-2 lh-1 align-middle"></i>Accept</a></li> 
+                                                    <li><a class="dropdown-item text-danger" href="javascript:void(0);"><i class="ri-close-line me-2 lh-1 align-middle"></i>Reject</a></li> 
+                                                </ul> 
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div>
+                                                <span class="avatar avatar-md avatar-rounded bg-secondary-transparent p-1">
+                                                    RG
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill">
+                                                <span class="fw-semibold d-block mb-0">Ryan Gercia</span>
+                                                <span class="text-muted d-block fs-13">Followed you on <span class="fw-semibold text-info">Twitter</span></span>
+                                            </div>
+                                            <div class="dropdown"> 
+                                                <a aria-label="anchor" class="btn btn-primary-light btn-icon btn-sm" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false"> <i class="ri-more-2-fill"></i> </a> 
+                                                <ul class="dropdown-menu" role="menu"> 
+                                                    <li><a class="dropdown-item text-success" href="javascript:void(0);"><i class="ri-check-line me-2 lh-1 align-middle"></i>Accept</a></li> 
+                                                    <li><a class="dropdown-item text-danger" href="javascript:void(0);"><i class="ri-close-line me-2 lh-1 align-middle"></i>Reject</a></li> 
+                                                </ul> 
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div>
+                                                <span class="avatar avatar-md avatar-rounded bg-success-transparent p-1">
+                                                    PB
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill">
+                                                <span class="fw-semibold d-block mb-0">Prax Bhav</span>
+                                                <span class="text-muted d-block fs-13">Sent you a connection request on <span class="text-teal fw-semibold">LinkedIn</span></span>
+                                            </div>
+                                            <div class="dropdown"> 
+                                                <a aria-label="anchor" class="btn btn-primary-light btn-icon btn-sm" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false"> <i class="ri-more-2-fill"></i> </a> 
+                                                <ul class="dropdown-menu" role="menu"> 
+                                                    <li><a class="dropdown-item text-success" href="javascript:void(0);"><i class="ri-check-line me-2 lh-1 align-middle"></i>Accept</a></li> 
+                                                    <li><a class="dropdown-item text-danger" href="javascript:void(0);"><i class="ri-close-line me-2 lh-1 align-middle"></i>Reject</a></li> 
+                                                </ul> 
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div>
+                                                <span class="avatar avatar-md avatar-rounded bg-warning-transparent p-1">
+                                                    JC
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill">
+                                                <span class="fw-semibold d-block mb-0">Jackie Chen</span>
+                                                <span class="text-muted d-block fs-13">Followed you on <span class="fw-se"></span>Twitter</span>
+                                            </div>
+                                            <div class="dropdown"> 
+                                                <a aria-label="anchor" class="btn btn-primary-light btn-icon btn-sm" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false"> <i class="ri-more-2-fill"></i> </a> 
+                                                <ul class="dropdown-menu" role="menu"> 
+                                                    <li><a class="dropdown-item text-success" href="javascript:void(0);"><i class="ri-check-line me-2 lh-1 align-middle"></i>Accept</a></li> 
+                                                    <li><a class="dropdown-item text-danger" href="javascript:void(0);"><i class="ri-close-line me-2 lh-1 align-middle"></i>Reject</a></li> 
+                                                </ul> 
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div>
+                                                <span class="avatar avatar-md avatar-rounded bg-info-transparent p-1">
+                                                    SS
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill">
+                                                <span class="fw-semibold d-block mb-0">Samantha Sam</span>
+                                                <span class="text-muted d-block fs-13">Requested to follow you on Instagram</span>
+                                            </div>
+                                            <div class="dropdown"> 
+                                                <a aria-label="anchor" class="btn btn-primary-light btn-icon btn-sm" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false"> <i class="ri-more-2-fill"></i> </a> 
+                                                <ul class="dropdown-menu" role="menu"> 
+                                                    <li><a class="dropdown-item text-success" href="javascript:void(0);"><i class="ri-check-line me-2 lh-1 align-middle"></i>Accept</a></li> 
+                                                    <li><a class="dropdown-item text-danger" href="javascript:void(0);"><i class="ri-close-line me-2 lh-1 align-middle"></i>Reject</a></li> 
+                                                </ul> 
+                                            </div>
+                                        </div>
+                                    </li>
+                                </ul>                                
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-3 -->
+
+                <!-- Start:: row-4 -->
+                <div class="row">
+                    <div class="col-xl-9">
+                        <div class="card custom-card">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Social media Performance
+                                </div>
+                                <div class="d-flex flex-wrap gap-2"> 
+                                    <div> 
+                                        <input class="form-control form-control-sm" type="text" placeholder="Search Here" aria-label=".form-control-sm example"> 
+                                    </div> 
+                                    <div class="dropdown"> 
+                                        <a href="javascript:void(0);" class="btn btn-primary btn-sm btn-wave waves-effect waves-light" data-bs-toggle="dropdown" aria-expanded="false"> Sort By<i class="ri-arrow-down-s-line align-middle ms-1 d-inline-block"></i> 
+                                        </a> 
+                                        <ul class="dropdown-menu" role="menu"> 
+                                            <li><a class="dropdown-item" href="javascript:void(0);">New</a></li> 
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Popular</a></li> 
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Relevant</a></li> 
+                                        </ul> 
+                                    </div> 
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table text-nowrap">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Date</th>
+                                                <th scope="col">Platform</th>
+                                                <th scope="col">Likes</th>
+                                                <th scope="col">Comments</th>
+                                                <th scope="col">Shares</th>
+                                                <th scope="col">Impressions</th>
+                                                <th scope="col">Growth</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    2024-02-15
+                                                </td>
+                                                <td>
+                                                   <div class="d-flex align-items-center gap-2">
+                                                        <span class="avatar avatar-sm bg-danger-transparent">
+                                                            <i class="ri-youtube-fill fs-16"></i>
+                                                        </span>
+                                                        <span class="fw-medium">Youtube</span>
+                                                   </div>
+                                                </td>
+                                                <td>
+                                                    150
+                                                </td>
+                                                <td>
+                                                    25
+                                                </td>
+                                                <td>
+                                                    50
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-primary-transparent">10,000</span>
+                                                </td>
+                                                <td>
+                                                    3.5%
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    2024-02-14
+                                                </td>
+                                                <td>
+                                                   <div class="d-flex align-items-center gap-2">
+                                                        <span class="avatar avatar-sm bg-dark-transparent">
+                                                            <i class="ri-twitter-x-fill fs-16"></i>
+                                                        </span>
+                                                        <span class="fw-medium">Twitter</span>
+                                                   </div>
+                                                </td>
+                                                <td>
+                                                    200
+                                                </td>
+                                                <td>
+                                                    30
+                                                </td>
+                                                <td>
+                                                    70
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-secondary-transparent">15,000</span>
+                                                </td>
+                                                <td>
+                                                    4.2%
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    2024-02-13
+                                                </td>
+                                                <td>
+                                                   <div class="d-flex align-items-center gap-2">
+                                                        <span class="avatar avatar-sm bg-info-transparent">
+                                                            <i class="ri-messenger-fill fs-16"></i>
+                                                        </span>
+                                                        <span class="fw-medium">Facebook</span>
+                                                   </div>
+                                                </td>
+                                                <td>
+                                                    300
+                                                </td>
+                                                <td>
+                                                    40
+                                                </td>
+                                                <td>
+                                                    90
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-success-transparent">20,000</span>
+                                                </td>
+                                                <td>
+                                                    5.0%
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    2024-02-12
+                                                </td>
+                                                <td>
+                                                   <div class="d-flex align-items-center gap-2">
+                                                        <span class="avatar avatar-sm bg-secondary-transparent">
+                                                            <i class="ri-instagram-fill fs-16"></i>
+                                                        </span>
+                                                        <span class="fw-medium">Instagram</span>
+                                                   </div>
+                                                </td>
+                                                <td>
+                                                    100
+                                                </td>
+                                                <td>
+                                                    20
+                                                </td>
+                                                <td>
+                                                    30
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-orange-transparent">8,000</span>
+                                                </td>
+                                                <td>
+                                                    2.1%
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    2024-02-11
+                                                </td>
+                                                <td>
+                                                   <div class="d-flex align-items-center gap-2">
+                                                        <span class="avatar avatar-sm bg-dark-transparent">
+                                                            <i class="ri-twitter-x-fill fs-16"></i>
+                                                        </span>
+                                                        <span class="fw-medium">Twitter</span>
+                                                   </div>
+                                                </td>
+                                                <td>
+                                                    120
+                                                </td>
+                                                <td>
+                                                    15
+                                                </td>
+                                                <td>
+                                                    40
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-info-transparent">12,000</span>
+                                                </td>
+                                                <td>
+                                                    3.0%
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="card-footer border-top-0"> 
+                                <div class="d-flex align-items-center"> 
+                                    <div> Showing 5 Entries <i class="bi bi-arrow-right ms-2 fw-semibold"></i> </div>
+                                    <div class="ms-auto"> 
+                                    <nav aria-label="Page navigation" class="pagination-style-4"> 
+                                        <ul class="pagination mb-0"> 
+                                            <li class="page-item disabled"> <a class="page-link" href="javascript:void(0);"> Prev </a> </li>
+                                                <li class="page-item active"><a class="page-link" href="javascript:void(0);">1</a></li> 
+                                                <li class="page-item"><a class="page-link" href="javascript:void(0);">2</a></li> 
+                                                <li class="page-item"> <a class="page-link text-primary" href="javascript:void(0);"> next </a> </li> 
+                                            </ul> 
+                                        </nav> 
+                                    </div> 
+                                </div> 
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3">
+                        <div class="card custom-card">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Sessions By Device
+                                </div>
+                                <div class="dropdown"> 
+                                    <a href="javascript:void(0);" class="p-2 fs-12 text-muted" data-bs-toggle="dropdown" aria-expanded="true"> Sort By <i class="ri-arrow-down-s-line align-middle ms-1 d-inline-block"></i> </a> 
+                                    <ul class="dropdown-menu"> 
+                                        <li><a class="dropdown-item" href="javascript:void(0);">This Week</a></li>
+                                         <li><a class="dropdown-item" href="javascript:void(0);">Last Week</a></li> 
+                                         <li><a class="dropdown-item" href="javascript:void(0);">This Month</a></li> 
+                                    </ul> 
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="sessions-device"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-4 -->
+                
+            </div>
+        </div> 
+        <!-- End::app-content -->
+
+
+       <!-- include footer.html"-->
+        <!-- include responsive-search-modal.html"-->
+
+    </div>
+
+   <!-- include commonjs.html"-->
+
+    <!-- Apex Charts JS -->
+    <script src="../assets/libs/apexcharts/apexcharts.min.js"></script>
+
+   <!-- JSVector Maps JS -->
+   <script src="../assets/libs/jsvectormap/jsvectormap.min.js"></script>
+
+    <!-- JSVector Maps MapsJS -->
+    <script src="../assets/libs/jsvectormap/maps/world-merc.js"></script>
+
+    <!-- Social Media dashboard -->
+    <script src="../assets/js/social-media-dashboard.js"></script>
+
+    <!-- Custom JS -->
+    <script src="../assets/js/custom.js"></script>
+ 
+    <!-- include custom-switcherjs.html"-->
+    
+</body>
+
+</html> 

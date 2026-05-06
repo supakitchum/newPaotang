@@ -1,0 +1,814 @@
+<!-- include mainhead.html"-->
+<link rel="stylesheet" href="../assets/libs/quill/quill.snow.css">
+<link rel="stylesheet" href="../assets/libs/quill/quill.bubble.css">
+
+</head>
+
+<body>
+
+    <!-- include switcher.html"-->
+   <!-- include loader.html"-->
+
+    <div class="page">
+        <!-- include header.html"-->
+         <!-- include sidebar.html"-->
+
+        <!-- Start::app-content -->
+        <div class="main-content app-content">
+            <div class="container-fluid">
+
+                <!-- Page Header -->
+                <div class="my-4 page-header-breadcrumb d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h1 class="page-title fw-medium fs-18 mb-2">Mail App</h1>
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item">
+                                <a href="javascript:void(0);">
+                                    Pages
+                                </a>
+                            </li>
+                            <li class="breadcrumb-item" aria-current="page"><a href="javascript:void(0);">Email</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">Mail App</li>
+                        </ol>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="d-flex gap-2">
+                            <div class="position-relative">
+                                <button class="btn btn-primary btn-wave" type="button"
+                                    id="dropdownMenuClickableInside" data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside" aria-expanded="false">
+                                    Filter By <i class="ri-arrow-down-s-fill ms-1"></i>
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenuClickableInside">
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Today</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Yesterday</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 7 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 30 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 6 Months</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last Year</a></li>
+                                </ul>
+                            </div>
+                            <button class="btn btn-secondary btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Download">
+                                <i class="ti ti-download"></i>
+                            </button>
+                            <button class="btn btn-success btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Share">
+                                <i class="ti ti-share-3"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Page Header Close -->
+
+                <div class="main-mail-container mb-2 gap-2 d-flex">
+                    <div class="mail-navigation border">
+                        <div class="d-grid align-items-top p-3 border-bottom">
+                            <button class="btn btn-primary d-flex align-items-center justify-content-center" data-bs-toggle="modal"
+                            data-bs-target="#mail-Compose">
+                                <i class="ri-add-circle-line fs-16 align-middle me-1"></i>Compose Mail
+                            </button>
+                        </div>
+                        <div class="d-flex gap-3 align-items-center p-3 bg-primary-transparent">
+                            <div>
+                                <span class="avatar avatar-md online avatar-rounded">
+                                    <img src="../assets/images/faces/9.jpg
+                                    " alt="">
+                                </span>
+                            </div>
+                            <div>
+                                <p class="fw-semibold fs-14 mb-0 text-default">Arjun Arora</p>
+                                <p class="fs-13 mb-0 text-muted fw-medium">arjunarora154@gmail.com</p>
+                            </div>
+                        </div>
+                        <div>
+                            <ul class="list-unstyled mail-main-nav" id="mail-main-nav">
+                                <li class="px-0 pt-0">
+                                    <span class="fs-11 text-muted op-7 fw-medium">MAILS</span>
+                                </li>
+                                <li class="active mail-type">
+                                    <a href="javascript:void(0);">
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-2 lh-1">
+                                                <i class="ri-inbox-archive-line align-middle fs-14"></i>
+                                            </span>
+                                            <span class="flex-fill text-nowrap">
+                                                All Mails
+                                            </span>
+                                            <span class="badge bg-primary rounded-pill">6,446</span>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li class="mail-type">
+                                    <a href="javascript:void(0);">
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-2 lh-1">
+                                                <i class="ri-inbox-archive-line align-middle fs-14"></i>
+                                            </span>
+                                            <span class="flex-fill text-nowrap">
+                                                Inbox
+                                            </span>
+                                            <span class="badge bg-secondary rounded-pill">26</span>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li class="mail-type">
+                                    <a href="javascript:void(0);">
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-2 lh-1">
+                                                <i class="ri-send-plane-2-line align-middle fs-14"></i>
+                                            </span>
+                                            <span class="flex-fill text-nowrap">
+                                                Sent
+                                            </span>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li class="mail-type">
+                                    <a href="javascript:void(0);">
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-2 lh-1">
+                                                <i class="ri-draft-line align-middle fs-14"></i>
+                                            </span>
+                                            <span class="flex-fill text-nowrap">
+                                                Drafts
+                                            </span>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li class="mail-type">
+                                    <a href="javascript:void(0);">
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-2 lh-1">
+                                                <i class="ri-spam-2-line align-middle fs-14"></i>
+                                            </span>
+                                            <span class="flex-fill text-nowrap">
+                                                Spam
+                                            </span>
+                                            <span class="badge bg-danger rounded-pill">6</span>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li class="mail-type">
+                                    <a href="javascript:void(0);">
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-2 lh-1">
+                                                <i class="ri-bookmark-line align-middle fs-14"></i>
+                                            </span>
+                                            <span class="flex-fill text-nowrap">
+                                                Important
+                                            </span>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li class="mail-type">
+                                    <a href="javascript:void(0);">
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-2 lh-1">
+                                                <i class="ri-delete-bin-line align-middle fs-14"></i>
+                                            </span>
+                                            <span class="flex-fill text-nowrap">
+                                                Trash
+                                            </span>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li class="mail-type">
+                                    <a href="javascript:void(0);">
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-2 lh-1">
+                                                <i class="ri-archive-line align-middle fs-14"></i>
+                                            </span>
+                                            <span class="flex-fill text-nowrap">
+                                                Archive
+                                            </span>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li class="mail-type">
+                                    <a href="javascript:void(0);">
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-2 lh-1">
+                                                <i class="ri-star-line align-middle fs-14"></i>
+                                            </span>
+                                            <span class="flex-fill text-nowrap">
+                                                Starred
+                                            </span>
+                                            <span class="badge bg-warning rounded-pill">16</span>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li class="px-0">
+                                    <span class="fs-11 text-muted op-7 fw-medium">SETTINGS</span>
+                                </li>
+                                <li>
+                                    <a href="javascript:void(0);">
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-2 lh-1">
+                                                <i class="ri-settings-3-line align-middle fs-14"></i>
+                                            </span>
+                                            <span class="flex-fill text-nowrap">
+                                                Settings
+                                            </span>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li class="px-0">
+                                    <span class="fs-11 text-muted op-7 fw-medium">LABELS</span>
+                                </li>
+                                <li>
+                                    <a href="javascript:void(0);">
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-2 lh-1">
+                                                <i class="ri-circle-fill align-middle fs-10 fw-medium text-secondary"></i>
+                                            </span>
+                                            <span class="flex-fill text-nowrap">
+                                                Mail
+                                            </span>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="javascript:void(0);">
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-2 lh-1">
+                                                <i class="ri-circle-fill align-middle fs-10 fw-medium text-danger"></i>
+                                            </span>
+                                            <span class="flex-fill text-nowrap">
+                                                Home
+                                            </span>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="javascript:void(0);">
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-2 lh-1">
+                                                <i class="ri-circle-fill align-middle fs-10 fw-medium text-success"></i>
+                                            </span>
+                                            <span class="flex-fill text-nowrap">
+                                                Work
+                                            </span>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="javascript:void(0);">
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-2 lh-1">
+                                                <i class="ri-circle-fill align-middle fs-10 fw-medium text-dark"></i>
+                                            </span>
+                                            <span class="flex-fill text-nowrap">
+                                                Friends
+                                            </span>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li class="px-0">
+                                    <span class="fs-11 text-muted op-7 fw-medium">ONLINE USERS</span>
+                                </li>
+                                <li>
+                                    <a href="javascript:void(0);">
+                                        <div class="d-flex align-items-top lh-1">
+                                            <div class="me-2">
+                                                <span class="avatar avatar-sm online avatar-rounded">
+                                                    <img src="../assets/images/faces/4.jpg" alt="">
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <p class="text-default fw-medium mb-1">Angelica</p>
+                                                <p class="fs-12 text-muted mb-0">Hello this is angelica.</p>
+                                            </div>
+                                        </div>
+                                    </a>    
+                                </li>
+                                <li>
+                                    <a href="javascript:void(0);">
+                                        <div class="d-flex align-items-top lh-1">
+                                            <div class="me-2">
+                                                <span class="avatar avatar-sm online avatar-rounded">
+                                                    <img src="../assets/images/faces/6.jpg" alt="">
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <p class="text-default fw-medium mb-1">Rexha</p>
+                                                <p class="fs-12 text-muted mb-0">Thanks for sharing file &#128512;.</p>
+                                            </div>
+                                        </div>
+                                    </a>    
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="total-mails border">
+                        <div class="p-3 d-flex align-items-center border-bottom flex-wrap gap-2">
+                            <div class="me-3 ms-2">
+                                <input class="form-check-input check-all" type="checkbox" id="check-all" value="" aria-label="...">
+                            </div>
+                            <div class="flex-fill">
+                                <h6 class="fw-medium mb-0">All Mails</h6>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <div class="input-group">
+                                    <input type="text" class="form-control shadow-none" placeholder="Search Email" aria-describedby="button-addon">
+                                    <button class="btn btn-primary" type="button" id="button-addon"><i class="ri-search-line"></i></button>
+                                </div>
+                                <button class="btn btn-icon btn-light me-1 d-lg-none d-block total-mails-close">
+                                    <i class="ri-close-line"></i>
+                                </button>
+                                <div class="dropdown">
+                                    <button class="btn btn-icon btn-secondary btn-wave" type="button"
+                                        data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="ti ti-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Recent</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Unread</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Mark All Read</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Spam</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Delete All</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mail-messages" id="mail-messages">
+                            <ul class="list-unstyled mb-0 mail-messages-container">
+                                <li>
+                                    <div class="d-sm-flex align-items-top">
+                                        <div class="me-3 mt-1">
+                                            <input class="form-check-input" type="checkbox" id="checkboxNoLabel1" value="" aria-label="...">
+                                        </div>
+                                        <div class="me-1 lh-1">
+                                            <span
+                                                class="avatar avatar-md me-2 avatar-rounded mail-msg-avatar">
+                                                <img src="../assets/images/faces/5.jpg" alt="">
+                                            </span>
+                                        </div>
+                                        <div class="flex-fill">
+                                            <a href="javascript:void(0);" data-bs-toggle="offcanvas"
+                                            data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">
+                                                <p class="mb-1 fs-12 fw-medium">
+                                                    Amelia Turner <span
+                                                        class="float-end text-muted fw-normal fs-11"><span class="me-2"><i class="ri-attachment-2 align-middle fs-12"></i></span>1:32PM</span>
+                                                </p>
+                                            </a>    
+                                            <div class="mail-msg mb-0">
+                                                <span class="d-block mb-0 fw-semibold text-truncate w-75">Quarterly Report Review</span>
+                                                <div
+                                                    class="fs-12 text-muted text-wrap text-truncate mail-msg-content">Dear Team, kindly review the attached quarterly report before our meeting at 2 PM tomorrow. Your insights are appreciated.
+                                                    <button class="btn p-0 lh-1 mail-starred true border-0 float-end">
+                                                        <i class="ri-star-fill fs-14"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
+                                <li class="active">
+                                    <div class="d-sm-flex align-items-top">
+                                        <div class="me-3 mt-1">
+                                            <input class="form-check-input" type="checkbox" id="checkboxNoLabel2" value="" aria-label="..." checked>
+                                        </div>
+                                        <div class="me-1 lh-1">
+                                            <span
+                                                class="avatar avatar-md me-2 avatar-rounded mail-msg-avatar">
+                                                <img src="../assets/images/faces/12.jpg" alt="">
+                                            </span>
+                                        </div>
+                                        <div class="flex-fill">
+                                            <a href="javascript:void(0);" data-bs-toggle="offcanvas"
+                                            data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">      
+                                                <p class="mb-1 fs-12 fw-medium">
+                                                    Liam Parker <span
+                                                        class="float-end text-muted fw-normal fs-11">10:27AM</span>
+                                                </p>
+                                            </a>    
+                                            <div class="mail-msg mb-0">
+                                                <span class="d-block mb-0 fw-semibold text-truncate w-75">Proposal Submission Confirmation</span>
+                                                <div
+                                                    class="fs-12 text-muted text-wrap text-truncate mail-msg-content">Good day, this is to confirm the successful submission of our proposal for the upcoming client presentation. Await further instructions.
+                                                    <button class="btn p-0 lh-1 mail-starred border-0 float-end">
+                                                        <i class="ri-star-fill fs-14"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
+                                <li>
+                                    <div class="d-sm-flex align-items-top">
+                                        <div class="me-3 mt-1">
+                                            <input class="form-check-input" type="checkbox" id="checkboxNoLabel3" value="" aria-label="...">
+                                        </div>
+                                        <div class="me-1 lh-1">
+                                            <span
+                                                class="avatar avatar-md me-2 avatar-rounded bg-primary mail-msg-avatar">
+                                                OF
+                                            </span>
+                                        </div>
+                                        <div class="flex-fill">
+                                            <a href="javascript:void(0);" data-bs-toggle="offcanvas"
+                                            data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">
+                                                <p class="mb-1 fs-12 fw-medium">
+                                                    Owen Foster <span class="badge bg-success ms-2">Promotion</span><span
+                                                        class="float-end text-muted fw-normal fs-11">Yesterday, 10:27AM</span>
+                                                </p>
+                                            </a>    
+                                            <div class="mail-msg mb-0">
+                                                <span class="d-block mb-0 fw-semibold text-truncate w-75">Schedule Adjustment Request</span>
+                                                <div
+                                                    class="fs-12 text-muted text-wrap text-truncate mail-msg-content">Colleagues, I am requesting a brief meeting tomorrow to discuss a necessary adjustment to our project schedule. Your availability appreciated.
+                                                    <button class="btn p-0 lh-1 mail-starred border-0 float-end">
+                                                        <i class="ri-star-fill fs-14"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
+                                <li>
+                                    <div class="d-sm-flex align-items-top">
+                                        <div class="me-3 mt-1">
+                                            <input class="form-check-input" type="checkbox" id="checkboxNoLabel54" value="" aria-label="..." checked>
+                                        </div>
+                                        <div class="me-1 lh-1">
+                                            <span
+                                                class="avatar avatar-md me-2 avatar-rounded mail-msg-avatar">
+                                                <img src="../assets/images/faces/7.jpg" alt="">
+                                            </span>
+                                        </div>
+                                        <div class="flex-fill">
+                                            <a href="javascript:void(0);" data-bs-toggle="offcanvas"
+                                            data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">
+                                                <p class="mb-1 fs-12 fw-medium">
+                                                    Isabella Carter <span class="badge bg-primary ms-2">Social</span><span
+                                                        class="float-end text-muted fw-normal fs-11">24 Oct, 5:45PM</span>
+                                                </p>
+                                            </a>    
+                                            <div class="mail-msg mb-0">
+                                                <span class="d-block mb-0 fw-semibold text-truncate w-75"> Invitation to Industry Webinar</span>
+                                                <div
+                                                    class="fs-12 text-muted text-wrap text-truncate mail-msg-content">Greetings, I invite you to join an industry webinar on [Topic] this Friday at 3 PM. Your participation would be valuable. RSVP at your earliest convenience.
+                                                    <button class="btn p-0 lh-1 mail-starred border-0 float-end">
+                                                        <i class="ri-star-fill fs-14"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
+                                <li>
+                                    <div class="d-sm-flex align-items-top">
+                                        <div class="me-3 mt-1">
+                                            <input class="form-check-input" type="checkbox" id="checkboxNoLabel14" value="" aria-label="...">
+                                        </div>
+                                        <div class="me-1 lh-1">
+                                            <span
+                                                class="avatar avatar-md me-2 avatar-rounded mail-msg-avatar">
+                                                <img src="../assets/images/faces/15.jpg" alt="">
+                                            </span>
+                                        </div>
+                                        <div class="flex-fill">
+                                            <a href="javascript:void(0);" data-bs-toggle="offcanvas"
+                                            data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">
+                                                <p class="mb-1 fs-12 fw-medium">
+                                                    Mason Wallace <span
+                                                        class="float-end text-muted fw-normal fs-11">12 Sep, 11:24AM</span>
+                                                </p>
+                                            </a>    
+                                            <div class="mail-msg mb-0">
+                                                <span class="d-block mb-0 fw-semibold text-truncate w-75">Budget Approval Pending</span>
+                                                <div
+                                                    class="fs-12 text-muted text-wrap text-truncate mail-msg-content">Team, our budget proposal is pending approval. Please review the final draft attached and share any last-minute feedback before tomorrow's meeting.
+                                                    <button class="btn p-0 lh-1 mail-starred true border-0 float-end">
+                                                        <i class="ri-star-fill fs-14"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
+                                <li>
+                                    <div class="d-sm-flex align-items-top">
+                                        <div class="me-3 mt-1">
+                                            <input class="form-check-input" type="checkbox" id="checkboxNoLabel24" value="" aria-label="...">
+                                        </div>
+                                        <div class="me-1 lh-1">
+                                            <span
+                                                class="avatar avatar-md me-2 avatar-rounded bg-secondary mail-msg-avatar">
+                                                LP
+                                            </span>
+                                        </div>
+                                        <div class="flex-fill">
+                                            <a href="javascript:void(0);" data-bs-toggle="offcanvas"
+                                            data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">
+                                                <p class="mb-1 fs-12 fw-medium">
+                                                    Leo Phillips <span class="badge bg-danger ms-2">Personal</span><span
+                                                        class="float-end text-muted fw-normal fs-11">11 Sep, 10:32AM</span>
+                                                </p>
+                                            </a>    
+                                            <p class="fs-12 mb-0">
+                                            <div class="mail-msg mb-0">
+                                                <span class="d-block mb-0 fw-semibold text-truncate w-75">Project Update Meeting</span>
+                                                <div
+                                                    class="fs-12 text-muted text-wrap text-truncate mail-msg-content">Hello Team, let's convene for a project update meeting on Thursday at 10 AM. Please come prepared with progress reports and potential roadblocks.
+                                                    <button class="btn p-0 lh-1 mail-starred true border-0 float-end">
+                                                        <i class="ri-star-fill fs-14"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
+                                <li>
+                                    <div class="d-sm-flex align-items-top">
+                                        <div class="me-3 mt-1">
+                                            <input class="form-check-input" type="checkbox" id="checkboxNoLabel34" value="" aria-label="...">
+                                        </div>
+                                        <div class="me-1 lh-1">
+                                            <span
+                                                class="avatar avatar-md me-2 avatar-rounded bg-success mail-msg-avatar">
+                                                LB
+                                            </span>
+                                        </div>
+                                        <div class="flex-fill">
+                                            <a href="javascript:void(0);" data-bs-toggle="offcanvas"
+                                            data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">
+                                                <p class="mb-1 fs-12 fw-medium">
+                                                    Logan Brooks <span
+                                                        class="float-end text-muted fw-normal fs-11">08 Aug, 08:12AM</span>
+                                                </p>
+                                            </a>    
+                                            <p class="fs-12 mb-0">
+                                            <div class="mail-msg mb-0">
+                                                <span class="d-block mb-0 fw-semibold text-truncate w-75">Request for Collaboration</span>
+                                                <div
+                                                    class="fs-12 text-muted text-wrap text-truncate mail-msg-content">Dear [Name], I am reaching out to explore potential collaboration opportunities between our organizations. Would you be available for a brief discussion next week?
+                                                    <button class="btn p-0 lh-1 mail-starred border-0 float-end">
+                                                        <i class="ri-star-fill fs-14"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
+                                <li>
+                                    <div class="d-sm-flex align-items-top">
+                                        <div class="me-3 mt-1">
+                                            <input class="form-check-input" type="checkbox" id="checkboxNoLabel44" value="" aria-label="...">
+                                        </div>
+                                        <div class="me-1 lh-1">
+                                            <span
+                                                class="avatar avatar-md me-2 avatar-rounded mail-msg-avatar">
+                                                <img src="../assets/images/faces/13.jpg" alt="">
+                                            </span>
+                                        </div>
+                                        <div class="flex-fill">
+                                            <a href="javascript:void(0);" data-bs-toggle="offcanvas"
+                                            data-bs-target="#offcanvasRight" aria-controls="offcanvasRight">
+                                                <p class="mb-1 fs-12 fw-medium">
+                                                    Jackson Rivera <span
+                                                        class="float-end text-muted fw-normal fs-11">16 July, 05:52PM</span>
+                                                </p>
+                                            </a>    
+                                            <p class="fs-12 mb-0">
+                                            <div class="mail-msg mb-0">
+                                                <span class="d-block mb-0 fw-semibold text-truncate w-75">Training Session Confirmation</span>
+                                                <div
+                                                    class="fs-12 text-muted text-wrap text-truncate mail-msg-content">Greetings, your registration for the upcoming training session on [Topic] has been confirmed. Details and pre-read materials are attached. Ensure your readiness.
+                                                    <button class="btn p-0 lh-1 mail-starred border-0 float-end">
+                                                        <i class="ri-star-fill fs-14"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- End::app-content -->
+
+        <!-- Start::mail information offcanvas -->
+        <div class="offcanvas offcanvas-end mail-info-offcanvas" tabindex="-1" id="offcanvasRight"
+            > 
+            <div class="offcanvas-body p-0">
+                <div class="mails-information">
+                        <div class="mail-info-header d-flex flex-wrap gap-2 align-items-center">
+                            <div class="me-1">
+                                <span class="avatar avatar-md me-2 avatar-rounded mail-msg-avatar">
+                                    <img src="../assets/images/faces/12.jpg" alt="">
+                                </span>
+                            </div>    
+                            <div class="flex-fill">
+                                <h6 class="mb-0 fw-medium">Benjamin</h6>
+                                <span class="text-muted fs-12">benjamin2194@gmail.com</span>
+                            </div>
+                            <div class="mail-action-icons">
+                                <button class="btn btn-icon btn-outline-light border" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Starred">
+                                    <i class="ri-star-line"></i>
+                                </button>
+                                <button class="btn btn-icon btn-outline-light border ms-1" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Archive">
+                                    <i class="ri-inbox-archive-line"></i>
+                                </button>
+                                <button class="btn btn-icon btn-outline-light border ms-1" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Report spam">
+                                    <i class="ri-spam-2-line"></i>
+                                </button>
+                                <button class="btn btn-icon btn-outline-light border ms-1" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete">
+                                    <i class="ri-delete-bin-line"></i>
+                                </button>
+                                <button class="btn btn-icon btn-outline-light border ms-1" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Reply">
+                                    <i class="ri-reply-line"></i>
+                                </button>
+                                <button type="button" class="btn-close btn btn-sm btn-icon border" data-bs-dismiss="offcanvas"
+                                    aria-label="Close"></button>
+                            </div>
+                            <div class="responsive-mail-action-icons">
+                                <div class="dropdown">
+                                    <button class="btn btn-icon btn-light btn-wave waves-light waves-effect waves-light" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="ti ti-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-star-line me-1 align-middle d-inline-block"></i>Starred</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-inbox-archive-line me-1 align-middle d-inline-block"></i>Archive</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-spam-2-line me-1 align-middle d-inline-block"></i>Report Spam</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-delete-bin-line me-1 align-middle d-inline-block"></i>Delete</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-reply-line me-1 align-middle d-inline-block"></i>Reply</a></li>
+                                    </ul>
+                                </div>
+                                <button class="btn btn-icon btn-light ms-1 close-button" data-bs-dismiss="offcanvas" aria-label="Close">
+                                    <i class="ri-close-line"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mail-info-body p-4" id="mail-info-body">
+                            <div class="d-sm-flex d-block align-items-center justify-content-between mb-4">
+                                <div>
+                                    <p class="fs-20 fw-medium mb-0">Strategic Insights Webinar: Navigating Future Trends.</p>
+                                </div>
+                                <div class="float-end">
+                                    <span class="me-2 fs-12 text-muted">Oct-22-2024,03:05PM</span>
+                                </div>
+                            </div>
+                            <div class="main-mail-content mb-4">
+                                <p class="fs-14 fw-medium mb-4">Greetings Mr Jack &#128400;,</p>
+                                <p class="mb-2 text-muted">We're excited to invite you to our upcoming webinar, "Navigating Future Trends," where industry experts will share strategic insights to help you stay ahead in an ever-evolving landscape. Join us on [Date] at [Time] for an engaging session that promises to provide actionable knowledge and valuable perspectives.</p>
+                                <span class="d-block text-muted fw-meidum">Key Highlights :</span>
+                                <ul class="text-muted my-3">
+                                    <li class="mb-2">Expert analysis of emerging trends</li>
+                                    <li class="mb-2">Practical strategies for staying competitive</li>
+                                    <li class="mb-2">Q&A session for personalized insights</li>
+                                </ul>
+                                <p class="mb-2 text-muted">Earth has a diameter of roughly 8,000 miles (13,000 kilometers) and is mostly round because gravity generally pulls matter into a ball. But the spin of our home planet causes it to be squashed at its poles and swollen at the equator, making the true shape of the Earth an "oblate spheroid.".</p>
+                                <p class="mb-0 mt-4">
+                                    <span class="d-block">Best Regards,</span>
+                                    <span class="d-block">Benjamin</span>
+                                </p>
+                            </div>
+                            <div class="mail-attachments mb-4">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="mb-0"> 
+                                        <span class="fs-14 fw-medium"><i class="ri-attachment-2 me-1 align-middle"></i>Attachments (1.8mb):</span>
+                                    </div>
+                                    <div class="btn-list">
+                                        <button class="btn btn-sm btn-warning-light">View All</button>
+                                        <button class="btn btn-sm btn-success-light">Download All</button>
+                                    </div>
+                                </div>    
+                                <div class="mt-2 d-flex flex-wrap gap-3">
+                                    <a href="javascript:void(0)">
+                                        <span class="avatar avatar-xl shadow-sm">
+                                            <img src="../assets/images/media/media-74.jpg" alt="">
+                                        </span>
+                                    </a>
+                                    <a href="javascript:void(0)">
+                                        <span class="avatar avatar-xl shadow-sm">
+                                            <img src="../assets/images/media/media-75.jpg" alt="">
+                                        </span>
+                                    </a>
+                                    <a href="javascript:void(0)">
+                                        <span class="avatar avatar-xl shadow-sm">
+                                            <img src="../assets/images/media/media-76.jpg" alt="">
+                                        </span>
+                                    </a>
+                                    <a href="javascript:void(0)">
+                                        <span class="avatar avatar-xl shadow-sm">
+                                            <img src="../assets/images/media/media-77.jpg" alt="">
+                                        </span>
+                                    </a>
+                                    <a href="javascript:void(0)">
+                                        <span class="avatar avatar-xl bg-primary-transparent">
+                                            15+
+                                        </span>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="mb-3"> 
+                                <span class="fs-14 fw-medium"><i class="ri-reply-all-line me-1 align-middle d-inline-block"></i>Reply:</span>
+                            </div>
+                            <div class="mail-reply">
+                                <div id="mail-reply-editor"></div>
+                            </div>
+                        </div>
+                        <div class="mail-info-footer d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                            <div>
+                                <button class="btn btn-icon btn-primary-light" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Print">
+                                    <i class="ri-printer-line"></i>
+                                </button>
+                                <button class="btn btn-icon btn-secondary-light ms-1" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Mark as read">
+                                    <i class="ri-mail-open-line"></i>
+                                </button>
+                                <button class="btn btn-icon btn-success-light ms-1" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Reload">
+                                    <i class="ri-refresh-line"></i>
+                                </button>
+                            </div>
+                            <div>
+                                <button class="btn btn-secondary">
+                                    <i class="ri-share-forward-line me-1 d-inline-block align-middle"></i>Forward
+                                </button>
+                                <button class="btn btn-danger ms-1">
+                                    <i class="ri-reply-all-line me-1 d-inline-block align-middle"></i>Reply
+                                </button>
+                            </div>
+                        </div>
+                </div>
+            </div>
+        </div>
+        <!-- End::mail information offcanvas -->
+
+        <!-- Start::compose mail modal -->
+        <div class="modal modal-lg fade" id="mail-Compose" tabindex="-1" aria-labelledby="mail-ComposeLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h6 class="modal-title" id="mail-ComposeLabel">Compose Mail</h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body px-4">
+                        <div class="row">
+                            <div class="col-xl-6 mb-2">
+                                <label for="fromMail" class="form-label">From<sup><i class="ri-star-s-fill text-success fs-8"></i></sup></label>
+                                <input type="email" class="form-control" id="fromMail" value="jackmiller2345@gmail.com">
+                            </div>
+                            <div class="col-xl-6 mb-2">
+                                <label for="toMail" class="form-label">To<sup><i class="ri-star-s-fill text-success fs-8"></i></sup></label>
+                                <select class="form-control" name="toMail" id="toMail" multiple>
+                                    <option value="Choice 1" selected>jay@gmail.com</option>
+                                    <option value="Choice 2">kia@gmail.com</option>
+                                    <option value="Choice 3">don@gmail.com</option>
+                                    <option value="Choice 4">kimo@gmail.com</option>
+                                </select>
+                            </div>
+                            <div class="col-xl-6 mb-2">
+                                <label for="mailCC" class="form-label text-dark fw-medium">Cc</label>
+                                <input type="email" class="form-control" id="mailCC">
+                            </div>
+                            <div class="col-xl-6 mb-2">
+                                <label for="mailBcc" class="form-label text-dark fw-medium">Bcc</label>
+                                <input type="email" class="form-control" id="mailBcc">
+                            </div>
+                            <div class="col-xl-12 mb-2">
+                                <label for="Subject" class="form-label">Subject</label>
+                                <input type="text" class="form-control" id="Subject" placeholder="Subject">
+                            </div>
+                            <div class="col-xl-12">
+                                <label class="col-form-label">Content :</label>
+                                <div class="mail-compose">
+                                    <div id="mail-compose-editor"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light"
+                            data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- End::compose mail modal -->
+        
+       <!-- include footer.html"-->
+        <!-- include responsive-search-modal.html"-->
+
+    </div>
+
+   <!-- include commonjs.html"-->
+
+    <!-- include custom-switcherjs.html"-->
+
+    <!-- Quill Editor JS -->
+    <script src="../assets/libs/quill/quill.js"></script>
+
+    <!-- Mail JS -->
+    <script src="../assets/js/mail.js"></script>
+
+    <!-- Custom JS -->
+    <script src="../assets/js/custom.js"></script>
+
+</body>
+
+</html>

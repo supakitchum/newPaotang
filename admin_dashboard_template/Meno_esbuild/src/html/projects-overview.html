@@ -1,0 +1,583 @@
+<!-- include mainhead.html"-->
+
+</head>
+
+<body>
+
+    <!-- include switcher.html"-->
+   <!-- include loader.html"-->
+
+    <div class="page">
+        <!-- include header.html"-->
+         <!-- include sidebar.html"-->
+
+        <!-- Start::app-content -->
+        <div class="main-content app-content">
+            <div class="container-fluid">
+
+                <!-- Page Header -->
+                <div class="my-4 page-header-breadcrumb d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h1 class="page-title fw-medium fs-18 mb-2">Projects Overview</h1>
+                        <div class="">
+                            <nav>
+                                <ol class="breadcrumb mb-0">
+                                    <li class="breadcrumb-item"><a href="javascript:void(0);">Apps</a></li>
+                                    <li class="breadcrumb-item"><a href="javascript:void(0);">Projects</a></li>
+                                    <li class="breadcrumb-item active" aria-current="page">Projects Overview</li>
+                                </ol>
+                            </nav>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="d-flex gap-2">
+                            <div class="position-relative">
+                                <button class="btn btn-primary btn-wave" type="button"
+                                    id="dropdownMenuClickableInside" data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside" aria-expanded="false">
+                                    Filter By <i class="ri-arrow-down-s-fill ms-1"></i>
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenuClickableInside">
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Today</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Yesterday</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 7 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 30 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 6 Months</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last Year</a></li>
+                                </ul>
+                            </div>
+                            <button class="btn btn-secondary btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Download">
+                                <i class="ti ti-download"></i>
+                            </button>
+                            <button class="btn btn-success btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Share">
+                                <i class="ti ti-share-3"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Page Header Close -->
+
+                <!-- Start::row-1 -->
+                <div class="row">
+                    <div class="col-xl-4">
+                        <div class="card custom-card overflow-hidden">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Project Team
+                                </div>
+                                <div>
+                                    <button class="btn btn-light btn-sm btn-wave"><i class="ri-add-line align-middle me-1 fw-medium"></i>Add Member</button>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table text-nowrap">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Designation</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="me-2 lh-1">
+                                                            <span class="avatar avatar-xs avatar-rounded">
+                                                                <img src="../assets/images/faces/2.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div class="fw-medium fs-13">Simon Conway</div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-primary-transparent">UI Developer</span>
+                                                </td>
+                                                <td>
+                                                    <div class="dropdown">
+                                                        <a aria-label="anchor" href="javascript:void(0);" class="btn btn-icon btn-sm btn-light" data-bs-toggle="dropdown" aria-expanded="false">
+                                                            <i class="fe fe-more-vertical"></i>
+                                                        </a>
+                                                        <ul class="dropdown-menu">
+                                                            <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-eye-line align-middle me-1 d-inline-block"></i>View</a></li>
+                                                            <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-edit-line align-middle me-1 d-inline-block"></i>Edit</a></li>
+                                                            <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-delete-bin-line me-1 align-middle d-inline-block"></i>Delete</a></li>
+                                                        </ul>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="me-2 lh-1">
+                                                            <span class="avatar avatar-xs avatar-rounded">
+                                                                <img src="../assets/images/faces/8.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div class="fw-medium fs-13">Sasha Banks</div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-pink-transparent">Ui Designer</span>
+                                                </td>
+                                                <td>
+                                                    <div class="dropdown">
+                                                        <a aria-label="anchor" href="javascript:void(0);" class="btn btn-icon btn-sm btn-light" data-bs-toggle="dropdown" aria-expanded="false">
+                                                            <i class="fe fe-more-vertical"></i>
+                                                        </a>
+                                                        <ul class="dropdown-menu">
+                                                            <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-eye-line align-middle me-1 d-inline-block"></i>View</a></li>
+                                                            <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-edit-line align-middle me-1 d-inline-block"></i>Edit</a></li>
+                                                            <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-delete-bin-line me-1 align-middle d-inline-block"></i>Delete</a></li>
+                                                        </ul>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="me-2 lh-1">
+                                                            <span class="avatar avatar-xs avatar-rounded">
+                                                                <img src="../assets/images/faces/5.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div class="fw-medium fs-13">Anagha May</div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-warning-transparent">UI Tester</span>
+                                                </td>
+                                                <td>
+                                                    <div class="dropdown">
+                                                        <a aria-label="anchor" href="javascript:void(0);" class="btn btn-icon btn-sm btn-light" data-bs-toggle="dropdown" aria-expanded="false">
+                                                            <i class="fe fe-more-vertical"></i>
+                                                        </a>
+                                                        <ul class="dropdown-menu">
+                                                            <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-eye-line align-middle me-1 d-inline-block"></i>View</a></li>
+                                                            <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-edit-line align-middle me-1 d-inline-block"></i>Edit</a></li>
+                                                            <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-delete-bin-line me-1 align-middle d-inline-block"></i>Delete</a></li>
+                                                        </ul>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="me-2 lh-1">
+                                                            <span class="avatar avatar-xs avatar-rounded">
+                                                                <img src="../assets/images/faces/10.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div class="fw-medium fs-13">Hishen Stuart</div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-success-transparent">Angular Developer</span>
+                                                </td>
+                                                <td>
+                                                    <div class="dropdown">
+                                                        <a aria-label="anchor" href="javascript:void(0);" class="btn btn-icon btn-sm btn-light" data-bs-toggle="dropdown" aria-expanded="false">
+                                                            <i class="fe fe-more-vertical"></i>
+                                                        </a>
+                                                        <ul class="dropdown-menu">
+                                                            <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-eye-line align-middle me-1 d-inline-block"></i>View</a></li>
+                                                            <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-edit-line align-middle me-1 d-inline-block"></i>Edit</a></li>
+                                                            <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-delete-bin-line me-1 align-middle d-inline-block"></i>Delete</a></li>
+                                                        </ul>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card custom-card">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">Project Goals</div>
+                                <div class="btn btn-sm btn-light btn-wave"><i class="ri-add-line align-middle me-1 fw-medium"></i>Add Goal</div>
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-group">
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center">
+                                            <div class="me-2"><input class="form-check-input form-checked-success" type="checkbox" value="" id="successChecked1" checked=""></div>
+                                            <div class="fw-medium">Enhance user experience</div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center">
+                                            <div class="me-2"><input class="form-check-input form-checked-success" type="checkbox" value="" id="successChecked2"></div>
+                                            <div class="fw-medium">Boost inventory accuracy</div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center">
+                                            <div class="me-2"><input class="form-check-input form-checked-success" type="checkbox" value="" id="successChecked3"></div>
+                                            <div class="fw-medium">Reduce manual errors</div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center">
+                                            <div class="me-2"><input class="form-check-input form-checked-success" type="checkbox" value="" id="successChecked4"></div>
+                                            <div class="fw-medium">Improve data security</div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center">
+                                            <div class="me-2"><input class="form-check-input form-checked-success" type="checkbox" value="" id="successChecked5" checked=""></div>
+                                            <div class="fw-medium">Increase operational efficiency</div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center">
+                                            <div class="me-2"><input class="form-check-input form-checked-success" type="checkbox" value="" id="successChecked6" checked=""></div>
+                                            <div class="fw-medium">Enhance reporting capabilities</div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center">
+                                            <div class="me-2"><input class="form-check-input form-checked-success" type="checkbox" value="" id="successChecked7" checked=""></div>
+                                            <div class="fw-medium">Reduce excess costs</div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center">
+                                            <div class="me-2"><input class="form-check-input form-checked-success" type="checkbox" value="" id="successChecked77"></div>
+                                            <div class="fw-medium">Achieve regulatory compliance</div>
+                                        </div>
+                                    </li>
+                                </ul>
+                                <div class="mt-3 text-center">
+                                    <button class="btn btn-success btn-wave">View All</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card custom-card overflow-hidden">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    Project Documents
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center flex-wrap gap-2">
+                                            <div class="lh-1">
+                                                <span class="avatar avatar-rounded p-2 bg-light">
+                                                    <img src="../assets/images/media/file-manager/1.png" alt="">
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill">
+                                                <a href="javascript:void(0);"><span class="d-block fw-medium">Full Project</span></a>
+                                                <span class="d-block text-muted fs-12 fw-normal">0.45MB</span>
+                                            </div>
+                                            <div class="btn-list">
+                                                <button class="btn btn-sm btn-icon btn-info-light btn-wave"><i class="ri-edit-line"></i></button>
+                                                <button class="btn btn-sm btn-icon btn-danger-light btn-wave"><i class="ri-delete-bin-line"></i></button>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center flex-wrap gap-2">
+                                            <div class="lh-1">
+                                                <span class="avatar avatar-rounded bg-light">
+                                                    <img src="../assets/images/media/file-manager/3.png" alt="">
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill">
+                                                <a href="javascript:void(0);"><span class="d-block fw-medium">assets.zip</span></a>
+                                                <span class="d-block text-muted fs-12 fw-normal">0.99MB</span>
+                                            </div>
+                                            <div class="btn-list">
+                                                <button class="btn btn-sm btn-icon btn-info-light btn-wave"><i class="ri-edit-line"></i></button>
+                                                <button class="btn btn-sm btn-icon btn-danger-light btn-wave"><i class="ri-delete-bin-line"></i></button>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center flex-wrap gap-2">
+                                            <div class="lh-1">
+                                                <span class="avatar avatar-rounded p-2 bg-light">
+                                                    <img src="../assets/images/media/file-manager/1.png" alt="">
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill">
+                                                <a href="javascript:void(0);"><span class="d-block fw-medium">image-1.png</span></a>
+                                                <span class="d-block text-muted fs-12 fw-normal">245KB</span>
+                                            </div>
+                                            <div class="btn-list">
+                                                <button class="btn btn-sm btn-icon btn-info-light btn-wave"><i class="ri-edit-line"></i></button>
+                                                <button class="btn btn-sm btn-icon btn-danger-light btn-wave"><i class="ri-delete-bin-line"></i></button>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center flex-wrap gap-2">
+                                            <div class="lh-1">
+                                                <span class="avatar avatar-rounded bg-light">
+                                                    <img src="../assets/images/media/file-manager/3.png" alt="">
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill">
+                                                <a href="javascript:void(0);"><span class="d-block fw-medium">documentation.zip</span></a>
+                                                <span class="d-block text-muted fs-12 fw-normal">2MB</span>
+                                            </div>
+                                            <div class="btn-list">
+                                                <button class="btn btn-sm btn-icon btn-info-light btn-wave"><i class="ri-edit-line"></i></button>
+                                                <button class="btn btn-sm btn-icon btn-danger-light btn-wave"><i class="ri-delete-bin-line"></i></button>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center flex-wrap gap-2">
+                                            <div class="lh-1">
+                                                <span class="avatar avatar-rounded bg-light">
+                                                    <img src="../assets/images/media/file-manager/3.png" alt="">
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill">
+                                                <a href="javascript:void(0);"><span class="d-block fw-medium">landing.zip</span></a>
+                                                <span class="d-block text-muted fs-12 fw-normal">3.46MB</span>
+                                            </div>
+                                            <div class="btn-list">
+                                                <button class="btn btn-sm btn-icon btn-info-light btn-wave"><i class="ri-edit-line"></i></button>
+                                                <button class="btn btn-sm btn-icon btn-danger-light btn-wave"><i class="ri-delete-bin-line"></i></button>
+                                            </div>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-8">
+                        <div class="card custom-card">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Project Details
+                                </div> 
+                                <div>
+                                    <a href="projects-create.html" class="btn btn-sm btn-secondary btn-wave"><i class="ri-add-line align-middle me-1 fw-medium"></i>Create Project</a>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <h5 class="fw-medium mb-4 task-title">
+                                    Inventory Management System Enhancement
+                                </h5>
+                                <div class="fs-15 fw-medium mb-2">Project Description :</div>
+                                <p class="text-muted task-description">The Inventory Management System Enhancement project aims to improve our existing system to streamline inventory processes and enhance overall operational efficiency. This project will involve critical updates and feature additions to optimize our inventory management.</p>
+                                <div class="fs-15 fw-medium mb-2">Key tasks :</div>
+                                <div class="mb-3">
+                                    <ul class="task-details-key-tasks mb-0">
+                                        <li>Assess the current inventory management system to identify pain points, limitations, and areas in need of improvement.</li>
+                                        <li>Redesign the user interface for improved user experience, making it more intuitive and user-friendly.</li>
+                                        <li>Optimize the database structure and performance for faster data retrieval and storage.</li>
+                                        <li>Implement barcode scanning functionality to expedite product entry and tracking.</li>
+                                        <li>Develop an automated reorder system that alerts staff when inventory levels reach predefined thresholds.</li>
+                                        <li> Create reporting and analytics capabilities to provide insights into inventory turnover and forecasting.</li>
+                                    </ul>
+                                </div>
+                                <div class="fs-15 fw-medium mb-2">Skills :</div>
+                                <div>
+                                    <span class="badge bg-light text-default border">Teamwork</span>
+                                    <span class="badge bg-light text-default border">Graphic Design</span>
+                                    <span class="badge bg-light text-default border">Responsive Design</span>
+                                    <span class="badge bg-light text-default border">Web Accessibility</span>
+                                    <span class="badge bg-light text-default border">Front-End Build Tools</span>
+                                    <span class="badge bg-light text-default border">RESTful APIs</span>
+                                    <span class="badge bg-light text-default border">Performance Testing</span>
+                                    <span class="badge bg-light text-default border">Angular</span>
+                                    <span class="badge bg-light text-default border">Vue.js</span>
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                                    <div>
+                                        <span class="d-block text-muted fs-12">Project Manager</span>
+                                        <div class="d-flex align-items-center">
+                                            <div class="me-2 lh-1">
+                                                <span class="avatar avatar-xs avatar-rounded">
+                                                    <img src="../assets/images/faces/13.jpg" alt="">
+                                                </span>
+                                            </div>
+                                            <span class="d-block fs-14 fw-medium">S.K.Jacob</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <span class="d-block text-muted fs-12">Start Date</span>
+                                        <span class="d-block fs-14 fw-medium">22,Dec 2024</span>
+                                    </div>
+                                    <div>
+                                        <span class="d-block text-muted fs-12">End Date</span>
+                                        <span class="d-block fs-14 fw-medium">10,Feb 2024</span>
+                                    </div>
+                                    <div>
+                                        <span class="d-block text-muted fs-12">Assigned To</span>
+                                        <div class="avatar-list-stacked">
+                                            <span class="avatar avatar-sm avatar-rounded" data-bs-toggle="tooltip" data-bs-custom-class="tooltip-primary" data-bs-original-title="Simon">
+                                                <img src="../assets/images/faces/2.jpg" alt="img">
+                                            </span>
+                                            <span class="avatar avatar-sm avatar-rounded" data-bs-toggle="tooltip" data-bs-custom-class="tooltip-primary" data-bs-original-title="Sasha">
+                                                <img src="../assets/images/faces/8.jpg" alt="img">
+                                            </span>
+                                            <span class="avatar avatar-sm avatar-rounded" data-bs-toggle="tooltip" data-bs-custom-class="tooltip-primary" data-bs-original-title="Anagha">
+                                                <img src="../assets/images/faces/5.jpg" alt="img">
+                                            </span>
+                                            <span class="avatar avatar-sm avatar-rounded" data-bs-toggle="tooltip" data-bs-custom-class="tooltip-primary" data-bs-original-title="Hishen">
+                                                <img src="../assets/images/faces/10.jpg" alt="img">
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <span class="d-block text-muted fs-12">Status</span>
+                                        <span class="d-block"><span class="badge bg-primary-transparent">In Progress</span></span>
+                                    </div>
+                                    <div>
+                                        <span class="d-block text-muted fs-12">Priority</span>
+                                        <span class="d-block fs-14 fw-medium"><span class="badge bg-success-transparent">Low</span></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card custom-card">
+                            <div class="card-header">
+                                <div class="card-title">Project Discussions</div>
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-unstyled profile-timeline">
+                                    <li>
+                                        <div>
+                                            <span class="avatar avatar-sm bg-primary-transparent avatar-rounded profile-timeline-avatar">
+                                                E
+                                            </span>
+                                            <p class="mb-2">
+                                                <span class="fw-medium">Project Kick-off Meeting</span>
+                                            </p>
+                                            <p class="text-muted mb-0">
+                                                Discuss project scope, objectives, and timelines.
+                                            </p>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div>
+                                            <span class="avatar avatar-sm avatar-rounded profile-timeline-avatar">
+                                                <img src="../assets/images/faces/11.jpg" alt="">
+                                            </span>
+                                            <p class="text-muted mb-2">
+                                                <span class="fw-medium">Security and Compliance Audit</span>
+                                            </p>
+                                            <p class="text-muted mb-0">
+                                                Ensure the system adheres to security and regulatory requirements.
+                                            </p>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div>
+                                            <span class="avatar avatar-sm avatar-rounded profile-timeline-avatar">
+                                                <img src="../assets/images/faces/4.jpg" alt="">
+                                            </span>
+                                            <p class="text-muted mb-2">
+                                                <span class="text-default"><b>Alicia Keys</b> shared a document with <b>you</b></span>.<span class="float-end fs-11 text-muted">21,Dec 2024 - 15:32</span>
+                                            </p>
+                                            <p class="profile-activity-media mb-0">
+                                                <a href="javascript:void(0);">
+                                                    <img src="../assets/images/media/file-manager/3.png" alt="">
+                                                </a>  
+                                                <span class="fs-11 text-muted">432.87KB</span>
+                                            </p>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div>
+                                            <span class="avatar avatar-sm bg-success-transparent avatar-rounded profile-timeline-avatar">
+                                                P
+                                            </span>
+                                            <p class="text-muted mb-2">
+                                                <span class="text-default"><b>You</b> shared a post with 4 people <b>Simon,Sasha,Anagha,Hishen</b></span>.<span class="float-end fs-11 text-muted">28,Dec 2024 - 18:46</span>
+                                            </p>
+                                            <p class="profile-activity-media mb-2">
+                                                <a href="javascript:void(0);">
+                                                    <img src="../assets/images/media/media-18.jpg" alt="">
+                                                </a>   
+                                            </p>
+                                            <div>
+                                                <div class="avatar-list-stacked">
+                                                    <span class="avatar avatar-sm avatar-rounded">
+                                                        <img src="../assets/images/faces/2.jpg" alt="img">
+                                                    </span>
+                                                    <span class="avatar avatar-sm avatar-rounded">
+                                                        <img src="../assets/images/faces/8.jpg" alt="img">
+                                                    </span>
+                                                    <span class="avatar avatar-sm avatar-rounded">
+                                                        <img src="../assets/images/faces/5.jpg" alt="img">
+                                                    </span>
+                                                    <span class="avatar avatar-sm avatar-rounded">
+                                                        <img src="../assets/images/faces/10.jpg" alt="img">
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div>
+                                            <span class="avatar avatar-sm avatar-rounded profile-timeline-avatar">
+                                                <img src="../assets/images/media/media-39.jpg" alt="">
+                                            </span>
+                                            <p class="mb-1">
+                                                <b>Json</b> Commented on Project <a class="text-secondary" href="javascript:void(0);"><u>#UI Technologies</u></a>.<span class="float-end fs-11 text-muted">24,Dec 2024 - 14:34</span>
+                                            </p>
+                                            <p class="text-muted">Technology id developing rapidly keep up your work &#128076;</p>
+                                            <p class="profile-activity-media mb-0">
+                                                <a href="javascript:void(0);">
+                                                    <img src="../assets/images/media/media-26.jpg" alt="">
+                                                </a>    
+                                                <a href="javascript:void(0);">
+                                                    <img src="../assets/images/media/media-29.jpg" alt="">
+                                                </a>    
+                                            </p>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="card-footer">
+                                <div class="d-sm-flex align-items-center lh-1">
+                                    <div class="me-sm-3 mb-2 mb-sm-0">
+                                        <img src="../assets/images/faces/9.jpg" alt="" class="avatar avatar-md avatar-rounded">
+                                    </div>
+                                    <div class="flex-fill me-sm-2">
+                                        <div class="input-group">
+                                            <input type="text" class="form-control w-sm-50 border shadow-none" placeholder="Post Anything" aria-label="Recipient's username with two button addons">
+                                            <button class="btn btn-outline-light btn-wave waves-effect waves-light" type="button"><i class="bi bi-emoji-smile"></i></button>
+                                            <button class="btn btn-outline-light btn-wave waves-effect waves-light" type="button"><i class="bi bi-paperclip"></i></button>
+                                            <button class="btn btn-outline-light btn-wave waves-effect waves-light" type="button"><i class="bi bi-camera"></i></button>
+                                            <button class="btn btn-primary btn-wave waves-effect waves-light" type="button">Post</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!--End::row-1 -->
+
+            </div>
+        </div>
+        <!-- End::app-content -->
+
+        
+       <!-- include footer.html"-->
+        <!-- include responsive-search-modal.html"-->
+
+    </div>
+
+   <!-- include commonjs.html"-->
+
+    <!-- include custom-switcherjs.html"-->
+
+    <!-- Custom JS -->
+    <script src="../assets/js/custom.js"></script>
+
+</body>
+
+</html>

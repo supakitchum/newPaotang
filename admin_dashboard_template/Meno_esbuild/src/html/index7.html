@@ -1,0 +1,1081 @@
+<!-- include mainhead.html"-->
+
+</head>
+
+<body>
+
+    <!-- include switcher.html"-->
+   <!-- include loader.html"-->
+
+    <div class="page">
+        <!-- include header.html"-->
+         <!-- include sidebar.html"-->
+
+        <!-- Start::app-content -->
+        <div class="main-content app-content">
+            <div class="container-fluid">
+
+                <!-- Start::page-header -->
+                <div class="my-4 page-header-breadcrumb d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h1 class="page-title fw-medium fs-18 mb-2">Projects</h1>
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item">
+                                <a href="javascript:void(0);">
+                                     Dashboards
+                                </a>
+                            </li>
+                            <li class="breadcrumb-item active" aria-current="page">Projects</li>
+                        </ol>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="d-flex gap-2">
+                            <div class="position-relative">
+                                <button class="btn btn-primary btn-wave" type="button"
+                                    id="dropdownMenuClickableInside" data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside" aria-expanded="false">
+                                    Filter By <i class="ri-arrow-down-s-fill ms-1"></i>
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenuClickableInside">
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Today</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Yesterday</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 7 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 30 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 6 Months</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last Year</a></li>
+                                </ul>
+                            </div>
+                            <button class="btn btn-secondary btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Download">
+                                <i class="ti ti-download"></i>
+                            </button>
+                            <button class="btn btn-success btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Share">
+                                <i class="ti ti-share-3"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- End::page-header -->
+
+                <!-- Start:: row-1 -->
+                
+                <div class="row">
+                    <div class="col-xxl-3 col-md-6">
+                        <div class="card custom-card overflow-hidden">
+                            <div class="card-body">
+                                <div class="mb-3 d-flex align-items-start justify-content-between">
+                                    <span class="avatar avatar-md bg-primary svg-white">
+                                        <i class="ri-pages-line fs-16"></i>
+                                    </span>
+                                    <span class="badge bg-danger-transparent"><i class="ri-arrow-down-s-fill lh-1 me-1 align-middle d-inline-block"></i>5.20%</span>
+                                </div>
+                                <div class="d-flex align-items-end justify-content-between flex-wrap">
+                                    <div class="flex-shrink-0">
+                                        <div class="text-muted mb-1">New Projects</div>
+                                        <h4 class="mb-0 fw-semibold">4,352</h4>
+                                    </div>
+                                    <div id="Projects-1" class="flex-shrink-0 text-end ms-auto"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3 col-md-6">
+                        <div class="card custom-card overflow-hidden">
+                            <div class="card-body">
+                                <div class="mb-3 d-flex align-items-start justify-content-between">
+                                    <span class="avatar avatar-md bg-secondary svg-white">
+                                        <i class="ri-check-double-line fs-16"></i>
+                                    </span>
+                                    <span class="badge bg-success-transparent"><i class="ri-arrow-up-s-fill lh-1 me-1 align-middle d-inline-block"></i>7.20%</span>
+                                </div>
+                                <div class="d-flex align-items-end justify-content-between flex-wrap">
+                                    <div class="flex-shrink-0">
+                                        <div class="text-muted mb-1">Completed</div>
+                                        <h4 class="mb-0 fw-semibold">122</h4>
+                                    </div>
+                                    <div id="Projects-2" class="flex-shrink-0 text-end ms-auto"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3 col-md-6">
+                        <div class="card custom-card overflow-hidden">
+                            <div class="card-body">
+                                <div class="mb-3 d-flex align-items-start justify-content-between">
+                                    <span class="avatar avatar-md bg-success svg-white">
+                                        <i class="ri-loop-left-fill fs-16"></i>
+                                    </span>
+                                    <span class="badge bg-danger-transparent"><i class="ri-arrow-down-s-fill lh-1 me-1 align-middle d-inline-block"></i>5.20%</span>
+                                </div>
+                                <div class="d-flex align-items-end justify-content-between flex-wrap">
+                                    <div class="flex-shrink-0">
+                                        <div class="text-muted mb-1">Ongoing Projects</div>
+                                        <h4 class="mb-0 fw-semibold">1,265</h4>
+                                    </div>
+                                    <div id="Projects-3" class="flex-shrink-0 text-end ms-auto"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3 col-md-6">
+                        <div class="card custom-card overflow-hidden">
+                            <div class="card-body">
+                                <div class="mb-3 d-flex align-items-start justify-content-between">
+                                    <span class="avatar avatar-md bg-pink svg-white">
+                                        <i class="ri-time-line fs-16"></i>
+                                    </span>
+                                    <span class="badge bg-success-transparent"><i class="ri-arrow-up-s-fill lh-1 me-1 align-middle d-inline-block"></i>5.20%</span>
+                                </div>
+                                <div class="d-flex align-items-end justify-content-between flex-wrap">
+                                    <div class="flex-shrink-0">
+                                        <div class="text-muted mb-1">Pending Projects</div>
+                                        <h4 class="mb-0 fw-semibold">1,265</h4>
+                                    </div>
+                                    <div id="Projects-4" class="flex-shrink-0 text-end ms-auto"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-xxl-3 col-xl-6 col-lg-6">
+                        <div class="card custom-card card-bg-primary overflow-hidden earnings-card">
+                            <div class="card-body p-0">
+                                <div class="px-3 d-flex flex-wrap gap-2 justify-content-between">
+                                    <div>
+                                        <span class="fs-12 mb-1 d-block fw-medium">Tasks Overview</span> 
+                                        <h2 class="text-fixed-white">32,198</h2>  
+                                        <span class="fs-12 op-8">Increased by</span><span class="badge bg-success ms-2"><i class="ti ti-trending-up align-middle me-1"></i>0.25%</span>
+                                    </div>
+                                    <div class="avatar avatar-md bg-white-transparent">
+                                        <i class="ri-list-check fs-18"></i>
+                                    </div>
+                                </div>
+                                <div id="earnings-report1"></div>
+                                <div id="earnings-report"></div>
+                            </div>
+                        </div>
+                        <div class="card custom-card overflow-hidden">
+                            <div class="card-body">
+                                <div class="d-flex align-items-start justify-content-between mb-1 gap-1 flex-wrap">
+                                    <div class="mb-0">
+                                        <div class="mb-2 fw-normal">Projects In Progress</div>
+                                        <h3 class="fw-semibold d-flex align-items-center">45.13% </h3>
+                                        <span class="fs-12 text-muted">Decreased by</span><span class="badge bg-danger-transparent ms-2"><i class="ti ti-trending-down align-middle me-1"></i>0.25%</span>
+                                    </div>
+                                    <div class="avatar avatar-md bg-primary">
+                                        <i class="ri-progress-2-line fs-20"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="projects-ongoing" class="w-100 mt-2"></div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-6 col-xl-6 col-lg-6">
+                        <div class="card custom-card">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">Projects Overview</div>
+                                <div class="dropdown"> 
+                                    <a href="javascript:void(0);" class="p-2 fs-12 text-muted" data-bs-toggle="dropdown" aria-expanded="true"> Sort By <i class="ri-arrow-down-s-line align-middle ms-1 d-inline-block"></i> </a> 
+                                    <ul class="dropdown-menu"> 
+                                        <li><a class="dropdown-item" href="javascript:void(0);">This Week</a></li>
+                                         <li><a class="dropdown-item" href="javascript:void(0);">Last Week</a></li> 
+                                         <li><a class="dropdown-item" href="javascript:void(0);">This Month</a></li> 
+                                    </ul> 
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="project-statistics"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3 col-xl-12">
+                        <div class="card custom-card">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Task Checklist
+                                </div>
+                                <div class="dropdown">
+                                    <a href="javascript:void(0);" class="p-2 fs-12 text-muted" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Today<i class="ri-arrow-down-s-line align-middle ms-1 d-inline-block"></i>
+                                    </a>
+                                    <ul class="dropdown-menu" role="menu">
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Week</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Month</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Year</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-unstyled projects-maintask-card mb-1">
+                                    <li>
+                                        <div class="d-flex align-items-top">
+                                            <div class="d-flex align-items-top flex-fill">
+                                                <span class="me-3">
+                                                    <input class="form-check-input" type="checkbox" id="checkboxNoLabel1" value="" aria-label="...">
+                                                </span>
+                                                <div class="flex-fill">
+                                                    <span class="fw-semibold">
+                                                        Designing a landing page
+                                                    </span>
+                                                    <p class="fs-12 text-muted mb-0">
+                                                        Creating an Engaging Experience
+                                                    </p>
+                                                    <span class="d-block mt-1">
+                                                        <span class="avatar-list-stacked">
+                                                            <span class="avatar avatar-xs avatar-rounded">
+                                                                <img src="../assets/images/faces/2.jpg" alt="img">
+                                                            </span>
+                                                            <span class="avatar avatar-xs avatar-rounded">
+                                                                <img src="../assets/images/faces/8.jpg" alt="img">
+                                                            </span>
+                                                            <span class="avatar avatar-xs avatar-rounded">
+                                                                <img src="../assets/images/faces/2.jpg" alt="img">
+                                                            </span>
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span class="badge bg-primary-transparent">
+                                                    In progress
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex align-items-top">
+                                            <div class="d-flex align-items-top flex-fill">
+                                                <span class="me-3">
+                                                    <input class="form-check-input" type="checkbox" id="checkboxNoLabel2" value="" aria-label="..." checked>
+                                                </span>
+                                                <div class="flex-fill">
+                                                    <span class="fw-semibold">
+                                                        Testing of new project ui
+                                                    </span>
+                                                    <p class="fs-12 text-muted mb-0">
+                                                        Conducting comprehensive testing
+                                                    </p>
+                                                    <span class="d-block mt-1">
+                                                        <span class="avatar-list-stacked">
+                                                            <span class="avatar avatar-xs avatar-rounded">
+                                                                <img src="../assets/images/faces/10.jpg" alt="img">
+                                                            </span>
+                                                            <span class="avatar avatar-xs avatar-rounded">
+                                                                <img src="../assets/images/faces/15.jpg" alt="img">
+                                                            </span>
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span class="badge bg-success-transparent">
+                                                    Completed
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex align-items-top">
+                                            <div class="d-flex align-items-top flex-fill">
+                                                <span class="me-3">
+                                                    <input class="form-check-input" type="checkbox" id="checkboxNoLabel3" value="" aria-label="...">
+                                                </span>
+                                                <div class="flex-fill">
+                                                    <span class="fw-semibold">
+                                                        Fixing bugs in registration page
+                                                    </span>
+                                                    <p class="fs-12 text-muted mb-0">
+                                                        Addressing and fixing bugs
+                                                    </p>
+                                                    <span class="d-block mt-1">
+                                                        <span class="avatar-list-stacked">
+                                                            <span class="avatar avatar-xs avatar-rounded">
+                                                                <img src="../assets/images/faces/11.jpg" alt="img">
+                                                            </span>
+                                                            <span class="avatar avatar-xs avatar-rounded">
+                                                                <img src="../assets/images/faces/4.jpg" alt="img">
+                                                            </span>
+                                                            <span class="avatar avatar-xs avatar-rounded">
+                                                                <img src="../assets/images/faces/8.jpg" alt="img">
+                                                            </span>
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span class="badge bg-warning-transparent">
+                                                    pending
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex align-items-top">
+                                            <div class="d-flex align-items-top flex-fill">
+                                                <span class="me-3">
+                                                    <input class="form-check-input" type="checkbox" id="checkboxNoLabel4" value="" aria-label="..." checked>
+                                                </span>
+                                                <div class="flex-fill">
+                                                    <span class="fw-semibold">
+                                                        Designing new dashboard
+                                                    </span>
+                                                    <p class="fs-12 text-muted mb-0">
+                                                        A New Design Process
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span class="badge bg-primary-transparent">
+                                                    In progress
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <div class="d-flex align-items-top">
+                                            <div class="d-flex align-items-top flex-fill">
+                                                <span class="me-3">
+                                                    <input class="form-check-input" type="checkbox" id="checkboxNoLabel3" value="" aria-label="...">
+                                                </span>
+                                                <div class="flex-fill">
+                                                    <span class="fw-semibold">
+                                                        Resolve Issues
+                                                    </span>
+                                                    <p class="fs-12 text-muted mb-0">
+                                                       Issues on the platform
+                                                    </p>
+                                                    <span class="d-block mt-1">
+                                                        <span class="avatar-list-stacked">
+                                                            <span class="avatar avatar-xs avatar-rounded">
+                                                                <img src="../assets/images/faces/11.jpg" alt="user-1">
+                                                            </span>
+                                                            <span class="avatar avatar-xs avatar-rounded">
+                                                                <img src="../assets/images/faces/4.jpg" alt="user-2">
+                                                            </span>
+                                                            <span class="avatar avatar-xs avatar-rounded">
+                                                                <img src="../assets/images/faces/8.jpg" alt="user-3">
+                                                            </span>
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span class="badge bg-warning-transparent">
+                                                    Pending
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </li>                                    
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-1 -->
+
+                <!-- Start:: row-2 -->
+                <div class="row">
+                    <div class="col-xxl-3">
+                        <div class="card custom-card overflow-hidden">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">Ongoing Projects
+                                </div>
+                                <div>
+                                    <button class="btn  border text-muted btn-sm"><i class="ti ti-plus me-1"></i>Add
+                                        Project</button>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <ul class="list-group list-group-flush mb-2">
+                                    <li class="list-group-item">
+                                        <div class="">
+                                            <div class="d-flex align-items-top justify-content-between">
+                                                <div class="d-flex align-items-top flex-fill">
+                                                    <span
+                                                        class="avatar avatar-md bg-primary-transparent avatar-rounded p-2 me-3">
+                                                        <span
+                                                            class="avatar avatar-sm bg-primary p-2 avatar-rounded">
+                                                            <i class="ri-mobile-download-line fs-18"></i>
+                                                        </span>
+                                                    </span>
+                                                    <div class="w-100">
+                                                        <h6 class="mb-2 fs-14 mt-1 fw-600 text-default">Mobile
+                                                            Development </h6>
+                                                        <span class="text-muted d-block fs-12">Total <strong
+                                                                class="text-default">18/22</strong> tasks
+                                                            completed</span>
+                                                        <div class="progress progress-sm mt-2 mb-1">
+                                                            <div class="progress-bar progress-bar-animated bg-primary progress-bar-striped progress-bar-animated"
+                                                                style="width: 80%;"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <span class="badge bg-primary-transparent">Low</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="">
+                                            <div class="d-flex align-items-top justify-content-between">
+                                                <div class="d-flex align-items-top flex-fill">
+                                                    <span
+                                                        class="avatar avatar-md bg-secondary-transparent avatar-rounded p-2 me-3">
+                                                        <span
+                                                            class="avatar avatar-sm bg-secondary p-2 avatar-rounded">
+                                                            <i class="ri-robot-3-line fs-18"></i>
+                                                        </span>
+                                                    </span>
+                                                    <div class="w-100">
+                                                        <h6 class="mb-2 fs-14 mt-1 fw-600 text-default">Robotics
+                                                        </h6>
+                                                        <span class="text-muted d-block fs-12">Total <strong
+                                                                class="text-default">26/68</strong> tasks
+                                                            completed</span>
+                                                        <div class="progress progress-sm mt-2 mb-1">
+                                                            <div class="progress-bar progress-bar-animated bg-secondary progress-bar-striped progress-bar-animated"
+                                                                style="width: 70%;"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <span class="badge bg-secondary-transparent">Medium</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="">
+                                            <div class="d-flex align-items-start justify-content-between">
+                                                <div class="d-flex align-items-top flex-fill">
+                                                    <span
+                                                        class="avatar avatar-md bg-info-transparent avatar-rounded p-2 me-3">
+                                                        <span
+                                                            class="avatar avatar-sm bg-info p-2 avatar-rounded">
+                                                            <i class="ri-pie-chart-line fs-18"></i>
+                                                        </span>
+                                                    </span>
+                                                    <div class="w-100">
+                                                        <h6 class="mb-2 fs-14 mt-1 fw-600 text-default">Data Science
+                                                        </h6>
+                                                        <span class="text-muted d-block fs-12">Total <strong
+                                                                class="text-default">21/45</strong> tasks
+                                                            completed</span>
+                                                        <div class="progress progress-sm mt-2 mb-1">
+                                                            <div class="progress-bar progress-bar-animated bg-info progress-bar-striped progress-bar-animated"
+                                                                style="width: 60%;"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <span class="badge bg-primary-transparent">Low</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item mb-0">
+                                        <div class="mb-0">
+                                            <div class="d-flex align-items-start justify-content-between">
+                                                <div class="d-flex align-items-top flex-fill">
+                                                    <span
+                                                        class="avatar avatar-md bg-success-transparent avatar-rounded p-2 me-3">
+                                                        <span
+                                                            class="avatar avatar-sm bg-success p-2 avatar-rounded">
+                                                            <i class="ri-discord-line fs-18"></i>
+                                                        </span>
+                                                    </span>
+                                                    <div class="w-100">
+                                                        <h6 class="mb-2 fs-14 mt-1 fw-600 text-default">Game
+                                                            Development
+                                                        </h6>
+                                                        <span class="text-muted d-block fs-12">Total <strong
+                                                                class="text-default">45/54</strong> tasks
+                                                            completed</span>
+                                                        <div class="progress progress-sm mt-2 mb-1">
+                                                            <div class="progress-bar  progress-bar-animated bg-success progress-bar-striped progress-bar-animated"
+                                                                style="width: 50%;"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <span class="badge bg-success-transparent">Medium</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-6">
+                        <div class="card custom-card">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">All Tasks List</div>
+                                 <div class="mt-sm-0 mt-2">
+                                     <button type="button" class="btn btn-sm btn-outline-light align-items-center d-inline-flex"><i class="ti ti-plus me-1 fw-semibold"></i>Add Task</button>
+                                 </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table text-nowrap">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Task details</th>
+                                                <th scope="col">Assigned</th>
+                                                <th scope="col">Target</th>
+                                                <th scope="col">Assigned to</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td><a href="javascript:void(0);">Update client records in database</a></td>
+                                                <td class="text-muted">12.43pm</td>
+                                                <td><span class="badge bg-primary-transparent">Today</span></td>
+                                                <td>
+                                                    <div class="avatar-list-stacked mb-0">
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/faces/2.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/faces/8.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/faces/2.jpg" alt="img">
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><a href="javascript:void(0);">Design logo for new product</a></td>
+                                                <td class="text-muted">11.25am</td>
+                                                <td><span class="badge bg-secondary-transparent">Tomorrow</span></td>
+                                                <td>
+                                                    <div class="avatar-list-stacked mb-0">
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/faces/6.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/faces/9.jpg" alt="img">
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><a href="javascript:void(0);">Respond to customer emails promptly</a></td>
+                                                <td class="text-muted">9.56am</td>
+                                                <td><span class="badge bg-primary-transparent">Today</span></td>
+                                                <td>
+                                                    <div class="avatar-list-stacked mb-0">
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/faces/3.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/faces/5.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/faces/10.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/faces/15.jpg" alt="img">
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><a href="javascript:void(0);">Compile weekly sales report summary</a></td>
+                                                <td class="text-muted">8.15am</td>
+                                                <td><span class="badge bg-primary-transparent">Today</span></td>
+                                                <td>
+                                                    <div class="avatar-list-stacked mb-0">
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/faces/11.jpg" alt="img">
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><a href="javascript:void(0);">Review and edit blog post</a></td>
+                                                <td class="text-muted">4.20pm</td>
+                                                <td><span class="badge bg-secondary-transparent">Tomorrow</span></td>
+                                                <td>
+                                                    <div class="avatar-list-stacked mb-0">
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/faces/13.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/faces/16.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/faces/8.jpg" alt="img">
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><a href="javascript:void(0);">Create social media content calendar</a></td>
+                                                <td class="text-muted">8.29am</td>
+                                                <td><span class="badge bg-primary-transparent">Today</span></td>
+                                                <td>
+                                                    <div class="avatar-list-stacked mb-0">
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/faces/10.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/faces/5.jpg" alt="img">
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="card-footer border-top-0">
+                                 <div class="d-flex flex-wrap align-items-center justify-content-between">
+                                     <div>
+                                         <div class="d-flex align-items-center">
+                                             <div>
+                                                 Showing 6 Entries
+                                             </div>
+                                             <div class="transform-arrow ms-2">
+                                                 <i class="bi bi-arrow-right fw-semibold"></i>
+                                             </div>
+                                         </div>
+                                     </div>
+                                     <div>
+                                         <nav aria-label="Page navigation" class="pagination-style-4">
+                                             <ul class="pagination mb-0">
+                                                 <li class="page-item disabled">
+                                                     <a class="page-link" href="javascript:void(0);">
+                                                         Prev
+                                                     </a>
+                                                 </li>
+                                                 <li class="page-item active"><a class="page-link" href="javascript:void(0);">1</a></li>
+                                                 <li class="page-item"><a class="page-link" href="javascript:void(0);">2</a></li>
+                                                 <li class="page-item">
+                                                     <a class="page-link text-primary" href="javascript:void(0);">
+                                                         next
+                                                     </a>
+                                                 </li>
+                                             </ul>
+                                         </nav>
+                                     </div>
+                                 </div>
+                             </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3">
+                        <div class="card custom-card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    Revenue by Year
+                                </div>
+                            </div>
+                            <div class="card-body py-0">
+                                <div id="yearly-revenue"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-2 -->
+
+                <!-- Start:: row-3 -->
+                <div class="row">
+                    <div class="col-xxl-9">
+                        <div class="card custom-card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    Projects List
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover text-nowrap table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">S.No</th>
+                                                <th scope="col">Project Title</th>
+                                                <th scope="col">Tasks</th>
+                                                <th scope="col">Progress</th>
+                                                <th scope="col">Assigned Team</th>
+                                                <th scope="col">Status</th>
+                                                <th scope="col">Due Date</th>
+                                                <th scope="col">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    1
+                                                </td>
+                                                <td>
+                                                    <span class="fw-medium"> Home Page</span>
+                                                </td>
+                                                <td>210 <span class="op-7">/234</span></td>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="progress progress-sm w-100" role="progressbar" aria-valuenow="35" aria-valuemin="0" aria-valuemax="100">
+                                                            <div class="progress-bar  bg-primary" style="width: 35%"></div>
+                                                        </div>
+                                                        <div class="ms-2">35%</div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="avatar-list-stacked">
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/8.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/4.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/6.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/7.jpg" alt="img">
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-primary-transparent">In Progress</span>
+                                                </td>
+                                                <td>
+                                                    14-05-2024
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn  btn-icon rounded-pill btn-sm btn-primary-light"><i class="ti ti-eye"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn  btn-icon rounded-pill btn-sm btn-secondary-light"><i class="ti ti-pencil"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn  btn-icon rounded-pill btn-sm  btn-danger-light"><i class="ti ti-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    2
+                                                </td>
+                                                <td>
+                                                    <span class="fw-medium"> Landing Design </span>
+                                                </td>
+                                                <td>162  <span class="op-8">/185</span></td>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="progress progress-sm w-100" role="progressbar" aria-valuenow="80" aria-valuemin="0" aria-valuemax="100">
+                                                            <div class="progress-bar  bg-primary" style="width: 80%"></div>
+                                                        </div>
+                                                        <div class="ms-2">80%</div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="avatar-list-stacked">
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/8.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/4.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/6.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/7.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/8.jpg" alt="img">
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-primary-transparent">In Progress</span>
+                                                </td>
+                                                <td>
+                                                    20-05-2024
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn  btn-icon rounded-pill btn-sm btn-primary-light"><i class="ti ti-eye"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn  btn-icon rounded-pill btn-sm btn-secondary-light"><i class="ti ti-pencil"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn  btn-icon rounded-pill btn-sm  btn-danger-light"><i class="ti ti-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    3
+                                                </td>
+                                                <td>
+                                                    <span class="fw-medium">  New Template Design</span>
+                                                </td>
+                                                <td> 10  <span class="op-7">/100</span></td>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="progress progress-animate progress-sm w-100" role="progressbar" aria-valuenow="10" aria-valuemin="0" aria-valuemax="100">
+                                                            <div class="progress-bar bg-primary" style="width: 10%"></div>
+                                                        </div>
+                                                        <div class="ms-2">10%</div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="avatar-list-stacked">
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/8.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/4.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/16.jpg" alt="img">
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-warning-transparent">Pending</span>
+                                                </td>
+                                                <td>
+                                                    29-05-2023
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn  btn-icon rounded-pill btn-sm btn-primary-light"><i class="ti ti-eye"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn  btn-icon rounded-pill btn-sm btn-secondary-light"><i class="ti ti-pencil"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn  btn-icon rounded-pill btn-sm  btn-danger-light"><i class="ti ti-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    4
+                                                </td>
+                                                <td>
+                                                    <span class="fw-medium"> HR Management Design </span>
+                                                </td>
+                                                <td>48 <span class="op-7">/52</span></td>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="progress progress-animate progress-sm w-100" role="progressbar" aria-valuenow="63" aria-valuemin="0" aria-valuemax="100">
+                                                            <div class="progress-bar bg-primary" style="width: 63%"></div>
+                                                        </div>
+                                                        <div class="ms-2">63%</div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="avatar-list-stacked">
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/8.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/14.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/4.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/16.jpg" alt="img">
+                                                        </span>
+                                                        <a class="avatar avatar-xs bg-light text-default border border-2 avatar-rounded" href="javascript:void(0);">
+                                                            +2
+                                                        </a>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-primary-transparent">In Progress</span>
+                                                </td>
+                                                <td>
+                                                    18-05-2024
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn  btn-icon rounded-pill btn-sm btn-primary-light"><i class="ti ti-eye"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn  btn-icon rounded-pill btn-sm btn-secondary-light"><i class="ti ti-pencil"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn  btn-icon rounded-pill btn-sm  btn-danger-light"><i class="ti ti-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    5
+                                                </td>
+                                                <td>
+                                                    <span class="fw-medium">   Designing New Template</span>
+                                                </td>
+                                                <td>185 <span class="op-7">/192</span></td>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="progress progress-animate progress-sm w-100" role="progressbar" aria-valuenow="95" aria-valuemin="0" aria-valuemax="100">
+                                                            <div class="progress-bar bg-primary" style="width: 95%"></div>
+                                                        </div>
+                                                        <div class="ms-2">100%</div>
+                                                    </div>
+                                                <td>
+                                                    <div class="avatar-list-stacked">
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/8.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/14.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/4.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/16.jpg" alt="img">
+                                                        </span>
+                                                        <a class="avatar avatar-xs bg-light text-default border border-2 avatar-rounded" href="javascript:void(0);">
+                                                            +2
+                                                        </a>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-success-transparent">Completed</span>
+                                                </td>
+                                                <td>
+                                                    11-05-2024
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn  btn-icon rounded-pill btn-sm btn-primary-light"><i class="ti ti-eye"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn  btn-icon rounded-pill btn-sm btn-secondary-light"><i class="ti ti-pencil"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn  btn-icon rounded-pill btn-sm  btn-danger-light"><i class="ti ti-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    6
+                                                </td>
+                                                <td>
+                                                    <span class="fw-medium">  Documentation Project </span>
+                                                </td>
+                                                <td>25 <span class="op-7">/72</span></td>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="progress progress-animate progress-sm w-100" role="progressbar" aria-valuenow="45" aria-valuemin="0" aria-valuemax="100">
+                                                            <div class="progress-bar bg-primary" style="width: 45%"></div>
+                                                        </div>
+                                                        <div class="ms-2">50%</div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="avatar-list-stacked">
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/8.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/14.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/4.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/16.jpg" alt="img">
+                                                        </span>
+                                                        <span class="avatar avatar-xs avatar-rounded">
+                                                            <img src="../assets/images/faces/21.jpg" alt="img">
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-primary-transparent">In Progress</span>
+                                                </td>
+                                                <td>
+                                                    18-05-2024
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list">
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="View" class="btn  btn-icon rounded-pill btn-sm btn-primary-light"><i class="ti ti-eye"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Edit" class="btn  btn-icon rounded-pill btn-sm btn-secondary-light"><i class="ti ti-pencil"></i></a>
+                                                        <a aria-label="anchor" href="javascript:void(0);" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Delete" class="btn  btn-icon rounded-pill btn-sm  btn-danger-light"><i class="ti ti-trash"></i></a>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3">
+                        <div class="card custom-card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    Recent Activity ACTIVITY
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-unstyled projects-recent-activity mb-1">
+                                    <li class="d-flex gap-2">
+                                        <span class="avatar avatar-sm flex-shrink-0 avatar-rounded bg-primary"><i class="ri-file-check-line fs-12 lh-1 align-middle"></i></span>
+                                        <div class="flex-fill">
+                                            <span class="fw-medium d-block">Task Finished<span class="badge bg-light text-default float-end">09 feb 2024</span></span>
+                                            <span class="text-muted fs-12">Adam Berry finished task on <span class="fw-medium text-primary">AngularJS Template</span></span>
+                                        </div>
+                                    </li>
+                                    <li class="d-flex gap-2">
+                                        <span class="avatar avatar-sm flex-shrink-0 avatar-rounded bg-secondary"><i class="ri-chat-1-line fs-12 lh-1 align-middle"></i></span>
+                                        <div class="flex-fill">
+                                            <span class="fw-medium d-block">New Comment<span class="badge bg-light text-default float-end">05 July 2024</span></span>
+                                            <span class="text-muted fs-12">Victoria commented on Project <span class="fw-medium text-secondary">Ynex NuxtJS Template</span></span>
+                                        </div>
+                                    </li>
+                                    <li class="d-flex gap-2">
+                                        <span class="avatar avatar-sm flex-shrink-0 avatar-rounded bg-success"><i class="ri-shake-hands-line fs-12 lh-1 align-middle"></i></span>
+                                        <div class="flex-fill">
+                                            <span class="fw-medium d-block">Deal with Client<span class="badge bg-light text-default float-end">30 Jan 2024</span></span>
+                                            <span class="text-muted fs-12">Gaylord Barrett offered a <span class="fw-medium text-success">New Deal</span></span>
+                                        </div>
+                                    </li>
+                                    <li class="d-flex gap-2">
+                                        <span class="avatar avatar-sm flex-shrink-0 avatar-rounded bg-pink"><i class="ri-user-line fs-12 lh-1 align-middle"></i></span>
+                                        <div class="flex-fill">
+                                            <span class="fw-medium d-block">Updated Profile<span class="badge bg-light text-default float-end">12 Feb 2024</span></span>
+                                            <span class="text-muted fs-12">Magnus Haynes uploaded a new <span class="fw-medium text-orange">Profile Picture</span></span>
+                                        </div>
+                                    </li>
+                                    <li class="d-flex gap-2">
+                                        <span class="avatar avatar-sm flex-shrink-0 avatar-rounded bg-warning"><i class="ri-information-line fs-12 lh-1 align-middle"></i></span>
+                                        <div class="flex-fill">
+                                            <span class="fw-medium d-block">Task Overdue<span class="badge bg-light text-default float-end">25 Feb 2024</span></span>
+                                            <span class="text-muted fs-12">Petey Cruiser task <span class="fw-medium text-secondary">Overdue</span></span>
+                                        </div>
+                                    </li>
+                                    <li class="d-flex gap-2">
+                                        <span class="avatar avatar-sm flex-shrink-0 avatar-rounded bg-success"><i class="ri-check-line fs-12 lh-1 align-middle"></i></span>
+                                        <div class="flex-fill">
+                                            <span class="fw-medium d-block">Task Completed<span class="badge bg-light text-default float-end">3 Mar 2024</span></span>
+                                            <span class="text-muted fs-12">Jenna Barker completed the <span class="fw-medium text-success">Project Documentation</span></span>
+                                        </div>
+                                    </li>                                
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-3 -->
+
+            </div>
+        </div> 
+        <!-- End::app-content -->
+
+
+       <!-- include footer.html"-->
+        <!-- include responsive-search-modal.html"-->
+
+    </div>
+
+   <!-- include commonjs.html"-->
+
+    <!-- Apex Charts JS -->
+    <script src="../assets/libs/apexcharts/apexcharts.min.js"></script>
+
+    <!-- Projects Dashboard --> 
+    <script src="../assets/js/projects-dashboard.js"></script>
+
+    <!-- Custom JS -->
+    <script src="../assets/js/custom.js"></script>
+ 
+    <!-- include custom-switcherjs.html"-->
+    
+</body>
+
+</html> 

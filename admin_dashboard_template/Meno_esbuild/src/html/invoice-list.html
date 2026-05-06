@@ -1,0 +1,470 @@
+<!-- include mainhead.html"-->
+
+</head>
+
+<body>
+
+    <!-- include switcher.html"-->
+   <!-- include loader.html"-->
+
+    <div class="page">
+        <!-- include header.html"-->
+         <!-- include sidebar.html"-->
+
+        <!-- Start::app-content -->
+        <div class="main-content app-content">
+            <div class="container-fluid">
+
+                <!-- Start::page-header -->
+                <div class="my-4 page-header-breadcrumb d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h1 class="page-title fw-medium fs-18 mb-2">Invoice List</h1>
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item">
+                                <a href="javascript:void(0);">
+                                    Pages
+                                </a>
+                            </li>
+                            <li class="breadcrumb-item" aria-current="page"><a href="javascript:void(0);">Invoice</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">Invoice List</li>
+                        </ol>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="d-flex gap-2">
+                            <div class="position-relative">
+                                <button class="btn btn-primary btn-wave" type="button"
+                                    id="dropdownMenuClickableInside" data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside" aria-expanded="false">
+                                    Filter By <i class="ri-arrow-down-s-fill ms-1"></i>
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenuClickableInside">
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Today</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Yesterday</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 7 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 30 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 6 Months</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last Year</a></li>
+                                </ul>
+                            </div>
+                            <button class="btn btn-secondary btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Download">
+                                <i class="ti ti-download"></i>
+                            </button>
+                            <button class="btn btn-success btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Share">
+                                <i class="ti ti-share-3"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- End::page-header -->
+
+                <!-- Start::row-1 -->
+                <div class="row">
+                    <div class="col-xl-12">
+                        <div class="card custom-card">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                     Invoice List
+                                </div>
+                                <div class="d-flex">
+                                    <a href="invoice-create.html" class="btn btn-sm btn-primary btn-wave waves-light"><i class="ri-add-line fw-medium align-middle me-1"></i> Create Invoice</a>
+                                    <div class="dropdown ms-2">
+                                        <button class="btn btn-icon btn-secondary-light btn-sm btn-wave waves-light" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="ti ti-dots-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="javascript:void(0);">All Invoices</a></li>
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Paid Invoices</a></li>
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Pending Invoices</a></li>
+                                            <li><a class="dropdown-item" href="javascript:void(0);">Overdue Invoices</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table text-nowrap">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Client</th>
+                                                <th scope="col">Invoice ID</th>
+                                                <th scope="col">Issued Date</th>
+                                                <th scope="col">Amount</th>
+                                                <th scope="col">Status</th>
+                                                <th scope="col">Due Date</th>
+                                                <th scope="col">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr class="invoice-list">
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="me-2 lh-1">
+                                                            <span class="avatar avatar-sm avatar-rounded">
+                                                                <img src="../assets/images/faces/11.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="mb-0 fw-medium">Arjun Arora</p>
+                                                            <p class="mb-0 fs-11 text-muted">arjunarora2416@gmail.com</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <a href="javascript:void(0);" class="fw-medium text-primary">
+                                                        #SPK12032901
+                                                    </a>
+                                                </td>
+                                                <td>
+                                                    25,Nov 2024
+                                                </td>
+                                                <td>
+                                                    $212.45
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-success-transparent">Paid</span>
+                                                </td>
+                                                <td>
+                                                    25,Dec 2024
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-primary-light btn-icon btn-sm"><i class="ri-printer-line"></i></button>
+                                                    <button class="btn btn-danger-light btn-icon ms-1 btn-sm invoice-btn"><i class="ri-delete-bin-5-line"></i></button>
+                                                </td>
+                                            </tr>
+                                            <tr class="invoice-list">
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="me-2 lh-1">
+                                                            <span class="avatar avatar-sm avatar-rounded">
+                                                                <img src="../assets/images/faces/7.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="mb-0 fw-medium">Suzika Stallone</p>
+                                                            <p class="mb-0 fs-11 text-muted">suzikastallone3214@gmail.com</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <a href="javascript:void(0);" class="fw-medium text-primary">
+                                                        #SPK12032912
+                                                    </a>
+                                                </td>
+                                                <td>
+                                                    13,Nov 2024
+                                                </td>
+                                                <td>
+                                                    $512.99
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-warning-transparent">Pending</span>
+                                                </td>
+                                                <td>
+                                                    13,Dec 2024
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-primary-light btn-icon btn-sm"><i class="ri-printer-line"></i></button>
+                                                    <button class="btn btn-danger-light btn-icon ms-1 btn-sm invoice-btn"><i class="ri-delete-bin-5-line"></i></button>
+                                                </td>
+                                            </tr>
+                                            <tr class="invoice-list">
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="me-2 lh-1">
+                                                            <span class="avatar avatar-sm avatar-rounded">
+                                                                <img src="../assets/images/faces/15.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="mb-0 fw-medium">Roman Killon</p>
+                                                            <p class="mb-0 fs-11 text-muted">romankillon143@gmail.com</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <a href="javascript:void(0);" class="fw-medium text-primary">
+                                                        #SPK12032945
+                                                    </a>
+                                                </td>
+                                                <td>
+                                                    30,Nov 2024
+                                                </td>
+                                                <td>
+                                                    $2199.49
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-danger-transparent">Overdue</span>
+                                                </td>
+                                                <td>
+                                                    30,Dec 2024
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-primary-light btn-icon btn-sm"><i class="ri-printer-line"></i></button>
+                                                    <button class="btn btn-danger-light btn-icon ms-1 btn-sm invoice-btn"><i class="ri-delete-bin-5-line"></i></button>
+                                                </td>
+                                            </tr>
+                                            <tr class="invoice-list">
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="me-2 lh-1">
+                                                            <span class="avatar avatar-sm avatar-rounded">
+                                                                <img src="../assets/images/faces/12.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="mb-0 fw-medium">Charlie Davieson</p>
+                                                            <p class="mb-0 fs-11 text-muted">charliedavieson@gmail.com</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <a href="javascript:void(0);" class="fw-medium text-primary">
+                                                        #SPK12032922
+                                                    </a>
+                                                </td>
+                                                <td>
+                                                    18,Nov 2024
+                                                </td>
+                                                <td>
+                                                    $1569.99
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-success-transparent">Paid</span>
+                                                </td>
+                                                <td>
+                                                    18,Dec 2024
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-primary-light btn-icon btn-sm"><i class="ri-printer-line"></i></button>
+                                                    <button class="btn btn-danger-light btn-icon ms-1 btn-sm invoice-btn"><i class="ri-delete-bin-5-line"></i></button>
+                                                </td>
+                                            </tr>
+                                            <tr class="invoice-list">
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="me-2 lh-1">
+                                                            <span class="avatar avatar-sm avatar-rounded">
+                                                                <img src="../assets/images/faces/4.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="mb-0 fw-medium">Selena Deoyl</p>
+                                                            <p class="mb-0 fs-11 text-muted">selenadeoyl114@gmail.com</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <a href="javascript:void(0);" class="fw-medium text-primary">
+                                                        #SPK12032932
+                                                    </a>
+                                                </td>
+                                                <td>
+                                                    18,Nov 2024
+                                                </td>
+                                                <td>
+                                                    $4,873.99
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-primary-transparent">Due By 1 Day</span>
+                                                </td>
+                                                <td>
+                                                    18,Dec 2024
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-primary-light btn-icon btn-sm"><i class="ri-printer-line"></i></button>
+                                                    <button class="btn btn-danger-light btn-icon ms-1 btn-sm invoice-btn"><i class="ri-delete-bin-5-line"></i></button>
+                                                </td>
+                                            </tr>
+                                            <tr class="invoice-list">
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="me-2 lh-1">
+                                                            <span class="avatar avatar-sm avatar-rounded">
+                                                                <img src="../assets/images/faces/7.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="mb-0 fw-medium">Kiara Advensh</p>
+                                                            <p class="mb-0 fs-11 text-muted">kiaraadvensh87@gmail.com</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <a href="javascript:void(0);" class="fw-medium text-primary">
+                                                        #SPK12032978
+                                                    </a>
+                                                </td>
+                                                <td>
+                                                    02,Nov 2024
+                                                </td>
+                                                <td>
+                                                    $1923.99
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-success-transparent">Paid</span>
+                                                </td>
+                                                <td>
+                                                    18,Dec 2024
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-primary-light btn-icon btn-sm"><i class="ri-printer-line"></i></button>
+                                                    <button class="btn btn-danger-light btn-icon ms-1 btn-sm invoice-btn"><i class="ri-delete-bin-5-line"></i></button>
+                                                </td>
+                                            </tr>
+                                            <tr class="invoice-list">
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="me-2 lh-1">
+                                                            <span class="avatar avatar-sm avatar-rounded">
+                                                                <img src="../assets/images/faces/9.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="mb-0 fw-medium">Joseph Samurai</p>
+                                                            <p class="mb-0 fs-11 text-muted">josephsamurai@gmail.com</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <a href="javascript:void(0);" class="fw-medium text-primary">
+                                                        #SPK12032919
+                                                    </a>
+                                                </td>
+                                                <td>
+                                                    15,Nov 2024
+                                                </td>
+                                                <td>
+                                                    $1,623.99
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-success-transparent">Paid</span>
+                                                </td>
+                                                <td>
+                                                    15,Dec 2024
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-primary-light btn-icon btn-sm"><i class="ri-printer-line"></i></button>
+                                                    <button class="btn btn-danger-light btn-icon ms-1 btn-sm invoice-btn"><i class="ri-delete-bin-5-line"></i></button>
+                                                </td>
+                                            </tr>
+                                            <tr class="invoice-list">
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="me-2 lh-1">
+                                                            <span class="avatar avatar-sm avatar-rounded">
+                                                                <img src="../assets/images/faces/13.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="mb-0 fw-medium">Kevin Powell</p>
+                                                            <p class="mb-0 fs-11 text-muted">kevinpowell@gmail.com</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <a href="javascript:void(0);" class="fw-medium text-primary">
+                                                        #SPK12032931
+                                                    </a>
+                                                </td>
+                                                <td>
+                                                    21,Nov 2024
+                                                </td>
+                                                <td>
+                                                    $3,423.99
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-warning-transparent">Pending</span>
+                                                </td>
+                                                <td>
+                                                    21,Dec 2024
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-primary-light btn-icon btn-sm"><i class="ri-printer-line"></i></button>
+                                                    <button class="btn btn-danger-light btn-icon ms-1 btn-sm invoice-btn"><i class="ri-delete-bin-5-line"></i></button>
+                                                </td>
+                                            </tr>
+                                            <tr class="invoice-list">
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="me-2 lh-1">
+                                                            <span class="avatar avatar-sm avatar-rounded">
+                                                                <img src="../assets/images/faces/8.jpg" alt="">
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="mb-0 fw-medium">Darla Jung</p>
+                                                            <p class="mb-0 fs-11 text-muted">darlajung555@gmail.com</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <a href="javascript:void(0);" class="fw-medium text-primary">
+                                                        #SPK12032958
+                                                    </a>
+                                                </td>
+                                                <td>
+                                                    15,Oct 2024
+                                                </td>
+                                                <td>
+                                                    $2,982.99
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-success-transparent">Paid</span>
+                                                </td>
+                                                <td>
+                                                    15,Nov 2024
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-primary-light btn-icon btn-sm"><i class="ri-printer-line"></i></button>
+                                                    <button class="btn btn-danger-light btn-icon ms-1 btn-sm invoice-btn"><i class="ri-delete-bin-5-line"></i></button>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="card-footer border-top-0">
+                                <nav aria-label="Page navigation">
+                                    <ul class="pagination mb-0 float-end">
+                                        <li class="page-item disabled">
+                                            <a class="page-link">Previous</a>
+                                        </li>
+                                        <li class="page-item"><a class="page-link" href="javascript:void(0);">1</a></li>
+                                        <li class="page-item active" aria-current="page">
+                                            <a class="page-link" href="javascript:void(0);">2</a>
+                                        </li>
+                                        <li class="page-item"><a class="page-link" href="javascript:void(0);">3</a></li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="javascript:void(0);">Next</a>
+                                        </li>
+                                    </ul>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!--End::row-1 -->
+
+            </div>
+        </div>
+        <!-- End::app-content -->
+
+        
+       <!-- include footer.html"-->
+        <!-- include responsive-search-modal.html"-->
+
+    </div>
+
+   <!-- include commonjs.html"-->
+
+    <!-- include custom-switcherjs.html"-->
+
+    <!-- Internal Invoice List JS -->
+    <script src="../assets/js/invoice-list.js"></script>
+
+    <!-- Custom JS -->
+    <script src="../assets/js/custom.js"></script>
+
+</body> 
+
+</html>

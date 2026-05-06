@@ -1,0 +1,729 @@
+<!-- include mainhead.html"-->
+
+<link rel="stylesheet" href="../assets/libs/dragula/dragula.min.css">
+
+</head>
+
+<body>
+
+    <!-- include switcher.html"-->  
+   <!-- include loader.html"-->
+
+    <div class="page">
+        <!-- include header.html"-->
+         <!-- include sidebar.html"-->
+
+        <!-- Start::app-content -->
+        <div class="main-content app-content">
+            <div class="container-fluid">
+
+                <!-- Page Header -->
+                <div class="my-4 page-header-breadcrumb d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h1 class="page-title fw-medium fs-18 mb-2">To Do List</h1>
+                        <div class="">
+                            <nav>
+                                <ol class="breadcrumb mb-0">
+                                    <li class="breadcrumb-item"><a href="javascript:void(0);">Pages</a></li>
+                                    <li class="breadcrumb-item active" aria-current="page">To Do List</li>
+                                </ol>
+                            </nav>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="d-flex gap-2">
+                            <div class="position-relative">
+                                <button class="btn btn-primary btn-wave" type="button"
+                                    id="dropdownMenuClickableInside" data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside" aria-expanded="false">
+                                    Filter By <i class="ri-arrow-down-s-fill ms-1"></i>
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenuClickableInside">
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Today</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Yesterday</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 7 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 30 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 6 Months</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last Year</a></li>
+                                </ul>
+                            </div>
+                            <button class="btn btn-secondary btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Download">
+                                <i class="ti ti-download"></i>
+                            </button>
+                            <button class="btn btn-success btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Share">
+                                <i class="ti ti-share-3"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Page Header Close -->
+
+                    <!-- Start::row-1 -->
+                    <div class="row">
+                        <div class="col-xl-9">
+                           <div class="card custom-card">
+                                <div class="card-header justify-content-between">
+                                    <div class="flex-grow-1"> 
+                                        <input class="form-control bg-light bg-opacity-75" type="text" placeholder="Search Here" aria-label=".form-control-sm example"> 
+                                    </div> 
+                                    <div class="d-flex flex-wrap gap-2"> 
+                                        <div class="dropdown"> 
+                                            <a href="javascript:void(0);" class="btn btn-secondary-light btn-wave" data-bs-toggle="dropdown" aria-expanded="false"> Sort By<i class="ri-arrow-down-s-line align-middle ms-1 d-inline-block"></i> 
+                                            </a> 
+                                            <ul class="dropdown-menu" role="menu"> 
+                                                <li><a class="dropdown-item" href="javascript:void(0);">New</a></li> 
+                                                <li><a class="dropdown-item" href="javascript:void(0);">Popular</a></li> 
+                                                <li><a class="dropdown-item" href="javascript:void(0);">Relevant</a></li> 
+                                            </ul> 
+                                        </div> 
+                                    </div>
+                                </div>
+                                <div class="card-body p-0 position-relative" id="todo-content">
+                                    <div>
+                                        <div class="table-responsive">
+                                            <table class="table text-nowrap">
+                                                <thead>
+                                                    <tr>
+                                                        <th>
+                                                            <input class="form-check-input check-all" type="checkbox" id="all-tasks" value="" aria-label="...">
+                                                        </th>
+                                                        <th class="todolist-handle-drag">
+    
+                                                        </th>
+                                                        <th scope="col">Task Title</th>
+                                                        <th scope="col">Status</th>
+                                                        <th scope="col">Due Date</th>
+                                                        <th scope="col">Priority</th>
+                                                        <th scope="col" class="todolist-progress">Progress</th>
+                                                        <th scope="col" class="text-end">Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="todo-drag">
+                                                    <tr class="todo-box">
+                                                        <td class="task-checkbox"><input class="form-check-input" type="checkbox" value="" aria-label="..."></td>
+                                                        <td>
+                                                            <button class="btn btn-icon btn-sm btn-wave btn-light todo-handle">: :</button>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium">Complete Project Proposal</span>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium text-primary"><i class="ri-circle-line fw-semibold fs-7 me-2 lh-1 align-middle"></i>In Progress</span>
+                                                        </td>
+                                                        <td>
+                                                            2024-03-10
+                                                        </td>
+                                                        <td>
+                                                            <span class="badge bg-secondary">Medium</span>
+                                                        </td>
+                                                        <td>
+                                                            <div class="d-flex align-items-center">
+                                                                <div class="progress progress-animate progress-xs w-100" role="progressbar" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100">
+                                                                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 40%"></div>
+                                                                </div>
+                                                                <div class="ms-2">40%</div>
+                                                            </div>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <div class="dropdown"> 
+                                                                <a aria-label="anchor" class="btn btn-light btn-icon btn-sm btn-wave" href="javascript:void(0);" data-bs-toggle="dropdown"> 
+                                                                    <i class="ri-more-2-fill text-muted"></i>
+                                                                </a> 
+                                                                <ul class="dropdown-menu" role="menu"> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-edit-line me-2"></i>Edit</a></li> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-delete-bin-5-line me-2"></i>Delete</a></li> 
+                                                                </ul> 
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                    <tr class="todo-box">
+                                                        <td class="task-checkbox"><input class="form-check-input" type="checkbox" value="" aria-label="..." checked=""></td>
+                                                        <td>
+                                                            <button class="btn btn-icon btn-sm btn-wave btn-light todo-handle">: :</button>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium">Client Meeting</span>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium text-success"><i class="ri-circle-line fw-semibold fs-7 me-2 lh-1 align-middle"></i>Not Started</span>
+                                                        </td>
+                                                        <td>
+                                                            2024-03-15
+                                                        </td>
+                                                        <td>
+                                                            <span class="badge bg-danger">High</span>
+                                                        </td>
+                                                        <td>
+                                                            <div class="d-flex align-items-center">
+                                                                <div class="progress progress-animate progress-xs w-100" role="progressbar" aria-valuenow="70" aria-valuemin="0" aria-valuemax="100">
+                                                                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-secondary" style="width: 70%"></div>
+                                                                </div>
+                                                                <div class="ms-2">70%</div>
+                                                            </div>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <div class="dropdown"> 
+                                                                <a aria-label="anchor" class="btn btn-light btn-icon btn-sm btn-wave" href="javascript:void(0);" data-bs-toggle="dropdown"> 
+                                                                    <i class="ri-more-2-fill text-muted"></i>
+                                                                </a> 
+                                                                <ul class="dropdown-menu" role="menu"> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-edit-line me-2"></i>Edit</a></li> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-delete-bin-5-line me-2"></i>Delete</a></li> 
+                                                                </ul> 
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                    <tr class="todo-box">
+                                                        <td class="task-checkbox"><input class="form-check-input" type="checkbox" value="" aria-label="..."></td>
+                                                        <td>
+                                                            <button class="btn btn-icon btn-sm btn-wave btn-light todo-handle">: :</button>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium">Research Market Trends</span>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium text-warning"><i class="ri-circle-line fw-semibold fs-7 me-2 lh-1 align-middle"></i>Completed</span>
+                                                        </td>
+                                                        <td>
+                                                            2024-03-12
+                                                        </td>
+                                                        <td>
+                                                            <span class="badge bg-success">Low</span>
+                                                        </td>
+                                                        <td>
+                                                            <div class="d-flex align-items-center">
+                                                                <div class="progress progress-animate progress-xs w-100" role="progressbar" aria-valuenow="62" aria-valuemin="0" aria-valuemax="100">
+                                                                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" style="width: 62%"></div>
+                                                                </div>
+                                                                <div class="ms-2">62%</div>
+                                                            </div>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <div class="dropdown"> 
+                                                                <a aria-label="anchor" class="btn btn-light btn-icon btn-sm btn-wave" href="javascript:void(0);" data-bs-toggle="dropdown"> 
+                                                                    <i class="ri-more-2-fill text-muted"></i>
+                                                                </a> 
+                                                                <ul class="dropdown-menu" role="menu"> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-edit-line me-2"></i>Edit</a></li> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-delete-bin-5-line me-2"></i>Delete</a></li> 
+                                                                </ul> 
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                    <tr class="todo-box">
+                                                        <td class="task-checkbox"><input class="form-check-input" type="checkbox" value="" aria-label="..."></td>
+                                                        <td>
+                                                            <button class="btn btn-icon btn-sm btn-wave btn-light todo-handle">: :</button>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium">Update Website Content</span>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium text-success"><i class="ri-circle-line fw-semibold fs-7 me-2 lh-1 align-middle"></i>Not Started</span>
+                                                        </td>
+                                                        <td>
+                                                            2024-03-18
+                                                        </td>
+                                                        <td>
+                                                            <span class="badge bg-success">Low</span>
+                                                        </td>
+                                                        <td>
+                                                            <div class="d-flex align-items-center">
+                                                                <div class="progress progress-animate progress-xs w-100" role="progressbar" aria-valuenow="85" aria-valuemin="0" aria-valuemax="100">
+                                                                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-orange" style="width: 85%"></div>
+                                                                </div>
+                                                                <div class="ms-2">85%</div>
+                                                            </div>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <div class="dropdown"> 
+                                                                <a aria-label="anchor" class="btn btn-light btn-icon btn-sm btn-wave" href="javascript:void(0);" data-bs-toggle="dropdown"> 
+                                                                    <i class="ri-more-2-fill text-muted"></i>
+                                                                </a> 
+                                                                <ul class="dropdown-menu" role="menu"> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-edit-line me-2"></i>Edit</a></li> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-delete-bin-5-line me-2"></i>Delete</a></li> 
+                                                                </ul> 
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                    <tr class="todo-box">
+                                                        <td class="task-checkbox"><input class="form-check-input" type="checkbox" value="" aria-label="..." checked=""></td>
+                                                        <td>
+                                                            <button class="btn btn-icon btn-sm btn-wave btn-light todo-handle">: :</button>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium">Team Meeting</span>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium text-secondary"><i class="ri-circle-line fw-semibold fs-7 me-2 lh-1 align-middle"></i>Pending</span>
+                                                        </td>
+                                                        <td>
+                                                            2024-03-22
+                                                        </td>
+                                                        <td>
+                                                            <span class="badge bg-secondary">Medium</span>
+                                                        </td>
+                                                        <td>
+                                                            <div class="d-flex align-items-center">
+                                                                <div class="progress progress-animate progress-xs w-100" role="progressbar" aria-valuenow="55" aria-valuemin="0" aria-valuemax="100">
+                                                                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" style="width: 55%"></div>
+                                                                </div>
+                                                                <div class="ms-2">55%</div>
+                                                            </div>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <div class="dropdown"> 
+                                                                <a aria-label="anchor" class="btn btn-light btn-icon btn-sm btn-wave" href="javascript:void(0);" data-bs-toggle="dropdown"> 
+                                                                    <i class="ri-more-2-fill text-muted"></i>
+                                                                </a> 
+                                                                <ul class="dropdown-menu" role="menu"> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-edit-line me-2"></i>Edit</a></li> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-delete-bin-5-line me-2"></i>Delete</a></li> 
+                                                                </ul> 
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                    <tr class="todo-box">
+                                                        <td class="task-checkbox"><input class="form-check-input" type="checkbox" value="" aria-label="..." checked=""></td>
+                                                        <td>
+                                                            <button class="btn btn-icon btn-sm btn-wave btn-light todo-handle">: :</button>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium">Prepare Monthly Report</span>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium text-success"><i class="ri-circle-line fw-semibold fs-7 me-2 lh-1 align-middle"></i>Not Started</span>
+                                                        </td>
+                                                        <td>
+                                                            2024-03-28
+                                                        </td>
+                                                        <td>
+                                                            <span class="badge bg-danger">High</span>
+                                                        </td>
+                                                        <td>
+                                                            <div class="d-flex align-items-center">
+                                                                <div class="progress progress-animate progress-xs w-100" role="progressbar" aria-valuenow="96" aria-valuemin="0" aria-valuemax="100">
+                                                                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-warning" style="width: 96%"></div>
+                                                                </div>
+                                                                <div class="ms-2">96%</div>
+                                                            </div>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <div class="dropdown"> 
+                                                                <a aria-label="anchor" class="btn btn-light btn-icon btn-sm btn-wave" href="javascript:void(0);" data-bs-toggle="dropdown"> 
+                                                                    <i class="ri-more-2-fill text-muted"></i>
+                                                                </a> 
+                                                                <ul class="dropdown-menu" role="menu"> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-edit-line me-2"></i>Edit</a></li> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-delete-bin-5-line me-2"></i>Delete</a></li> 
+                                                                </ul> 
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                    <tr class="todo-box">
+                                                        <td class="task-checkbox"><input class="form-check-input" type="checkbox" value="" aria-label="..."></td>
+                                                        <td>
+                                                            <button class="btn btn-icon btn-sm btn-wave btn-light todo-handle">: :</button>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium">Review Project Milestones</span>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium text-primary"><i class="ri-circle-line fw-semibold fs-7 me-2 lh-1 align-middle"></i>In Progress</span>
+                                                        </td>
+                                                        <td>
+                                                            2024-03-14
+                                                        </td>
+                                                        <td>
+                                                            <span class="badge bg-success">Low</span>
+                                                        </td>
+                                                        <td>
+                                                            <div class="d-flex align-items-center">
+                                                                <div class="progress progress-animate progress-xs w-100" role="progressbar" aria-valuenow="78" aria-valuemin="0" aria-valuemax="100">
+                                                                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-danger" style="width: 78%"></div>
+                                                                </div>
+                                                                <div class="ms-2">78%</div>
+                                                            </div>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <div class="dropdown"> 
+                                                                <a aria-label="anchor" class="btn btn-light btn-icon btn-sm btn-wave" href="javascript:void(0);" data-bs-toggle="dropdown"> 
+                                                                    <i class="ri-more-2-fill text-muted"></i>
+                                                                </a> 
+                                                                <ul class="dropdown-menu" role="menu"> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-edit-line me-2"></i>Edit</a></li> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-delete-bin-5-line me-2"></i>Delete</a></li> 
+                                                                </ul> 
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                    <tr class="todo-box">
+                                                        <td class="task-checkbox"><input class="form-check-input" type="checkbox" value="" aria-label="..." checked=""></td>
+                                                        <td>
+                                                            <button class="btn btn-icon btn-sm btn-wave btn-light todo-handle">: :</button>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium">Customer Feedback Analysis</span>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium text-success"><i class="ri-circle-line fw-semibold fs-7 me-2 lh-1 align-middle"></i>Not Started</span>
+                                                        </td>
+                                                        <td>
+                                                            2024-03-20
+                                                        </td>
+                                                        <td>
+                                                            <span class="badge bg-danger">High</span>
+                                                        </td>
+                                                        <td>
+                                                            <div class="d-flex align-items-center">
+                                                                <div class="progress progress-animate progress-xs w-100" role="progressbar" aria-valuenow="71" aria-valuemin="0" aria-valuemax="100">
+                                                                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-teal" style="width: 71%"></div>
+                                                                </div>
+                                                                <div class="ms-2">71%</div>
+                                                            </div>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <div class="dropdown"> 
+                                                                <a aria-label="anchor" class="btn btn-light btn-icon btn-sm btn-wave" href="javascript:void(0);" data-bs-toggle="dropdown"> 
+                                                                    <i class="ri-more-2-fill text-muted"></i>
+                                                                </a> 
+                                                                <ul class="dropdown-menu" role="menu"> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-edit-line me-2"></i>Edit</a></li> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-delete-bin-5-line me-2"></i>Delete</a></li> 
+                                                                </ul> 
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                    <tr class="todo-box">
+                                                        <td class="task-checkbox"><input class="form-check-input" type="checkbox" value="" aria-label="..."></td>
+                                                        <td>
+                                                            <button class="btn btn-icon btn-sm btn-wave btn-light todo-handle">: :</button>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium">Training Session</span>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium text-success"><i class="ri-circle-line fw-semibold fs-7 me-2 lh-1 align-middle"></i>Not Started</span>
+                                                        </td>
+                                                        <td>
+                                                            2024-03-24
+                                                        </td>
+                                                        <td>
+                                                            <span class="badge bg-secondary">Medium</span>
+                                                        </td>
+                                                        <td>
+                                                            <div class="d-flex align-items-center">
+                                                                <div class="progress progress-animate progress-xs w-100" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100">
+                                                                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-pink" style="width: 60%"></div>
+                                                                </div>
+                                                                <div class="ms-2">60%</div>
+                                                            </div>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <div class="dropdown"> 
+                                                                <a aria-label="anchor" class="btn btn-light btn-icon btn-sm btn-wave" href="javascript:void(0);" data-bs-toggle="dropdown"> 
+                                                                    <i class="ri-more-2-fill text-muted"></i>
+                                                                </a> 
+                                                                <ul class="dropdown-menu" role="menu"> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-edit-line me-2"></i>Edit</a></li> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-delete-bin-5-line me-2"></i>Delete</a></li> 
+                                                                </ul> 
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                    <tr class="todo-box">
+                                                        <td class="task-checkbox"><input class="form-check-input" type="checkbox" value="" aria-label="..."></td>
+                                                        <td>
+                                                            <button class="btn btn-icon btn-sm btn-wave btn-light todo-handle">: :</button>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium">Finalize Budget</span>
+                                                        </td>
+                                                        <td>
+                                                            <span class="fw-medium text-success"><i class="ri-circle-line fw-semibold fs-7 me-2 lh-1 align-middle"></i>Not Started</span>
+                                                        </td>
+                                                        <td>
+                                                            2024-03-25
+                                                        </td>
+                                                        <td>
+                                                            <span class="badge bg-success">Low</span>
+                                                        </td>
+                                                        <td>
+                                                            <div class="d-flex align-items-center">
+                                                                <div class="progress progress-animate progress-xs w-100" role="progressbar" aria-valuenow="80" aria-valuemin="0" aria-valuemax="100">
+                                                                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-dark" style="width: 80%"></div>
+                                                                </div>
+                                                                <div class="ms-2">80%</div>
+                                                            </div>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <div class="dropdown"> 
+                                                                <a aria-label="anchor" class="btn btn-light btn-icon btn-sm btn-wave" href="javascript:void(0);" data-bs-toggle="dropdown"> 
+                                                                    <i class="ri-more-2-fill text-muted"></i>
+                                                                </a> 
+                                                                <ul class="dropdown-menu" role="menu"> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-edit-line me-2"></i>Edit</a></li> 
+                                                                    <li><a class="dropdown-item" href="javascript:void(0);"><i class="ri-delete-bin-5-line me-2"></i>Delete</a></li> 
+                                                                </ul> 
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-footer border-top-0"> 
+                                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2"> 
+                                        <div> Showing 10 Entries <i class="bi bi-arrow-right ms-2 fw-semibold"></i> </div>
+                                        <div> 
+                                            <nav aria-label="Page navigation" class="pagination-style-4"> 
+                                                <ul class="pagination mb-0"> 
+                                                    <li class="page-item disabled"> <a class="page-link" href="javascript:void(0);"> Prev </a> </li>
+                                                    <li class="page-item active"><a class="page-link" href="javascript:void(0);">1</a></li> 
+                                                    <li class="page-item"><a class="page-link" href="javascript:void(0);">2</a></li> 
+                                                    <li class="page-item"> <a class="page-link text-primary" href="javascript:void(0);"> next </a> </li> 
+                                                </ul> 
+                                            </nav> 
+                                        </div> 
+                                    </div> 
+                                </div>
+                           </div>
+                        </div>
+                        <div class="col-xl-3">
+                            <div class="card custom-card">
+                                <div class="card-body p-0">
+                                    <div class="p-3 d-grid border-bottom border-block-end-dashed">
+                                        <button class="btn btn-primary d-flex align-items-center justify-content-center" data-bs-toggle="modal" data-bs-target="#addtask">
+                                            <i class="ri-add-circle-line fs-16 align-middle me-1"></i>Create New Task
+                                        </button>
+                                        <div class="modal fade" id="addtask" tabindex="-1" aria-hidden="true">
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h6 class="modal-title" id="mail-ComposeLabel">Create Task</h6>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                                            aria-label="Close"></button>
+                                                    </div>
+                                                    <div class="modal-body px-4">
+                                                        <div class="row gy-2">
+                                                            <div class="col-xl-12">
+                                                                <label for="task-name" class="form-label">Task Name</label>
+                                                                <input type="text" class="form-control" id="task-name" placeholder="Task Name">
+                                                            </div>
+                                                            <div class="col-xl-12">
+                                                                <label class="form-label">Assigned To</label>
+                                                                <select class="form-control" name="choices-multiple-remove-button" id="choices-multiple-remove-button" multiple>
+                                                                    <option value="Choice 1" selected>Angelina May</option>
+                                                                    <option value="Choice 2">Kiara advain</option>
+                                                                    <option value="Choice 3">Hercules Jhon</option>
+                                                                    <option value="Choice 4">Mayor Kim</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-xl-6">
+                                                                <label class="form-label">Assigned Date</label>
+                                                                <div class="form-group">
+                                                                    <div class="input-group">
+                                                                        <div class="input-group-text text-muted"> <i class="ri-calendar-line"></i> </div>
+                                                                        <input type="text" class="form-control" id="addignedDate" placeholder="Choose date and time">
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-xl-6">
+                                                                <label class="form-label">Target Date</label>
+                                                                <div class="form-group">
+                                                                    <div class="input-group">
+                                                                        <div class="input-group-text text-muted"> <i class="ri-calendar-line"></i> </div>
+                                                                        <input type="text" class="form-control" id="targetDate" placeholder="Choose date and time">
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-xl-6">
+                                                                <label class="form-label">Status</label>
+                                                                <select class="form-control" data-trigger name="choices-single-default1" id="choices-single-default1">
+                                                                    <option value="">Select</option>
+                                                                    <option value="one">In Progress</option>
+                                                                    <option value="two">Not Started</option>
+                                                                    <option value="three">Completed</option>
+                                                                    <option value="four">Pending</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-xl-6">
+                                                                <label class="form-label">Priority</label>
+                                                                <select class="form-control" data-trigger name="choices-single-default" id="choices-single-default">
+                                                                    <option value="">Select</option>
+                                                                    <option value="Critical">Critical</option>
+                                                                    <option value="High">High</option>
+                                                                    <option value="Medium">Medium</option>
+                                                                    <option value="Low">Low</option>
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-light"
+                                                            data-bs-dismiss="modal">Cancel</button>
+                                                        <button type="button" class="btn btn-primary">Create</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="p-3 task-navigation border-bottom border-block-end-dashed">
+                                        <ul class="list-unstyled task-main-nav mb-0">
+                                            <li class="px-0 pt-0">
+                                                <span class="fs-11 text-muted op-7 fw-medium">TASKS</span>
+                                            </li>
+                                            <li class="active">
+                                                <a href="javascript:void(0);">
+                                                    <div class="d-flex align-items-center">
+                                                        <span class="me-2 lh-1">
+                                                            <i class="ri-task-line align-middle fs-14"></i>
+                                                        </span>
+                                                        <span class="flex-fill text-nowrap">
+                                                            All Tasks
+                                                        </span>
+                                                        <span class="badge bg-success-transparent rounded-pill">167</span>
+                                                    </div>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="javascript:void(0);">
+                                                    <div class="d-flex align-items-center">
+                                                        <span class="me-2 lh-1">
+                                                            <i class="ri-star-line align-middle fs-14"></i>
+                                                        </span>
+                                                        <span class="flex-fill text-nowrap">
+                                                            Starred
+                                                        </span>
+                                                    </div>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="javascript:void(0);">
+                                                    <div class="d-flex align-items-center">
+                                                        <span class="me-2 lh-1">
+                                                            <i class="ri-time-line align-middle fs-14"></i>
+                                                        </span>
+                                                        <span class="flex-fill text-nowrap">
+                                                            On Hold
+                                                        </span>
+                                                    </div>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="javascript:void(0);">
+                                                    <div class="d-flex align-items-center">
+                                                        <span class="me-2 lh-1">
+                                                            <i class="ri-delete-bin-5-line align-middle fs-14"></i>
+                                                        </span>
+                                                        <span class="flex-fill text-nowrap">
+                                                            Trash
+                                                        </span>
+                                                    </div>
+                                                </a>
+                                            </li>
+                                            <li class="px-0 pt-2">
+                                                <span class="fs-11 text-muted op-7 fw-medium">CATEGORIES</span>
+                                            </li>
+                                            <li>
+                                                <a href="javascript:void(0);">
+                                                    <div class="d-flex align-items-center flex-wrap">
+                                                        <span class="me-2 lh-1">
+                                                            <i class="ri-price-tag-line align-middle fs-14 fw-medium text-primary"></i>
+                                                        </span>
+                                                        <span class="flex-fill text-nowrap">
+                                                            Personal
+                                                        </span>
+                                                    </div>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="javascript:void(0);">
+                                                    <div class="d-flex align-items-center flex-wrap">
+                                                        <span class="me-2 lh-1">
+                                                            <i class="ri-price-tag-line align-middle fs-14 fw-medium text-secondary"></i>
+                                                        </span>
+                                                        <span class="flex-fill text-nowrap">
+                                                            Work
+                                                        </span>
+                                                    </div>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="javascript:void(0);">
+                                                    <div class="d-flex align-items-center flex-wrap">
+                                                        <span class="me-2 lh-1">
+                                                            <i class="ri-price-tag-line align-middle fs-14 fw-medium text-warning"></i>
+                                                        </span>
+                                                        <span class="flex-fill text-nowrap">
+                                                            Health & Fitness
+                                                        </span>
+                                                    </div>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="javascript:void(0);">
+                                                    <div class="d-flex align-items-center flex-wrap">
+                                                        <span class="me-2 lh-1">
+                                                            <i class="ri-price-tag-line align-middle fs-14 fw-medium text-success"></i>
+                                                        </span>
+                                                        <span class="flex-fill text-nowrap">
+                                                            Daily Goals
+                                                        </span>
+                                                    </div>
+                                                </a>
+                                            </li>
+                                            <li> 
+                                                <a href="javascript:void(0);">
+                                                    <div class="d-flex align-items-center flex-wrap">
+                                                        <span class="me-2 lh-1">
+                                                            <i class="ri-price-tag-line align-middle fs-14 fw-medium text-danger"></i>
+                                                        </span>
+                                                        <span class="flex-fill text-nowrap">
+                                                            Financial Management
+                                                        </span>
+                                                    </div>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <div class="p-3 text-center">
+                                        <img src="../assets/images/media/media-66.png" alt="">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!--End::row-1 -->
+
+            </div>
+        </div>
+        <!-- End::app-content -->
+
+        
+       <!-- include footer.html"-->
+        <!-- include responsive-search-modal.html"-->
+
+    </div>
+
+   <!-- include commonjs.html"-->
+
+    <!-- include custom-switcherjs.html"-->
+
+    <!-- Flatpickr JS -->
+    <script src="../assets/libs/flatpickr/flatpickr.min.js"></script>
+
+    <!-- Dragula JS -->
+    <script src="../assets/libs/dragula/dragula.min.js"></script>
+
+    <!-- Internal To-Do-List JS -->
+    <script src="../assets/js/todolist.js"></script>
+
+    <!-- Custom JS -->
+    <script src="../assets/js/custom.js"></script>
+
+</body>
+
+</html>

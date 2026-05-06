@@ -1,0 +1,43 @@
+# OS/editor files
+.DS_Store
+.idea/
+.vscode/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Dependencies and build output
+node_modules/
+vendor/
+.nuxt/
+.output/
+dist/
+build/
+coverage/
+.nyc_output/
+.cache/
+tmp/
+temp/
+*.tmp
+
+# Local deployment/runtime data
+storage/logs/
+storage/framework/cache/
+storage/framework/sessions/
+storage/framework/views/
+
+# Local archives / duplicated source bundles
+document.zip
+
+# Admin template: keep source reference, skip generated/heavy output
+admin_dashboard_template/**/dist/
+admin_dashboard_template/Documentation/assets/
+admin_dashboard_template/Meno_gulp/

@@ -1,0 +1,864 @@
+<!-- include mainhead.html"-->
+
+<link rel="stylesheet" href="../assets/libs/swiper/swiper-bundle.min.css">
+
+</head>
+
+<body>
+
+    <!-- include switcher.html"-->
+   <!-- include loader.html"-->
+
+    <div class="page">
+        <!-- include header.html"-->
+         <!-- include sidebar.html"-->
+
+        <!-- Start::app-content -->
+        <div class="main-content app-content">
+            <div class="container-fluid">
+
+                <!-- Start::page-header -->
+                <div class="my-4 page-header-breadcrumb d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h1 class="page-title fw-medium fs-18 mb-2">Stocks</h1>
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item">
+                                <a href="javascript:void(0);">
+                                     Dashboards
+                                </a>
+                            </li>
+                            <li class="breadcrumb-item active" aria-current="page">Stocks</li>
+                        </ol>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="d-flex gap-2">
+                            <div class="position-relative">
+                                <button class="btn btn-primary btn-wave" type="button"
+                                    id="dropdownMenuClickableInside" data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside" aria-expanded="false">
+                                    Filter By <i class="ri-arrow-down-s-fill ms-1"></i>
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenuClickableInside">
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Today</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Yesterday</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 7 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 30 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 6 Months</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last Year</a></li>
+                                </ul>
+                            </div>
+                            <button class="btn btn-secondary btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Download">
+                                <i class="ti ti-download"></i>
+                            </button>
+                            <button class="btn btn-success btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Share">
+                                <i class="ti ti-share-3"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- End::page-header -->
+
+                <!-- Start:: row-1 -->
+                <div class="row">
+                    <div class="col-xl-12">
+                        <div class="swiper swiper-basic">
+                            <div class="swiper-wrapper">
+                                <div class="swiper-slide">
+                                    <div class="card custom-card">
+                                        <div class="card-body">
+                                            <div class="d-flex gap-2 flex-wrap align-items-center justify-content-between">
+                                                <div class="d-flex flex-fill align-items-center">
+                                                    <div class="me-2">
+                                                        <span class="avatar avatar-md">
+                                                            <img src="../assets/images/media/apps/apple.png" alt="" class="invert-1">
+                                                        </span>
+                                                    </div>
+                                                    <div class="lh-1">
+                                                        <span class="d-block mb-2 text-default fw-medium">Apple</span>
+                                                        <h6 class="fw-semibold mb-1 text-primary">$150.20</h6>
+                                                    </div>
+                                                </div>
+                                                <div class="fs-13 text-end">
+                                                    <span class="d-block text-danger fw-medium">+1.50<i class="ti ti-arrow-bear-right"></i></span>
+                                                    <span class="d-block">$157.71</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="swiper-slide">
+                                    <div class="card custom-card">
+                                        <div class="card-body"> 
+                                            <div class="d-flex gap-2 flex-wrap align-items-center justify-content-between">
+                                                <div class="d-flex flex-fill align-items-center">
+                                                    <div class="me-2">
+                                                        <span class="avatar avatar-md">
+                                                            <img src="../assets/images/media/apps/google.png" alt="">
+                                                        </span>
+                                                    </div>
+                                                    <div class="lh-1">
+                                                        <span class="d-block mb-2 text-default fw-medium">Google</span>
+                                                        <h6 class="fw-semibold mb-1 text-secondary">$250.50</h6>
+                                                    </div>
+                                                </div>
+                                                <div class="fs-13 text-end">
+                                                    <span class="d-block text-danger fw-medium">-5.25<i class="ti ti-arrow-bear-right"></i></span>
+                                                    <span class="d-block">$225.53</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="swiper-slide">
+                                    <div class="card custom-card">
+                                        <div class="card-body">
+                                            <div class="d-flex gap-2 flex-wrap align-items-center justify-content-between">
+                                                <div class="d-flex flex-fill align-items-center">
+                                                    <div class="me-2">
+                                                        <span class="avatar avatar-md">
+                                                            <img src="../assets/images/media/apps/microsoft.png" alt="">
+                                                        </span>
+                                                    </div>
+                                                    <div class="lh-1">
+                                                        <span class="d-block mb-2 text-default fw-medium">Microsoft</span>
+                                                        <h6 class="fw-semibold mb-1 text-danger">$300.7</h6>
+                                                    </div>
+                                                </div>
+                                                <div class="fs-13 text-end">
+                                                    <span class="d-block text-success fw-medium">+2.30%<i class="ti ti-arrow-bear-right"></i></span>
+                                                    <span class="d-block">$315.79</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="swiper-slide">
+                                    <div class="card custom-card">
+                                        <div class="card-body">
+                                            <div class="d-flex gap-2 flex-wrap align-items-center justify-content-between">
+                                                <div class="d-flex flex-fill align-items-center">
+                                                    <div class="me-2">
+                                                        <span class="avatar avatar-md">
+                                                            <img src="../assets/images/media/apps/amazon.png" alt="">
+                                                        </span>
+                                                    </div>
+                                                    <div class="lh-1">
+                                                        <span class="d-block mb-2 text-default fw-medium">Amazon</span>
+                                                        <h6 class="fw-semibold mb-1 text-warning">$300.0</h6>
+                                                    </div>
+                                                </div>
+                                                <div class="fs-13 text-end">
+                                                    <span class="d-block text-danger fw-medium">-10.50%<i class="ti ti-arrow-bear-right"></i></span>
+                                                    <span class="d-block">$350.0</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="swiper-slide">
+                                    <div class="card custom-card">
+                                        <div class="card-body">
+                                            <div class="d-flex flex-wrap align-items-center justify-content-between">
+                                                <div class="d-flex flex-fill align-items-center">
+                                                    <div class="me-2">
+                                                        <span class="avatar avatar-md">
+                                                            <img src="../assets/images/media/apps/tesla.png" alt="" class="invert-1">
+                                                        </span>
+                                                    </div>
+                                                    <div class="lh-1">
+                                                        <span class="d-block mb-2 text-default fw-medium">Tesla</span>
+                                                        <h6 class="fw-semibold mb-1 text-pink">$700.80</h6>
+                                                    </div>
+                                                </div>
+                                                <div class="fs-13 text-end">
+                                                    <span class="d-block text-success fw-medium">+8.00%<i class="ti ti-arrow-bear-right"></i></span>
+                                                    <span class="d-block">$735.84</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="swiper-slide">
+                                    <div class="card custom-card">
+                                        <div class="card-body">
+                                            <div class="d-flex flex-wrap align-items-center justify-content-between">
+                                                <div class="d-flex flex-fill align-items-center">
+                                                    <div class="me-2">
+                                                        <span class="avatar avatar-md">
+                                                            <img src="../assets/images/media/apps/facebook.png" alt="">
+                                                        </span>
+                                                    </div>
+                                                    <div class="lh-1">
+                                                        <span class="d-block mb-2 text-default fw-medium">Facebook</span>
+                                                        <h6 class="fw-semibold mb-1 text-secondary">$350.40</h6>
+                                                    </div>
+                                                </div>
+                                                <div class="fs-13 text-end">
+                                                    <span class="d-block text-danger fw-medium">-3.20%<i class="ti ti-arrow-bear-right"></i></span>
+                                                    <span class="d-block">$367.92</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="swiper-slide">
+                                    <div class="card custom-card">
+                                        <div class="card-body">
+                                            <div class="d-flex gap-2 flex-wrap align-items-center justify-content-between">
+                                                <div class="d-flex flex-fill align-items-center">
+                                                    <div class="me-2">
+                                                        <span class="avatar avatar-md">
+                                                            <img src="../assets/images/media/apps/nvidia.png" alt="">
+                                                        </span>
+                                                    </div>
+                                                    <div class="lh-1">
+                                                        <span class="d-block mb-2 text-default fw-medium">Nvidia</span>
+                                                        <h6 class="fw-semibold mb-1 text-primary">$800</h6>
+                                                    </div>
+                                                </div>
+                                                <div class="fs-13 text-end">
+                                                    <span class="d-block text-success ">+5.75%<i class="ti ti-arrow-bear-right"></i></span>
+                                                    <span class="d-block">$840</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-1 -->
+
+                <!-- Start:: row-2 -->
+                <div class="row">
+                    <div class="col-xxl-3">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card custom-card">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
+                                            <div class="lh-1">
+                                                <span class="avatar avatar-md">
+                                                    <img src="../assets/images/media/apps/apple.png" alt="" class="invert-1">
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill lh-1">
+                                                <span class="d-block mb-2">Apple</span>
+                                                <span class="d-block fs-12">Apple Inc</span>
+                                            </div>
+                                            <div id="apple-stock-chart"></div>
+                                        </div>
+                                        <div class="mb-0 d-flex align-items-center justify-content-between flex-wrap">
+                                            <h4 class="fw-semibold lh-1 mb-0">$191.56<span class="text-success ms-2 align-middle fs-12 d-inline-block">+1.55%</span></h4>
+                                            <span class="fs-12 text-warning">180 Stocks
+                                                <a class="svg-secondary" href="javascript:void(0)" data-bs-toggle="popover"
+                                                data-bs-placement="left" data-bs-custom-class="popover-light only-body" data-bs-content="Share value fluctucates timely.">
+                                                    <i class="ri-information-2-line"></i>
+                                                </a>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="card custom-card">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
+                                            <div class="lh-1">
+                                                <span class="avatar avatar-md">
+                                                    <img src="../assets/images/media/apps/nvidia.png" alt="">
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill lh-1">
+                                                <span class="d-block mb-2">Nvidia</span>
+                                                <span class="d-block fs-12">NVIDIA Corp</span>
+                                            </div>
+                                            <div id="nvidia-stock-chart"></div>
+                                        </div>
+                                        <div class="mb-0 d-flex align-items-center justify-content-between flex-wrap">
+                                            <h4 class="fw-semibold lh-1 mb-0">$594.91<span class="text-danger fs-12 ms-2 align-middle d-inline-block">-4.17%</span></h4>
+                                            <span class="fs-12 text-warning">63 Stocks
+                                                <a class="svg-secondary" href="javascript:void(0)" data-bs-toggle="popover"
+                                                data-bs-placement="left" data-bs-custom-class="popover-light only-body" data-bs-content="Share value fluctucates timely.">
+                                                    <i class="ri-information-2-line"></i>
+                                                </a>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="card custom-card">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
+                                            <div class="lh-1">
+                                                <span class="avatar avatar-md">
+                                                    <img src="../assets/images/media/apps/facebook.png" alt="">
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill lh-1">
+                                                <span class="d-block mb-2">Facebook</span>
+                                                <span class="d-block fs-12">Facebook.com, Inc.</span>
+                                            </div>
+                                            <div id="facebook-stock-chart"></div>
+                                        </div>
+                                        <div class="mb-0 d-flex align-items-center justify-content-between flex-wrap">
+                                            <h4 class="fw-semibold lh-1 mb-0">$155.34<span class="text-success fs-12 ms-2 align-middle d-inline-block">+1.84%</span></h4>
+                                            <span class="fs-12 text-warning">79 Stocks
+                                                <a class="svg-secondary" href="javascript:void(0)" data-bs-toggle="popover"
+                                                data-bs-placement="left" data-bs-custom-class="popover-light only-body" data-bs-content="Share value fluctucates timely.">
+                                                    <i class="ri-information-2-line"></i>
+                                                </a>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="card custom-card">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
+                                            <div class="lh-1">
+                                                <span class="avatar avatar-md">
+                                                    <img src="../assets/images/media/apps/microsoft.png" alt="">
+                                                </span>
+                                            </div>
+                                            <div class="flex-fill lh-1">
+                                                <span class="d-block mb-2">Microsoft</span>
+                                                <span class="d-block fs-12">Alphabet Inc</span>
+                                            </div>
+                                            <div id="microsoft-stock-chart"></div>
+                                        </div>
+                                        <div class="mb-0 d-flex align-items-center justify-content-between flex-wrap">
+                                            <h4 class="fw-semibold lh-1 mb-0">$420.55<span class="text-success fs-12 ms-2 align-middle d-inline-block">+1.56%</span></h4>
+                                            <span class="fs-12 text-warning">45 Stocks
+                                                <a class="svg-secondary" href="javascript:void(0)" data-bs-toggle="popover"
+                                                data-bs-placement="left" data-bs-custom-class="popover-light only-body" data-bs-content="Share value fluctucates timely.">
+                                                    <i class="ri-information-2-line"></i>
+                                                </a>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-9">
+                        <div class="card custom-card">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    TOTAL INVESTMENTS
+                                </div>
+                                <div class="dropdown"> 
+                                    <a href="javascript:void(0);" class="p-2 fs-12 text-muted" data-bs-toggle="dropdown" aria-expanded="true"> Sort By <i class="ri-arrow-down-s-line align-middle ms-1 d-inline-block"></i> </a> 
+                                    <ul class="dropdown-menu"> 
+                                        <li><a class="dropdown-item" href="javascript:void(0);">This Week</a></li>
+                                         <li><a class="dropdown-item" href="javascript:void(0);">Last Week</a></li> 
+                                         <li><a class="dropdown-item" href="javascript:void(0);">This Month</a></li> 
+                                    </ul> 
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex alilgn-items-center justify-content-between gap-3 p-3 bg-light flex-wrap rounded"> 
+                                    <div class="d-flex flex-wrap flex-fill gap-3"> 
+                                        <div> 
+                                            <span class="d-block text-muted mb-1">Invested Value</span> 
+                                            <span class="d-block fw-medium">$1,290.94<span class="text-success ms-1 fs-12"><i class="ti ti-chevron-up"></i>1.22%</span></span> 
+                                            <div class="d-block text-muted fs-11 mt-3">Jun 17, 2024 11:25 AM UTC +5:30</div> 
+                                        </div> 
+                                        <div> 
+                                            <span class="d-block text-muted mb-1">Total Returns</span> 
+                                            <span class="d-block fw-medium">$25,458.20<span class="text-success ms-1 fs-12"><i class="ti ti-chevron-up"></i>10.14%</span></span> 
+                                        </div> 
+                                    </div> 
+                                    <div class="d-flex flex-wrap gap-3 text-end"> 
+                                        <div> 
+                                            <span class="d-block text-muted mb-1">Today Change</span> 
+                                            <span class="d-block fw-medium">$112.09</span> 
+                                        </div> 
+                                        <div> 
+                                            <span class="d-block text-muted mb-1">Change In %</span> 
+                                            <span class="d-block fw-medium">+0.01%<span class="text-success ms-1 fs-12"><i class="ti ti-chevron-up"></i>0.21%</span></span> 
+                                        </div> 
+                                    </div> 
+                                </div>
+                                <div id="totalInvestmentsStats"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-2 -->
+
+                <!-- Start:: row-3 -->
+                <div class="row">
+                    <div class="col-xxl-3">
+                        <div class="card custom-card overflow-hidden">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Watchlist
+                                </div>
+                                <a href="javascript:void(0);" class="fs-12 text-muted"> View All<i class="ti ti-arrow-narrow-right ms-1"></i> </a>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table text-nowrap table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Symbol</th>
+                                                <th scope="col">Last Price</th>
+                                                <th scope="col">Change</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/media/apps/apple.png" alt="" class="invert-1">
+                                                        </span>
+                                                        <a href="javascript:void(0);" class="fw-medium">AAPL</a>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    $150.20
+                                                </td>
+                                                <td>
+                                                    <span class="text-success">+1.50%</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-1">
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/media/apps/google.png" alt="">
+                                                        </span>
+                                                        <a href="javascript:void(0);" class="fw-medium">GOOG</a>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    $2,500.5
+                                                </td>
+                                                <td>
+                                                    <span class="text-danger">-5.25%</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/media/apps/microsoft.png" alt="">
+                                                        </span>
+                                                        <a href="javascript:void(0);" class="fw-medium">MSFT</a>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    $300.7
+                                                </td>
+                                                <td>
+                                                    <span class="text-success">+2.30%</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/media/apps/amazon.png" alt="">
+                                                        </span>
+                                                        <a href="javascript:void(0);" class="fw-medium">AMZN</a>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    $3,000.00
+                                                </td>
+                                                <td>
+                                                    <span class="text-danger">-10.50%</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/media/apps/tesla.png" alt="" class="invert-1">
+                                                        </span>
+                                                        <a href="javascript:void(0);" class="fw-medium">TSLA</a>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    $700.80
+                                                </td>
+                                                <td>
+                                                    <span class="text-success">+8.00%</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/media/apps/facebook.png" alt="">
+                                                        </span>
+                                                        <a href="javascript:void(0);" class="fw-medium">FB</a>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    $350.40
+                                                </td>
+                                                <td>
+                                                    <span class="text-danger">-3.20%</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="avatar avatar-xs">
+                                                            <img src="../assets/images/media/apps/nvidia.png" alt="">
+                                                        </span>
+                                                        <a href="javascript:void(0);" class="fw-medium">NVDA</a>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    $800.60
+                                                </td>
+                                                <td>
+                                                    <span class="text-success">+5.75%</span>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3">
+                        <div class="card custom-card">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Statistics
+                                </div>
+                                <a href="javascript:void(0);" class="fs-12 text-muted"> View More<i class="ti ti-arrow-narrow-right ms-1"></i> </a>
+                            </div>
+                            <div class="p-3 my-2 bg-gray-100 bg-opacity-10">
+                                <div class="row row-cols-12">
+                                    <div class="col p-0">
+                                        <div class="text-center"> 
+                                            <i class="ri-square-fill lh-1 fs-10 rounded-2 bg-primary-transparent text-primary"></i>
+                                            <span class="text-muted fs-12 mb-1 rounded-dot dot-primary d-inline-block ms-1">Stocks
+                                            </span>
+                                            <div><span class="fs-16 fw-semibold">1,624</span> </div>
+                                        </div>
+                                    </div>
+                                    <div class="col p-0">
+                                        <div class="text-center"> 
+                                            <i class="ri-square-fill lh-1 fs-10 rounded-2 bg-secondary-transparent text-secondary"></i>
+                                            <span class="text-muted fs-12 mb-1 rounded-dot dot-secondary d-inline-block ms-1">Funds
+                                            </span>
+                                            <div><span class="fs-16 fw-semibold">1,267</span></div>
+                                        </div>
+                                    </div>
+                                    <div class="col p-0">
+                                        <div class="text-center"> 
+                                            <i class="ri-square-fill lh-1 fs-10 rounded-2 bg-success-transparent text-success"></i>
+                                            <span class="text-muted fs-12 mb-1 rounded-dot dot-success d-inline-block ms-1">Bond
+                                            </span>
+                                            <div><span class="fs-16 fw-semibold">1,153</span> </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="statistics"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-6">
+                        <div class="card custom-card overflow-hidden">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Market Movers
+                                </div>
+                                <div class="dropdown">
+                                    <a href="javascript:void(0);" class="btn btn-light btn-sm" data-bs-toggle="dropdown" aria-expanded="false">
+                                        All<i class="ri-arrow-down-s-line align-middle ms-1 d-inline-block"></i>
+                                    </a>
+                                    <ul class="dropdown-menu" role="menu">
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Buy</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Sell</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table text-nowrap ">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Symbol</th>
+                                                <th scope="col">Company Name</th>
+                                                <th scope="col">Change</th>
+                                                <th scope="col">Price</th>
+                                                <th scope="col">% Change</th>
+                                                <th scope="col">Volume</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>AAPL</td>
+                                                <td>Apple Inc.</td>
+                                                <td><span class="text-success">$5.00</span></td>
+                                                <td class="fw-medium fs-14">$150.00</td>
+                                                <td><span class="text-success">+3.45%</span></td>
+                                                <td>1,000,000</td>
+                                            </tr>
+                                            <tr>
+                                                <td>GOOGL</td>
+                                                <td>Alphabet Inc.</td>
+                                                <td><span class="text-danger">-$10.00</span></td>
+                                                <td class="fw-medium fs-14">$2,500.00</td>
+                                                <td><span class="text-danger">-0.40%</span></td>
+                                                <td>500,000</td>
+                                            </tr>
+                                            <tr>
+                                                <td>MSFT</td>
+                                                <td>Microsoft Corporation</td>
+                                                <td><span class="text-success">$3.00</span></td>
+                                                <td class="fw-medium fs-14">$300.00</td>
+                                                <td><span class="text-success">+1.01%</span></td>
+                                                <td>800,000</td>
+                                            </tr>
+                                            <tr>
+                                                <td>TSLA</td>
+                                                <td>Tesla, Inc.</td>
+                                                <td><span class="text-success">$20.00</span></td>
+                                                <td class="fw-medium fs-14">$700.00</td>
+                                                <td><span class="text-success">+2.94%</span></td>
+                                                <td>1,200,000</td>
+                                            </tr>
+                                            <tr>
+                                                <td>NFLX</td>
+                                                <td>Netflix, Inc.</td>
+                                                <td><span class="text-danger">-$5.00</span></td>
+                                                <td class="fw-medium fs-14">$400.00</td>
+                                                <td><span class="text-danger">-1.23%</span></td>
+                                                <td>600,000</td>
+                                            </tr>
+                                            <tr>
+                                                <td>AMZN</td>
+                                                <td>Amazon.com, Inc.</td>
+                                                <td><span class="text-success">$50.00</span></td>
+                                                <td class="fw-medium fs-14">$3,000.00</td>
+                                                <td><span class="text-success">+1.69%</span></td>
+                                                <td>1,500,000</td>
+                                            </tr>
+                                            <tr>
+                                                <td>FB</td>
+                                                <td>Facebook.com, Inc.</td>
+                                                <td><span class="text-success">$24.00</span></td>
+                                                <td class="fw-medium fs-14">$6,000.00</td>
+                                                <td><span class="text-success">+2.08%</span></td>
+                                                <td>2,258,450</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-3 -->
+
+                <!-- Start:: row-4 -->
+                <div class="row">
+                    <div class="col-xxl-3">
+                        <div class="card custom-card">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Portfolio Value
+                                </div>
+                                <a href="javascript:void(0);" class="fs-12 text-muted"> View All<i class="ti ti-arrow-narrow-right ms-1"></i> </a>
+                            </div>
+                            <div class="card-body pb-0">
+                                <div class="d-flex align-items-start gap-3 flex-wrap">
+                                    <div>
+                                        <span class="avatar avatar-lg bg-primary">
+                                            <i class="ti ti-currency-dollar fs-4"></i>
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <div class="text-muted fs-13">Total Value </div> 
+                                        <h3 class="fw-semibold">$6,31,262.25</h3> 
+                                        <div class="fs-12">
+                                            <span class="text-success fs-13 me-1 d-inline-block"><i class="fe fe-arrow-up-right"></i>45%</span>Increase Since last Year
+                                        </div> 
+                                    </div>
+                                </div>
+                                <div id="portfolio-value"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-9">
+                        <div class="card custom-card overflow-hidden">
+                            <div class="card-header justify-content-between">
+                                <div class="card-title">
+                                    Transaction History
+                                </div>
+                                <div class="dropdown">
+                                    <a href="javascript:void(0);" class="btn btn-light btn-sm" data-bs-toggle="dropdown" aria-expanded="false">
+                                        All<i class="ri-arrow-down-s-line align-middle ms-1 d-inline-block"></i>
+                                    </a>
+                                    <ul class="dropdown-menu dropdown-menu-end" role="menu">
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Buy</a></li>
+                                        <li><a class="dropdown-item" href="javascript:void(0);">Sell</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover text-nowrap">
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Stock</th>
+                                                <th>Shares</th>
+                                                <th>Type</th>
+                                                <th>Price</th>
+                                                <th>Change</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>12 Apr, 2024</td>
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="avatar avatar-sm p-1 avatar-rounded border border-primary1 border-opacity-10 bg-dark-transparent">
+                                                            <img src="../assets/images/media/apps/apple.png" alt="" class="invert-1">
+                                                        </span>
+                                                        <div>
+                                                            <a href="javascript:void(0);" class="fw-medium">APPL - Apple Inc.</a>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>50</td>
+                                                <td><span class="badge bg-primary">Buy</span></td>
+                                                <td>
+                                                    <div class="fw-medium">$150.00</div>
+                                                    <div class="text-muted">Value: $7,500.00</div>
+                                                </td>
+                                                <td><span class="text-success"><i class="fas fa-arrow-up"></i> +2%</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td>14 Apr, 2024</td>
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="avatar avatar-sm p-1 avatar-rounded border border-primary2 border-opacity-10 bg-success-transparent">
+                                                            <img src="../assets/images/media/apps/google.png" alt="" class="invert-1">
+                                                        </span>
+                                                        <div>
+                                                            <a href="javascript:void(0);" class="fw-medium">GOOGL-Alphabet Inc..</a>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>20</td>
+                                                <td> <span class="badge bg-secondary">Sell</span></td>
+                                                <td>
+                                                    <div class="fw-medium">$2,400.00</div>
+                                                    <div class="text-muted">Value: $48,000.00</div>
+                                                </td>
+                                                <td><span class="text-danger"><i class="fas fa-arrow-down"></i> -1.5%</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td>18 Apr, 2024</td>
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="avatar avatar-sm p-1 avatar-rounded border border-warning border-opacity-10 bg-warning-transparent">
+                                                            <img src="../assets/images/media/apps/tesla.png" alt="" class="invert-1">
+                                                        </span>
+                                                        <div>
+                                                            <a href="javascript:void(0);" class="fw-medium">TSLA - Tesla Inc.</a>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>15</td>
+                                                <td><span class="badge bg-primary">Buy</span></td>
+                                                <td>
+                                                    <div class="fw-medium">$650.00</div>
+                                                    <div class="text-muted">Value: $9,750.00</div>
+                                                </td>
+                                                <td><span class="text-success"><i class="fas fa-arrow-up"></i> +1.2%</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td>20 Apr, 2024</td>
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="avatar avatar-sm p-1 avatar-rounded border border-primary3 border-opacity-10 bg-pink-transparent">
+                                                            <img src="../assets/images/media/apps/microsoft.png" alt="" class="invert-1">
+                                                        </span>
+                                                        <div>
+                                                            <a href="javascript:void(0);" class="fw-medium"> MSFT - Microsoft Corp.</a>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>30</td>
+                                                <td> <span class="badge bg-secondary">Sell</span></td>
+                                                <td>
+                                                    <div class="fw-medium">$280.00</div>
+                                                    <div class="text-muted">Value: $8,400.00</div>
+                                                </td>
+                                                <td><span class="text-danger"><i class="fas fa-arrow-down"></i> -0.8%</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td>22 Apr, 2024</td>
+                                                <td>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="avatar avatar-sm p-1 avatar-rounded border border-danger border-opacity-10 bg-danger-transparent">
+                                                            <i class="ri-netflix-line"></i>
+                                                        </span>
+                                                        <div>
+                                                            <a href="javascript:void(0);" class="fw-medium">NFLX - Netflix Inc.</a>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>25</td>
+                                                <td><span class="badge bg-primary">Buy</span></td>
+                                                <td>
+                                                    <div class="fw-medium">$500.00</div>
+                                                    <div class="text-muted">Value: $12,500.00</div>
+                                                </td>
+                                                <td><span class="text-success"><i class="fas fa-arrow-up"></i> +0.5%</span></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-4 -->
+
+            </div>
+        </div> 
+        <!-- End::app-content -->
+
+
+       <!-- include footer.html"-->
+        <!-- include responsive-search-modal.html"-->
+
+    </div>
+
+   <!-- include commonjs.html"-->
+
+    <!-- Apex Charts JS -->
+    <script src="../assets/libs/apexcharts/apexcharts.min.js"></script>
+
+    <!-- Swiper JS -->
+    <script src="../assets/libs/swiper/swiper-bundle.min.js"></script>
+
+    <!-- Stocks Dashboard --> 
+    <script src="../assets/js/stocks-dashboard.js"></script>
+
+    <!-- Custom JS -->
+    <script src="../assets/js/custom.js"></script>
+ 
+    <!-- include custom-switcherjs.html"-->
+    
+</body>
+
+</html> 

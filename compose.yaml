@@ -1,0 +1,100 @@
+services:
+  platform-api:
+    build:
+      context: ./apps/platform-api
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /var/www/html
+    command: php artisan serve --host=0.0.0.0 --port=8000
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: newpaotang
+      DB_USERNAME: newpaotang
+      DB_PASSWORD: newpaotang
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: redis
+      REDIS_HOST: valkey
+      REDIS_PORT: "6379"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apps/platform-api:/var/www/html
+      - platform-api-vendor:/var/www/html/vendor
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  customer:
+    build:
+      context: apps/customer
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /app
+    command: npm run dev -- --host 0.0.0.0 --port 3000
+    environment:
+      NUXT_PUBLIC_API_BASE_URL: http://localhost:8000/api/v1
+      NUXT_PUBLIC_SITE_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/customer:/app
+      - customer-node-modules:/app/node_modules
+      - customer-nuxt:/app/.nuxt
+
+  back-office:
+    build:
+      context: apps/back-office
+      dockerfile: Dockerfile
+      target: deps
+    working_dir: /app
+    command: npm run dev
+    environment:
+      VITE_ADMIN_API_BASE: http://localhost:8000/api/v1
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./apps/back-office:/app
+      - back-office-node-modules:/app/node_modules
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: newpaotang
+      POSTGRES_USER: newpaotang
+      POSTGRES_PASSWORD: newpaotang
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U newpaotang -d newpaotang"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  platform-api-vendor:
+  customer-node-modules:
+  customer-nuxt:
+  back-office-node-modules:
+  postgres-data:
+  valkey-data:

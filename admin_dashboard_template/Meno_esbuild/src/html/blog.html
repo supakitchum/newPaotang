@@ -1,0 +1,599 @@
+<!-- include mainhead.html"-->
+
+</head>
+
+<body>
+
+    <!-- include switcher.html"-->
+   <!-- include loader.html"-->
+
+    <div class="page">
+        <!-- include header.html"-->
+         <!-- include sidebar.html"-->
+
+        <!-- Start::app-content -->
+        <div class="main-content app-content">
+            <div class="container-fluid">
+
+                <!-- Start::page-header -->
+                <div class="my-4 page-header-breadcrumb d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h1 class="page-title fw-medium fs-18 mb-2">Blog</h1>
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item">
+                                <a href="javascript:void(0);">
+                                    Pages
+                                </a>
+                            </li>
+                            <li class="breadcrumb-item" aria-current="page"><a href="javascript:void(0);">Blog</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">Blog</li>
+                        </ol>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="d-flex gap-2">
+                            <div class="position-relative">
+                                <button class="btn btn-primary btn-wave" type="button"
+                                    id="dropdownMenuClickableInside" data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside" aria-expanded="false">
+                                    Filter By <i class="ri-arrow-down-s-fill ms-1"></i>
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenuClickableInside">
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Today</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Yesterday</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 7 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 30 Days</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last 6 Months</a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);">Last Year</a></li>
+                                </ul>
+                            </div>
+                            <button class="btn btn-secondary btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Download">
+                                <i class="ti ti-download"></i>
+                            </button>
+                            <button class="btn btn-success btn-icon btn-wave" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Share">
+                                <i class="ti ti-share-3"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- End::page-header -->
+
+                <!-- Start:: row-1 -->
+                <div class="row">
+                    <div class="col-xl-3">
+                        <div class="card custom-card overflow-hidden">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    Categories
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <ul class="list-group list-group-flush list-style">
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center justify-content-between gap-2">
+                                            <i class="ri-home-5-line text-pink me-1"></i> 
+                                            <span class="fw-semibold fs-14">Lifestyle</span>
+                                            <span class="badge bg-primary-transparent rounded-pill ms-auto">24</span>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center justify-content-between gap-2">
+                                            <i class="ri-plane-line text-pink me-1"></i>
+                                            <span class="fw-semibold fs-14">Travel & Adventure</span>
+                                            <span class="badge bg-primary-transparent rounded-pill ms-auto">43</span>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center justify-content-between gap-2">
+                                            <i class="ri-heart-line text-pink me-1"></i>
+                                            <span class="fw-semibold fs-14">Health & Wellness</span>
+                                            <span class="badge bg-primary-transparent rounded-pill ms-auto">14</span>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center justify-content-between gap-2">
+                                            <i class="ri-computer-line text-pink me-1"></i>
+                                            <span class="fw-semibold fs-14">Technology</span>
+                                            <span class="badge bg-primary-transparent rounded-pill ms-auto">132</span>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center justify-content-between gap-2">
+                                            <i class="ri-paint-line text-pink me-1"></i>
+                                            <span class="fw-semibold fs-14">Fashion & Beauty</span>
+                                            <span class="badge bg-primary-transparent rounded-pill ms-auto">36</span>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item">
+                                        <div class="d-flex align-items-center justify-content-between gap-2">
+                                            <i class="ri-wallet-line text-pink me-1"></i>
+                                            <span class="fw-semibold fs-14">Finance</span>
+                                            <span class="badge bg-primary-transparent rounded-pill ms-auto">04</span>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="card custom-card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    Popular Tags
+                                </div>
+                            </div>
+                            <div class="card-body py-4">
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <span class="badge bg-secondary-transparent border">
+                                        #Adventure
+                                    </span>
+                                    <span class="badge bg-secondary-transparent border">
+                                        #Health
+                                    </span>
+                                    <span class="badge bg-secondary-transparent border">
+                                        #Beauty
+                                    </span>
+                                    <span class="badge bg-secondary-transparent border">
+                                        #Foodie
+                                    </span>
+                                    <span class="badge bg-secondary-transparent border">
+                                        #DIY
+                                    </span>
+                                    <span class="badge bg-secondary-transparent border">
+                                        #Reading
+                                    </span>
+                                    <span class="badge bg-secondary-transparent border">
+                                        #Innovation
+                                    </span>
+                                    <span class="badge bg-secondary-transparent border">
+                                        #ParentingTips
+                                    </span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 flex-wrap mt-3 pt-1">
+                                    <span class="badge bg-primary-transparent border">
+                                        #Travel
+                                    </span>
+                                    <span class="badge bg-primary-transparent border">
+                                        #Fitness
+                                    </span>
+                                    <span class="badge bg-primary-transparent border">
+                                        #Fashion
+                                    </span>
+                                    <span class="badge bg-primary-transparent border">
+                                        #FoodBlog
+                                    </span>
+                                    <span class="badge bg-primary-transparent border">
+                                        #Crafting
+                                    </span>
+                                    <span class="badge bg-primary-transparent border">
+                                        #BookReview
+                                    </span>
+                                    <span class="badge bg-primary-transparent border">
+                                        #TechTalk
+                                    </span>
+                                    <span class="badge bg-primary-transparent border">
+                                        #Parenting
+                                    </span>
+                                    <span class="badge bg-primary-transparent border">
+                                        #Finance
+                                    </span>
+                                    <span class="badge bg-primary-transparent border">
+                                        #SelfCare
+                                    </span>
+                                    <span class="badge bg-primary-transparent border">
+                                        #Photography
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-5">
+                        <div class="card custom-card overflow-hidden">
+                            <div class="card-body p-0">
+                                <div id="carouselExampleSlidesOnly" class="carousel slide" data-bs-ride="carousel">
+                                    <a href="blog-details.html" class="stretched-link"></a>
+                                    <div class="carousel-inner rounded-0">
+                                        <div class="carousel-item active">
+                                            <img src="../assets/images/media/blog/2.jpg" class="d-block w-100" alt="...">
+                                        </div>
+                                        <div class="carousel-item">
+                                            <img src="../assets/images/media/blog/3.jpg" class="d-block w-100" alt="...">
+                                        </div>
+                                        <div class="carousel-item">
+                                            <img src="../assets/images/media/blog/1.jpg" class="d-block w-100" alt="...">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="p-4">
+                                    <h5 class="fw-semibold mb-3"><a href="blog-details.html">The Basics of 3D Imaging</a></h5>
+                                    <p class="mb-4">To kick things off, let's delve into the basics. Unlike traditional 2D images, 3D images add an extra dimension - depth. It's this added <span class="text-orange fw-medium">dimension that tricks</span> our brains into perceiving depth. <a href="javascript:void(0);" class="fw-medium text-muted ms-2 align-middle fs-12 text-Augoration-underline">Read More</a></p>
+                                    <div class="d-flex flex-wrap align-items-center justify-content-between">
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar avatar-xs avatar-rounded me-2">
+                                                <img src="../assets/images/faces/11.jpg" alt="">
+                                            </div>
+                                            <div>
+                                                <p class="mb-0 fw-medium">Alister Chuk</p>
+                                            </div>
+                                        </div>
+                                        <p class="text-muted fs-12 mb-0">18,Aug 2024 - 11:25</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-4">
+                        <div class="card custom-card">
+                            <div class="row g-0">
+                                <div class="col-sm-8">
+                                    <div class="card-body">
+                                        <h6 class="fw-semibold">
+                                            <a href="javascript:void(0);">Stereoscopic 3D: How It Works</a>
+                                        </h6>
+                                        <span class="d-block mb-4">
+                                            Ever wondered how those jaw-dropping 3D movies create an illusion of depth that makes you feel like <span class="text-pink fw-medium">you're part</span> of the action? <a href="javascript:void(0);" class="fw-medium text-muted ms-2 align-middle fs-12 text-Augoration-underline">
+                                                Read More
+                                            </a>
+                                        </span>
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <div class="d-flex align-items-center">
+                                                <div class="avatar avatar-xs avatar-rounded me-2">
+                                                    <img src="../assets/images/faces/10.jpg" alt="">
+                                                </div>
+                                                <div>
+                                                    <p class="mb-0 fw-medium">Justin Kim</p>
+                                                </div>
+                                            </div>
+                                            <div class="text-muted fs-12 mb-0">20,Aug 2024 - 16:32</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-4">
+                                    <img src="../assets/images/media/blog/4.jpg" class="img-fluid rounded-end h-100 w-100" alt="...">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card custom-card">
+                            <div class="row g-0">
+                                <div class="col-sm-8">
+                                    <div class="card-body">
+                                        <h6 class="fw-semibold">
+                                            <a href="javascript:void(0);">Anaglyph 3D: Old School, Still Cool</a>
+                                        </h6>
+                                        <span class="d-block mb-4">
+                                            Remember those red and blue glasses from the past? relies on this classic technique.
+                                        </span>
+                                        <span class="d-block mb-4">
+                                            <span class="text-warning fw-medium">"Remember those red and blue"</span> <a href="javascript:void(0);" class="fw-medium text-muted ms-2 align-middle fs-12 text-Augoration-underline">
+                                                Read More
+                                            </a>
+                                        </span>
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <div class="d-flex align-items-center">
+                                                <div class="avatar avatar-xs avatar-rounded mb-1 me-2">
+                                                    <img src="../assets/images/faces/5.jpg" alt="">
+                                                </div>
+                                                <div>
+                                                    <p class="mb-0 fw-medium">Monika Karen</p>
+                                                </div>
+                                            </div>
+                                            <div class="text-muted fs-12 mb-0">25,Aug 2024 - 11:45</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-4">
+                                    <img src="../assets/images/media/blog/5.jpg" class="img-fluid rounded-end h-100 w-100" alt="...">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card custom-card">
+                            <div class="row g-0">
+                                <div class="col-sm-8">
+                                    <div class="card-body">
+                                        <h6 class="fw-semibold">
+                                            <a href="javascript:void(0);">The Future of 3D Imaging</a>
+                                        </h6>
+                                        <span class="d-block mb-3">
+                                            As technology continues to advance, so does the world of 3D imaging. From holographic displays to glasses-free 3D experiences
+                                        </span>
+                                        <span class="d-block mb-4">
+                                            <span class="text-secondary fw-medium"> "Remember those red and blue."</span> <a href="javascript:void(0);" class="fw-medium text-muted ms-2 align-middle fs-12 text-Augoration-underline">
+                                                Read More
+                                            </a>
+                                        </span>
+                                        <div class="d-flex flex-wrap align-items-center justify-content-between">
+                                            <div class="d-flex align-items-center">
+                                                <div class="avatar avatar-xs avatar-rounded me-2">
+                                                    <img src="../assets/images/faces/8.jpg" alt="">
+                                                </div>
+                                                <div>
+                                                    <p class="mb-0 fw-medium">Samantha Nans</p>
+                                                </div>
+                                            </div>
+                                            <div class="text-muted fs-12 mb-0">25,Aug 2024 - 04:25</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-4">
+                                    <img src="../assets/images/media/blog/6.jpg" class="img-fluid rounded-end h-100 w-100" alt="...">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3 col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
+                        <div class="card custom-card">
+                            <a href="javascript:void(0);">
+                                <img src="../assets/images/media/blog/10.jpg" class="card-img-top" alt="...">
+                            </a>
+                            <div class="card-body">
+                                <a href="blog-details.html" class="h6 fw-semibold mb-2 d-block lh-base">Transforming Digital into Tangible.</a>
+                                <p class="mb-4">While we've been exploring the <span class="text-info fw-medium">virtual aspects of 3D</span>, let's not forget about the tangible wonders of 3D printing.<a href="javascript:void(0);" class="fw-medium text-muted ms-2 align-middle fs-12 text-Augoration-underline">Read More ?</a></p>
+                                <div class="d-flex flex-wrap align-items-center justify-content-between">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar avatar-xs avatar-rounded me-2">
+                                            <img src="../assets/images/faces/4.jpg" alt="">
+                                        </div>
+                                        <div>
+                                            <p class="mb-0 fw-medium">Charlotte</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-muted fs-12 mb-0">18,Aug 2024 - 11:25</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3 col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
+                        <div class="card custom-card">
+                            <a href="javascript:void(0);">
+                                <img src="../assets/images/media/blog/12.jpg" class="card-img-top" alt="...">
+                            </a>
+                            <div class="card-body">
+                                <a href="blog-details.html" class="fw-semibold h6 mb-2 d-block lh-base">Medical Imaging: Saving Lives</a>
+                                <p class="mb-4">Beyond entertainment, 3D <span class="text-danger fw-medium">imaging plays</span> a crucial role in the field of medicine. Medical professionals leverage<a href="javascript:void(0);" class="fw-medium text-muted ms-2 align-middle fs-12 text-Augoration-underline">Read More ?</a></p>
+                                <div class="d-flex flex-wrap align-items-center justify-content-between">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar avatar-xs avatar-rounded me-2">
+                                            <img src="../assets/images/faces/2.jpg" alt="">
+                                        </div>
+                                        <div>
+                                            <p class="mb-0 fw-medium">Isabella</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-muted fs-12 mb-0">18,Aug 2024 - 11:25</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3 col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
+                        <div class="card custom-card">
+                            <a href="javascript:void(0);">
+                                <img src="../assets/images/media/blog/13.jpg" class="card-img-top" alt="...">
+                            </a>
+                            <div class="card-body">
+                                <a href="blog-details.html" class="fw-semibold h6 mb-2 d-block lh-base">Bridging the Gap Between Real and Virtual</a>
+                                <p class="mb-4">In the realm of augmented reality, 3D images <span class="text-success fw-medium">blend seamlessly</span> with the real world. AR overlays digital information<a href="javascript:void(0);" class="fw-medium text-muted ms-2 align-middle fs-12 text-Augoration-underline">Read More ?</a></p>
+                                <div class="d-flex flex-wrap align-items-center justify-content-between">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar avatar-xs avatar-rounded me-2">
+                                            <img src="../assets/images/faces/14.jpg" alt="">
+                                        </div>
+                                        <div>
+                                            <p class="mb-0 fw-medium">William</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-muted fs-12 mb-0">18,Aug 2024 - 11:25</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xxl-3 col-xl-6 col-lg-6 col-md-6 col-sm-6 col-12">
+                        <div class="card custom-card">
+                            <a href="javascript:void(0);">
+                                <img src="../assets/images/media/blog/11.jpg" class="card-img-top" alt="...">
+                            </a>
+                            <div class="card-body">
+                                <a href="blog-details.html" class="h6 fw-semibold mb-2 lh-base d-block">Immersive 3D Worlds at Your Fingertips.</a>
+                                <p class="mb-4">Step into the world of <span class="text-pink fw-medium">Virtual Reality</span>, where 3D images are not just seen but experienced. VR headsets transport<a href="javascript:void(0);" class="fw-medium text-muted ms-2 align-middle fs-12 text-Augoration-underline">Read More ?</a></p>
+                                <div class="d-flex flex-wrap align-items-center justify-content-between">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar avatar-xs avatar-rounded me-2">
+                                            <img src="../assets/images/faces/12.jpg" alt="">
+                                        </div>
+                                        <div>
+                                            <p class="mb-0 fw-medium">Benjamin</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-muted fs-12 mb-0">18,Aug 2024 - 11:25</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-1 -->
+
+                 <!-- Start::row-2 -->
+                 <div class="row">
+                    <div class="col-xl-12">
+                        <div class="row">
+                            <div class="col-xl-6 col-xxl-8 col-lg-12 col-md-12">
+                                <div class="row">
+                                    <div class="col-xxl-6 col-xl-6 col-lg-6 col-md-6">
+                                        <div class="card custom-card">
+                                            <a href="javascript:void(0);">
+                                                <img src="../assets/images/media/blog/8.jpg" class="card-img-top" alt="...">
+                                            </a>
+                                            <div class="card-body">
+                                                <a href="blog-details.html" class="h6 fw-semibold mb-2 d-block lh-base">DIY 3D Modeling: Unleashing Your Creativity</a>
+                                                <p class="mb-4">Exploring the world of 3D images doesn't have to be limited to consumption – you can also become a <span class="text-warning fw-medium">creator! With accessible 3D</span> modeling software, anyone can try their hand at designing.<a href="javascript:void(0);" class="fw-medium text-muted ms-2 align-middle fs-12 text-Augoration-underline">Read More ?</a></p>
+                                                <div class="d-flex flex-wrap align-items-center justify-content-between">
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="avatar avatar-xs avatar-rounded me-2">
+                                                            <img src="../assets/images/faces/6.jpg" alt="">
+                                                        </div>
+                                                        <div>
+                                                            <p class="mb-0 fw-medium">Abigail</p>
+                                                        </div>
+                                                    </div>
+                                                    <span class="text-muted fs-12 mb-0">16,Sep 2024 - 11:25</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-xxl-6 col-xl-6 col-lg-6 col-md-6">
+                                        <div class="card custom-card">
+                                            <a href="javascript:void(0);">
+                                                <img src="../assets/images/media/blog/9.jpg" class="card-img-top" alt="...">
+                                            </a>
+                                            <div class="card-body">
+                                                <a href="blog-details.html" class="h6 fw-semibold mb-2 d-block lh-base">3D Modeling Techniques: Crafting Digital Realities</a>
+                                                <p class="mb-4">3D modeling is the art of creating digital representations of objects or scenes. <span class="text-primary fw-medium">Artists and designers</span> use various techniques  procedural generation, to shape 3D models. <a href="javascript:void(0);" class="fw-medium text-muted ms-2 align-middle fs-12 text-Augoration-underline">Read More ?</a></p>
+                                                <div class="d-flex flex-wrap align-items-center justify-content-between">
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="avatar avatar-xs avatar-rounded me-2">
+                                                            <img src="../assets/images/faces/16.jpg" alt="">
+                                                        </div>
+                                                        <div>
+                                                            <p class="mb-0 fw-medium">Anthony</p>
+                                                        </div>
+                                                    </div>
+                                                    <span class="text-muted fs-12 mb-0">25,Sep 2024 - 11:25</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-6 col-xxl-4 col-lg-12 col-md-12">
+                                <div class="card custom-card overflow-hidden">
+                                    <div class="card-header d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                                        <div>
+                                            <div class="card-title">
+                                                Featured Blogs
+                                            </div>
+                                            <p class="text-muted fs-11 fw-normal mb-0">
+                                                There are many variations of passages of Lorem Ipsum available
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-primary fw-semibold">32 Blogs</span>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <ul class="list-group list-group-flush mt-2 mb-0 pb-1">
+                                            <li class="list-group-item">
+                                                <div class="d-flex flex-wrap align-items-center gap-3">
+                                                    <span class="avatar avatar-xl">
+                                                        <img src="../assets/images/media/blog/14.jpg" class="img-fluid" alt="...">
+                                                    </span>
+                                                    <div class="flex-fill">
+                                                        <a href="javascript:void(0);" class="fs-14 fw-medium mb-0">Christopher Jack</a>
+                                                        <p class="mb-1 popular-blog-content text-truncate">
+                                                            There are many variations of passages of Lorem Ipsum available
+                                                        </p>
+                                                        <span class="text-muted fs-11">24,Jul 2024 - 18:27</span>
+                                                    </div>
+                                                    <div>
+                                                        <button class="btn btn-icon btn-primary-light btn-sm rtl-rotate"><i class="ri-arrow-right-s-line"></i></button>
+                                                    </div>
+                                                </div>
+                                            </li>
+                                            <li class="list-group-item">
+                                                <div class="d-flex flex-wrap align-items-center gap-3">
+                                                    <span class="avatar avatar-xl">
+                                                        <img src="../assets/images/media/blog/15.jpg" class="img-fluid" alt="...">
+                                                    </span>
+                                                    <div class="flex-fill">
+                                                        <a href="javascript:void(0);" class="fs-14 fw-medium mb-0">Sophia Sam</a>
+                                                        <p class="mb-1 popular-blog-content text-truncate">
+                                                            Latin words, combined with a handful of model sentence
+                                                        </p>
+                                                        <span class="text-muted fs-11">28,Jul 2024 - 10:45</span>
+                                                    </div>
+                                                    <div>
+                                                        <button class="btn btn-icon btn-primary-light btn-sm rtl-rotate"><i class="ri-arrow-right-s-line"></i></button>
+                                                    </div>
+                                                </div>
+                                            </li>
+                                            <li class="list-group-item">
+                                                <div class="d-flex flex-wrap align-items-center gap-3">
+                                                    <span class="avatar avatar-xl">
+                                                        <img src="../assets/images/media/blog/16.jpg" class="img-fluid" alt="...">
+                                                    </span>
+                                                    <div class="flex-fill">
+                                                        <a href="javascript:void(0);" class="fs-14 fw-medium mb-0">Anthony Karon</a>
+                                                        <p class="mb-1 popular-blog-content text-truncate">
+                                                            Ipsum omnis non fugit ad voluptate consequuntur, sed veritatis nesciunt, asperiores, provident temporibus!
+                                                        </p>
+                                                        <span class="text-muted fs-11">28,Sep 2024 - 08:32</span>
+                                                    </div>
+                                                    <div>
+                                                        <button class="btn btn-icon btn-primary-light btn-sm rtl-rotate"><i class="ri-arrow-right-s-line"></i></button>
+                                                    </div>
+                                                </div>
+                                            </li>
+                                            <li class="list-group-item">
+                                                <div class="d-flex flex-wrap align-items-center gap-3">
+                                                    <span class="avatar avatar-xl">
+                                                        <img src="../assets/images/media/blog/17.jpg" class="img-fluid" alt="...">
+                                                    </span>
+                                                    <div class="flex-fill">
+                                                        <a href="javascript:void(0);" class="fs-14 fw-medium mb-0">Amelia Jackson</a>
+                                                        <p class="mb-1 popular-blog-content text-truncate">
+                                                            Contrary to popular belief, Lorem Ipsum is not simply random
+                                                        </p>
+                                                        <span class="text-muted fs-11">30,Jul 2024 - 08:32</span>
+                                                    </div>
+                                                    <div>
+                                                        <button class="btn btn-icon btn-primary-light btn-sm rtl-rotate"><i class="ri-arrow-right-s-line"></i></button>
+                                                    </div>
+                                                </div>
+                                            </li>
+                                            <li class="list-group-item border-bottom-0">
+                                                <div class="d-flex flex-wrap align-items-center gap-3">
+                                                    <span class="avatar avatar-xl">
+                                                        <img src="../assets/images/media/blog/18.jpg" class="img-fluid" alt="...">
+                                                    </span>
+                                                    <div class="flex-fill">
+                                                        <a href="javascript:void(0);" class="fs-14 fw-medium mb-0">Matthew Stuart</a>
+                                                        <p class="mb-1 popular-blog-content text-truncate">
+                                                            It was popularised in the 1960s with the release of Letraset sheets containing
+                                                        </p>
+                                                        <span class="text-muted fs-11">3,Aug 2024 - 11:56</span>
+                                                    </div>
+                                                    <div>
+                                                        <button class="btn btn-icon btn-primary-light btn-sm rtl-rotate"><i class="ri-arrow-right-s-line"></i></button>
+                                                    </div>
+                                                </div>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class=" mb-3">
+                            <button class="btn mx-auto btn-primary-light btn-loader">
+                                <span class="me-2">Older Blogs</span>
+                                <span class="loading"><i class="ri-loader-4-line fs-16"></i></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!--End::row-2 -->
+
+            </div>
+        </div>
+        <!-- End::app-content -->
+
+        
+       <!-- include footer.html"-->
+        <!-- include responsive-search-modal.html"-->
+
+    </div>
+
+   <!-- include commonjs.html"-->
+
+    <!-- include custom-switcherjs.html"-->
+
+    <!-- Custom JS -->
+    <script src="../assets/js/custom.js"></script>
+
+</body>
+
+</html>
