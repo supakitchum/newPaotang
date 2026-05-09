@@ -55,6 +55,16 @@ apps/back-office   -> frontend admin dashboard
 apps/customer      -> frontend หน้าซื้อขายสลากของลูกค้า
 ```
 
+## Current Phase Boundary
+
+Date: 2026-05-09
+
+```text
+งานหลักปัจจุบันปิดจบที่ backend deploy-readiness ของ apps/platform-api เท่านั้น.
+Back-office work ทั้งหมดถูกย้ายไปเฟสถัดไป และห้าม dispatch งานใหม่หรือแก้ apps/back-office/** จนกว่าจะมีคำสั่งเปิดเฟส BO.
+Customer frontend ถูก freeze เช่นกัน ยกเว้น Coordinator สั่ง regression-only task เพื่อยืนยัน backend contract.
+```
+
 Rules:
 
 - `platform-api` เป็นที่เดียวที่เก็บ API และ business rules ทั้งหมด.
@@ -131,7 +141,7 @@ Redis or Valkey
 Laravel Queue + Horizon
 Laravel Reverb foundation
 apps/customer API integration without rewriting existing flow
-apps/back-office admin dashboard foundation
+apps/back-office admin dashboard foundation (phase-next; excluded from current backend deploy-ready closeout)
 Cloudflare HTTPS contract
 ```
 

@@ -24,6 +24,8 @@
 - Do not upgrade or rewrite the existing `customer` flow unless explicitly requested and covered by a migration/regression plan.
 - New frontend projects should use Nuxt.js latest stable (`nuxt@latest`) by default.
 - `back-office` is the admin dashboard frontend and must use the admin dashboard template guideline.
+- Current main plan excludes Back-office work. Do not dispatch BO Develop or edit `apps/back-office/**` until the user explicitly opens the next Back-office phase.
+- Current main closeout target is backend deploy-readiness for `apps/platform-api`.
 - Partner SEO must be tenant-aware and must not hardcode platform-wide metadata.
 - Reward checking must be queued, chunked, idempotent, and auditable.
 - Tenant maintenance mode must be tenant-scoped and must not affect other partners.

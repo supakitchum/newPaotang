@@ -10,6 +10,15 @@ apps/back-office
 apps/customer
 ```
 
+## Current Phase Boundary
+
+```text
+Current main work closes backend deploy-readiness for apps/platform-api only.
+apps/back-office remains documented for the next phase but is removed from the current main plan.
+Do not edit apps/back-office/** or dispatch BO Develop until the user explicitly reopens Back Office work.
+apps/customer is frozen unless Coordinator scopes a regression-only backend contract check.
+```
+
 ## Runtime Rule
 
 โปรเจคนี้ใช้ Docker เป็น runtime เดียวสำหรับทุก app และทุก service ดูรายละเอียดที่ `docs/docker-runtime-policy.md`

@@ -25,7 +25,41 @@ Use queue, idempotency, audit, and outbox/inbox for cross-module workflows.
 Do not clone codebase per partner or split central/partner/customer into separate products.
 Do not rewrite existing customer flow unless explicitly approved.
 Keep `customer`, `back-office`, and `platform-api` ownership separated.
+Current main execution scope closes backend deploy-readiness only.
+Back-office implementation and production-readiness work are phase-next, not part of the current main plan.
+Do not dispatch BO Develop or edit apps/back-office/** until the user explicitly reopens Back Office work.
+Customer frontend work remains frozen unless Coordinator scopes a regression-only check.
 ```
+
+## Current Main Execution Scope: Backend Deploy-Ready Only
+
+Date: 2026-05-09
+
+The current main plan is narrowed to backend deploy-readiness for `apps/platform-api`.
+
+In scope:
+
+```text
+platform-api backend implementation closure
+OpenAPI/app route parity
+permission, tenant isolation, idempotency, audit, model, request validation, migration, seeder, queue, and scheduler compliance
+Docker-only backend validation
+backend image/runtime readiness
+Horizon/Reverb/scheduler backend readiness evidence or explicit external blocker
+Cloudflare/HTTPS/WAF/CDN/R2 backend readiness evidence or explicit external blocker
+secret-management, mail, payment, LINE provider, old-data migration, cutover, and rollback blocker matrix
+backend release-gate ledger
+```
+
+Out of scope for this main closeout:
+
+```text
+Back-office pages, layouts, menus, visual QA, dependency/license remediation, npm audit remediation, and apps/back-office deployment
+Customer UI changes, customer flow changes, and customer frontend deployment work unless Coordinator approves a regression-only task
+Any claim that staging, production, or final platform release is approved without external evidence
+```
+
+Back-office work is not deleted from the repository or historical docs. It is deferred to the next phase and must be treated as frozen.
 
 ## Milestone 0: Contracts And Architecture Decisions
 
@@ -439,34 +473,35 @@ all support actions are audited
 Ownership:
 
 ```text
-Docker images
-Docker Compose runtime for all local/dev commands
-CI/CD
-environment templates
+platform-api backend Docker image and runtime profile
+Docker Compose runtime for all local/dev backend commands
+backend CI/CD readiness evidence
+backend environment templates
 queue worker profiles
-Horizon dashboard
-Reverb deployment
-Cloudflare rules
-metrics and dashboards
-usage metering
-load tests
-old data migration
-cutover and rollback
+Horizon backend readiness
+Reverb backend readiness
+Cloudflare, HTTPS, WAF, CDN, and R2 backend integration readiness
+backend metrics, dashboards, alerting, and usage metering
+backend load tests
+old data migration readiness
+cutover and rollback readiness
 ```
 
 Deliverables:
 
 ```text
 paotang-api image
-paotang-web image
-worker image
-deployment templates
-monitoring dashboards
+platform-api worker image/runtime
+platform-api scheduler runtime
+backend deployment templates
+backend monitoring dashboards
 usage summary jobs
-load test scripts
-migration scripts
+backend load test scripts
+backend migration scripts
 cutover plan
 rollback plan
+external blocker matrix
+backend release-gate ledger
 ```
 
 Runtime acceptance:
@@ -480,13 +515,14 @@ validation commands in Orchestrator tasks use Docker container service names
 Acceptance:
 
 ```text
-build once, provision many tenants
-public domains use HTTPS through Cloudflare
-queue lag remains within acceptable threshold
-image traffic uses CDN/cache and does not hit app server directly
-tenant usage meters match actual traffic/resource usage
-load tests cover stock sync, search, booking, checkout, reward publish, image spike, and result day
-migration can be rehearsed and rolled back
+backend can be built once and provision many tenants by configuration
+backend public/API domains use HTTPS through Cloudflare when external credentials are available
+queue lag readiness is validated locally or blocked with explicit production evidence gap
+ticket image delivery uses CDN/R2 contract and does not require Laravel app server for high-volume image traffic
+tenant usage meters match backend traffic/resource usage
+backend load tests cover stock sync, search, booking, checkout, reward publish, image spike, and result day API paths
+old-data migration can be rehearsed and rolled back, or the missing external snapshot/source/cutover evidence is listed as blocker
+Back-office deployment is not part of this main closeout
 ```
 
 ## Suggested Parallelization
@@ -534,6 +570,8 @@ Gate F: reward checking and publish pass chunk/idempotency tests
 Gate G: maintenance/support access/security tests pass
 Gate H: load test, monitoring, deployment, migration, and rollback are ready
 ```
+
+Current gate interpretation: the active closeout target is backend-only Gate H for `apps/platform-api`. Back-office gates are deferred to the next phase and must not block backend deploy-ready approval unless the backend contract itself is incomplete.
 
 ## Required Test Coverage
 

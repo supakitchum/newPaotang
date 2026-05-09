@@ -15,9 +15,11 @@ platform-api-scheduler: scheduler loop profile using the shared platform-api cod
 platform-api-smoke: one-shot platform:smoke readiness profile
 postgres: PostgreSQL
 valkey: Redis-compatible cache/queue/lock/session service
-customer: preserved local customer service
-back-office: preserved local back-office service
+customer: preserved local customer service, frozen for current backend-only closeout
+back-office: preserved local back-office service, phase-next and excluded from current backend-only closeout
 ```
+
+Current phase boundary, dated 2026-05-09: M10 closeout now targets backend deploy-readiness only. Back-office build/deploy/readiness work is deferred to the next phase and must not block backend release-gate review.
 
 Worker and scheduler examples:
 
@@ -376,12 +378,15 @@ run platform:migration:rehearsal --dry-run and migrate:status during drill evide
 disable risky features with database feature flags
 pause or drain queue workers if data compatibility is uncertain
 enable tenant maintenance for affected tenant only
-roll back API, worker, scheduler, customer, and back-office images together when required
+roll back API, worker, and scheduler images for the current backend-only closeout
+include customer and back-office images only in a later frontend/full-platform release phase
 re-run health and smoke checks after rollback
 record residual data repair tasks for Coordinator review
 ```
 
 ## Accepted Risks Carried Forward
+
+Back-office risks below are historical and phase-next. They do not block the current backend-only deploy-ready closeout unless they reveal a backend contract defect.
 
 From the approved Back-office Operations Page Slice 1 chain:
 

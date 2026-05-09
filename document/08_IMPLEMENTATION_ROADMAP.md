@@ -6,6 +6,19 @@
 
 แผน execution รายละเอียดอยู่ใน [15_EXECUTION_PLAN.md](15_EXECUTION_PLAN.md).
 
+## Current Main Scope Override: Backend Deploy-Ready Closeout
+
+Date: 2026-05-09
+
+```text
+Current main plan closes at apps/platform-api backend deploy-readiness only.
+Back-office implementation, polish, menu completion, dependency/license remediation, visual QA, and apps/back-office deployment are removed from the current main plan.
+Back-office work is deferred to the next phase and must not be dispatched until the user explicitly reopens that phase.
+Customer frontend work is frozen unless a backend contract regression check is explicitly approved by Coordinator.
+Do not edit apps/back-office/** or apps/customer/** for the current backend closeout.
+M10 completion now means backend API, workers, scheduler, queues, migrations, seeders, Docker runtime, monitoring/readiness docs, load-test artifacts, migration/cutover/rollback readiness, and explicit external blocker evidence are complete enough for backend deployment approval.
+```
+
 ## Milestone 0: Contracts And Architecture Decisions
 
 ```text
@@ -198,6 +211,8 @@ HTTPS enforcement
 redirect HTTP to HTTPS
 WAF/rate limit rules
 ```
+
+Current backend-only M10 closeout excludes Back-office frontend build/deployment and any BO production-readiness work. Those items move to the next phase.
 
 Runtime rule:
 

@@ -117,15 +117,30 @@ CDN
 Monitoring
 ```
 
+Current backend-only closeout note, dated 2026-05-09:
+
+```text
+The active main plan requires backend deploy-readiness only.
+Paotang Web and Back-office frontend build/deploy evidence are phase-next and are not required for the current backend closeout.
+```
+
 ## Build Artifacts
 
-สร้าง image กลาง:
+สร้าง image กลางสำหรับ full platform release:
 
 ```text
 paotang-api:{version}
 paotang-web:{version}
 reverb:{version}
 worker:{version}
+```
+
+Current backend-only closeout validates backend artifacts first:
+
+```text
+paotang-api:{version}
+paotang-worker:{version}
+paotang-reverb:{version}
 ```
 
 ห้าม build image ใหม่เพียงเพื่อเปลี่ยน logo, สี, domain, หรือชื่อร้าน
@@ -312,7 +327,7 @@ push image
 run migrations
 deploy API
 deploy workers
-deploy web
+deploy web (phase-next; not required for the current backend-only closeout)
 health check
 smoke test
 notify
@@ -329,6 +344,8 @@ paotang-web: 1.4.0
 paotang-worker: 1.4.0
 paotang-reverb: 1.4.0
 ```
+
+For the current backend-only closeout, release evidence is required for `paotang-api`, backend worker, scheduler/runtime, and Reverb backend readiness only. `paotang-web` moves to the next phase.
 
 For dedicated tenant, allow pinning:
 
