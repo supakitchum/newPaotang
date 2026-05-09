@@ -1,0 +1,491 @@
+apps/platform-api/routes/api.php:50:Route::get('/public/seo/page', [PublicContentController::class, 'seoPage']);
+apps/platform-api/routes/api.php:65:Route::post('/customer/realtime/auth', [CustomerRealtimeController::class, 'authorize'])->middleware('customer.auth');
+apps/platform-api/routes/api.php:96:Route::post('/admin/central/realtime/auth', [AdminOperationsController::class, 'centralRealtimeAuth'])
+apps/platform-api/routes/api.php:156:Route::post('/admin/central/assets/uploads', [AssetController::class, 'centralUpload'])
+apps/platform-api/routes/api.php:160:Route::post('/admin/central/assets/{asset_id}/commit', [AssetController::class, 'centralCommit'])
+apps/platform-api/routes/api.php:269:Route::post('/admin/tenant/realtime/auth', [AdminOperationsController::class, 'tenantRealtimeAuth'])
+apps/platform-api/routes/api.php:315:Route::post('/admin/tenant/assets/uploads', [AssetController::class, 'tenantUpload'])
+apps/platform-api/routes/api.php:319:Route::post('/admin/tenant/assets/{asset_id}/commit', [AssetController::class, 'tenantCommit'])
+apps/platform-api/routes/api.php:321:Route::get('/admin/tenant/payment-settings', [TenantPaymentSettingsController::class, 'settings'])
+apps/platform-api/routes/api.php:323:Route::patch('/admin/tenant/payment-settings', [TenantPaymentSettingsController::class, 'updateSettings'])
+apps/platform-api/routes/api.php:325:Route::get('/admin/tenant/payment-channels', [TenantPaymentSettingsController::class, 'channels'])
+apps/platform-api/routes/api.php:327:Route::post('/admin/tenant/payment-channels', [TenantPaymentSettingsController::class, 'createChannel'])
+apps/platform-api/routes/api.php:329:Route::get('/admin/tenant/payment-channels/{payment_channel_id}', [TenantPaymentSettingsController::class, 'showChannel'])
+apps/platform-api/routes/api.php:331:Route::patch('/admin/tenant/payment-channels/{payment_channel_id}', [TenantPaymentSettingsController::class, 'updateChannel'])
+apps/platform-api/routes/api.php:333:Route::delete('/admin/tenant/payment-channels/{payment_channel_id}', [TenantPaymentSettingsController::class, 'destroyChannel'])
+apps/platform-api/routes/api.php:335:Route::get('/admin/tenant/seo', [TenantSeoController::class, 'settings'])
+apps/platform-api/routes/api.php:337:Route::patch('/admin/tenant/seo', [TenantSeoController::class, 'updateSettings'])
+apps/platform-api/routes/api.php:339:Route::get('/admin/tenant/seo/pages', [TenantSeoController::class, 'pages'])
+apps/platform-api/routes/api.php:341:Route::post('/admin/tenant/seo/pages', [TenantSeoController::class, 'createPage'])
+apps/platform-api/routes/api.php:343:Route::patch('/admin/tenant/seo/pages/{page_id}', [TenantSeoController::class, 'updatePage'])
+apps/platform-api/routes/api.php:345:Route::delete('/admin/tenant/seo/pages/{page_id}', [TenantSeoController::class, 'deletePage'])
+apps/platform-api/routes/api.php:347:Route::get('/admin/tenant/redirects', [TenantSeoController::class, 'redirects'])
+apps/platform-api/routes/api.php:349:Route::post('/admin/tenant/redirects', [TenantSeoController::class, 'createRedirect'])
+apps/platform-api/routes/api.php:351:Route::patch('/admin/tenant/redirects/{redirect_id}', [TenantSeoController::class, 'updateRedirect'])
+apps/platform-api/routes/api.php:353:Route::delete('/admin/tenant/redirects/{redirect_id}', [TenantSeoController::class, 'deleteRedirect'])
+docs/openapi.yaml:72:  /public/seo/page:
+docs/openapi.yaml:293:  /auth/admin/password/forgot:
+docs/openapi.yaml:297:      summary: Request admin password reset
+docs/openapi.yaml:310:  /auth/admin/password/reset:
+docs/openapi.yaml:314:      summary: Reset admin password with reset token
+docs/openapi.yaml:326:          description: Admin password reset
+docs/openapi.yaml:327:  /auth/admin/password/change:
+docs/openapi.yaml:330:      summary: Change current admin password
+docs/openapi.yaml:342:          description: Admin password changed
+docs/openapi.yaml:345:  /auth/admin/2fa:
+docs/openapi.yaml:377:  /auth/admin/2fa/setup:
+docs/openapi.yaml:399:  /auth/admin/2fa/enable:
+docs/openapi.yaml:423:  /auth/admin/2fa/recovery-codes:
+docs/openapi.yaml:445:  /auth/admin/2fa/verify:
+docs/openapi.yaml:467:  /admin/central/realtime/auth:
+docs/openapi.yaml:470:      summary: Authorize central admin private realtime channel subscription
+docs/openapi.yaml:519:      summary: Customer login by phone/username and password
+docs/openapi.yaml:626:  /customer/auth/line/login:
+docs/openapi.yaml:651:  /customer/auth/line/callback:
+docs/openapi.yaml:676:  /customer/realtime/auth:
+docs/openapi.yaml:681:      summary: Authorize customer private realtime channel subscription
+docs/openapi.yaml:3134:  /admin/central/assets/uploads:
+docs/openapi.yaml:3180:  /admin/central/assets/{asset_id}/commit:
+docs/openapi.yaml:3201:          description: Central asset committed
+docs/openapi.yaml:3341:  /admin/tenant/realtime/auth:
+docs/openapi.yaml:3344:      summary: Authorize tenant admin private realtime channel subscription
+docs/openapi.yaml:3497:  /admin/tenant/assets/uploads:
+docs/openapi.yaml:3545:  /admin/tenant/assets/{asset_id}/commit:
+docs/openapi.yaml:3567:          description: Tenant asset committed
+docs/openapi.yaml:3576:  /admin/tenant/payment-settings:
+docs/openapi.yaml:3612:  /admin/tenant/payment-channels:
+docs/openapi.yaml:3659:  /admin/tenant/payment-channels/{payment_channel_id}:
+docs/openapi.yaml:3727:  /admin/tenant/seo:
+docs/openapi.yaml:3763:  /admin/tenant/seo/pages:
+docs/openapi.yaml:3799:  /admin/tenant/seo/pages/{page_id}:
+docs/openapi.yaml:3842:  /admin/tenant/redirects:
+docs/openapi.yaml:3845:      summary: List tenant redirects
+docs/openapi.yaml:3852:          description: Tenant redirects
+docs/openapi.yaml:3878:  /admin/tenant/redirects/{redirect_id}:
+docs/openapi.yaml:6578:      summary: List tenant maintenance events and audit timeline
+docs/openapi.yaml:7396:          enum: [pending_upload, uploaded, committed, failed, archived]
+docs/openapi.yaml:7436:      required: [email, password]
+docs/openapi.yaml:7441:        password:
+docs/openapi.yaml:7443:          format: password
+docs/openapi.yaml:7463:        requires_2fa:
+docs/openapi.yaml:7537:      required: [token, password, password_confirmation]
+docs/openapi.yaml:7541:        password:
+docs/openapi.yaml:7543:          format: password
+docs/openapi.yaml:7544:        password_confirmation:
+docs/openapi.yaml:7546:          format: password
+docs/openapi.yaml:7549:      required: [current_password, new_password, new_password_confirmation]
+docs/openapi.yaml:7551:        current_password:
+docs/openapi.yaml:7553:          format: password
+docs/openapi.yaml:7554:        new_password:
+docs/openapi.yaml:7556:          format: password
+docs/openapi.yaml:7557:        new_password_confirmation:
+docs/openapi.yaml:7559:          format: password
+docs/openapi.yaml:7570:      required: [username, password]
+docs/openapi.yaml:7575:        password:
+docs/openapi.yaml:7577:          format: password
+docs/openapi.yaml:7580:      required: [name, phone, password, password_confirmation]
+docs/openapi.yaml:7590:        password:
+docs/openapi.yaml:7592:          format: password
+docs/openapi.yaml:7593:        password_confirmation:
+docs/openapi.yaml:7595:          format: password
+docs/openapi.yaml:7716:      required: [partner_id, tenant_id, status, site, domain, brand, theme, features, seo, maintenance]
+docs/openapi.yaml:7794:        seo:
+docs/openapi.yaml:7825:            realtime_url:
+docs/openapi.yaml:8925:        password:
+docs/openapi.yaml:8927:          format: password
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:19:            $this->line(json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:24:        $this->line('status: '.$report['status']);
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:25:        $this->line('dry_run: '.($report['boundary']['dry_run'] ? 'true' : 'false'));
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:26:        $this->line('domains_total: '.$report['domains']['total']);
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:27:        $this->line('unsafe_active_domains: '.$report['domains']['unsafe_active']);
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:28:        $this->line('waf_cache_artifacts: '.$report['cache']['status']);
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:29:        $this->line('cdn_r2_ticket_images: '.$report['cdn_r2_ticket_images']['status']);
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:30:        $this->line('production_approved: false');
+apps/platform-api/tests/Support/M8GrowthFixtures.php:38:            'password_hash' => null,
+apps/platform-api/tests/Feature/AdminOperationsTest.php:58:            ->postJson('/api/v1/admin/central/realtime/auth', [
+apps/platform-api/tests/Feature/AdminOperationsTest.php:70:            ->postJson('/api/v1/admin/central/realtime/auth', [
+apps/platform-api/tests/Feature/AdminOperationsTest.php:78:            ->postJson('/api/v1/admin/tenant/realtime/auth', [
+apps/platform-api/tests/Feature/AdminOperationsTest.php:92:            ->postJson('/api/v1/admin/tenant/realtime/auth', [
+apps/platform-api/tests/Feature/AdminOperationsTest.php:150:                'password' => 'super-secret',
+apps/platform-api/tests/Feature/AdminOperationsTest.php:173:        $this->assertSame('[REDACTED]', $auditPayload['payload']['password']);
+apps/platform-api/tests/Feature/AdminOperationsTest.php:259:                'password' => 'central-secret',
+apps/platform-api/tests/Feature/AdminOperationsTest.php:274:                'password_hash' => 'tenant-password-hash',
+apps/platform-api/tests/Feature/AdminOperationsTest.php:304:        $this->assertSame('[REDACTED]', $centralLogs[0]['payload']['password']);
+apps/platform-api/tests/Feature/AdminOperationsTest.php:323:        $this->assertSame('[REDACTED]', $tenantLogs[0]['payload']['password_hash']);
+apps/platform-api/tests/Feature/AdminOperationsTest.php:361:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminOperationsTest.php:380:            'password' => 'secret-password',
+apps/platform-api/app/Console/Commands/PlatformSmokeCommand.php:37:            $this->line($name.': '.$result);
+apps/platform-api/app/Console/Commands/PlatformSmokeCommand.php:103:            $centralPassword = (string) config('platform.seed.central_admin_password');
+apps/platform-api/app/Console/Commands/PlatformSmokeCommand.php:104:            $tenantPassword = (string) config('platform.seed.tenant_owner_password');
+apps/platform-api/app/Console/Commands/PlatformSmokeCommand.php:110:            if (! Hash::check($centralPassword, (string) $central->password_hash)) {
+apps/platform-api/app/Console/Commands/PlatformSmokeCommand.php:114:            return Hash::check($tenantPassword, (string) $tenant->password_hash) ? 'ok' : 'failed';
+apps/platform-api/tests/Support/M5CommerceFixtures.php:31:            'password' => 'customer-secret',
+apps/platform-api/tests/Support/M5CommerceFixtures.php:32:            'password_confirmation' => 'customer-secret',
+apps/platform-api/tests/Support/AdminAuthFixtures.php:45:        string $password = 'secret-password',
+apps/platform-api/tests/Support/AdminAuthFixtures.php:53:            'password_hash' => Hash::make($password),
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:19:            $this->line(json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:24:        $this->line('status: '.$report['status']);
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:25:        $this->line('queue_workers: '.$report['queue_workers']['status']);
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:26:        $this->line('horizon: '.$report['horizon']['status']);
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:27:        $this->line('reverb: '.$report['reverb']['status']);
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:28:        $this->line('scheduler: '.$report['scheduler']['status']);
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:29:        $this->line('production_approved: false');
+apps/platform-api/tests/Support/PartnerStoreFixtures.php:51:            'password' => 'secret-password',
+apps/platform-api/tests/Support/PartnerStoreFixtures.php:205:            'realtime_url' => null,
+apps/platform-api/app/Models/PartnerTenantSetting.php:37:        'realtime_url',
+apps/platform-api/app/Models/AdminUser.php:15:        'password_hash',
+apps/platform-api/app/Models/AdminUser.php:25:        'password_hash',
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:99:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:110:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:284:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:300:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:392:                'password' => 'member-secret',
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:397:            ->assertJsonMissingPath('password_hash')
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:601:            'password_hash' => null,
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:38:class PrepareK6BaselineCommand extends Command
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:61:        $outputJson = $this->pathOption('output-json', storage_path('app/load-tests/k6-baseline-env.json'));
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:62:        $outputEnv = $this->pathOption('output-env', storage_path('app/load-tests/k6-baseline.env'));
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:72:        $this->line('Prepared M10 k6 baseline fixtures.');
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:73:        $this->line('fixture_json: '.$outputJson);
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:74:        $this->line('fixture_env: '.$outputEnv);
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:75:        $this->line('tenant_id: '.$fixture['fixture']['tenant_id']);
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:76:        $this->line('partner_id: '.$fixture['fixture']['partner_id']);
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:77:        $this->line('game_id: '.$fixture['env']['GAME_ID']);
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:78:        $this->line('reward_result_id: '.$fixture['env']['REWARD_RESULT_ID']);
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:120:                'available_k6_profiles' => ['smoke', 'baseline', 'release-candidate'],
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:169:        $partnerId = 'par_k6_baseline';
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:170:        $tenantId = 'ten_k6_baseline';
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:175:                'code' => 'k6_baseline',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:176:                'name' => 'K6 Baseline Partner',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:188:                'code' => 'k6_baseline',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:189:                'name' => 'K6 Baseline Tenant',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:236:                'password_hash' => Hash::make(Str::random(40)),
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:260:                'code' => 'k6_baseline',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:261:                'name' => 'K6 Baseline',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:353:            'name' => 'K6 baseline '.$runId,
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:382:            'name' => 'K6 Baseline Game '.$runId,
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:388:            'metadata_json' => json_encode(['source' => 'k6_baseline'], JSON_THROW_ON_ERROR),
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:404:            'reason' => 'K6 local/dev baseline fixture',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:499:            'password_hash' => Hash::make(Str::random(32)),
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:501:            'name' => 'K6 Baseline Customer',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:612:            'metadata_json' => json_encode(['source' => 'k6_baseline_reward'], JSON_THROW_ON_ERROR),
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:705:        $lines = [];
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:708:            $lines[] = $key.'='.$value;
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:711:        file_put_contents($path, implode(PHP_EOL, $lines).PHP_EOL);
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:19:            $this->line(json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:24:        $this->line('status: '.$report['status']);
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:25:        $this->line('dry_run: '.($report['boundary']['dry_run'] ? 'true' : 'false'));
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:26:        $this->line('fixtures: '.$report['rehearsal_fixtures']['status']);
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:27:        $this->line('snapshots: '.$report['snapshot_requirements']['status']);
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:28:        $this->line('cutover: '.$report['cutover']['status']);
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:29:        $this->line('rollback: '.$report['rollback']['status']);
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:30:        $this->line('production_approved: false');
+apps/platform-api/app/Models/PartnerTenantSeoPage.php:11:    protected $table = 'partner_tenant_seo_pages';
+apps/platform-api/tests/Support/CentralStockFixtures.php:26:            'password' => 'secret-password',
+apps/platform-api/app/Models/PartnerTenantRedirect.php:11:    protected $table = 'partner_tenant_redirects';
+apps/platform-api/app/Console/Commands/PlatformAlertsCheckCommand.php:19:            $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+apps/platform-api/app/Console/Commands/PlatformAlertsCheckCommand.php:24:        $this->line('status: '.$result['status']);
+apps/platform-api/app/Console/Commands/PlatformAlertsCheckCommand.php:25:        $this->line('dry_run: '.($result['dry_run'] ? 'true' : 'false'));
+apps/platform-api/app/Console/Commands/PlatformAlertsCheckCommand.php:26:        $this->line('partners_evaluated: '.$result['summary']['partners_evaluated']);
+apps/platform-api/app/Console/Commands/PlatformAlertsCheckCommand.php:27:        $this->line('policies_evaluated: '.$result['summary']['policies_evaluated']);
+apps/platform-api/app/Console/Commands/PlatformAlertsCheckCommand.php:28:        $this->line('alerts_detected: '.$result['summary']['alerts_detected']);
+apps/platform-api/app/Console/Commands/PlatformAlertsCheckCommand.php:29:        $this->line('external_delivery_attempted: false');
+apps/platform-api/tests/Unit/AuditLoggerTest.php:14:            'password' => 'secret-password',
+apps/platform-api/tests/Unit/AuditLoggerTest.php:33:        $this->assertSame('[REDACTED]', $redacted['password']);
+apps/platform-api/app/Models/PlatformAsset.php:30:        'committed_at',
+apps/platform-api/app/Models/PlatformAsset.php:39:        'committed_at' => 'datetime',
+apps/platform-api/app/Console/Commands/PlatformObservabilityReportCommand.php:19:            $this->line(json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+apps/platform-api/app/Console/Commands/PlatformObservabilityReportCommand.php:24:        $this->line('status: '.$report['status']);
+apps/platform-api/app/Console/Commands/PlatformObservabilityReportCommand.php:25:        $this->line('environment: '.$report['environment']['name']);
+apps/platform-api/app/Console/Commands/PlatformObservabilityReportCommand.php:26:        $this->line('partners: '.$report['summary']['partners']);
+apps/platform-api/app/Console/Commands/PlatformObservabilityReportCommand.php:27:        $this->line('active_alert_policies: '.$report['summary']['active_alert_policies']);
+apps/platform-api/app/Console/Commands/PlatformObservabilityReportCommand.php:28:        $this->line('production_approved: false');
+apps/platform-api/tests/Feature/AdminAuthTest.php:24:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminAuthTest.php:32:                'requires_2fa',
+apps/platform-api/tests/Feature/AdminAuthTest.php:59:        $this->assertSame('[REDACTED]', $payload['password']);
+apps/platform-api/tests/Feature/AdminAuthTest.php:71:            'password' => 'wrong-password',
+apps/platform-api/tests/Feature/AdminAuthTest.php:79:        $this->assertStringNotContainsString('password_hash', $body);
+apps/platform-api/tests/Feature/AdminAuthTest.php:80:        $this->assertStringNotContainsString('wrong-password', $body);
+apps/platform-api/tests/Feature/AdminAuthTest.php:94:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminAuthTest.php:184:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminAuthTest.php:208:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminAuthTest.php:230:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/RbacFoundationTest.php:101:            'password_hash' => 'hash',
+apps/platform-api/tests/Feature/AdminMenuTest.php:23:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminMenuTest.php:34:        $this->assertSame('ri-dashboard-line', $response[0]['icon']);
+apps/platform-api/tests/Feature/AdminMenuTest.php:56:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminMenuTest.php:72:        $this->assertSame('ri-receipt-line', $response[1]['icon']);
+apps/platform-api/tests/Feature/AdminMenuTest.php:88:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminMenuTest.php:113:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminMenuTest.php:135:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:21:            'POST api/v1/admin/central/assets/uploads',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:23:            'POST api/v1/admin/central/assets/{asset_id}/commit',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:24:            'POST api/v1/admin/tenant/assets/uploads',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:26:            'POST api/v1/admin/tenant/assets/{asset_id}/commit',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:27:            'GET|HEAD api/v1/admin/tenant/payment-settings',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:28:            'PATCH api/v1/admin/tenant/payment-settings',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:29:            'GET|HEAD api/v1/admin/tenant/payment-channels',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:30:            'POST api/v1/admin/tenant/payment-channels',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:31:            'GET|HEAD api/v1/admin/tenant/payment-channels/{payment_channel_id}',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:32:            'PATCH api/v1/admin/tenant/payment-channels/{payment_channel_id}',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:33:            'DELETE api/v1/admin/tenant/payment-channels/{payment_channel_id}',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:34:            'GET|HEAD api/v1/public/seo/page',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:37:            'GET|HEAD api/v1/admin/tenant/seo',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:38:            'PATCH api/v1/admin/tenant/seo',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:39:            'GET|HEAD api/v1/admin/tenant/seo/pages',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:40:            'POST api/v1/admin/tenant/seo/pages',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:41:            'PATCH api/v1/admin/tenant/seo/pages/{page_id}',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:42:            'DELETE api/v1/admin/tenant/seo/pages/{page_id}',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:43:            'GET|HEAD api/v1/admin/tenant/redirects',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:44:            'POST api/v1/admin/tenant/redirects',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:45:            'PATCH api/v1/admin/tenant/redirects/{redirect_id}',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:46:            'DELETE api/v1/admin/tenant/redirects/{redirect_id}',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:47:            'POST api/v1/customer/realtime/auth',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:53:            'POST api/v1/auth/admin/password/forgot',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:54:            'POST api/v1/auth/admin/password/reset',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:55:            'POST api/v1/auth/admin/2fa/setup',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:56:            'POST api/v1/customer/auth/line/login',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:57:            'GET|HEAD api/v1/customer/auth/line/callback',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:72:            ->postJson('/api/v1/admin/central/assets/uploads', [
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:93:            ->postJson('/api/v1/admin/tenant/assets/uploads', [
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:109:            ->postJson('/api/v1/admin/tenant/assets/'.$tenantIntent['asset_id'].'/commit', [
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:114:                'Idempotency-Key' => 'tenant-asset-commit-m10',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:117:            ->assertJsonPath('status', 'committed')
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:122:            'action' => 'asset.committed_local_dev',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:138:            ->patchJson('/api/v1/admin/tenant/payment-settings', [
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:146:            ], $headers + ['Idempotency-Key' => 'payment-settings-m10'])
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:158:            ->postJson('/api/v1/admin/tenant/payment-channels', [
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:173:            ->getJson('/api/v1/admin/tenant/payment-channels/'.$channel['id'], $headers)
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:178:            ->getJson('/api/v1/admin/tenant/payment-channels/'.$channel['id'], [
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:185:            ->deleteJson('/api/v1/admin/tenant/payment-channels/'.$channel['id'], [], $headers + ['Idempotency-Key' => 'payment-channel-delete-m10'])
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:196:    public function test_tenant_seo_redirects_and_public_content_use_tenant_sources(): void
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:199:        $this->insertActivePartnerTenantWithDomain('par_seo_m10', 'ten_seo_m10', 'seo.m10.test');
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:200:        $tenant = $this->createTenantSession('ten_seo_m10', 'par_seo_m10', ['seo.view', 'seo.update', 'seo.redirect.manage'], 'adm_tenant_seo', 'tenant-seo@example.test');
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:201:        $headers = ['X-Admin-Scope' => 'tenant', 'X-Tenant-Id' => 'ten_seo_m10'];
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:204:            ->patchJson('/api/v1/admin/tenant/seo', [
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:209:            ], $headers + ['Idempotency-Key' => 'seo-settings-m10'])
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:215:            ->postJson('/api/v1/admin/tenant/seo/pages', [
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:220:            ], $headers + ['Idempotency-Key' => 'seo-page-create-m10'])
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:226:            ->postJson('/api/v1/admin/tenant/redirects', [
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:228:                'target_url' => 'https://seo.m10.test/promotions',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:237:        $this->getJson('http://seo.m10.test/api/v1/public/seo/page?path=/promotions')
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:240:            ->assertJsonPath('canonical_url', 'https://seo.m10.test/promotions');
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:242:        $this->getJson('http://seo.m10.test/api/v1/public/stores')
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:247:        $this->getJson('http://seo.m10.test/api/v1/public/news')
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:253:            ->deleteJson('/api/v1/admin/tenant/seo/pages/'.$page['id'], [], $headers + ['Idempotency-Key' => 'seo-page-delete-m10'])
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:256:            ->deleteJson('/api/v1/admin/tenant/redirects/'.$redirect['id'], [], $headers + ['Idempotency-Key' => 'redirect-delete-m10'])
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:259:        $this->assertDatabaseMissing('partner_tenant_seo_pages', ['id' => $page['id']]);
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:260:        $this->assertDatabaseMissing('partner_tenant_redirects', ['id' => $redirect['id']]);
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:263:    public function test_customer_realtime_auth_is_limited_to_authenticated_customer_tenant_channels(): void
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:269:            ->postJson('http://rt.m10.test/api/v1/customer/realtime/auth', [
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:275:            ->assertJsonPath('production_realtime_ready', false);
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:278:            ->postJson('http://rt.m10.test/api/v1/customer/realtime/auth', [
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:310:            'tenant_id' => 'ten_seo_m10',
+apps/platform-api/tests/Feature/M10RemainingOpenApiRouteClosureTest.php:311:            'partner_id' => 'par_seo_m10',
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:15:            'platform.realtime.app_id' => 'reverb-app-id-placeholder',
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:16:            'platform.realtime.admin_key' => 'reverb-key-placeholder',
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:17:            'platform.realtime.admin_secret' => 'reverb-secret-placeholder',
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:18:            'platform.realtime.host' => 'wss://reverb.fake-redaction.test',
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:19:            'platform.realtime.port' => '443',
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:20:            'platform.realtime.scheme' => 'https',
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:168:        foreach (explode("\n", $this->workspaceFile('apps/platform-api/.env.example')) as $line) {
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:169:            if (str_starts_with($line, $key.'=')) {
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:170:                return substr($line, strlen($key) + 1);
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:14:use App\Console\Commands\PrepareK6BaselineCommand;
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:44:            'load-tests:k6:prepare' => PrepareK6BaselineCommand::class,
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:151:            'owner_password' => 'secret-password',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:261:        $runner = $this->workspaceFile('scripts/k6-run-baseline.sh');
+apps/platform-api/tests/Feature/BootstrapSeederTest.php:57:            'password' => 'NewPaotangAdmin!2026',
+apps/platform-api/tests/Feature/BootstrapSeederTest.php:69:            'password' => 'NewPaotangTenant!2026',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:22:            'password' => 'customer-secret',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:23:            'password_confirmation' => 'customer-secret',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:31:            'password' => 'customer-secret',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:32:            'password_confirmation' => 'customer-secret',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:37:            ->assertJsonMissing(['password_hash'])
+apps/platform-api/tests/Feature/CustomerAuthTest.php:56:            'password' => 'customer-secret',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:107:            'password' => 'customer-secret',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:108:            'password_confirmation' => 'customer-secret',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:15:            'platform.migration_rehearsal.source_dsn' => 'postgres://legacy-user:legacy-password@legacy-prod.internal/newpaotang',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:46:        $this->assertFalse($report['rehearsal_fixtures']['real_old_data_dumps_committed']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:63:            'postgres://legacy-user:legacy-password@legacy-prod.internal/newpaotang',
+apps/platform-api/tests/Feature/M10K6LoadTestExecutionTest.php:17:        $jsonPath = $dir.'/k6-baseline-env.json';
+apps/platform-api/tests/Feature/M10K6LoadTestExecutionTest.php:18:        $envPath = $dir.'/k6-baseline.env';
+apps/platform-api/app/Models/Customer.php:24:        'password_hash',
+apps/platform-api/app/Models/Customer.php:30:        'password_hash',
+apps/platform-api/tests/Feature/AdminUserTest.php:27:                'password' => 'temporary-secret',
+apps/platform-api/tests/Feature/AdminUserTest.php:42:        $this->assertTrue(Hash::check('temporary-secret', (string) DB::table('admin_users')->where('id', $created['id'])->value('password_hash')));
+apps/platform-api/tests/Feature/AdminUserTest.php:330:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminUserTest.php:350:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminUserTest.php:416:            'password_hash' => Hash::make('secret-password'),
+apps/platform-api/tests/Feature/AdminUserTest.php:441:        $this->assertStringNotContainsString('password', $json);
+apps/platform-api/tests/Feature/AdminUserTest.php:442:        $this->assertStringNotContainsString('password_hash', $json);
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:80:            'owner_password' => 'owner-password',
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:116:            'password' => 'owner-password',
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:131:            'password' => 'owner-password',
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:140:            'password' => 'owner-password',
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:150:        $this->assertSame('[REDACTED]', $auditPayload['payload']['owner_password']);
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:151:        $this->assertStringNotContainsString('owner-password', json_encode($auditPayload, JSON_THROW_ON_ERROR));
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:171:            'password' => 'owner-password',
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:314:            'owner_password' => 'owner-password',
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:340:                    'seo' => ['default_title', 'canonical_base_url', 'robots_default'],
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:377:            'owner_password' => 'owner-password',
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:385:            'owner_password' => 'owner-password',
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:393:            'password' => 'owner-password',
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:427:                'seo' => [
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:447:            ->assertJsonPath('seo.default_keywords', ['lottery', 'lucky'])
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:504:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminRoleTest.php:306:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminRoleTest.php:326:            'password' => 'secret-password',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:195:            'app_id' => trim((string) config('platform.realtime.app_id')) !== '',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:196:            'app_key' => trim((string) config('platform.realtime.admin_key')) !== '',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:197:            'app_secret' => trim((string) config('platform.realtime.admin_secret')) !== '',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:198:            'host' => trim((string) config('platform.realtime.host')) !== '',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:199:            'port' => trim((string) config('platform.realtime.port')) !== '',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:200:            'scheme' => trim((string) config('platform.realtime.scheme')) !== '',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:203:            'central' => $this->routeUriExists('api/v1/admin/central/realtime/auth'),
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:204:            'tenant' => $this->routeUriExists('api/v1/admin/tenant/realtime/auth'),
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:220:            'auth_boundary' => 'Existing admin realtime auth endpoints sign private/presence channels and remain API-compatible; no public websocket delivery is approved by this slice.',
+apps/platform-api/app/Models/PartnerTenantSeoSetting.php:11:    protected $table = 'partner_tenant_seo_settings';
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:84:                'raw_passwords_or_password_hash_reuse',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:139:            'real_old_data_dumps_committed' => false,
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:288:            'required_external_owner' => 'Coordinator/Ops approved secret manager outside committed files.',
+apps/platform-api/app/Modules/Maintenance/Services/MaintenanceService.php:419:            'realtime_url' => null,
+apps/platform-api/app/Modules/Rbac/Services/AdminUserManagementService.php:153:                'password_hash' => Hash::make(array_key_exists('password', $payload) ? (string) $payload['password'] : Str::random(64)),
+apps/platform-api/app/Modules/Rbac/Services/AdminUserManagementService.php:192:            if (array_key_exists('password', $payload)) {
+apps/platform-api/app/Modules/Rbac/Services/AdminUserManagementService.php:193:                $updates['password_hash'] = Hash::make((string) $payload['password']);
+apps/platform-api/app/Modules/Tenancy/Services/TenantConfigurationService.php:274:            'seo' => $this->seoPayload($settings, $host),
+apps/platform-api/app/Modules/Tenancy/Services/TenantConfigurationService.php:298:            'seo' => $this->seoPayload($settings, $host),
+apps/platform-api/app/Modules/Tenancy/Services/TenantConfigurationService.php:356:            'realtime_url' => null,
+apps/platform-api/app/Modules/Tenancy/Services/TenantConfigurationService.php:430:            'realtime_url' => null,
+apps/platform-api/app/Modules/Tenancy/Services/TenantConfigurationService.php:474:        $seo = is_array($payload['seo'] ?? null) ? $payload['seo'] : [];
+apps/platform-api/app/Modules/Tenancy/Services/TenantConfigurationService.php:485:            if (array_key_exists($field, $payload) || array_key_exists($field, $seo)) {
+apps/platform-api/app/Modules/Tenancy/Services/TenantConfigurationService.php:486:                $updates[$field] = $payload[$field] ?? $seo[$field];
+apps/platform-api/app/Modules/Tenancy/Services/TenantConfigurationService.php:490:        if (array_key_exists('default_keywords', $payload) || array_key_exists('default_keywords', $seo)) {
+apps/platform-api/app/Modules/Tenancy/Services/TenantConfigurationService.php:491:            $updates['default_keywords_json'] = $payload['default_keywords'] ?? $seo['default_keywords'];
+apps/platform-api/app/Modules/Tenancy/Services/TenantConfigurationService.php:520:            'realtime_url' => 'realtime_url',
+apps/platform-api/app/Modules/Tenancy/Services/TenantConfigurationService.php:626:    private function seoPayload(object $settings, string $host): array
+apps/platform-api/app/Modules/Tenancy/Services/TenantConfigurationService.php:665:            'realtime_url' => $settings->realtime_url,
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:230:        if (array_key_exists('owner_password', $payload) && strlen((string) $payload['owner_password']) < 8) {
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:231:            $errors['owner_password'][] = 'The owner_password field must be at least 8 characters.';
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:615:        $ownerPassword = array_key_exists('owner_password', $payload) ? (string) $payload['owner_password'] : null;
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:639:                'password_hash' => Hash::make($ownerPassword ?? Str::random(64)),
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:652:                $updates['password_hash'] = Hash::make($ownerPassword);
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:752:                'realtime_url' => $payload['realtime_url'] ?? null,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:21:        'password',
+apps/platform-api/app/Modules/AdminOperations/Services/TenantPaymentSettingsService.php:246:            'id' => 'tps_'.substr(sha1($tenantId.':payment-settings'), 0, 20),
+apps/platform-api/app/Modules/Auth/Services/CustomerAuthService.php:62:                'password_hash' => Hash::make((string) $payload['password']),
+apps/platform-api/app/Modules/Auth/Services/CustomerAuthService.php:97:        $password = (string) ($payload['password'] ?? '');
+apps/platform-api/app/Modules/Auth/Services/CustomerAuthService.php:99:        if ($username === '' || $password === '') {
+apps/platform-api/app/Modules/Auth/Services/CustomerAuthService.php:112:        if ($customer === null || $customer->password_hash === null || ! Hash::check($password, (string) $customer->password_hash)) {
+apps/platform-api/app/Modules/AdminOperations/Services/AdminOperationsService.php:50:    public function realtimeValidationErrors(array $payload): array
+apps/platform-api/app/Modules/AdminOperations/Services/AdminOperationsService.php:75:    public function realtimeAuth(AdminSessionContext $context, string $scopeType, array $payload): ?array
+apps/platform-api/app/Modules/AdminOperations/Services/AdminOperationsService.php:100:        $key = (string) config('platform.realtime.admin_key', 'newpaotang-admin');
+apps/platform-api/app/Modules/AdminOperations/Services/AdminOperationsService.php:101:        $secret = (string) config('platform.realtime.admin_secret', 'newpaotang-admin-secret');
+apps/platform-api/app/Modules/AdminOperations/Services/AdminOperationsService.php:114:            'expires_at' => now()->addSeconds((int) config('platform.realtime.auth_ttl_seconds', 300))->toISOString(),
+apps/platform-api/app/Modules/PublicSite/Services/PublicContentService.php:14:        private readonly TenantSeoService $seo,
+apps/platform-api/app/Modules/PublicSite/Services/PublicContentService.php:21:    public function seoPage(Request $request): array
+apps/platform-api/app/Modules/PublicSite/Services/PublicContentService.php:35:        $metadata = $this->seo->metadataForPath(
+apps/platform-api/app/Modules/AdminOperations/Services/AssetService.php:73:                'committed_at' => null,
+apps/platform-api/app/Modules/AdminOperations/Services/AssetService.php:103:    public function commitAsset(
+apps/platform-api/app/Modules/AdminOperations/Services/AssetService.php:123:        $errors = $this->commitErrors($asset, $payload);
+apps/platform-api/app/Modules/AdminOperations/Services/AssetService.php:153:                    'status' => 'committed',
+apps/platform-api/app/Modules/AdminOperations/Services/AssetService.php:158:                    'committed_at' => now(),
+apps/platform-api/app/Modules/AdminOperations/Services/AssetService.php:162:            $this->audit($actor, $request, $scopeType, 'asset.committed_local_dev', $assetId, $payload, $tenantId);
+apps/platform-api/app/Modules/AdminOperations/Services/AssetService.php:223:    private function commitErrors(object $asset, array $payload): array
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:29:     * @param array{email?: string, password?: string, scope?: string|null, tenant_id?: string|null} $payload
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:35:        $password = (string) ($payload['password'] ?? '');
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:37:        if ($email === '' || $password === '') {
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:45:        if ($adminUser === null || ! Hash::check($password, (string) $adminUser->password_hash)) {
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:69:                'password' => $password,
+apps/platform-api/app/Modules/Auth/Services/AdminAuthService.php:211:            'requires_2fa' => false,
+apps/platform-api/app/Modules/PublicSite/Http/Controllers/PublicContentController.php:17:    public function seoPage(Request $request): JsonResponse
+apps/platform-api/app/Modules/PublicSite/Http/Controllers/PublicContentController.php:19:        return $this->result($request, $this->content->seoPage($request));
+apps/platform-api/app/Modules/AdminOperations/Services/BoMenuCompletionService.php:2013:        if (array_key_exists('password', $payload) && trim((string) $payload['password']) !== '') {
+apps/platform-api/app/Modules/AdminOperations/Services/BoMenuCompletionService.php:2014:            $updates['password_hash'] = Hash::make((string) $payload['password']);
+apps/platform-api/app/Modules/Auth/Services/CustomerRealtimeAuthService.php:63:        $key = (string) config('platform.realtime.customer_key', config('platform.realtime.admin_key', 'newpaotang-customer'));
+apps/platform-api/app/Modules/Auth/Services/CustomerRealtimeAuthService.php:64:        $secret = (string) config('platform.realtime.customer_secret', config('platform.realtime.admin_secret', 'newpaotang-customer-secret'));
+apps/platform-api/app/Modules/Auth/Services/CustomerRealtimeAuthService.php:77:            'expires_at' => now()->addSeconds((int) config('platform.realtime.auth_ttl_seconds', 300))->toISOString(),
+apps/platform-api/app/Modules/Auth/Services/CustomerRealtimeAuthService.php:78:            'production_realtime_ready' => false,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:36:        return $this->seoSettingResource($this->ensureSeoSettings($tenantId));
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:51:        $normalized = $this->seoSettingsPayload($tenantId, $payload);
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:52:        $errors = $this->seoSettingsErrors($tenantId, $normalized);
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:75:            $this->audit($actor, $request, 'seo.changed', 'partner_tenant_seo_setting', (string) $settings->id, $payload, $tenantId, (string) $tenant->partner_id);
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:140:            $pageId = 'seo_'.Str::ulid()->toBase32();
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:149:            $this->audit($actor, $request, 'seo.changed', 'partner_tenant_seo_page', $pageId, $payload, $tenantId, (string) $tenant->partner_id);
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:197:            $this->audit($actor, $request, 'seo.changed', 'partner_tenant_seo_page', $pageId, $payload, $tenantId, $tenant === null ? null : (string) $tenant->partner_id);
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:220:            $this->audit($actor, $request, 'seo.changed', 'partner_tenant_seo_page', $pageId, $payload, $tenantId, $tenant === null ? null : (string) $tenant->partner_id);
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:290:            $this->audit($actor, $request, 'seo.changed', 'partner_tenant_redirect', $redirectId, $payload, $tenantId, (string) $tenant->partner_id);
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:338:            $this->audit($actor, $request, 'seo.changed', 'partner_tenant_redirect', $redirectId, $payload, $tenantId, $tenant === null ? null : (string) $tenant->partner_id);
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:361:            $this->audit($actor, $request, 'seo.changed', 'partner_tenant_redirect', $redirectId, $payload, $tenantId, $tenant === null ? null : (string) $tenant->partner_id);
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:410:            'id' => 'seo_'.substr(sha1($tenantId.':seo-settings'), 0, 20),
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:432:    private function seoSettingsPayload(string $tenantId, array $payload): array
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:434:        $seo = is_array($payload['seo'] ?? null) ? $payload['seo'] : $payload;
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:437:            'tenant_id' => $seo['tenant_id'] ?? null,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:438:            'status' => array_key_exists('status', $seo) ? trim((string) $seo['status']) : null,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:439:            'default_title' => array_key_exists('default_title', $seo) ? trim((string) $seo['default_title']) : null,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:440:            'title_template' => array_key_exists('title_template', $seo) ? $this->nullableString($seo['title_template']) : null,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:441:            'default_description' => array_key_exists('default_description', $seo) ? $this->nullableString($seo['default_description']) : null,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:442:            'default_keywords_json' => array_key_exists('default_keywords', $seo) ? $seo['default_keywords'] : null,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:443:            'robots_default' => array_key_exists('robots_default', $seo) ? trim((string) $seo['robots_default']) : null,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:444:            'canonical_base_url' => array_key_exists('canonical_base_url', $seo) ? $this->nullableString($seo['canonical_base_url']) : null,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:445:            'og_image_url' => array_key_exists('og_image_url', $seo) ? $this->nullableString($seo['og_image_url']) : null,
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:453:    private function seoSettingsErrors(string $tenantId, array $payload): array
+apps/platform-api/app/Modules/AdminOperations/Services/TenantSeoService.php:572:    private function seoSettingResource(object $settings): array
+apps/platform-api/app/Modules/Auth/Http/Controllers/CustomerRealtimeController.php:14:    public function __construct(private readonly CustomerRealtimeAuthService $realtime)
+apps/platform-api/app/Modules/Auth/Http/Controllers/CustomerRealtimeController.php:27:        $errors = $this->realtime->validationErrors($payload);
+apps/platform-api/app/Modules/Auth/Http/Controllers/CustomerRealtimeController.php:33:        $authorization = $this->realtime->authorize($context, $payload);
+apps/platform-api/app/Modules/Auth/Http/Controllers/AdminAuthController.php:26:            'password' => $request->input('password'),
+apps/platform-api/app/Modules/Auth/Http/Controllers/CustomerAuthController.php:152:        foreach (['name', 'phone', 'password', 'password_confirmation'] as $field) {
+apps/platform-api/app/Modules/Auth/Http/Controllers/CustomerAuthController.php:158:        if (($payload['password'] ?? null) !== ($payload['password_confirmation'] ?? null)) {
+apps/platform-api/app/Modules/Auth/Http/Controllers/CustomerAuthController.php:159:            $errors['password_confirmation'][] = 'The password confirmation does not match.';
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:19:        private readonly TenantSeoService $seo,
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:27:        $context = $this->tenantContext($request, 'seo.view');
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:33:        $settings = $this->seo->settings((string) $context->activeTenantId());
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:40:        $context = $this->tenantContext($request, 'seo.update');
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:51:            'admin.tenant.seo.patch',
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:52:            'seo.update',
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:53:            fn (array $payload): array => $this->seo->updateSettings($tenantId, $payload, $context, $request),
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:59:        $context = $this->tenantContext($request, 'seo.view');
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:62:            ? response()->json($this->seo->listPages((string) $context->activeTenantId(), $request->query()))
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:68:        $context = $this->tenantContext($request, 'seo.update');
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:79:            'admin.tenant.seo-pages.store',
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:80:            'seo.update',
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:81:            fn (array $payload): array => $this->seo->createPage($tenantId, $payload, $context, $request),
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:88:        $context = $this->tenantContext($request, 'seo.update');
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:99:            'admin.tenant.seo-pages.patch:'.$page_id,
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:100:            'seo.update',
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:101:            fn (array $payload): array => $this->seo->updatePage($tenantId, $page_id, $payload, $context, $request),
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:107:        $context = $this->tenantContext($request, 'seo.update');
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:118:            'admin.tenant.seo-pages.delete:'.$page_id,
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:119:            'seo.update',
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:120:            fn (array $payload): array => $this->seo->deletePage($tenantId, $page_id, $payload, $context, $request),
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:124:    public function redirects(Request $request): JsonResponse
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:126:        $context = $this->tenantContext($request, 'seo.view');
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:129:            ? response()->json($this->seo->listRedirects((string) $context->activeTenantId(), $request->query()))
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:135:        $context = $this->tenantContext($request, 'seo.redirect.manage');
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:146:            'admin.tenant.redirects.store',
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:147:            'seo.redirect.manage',
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:148:            fn (array $payload): array => $this->seo->createRedirect($tenantId, $payload, $context, $request),
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:155:        $context = $this->tenantContext($request, 'seo.redirect.manage');
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:166:            'admin.tenant.redirects.patch:'.$redirect_id,
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:167:            'seo.redirect.manage',
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:168:            fn (array $payload): array => $this->seo->updateRedirect($tenantId, $redirect_id, $payload, $context, $request),
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:174:        $context = $this->tenantContext($request, 'seo.redirect.manage');
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:185:            'admin.tenant.redirects.delete:'.$redirect_id,
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:186:            'seo.redirect.manage',
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantSeoController.php:187:            fn (array $payload): array => $this->seo->deleteRedirect($tenantId, $redirect_id, $payload, $context, $request),
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/AdminOperationsController.php:37:        return $this->realtimeAuth($request, 'central');
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/AdminOperationsController.php:42:        return $this->realtimeAuth($request, 'tenant');
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/AdminOperationsController.php:86:    private function realtimeAuth(Request $request, string $scopeType): JsonResponse
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/AdminOperationsController.php:95:        $errors = $this->operations->realtimeValidationErrors($payload);
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/AdminOperationsController.php:101:        $authorization = $this->operations->realtimeAuth($context, $scopeType, $payload);
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantPaymentSettingsController.php:52:            'admin.tenant.payment-settings.patch',
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantPaymentSettingsController.php:81:            'admin.tenant.payment-channels.store',
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantPaymentSettingsController.php:115:            'admin.tenant.payment-channels.patch:'.$payment_channel_id,
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/TenantPaymentSettingsController.php:135:            'admin.tenant.payment-channels.delete:'.$payment_channel_id,
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/AssetController.php:38:            'admin.central.assets.uploads',
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/AssetController.php:70:            'admin.central.assets.commit:'.$asset_id,
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/AssetController.php:71:            fn (array $payload): array => $this->assets->commitAsset('central', null, $asset_id, $payload, $context, $request),
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/AssetController.php:90:            'admin.tenant.assets.uploads',
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/AssetController.php:124:            'admin.tenant.assets.commit:'.$asset_id,
+apps/platform-api/app/Modules/AdminOperations/Http/Controllers/AssetController.php:125:            fn (array $payload): array => $this->assets->commitAsset('tenant', $tenantId, $asset_id, $payload, $context, $request),

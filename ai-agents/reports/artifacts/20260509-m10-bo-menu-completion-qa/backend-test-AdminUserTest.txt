@@ -1,0 +1,23 @@
+Running AdminUserTest
+ Container newpaotang-valkey-1 Running 
+ Container newpaotang-postgres-1 Running 
+ Container newpaotang-valkey-1 Waiting 
+ Container newpaotang-postgres-1 Waiting 
+ Container newpaotang-valkey-1 Healthy 
+ Container newpaotang-postgres-1 Healthy 
+ Container newpaotang-platform-api-run-cc180727c800 Creating 
+ Container newpaotang-platform-api-run-cc180727c800 Created 
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\AdminUserTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcentral admin user manager can create list view update and disable[39m[90m… [39m [90m2.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtenant admin user manager can create list view update and disable u[39m[90m…[39m [90m0.80s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin user management defaults to deny without permission[39m[90m           [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtenant admin cannot access or mutate another tenant admin user[39m[90m      [39m [90m0.76s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcentral admin cannot use tenant admin user endpoints without tenant[39m[90m…[39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrole assignments reject roles outside requested scope or tenant[39m[90m     [39m [90m0.55s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin user writes reject invalid idempotency keys[39m[90m                   [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin user update invalidates target permission cache[39m[90m               [39m [90m0.75s[39m  
+
+  [90mTests:[39m    [32;1m8 passed[39;22m[90m (87 assertions)[39m
+  [90mDuration:[39m [39m6.74s[39m
+

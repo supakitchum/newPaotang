@@ -1,0 +1,7 @@
+apps/platform-api/tests/Feature/M10K6LoadTestExecutionTest.php:106:            ->postJson('/api/v1/partner-sync/events', ['events' => [$event]], $headers)
+apps/platform-api/tests/Feature/M10K6LoadTestExecutionTest.php:112:            ->postJson('/api/v1/partner-sync/events', ['events' => [$event]], $headers)
+apps/platform-api/tests/Feature/M10K6LoadTestExecutionTest.php:122:            ->postJson('/api/v1/partner-sync/events', ['events' => [$badEvent]], $headers)
+docs/openapi.yaml:6889:  /partner-sync/allocations:
+docs/openapi.yaml:6918:  /partner-sync/events:
+apps/platform-api/routes/api.php:391:Route::get('/partner-sync/allocations', [PartnerSyncController::class, 'allocations']);
+apps/platform-api/routes/api.php:392:Route::post('/partner-sync/events', [PartnerSyncController::class, 'events']);

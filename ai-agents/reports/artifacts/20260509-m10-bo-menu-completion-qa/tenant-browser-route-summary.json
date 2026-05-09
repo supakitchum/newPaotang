@@ -1,0 +1,98 @@
+[
+  {
+    "path": "/admin/tenant/admin-users",
+    "expectedTitle": "Admin Users",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "notRestoreShell": true,
+    "noStaleGap": true,
+    "apiUi": true,
+    "tenantSessionLabel": true,
+    "errorLogs": []
+  },
+  {
+    "path": "/admin/tenant/roles",
+    "expectedTitle": "Roles And Permissions",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "notRestoreShell": true,
+    "noStaleGap": true,
+    "apiUi": true,
+    "tenantSessionLabel": true,
+    "errorLogs": []
+  },
+  {
+    "path": "/admin/tenant/menu-management",
+    "expectedTitle": "Menu Management",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "notRestoreShell": true,
+    "noStaleGap": true,
+    "apiUi": true,
+    "tenantSessionLabel": true,
+    "errorLogs": []
+  },
+  {
+    "path": "/admin/tenant/price-rules",
+    "expectedTitle": "Price Rules",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "notRestoreShell": true,
+    "noStaleGap": true,
+    "apiUi": true,
+    "tenantSessionLabel": true,
+    "errorLogs": []
+  },
+  {
+    "path": "/admin/tenant/customers",
+    "expectedTitle": "Customers",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "notRestoreShell": true,
+    "noStaleGap": true,
+    "apiUi": true,
+    "tenantSessionLabel": true,
+    "errorLogs": []
+  },
+  {
+    "path": "/admin/tenant/growth/agent-quotas",
+    "expectedTitle": "Agent Quotas",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "notRestoreShell": true,
+    "noStaleGap": true,
+    "apiUi": true,
+    "tenantSessionLabel": true,
+    "errorLogs": []
+  },
+  {
+    "path": "/admin/tenant/monitoring",
+    "expectedTitle": "Monitoring",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "notRestoreShell": true,
+    "noStaleGap": true,
+    "apiUi": true,
+    "tenantSessionLabel": true,
+    "errorLogs": []
+  },
+  {
+    "path": "/admin/tenant/usage",
+    "expectedTitle": "Usage",
+    "urlOk": true,
+    "titleOk": true,
+    "notLogin": true,
+    "notRestoreShell": true,
+    "noStaleGap": true,
+    "apiUi": true,
+    "tenantSessionLabel": true,
+    "errorLogs": []
+  }
+]

@@ -49,3 +49,8 @@ permissions enforced
 next agent, usually QA Tester or Orchestrator
 ```
 
+Validation commands must use Docker only, for example:
+
+```sh
+docker compose exec platform-api php artisan test
+```

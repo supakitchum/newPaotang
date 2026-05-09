@@ -1,0 +1,5 @@
+central-partners-no-marker status=302 location=/login?redirect=/admin/central/partners set-cookie= restore=0 login=0 partners=0 maintenance=0
+central-partners-exact-marker status=200 location= set-cookie= restore=1 login=0 partners=0 maintenance=0
+tenant-maintenance-no-marker status=302 location=/login?redirect=/admin/tenant/maintenance set-cookie= restore=0 login=0 partners=0 maintenance=0
+tenant-maintenance-exact-marker status=200 location= set-cookie= restore=1 login=0 partners=0 maintenance=0
+tenant-maintenance-invalid-marker status=302 location=/login?redirect=/admin/tenant/maintenance set-cookie=newpaotang_bo_session=; Max-Age=0; Path=/ restore=0 login=0 partners=0 maintenance=0

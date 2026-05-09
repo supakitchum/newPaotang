@@ -1,0 +1,14 @@
+default_status=blocked_external
+default_production_approved=False
+default_boundary={'local_dev_verifiable': True, 'dry_run': True, 'external_cloudflare_calls_attempted': False, 'external_r2_calls_attempted': False, 'staging_approved': False, 'production_approved': False, 'client_delivery_approved': False}
+default_cloudflare_configured={'account_id': False, 'zone_id': False, 'api_token': False, 'api_base_url': True}
+default_domain_summary={'status': 'guarded', 'total': 3, 'active': 3, 'custom_domains': 0, 'unsafe_active': 0}
+default_cache={'status': 'artifacts_ready_local'}
+default_waf_categories=public_tenant_pages,public_stock_search_results,customer_auth_booking_checkout,admin_back_office,partner_sync,payment_topup_webhooks,support_impersonation_sensitive
+default_cache_categories=api_dynamic,webhook_payment_topup_callbacks,admin_back_office,auth_session_protected,tenant_maintenance_dynamic_pages,partner_sync,ticket_images_static,static_assets
+default_cdn_r2_status=missing_cdn_or_r2_prerequisites
+default_blockers=cloudflare_account_id_missing,cloudflare_zone_id_missing,cloudflare_api_token_missing,cdn_base_url_missing,r2_endpoint_or_bucket_missing
+fake_env_status=ready_local
+fake_env_blockers=
+fake_env_cloudflare_redacted_config={'account_id': '[REDACTED]', 'zone_id': 'qa-zone-fake-redaction', 'api_token': '[REDACTED]', 'api_base_url': 'https://api.cloudflare.com/client/v4'}
+fake_env_cdn_r2_redacted_config={'cdn_base_url': 'https://cdn.fake-redaction.test', 'r2_endpoint': 'https://r2.fake-redaction.test', 'r2_bucket': 'qa-r2-bucket-fake-redaction', 'r2_access_key_id': 'qa-r2-access-key-id-fake-redaction', 'r2_secret_access_key': '[REDACTED]'}

@@ -1,0 +1,10 @@
+HTTP/1.1 200 OK
+Host: 127.0.0.1:8000
+Connection: close
+X-Powered-By: PHP/8.4.21
+Cache-Control: no-cache, private
+Date: Fri, 08 May 2026 18:30:25 GMT
+Content-Type: application/json
+Access-Control-Allow-Origin: *
+
+{"access_token":"<redacted>","refresh_token":"<redacted>","expires_in":3600,"requires_2fa":false,"challenge_token":null,"user":{"id":"adm_platform_owner","name":"Platform Owner","email":"admin@newpaotang.test","phone":null,"status":"active","two_factor_enabled":false},"scopes":[{"scope":"central","scope_id":"scp_c_platform","tenant_id":null,"tenant_name":null,"permissions":["admin_user.manage","asset.manage","audit.view","dashboard.view","game.close","game.create","game.reward","game.update","game.view","menu.manage","partner.alert.manage","partner.alert.view","partner.api.manage","partner.billing.manage","partner.billing.view","partner.create","partner.monitoring.manage","partner.monitoring.view","partner.provision","partner.quota.manage","partner.suspend","partner.update","partner.usage.manage","partner.usage.view","partner.view","report.view","reward.audit","reward.correct","reward.create","reward.publish","reward.verify","reward.view","role.manage","settlement.approve","settlement.view","stock.allocate","stock.export","stock.generate","stock.recall","stock.view","support_access.audit","system.settings.manage"]}]}

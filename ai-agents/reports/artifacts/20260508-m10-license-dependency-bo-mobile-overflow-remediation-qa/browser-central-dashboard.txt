@@ -1,0 +1,164 @@
+summary={
+  "label": "browser-central-dashboard",
+  "url": "http://127.0.0.1:3100/admin/central/dashboard",
+  "hasLogin": false,
+  "hasRestore": false,
+  "hasPartners": true,
+  "hasTenantMaintenance": false,
+  "hasAgents": false,
+  "hasTenantScope": false,
+  "logsCount": 0
+}
+
+- banner:
+  - button "":
+    - generic: 
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - button " Central":
+    - generic: 
+    - text: Central
+  - text: 
+  - button "":
+    - generic: 
+  - button "PL Platform Owner":
+    - generic: PL
+    - generic: Platform Owner
+  - text: 
+- complementary:
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - region "scrollable content":
+    - navigation:
+      - text: 
+      - list:
+        - listitem: Central Menu
+        - link " Dashboard":
+          - /url: /admin/central/dashboard
+          - generic: 
+          - generic: Dashboard
+        - link " Games":
+          - /url: /admin/central/games
+          - generic: 
+          - generic: Games
+        - link " Rewards":
+          - /url: /admin/central/rewards
+          - generic: 
+          - generic: Rewards
+        - link " Prize Checking":
+          - /url: /admin/central/rewards
+          - generic: 
+          - generic: Prize Checking
+        - link " Master Stock":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Master Stock
+        - link " Stock Generation":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Stock Generation
+        - link " Partners":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Partners
+        - link " Partner Provisioning":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Partner Provisioning
+        - link " Partner Quotas":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Partner Quotas
+        - link " Partner Monitoring":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Partner Monitoring
+        - link " Partner Usage":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Partner Usage
+        - link " Allocations":
+          - /url: /admin/central/allocations
+          - generic: 
+          - generic: Allocations
+        - link " Stock Recall":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Stock Recall
+        - link " Billing Plans":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Billing Plans
+        - link " Alert Policies":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Alert Policies
+        - link " Alert Events":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Alert Events
+        - link " Reports":
+          - /url: /admin/central/reports
+          - generic: 
+          - generic: Reports
+        - link " Settlement":
+          - /url: /admin/central/settlements
+          - generic: 
+          - generic: Settlement
+        - link " Webhook Logs":
+          - /url: /admin/central/audit-logs
+          - generic: 
+          - generic: Webhook Logs
+        - link " Audit Logs":
+          - /url: /admin/central/audit-logs
+          - generic: 
+          - generic: Audit Logs
+        - link " Admin Users":
+          - /url: /admin/central/dashboard
+          - generic: 
+          - generic: Admin Users
+        - link " Roles Permissions":
+          - /url: /admin/central/dashboard
+          - generic: 
+          - generic: Roles Permissions
+        - link " Menu Management":
+          - /url: /admin/central/dashboard
+          - generic: 
+          - generic: Menu Management
+        - link " System Settings":
+          - /url: /admin/central/dashboard
+          - generic: 
+          - generic: System Settings
+      - text: 
+- main:
+  - heading "Central Dashboard" [level=2]
+  - list:
+    - listitem: Admin
+    - listitem:  Central
+    - listitem:  Dashboard
+  - button " Refresh":
+    - generic: 
+    - text: Refresh
+  - paragraph: Partners
+  - heading "3" [level=4]
+  - generic: 
+  - paragraph: Active tenants
+  - heading "3" [level=4]
+  - generic: 
+  - paragraph: Admin users
+  - heading "4" [level=4]
+  - generic: 
+  - paragraph: Audit logs
+  - heading "2" [level=4]
+  - generic: 
+  - generic: Activity
+  - generic: 
+  - heading "No active alerts" [level=6]
+  - paragraph: Central dashboard alerts will appear here when backend returns them.
+- contentinfo:
+  - generic: NewPaotang Back Office · Meno template foundation · 2026
+- text:       
+
+logs=[]

@@ -1,0 +1,23 @@
+docs/back-office-admin-foundation.md:56:The following static assets are copied and must return HTTP 200 from `/admin-template`, not an app fallback or auth redirect:
+docs/back-office-admin-foundation.md:98:Authenticated sessions also write a non-sensitive `newpaotang_bo_session=1` cookie marker. The marker contains no token, user, tenant, or permission data. Production-readiness hardening does not authenticate with this marker; it only lets SSR return a non-sensitive restore shell for valid hard refresh and deep-link requests. It is cleared when client session restoration finds no valid `sessionStorage` payload.
+docs/back-office-admin-foundation.md:103:SSR protected route with no exact marker -> /login?redirect=<protected path>
+docs/back-office-admin-foundation.md:106:Stale marker with no valid sessionStorage -> marker cleared and client redirects to login
+docs/back-office-admin-foundation.md:110:Login only honors same-origin protected redirects for the selected scope:
+docs/back-office-admin-foundation.md:117:Unsafe, cross-scope, non-admin, or look-alike admin redirects fall back to the selected dashboard. Operations pages load API data on the client after session restoration, so SSR shell rendering never sends unauthenticated admin API calls.
+docs/back-office-admin-foundation.md:121:- Stale or corrupt `sessionStorage` clears the non-sensitive marker cookie during client restore.
+docs/back-office-admin-foundation.md:125:- Requests without the exact marker still bridge through login and preserve the same-scope redirect target.
+docs/back-office-admin-foundation.md:210:`/` redirects to login or the active dashboard. `/admin` redirects to the selected scope dashboard.
+docs/back-office-admin-foundation.md:341:- protected deep-link marker bridge, protected shell hydration guardrails, stale marker cleanup, safe redirect checks, and Meno license notice blocker are present.
+apps/back-office/middleware/admin.global.ts:3:const loginRedirect = (redirect: string) => ({ path: '/login', query: { redirect } })
+apps/back-office/middleware/admin.global.ts:16:  if (import.meta.server) {
+apps/back-office/scripts/check.mjs:130:const serverAdminGuardStart = adminMiddleware.indexOf('if (import.meta.server)')
+apps/back-office/scripts/check.mjs:132:const serverAdminGuard =
+apps/back-office/scripts/check.mjs:133:  serverAdminGuardStart >= 0 && clientAdminRestoreStart > serverAdminGuardStart
+apps/back-office/scripts/check.mjs:134:    ? adminMiddleware.slice(serverAdminGuardStart, clientAdminRestoreStart)
+apps/back-office/scripts/check.mjs:144:  ['session cookie marker', adminSession.includes('newpaotang_bo_session') && adminSession.includes('writeSessionCookie') && adminSession.includes('clearSessionCookie')],
+apps/back-office/scripts/check.mjs:145:  ['stale marker cleanup', adminSession.includes('clearSessionCookie()') && adminSession.includes('sessionStorage.removeItem(storageKey)') && adminSession.includes('!parsed?.accessToken')],
+apps/back-office/scripts/check.mjs:147:  ['SSR no-marker login redirect', serverAdminGuard.includes('adminSessionCookieName') && serverAdminGuard.includes("marker.value !== '1'") && serverAdminGuard.includes('loginRedirect(to.fullPath)')],
+apps/back-office/scripts/check.mjs:148:  ['SSR exact-marker shell bridge', serverAdminGuard.includes('useCookie<string | null>') && serverAdminGuard.includes('decode: (value) => value') && serverAdminGuard.includes('non-sensitive SSR restore shell') && !serverAdminGuard.includes('session.isAuthenticated')],
+apps/back-office/scripts/check.mjs:149:  ['login redirect preservation', adminMiddleware.includes('loginRedirect(to.fullPath)')],
+apps/back-office/scripts/check.mjs:151:  ['login safe redirect target', loginPage.includes('safeRedirectTarget') && loginPage.includes('route.query.redirect') && loginPage.includes('isAdminPath') && loginPage.includes('isScopePath')],
+apps/back-office/scripts/check.mjs:161:  ['protected shell placeholder', adminLayout.includes('canRenderAdminContent') && adminLayout.includes('AdminProtectedContent') && adminLayout.includes('clientReady.value && session.isAuthenticated.value')],

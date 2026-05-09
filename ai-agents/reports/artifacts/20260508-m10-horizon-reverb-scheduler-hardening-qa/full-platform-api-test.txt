@@ -1,0 +1,237 @@
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\AdminAuthTest[39m
+  [32;1m✓[39;22m[90m [39m[90madmin login returns auth response and audits redacted payload[39m[90m       [39m [90m1.46s[39m  
+  [32;1m✓[39;22m[90m [39m[90minvalid admin credentials use safe auth error[39m[90m                       [39m [90m0.50s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrefresh issues new tokens from valid refresh token[39m[90m                  [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogout revokes current session and blocks me[39m[90m                        [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogout rejects missing idempotency key without revoking session[39m[90m     [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogout rejects too short idempotency key without revoking session[39m[90m   [39m [90m0.50s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogout rejects too long idempotency key without revoking session[39m[90m    [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mme returns current admin session profile[39m[90m                            [39m [90m0.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcentral admin cannot login with tenant scope without tenant access[39m[90m  [39m [90m0.54s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\AdminMenuTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcentral menu requires central scope and returns permission allowed[39m[90m… [39m [90m0.54s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtenant menu requires tenant scope and requested tenant[39m[90m              [39m [90m0.54s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtenant admin cannot access another tenant menu[39m[90m                      [39m [90m0.50s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcentral admin cannot use tenant menu with central token[39m[90m             [39m [90m0.50s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmenu default deny returns empty tree without permissions[39m[90m            [39m [90m0.53s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\AdminOperationsTest[39m
+  [32;1m✓[39;22m[90m [39m[90madmin dashboard central and tenant summaries work with permission[39m[90m   [39m [90m0.99s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin dashboard defaults to deny without dashboard view[39m[90m             [39m [90m0.50s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin realtime authorizes allowed channels and rejects scope mismat[39m[90m…[39m [90m1.27s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin menu management read and update validates idempotency and wri[39m[90m…[39m [90m0.53s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin menu management rejects cross scope tree bad roles and duplic[39m[90m…[39m [90m0.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90maudit log lists are permissioned redacted and tenant isolated[39m[90m       [39m [90m1.00s[39m  
+  [32;1m✓[39;22m[90m [39m[90maudit log defaults to deny without audit view[39m[90m                       [39m [90m0.51s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\AdminRoleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcentral role manager can create list update and archive roles[39m[90m       [39m [90m0.56s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtenant role manager can create list update and archive roles[39m[90m        [39m [90m0.55s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrole management defaults to deny without role manage permission[39m[90m     [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtenant admin cannot manage another tenant role[39m[90m                      [39m [90m0.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcentral admin cannot use tenant role endpoints without tenant acces[39m[90m…[39m [90m0.50s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrole permission codes must match requested scope[39m[90m                    [39m [90m0.50s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrole writes reject invalid idempotency keys[39m[90m                         [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrole name and code must be unique in scope[39m[90m                          [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrole update increments version and invalidates permission cache[39m[90m     [39m [90m0.51s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\AdminUserTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcentral admin user manager can create list view update and disable[39m[90m… [39m [90m1.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtenant admin user manager can create list view update and disable u[39m[90m…[39m [90m0.82s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin user management defaults to deny without permission[39m[90m           [39m [90m0.53s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtenant admin cannot access or mutate another tenant admin user[39m[90m      [39m [90m0.75s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcentral admin cannot use tenant admin user endpoints without tenant[39m[90m…[39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrole assignments reject roles outside requested scope or tenant[39m[90m     [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin user writes reject invalid idempotency keys[39m[90m                   [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin user update invalidates target permission cache[39m[90m               [39m [90m0.75s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\AffiliateTest[39m
+  [32;1m✓[39;22m[90m [39m[90maffiliate program link attribution and payout endpoints enforce sco[39m[90m…[39m [90m0.62s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\AgentTest[39m
+  [32;1m✓[39;22m[90m [39m[90magent endpoints are permissioned idempotent and tenant scoped[39m[90m       [39m [90m1.06s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\BackendModelComplianceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mall application tables have concrete eloquent models[39m[90m                [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mconcrete models define explicit fillable and base models do not ung[39m[90m…[39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mapp source has no direct table query builder or raw table shortcuts[39m[90m [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mapp source uses imported model classes instead of fully qualified m[39m[90m…[39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrepresentative services use model query builders for backend paths[39m[90m  [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmodel layer represents core relationships and casts[39m[90m                 [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mgrowth dynamic table helpers resolve to model query builders[39m[90m        [39m [90m0.01s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\BackendRequestValidationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mvalidation rejects report export payload before idempotency success[39m[90m…[39m [90m1.76s[39m  
+  [32;1m✓[39;22m[90m [39m[90mvalidation rejects report query scope controls[39m[90m                      [39m [90m0.50s[39m  
+  [32;1m✓[39;22m[90m [39m[90mvalidation rejects wallet adjustment before ledger and idempotency[39m[90m… [39m [90m1.74s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\BootstrapSeederTest[39m
+  [32;1m✓[39;22m[90m [39m[90mdatabase seeder creates bootstrap admin and three demo tenants[39m[90m      [39m [90m1.15s[39m  
+  [32;1m✓[39;22m[90m [39m[90mseeded central and tenant accounts can login[39m[90m                        [39m [90m1.59s[39m  
+  [32;1m✓[39;22m[90m [39m[90mseeded menu routes support back office navigation[39m[90m                   [39m [90m1.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdatabase seeder is idempotent[39m[90m                                       [39m [90m2.23s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\CentralAllocationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcentral allocation create view list recall allocated stock cancel a[39m[90m…[39m [90m1.55s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcentral allocation same key replay returns existing allocation afte[39m[90m…[39m [90m0.81s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\CentralGameTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcentral game lifecycle is permissioned idempotency guarded audited[39m[90m… [39m [90m1.02s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\CentralStockTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcentral stock generate import export list and recall are permission[39m[90m…[39m [90m1.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\CommissionTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcommission calculation is command driven idempotent outboxed and re[39m[90m…[39m [90m0.56s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcommission calculation ignores archived rules[39m[90m                       [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcommission calculation skips expired and cancelled attributions[39m[90m     [39m [90m0.06s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\ConsoleCommandStructureTest[39m
+  [32;1m✓[39;22m[90m [39m[90mconsole command names and signatures are registered[39m[90m                 [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mconsole command classes delegate to services and keep output shape[39m[90m  [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mconsole bootstrap and controller convention are documented[39m[90m          [39m [90m0.01s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\CustomerAuthTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcustomer auth register login refresh profile and logout are tenant[39m[90m… [39m [90m0.54s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcustomer auth rejects bearer session on different tenant host witho[39m[90m…[39m [90m0.28s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\CustomerCheckoutTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcustomer checkout wallet checkout is idempotent and emits paid sold[39m[90m…[39m [90m1.36s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\CustomerReservationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcustomer reservation creates replays releases and expires with loca[39m[90m…[39m [90m1.08s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\CustomerTopupTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcustomer topup create credit list detail and replay are tenant scop[39m[90m…[39m [90m1.31s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\HealthEndpointsTest[39m
+  [32;1m✓[39;22m[90m [39m[90mhealth summary matches openapi shape[39m[90m                                [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mliveness endpoint reports process is live[39m[90m                           [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreadiness endpoint reports dependency state[39m[90m                         [39m [90m0.02s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\IdempotencyServiceTest[39m
+  [32;1m✓[39;22m[90m [39m[90midempotency service replays same payload and conflicts different pa[39m[90m…[39m [90m0.02s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\ImpersonationSecurityTest[39m
+  [32;1m✓[39;22m[90m [39m[90mimpersonation security blocks sensitive wallet action and records a[39m[90m…[39m [90m0.57s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\LocalStockSyncTest[39m
+  [32;1m✓[39;22m[90m [39m[90mlocal stock sync consumes allocation outbox dedupes inbox and expos[39m[90m…[39m [90m1.52s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\M10CloudflareHttpsWafCdnR2Test[39m
+  [32;1m✓[39;22m[90m [39m[90mcloudflare readiness command redacts config and requires ticket ima[39m[90m…[39m [90m1.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mexplicit ticket image path evidence removes image path blocker with[39m[90m…[39m [90m1.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbase url does not satisfy ticket image cdn evidence[39m[90m                 [39m [90m1.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcustom domain activation guard requires dns ssl proxy and https evi[39m[90m…[39m [90m1.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90menv ops artifacts ticket image guard and routes keep release bounda[39m[90m…[39m [90m0.02s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\M10DeploymentReadinessTest[39m
+  [32;1m✓[39;22m[90m [39m[90mplatform smoke command checks dependencies seeded logins and monito[39m[90m…[39m [90m1.62s[39m  
+  [32;1m✓[39;22m[90m [39m[90mroot health routes match openapi readiness contract[39m[90m                 [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcompose defines backend runtime roles without removing local fronte[39m[90m…[39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90menv template keeps infrastructure config out of tenant config[39m[90m       [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mm10 documentation load tests and ci guardrails exist[39m[90m                [39m [90m0.02s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\M10HorizonReverbSchedulerHardeningTest[39m
+  [32;1m✓[39;22m[90m [39m[90mruntime readiness command emits safe machine readable report[39m[90m        [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mqueue worker profile catalog covers configured queues and separates[39m[90m…[39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mscheduler workloads are registered and visible for local evidence[39m[90m   [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdocs scripts and compose keep runtime hardening boundary[39m[90m            [39m [90m0.01s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\M10K6LoadTestExecutionTest[39m
+  [32;1m✓[39;22m[90m [39m[90mk6 fixture command writes env artifacts and prepares runnable api p[39m[90m…[39m [90m0.58s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\M10ProductionObservabilityAlertingTest[39m
+  [32;1m✓[39;22m[90m [39m[90mobservability report command emits safe machine readable inventory[39m[90m  [39m [90m1.18s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdefault alert policies are seeded for each demo partner[39m[90m             [39m [90m1.15s[39m  
+  [32;1m✓[39;22m[90m [39m[90malert check dry run includes partner tenant labels and writes no ev[39m[90m…[39m [90m1.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90malert check can write safe local database event with redacted paylo[39m[90m…[39m [90m1.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90menv and ops artifacts keep release boundary and tenant config rules[39m[90m [39m [90m0.02s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\MaintenanceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mmaintenance admin updates site config blocks by mode and keeps tena[39m[90m…[39m [90m0.71s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmaintenance rejects missing reason and requires schedule permission[39m[90m [39m [90m0.60s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\PartnerProvisioningTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpartner provisioning central admin can create provision idempotentl[39m[90m…[39m [90m2.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpartner api client management is permissioned and never returns sec[39m[90m…[39m [90m1.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90msite config resolves host returns openapi shape maintenance and saf[39m[90m…[39m [90m0.83s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtenant settings theme read update are permissioned and tenant scope[39m[90m…[39m [90m1.54s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\PartnerQuotaTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpartner quota create list update validate active constraints and de[39m[90m…[39m [90m1.08s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\PaymentWebhookTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpayment webhook finalizes external payment and dedupes provider cal[39m[90m…[39m [90m1.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpayment webhook accepts topup success callback and credits wallet o[39m[90m…[39m [90m1.34s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\PublicStockSearchTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpublic stock search resolves tenant current game filters indexes an[39m[90m…[39m [90m2.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpublic stock search filters by store id within tenant and composes[39m[90m… [39m [90m3.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\RbacFoundationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpermission checks default to deny[39m[90m                                   [39m [90m0.32s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcentral and tenant scopes are separated[39m[90m                             [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmenu service is permission driven[39m[90m                                   [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\RbacMenuSeederTest[39m
+  [32;1m✓[39;22m[90m [39m[90mdefault permissions seed by scope[39m[90m                                   [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdefault menus seed with documented permission codes[39m[90m                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreseeding does not duplicate permissions or menus[39m[90m                   [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\ReportTest[39m
+  [32;1m✓[39;22m[90m [39m[90mreport and export jobs are scoped for tenant and central admins[39m[90m     [39m [90m1.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\RewardClaimTest[39m
+  [32;1m✓[39;22m[90m [39m[90mreward claim customer status claim and tenant approve pay are scope[39m[90m…[39m [90m2.89s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreward claim pay rejects invalid payout method without mutation[39m[90m     [39m [90m2.35s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreward claim rejects non positive approved and paid amounts without[39m[90m…[39m [90m2.39s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreward claim approve reject and pay require reason[39m[90m                  [39m [90m2.35s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreward claim bank transfer and manual cash payouts remain valid wit[39m[90m…[39m [90m4.60s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreward claim rejects non winning or cross tenant customer access[39m[90m    [39m [90m3.10s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\RewardEngineTest[39m
+  [32;1m✓[39;22m[90m [39m[90mreward engine central record check verify publish public result and[39m[90m…[39m [90m2.35s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\SettlementTest[39m
+  [32;1m✓[39;22m[90m [39m[90msettlement list detail and approval are central only and idempotent[39m[90m [39m [90m1.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\SoldSyncTest[39m
+  [32;1m✓[39;22m[90m [39m[90msold sync command marks central stock sold idempotently from stock[39m[90m… [39m [90m1.35s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\SupportAccessTest[39m
+  [32;1m✓[39;22m[90m [39m[90msupport access approval impersonation hashes token and keeps tenant[39m[90m…[39m [90m0.60s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\TenantOrderTest[39m
+  [32;1m✓[39;22m[90m [39m[90mtenant order permissions update cancel and refund are idempotent an[39m[90m…[39m [90m2.31s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\TenantReservationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mtenant reservation list and cancel are permissioned scoped idempote[39m[90m…[39m [90m3.32s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\TenantResolutionTest[39m
+  [32;1m✓[39;22m[90m [39m[90munknown host returns safe tenant not found error[39m[90m                    [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90minactive domain returns safe domain error[39m[90m                           [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90minactive tenant returns safe tenant inactive error[39m[90m                  [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90minactive partner returns safe tenant inactive error[39m[90m                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mactive host sets tenant context[39m[90m                                     [39m [90m0.02s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\TenantStockTest[39m
+  [32;1m✓[39;22m[90m [39m[90mtenant stock list view export are permissioned tenant scoped and au[39m[90m…[39m [90m2.98s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\TenantTopupTest[39m
+  [32;1m✓[39;22m[90m [39m[90mtenant topup approve reject cancel are permissioned idempotent and[39m[90m… [39m [90m2.28s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\TenantWalletTest[39m
+  [32;1m✓[39;22m[90m [39m[90mtenant wallet list view ledger and adjust enforce wallet permission[39m[90m…[39m [90m2.27s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\WalletLedgerTest[39m
+  [32;1m✓[39;22m[90m [39m[90mwallet ledger admin adjustment is idempotent ledger based and audit[39m[90m…[39m [90m1.76s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\AuditLoggerTest[39m
+  [32;1m✓[39;22m[90m [39m[90maudit payload redacts sensitive fields recursively[39m[90m                  [39m [90m0.01s[39m  
+
+  [90mTests:[39m    [32;1m135 passed[39;22m[90m (3363 assertions)[39m
+  [90mDuration:[39m [39m114.38s[39m
+

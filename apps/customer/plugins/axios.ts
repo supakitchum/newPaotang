@@ -1,15 +1,25 @@
 import axios from 'axios'
 
+const createRequestId = () => {
+  const randomValue = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+  return `req_${randomValue}`
+}
+
 export default defineNuxtPlugin({
   name: 'axios',
   setup(nuxtApp) {
     const config = useRuntimeConfig()
     const route = useRoute()
+    const requestHeaders = process.server ? useRequestHeaders(['host']) : {}
     const { token: authToken, clearAuthToken } = useAuth()
     const { showAlert } = useAppAlert()
+    const runtimeApiBaseUrl = useState<string>('platform_api_base_url', () => String(config.public.apiBaseUrl || '/api/v1'))
     let isHandlingUnauthorized = false
     const api = axios.create({
-      baseURL: config.public.apiBaseUrl,
+      baseURL: runtimeApiBaseUrl.value,
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json'
@@ -19,8 +29,16 @@ export default defineNuxtPlugin({
 
     api.interceptors.request.use((request) => {
       const isFormData = typeof FormData !== 'undefined' && request.data instanceof FormData
+      const tenantHost = process.server ? requestHeaders.host : (process.client ? window.location.host : '')
+
+      request.baseURL = runtimeApiBaseUrl.value || String(config.public.apiBaseUrl || '/api/v1')
 
       request.headers.set('Accept', 'application/json')
+      request.headers.set('X-Request-Id', createRequestId())
+
+      if (process.server && tenantHost) {
+        request.headers.set('Host', tenantHost)
+      }
 
       if (isFormData) {
         request.headers.delete('Content-Type')
@@ -48,8 +66,14 @@ export default defineNuxtPlugin({
       async (error) => {
         const status = error.response?.status
         const requestUrl = error.config?.url || ''
+        const apiError = error.response?.data?.error
 
-        if (status === 401 && requestUrl !== '/login') {
+        if (apiError && !error.response.data.message) {
+          error.response.data.message = apiError.message || 'กรุณาลองใหม่อีกครั้ง'
+          error.response.data.code = apiError.code
+        }
+
+        if (status === 401 && requestUrl !== '/customer/auth/login') {
           clearAuthToken()
 
           if (process.client && !isHandlingUnauthorized) {

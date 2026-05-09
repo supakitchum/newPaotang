@@ -74,7 +74,7 @@ definePageMeta({
 
 const { items, count, amount, timer, hasItems, removeLottery, setCartItems } = useCart()
 const { currentDrawDate: drawDate } = useAppInit()
-const axios = useAxios()
+const platformApi = usePlatformApi()
 const { showAlert } = useAppAlert()
 const showRemoveConfirm = ref(false)
 const selectedTicket = ref<CartLottery | null>(null)
@@ -113,10 +113,7 @@ const confirmRemove = async () => {
   isRemoving.value = true
 
   try {
-    const response = await axios.post('/lotteries/cancel_booking', {
-      token: getTicketToken(selectedTicket.value),
-      full_number: getTicketNumber(selectedTicket.value)
-    })
+    const response = await platformApi.releaseReservationLegacy(selectedTicket.value)
 
     if (response.data.code !== 0) {
       showRemoveError()

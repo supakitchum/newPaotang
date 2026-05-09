@@ -1,0 +1,3 @@
+browser-mobile-tenant-maintenance-closed-reload.png: size=390x844 nonwhite_x_range=12-377 left_80_nonwhite_samples=1175 right_edge_nonwhite_samples=0
+browser-mobile-tenant-maintenance-sidebar-open.png: size=390x844 nonwhite_x_range=0-389 left_80_nonwhite_samples=8480 right_edge_nonwhite_samples=211
+browser-mobile-tenant-maintenance-sidebar-reclosed.png: size=390x844 nonwhite_x_range=12-377 left_80_nonwhite_samples=1175 right_edge_nonwhite_samples=0

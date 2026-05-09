@@ -30,8 +30,12 @@
 - Support/developer access must be impersonation-based and must never expose real passwords.
 - Partner creation must include monitoring profile, usage meters, alert policy, and billing counters.
 - Prefer PostgreSQL + Redis/Valkey as the default operational stack.
+- Use Docker Compose as the only project runtime.
+- Run all application commands through Docker containers only.
+- Do not run PHP, Composer, Artisan, Node, npm, pnpm, yarn, Nuxt, Vite, tests, builds, migrations, queue workers, or realtime workers directly on the host machine.
 - If adding NoSQL, ClickHouse, search engine, analytics database, or a second operational database, create an architecture decision record with reason, owner, migration path, operational impact, and rollback plan.
 - Before implementing execution work, read `15_EXECUTION_PLAN.md`.
+- Before writing or running validation commands, read `../docs/docker-runtime-policy.md`.
 
 ## Every Module Must Include
 
@@ -104,4 +108,5 @@ domain hardcoded in web build
 partner created without monitoring/usage metering profile
 destructive migration
 NoSQL, ClickHouse, analytics database, search engine, or second operational database added without architecture decision record
+local host command used for PHP/Composer/Artisan/Node/npm/Nuxt/Vite/test/build/migration instead of Docker
 ```

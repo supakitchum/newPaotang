@@ -1,0 +1,60 @@
+<template>
+  <div class="card custom-card">
+    <div class="card-body">
+      <div class="row g-2 align-items-end">
+        <div v-for="filter in filters" :key="filter.key" class="col-sm-6 col-lg-3">
+          <label class="form-label">{{ filter.label }}</label>
+          <select v-if="filter.type === 'select'" v-model="draft[filter.key]" class="form-select">
+            <option value="">All</option>
+            <option v-for="option in filter.options || []" :key="option" :value="option">{{ titleize(option) }}</option>
+          </select>
+          <input
+            v-else
+            v-model="draft[filter.key]"
+            class="form-control"
+            :type="filter.type === 'number' ? 'number' : filter.type === 'date' ? 'date' : 'text'"
+            :min="filter.type === 'number' ? 1 : undefined"
+          />
+        </div>
+        <div class="col-sm-6 col-lg-3">
+          <button class="btn btn-outline-primary btn-wave w-100" type="button" @click="$emit('apply', cleanDraft())">
+            <i class="ri-filter-3-line me-1" />
+            Apply filters
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import type { OperationFilter } from '~/composables/useAdminOperationsCatalog'
+import { titleize } from '~/utils/format'
+
+const props = defineProps<{
+  filters: OperationFilter[]
+  modelValue: Record<string, any>
+}>()
+
+defineEmits<{
+  'update:modelValue': [value: Record<string, any>]
+  apply: [value: Record<string, any>]
+}>()
+
+const draft = reactive<Record<string, any>>({})
+
+watch(() => props.modelValue, (value) => {
+  for (const filter of props.filters) {
+    draft[filter.key] = value?.[filter.key] ?? (filter.key === 'limit' ? 20 : '')
+  }
+}, { immediate: true, deep: true })
+
+const cleanDraft = () => {
+  const next: Record<string, any> = {}
+  for (const filter of props.filters) {
+    const value = draft[filter.key]
+    next[filter.key] = value === '' ? undefined : value
+  }
+  return next
+}
+</script>

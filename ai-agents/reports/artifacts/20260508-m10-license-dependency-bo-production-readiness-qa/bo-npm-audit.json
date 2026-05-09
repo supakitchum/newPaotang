@@ -1,0 +1,1308 @@
+{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "@mapbox/node-pre-gyp": {
+      "name": "@mapbox/node-pre-gyp",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "tar"
+      ],
+      "effects": [
+        "@vercel/nft"
+      ],
+      "range": "<=1.0.11",
+      "nodes": [
+        "node_modules/@mapbox/node-pre-gyp"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "@npmcli/run-script": {
+      "name": "@npmcli/run-script",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "node-gyp"
+      ],
+      "effects": [
+        "pacote"
+      ],
+      "range": "1.1.1 - 9.0.1",
+      "nodes": [
+        "node_modules/@npmcli/run-script"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "@nuxt/devtools": {
+      "name": "@nuxt/devtools",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1098434,
+          "name": "@nuxt/devtools",
+          "dependency": "@nuxt/devtools",
+          "title": "Nuxt Devtools has a Path Traversal: '../filedir'",
+          "url": "https://github.com/advisories/GHSA-rcvg-rgf7-pppv",
+          "severity": "high",
+          "cwe": [
+            "CWE-22",
+            "CWE-24"
+          ],
+          "cvss": {
+            "score": 8.8,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H"
+          },
+          "range": "<1.3.9"
+        },
+        {
+          "source": 1109649,
+          "name": "@nuxt/devtools",
+          "dependency": "@nuxt/devtools",
+          "title": "Nuxt DevTools vulnerable to cross-site scripting (XSS)",
+          "url": "https://github.com/advisories/GHSA-xmq3-q5pm-rp26",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-79"
+          ],
+          "cvss": {
+            "score": 6.9,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:C/C:L/I:H/A:N"
+          },
+          "range": "<2.6.4"
+        },
+        "pacote",
+        "vite-plugin-vue-inspector"
+      ],
+      "effects": [
+        "nuxt"
+      ],
+      "range": "<=2.6.3",
+      "nodes": [
+        "node_modules/@nuxt/devtools"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "@nuxt/kit": {
+      "name": "@nuxt/kit",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "c12"
+      ],
+      "effects": [
+        "@nuxt/vite-builder",
+        "nuxt"
+      ],
+      "range": "3.1.0 - 3.15.4",
+      "nodes": [
+        "node_modules/@nuxt/kit"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "@nuxt/telemetry": {
+      "name": "@nuxt/telemetry",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "nanoid",
+        "parse-git-config"
+      ],
+      "effects": [
+        "nuxt"
+      ],
+      "range": "<=2.6.5",
+      "nodes": [
+        "node_modules/@nuxt/telemetry"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "@nuxt/vite-builder": {
+      "name": "@nuxt/vite-builder",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@nuxt/kit",
+        "@vitejs/plugin-vue-jsx",
+        {
+          "source": 1101859,
+          "name": "@nuxt/vite-builder",
+          "dependency": "@nuxt/vite-builder",
+          "title": "Opening a malicious website while running a Nuxt dev server could allow read-only access to code",
+          "url": "https://github.com/advisories/GHSA-2452-6xj8-jh47",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-200"
+          ],
+          "cvss": {
+            "score": 5.3,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N"
+          },
+          "range": ">=3.8.1 <3.15.3"
+        },
+        "esbuild",
+        "vite",
+        "vite-node"
+      ],
+      "effects": [
+        "nuxt"
+      ],
+      "range": "<=0.5.0 || 3.0.0-rc.0 - 3.15.4",
+      "nodes": [
+        "node_modules/@nuxt/vite-builder"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "@rollup/plugin-terser": {
+      "name": "@rollup/plugin-terser",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "serialize-javascript"
+      ],
+      "effects": [
+        "nitropack"
+      ],
+      "range": "0.2.0 - 0.4.4",
+      "nodes": [
+        "node_modules/@rollup/plugin-terser"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "@sigstore/sign": {
+      "name": "@sigstore/sign",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "make-fetch-happen"
+      ],
+      "effects": [
+        "sigstore"
+      ],
+      "range": "<=2.3.2",
+      "nodes": [
+        "node_modules/@sigstore/sign"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "@sigstore/tuf": {
+      "name": "@sigstore/tuf",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "tuf-js"
+      ],
+      "effects": [
+        "sigstore"
+      ],
+      "range": "<=2.3.4",
+      "nodes": [
+        "node_modules/@sigstore/tuf"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "@unhead/vue": {
+      "name": "@unhead/vue",
+      "severity": "low",
+      "isDirect": false,
+      "via": [
+        "unhead"
+      ],
+      "effects": [
+        "nuxt"
+      ],
+      "range": "<=0.6.3 || 1.0.22 - 2.1.10",
+      "nodes": [
+        "node_modules/@unhead/vue"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "@vercel/nft": {
+      "name": "@vercel/nft",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@mapbox/node-pre-gyp"
+      ],
+      "effects": [
+        "nitropack"
+      ],
+      "range": "0.12.0 - 0.27.7",
+      "nodes": [
+        "node_modules/@vercel/nft"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "@vitejs/plugin-vue-jsx": {
+      "name": "@vitejs/plugin-vue-jsx",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "vite"
+      ],
+      "effects": [
+        "@nuxt/vite-builder"
+      ],
+      "range": "2.0.0-alpha.0 - 4.1.0",
+      "nodes": [
+        "node_modules/@vitejs/plugin-vue-jsx"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "c12": {
+      "name": "c12",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "giget"
+      ],
+      "effects": [
+        "@nuxt/kit",
+        "nitropack",
+        "nuxt"
+      ],
+      "range": "1.1.0 - 2.0.4",
+      "nodes": [
+        "node_modules/c12"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "cacache": {
+      "name": "cacache",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "tar"
+      ],
+      "effects": [
+        "make-fetch-happen",
+        "pacote"
+      ],
+      "range": "14.0.0 - 18.0.4",
+      "nodes": [
+        "node_modules/cacache"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "devalue": {
+      "name": "devalue",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1106997,
+          "name": "devalue",
+          "dependency": "devalue",
+          "title": "devalue prototype pollution vulnerability",
+          "url": "https://github.com/advisories/GHSA-vj54-72f3-p5jv",
+          "severity": "high",
+          "cwe": [
+            "CWE-1321"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<5.3.2"
+        },
+        {
+          "source": 1113319,
+          "name": "devalue",
+          "dependency": "devalue",
+          "title": "devalue affected by CPU and memory amplification from sparse arrays",
+          "url": "https://github.com/advisories/GHSA-33hq-fvwr-56pm",
+          "severity": "low",
+          "cwe": [
+            "CWE-770"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=5.6.2"
+        },
+        {
+          "source": 1113320,
+          "name": "devalue",
+          "dependency": "devalue",
+          "title": "devalue `uneval`ed code can create objects with polluted prototypes when `eval`ed",
+          "url": "https://github.com/advisories/GHSA-8qm3-746x-r74r",
+          "severity": "low",
+          "cwe": [
+            "CWE-1321"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=5.6.2"
+        },
+        {
+          "source": 1114438,
+          "name": "devalue",
+          "dependency": "devalue",
+          "title": "devalue has prototype pollution in devalue.parse and devalue.unflatten",
+          "url": "https://github.com/advisories/GHSA-cfw5-2vxh-hr84",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-1321"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<5.6.4"
+        },
+        {
+          "source": 1114471,
+          "name": "devalue",
+          "dependency": "devalue",
+          "title": "Sveltejs devalue's `devalue.parse` and `devalue.unflatten` emit objects with `__proto__` own properties",
+          "url": "https://github.com/advisories/GHSA-mwv9-gp5h-frr4",
+          "severity": "low",
+          "cwe": [
+            "CWE-1321"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=5.6.3"
+        }
+      ],
+      "effects": [
+        "nuxt"
+      ],
+      "range": "<=5.6.3",
+      "nodes": [
+        "node_modules/devalue"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "esbuild": {
+      "name": "esbuild",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1102341,
+          "name": "esbuild",
+          "dependency": "esbuild",
+          "title": "esbuild enables any website to send any requests to the development server and read the response",
+          "url": "https://github.com/advisories/GHSA-67mh-4wv8-2f99",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-346"
+          ],
+          "cvss": {
+            "score": 5.3,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N"
+          },
+          "range": "<=0.24.2"
+        }
+      ],
+      "effects": [
+        "@nuxt/vite-builder",
+        "nitropack",
+        "nuxt",
+        "vite"
+      ],
+      "range": "<=0.24.2",
+      "nodes": [
+        "node_modules/esbuild",
+        "node_modules/vite/node_modules/esbuild"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "giget": {
+      "name": "giget",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "tar"
+      ],
+      "effects": [
+        "c12"
+      ],
+      "range": "0.0.1 - 1.2.5",
+      "nodes": [
+        "node_modules/giget"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "make-fetch-happen": {
+      "name": "make-fetch-happen",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "cacache"
+      ],
+      "effects": [
+        "@sigstore/sign",
+        "node-gyp",
+        "npm-registry-fetch",
+        "tuf-js"
+      ],
+      "range": "7.1.1 - 14.0.0",
+      "nodes": [
+        "node_modules/make-fetch-happen"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "nanoid": {
+      "name": "nanoid",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1109564,
+          "name": "nanoid",
+          "dependency": "nanoid",
+          "title": "Predictable results in nanoid generation when given non-integer values",
+          "url": "https://github.com/advisories/GHSA-mwcw-c2x4-8c55",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-835"
+          ],
+          "cvss": {
+            "score": 4.3,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N"
+          },
+          "range": ">=4.0.0 <5.0.9"
+        }
+      ],
+      "effects": [
+        "@nuxt/telemetry"
+      ],
+      "range": "4.0.0 - 5.0.8",
+      "nodes": [
+        "node_modules/nanoid"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "nitropack": {
+      "name": "nitropack",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@rollup/plugin-terser",
+        "@vercel/nft",
+        {
+          "source": 1117752,
+          "name": "nitropack",
+          "dependency": "nitropack",
+          "title": "Nitro has an Open Redirect via Protocol-Relative URL Bypass in Wildcard Route Rules",
+          "url": "https://github.com/advisories/GHSA-9phm-9p8f-hw5m",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-601"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<2.13.4"
+        },
+        {
+          "source": 1117754,
+          "name": "nitropack",
+          "dependency": "nitropack",
+          "title": "Nitro has a proxy scope bypass via percent-encoded path traversal in `routeRules`",
+          "url": "https://github.com/advisories/GHSA-5w89-w975-hf9q",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-22"
+          ],
+          "cvss": {
+            "score": 5.3,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N"
+          },
+          "range": "<2.13.4"
+        },
+        "c12",
+        "esbuild",
+        "openapi-typescript"
+      ],
+      "effects": [
+        "nuxt"
+      ],
+      "range": "<=2.13.3",
+      "nodes": [
+        "node_modules/nitropack"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "node-gyp": {
+      "name": "node-gyp",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "make-fetch-happen",
+        "tar"
+      ],
+      "effects": [
+        "@npmcli/run-script"
+      ],
+      "range": "<=10.3.1",
+      "nodes": [
+        "node_modules/node-gyp"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "npm-registry-fetch": {
+      "name": "npm-registry-fetch",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "make-fetch-happen"
+      ],
+      "effects": [
+        "pacote"
+      ],
+      "range": "7.0.0 - 18.0.0",
+      "nodes": [
+        "node_modules/npm-registry-fetch"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "nuxt": {
+      "name": "nuxt",
+      "severity": "critical",
+      "isDirect": true,
+      "via": [
+        "@nuxt/devtools",
+        "@nuxt/kit",
+        "@nuxt/telemetry",
+        "@nuxt/vite-builder",
+        "@unhead/vue",
+        {
+          "source": 1100536,
+          "name": "nuxt",
+          "dependency": "nuxt",
+          "title": "Nuxt vulnerable to remote code execution via the browser when running the test locally",
+          "url": "https://github.com/advisories/GHSA-v784-fjjh-f8r4",
+          "severity": "critical",
+          "cwe": [
+            "CWE-94",
+            "CWE-706"
+          ],
+          "cvss": {
+            "score": 8.8,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H"
+          },
+          "range": ">=3.4.0 <3.12.4"
+        },
+        {
+          "source": 1103361,
+          "name": "nuxt",
+          "dependency": "nuxt",
+          "title": "Nuxt allows DOS via cache poisoning with payload rendering response",
+          "url": "https://github.com/advisories/GHSA-jvhm-gjrh-3h93",
+          "severity": "high",
+          "cwe": [
+            "CWE-349"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": ">=3.0.0 <3.16.0"
+        },
+        {
+          "source": 1104498,
+          "name": "nuxt",
+          "dependency": "nuxt",
+          "title": "nuxt vulnerable to Cross-site Scripting in navigateTo if used after SSR",
+          "url": "https://github.com/advisories/GHSA-vf6r-87q4-2vjf",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-79",
+            "CWE-83"
+          ],
+          "cvss": {
+            "score": 6.3,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:L"
+          },
+          "range": "<3.12.4"
+        },
+        {
+          "source": 1108035,
+          "name": "nuxt",
+          "dependency": "nuxt",
+          "title": "Nuxt has Client-Side Path Traversal in Nuxt Island Payload Revival",
+          "url": "https://github.com/advisories/GHSA-p6jq-8vc4-79f6",
+          "severity": "low",
+          "cwe": [
+            "CWE-22"
+          ],
+          "cvss": {
+            "score": 3.1,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+          },
+          "range": ">=3.6.0 <3.19.0"
+        },
+        "c12",
+        "devalue",
+        "esbuild",
+        "nitropack"
+      ],
+      "effects": [],
+      "range": "<=3.18.1 || 4.0.0-0 - 4.0.0",
+      "nodes": [
+        "node_modules/nuxt"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "openapi-typescript": {
+      "name": "openapi-typescript",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "undici"
+      ],
+      "effects": [
+        "nitropack"
+      ],
+      "range": "5.1.1 - 6.7.6",
+      "nodes": [
+        "node_modules/openapi-typescript"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "pacote": {
+      "name": "pacote",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@npmcli/run-script",
+        "cacache",
+        "npm-registry-fetch",
+        "sigstore",
+        "tar"
+      ],
+      "effects": [
+        "@nuxt/devtools"
+      ],
+      "range": "5.0.0 - 19.0.1 || 20.0.0 || 21.0.0",
+      "nodes": [
+        "node_modules/pacote"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "parse-git-config": {
+      "name": "parse-git-config",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1103364,
+          "name": "parse-git-config",
+          "dependency": "parse-git-config",
+          "title": "Prototype Pollution Vulnerability in parse-git-config",
+          "url": "https://github.com/advisories/GHSA-8g77-54rh-46hx",
+          "severity": "high",
+          "cwe": [
+            "CWE-200",
+            "CWE-1321"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"
+          },
+          "range": "<=3.0.0"
+        }
+      ],
+      "effects": [
+        "@nuxt/telemetry"
+      ],
+      "range": "*",
+      "nodes": [
+        "node_modules/parse-git-config"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "serialize-javascript": {
+      "name": "serialize-javascript",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1113686,
+          "name": "serialize-javascript",
+          "dependency": "serialize-javascript",
+          "title": "Serialize JavaScript is Vulnerable to RCE via RegExp.flags and Date.prototype.toISOString()",
+          "url": "https://github.com/advisories/GHSA-5c6j-r48x-rmvq",
+          "severity": "high",
+          "cwe": [
+            "CWE-96"
+          ],
+          "cvss": {
+            "score": 8.1,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"
+          },
+          "range": "<=7.0.2"
+        },
+        {
+          "source": 1115723,
+          "name": "serialize-javascript",
+          "dependency": "serialize-javascript",
+          "title": "Serialize JavaScript has CPU Exhaustion Denial of Service via crafted array-like objects",
+          "url": "https://github.com/advisories/GHSA-qj8w-gfj5-8c6v",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-400",
+            "CWE-834"
+          ],
+          "cvss": {
+            "score": 5.9,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": "<7.0.5"
+        }
+      ],
+      "effects": [
+        "@rollup/plugin-terser"
+      ],
+      "range": "<=7.0.4",
+      "nodes": [
+        "node_modules/serialize-javascript"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "sigstore": {
+      "name": "sigstore",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@sigstore/sign",
+        "@sigstore/tuf"
+      ],
+      "effects": [
+        "pacote"
+      ],
+      "range": "1.6.0 - 2.3.1",
+      "nodes": [
+        "node_modules/sigstore"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "tar": {
+      "name": "tar",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1112659,
+          "name": "tar",
+          "dependency": "tar",
+          "title": "node-tar Vulnerable to Arbitrary File Creation/Overwrite via Hardlink Path Traversal",
+          "url": "https://github.com/advisories/GHSA-34x7-hfp2-rc4v",
+          "severity": "high",
+          "cwe": [
+            "CWE-22",
+            "CWE-59"
+          ],
+          "cvss": {
+            "score": 8.2,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:H/I:L/A:N"
+          },
+          "range": "<7.5.7"
+        },
+        {
+          "source": 1113300,
+          "name": "tar",
+          "dependency": "tar",
+          "title": "node-tar is Vulnerable to Arbitrary File Overwrite and Symlink Poisoning via Insufficient Path Sanitization",
+          "url": "https://github.com/advisories/GHSA-8qq5-rm4j-mr97",
+          "severity": "high",
+          "cwe": [
+            "CWE-22"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=7.5.2"
+        },
+        {
+          "source": 1113375,
+          "name": "tar",
+          "dependency": "tar",
+          "title": "Arbitrary File Read/Write via Hardlink Target Escape Through Symlink Chain in node-tar Extraction",
+          "url": "https://github.com/advisories/GHSA-83g3-92jg-28cx",
+          "severity": "high",
+          "cwe": [
+            "CWE-22"
+          ],
+          "cvss": {
+            "score": 7.1,
+            "vectorString": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N"
+          },
+          "range": "<7.5.8"
+        },
+        {
+          "source": 1114200,
+          "name": "tar",
+          "dependency": "tar",
+          "title": "tar has Hardlink Path Traversal via Drive-Relative Linkpath",
+          "url": "https://github.com/advisories/GHSA-qffp-2rhf-9h96",
+          "severity": "high",
+          "cwe": [
+            "CWE-22",
+            "CWE-59"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=7.5.9"
+        },
+        {
+          "source": 1114302,
+          "name": "tar",
+          "dependency": "tar",
+          "title": "node-tar Symlink Path Traversal via Drive-Relative Linkpath",
+          "url": "https://github.com/advisories/GHSA-9ppj-qmqm-q256",
+          "severity": "high",
+          "cwe": [
+            "CWE-22"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=7.5.10"
+        },
+        {
+          "source": 1114680,
+          "name": "tar",
+          "dependency": "tar",
+          "title": "Race Condition in node-tar Path Reservations via Unicode Ligature Collisions on macOS APFS",
+          "url": "https://github.com/advisories/GHSA-r6q2-hw4h-h46w",
+          "severity": "high",
+          "cwe": [
+            "CWE-176",
+            "CWE-367"
+          ],
+          "cvss": {
+            "score": 8.8,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:H/A:L"
+          },
+          "range": "<=7.5.3"
+        }
+      ],
+      "effects": [
+        "@mapbox/node-pre-gyp",
+        "cacache",
+        "giget",
+        "node-gyp",
+        "pacote"
+      ],
+      "range": "<=7.5.10",
+      "nodes": [
+        "node_modules/tar"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "tuf-js": {
+      "name": "tuf-js",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "make-fetch-happen"
+      ],
+      "effects": [
+        "@sigstore/tuf"
+      ],
+      "range": "<=2.2.1",
+      "nodes": [
+        "node_modules/tuf-js"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "undici": {
+      "name": "undici",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1112496,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "Undici has an unbounded decompression chain in HTTP responses on Node.js Fetch API via Content-Encoding leads to resource exhaustion",
+          "url": "https://github.com/advisories/GHSA-g9mf-h72j-4rw9",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-770"
+          ],
+          "cvss": {
+            "score": 5.9,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": "<6.23.0"
+        },
+        {
+          "source": 1114594,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "Undici has an HTTP Request/Response Smuggling issue",
+          "url": "https://github.com/advisories/GHSA-2mjp-6q6p-2qxm",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-444"
+          ],
+          "cvss": {
+            "score": 6.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:L"
+          },
+          "range": "<6.24.0"
+        },
+        {
+          "source": 1114638,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "Undici has Unbounded Memory Consumption in WebSocket permessage-deflate Decompression",
+          "url": "https://github.com/advisories/GHSA-vrm6-8vpv-qv8q",
+          "severity": "high",
+          "cwe": [
+            "CWE-409"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": "<6.24.0"
+        },
+        {
+          "source": 1114640,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "Undici has Unhandled Exception in WebSocket Client Due to Invalid server_max_window_bits Validation",
+          "url": "https://github.com/advisories/GHSA-v9p9-hfj2-hcw8",
+          "severity": "high",
+          "cwe": [
+            "CWE-248"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": "<6.24.0"
+        },
+        {
+          "source": 1114642,
+          "name": "undici",
+          "dependency": "undici",
+          "title": "Undici has CRLF Injection in undici via `upgrade` option",
+          "url": "https://github.com/advisories/GHSA-4992-7rv2-5pvq",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-93"
+          ],
+          "cvss": {
+            "score": 4.6,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:U/C:L/I:L/A:N"
+          },
+          "range": "<6.24.0"
+        }
+      ],
+      "effects": [
+        "openapi-typescript"
+      ],
+      "range": "<=6.23.0",
+      "nodes": [
+        "node_modules/undici"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "unhead": {
+      "name": "unhead",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1114467,
+          "name": "unhead",
+          "dependency": "unhead",
+          "title": "Unhead Vulnerable to Bypass of URI Scheme Sanitization in makeTagSafe via Case-Sensitivity",
+          "url": "https://github.com/advisories/GHSA-5339-hvwr-7582",
+          "severity": "low",
+          "cwe": [
+            "CWE-79"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:N"
+          },
+          "range": "<=2.1.10"
+        },
+        {
+          "source": 1114468,
+          "name": "unhead",
+          "dependency": "unhead",
+          "title": "Unhead has XSS bypass in `useHeadSafe` via attribute name injection and case-sensitive protocol check",
+          "url": "https://github.com/advisories/GHSA-g5xx-pwrp-g3fv",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-79"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=2.1.10"
+        },
+        {
+          "source": 1116373,
+          "name": "unhead",
+          "dependency": "unhead",
+          "title": "Unhead has a hasDangerousProtocol() bypass via leading-zero padded HTML entities in useHeadSafe()",
+          "url": "https://github.com/advisories/GHSA-95h2-gj7x-gx9w",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-184"
+          ],
+          "cvss": {
+            "score": 6.1,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N"
+          },
+          "range": "<2.1.13"
+        }
+      ],
+      "effects": [
+        "@unhead/vue"
+      ],
+      "range": "<=2.1.12",
+      "nodes": [
+        "node_modules/unhead"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "vite": {
+      "name": "vite",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1116229,
+          "name": "vite",
+          "dependency": "vite",
+          "title": "Vite Vulnerable to Path Traversal in Optimized Deps `.map` Handling",
+          "url": "https://github.com/advisories/GHSA-4w7w-66w2-5vf9",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-22",
+            "CWE-200"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=6.4.1"
+        },
+        "esbuild"
+      ],
+      "effects": [
+        "@nuxt/vite-builder",
+        "@vitejs/plugin-vue-jsx",
+        "vite-node",
+        "vite-plugin-vue-inspector"
+      ],
+      "range": "<=6.4.1",
+      "nodes": [
+        "node_modules/vite"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "vite-node": {
+      "name": "vite-node",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "vite"
+      ],
+      "effects": [
+        "@nuxt/vite-builder"
+      ],
+      "range": "<=2.2.0-beta.2",
+      "nodes": [
+        "node_modules/vite-node"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    },
+    "vite-plugin-vue-inspector": {
+      "name": "vite-plugin-vue-inspector",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "vite"
+      ],
+      "effects": [
+        "@nuxt/devtools"
+      ],
+      "range": "<=5.3.0",
+      "nodes": [
+        "node_modules/vite-plugin-vue-inspector"
+      ],
+      "fixAvailable": {
+        "name": "nuxt",
+        "version": "3.21.4",
+        "isSemVerMajor": false
+      }
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 1,
+      "moderate": 8,
+      "high": 25,
+      "critical": 1,
+      "total": 35
+    },
+    "dependencies": {
+      "prod": 877,
+      "dev": 0,
+      "optional": 10,
+      "peer": 65,
+      "peerOptional": 0,
+      "total": 949
+    }
+  }
+}

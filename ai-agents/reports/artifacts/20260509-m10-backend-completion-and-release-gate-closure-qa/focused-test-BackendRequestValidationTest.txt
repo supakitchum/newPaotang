@@ -1,0 +1,18 @@
+Running BackendRequestValidationTest
+ Container newpaotang-valkey-1 Running 
+ Container newpaotang-postgres-1 Running 
+ Container newpaotang-valkey-1 Waiting 
+ Container newpaotang-postgres-1 Waiting 
+ Container newpaotang-valkey-1 Healthy 
+ Container newpaotang-postgres-1 Healthy 
+ Container newpaotang-platform-api-run-5c332de42f37 Creating 
+ Container newpaotang-platform-api-run-5c332de42f37 Created 
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\BackendRequestValidationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mvalidation rejects report export payload before idempotency success[39m[90m…[39m [90m2.78s[39m  
+  [32;1m✓[39;22m[90m [39m[90mvalidation rejects report query scope controls[39m[90m                      [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mvalidation rejects wallet adjustment before ledger and idempotency[39m[90m… [39m [90m1.74s[39m  
+
+  [90mTests:[39m    [32;1m3 passed[39;22m[90m (38 assertions)[39m
+  [90mDuration:[39m [39m5.16s[39m
+

@@ -1,0 +1,37 @@
+vulnerabilities_total: 35
+vulnerabilities_info: 0
+vulnerabilities_low: 1
+vulnerabilities_moderate: 8
+vulnerabilities_high: 25
+vulnerabilities_critical: 1
+top_vulnerable_packages:
+- @mapbox/node-pre-gyp: severity=high, via=1, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- @npmcli/run-script: severity=high, via=1, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- @nuxt/devtools: severity=high, via=4, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- @nuxt/kit: severity=high, via=1, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- @nuxt/telemetry: severity=high, via=2, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- @nuxt/vite-builder: severity=high, via=6, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- @rollup/plugin-terser: severity=high, via=1, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- @sigstore/sign: severity=high, via=1, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- @sigstore/tuf: severity=high, via=1, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- @unhead/vue: severity=low, via=1, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- @vercel/nft: severity=high, via=1, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- @vitejs/plugin-vue-jsx: severity=moderate, via=1, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- c12: severity=high, via=1, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- cacache: severity=high, via=1, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- devalue: severity=high, via=5, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- esbuild: severity=moderate, via=1, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- giget: severity=high, via=1, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- make-fetch-happen: severity=high, via=1, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- nanoid: severity=moderate, via=1, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- nitropack: severity=high, via=7, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- node-gyp: severity=high, via=2, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- npm-registry-fetch: severity=high, via=1, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- nuxt: severity=critical, via=13, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- openapi-typescript: severity=moderate, via=1, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- pacote: severity=high, via=5, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- parse-git-config: severity=high, via=1, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- serialize-javascript: severity=high, via=2, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- sigstore: severity=high, via=2, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- tar: severity=high, via=6, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}
+- tuf-js: severity=high, via=1, fix_available={'name': 'nuxt', 'version': '3.21.4', 'isSemVerMajor': False}

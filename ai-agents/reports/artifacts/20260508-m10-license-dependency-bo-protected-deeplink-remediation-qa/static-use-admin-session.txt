@@ -1,0 +1,209 @@
+type AdminScope = {
+  scope: 'central' | 'tenant'
+  scope_id?: string | null
+  tenant_id?: string | null
+  tenant_name?: string | null
+  permissions?: string[]
+}
+
+type AdminUser = {
+  id: string
+  name: string
+  email: string
+  phone?: string | null
+  status?: string
+  two_factor_enabled?: boolean
+}
+
+type AdminSessionState = {
+  accessToken: string | null
+  refreshToken: string | null
+  user: AdminUser | null
+  scopes: AdminScope[]
+  activeScope: 'central' | 'tenant'
+  activeTenantId: string | null
+  restored: boolean
+}
+
+const storageKey = 'newpaotang.back-office.session.v1'
+const sessionCookieName = 'newpaotang_bo_session'
+
+const emptySession = (): AdminSessionState => ({
+  accessToken: null,
+  refreshToken: null,
+  user: null,
+  scopes: [],
+  activeScope: 'central',
+  activeTenantId: null,
+  restored: false,
+})
+
+export const useAdminSession = () => {
+  const session = useState<AdminSessionState>('admin-session', emptySession)
+  const toast = useState<{ type: string, message: string } | null>('admin-toast', () => null)
+
+  const isAuthenticated = computed(() => Boolean(session.value.accessToken))
+  const currentScope = computed(() => session.value.activeScope)
+  const currentTenantId = computed(() => session.value.activeTenantId)
+  const currentPermissions = computed(() => {
+    const active = session.value.scopes.find((scope) => (
+      scope.scope === session.value.activeScope
+      && (scope.scope !== 'tenant' || scope.tenant_id === session.value.activeTenantId)
+    ))
+
+    return active?.permissions || []
+  })
+
+  const persist = () => {
+    if (!import.meta.client) {
+      return
+    }
+
+    if (!session.value.accessToken) {
+      sessionStorage.removeItem(storageKey)
+      clearSessionCookie()
+      return
+    }
+
+    sessionStorage.setItem(storageKey, JSON.stringify({
+      accessToken: session.value.accessToken,
+      refreshToken: session.value.refreshToken,
+      user: session.value.user,
+      scopes: session.value.scopes,
+      activeScope: session.value.activeScope,
+      activeTenantId: session.value.activeTenantId,
+    }))
+    writeSessionCookie()
+  }
+
+  const restore = () => {
+    if (!import.meta.client || session.value.restored) {
+      return
+    }
+
+    try {
+      const raw = sessionStorage.getItem(storageKey)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (!parsed?.accessToken) {
+          sessionStorage.removeItem(storageKey)
+          clearSessionCookie()
+          session.value = { ...emptySession(), restored: true }
+          return
+        }
+        session.value = {
+          ...emptySession(),
+          ...parsed,
+          restored: true,
+        }
+      } else {
+        clearSessionCookie()
+        session.value = { ...emptySession(), restored: true }
+      }
+    } catch {
+      sessionStorage.removeItem(storageKey)
+      clearSessionCookie()
+      session.value = { ...emptySession(), restored: true }
+    }
+  }
+
+  const applyAuthPayload = (payload: any, requestedScope?: 'central' | 'tenant', requestedTenantId?: string | null) => {
+    const scopes = Array.isArray(payload?.scopes) ? payload.scopes : []
+    const activeScope = (payload?.active_scope || requestedScope || firstUsableScope(scopes)?.scope || 'central') as 'central' | 'tenant'
+    const activeTenantId = payload?.active_tenant_id || requestedTenantId || firstTenantId(scopes, activeScope)
+
+    session.value = {
+      accessToken: payload?.access_token || session.value.accessToken,
+      refreshToken: payload?.refresh_token || session.value.refreshToken,
+      user: payload?.user || session.value.user,
+      scopes,
+      activeScope,
+      activeTenantId: activeScope === 'tenant' ? activeTenantId : null,
+      restored: true,
+    }
+    persist()
+  }
+
+  const setScope = (scope: 'central' | 'tenant', tenantId?: string | null) => {
+    session.value.activeScope = scope
+    session.value.activeTenantId = scope === 'tenant' ? tenantId || firstTenantId(session.value.scopes, 'tenant') : null
+    persist()
+  }
+
+  const alignScopeForPath = (path: string) => {
+    if (path.startsWith('/admin/central')) {
+      if (!hasScope('central')) {
+        return false
+      }
+      setScope('central')
+      return true
+    }
+
+    if (path.startsWith('/admin/tenant')) {
+      const tenantId = session.value.activeTenantId || firstTenantId(session.value.scopes, 'tenant')
+      if (!tenantId || !hasScope('tenant', tenantId)) {
+        return false
+      }
+      setScope('tenant', tenantId)
+      return true
+    }
+
+    return true
+  }
+
+  const hasPermission = (permission: string) => currentPermissions.value.includes(permission)
+  const hasScope = (scope: 'central' | 'tenant', tenantId?: string | null) => session.value.scopes.some((item) => (
+    item.scope === scope
+    && (scope !== 'tenant' || !tenantId || item.tenant_id === tenantId)
+  ))
+
+  const clear = () => {
+    session.value = { ...emptySession(), restored: true }
+    if (import.meta.client) {
+      sessionStorage.removeItem(storageKey)
+      clearSessionCookie()
+    }
+  }
+
+  const showToast = (message: string, type = 'primary') => {
+    toast.value = { message, type }
+  }
+
+  return {
+    session,
+    toast,
+    isAuthenticated,
+    currentScope,
+    currentTenantId,
+    currentPermissions,
+    restore,
+    persist,
+    applyAuthPayload,
+    setScope,
+    alignScopeForPath,
+    hasPermission,
+    hasScope,
+    clear,
+    showToast,
+  }
+}
+
+const firstUsableScope = (scopes: AdminScope[]) => scopes.find((scope) => scope.scope === 'central') || scopes[0]
+
+const firstTenantId = (scopes: AdminScope[], scope: string) => {
+  if (scope !== 'tenant') {
+    return null
+  }
+
+  return scopes.find((item) => item.scope === 'tenant')?.tenant_id || null
+}
+
+const writeSessionCookie = () => {
+  document.cookie = `${sessionCookieName}=1; Path=/; SameSite=Lax`
+}
+
+const clearSessionCookie = () => {
+  document.cookie = `${sessionCookieName}=; Path=/; SameSite=Lax; Max-Age=0`
+}
+
+export const adminSessionCookieName = sessionCookieName

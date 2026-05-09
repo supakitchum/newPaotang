@@ -73,12 +73,13 @@ definePageMeta({
   requiresAuth: false
 })
 
-const axios = useAxios()
+const platformApi = usePlatformApi()
 const searchText = ref('')
 const stores = ref<StoreItem[]>([])
 const pagination = ref<StorePagination | null>(null)
 const seed = ref<string | number>('')
 const page = ref(1)
+const perPage = 20
 const isLoadingInitial = ref(false)
 const isLoadingMore = ref(false)
 let scrollContainer: HTMLElement | null = null
@@ -104,7 +105,12 @@ const getPostData = () => ({
 })
 
 const getStores = async (append = false) => {
-  const response = await axios.post('/stock-store', getPostData())
+  const response = await platformApi.storesLegacy({
+    q: searchText.value || undefined,
+    cursor: seed.value || null,
+    page: page.value,
+    limit: perPage
+  })
 
   if (response.data.code !== 0) {
     return

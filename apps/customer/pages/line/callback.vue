@@ -30,7 +30,7 @@ definePageMeta({
 })
 
 const route = useRoute()
-const axios = useAxios()
+const platformApi = usePlatformApi()
 const {lineRedirect, isAuthenticated, setAuthToken, setAuthUser, clearLineRedirect} = useAuth()
 const {refreshAppInit} = useAppInit()
 const statusText = ref('กรุณารอสักครู่ ระบบกำลังยืนยันข้อมูลจาก LINE')
@@ -57,16 +57,15 @@ onMounted(async () => {
   }
 
   try {
-    const lineCallback = {params: route.query};
-    const response = await axios.get<LineCallbackResponse>('/line/callback', lineCallback)
+    const response = await platformApi.lineCallback(route.query) as LineCallbackResponse
 
-    if (response.data.code === 0) {
-      setAuthToken(response.data.token)
-      setAuthUser(response.data.user)
-      await refreshAppInit(response.data.token)
+    if (response.code === 0) {
+      setAuthToken(response.token)
+      setAuthUser(response.user)
+      await refreshAppInit(response.token)
 
-      if (response.data?.order_id) {
-        await navigateTo(`payment?id=${response.data?.order_id}`);
+      if (response?.order_id) {
+        await navigateTo(`payment?id=${response?.order_id}`);
       }else{
         const redirectTo = getSafeRedirect(lineRedirect.value)
         clearLineRedirect()
@@ -76,7 +75,7 @@ onMounted(async () => {
       return
     }
 
-    statusText.value = response.data.message || 'ไม่สามารถเข้าสู่ระบบด้วย LINE ได้'
+    statusText.value = response.message || 'ไม่สามารถเข้าสู่ระบบด้วย LINE ได้'
   } catch {
     statusText.value = 'ไม่สามารถเชื่อมต่อเพื่อเข้าสู่ระบบด้วย LINE ได้'
   }

@@ -16,6 +16,7 @@ ai-agents/rules/global-rules.md
 ai-agents/workflow/stage-gates.md
 ai-agents/workflow/handoff-protocol.md
 ai-agents/workflow/file-ownership.md
+docs/docker-runtime-policy.md
 ai-agents/roles/customer-develop.md
 ai-agents/tasks/*.md
 docs/customer-api-integration-map.md
@@ -55,7 +56,7 @@ apps/customer
 2. อ่าน acceptance criteria และ validation commands
 3. map old API calls ไปยัง platform-api ตาม docs/customer-api-integration-map.md
 4. ทำเฉพาะ scope ที่ได้รับ และรักษา UI flow เดิม
-5. รัน validation ตาม task
+5. รัน validation ตาม task ผ่าน Docker container เท่านั้น
 6. เขียน handoff ลง ai-agents/handoffs/YYYYMMDD-<task-key>-customer-develop-handoff.md
 ```
 

@@ -75,7 +75,7 @@ definePageMeta({
 
 const route = useRoute()
 const router = useRouter()
-const axios = useAxios()
+const platformApi = usePlatformApi()
 const tickets = ref<MoreNumberTicket[]>([])
 const pagination = ref<MorePagination | null>(null)
 const isLoadingInitial = ref(false)
@@ -150,14 +150,11 @@ const search = async (append = false) => {
     return
   }
 
-  const params: Record<string, string | number> = {}
-
-  if (append && pagination.value?.seed) {
-    params.seed = pagination.value.seed
-    params.page = currentPage.value + 1
-  }
-
-  const response = await axios.post('/lotteries/search', buildSearchPayload(), { params })
+  const response = await platformApi.searchStockLegacy({
+    number: String(buildSearchPayload().full_number || ''),
+    cursor: append ? pagination.value?.seed || null : null,
+    page: append ? currentPage.value + 1 : 1
+  })
 
   if (response.data.code === 0) {
     updateSearchResult(response.data, append)

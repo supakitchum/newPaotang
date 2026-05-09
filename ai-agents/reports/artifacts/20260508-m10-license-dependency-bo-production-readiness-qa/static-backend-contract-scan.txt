@@ -1,0 +1,24 @@
+docs/backend-maintenance-support.md:35:Maintenance bypasses are tenant scoped. `GET /api/v1/admin/tenant/maintenance/bypasses` requires `maintenance.bypass`, supports `cursor`, `limit`, and `status=active|revoked|expired`, and returns safe metadata only. It does not expose bearer tokens, support impersonation tokens, customer secrets, raw credentials, or broad login bypass material.
+docs/openapi.yaml:6600:  /admin/tenant/maintenance/bypasses:
+docs/openapi.yaml:6626:                $ref: "#/components/schemas/MaintenanceBypassListResponse"
+docs/openapi.yaml:6651:                $ref: "#/components/schemas/MaintenanceBypass"
+docs/openapi.yaml:6658:  /admin/tenant/maintenance/bypasses/{bypass_id}:
+docs/openapi.yaml:7331:          enum: [tenant_logo, tenant_favicon, tenant_og_image, ticket_image, admin_attachment, import_file, other]
+docs/openapi.yaml:7424:            $ref: "#/components/schemas/MenuItem"
+docs/openapi.yaml:7769:            favicon_url:
+docs/openapi.yaml:8566:            $ref: "#/components/schemas/MenuItem"
+docs/openapi.yaml:8567:    MenuItem:
+docs/openapi.yaml:8575:        category:
+docs/openapi.yaml:8577:          description: Presentation-only Meno sidebar category; authorization still comes from RBAC permissions.
+docs/openapi.yaml:8578:        icon:
+docs/openapi.yaml:8580:          description: Presentation-only Meno/Remix icon class; never an authorization input.
+docs/openapi.yaml:8586:            $ref: "#/components/schemas/MenuItem"
+docs/openapi.yaml:8625:    MaintenanceBypassListResponse:
+docs/openapi.yaml:8632:            $ref: "#/components/schemas/MaintenanceBypass"
+docs/openapi.yaml:8635:    MaintenanceBypass:
+docs/backend-bootstrap-seeders.md:105:`DefaultRbacMenuSeeder` also seeds stable presentation-only `category` and `icon` metadata for central and tenant admin menus. These fields are for Meno sidebar grouping and icon rendering only; endpoint authorization remains RBAC/permission based.
+docs/backend-model-layer.md:55:| admin_menus | AdminMenu | domain model with presentation metadata (`category`, `icon`) | scope_type only |
+docs/backend-model-layer.md:115:| partner_tenant_maintenance_bypasses | PartnerTenantMaintenanceBypass | maintenance bypass model | `scopeForTenant` |
+docs/permissions.md:494:| `GET /admin/tenant/maintenance/bypasses` | tenant | maintenance.bypass |
+docs/permissions.md:495:| `POST /admin/tenant/maintenance/bypasses` | tenant | maintenance.bypass |
+docs/permissions.md:496:| `DELETE /admin/tenant/maintenance/bypasses/{bypass_id}` | tenant | maintenance.bypass |

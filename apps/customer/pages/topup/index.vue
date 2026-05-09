@@ -141,7 +141,7 @@ type TopupChannel = 'qr' | 'credit' | 'bank_transfer'
 
 import type { DepositHistory, WebsiteBank } from '~/composables/useTopup'
 
-const axios = useAxios()
+const platformApi = usePlatformApi()
 const { showAlert } = useAppAlert()
 const { toNumber, formatMoney, formatDate } = useTopup()
 
@@ -230,8 +230,7 @@ const validateAmount = (minimum = 1) => {
 
 const fetchTopupInfo = async () => {
   try {
-    const response = await axios.get('/deposit')
-    const result = response.data?.result || {}
+    const result = await platformApi.topupOverviewLegacy()
     bankInfo.value = result.bank || null
     waitingDeposit.value = result.waiting || null
     waitingQrCode.value = ''
@@ -253,8 +252,7 @@ const fetchWaitingPayment = async (id: number | string) => {
   isWaitingPaymentLoading.value = true
 
   try {
-    const response = await axios.get(`/deposit/${id}`)
-    const result = response.data?.result || {}
+    const result = await platformApi.topupDetailLegacy(id)
     const payment = result.payment || {}
 
     waitingDeposit.value = result.deposit || waitingDeposit.value
@@ -279,16 +277,15 @@ const createQrTopup = async () => {
   qrCode.value = ''
 
   try {
-    const response = await axios.post('/deposit', {
-      topup: 1,
+    const response = await platformApi.createTopupLegacy({
       channel: 'qr',
       amount: value
     })
 
-    qrCode.value = response.data?.qr_code || response.data?.result?.slip || ''
-    waitingQrCode.value = response.data?.qr_code || ''
+    qrCode.value = response.qr_code || response.result?.slip || ''
+    waitingQrCode.value = response.qr_code || ''
     waitingPaymentMessage.value = 'สแกน QR Code เพื่อชำระเงินรายการนี้'
-    waitingDeposit.value = response.data?.result || null
+    waitingDeposit.value = response.result || null
     await fetchTopupInfo()
     closeTopupModal(true)
   } catch (error: any) {
@@ -312,15 +309,12 @@ const createCreditTopup = async () => {
   qrCode.value = ''
 
   try {
-    const response = await axios.post('/payments/credit', {
-      topup: 1,
-      amount: value
-    })
+    const response = await platformApi.createCreditTopupLegacy(value)
 
-    qrCode.value = response.data?.qr_code || response.data?.result?.qr_code || response.data?.result?.slip || ''
-    waitingQrCode.value = response.data?.qr_code || response.data?.result?.qr_code || ''
+    qrCode.value = response.qr_code || response.result?.qr_code || response.result?.slip || ''
+    waitingQrCode.value = response.qr_code || response.result?.qr_code || ''
     waitingPaymentMessage.value = 'สแกน QR Code เพื่อชำระเงินรายการนี้'
-    waitingDeposit.value = response.data?.result || null
+    waitingDeposit.value = response.result || null
     await fetchTopupInfo()
     closeTopupModal(true)
   } catch (error: any) {
@@ -365,12 +359,12 @@ const submitBankTransfer = async () => {
   qrCode.value = ''
 
   try {
-    const response = await axios.post('/deposit', formData)
-    waitingDeposit.value = response.data?.result || null
+    const response = await platformApi.createTopupLegacy(formData)
+    waitingDeposit.value = response.result || null
     slipFile.value = null
     showAlert({
       title: 'ส่งสลิปสำเร็จ',
-      message: response.data?.message || 'กรุณารอแอดมินตรวจสอบสักครู่',
+      message: 'กรุณารอแอดมินตรวจสอบสักครู่',
       variant: 'info'
     })
     await fetchTopupInfo()
@@ -398,14 +392,14 @@ const cancelWaitingTopup = async () => {
   isCancelingTopup.value = true
 
   try {
-    const response = await axios.delete(`/deposit/${waitingDeposit.value.id}`)
+    const response = await platformApi.cancelTopupLegacy(waitingDeposit.value.id)
     waitingDeposit.value = null
     waitingQrCode.value = ''
     waitingPaymentMessage.value = ''
     qrCode.value = ''
     showAlert({
       title: 'ยกเลิกรายการสำเร็จ',
-      message: response.data?.message || 'สามารถสร้างรายการเติมเงินใหม่ได้แล้ว',
+      message: response.message || 'สามารถสร้างรายการเติมเงินใหม่ได้แล้ว',
       variant: 'info'
     })
     await fetchTopupInfo()

@@ -1,0 +1,16 @@
+{
+  "nuxt": {
+    "current": "3.11.2",
+    "wanted": "3.11.2",
+    "latest": "4.4.4",
+    "dependent": "app",
+    "location": "/app/node_modules/nuxt"
+  },
+  "vue": {
+    "current": "3.4.21",
+    "wanted": "3.4.21",
+    "latest": "3.5.34",
+    "dependent": "app",
+    "location": "/app/node_modules/vue"
+  }
+}

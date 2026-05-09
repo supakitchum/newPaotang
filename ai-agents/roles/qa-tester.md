@@ -56,3 +56,4 @@ ai-agents/reports/YYYYMMDD-<task-key>-qa-report.md
 
 Next Agent ปกติคือ `Coordinator`
 
+Validation/test commands must use Docker only, following `docs/docker-runtime-policy.md`.

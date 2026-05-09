@@ -52,3 +52,8 @@ commands/tests run
 next agent, usually QA Tester or Orchestrator
 ```
 
+Validation commands must use Docker only, for example:
+
+```sh
+docker compose exec customer npm run build
+```

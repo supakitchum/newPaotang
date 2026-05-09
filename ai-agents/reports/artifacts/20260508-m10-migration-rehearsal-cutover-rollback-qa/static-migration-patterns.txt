@@ -1,0 +1,260 @@
+docs/backend-console-commands.md:47:| `platform:alerts:check` | `platform:alerts:check {--dry-run} {--format=table}` | `App\Shared\Observability\AlertEvaluationService::evaluate()` |
+docs/backend-console-commands.md:49:| `platform:migration:rehearsal` | `platform:migration:rehearsal {--dry-run} {--format=table}` | `App\Shared\Migration\MigrationRehearsalReadinessService::report()` |
+docs/backend-console-commands.md:67:platform:alerts:check --dry-run --format=json -> safe local/dev alert policy evaluation
+docs/backend-console-commands.md:68:platform:cloudflare:readiness --format=json -> safe local/dev Cloudflare/HTTPS/WAF/cache/CDN/R2 readiness report with production_approved=false
+docs/backend-console-commands.md:69:platform:migration:rehearsal --dry-run --format=json -> safe local/dev migration rehearsal, cutover, rollback, snapshot, and secret-boundary readiness report with production_approved=false
+docs/backend-console-commands.md:70:platform:runtime:readiness --format=json -> safe local/dev queue/Horizon/Reverb/scheduler readiness report with production_approved=false
+docs/backend-console-commands.md:86:docker compose run --rm platform-api php artisan platform:alerts:check --dry-run --format=json
+docs/backend-console-commands.md:88:docker compose run --rm platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:1:# 20260508-m10-migration-rehearsal-cutover-rollback - Backend Develop Handoff
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:5:20260508-m10-migration-rehearsal-cutover-rollback
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:9:- Added a Docker-runnable local/dev migration rehearsal readiness command:
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:10:  `php artisan platform:migration:rehearsal --dry-run --format=json`.
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:11:- Added a safe readiness service that emits machine-readable migration, fixture, snapshot, cutover, rollback, secret-boundary, helper-script, blocker, and validation-command status.
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:12:- Added Docker-only helper scripts for migration rehearsal, cutover preflight, and rollback drill.
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:13:- Added M10 ops artifacts for old-data migration strategy, rehearsal fixtures, snapshot requirements, cutover, rollback drill, and production secret boundary.
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:15:- Added regression tests that lock command registration, safe JSON output, `production_approved=false`, redaction, fixture boundaries, runbook artifacts, snapshot requirements, secret placeholders, and Docker-only helper script behavior.
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:32:- `scripts/platform-cutover-preflight.sh`
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:33:- `scripts/platform-rollback-drill.sh`
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:37:- `ops/m10/cutover-runbook.md`
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:38:- `ops/m10/rollback-drill-runbook.md`
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:39:- `ops/m10/snapshot-requirements.md`
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:66:- Local/dev dry-run output is count/category oriented and must not emit customer PII, raw old-data payloads, production URLs, signed URLs, or secrets.
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:74:- Real old-data dumps, customer exports, production database snapshots, object-storage manifests, bearer tokens, signed URLs, and PII must not be committed.
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:82:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:87:- Emits JSON with `status=blocked_external` and `production_approved=false`.
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:89:- Marks snapshot requirements, cutover, rollback, and production secret boundary as externally blocked.
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:90:- Includes blockers for missing real database snapshot, object-storage metadata snapshot, restore rehearsal evidence, real old-data source, production secret management, staging rehearsal, production cutover, and rollback execution.
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:96:Artifact: `ops/m10/cutover-runbook.md`
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:102:- previous image tag recorded for rollback
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:103:- database snapshot and restore-test requirement
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:104:- object-storage metadata snapshot requirement
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:107:- dry-run before production-safe migration
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:114:Production cutover remains blocked until Coordinator/Ops approve infrastructure, secrets, snapshots, staging rehearsal, release images, and communications.
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:118:Artifact: `ops/m10/rollback-drill-runbook.md`
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:127:- object-storage rollback or repair boundary
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:128:- post-rollback health/smoke/readiness checks
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:131:No destructive down-migration or irreversible schema rollback claim was added.
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:135:Artifact: `ops/m10/snapshot-requirements.md`
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:137:- Database snapshot scope covers PostgreSQL schema, tenant data, ledger/order/reward/report state, outbox/inbox, audit, and monitoring state.
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:138:- Object-storage metadata snapshot scope covers ticket image keys, variants, CDN policy metadata, bucket prefixes, and ownership maps.
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:176:- `docker compose exec -T platform-api php artisan platform:migration:rehearsal --dry-run --format=json` - passed, status `blocked_external`, `production_approved=false`
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:180:- `docker compose run --rm platform-api php artisan list` - passed, includes `platform:migration:rehearsal`
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:186:- `sh -n scripts/platform-cutover-preflight.sh` - passed
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:187:- `sh -n scripts/platform-rollback-drill.sh` - passed
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:188:- `rg -n "platform:migration:rehearsal|migration rehearsal|cutover|rollback|snapshot|production_approved|dry-run" apps/platform-api docs/m10-deployment-monitoring-load-test.md docs/backend-console-commands.md ops/m10 scripts` - passed, expected matches found
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:195:- Real database snapshot is missing.
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:196:- Real object-storage metadata snapshot is missing.
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:202:- Production cutover window is not approved.
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:203:- Production rollback drill has not been executed.
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:204:- Database backward compatibility and object-storage rollback/repair plan are not verified for production.
+ai-agents/handoffs/20260508-m10-migration-rehearsal-cutover-rollback-backend-handoff.md:211:- Production migration execution still needs a separate approved implementation once source data, snapshots, secrets, image tags, and staging evidence exist.
+docs/m10-deployment-monitoring-load-test.md:45:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+docs/m10-deployment-monitoring-load-test.md:73:The runtime readiness report covers queue worker profiles, queue ownership, Horizon blockers, Reverb blockers, scheduler registration, helper scripts, Docker validation commands, and `production_approved=false`.
+docs/m10-deployment-monitoring-load-test.md:89:Local/dev migration rehearsal readiness is measured by:
+docs/m10-deployment-monitoring-load-test.md:92:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+docs/m10-deployment-monitoring-load-test.md:94:scripts/platform-cutover-preflight.sh
+docs/m10-deployment-monitoring-load-test.md:95:scripts/platform-rollback-drill.sh
+docs/m10-deployment-monitoring-load-test.md:98:The migration rehearsal report covers old-data migration strategy, synthetic/seeded rehearsal fixtures, database and object-storage snapshot requirements, cutover checklist, rollback drill boundaries, production secret-management placeholders, Docker validation commands, and `production_approved=false`.
+docs/m10-deployment-monitoring-load-test.md:100:Migration/cutover/rollback artifacts:
+docs/m10-deployment-monitoring-load-test.md:106:ops/m10/cutover-runbook.md
+docs/m10-deployment-monitoring-load-test.md:107:ops/m10/rollback-drill-runbook.md
+docs/m10-deployment-monitoring-load-test.md:108:ops/m10/snapshot-requirements.md
+docs/m10-deployment-monitoring-load-test.md:112:The local/dev rehearsal uses synthetic and seeded data only. Real old-data sources, real production snapshots, object-storage metadata snapshots, production secret-management, staging rehearsal, production cutover, and production rollback remain explicit blockers. Do not run host PHP/Artisan, psql, pg_dump, cloud CLIs, destructive production migrations, or real data imports from this workspace.
+docs/m10-deployment-monitoring-load-test.md:168:The command emits redacted Cloudflare/R2 config presence, domain readiness, WAF/cache artifact status, ticket-image CDN prerequisites, blockers, and `production_approved=false`.
+docs/m10-deployment-monitoring-load-test.md:295:docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json
+docs/m10-deployment-monitoring-load-test.md:298:`platform:observability:report` emits a redacted JSON signal inventory for API, DB, cache, queue, partner sync, booking, checkout, reward, support access, security, and usage/billing signals. `platform:alerts:check --dry-run` evaluates default policies without writing events or calling external providers. Running the alert command without `--dry-run` can write safe local `partner_alert_events` rows and redacted log entries when `PLATFORM_ALERTS_ENABLED=true`.
+docs/m10-deployment-monitoring-load-test.md:345:snapshot database and object storage metadata
+docs/m10-deployment-monitoring-load-test.md:346:run docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+docs/m10-deployment-monitoring-load-test.md:352:record migration duration and rollback compatibility
+docs/m10-deployment-monitoring-load-test.md:360:run platform:migration:rehearsal --dry-run before production-safe migration
+docs/m10-deployment-monitoring-load-test.md:375:run platform:migration:rehearsal --dry-run and migrate:status during drill evidence capture
+docs/m10-deployment-monitoring-load-test.md:380:re-run health and smoke checks after rollback
+docs/m10-deployment-monitoring-load-test.md:411:real database/object-storage snapshots and restore rehearsal evidence
+docs/m10-deployment-monitoring-load-test.md:412:real production cutover and rollback drill evidence
+ops/m10/cloudflare-cache-bypass-rules.json:5:  "production_approved": false,
+ops/m10/migration-rehearsal-fixtures.md:5:Local/dev rehearsal uses synthetic and seeded data only. Do not commit old-data dumps, customer exports, production database snapshots, object-storage manifests, bearer tokens, signed URLs, or PII.
+ops/m10/migration-rehearsal-fixtures.md:10:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ops/m10/migration-rehearsal-fixtures.md:44:production_approved=false
+ops/m10/alert-channel-runbook.md:8:docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json
+ops/m10/alert-channel-runbook.md:42:| database | Writes `partner_alert_events` when not dry-run and alerts are enabled | Ready as local event path |
+ops/m10/alert-channel-runbook.md:43:| log | Writes redacted warning log when not dry-run and an alert triggers | Ready as local event path |
+ops/m10/alert-channel-runbook.md:59:migration rehearsal/cutover/rollback
+scripts/platform-rollback-drill.sh:4:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ops/m10/scheduler-workload-runbook.md:23:platform:alerts:check --dry-run --format=json
+scripts/platform-alerts-check.sh:4:docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json
+ops/m10/cloudflare-waf-rate-limit-rules.json:5:  "production_approved": false,
+ops/m10/rollback-drill-runbook.md:5:This is a local/dev rollback drill boundary. It is not approval for destructive down migrations or production rollback execution.
+ops/m10/rollback-drill-runbook.md:10:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ops/m10/rollback-drill-runbook.md:11:scripts/platform-rollback-drill.sh
+ops/m10/rollback-drill-runbook.md:23:object-storage metadata snapshot and repair plan
+ops/m10/rollback-drill-runbook.md:24:post-rollback smoke/readiness checklist
+ops/m10/rollback-drill-runbook.md:36:run health endpoints, platform smoke, runtime readiness, and migration rehearsal report
+ops/m10/rollback-drill-runbook.md:49:object-storage rollback or repair plan not verified
+ops/m10/rollback-drill-runbook.md:50:rollback rehearsal not executed in staging
+ops/m10/rollback-drill-runbook.md:51:post-rollback smoke/readiness evidence missing
+scripts/platform-cutover-preflight.sh:4:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+apps/platform-api/routes/console.php:29:Schedule::command('platform:alerts:check --dry-run --format=json')
+apps/platform-api/routes/console.php:32:    ->description('Evaluate M10 alert policies in non-mutating dry-run mode.');
+scripts/platform-migration-rehearsal.sh:4:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ops/m10/observability-signal-inventory.md:18:| Queue lag | partial | `jobs`, worker command path | `platform:alerts:check --dry-run` |
+ops/m10/observability-signal-inventory.md:19:| Partner sync lag | ready local | `sync_inbox`, `sync_outbox` | `platform:alerts:check --dry-run` |
+ops/m10/observability-signal-inventory.md:20:| Booking failures | partial | daily summary/error counters where present | `platform:alerts:check --dry-run` |
+ops/m10/observability-signal-inventory.md:21:| Checkout/wallet failures | partial | daily summary/error counters where present | `platform:alerts:check --dry-run` |
+ops/m10/observability-signal-inventory.md:22:| Reward check failures | ready local | `reward_check_items` | `platform:alerts:check --dry-run` |
+ops/m10/production-secret-boundary.md:5:Migration, cutover, rollback, database snapshots, and object-storage snapshots require production secrets that must never be committed to this repository.
+ops/m10/production-secret-boundary.md:10:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ops/m10/production-secret-boundary.md:39:snapshot access credentials missing
+ops/m10/runtime-hardening-readiness.md:21:production_approved is always false
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:13:It does not call or mutate Cloudflare/R2. It reports presence-only configured flags, constant redacted placeholders, domain readiness fields, local rule artifacts, ticket-image CDN prerequisites, blockers, and `production_approved=false`.
+ops/m10/migration-rehearsal-runbook.md:5:This runbook is for local/dev rehearsal readiness. It does not approve staging, production, old-data import, production cutover, or production rollback.
+ops/m10/migration-rehearsal-runbook.md:12:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ops/m10/migration-rehearsal-runbook.md:24:run migration rehearsal dry-run report
+ops/m10/migration-rehearsal-runbook.md:26:review database and object-storage snapshot blockers
+ops/m10/migration-rehearsal-runbook.md:27:review cutover and rollback blockers
+ops/m10/migration-rehearsal-runbook.md:44:The acceptable local evidence is command output, test results, Docker command logs, and runbook review. Real old-data source, snapshots, secret management, staging rehearsal, production cutover, and rollback execution remain blockers.
+ops/m10/snapshot-requirements.md:5:This artifact defines required database and object-storage metadata snapshots before migration/cutover/rollback approval. It does not create, export, restore, or validate real production snapshots.
+ops/m10/snapshot-requirements.md:10:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ops/m10/snapshot-requirements.md:26:Restore rehearsal must prove the snapshot can boot the app, pass health checks, and run smoke/readiness checks without leaking tenant data across scopes.
+ops/m10/snapshot-requirements.md:44:snapshot owner identified
+ops/m10/snapshot-requirements.md:47:snapshot ids captured in release evidence
+ops/m10/snapshot-requirements.md:54:real database snapshot completed
+ops/m10/snapshot-requirements.md:56:object-storage metadata snapshot completed
+ops/m10/snapshot-requirements.md:58:rollback compatibility evidence captured
+ops/m10/cutover-runbook.md:5:This is an operator checklist template. It is not approval for a real cutover. Production cutover remains blocked until Coordinator/Ops approve infrastructure, secrets, snapshots, staging rehearsal, release images, and communications.
+ops/m10/cutover-runbook.md:10:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ops/m10/cutover-runbook.md:11:scripts/platform-cutover-preflight.sh
+ops/m10/cutover-runbook.md:18:previous image tag recorded for rollback
+ops/m10/cutover-runbook.md:19:database snapshot completed and restore-tested
+ops/m10/cutover-runbook.md:20:object-storage metadata snapshot completed
+ops/m10/cutover-runbook.md:41:run dry-run report first
+ops/m10/cutover-runbook.md:53:snapshot missing or restore untested
+ops/m10/cutover-runbook.md:65:Capture timestamps, command output, release image tags, snapshot ids, reject counts, smoke results, readiness JSON, queue lag, alert channel state, and Coordinator approval references. Do not capture raw secrets or old-data payloads.
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:30:        $this->line('production_approved: false');
+ops/m10/runtime-readiness.md:32:Migration rehearsal/cutover/rollback verifier:
+ops/m10/runtime-readiness.md:35:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ops/m10/runtime-readiness.md:44:ops/m10/cutover-runbook.md
+ops/m10/runtime-readiness.md:45:ops/m10/rollback-drill-runbook.md
+ops/m10/runtime-readiness.md:46:ops/m10/snapshot-requirements.md
+apps/platform-api/app/Console/Commands/PlatformObservabilityReportCommand.php:28:        $this->line('production_approved: false');
+ops/m10/old-data-migration-strategy.md:5:This artifact defines a local/dev rehearsal strategy only. It is not approval to connect to a real old-data source, import production customer data, execute a production cutover, or run a production rollback.
+ops/m10/old-data-migration-strategy.md:10:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ops/m10/old-data-migration-strategy.md:13:The verifier must keep `production_approved=false` and must not emit raw secrets, production URLs, signed URLs, customer PII, or old-data payloads.
+ops/m10/old-data-migration-strategy.md:79:staging rehearsal completed from a snapshot
+apps/platform-api/app/Console/README.md:13:M10 Cloudflare/CDN readiness uses `platform:cloudflare:readiness --format=json` as a Docker-safe local/dev verifier. It emits blockers and keeps `production_approved=false`; it does not call or mutate Cloudflare/R2.
+apps/platform-api/app/Console/README.md:15:M10 migration rehearsal readiness uses `platform:migration:rehearsal --dry-run --format=json` as a Docker-safe local/dev verifier. It reports migration, cutover, rollback, snapshot, and secret-management blockers while keeping `production_approved=false`.
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:29:        $this->line('production_approved: false');
+apps/platform-api/app/Console/Commands/PlatformAlertsCheckCommand.php:10:    protected $signature = 'platform:alerts:check {--dry-run : Evaluate without writing local alert events} {--format=table : Output format: table or json}';
+apps/platform-api/app/Console/Commands/PlatformAlertsCheckCommand.php:16:        $result = $alerts->evaluate((bool) $this->option('dry-run'));
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:10:    protected $signature = 'platform:migration:rehearsal {--dry-run : Inspect local/dev migration rehearsal readiness without mutating data} {--format=table : Output format: table or json}';
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:12:    protected $description = 'Emit the local/dev M10 migration rehearsal, cutover, and rollback readiness report.';
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:16:        $report = $readiness->report((bool) $this->option('dry-run'));
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:27:        $this->line('snapshots: '.$report['snapshot_requirements']['status']);
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:28:        $this->line('cutover: '.$report['cutover']['status']);
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:29:        $this->line('rollback: '.$report['rollback']['status']);
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:30:        $this->line('production_approved: false');
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:30:        $this->assertFalse($report['production_approved']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:31:        $this->assertFalse($report['boundary']['production_approved']);
+apps/platform-api/tests/Feature/M10ProductionObservabilityAlertingTest.php:30:        $this->assertFalse($report['boundary']['production_approved']);
+apps/platform-api/tests/Feature/M10ProductionObservabilityAlertingTest.php:64:        $exitCode = Artisan::call('platform:alerts:check', ['--dry-run' => true, '--format' => 'json']);
+apps/platform-api/tests/Feature/M10ProductionObservabilityAlertingTest.php:71:        $this->assertFalse($result['boundary']['production_approved']);
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:38:            'platform:migration:rehearsal' => PlatformMigrationRehearsalCommand::class,
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:56:        $this->assertTrue($commands['platform:alerts:check']->getDefinition()->hasOption('dry-run'));
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:59:        $this->assertTrue($commands['platform:migration:rehearsal']->getDefinition()->hasOption('dry-run'));
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:60:        $this->assertTrue($commands['platform:migration:rehearsal']->getDefinition()->hasOption('format'));
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:31:        $this->assertFalse($report['production_approved']);
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:32:        $this->assertFalse($report['boundary']['production_approved']);
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:81:        $this->assertFalse($report['production_approved']);
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:82:        $this->assertFalse($report['boundary']['production_approved']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:23:        $exitCode = Artisan::call('platform:migration:rehearsal', ['--dry-run' => true, '--format' => 'json']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:30:        $this->assertFalse($report['production_approved']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:37:        $this->assertFalse($report['boundary']['production_approved']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:40:        $this->assertSame('blocked_external', $report['snapshot_requirements']['status']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:41:        $this->assertSame('blocked_external', $report['cutover']['status']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:42:        $this->assertSame('blocked_external', $report['rollback']['status']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:48:        $this->assertContains('real_database_snapshot_missing', $report['blockers']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:49:        $this->assertContains('real_object_storage_metadata_snapshot_missing', $report['blockers']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:52:        $this->assertContains('rollback_rehearsal_not_executed', $report['blockers']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:53:        $this->assertContains('docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json', $report['docker_validation_commands']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:58:        $this->assertSame('[CONFIGURED]', $report['cutover']['redacted_config']['release_image_tag']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:59:        $this->assertSame('[CONFIGURED]', $report['rollback']['redacted_config']['previous_image_tag']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:80:            'ops/m10/cutover-runbook.md',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:81:            'ops/m10/rollback-drill-runbook.md',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:82:            'ops/m10/snapshot-requirements.md',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:95:        $cutover = $this->workspaceFile('ops/m10/cutover-runbook.md');
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:96:        $rollback = $this->workspaceFile('ops/m10/rollback-drill-runbook.md');
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:97:        $snapshots = $this->workspaceFile('ops/m10/snapshot-requirements.md');
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:103:        $this->assertStringContainsString('previous image tag', $rollback);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:104:        $this->assertStringContainsString('feature flag', $rollback);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:105:        $this->assertStringContainsString('queue pause', $rollback);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:106:        $this->assertStringContainsString('tenant maintenance', $rollback);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:107:        $this->assertStringContainsString('preflight', $cutover);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:108:        $this->assertStringContainsString('abort criteria', strtolower($cutover));
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:109:        $this->assertStringContainsString('object-storage metadata snapshot', strtolower($snapshots));
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:111:        $this->assertStringContainsString('production_approved=false', $strategy);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:118:            'scripts/platform-cutover-preflight.sh',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:119:            'scripts/platform-rollback-drill.sh',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:136:        $this->assertStringContainsString('platform:migration:rehearsal', $consoleDoc);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:137:        $this->assertStringContainsString('platform:migration:rehearsal', $m10Doc);
+apps/platform-api/tests/Feature/RewardClaimTest.php:151:        $snapshot = $this->rewardClaimMutationSnapshot($world, $claim);
+apps/platform-api/tests/Feature/RewardClaimTest.php:162:        $this->assertRewardClaimMutationSnapshotUnchanged($snapshot, $world, $claim);
+apps/platform-api/tests/Feature/RewardClaimTest.php:173:            $snapshot = $this->rewardClaimMutationSnapshot($world, $claim);
+apps/platform-api/tests/Feature/RewardClaimTest.php:185:            $this->assertRewardClaimMutationSnapshotUnchanged($snapshot, $world, $claim);
+apps/platform-api/tests/Feature/RewardClaimTest.php:196:            $snapshot = $this->rewardClaimMutationSnapshot($world, $claim);
+apps/platform-api/tests/Feature/RewardClaimTest.php:209:            $this->assertRewardClaimMutationSnapshotUnchanged($snapshot, $world, $claim);
+apps/platform-api/tests/Feature/RewardClaimTest.php:405:    private function assertRewardClaimMutationSnapshotUnchanged(array $snapshot, array $world, array $claim): void
+apps/platform-api/tests/Feature/RewardClaimTest.php:407:        $this->assertSame($snapshot['claim_status'], DB::table('reward_claims')->where('id', $claim['id'])->value('status'));
+apps/platform-api/tests/Feature/RewardClaimTest.php:408:        $this->assertSame($snapshot['claim_prize_amount'], DB::table('reward_claims')->where('id', $claim['id'])->value('prize_amount'));
+apps/platform-api/tests/Feature/RewardClaimTest.php:409:        $this->assertSame($snapshot['claim_payout_method'], DB::table('reward_claims')->where('id', $claim['id'])->value('payout_method'));
+apps/platform-api/tests/Feature/RewardClaimTest.php:410:        $this->assertSame($snapshot['claim_payout_ledger_id'], DB::table('reward_claims')->where('id', $claim['id'])->value('payout_ledger_id'));
+apps/platform-api/tests/Feature/RewardClaimTest.php:411:        $this->assertSame($snapshot['claim_paid_at'], DB::table('reward_claims')->where('id', $claim['id'])->value('paid_at'));
+apps/platform-api/tests/Feature/RewardClaimTest.php:412:        $this->assertSame($snapshot['winning_status'], DB::table('winning_tickets')->where('id', $claim['winning_ticket_id'])->value('status'));
+apps/platform-api/tests/Feature/RewardClaimTest.php:413:        $this->assertSame($snapshot['ticket_status'], DB::table('tickets')->where('id', $world['ticket_id'])->value('status'));
+apps/platform-api/tests/Feature/RewardClaimTest.php:414:        $this->assertSame($snapshot['wallet_balance'], DB::table('wallets')->where('id', $world['wallet_id'])->value('balance_amount'));
+apps/platform-api/tests/Feature/RewardClaimTest.php:415:        $this->assertSame($snapshot['wallet_ledger_count'], DB::table('wallet_ledger')->where('tenant_id', $world['tenant_id'])->count());
+apps/platform-api/tests/Feature/RewardClaimTest.php:416:        $this->assertSame($snapshot['outbox_count'], DB::table('sync_outbox')->where('tenant_id', $world['tenant_id'])->count());
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:14:        $snapshots = $this->snapshotReadiness();
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:15:        $cutover = $this->cutoverReadiness();
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:16:        $rollback = $this->rollbackReadiness();
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:19:        $blockers = $this->blockers($strategy, $fixtures, $snapshots, $cutover, $rollback, $secrets, $helpers);
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:28:            'production_approved' => false,
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:38:                'production_approved' => false,
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:40:                'production_cutover_approved' => false,
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:41:                'production_rollback_approved' => false,
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:45:            'snapshot_requirements' => $snapshots,
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:46:            'cutover' => $cutover,
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:47:            'rollback' => $rollback,
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:52:                'docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:156:    private function snapshotReadiness(): array
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:158:        $artifact = 'ops/m10/snapshot-requirements.md';
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:164:            'database_snapshot' => [
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:167:                'local_rehearsal_boundary' => 'Use migrate:fresh --seed only for local/test rehearsal; never as production rollback.',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:169:            'object_storage_metadata_snapshot' => [
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:175:                is_file($this->workspacePath($artifact)) ? null : 'snapshot_requirements_artifact_missing',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:176:                'real_database_snapshot_missing',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:177:                'real_object_storage_metadata_snapshot_missing',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:186:    private function cutoverReadiness(): array
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:188:        $artifact = 'ops/m10/cutover-runbook.md';
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:216:                is_file($this->workspacePath($artifact)) ? null : 'cutover_runbook_missing',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:218:                'production_cutover_window_not_approved',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:229:    private function rollbackReadiness(): array
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:231:        $artifact = 'ops/m10/rollback-drill-runbook.md';
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:250:                'object_storage_rollback_or_repair_boundary',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:251:                'post_rollback_health_smoke_checks',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:255:                is_file($this->workspacePath($artifact)) ? null : 'rollback_drill_runbook_missing',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:258:                'object_storage_rollback_plan_not_verified',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:259:                'rollback_rehearsal_not_executed',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:306:            'scripts/platform-cutover-preflight.sh',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:307:            'scripts/platform-rollback-drill.sh',
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:185:            $this->signal('partner_sync', 'Partner inbox/outbox lag', 'ready_local', 'sync_inbox, sync_outbox', 'docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json', null),
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:186:            $this->signal('booking', 'Booking failure readiness', 'partial', 'partner_daily_usage_summaries and application logs', 'docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json', 'Dedicated booking failure counters are not yet production-fed.'),
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:187:            $this->signal('checkout', 'Checkout/wallet failure readiness', 'partial', 'partner_daily_usage_summaries and application logs', 'docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json', 'Dedicated checkout failure counters are not yet production-fed.'),
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:188:            $this->signal('reward', 'Reward checking failure readiness', 'ready_local', 'reward_check_items', 'docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json', null),
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:190:            $this->signal('security', 'Permission denied and cross-tenant signal readiness', 'partial', 'audit_logs', 'docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json', 'Production edge/WAF security events remain external integration gates.'),
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:29:            'production_approved' => false,
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:38:                'production_approved' => false,
+apps/platform-api/app/Shared/Observability/ObservabilityReportService.php:36:                'production_approved' => false,
+apps/platform-api/app/Shared/Observability/ObservabilityReportService.php:78:                'docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json',
+apps/platform-api/app/Shared/Observability/AlertEvaluationService.php:86:                'production_approved' => false,
+apps/platform-api/app/Shared/Cloudflare/CloudflareReadinessService.php:23:            'production_approved' => false,
+apps/platform-api/app/Shared/Cloudflare/CloudflareReadinessService.php:30:                'production_approved' => false,

@@ -1,0 +1,7 @@
+
+  *    * * * *  php artisan stock:reservations:expire --limit=100  Next Due: 23 seconds from now
+  *    * * * *  php artisan stock:sold:sync --limit=100  Next Due: 23 seconds from now
+  */5  * * * *  php artisan reward:check --chunk=100  Next Due: 23 seconds from now
+  */10 * * * *  php artisan commission:calculate --limit=100  Next Due: 23 seconds from now
+  */5  * * * *  php artisan platform:alerts:check --dry-run --format=json  Next Due: 23 seconds from now
+

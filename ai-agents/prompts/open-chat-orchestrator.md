@@ -16,6 +16,7 @@ ai-agents/rules/global-rules.md
 ai-agents/workflow/stage-gates.md
 ai-agents/workflow/handoff-protocol.md
 ai-agents/workflow/file-ownership.md
+docs/docker-runtime-policy.md
 ai-agents/roles/orchestrator.md
 ai-agents/prompts/orchestrator-task-template.md
 ai-agents/BOARD.md

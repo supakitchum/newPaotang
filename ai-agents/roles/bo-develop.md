@@ -52,3 +52,8 @@ responsive/error/loading states handled
 next agent, usually QA Tester or Orchestrator
 ```
 
+Validation commands must use Docker only, for example:
+
+```sh
+docker compose exec back-office npm run build
+```

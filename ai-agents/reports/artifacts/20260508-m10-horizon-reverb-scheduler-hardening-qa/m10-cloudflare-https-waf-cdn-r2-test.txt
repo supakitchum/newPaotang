@@ -1,0 +1,11 @@
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\M10CloudflareHttpsWafCdnR2Test[39m
+  [32;1m✓[39;22m[90m [39m[90mcloudflare readiness command redacts config and requires ticket ima[39m[90m…[39m [90m2.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mexplicit ticket image path evidence removes image path blocker with[39m[90m…[39m [90m1.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbase url does not satisfy ticket image cdn evidence[39m[90m                 [39m [90m1.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcustom domain activation guard requires dns ssl proxy and https evi[39m[90m…[39m [90m1.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90menv ops artifacts ticket image guard and routes keep release bounda[39m[90m…[39m [90m0.02s[39m  
+
+  [90mTests:[39m    [32;1m5 passed[39;22m[90m (136 assertions)[39m
+  [90mDuration:[39m [39m5.53s[39m
+

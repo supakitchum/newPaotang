@@ -1,0 +1,5 @@
+
+  GET|HEAD       api/v1/admin/tenant/sync-logs App\Modules\AdminOperations\Ht…
+
+                                                            Showing [1] routes
+

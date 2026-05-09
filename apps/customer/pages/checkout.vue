@@ -92,7 +92,7 @@ interface WalletItem {
   [key: string]: unknown
 }
 
-const axios = useAxios()
+const platformApi = usePlatformApi()
 const { items, count, amount, timer, clearCart } = useCart()
 const { data, waiting, ensureAppInit, refreshAppInit } = useAppInit()
 const { showAlert } = useAppAlert()
@@ -232,7 +232,7 @@ const fetchWallet = async () => {
   isWalletLoading.value = true
 
   try {
-    const response = await axios.get('/wallet')
+    const response = await platformApi.walletLegacy()
     wallets.value = Array.isArray(response.data?.result) ? response.data.result : []
   } catch {
     wallets.value = []
@@ -299,9 +299,7 @@ const handleConfirmPayment = async () => {
   isPaying.value = true
 
   try {
-    const response = await axios.post('/checkout', {
-      order_id: order.value.id
-    })
+    const response = await platformApi.checkoutLegacy(order.value.id)
 
     const paidOrder = response.data?.result?.order || order.value
     successOrder.value = paidOrder

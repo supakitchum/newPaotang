@@ -1,0 +1,18 @@
+Running BoMenuCompletionBackendGapTest
+ Container newpaotang-postgres-1 Running 
+ Container newpaotang-valkey-1 Running 
+ Container newpaotang-valkey-1 Waiting 
+ Container newpaotang-postgres-1 Waiting 
+ Container newpaotang-valkey-1 Healthy 
+ Container newpaotang-postgres-1 Healthy 
+ Container newpaotang-platform-api-run-63ac30047209 Creating 
+ Container newpaotang-platform-api-run-63ac30047209 Created 
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\BoMenuCompletionBackendGapTest[39m
+  [32;1m✓[39;22m[90m [39m[90mscoped bo gap routes are registered[39m[90m                                 [39m [90m1.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcentral bo gap endpoints enforce rbac and support operational reads[39m[90m…[39m [90m1.25s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtenant bo gap endpoints are tenant scoped and support members price[39m[90m…[39m [90m1.46s[39m  
+
+  [90mTests:[39m    [32;1m3 passed[39;22m[90m (102 assertions)[39m
+  [90mDuration:[39m [39m3.90s[39m
+

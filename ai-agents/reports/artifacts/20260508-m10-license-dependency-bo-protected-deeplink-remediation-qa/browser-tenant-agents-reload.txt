@@ -1,0 +1,192 @@
+url=http://127.0.0.1:3100/admin/tenant/growth/agents
+
+- banner:
+  - button "":
+    - generic: 
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - button " Demo Alpha Lottery":
+    - generic: 
+    - text: Demo Alpha Lottery
+  - text: 
+  - button "":
+    - generic: 
+  - button "AL Alpha Owner":
+    - generic: AL
+    - generic: Alpha Owner
+  - text: 
+- complementary:
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - region "scrollable content":
+    - navigation:
+      - text: 
+      - list:
+        - listitem: Tenant Menu
+        - link " Dashboard":
+          - /url: /admin/tenant/dashboard
+          - generic: 
+          - generic: Dashboard
+        - link " Local Stock":
+          - /url: /admin/tenant/stock
+          - generic: 
+          - generic: Local Stock
+        - link " Stock Sync":
+          - /url: /admin/tenant/stock-sync
+          - generic: 
+          - generic: Stock Sync
+        - link " Price Rules":
+          - /url: /admin/tenant/settings
+          - generic: 
+          - generic: Price Rules
+        - link " Reservations":
+          - /url: /admin/tenant/reservations
+          - generic: 
+          - generic: Reservations
+        - link " Orders":
+          - /url: /admin/tenant/orders
+          - generic: 
+          - generic: Orders
+        - link " Customers":
+          - /url: /admin/tenant/settings
+          - generic: 
+          - generic: Customers
+        - link " Wallets":
+          - /url: /admin/tenant/wallets
+          - generic: 
+          - generic: Wallets
+        - link " Topups":
+          - /url: /admin/tenant/topups
+          - generic: 
+          - generic: Topups
+        - link " Tickets":
+          - /url: /admin/tenant/tickets
+          - generic: 
+          - generic: Tickets
+        - link " Agents":
+          - /url: /admin/tenant/growth/agents
+          - generic: 
+          - generic: Agents
+        - link " Agent Quotas":
+          - /url: /admin/tenant/growth/agents
+          - generic: 
+          - generic: Agent Quotas
+        - link " Payment Settings":
+          - /url: /admin/tenant/payment-settings
+          - generic: 
+          - generic: Payment Settings
+        - link " Affiliate Programs":
+          - /url: /admin/tenant/growth/affiliate-programs
+          - generic: 
+          - generic: Affiliate Programs
+        - link " Affiliate Accounts":
+          - /url: /admin/tenant/growth/affiliates
+          - generic: 
+          - generic: Affiliate Accounts
+        - link " Affiliate Links":
+          - /url: /admin/tenant/growth/affiliate-links
+          - generic: 
+          - generic: Affiliate Links
+        - link " Affiliate Attributions":
+          - /url: /admin/tenant/growth/attributions
+          - generic: 
+          - generic: Affiliate Attributions
+        - link " Commission Rules":
+          - /url: /admin/tenant/growth/commission-rules
+          - generic: 
+          - generic: Commission Rules
+        - link " Seo Settings":
+          - /url: /admin/tenant/seo
+          - generic: 
+          - generic: Seo Settings
+        - link " Maintenance":
+          - /url: /admin/tenant/maintenance
+          - generic: 
+          - generic: Maintenance
+        - link " Support Access Logs":
+          - /url: /admin/tenant/support-access
+          - generic: 
+          - generic: Support Access Logs
+        - link " Commission Transactions":
+          - /url: /admin/tenant/growth/commission-transactions
+          - generic: 
+          - generic: Commission Transactions
+        - link " Payouts":
+          - /url: /admin/tenant/growth/payouts
+          - generic: 
+          - generic: Payouts
+        - link " Reports":
+          - /url: /admin/tenant/reports
+          - generic: 
+          - generic: Reports
+        - link " Monitoring":
+          - /url: /admin/tenant/reports
+          - generic: 
+          - generic: Monitoring
+        - link " Usage":
+          - /url: /admin/tenant/reports
+          - generic: 
+          - generic: Usage
+        - link " Sync Logs":
+          - /url: /admin/tenant/sync-logs
+          - generic: 
+          - generic: Sync Logs
+        - link " Audit Logs":
+          - /url: /admin/tenant/audit-logs
+          - generic: 
+          - generic: Audit Logs
+        - link " Admin Users":
+          - /url: /admin/tenant/settings
+          - generic: 
+          - generic: Admin Users
+        - link " Roles Permissions":
+          - /url: /admin/tenant/settings
+          - generic: 
+          - generic: Roles Permissions
+        - link " Menu Management":
+          - /url: /admin/tenant/settings
+          - generic: 
+          - generic: Menu Management
+        - link " Settings":
+          - /url: /admin/tenant/settings
+          - generic: 
+          - generic: Settings
+      - text: 
+- main:
+  - heading "Agents" [level=2]
+  - list:
+    - listitem: Admin
+    - listitem:  Tenant
+    - listitem:  Tenant Growth
+    - listitem:  Agents
+  - button " Refresh":
+    - generic: 
+    - text: Refresh
+  - generic: Status
+  - combobox:
+    - option "All" [selected]
+    - option "Active"
+    - option "Inactive"
+    - option "Suspended"
+  - generic: Cursor
+  - textbox
+  - generic: Limit
+  - spinbutton: "20"
+  - button " Apply filters":
+    - generic: 
+    - text: Apply filters
+  - generic: Agents
+  - generic: 
+  - heading "No agents" [level=6]
+  - paragraph: No records were returned from the approved back-office API.
+  - generic: Cursor pagination
+  - button "Next " [disabled]:
+    - text: Next
+    - generic: 
+- contentinfo:
+  - generic: NewPaotang Back Office · Meno template foundation · 2026
+- text:       
+
+logs=[]

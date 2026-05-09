@@ -1,0 +1,57 @@
+{
+  "uid": "newpaotang-m10-partner-health",
+  "title": "NewPaotang M10 Partner Health",
+  "tags": ["newpaotang", "m10", "partner", "template"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "templating": {
+    "list": [
+      {
+        "name": "partner_id",
+        "type": "query",
+        "query": "label_values(platform_partner_health_status, partner_id)",
+        "current": {
+          "text": "all",
+          "value": "$__all"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Partner Health Status",
+      "type": "stat",
+      "description": "Template panel for partner_monitoring_profiles and partner_health_checks.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "platform_partner_health_status{partner_id=\"$partner_id\"}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Usage Events",
+      "type": "timeseries",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(platform_partner_usage_events_total{partner_id=\"$partner_id\"}[5m])) by (meter_key, tenant_id)"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Open Alert Events",
+      "type": "table",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "platform_partner_alert_events_open{partner_id=\"$partner_id\"}"
+        }
+      ]
+    }
+  ]
+}

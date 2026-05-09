@@ -1,0 +1,76 @@
+<?php
+
+namespace App\Shared\Auth;
+
+use App\Modules\Auth\Services\AdminAuthService;
+use App\Models\AdminAuthSession;
+use App\Models\AdminUser;
+use Illuminate\Support\Facades\DB;
+
+class AdminSessionResolver
+{
+    public function __construct(private readonly AdminAuthService $authService)
+    {
+    }
+
+    public function resolveAccessToken(?string $accessToken): ?AdminSessionContext
+    {
+        if ($accessToken === null || $accessToken === '') {
+            return null;
+        }
+
+        $session = AdminAuthSession::where('access_token_hash', hash('sha256', $accessToken))
+            ->whereNull('revoked_at')
+            ->where('access_expires_at', '>', now())
+            ->first();
+
+        if ($session === null) {
+            return null;
+        }
+
+        $adminUser = AdminUser::whereKey($session->admin_user_id)
+            ->where('status', 'active')
+            ->first();
+
+        if ($adminUser === null) {
+            return null;
+        }
+
+        if (! $this->authService->sessionScopeIsUsable((string) $session->scope_type, $session->scope_id, $session->tenant_id)) {
+            AdminAuthSession::query()
+                ->where('id', $session->id)
+                ->update([
+                    'revoked_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+            return null;
+        }
+
+        AdminAuthSession::query()
+            ->where('id', $session->id)
+            ->update([
+                'last_used_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        return new AdminSessionContext(
+            session: [
+                'id' => (string) $session->id,
+                'admin_user_id' => (string) $session->admin_user_id,
+                'scope_type' => (string) $session->scope_type,
+                'scope_id' => $session->scope_id,
+                'tenant_id' => $session->tenant_id,
+            ],
+            adminUser: [
+                'id' => (string) $adminUser->id,
+                'name' => $adminUser->name !== null && $adminUser->name !== '' ? (string) $adminUser->name : (string) $adminUser->email,
+                'email' => (string) $adminUser->email,
+                'phone' => $adminUser->phone,
+                'status' => (string) $adminUser->status,
+                'two_factor_enabled' => (bool) $adminUser->two_factor_enabled,
+            ],
+            scopes: $this->authService->scopesForAdmin((string) $adminUser->id),
+        );
+    }
+}

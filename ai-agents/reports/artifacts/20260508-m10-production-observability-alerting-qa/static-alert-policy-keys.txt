@@ -1,0 +1,45 @@
+docs/backend-bootstrap-seeders.md:82:api_error_rate_high
+docs/backend-bootstrap-seeders.md:83:booking_fail_rate_high
+docs/backend-bootstrap-seeders.md:84:checkout_fail_rate_high
+docs/backend-bootstrap-seeders.md:85:sync_lag_high
+docs/backend-bootstrap-seeders.md:86:queue_lag_high
+docs/backend-bootstrap-seeders.md:87:reward_check_failure
+docs/backend-bootstrap-seeders.md:88:permission_denied_spike
+docs/backend-bootstrap-seeders.md:89:cross_tenant_access_attempt
+ops/m10/alert-channel-runbook.md:26:api_error_rate_high
+ops/m10/alert-channel-runbook.md:27:booking_fail_rate_high
+ops/m10/alert-channel-runbook.md:28:checkout_fail_rate_high
+ops/m10/alert-channel-runbook.md:29:sync_lag_high
+ops/m10/alert-channel-runbook.md:30:queue_lag_high
+ops/m10/alert-channel-runbook.md:31:reward_check_failure
+ops/m10/alert-channel-runbook.md:32:permission_denied_spike
+ops/m10/alert-channel-runbook.md:33:cross_tenant_access_attempt
+apps/platform-api/tests/Feature/M10ProductionObservabilityAlertingTest.php:75:        $apiPolicy = collect($result['results'])->firstWhere('policy_key', 'api_error_rate_high');
+apps/platform-api/tests/Feature/M10ProductionObservabilityAlertingTest.php:104:            'policy_key' => 'api_error_rate_high',
+apps/platform-api/tests/Feature/M10ProductionObservabilityAlertingTest.php:112:            ->where('policy_key', 'api_error_rate_high')
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:40:            'api_error_rate_high' => [
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:48:            'booking_fail_rate_high' => [
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:56:            'checkout_fail_rate_high' => [
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:64:            'sync_lag_high' => [
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:72:            'queue_lag_high' => [
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:80:            'reward_check_failure' => [
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:88:            'permission_denied_spike' => [
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:96:            'cross_tenant_access_attempt' => [
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:98:                'metric' => 'cross_tenant_access_attempt_count',
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:145:            'api_error_rate_high',
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:146:            'booking_fail_rate_high',
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:147:            'checkout_fail_rate_high',
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:148:            'sync_lag_high',
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:149:            'queue_lag_high',
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:150:            'reward_check_failure',
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:151:            'permission_denied_spike',
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:152:            'cross_tenant_access_attempt',
+apps/platform-api/app/Shared/Observability/AlertEvaluationService.php:126:            'api_error_rate_high' => $this->evaluateApiErrorRate($partner, $primaryTenantId, $policy, $labels),
+apps/platform-api/app/Shared/Observability/AlertEvaluationService.php:127:            'booking_fail_rate_high' => $this->evaluateRequestFailureRate($partner, $primaryTenantId, $policy, $labels, 'booking_request_count'),
+apps/platform-api/app/Shared/Observability/AlertEvaluationService.php:128:            'checkout_fail_rate_high' => $this->evaluateRequestFailureRate($partner, $primaryTenantId, $policy, $labels, 'checkout_request_count'),
+apps/platform-api/app/Shared/Observability/AlertEvaluationService.php:129:            'sync_lag_high' => $this->evaluateSyncLag($partner, $primaryTenantId, $policy, $labels),
+apps/platform-api/app/Shared/Observability/AlertEvaluationService.php:130:            'queue_lag_high' => $this->evaluateQueueLag($partner, $primaryTenantId, $policy, $labels),
+apps/platform-api/app/Shared/Observability/AlertEvaluationService.php:131:            'reward_check_failure' => $this->evaluateRewardFailures($partner, $tenantIds, $primaryTenantId, $policy, $labels),
+apps/platform-api/app/Shared/Observability/AlertEvaluationService.php:132:            'permission_denied_spike' => $this->evaluateAuditSpike($partner, $primaryTenantId, $policy, $labels, 'permission_denied', 'count'),
+apps/platform-api/app/Shared/Observability/AlertEvaluationService.php:133:            'cross_tenant_access_attempt' => $this->evaluateAuditSpike($partner, $primaryTenantId, $policy, $labels, 'cross_tenant_access_attempt', 'count'),
+apps/platform-api/app/Shared/Observability/AlertEvaluationService.php:274:        $threshold = $this->thresholdInteger($policy, $thresholdKey, $actionNeedle === 'cross_tenant_access_attempt' ? 1 : 10);

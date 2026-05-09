@@ -1,0 +1,21 @@
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\M10DeploymentReadinessTest[39m
+  [32;1m✓[39;22m[90m [39m[90mplatform smoke command checks dependencies seeded logins and monito[39m[90m…[39m [90m2.43s[39m  
+  [32;1m✓[39;22m[90m [39m[90mroot health routes match openapi readiness contract[39m[90m                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcompose defines backend runtime roles without removing local fronte[39m[90m…[39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90menv template keeps infrastructure config out of tenant config[39m[90m       [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mm10 documentation load tests and ci guardrails exist[39m[90m                [39m [90m0.02s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\M10K6LoadTestExecutionTest[39m
+  [32;1m✓[39;22m[90m [39m[90mk6 fixture command writes env artifacts and prepares runnable api p[39m[90m…[39m [90m0.61s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\M10ProductionObservabilityAlertingTest[39m
+  [32;1m✓[39;22m[90m [39m[90mobservability report command emits safe machine readable inventory[39m[90m  [39m [90m1.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdefault alert policies are seeded for each demo partner[39m[90m             [39m [90m1.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90malert check dry run includes partner tenant labels and writes no ev[39m[90m…[39m [90m1.15s[39m  
+  [32;1m✓[39;22m[90m [39m[90malert check can write safe local database event with redacted paylo[39m[90m…[39m [90m1.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90menv and ops artifacts keep release boundary and tenant config rules[39m[90m [39m [90m0.02s[39m  
+
+  [90mTests:[39m    [32;1m11 passed[39;22m[90m (212 assertions)[39m
+  [90mDuration:[39m [39m7.83s[39m
+

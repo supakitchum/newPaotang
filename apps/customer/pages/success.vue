@@ -99,7 +99,7 @@ interface SuccessReceipt {
 }
 
 const route = useRoute()
-const axios = useAxios()
+const platformApi = usePlatformApi()
 const { currentDrawDate } = useAppInit()
 const checkoutSuccessOrder = useState<SuccessOrder | null>('checkout_success_order', () => null)
 
@@ -185,11 +185,9 @@ const fetchReceipt = async () => {
 
   try {
     const orderId = route.query.order_id
-    const response = await axios.get('/checkout/success', {
-      params: typeof orderId === 'string' && orderId ? { order_id: orderId } : undefined
-    })
-
-    receipt.value = response.data?.result || null
+    receipt.value = typeof orderId === 'string' && orderId
+      ? await platformApi.orderReceiptLegacy(orderId)
+      : null
     checkoutSuccessOrder.value = receipt.value?.order || checkoutSuccessOrder.value
   } catch (error: any) {
     loadError.value = error?.response?.data?.message || 'โหลดข้อมูลการชำระเงินไม่สำเร็จ'

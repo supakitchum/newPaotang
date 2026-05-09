@@ -126,7 +126,7 @@ const getTicketQuery = (ticket: UserTicket) => ({
   from: 'history'
 })
 
-const fetchHistoryPage = async (gameId: number | string, page = 1) => {
+const fetchHistoryPage = async (page = 1) => {
   if (page === 1) {
     isLoading.value = true
   } else {
@@ -137,7 +137,7 @@ const fetchHistoryPage = async (gameId: number | string, page = 1) => {
 
   try {
     const historyResponse = await fetchTickets({
-      gameId,
+      history: true,
       page,
       perPage
     })
@@ -156,11 +156,11 @@ const fetchHistoryPage = async (gameId: number | string, page = 1) => {
 }
 
 const loadNextPage = () => {
-  if (!historyGame.value?.id || !hasMore.value || isLoading.value || isLoadingMore.value || showOnlyWinning.value) {
+  if (!hasMore.value || isLoading.value || isLoadingMore.value || showOnlyWinning.value) {
     return
   }
 
-  fetchHistoryPage(historyGame.value.id, currentPage.value + 1)
+  fetchHistoryPage(currentPage.value + 1)
 }
 
 const setupLoadObserver = async () => {
@@ -183,14 +183,7 @@ const setupLoadObserver = async () => {
 
 onMounted(async () => {
   try {
-    const currentResponse = await fetchTickets()
-    const previousGame = currentResponse.games[1] || null
-
-    historyGame.value = previousGame
-
-    if (previousGame?.id) {
-      await fetchHistoryPage(previousGame.id)
-    }
+    await fetchHistoryPage()
   } catch (error: any) {
     console.log(error)
     loadError.value = error?.response?.data?.message || 'โหลดสลากฯ ย้อนหลังไม่สำเร็จ'

@@ -23,9 +23,10 @@ Agent ทุกตัวต้องอ่านตามลำดับนี�
 3. ai-agents/workflow/stage-gates.md
 4. ai-agents/workflow/handoff-protocol.md
 5. ai-agents/workflow/file-ownership.md
-6. role file ของตัวเองใน ai-agents/roles
-7. task/prompt ที่ได้รับจาก Orchestrator
-8. docs/openapi.yaml และเอกสาร docs/document ที่ task อ้างถึง
+6. docs/docker-runtime-policy.md
+7. role file ของตัวเองใน ai-agents/roles
+8. task/prompt ที่ได้รับจาก Orchestrator
+9. docs/openapi.yaml และเอกสาร docs/document ที่ task อ้างถึง
 ```
 
 ## Source Of Truth
@@ -33,6 +34,7 @@ Agent ทุกตัวต้องอ่านตามลำดับนี�
 ```text
 API contract: docs/openapi.yaml
 Backend/API conventions: docs/api-conventions.md
+Docker runtime policy: docs/docker-runtime-policy.md
 Permissions: docs/permissions.md
 Events: docs/events.md
 ERD: docs/erd.md
@@ -61,4 +63,3 @@ apps/back-office is planned as the admin dashboard frontend project.
 ```
 
 Agent ห้ามสร้าง business rule ใหม่เองเมื่อเอกสารยังไม่ชัด ให้ส่งคำถามกลับ Coordinator ผ่าน handoff/report.
-

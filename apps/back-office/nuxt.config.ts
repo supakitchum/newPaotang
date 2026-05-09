@@ -1,0 +1,42 @@
+export default defineNuxtConfig({
+  devtools: { enabled: false },
+  ssr: true,
+  css: [
+    '~/assets/css/admin-foundation.css',
+  ],
+  app: {
+    head: {
+      title: 'NewPaotang Back Office',
+      htmlAttrs: {
+        lang: 'en',
+        dir: 'ltr',
+        'data-nav-layout': 'vertical',
+        'data-theme-mode': 'light',
+        'data-menu-styles': 'light',
+        'data-header-styles': 'light',
+        'data-width': 'fullwidth',
+        'data-menu-position': 'fixed',
+        'data-header-position': 'fixed',
+      },
+      link: [
+        { rel: 'icon', href: '/admin-template/assets/images/brand-logos/favicon.ico' },
+        { id: 'style', rel: 'stylesheet', href: '/admin-template/assets/libs/bootstrap/css/bootstrap.min.css' },
+        { rel: 'stylesheet', href: '/admin-template/assets/css/styles.css' },
+        { rel: 'stylesheet', href: '/admin-template/assets/css/icons.css' },
+        { rel: 'stylesheet', href: '/admin-template/assets/libs/node-waves/waves.min.css' },
+        { rel: 'stylesheet', href: '/admin-template/assets/libs/simplebar/simplebar.min.css' },
+      ],
+    },
+  },
+  runtimeConfig: {
+    public: {
+      adminApiBase: process.env.VITE_ADMIN_API_BASE || process.env.NUXT_PUBLIC_ADMIN_API_BASE || 'http://localhost:8000/api/v1',
+    },
+  },
+  typescript: {
+    strict: false,
+  },
+  nitro: {
+    preset: 'node-server',
+  },
+})

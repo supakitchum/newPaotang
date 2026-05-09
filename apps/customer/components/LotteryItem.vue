@@ -119,7 +119,7 @@ const emit = defineEmits<{
   booked: [ticket: typeof props.ticket]
 }>()
 
-const axios = useAxios()
+const platformApi = usePlatformApi()
 const route = useRoute()
 const { isAuthenticated } = useAuth()
 const { items, addBookedLottery, removeLottery, setCartItems } = useCart()
@@ -198,10 +198,7 @@ const handleCancelBooking = async () => {
   isCancelling.value = true
 
   try {
-    const response = await axios.post('/lotteries/cancel_booking', {
-      token: getTicketToken(),
-      full_number: getTicketNumber(cartItem.value || props.ticket)
-    })
+    const response = await platformApi.releaseReservationLegacy(cartItem.value || props.ticket)
 
     if (response.data.code !== 0) {
       showCancelError()
@@ -239,9 +236,7 @@ const handleBooking = async () => {
   isBooking.value = true
 
   try {
-    const response = await axios.post('/lotteries/booking', {
-      token: props.ticket.token
-    })
+    const response = await platformApi.reserveLegacy(props.ticket)
 
     if (response.data.code !== 0) {
       openUnavailableModal()

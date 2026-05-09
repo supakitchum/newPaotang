@@ -1,0 +1,7 @@
+Prepared M10 k6 baseline fixtures.
+fixture_json: /k6-results/k6-baseline-env.json
+fixture_env: /k6-results/k6-baseline.env
+tenant_id: ten_demo_alpha
+partner_id: par_demo_alpha
+game_id: gam_k6_kn74jhq5cr
+reward_result_id: rew_k6_kn74jhq5cr

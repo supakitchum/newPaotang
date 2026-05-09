@@ -1,0 +1,135 @@
+scripts/platform-api-schedule-list.sh:4:docker compose run --rm platform-api php artisan schedule:list
+apps/platform-api/.env.example:22:PLATFORM_WORKER_QUEUES=partner-inbox-high,partner-inbox-normal,stock-allocation,stock-sold-events,stock-recall,stock-sync,reservation-expiration,checkout-finalize,central-outbox,affiliate-commission,reward-validate,reward-check-high,reward-check-normal,reward-summary,reward-publish,reward-notification,report-build,webhook-dispatch,notification,usage-metering,partner-monitoring,default
+ops/m10/alert-channel-runbook.md:57:Horizon/Reverb hardening
+docs/m10-deployment-monitoring-load-test.md:28:docker compose run --rm platform-api php artisan queue:work --once --tries=1
+docs/m10-deployment-monitoring-load-test.md:29:docker compose run --rm platform-api php artisan schedule:list
+docs/m10-deployment-monitoring-load-test.md:30:docker compose exec platform-api php artisan platform:runtime:readiness --format=json
+docs/m10-deployment-monitoring-load-test.md:59:The production target is a build artifact foundation. Production-grade web serving, process supervision, Horizon, Reverb, and managed deployment are still release-gate work.
+docs/m10-deployment-monitoring-load-test.md:66:docker compose exec platform-api php artisan platform:runtime:readiness --format=json
+docs/m10-deployment-monitoring-load-test.md:72:The runtime readiness report covers queue worker profiles, queue ownership, Horizon blockers, Reverb blockers, scheduler registration, helper scripts, Docker validation commands, and `production_approved=false`.
+docs/m10-deployment-monitoring-load-test.md:79:ops/m10/horizon-queue-supervision.md
+docs/m10-deployment-monitoring-load-test.md:80:ops/m10/reverb-deployment-readiness.md
+docs/m10-deployment-monitoring-load-test.md:84:Horizon and Reverb are explicit blockers until their packages, profiles, access policies, TLS/public hosts, scaling evidence, and process-manager supervision are approved. Queue worker validation remains bounded with `queue:work --once`; do not leave unmanaged long-lived workers, scheduler loops, Horizon, or Reverb processes running during validation.
+docs/m10-deployment-monitoring-load-test.md:95:PLATFORM_WORKER_QUEUES
+docs/m10-deployment-monitoring-load-test.md:281:The local database/log channel is verifiable in this repository. Webhook, email, Sentry, Grafana, Datadog, New Relic, Cloudflare analytics, CDN/R2 ticket image metrics, Horizon, Reverb, and production secret management remain release gates.
+docs/m10-deployment-monitoring-load-test.md:374:Horizon dashboard and queue supervision
+docs/m10-deployment-monitoring-load-test.md:375:Reverb production deployment
+ops/m10/observability-signal-inventory.md:50:The local/dev report verifies schema, command output, default policy coverage, labels, redaction, and local database/log delivery paths. Production delivery still needs real infrastructure ownership for webhook/email/Sentry/Grafana/Datadog/New Relic, Cloudflare analytics, CDN/R2 ticket image metrics, Horizon, Reverb, and secret management.
+ops/m10/runtime-hardening-readiness.md:5:This artifact summarizes local/dev runtime hardening for queues, Horizon, Reverb, and scheduler. It is not staging, production, or client-delivery approval.
+ops/m10/runtime-hardening-readiness.md:10:docker compose exec platform-api php artisan platform:runtime:readiness --format=json
+ops/m10/runtime-hardening-readiness.md:16:queue worker profile catalog exists and covers PLATFORM_WORKER_QUEUES
+ops/m10/runtime-hardening-readiness.md:17:bounded queue worker validation uses docker compose run --rm platform-api php artisan queue:work --once
+ops/m10/runtime-hardening-readiness.md:18:scheduler workloads are registered and visible through schedule:list
+ops/m10/runtime-hardening-readiness.md:20:Horizon/Reverb blockers are explicit when packages/runtime profiles are unavailable
+ops/m10/runtime-hardening-readiness.md:28:ops/m10/horizon-queue-supervision.md
+ops/m10/runtime-hardening-readiness.md:29:ops/m10/reverb-deployment-readiness.md
+ops/m10/runtime-hardening-readiness.md:36:horizon_package_missing
+ops/m10/runtime-hardening-readiness.md:37:horizon_config_missing
+ops/m10/runtime-hardening-readiness.md:38:horizon_supervisor_not_configured
+ops/m10/runtime-hardening-readiness.md:39:horizon_dashboard_access_policy_not_verified
+ops/m10/runtime-hardening-readiness.md:40:horizon_production_process_manager_missing
+ops/m10/runtime-hardening-readiness.md:41:reverb_package_missing
+ops/m10/runtime-hardening-readiness.md:42:reverb_runtime_profile_not_configured
+ops/m10/runtime-hardening-readiness.md:43:reverb_tls_and_public_host_not_verified
+ops/m10/runtime-hardening-readiness.md:44:reverb_scaling_and_load_not_verified
+ops/m10/reverb-deployment-readiness.md:1:# M10 Reverb Deployment Readiness
+ops/m10/reverb-deployment-readiness.md:5:This artifact is local/dev readiness only. It is not approval for public websocket delivery, TLS termination, Reverb scaling, or client-delivery realtime behavior.
+ops/m10/reverb-deployment-readiness.md:21:docker compose exec platform-api php artisan platform:runtime:readiness --format=json
+ops/m10/reverb-deployment-readiness.md:27:reverb_package_missing
+ops/m10/reverb-deployment-readiness.md:28:reverb_runtime_profile_not_configured
+ops/m10/reverb-deployment-readiness.md:29:reverb_tls_and_public_host_not_verified
+ops/m10/reverb-deployment-readiness.md:30:reverb_scaling_and_load_not_verified
+ops/m10/reverb-deployment-readiness.md:51:Laravel Reverb package/runtime approved
+ops/m10/reverb-deployment-readiness.md:52:Reverb process/profile or orchestration config added
+ops/m10/reverb-deployment-readiness.md:55:horizontal scaling and Redis/Valkey pub-sub behavior verified
+ops/m10/runtime-readiness.md:19:docker compose exec platform-api php artisan platform:runtime:readiness --format=json
+ops/m10/runtime-readiness.md:22:Queue/Horizon/Reverb/scheduler artifacts:
+ops/m10/runtime-readiness.md:26:ops/m10/horizon-queue-supervision.md
+ops/m10/runtime-readiness.md:27:ops/m10/reverb-deployment-readiness.md
+ops/m10/scheduler-workload-runbook.md:10:docker compose run --rm platform-api php artisan schedule:list
+ops/m10/scheduler-workload-runbook.md:11:docker compose exec platform-api php artisan platform:runtime:readiness --format=json
+ops/m10/scheduler-workload-runbook.md:31:schedule:list is the QA evidence source for registration
+scripts/platform-api-worker-once.sh:8:  platform-api php artisan queue:work --once --tries=1 --timeout=30 --queue="$QUEUE"
+ops/m10/horizon-queue-supervision.md:1:# M10 Horizon Queue Supervision
+ops/m10/horizon-queue-supervision.md:5:This artifact is local/dev readiness only. It is not approval for a public Horizon dashboard, production queue supervision, process-manager configuration, or queue SLOs.
+ops/m10/horizon-queue-supervision.md:10:docker compose exec platform-api php artisan platform:runtime:readiness --format=json
+ops/m10/horizon-queue-supervision.md:16:Horizon package is not installed in this repository.
+ops/m10/horizon-queue-supervision.md:17:Horizon config is not present.
+ops/m10/horizon-queue-supervision.md:18:No Horizon dashboard route is registered.
+ops/m10/horizon-queue-supervision.md:19:Queue workers are validated through bounded Docker queue:work --once commands only.
+ops/m10/horizon-queue-supervision.md:25:horizon_package_missing
+ops/m10/horizon-queue-supervision.md:26:horizon_config_missing
+ops/m10/horizon-queue-supervision.md:27:horizon_supervisor_not_configured
+ops/m10/horizon-queue-supervision.md:28:horizon_dashboard_access_policy_not_verified
+ops/m10/horizon-queue-supervision.md:29:horizon_production_process_manager_missing
+ops/m10/horizon-queue-supervision.md:45:Laravel Horizon package and config approved
+ops/m10/horizon-queue-supervision.md:46:Horizon supervisors mapped to queue-worker profiles
+ops/m10/horizon-queue-supervision.md:48:process manager or orchestration config manages Horizon workers
+apps/platform-api/config/platform.php:47:            explode(',', (string) env('PLATFORM_WORKER_QUEUES', 'partner-inbox-high,partner-inbox-normal,stock-allocation,stock-sold-events,stock-recall,stock-sync,reservation-expiration,checkout-finalize,central-outbox,affiliate-commission,reward-validate,reward-check-high,reward-check-normal,reward-summary,reward-publish,reward-notification,report-build,webhook-dispatch,notification,usage-metering,partner-monitoring,default')),
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:10:    protected $signature = 'platform:runtime:readiness {--format=table : Output format: table or json}';
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:12:    protected $description = 'Emit the local/dev M10 runtime hardening readiness report for queues, Horizon, Reverb, and scheduler.';
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:26:        $this->line('horizon: '.$report['horizon']['status']);
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:27:        $this->line('reverb: '.$report['reverb']['status']);
+compose.yaml:43:    command: php artisan queue:work --sleep=1 --tries=3 --timeout=90 --queue=${PLATFORM_WORKER_QUEUES:-partner-inbox-high,partner-inbox-normal,stock-allocation,stock-sold-events,stock-recall,stock-sync,reservation-expiration,checkout-finalize,central-outbox,affiliate-commission,reward-validate,reward-check-high,reward-check-normal,reward-summary,reward-publish,reward-notification,report-build,webhook-dispatch,notification,usage-metering,partner-monitoring,default}
+scripts/platform-runtime-readiness.sh:4:docker compose exec platform-api php artisan platform:runtime:readiness --format=json
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:184:            $this->signal('queue', 'Queue lag and failed job readiness', 'partial', 'jobs, failed_jobs, platform worker command path', 'docker compose run --rm platform-api php artisan queue:work --once --tries=1', 'Horizon dashboard and production queue supervision remain open gates.'),
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:20:        $horizon = $this->horizonReadiness();
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:21:        $reverb = $this->reverbReadiness();
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:24:        $blockers = $this->blockers($queue, $horizon, $reverb, $scheduler, $helpers);
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:35:                'horizon_dashboard_publicly_exposed' => false,
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:36:                'reverb_public_websocket_approved' => false,
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:42:            'horizon' => $horizon,
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:43:            'reverb' => $reverb,
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:48:                'docker compose exec platform-api php artisan platform:runtime:readiness --format=json',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:49:                'docker compose run --rm platform-api php artisan schedule:list',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:50:                'docker compose run --rm platform-api php artisan queue:work --once --tries=1 --timeout=30 --queue=default',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:166:    private function horizonReadiness(): array
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:168:        $packageInstalled = class_exists('Laravel\\Horizon\\Horizon');
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:169:        $configPresent = is_file(base_path('config/horizon.php'));
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:175:            'dashboard_route_registered' => $this->routeUriExists('horizon'),
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:176:            'dashboard_access_policy' => 'local/dev only until Horizon package, auth guard, network restriction, and production access policy are approved.',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:177:            'supervisor_policy' => 'Use process-manager-managed Horizon supervisors per queue profile; do not share report-build workers with booking/checkout/reward critical queues.',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:179:                $packageInstalled ? null : 'horizon_package_missing',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:180:                $configPresent ? null : 'horizon_config_missing',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:181:                'horizon_supervisor_not_configured',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:182:                'horizon_dashboard_access_policy_not_verified',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:183:                'horizon_production_process_manager_missing',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:191:    private function reverbReadiness(): array
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:193:        $packageInstalled = class_exists('Laravel\\Reverb\\Servers\\Reverb\\Server');
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:222:                $packageInstalled ? null : 'reverb_package_missing',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:223:                $adminRoutes['central'] && $adminRoutes['tenant'] ? null : 'reverb_admin_auth_routes_missing',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:224:                'reverb_runtime_profile_not_configured',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:225:                'reverb_tls_and_public_host_not_verified',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:226:                'reverb_scaling_and_load_not_verified',
+docs/backend-console-commands.md:48:| `platform:runtime:readiness` | `platform:runtime:readiness {--format=table}` | `App\Shared\Runtime\RuntimeReadinessService::report()` |
+docs/backend-console-commands.md:67:platform:runtime:readiness --format=json -> safe local/dev queue/Horizon/Reverb/scheduler readiness report with production_approved=false
+docs/backend-console-commands.md:85:docker compose run --rm platform-api php artisan platform:runtime:readiness --format=json
+ops/m10/dashboards/platform-overview.json:38:      "description": "Template panel for Horizon/queue supervision gate.",
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:10:class M10HorizonReverbSchedulerHardeningTest extends TestCase
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:15:            'platform.realtime.app_id' => 'reverb-app-id-placeholder',
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:16:            'platform.realtime.admin_key' => 'reverb-key-placeholder',
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:17:            'platform.realtime.admin_secret' => 'reverb-secret-placeholder',
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:18:            'platform.realtime.host' => '[QA_REVERB_FAKE_REDACTED]',
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:23:        $exitCode = Artisan::call('platform:runtime:readiness', ['--format' => 'json']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:35:        $this->assertSame('blocked_external', $report['horizon']['status']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:36:        $this->assertSame('blocked_external', $report['reverb']['status']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:39:        $this->assertContains('horizon_package_missing', $report['blockers']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:40:        $this->assertContains('reverb_package_missing', $report['blockers']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:41:        $this->assertFalse($report['horizon']['dashboard_route_registered']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:42:        $this->assertTrue($report['reverb']['auth_endpoints']['central']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:43:        $this->assertTrue($report['reverb']['auth_endpoints']['tenant']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:44:        $this->assertSame('[REDACTED]', $report['reverb']['redacted_config']['app_key']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:45:        $this->assertSame('[REDACTED]', $report['reverb']['redacted_config']['app_secret']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:46:        $this->assertSame('[CONFIGURED]', $report['reverb']['redacted_config']['host']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:48:        foreach (['reverb-app-id-placeholder', 'reverb-key-placeholder', 'reverb-secret-placeholder', '[QA_REVERB_FAKE_REDACTED]'] as $rawValue) {
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:58:            explode(',', $this->envValue('PLATFORM_WORKER_QUEUES')),
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:81:        $exitCode = Artisan::call('platform:runtime:readiness', ['--format' => 'json']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:109:        $horizonDoc = $this->workspaceFile('ops/m10/horizon-queue-supervision.md');
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:110:        $reverbDoc = $this->workspaceFile('ops/m10/reverb-deployment-readiness.md');
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:122:        $this->assertStringContainsString('queue:work --once --tries=1 --timeout=30 --queue="$QUEUE"', $workerScript);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:123:        $this->assertStringContainsString('docker compose exec platform-api php artisan platform:runtime:readiness --format=json', $runtimeScript);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:125:        foreach ([$runtimeDoc, $horizonDoc, $reverbDoc, $schedulerDoc] as $doc) {
+apps/platform-api/tests/Feature/M10DeploymentReadinessTest.php:87:        $this->assertStringContainsString('php artisan queue:work', $compose);
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:37:            'platform:runtime:readiness' => PlatformRuntimeReadinessCommand::class,
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:57:        $this->assertTrue($commands['platform:runtime:readiness']->getDefinition()->hasOption('format'));
+ops/m10/queue-worker-profiles.json:3:  "scope": "m10-horizon-reverb-scheduler-hardening",

@@ -4,8 +4,8 @@
       <div class="d-flex align-items-center gap-3 mt-4">
         <span class="avatar"><i class="bi bi-person-fill" /></span>
         <div>
-          <h1 class="fs-4 fw-bold mb-1">ศุภกิจ ชุ่มจันทร์จิรา</h1>
-          <div class="fs-5">ผู้ใช้ทั่วไป</div>
+          <h1 class="fs-4 fw-bold mb-1">{{ displayName }}</h1>
+          <div class="fs-5">{{ phoneText }}</div>
         </div>
       </div>
     </BlueHeader>
@@ -26,5 +26,24 @@ import { menuSections } from '~/data/lottery'
 
 definePageMeta({
   requiresAuth: true
+})
+
+const { user, restoreAuthState } = useAuth()
+const { showAlert } = useAppAlert()
+const profile = ref<Record<string, any> | null>(user.value)
+
+const displayName = computed(() => profile.value?.name || profile.value?.full_name || 'ผู้ใช้งาน')
+const phoneText = computed(() => profile.value?.phone || profile.value?.username || 'ผู้ใช้ทั่วไป')
+
+onMounted(async () => {
+  try {
+    profile.value = await restoreAuthState(true)
+  } catch (error: any) {
+    showAlert({
+      title: 'โหลดข้อมูลโปรไฟล์ไม่สำเร็จ',
+      message: error?.response?.data?.message || 'กรุณาลองใหม่อีกครั้ง',
+      variant: 'error'
+    })
+  }
 })
 </script>

@@ -1,0 +1,34 @@
+
+  Dropping all tables .......................................... 190.69ms DONE
+
+   INFO  Preparing database.  
+
+  Creating migration table ....................................... 5.81ms DONE
+
+   INFO  Running migrations.  
+
+  2026_05_06_000001_create_platform_core_tables ................. 64.07ms DONE
+  2026_05_06_000002_create_runtime_support_tables ............... 10.32ms DONE
+  2026_05_06_000003_create_admin_auth_sessions .................. 10.76ms DONE
+  2026_05_06_000004_create_partner_provisioning_tables .......... 33.35ms DONE
+  2026_05_06_000005_create_central_stock_allocation_tables ...... 39.91ms DONE
+  2026_05_06_000006_create_local_stock_booking_tables ........... 53.93ms DONE
+  2026_05_07_000001_create_checkout_wallet_sold_sync_tables ..... 83.65ms DONE
+  2026_05_07_000002_create_reward_result_engine_tables .......... 60.88ms DONE
+  2026_05_07_000003_create_affiliate_agent_reports_settlement_tables  88.61ms DONE
+  2026_05_07_000004_create_maintenance_support_security_tables .. 59.20ms DONE
+  2026_05_08_000001_create_observability_alerting_tables ........ 23.59ms DONE
+  2026_05_08_000002_add_cloudflare_readiness_to_partner_tenant_domains  2.36ms DONE
+
+
+   INFO  Seeding database.  
+
+  Database\Seeders\DefaultRbacMenuSeeder ............................. RUNNING  
+  Database\Seeders\DefaultRbacMenuSeeder .......................... 11 ms DONE  
+
+  Database\Seeders\BootstrapAdminSeeder .............................. RUNNING  
+  Database\Seeders\BootstrapAdminSeeder .......................... 278 ms DONE  
+
+  Database\Seeders\DemoTenantSeeder .................................. RUNNING  
+  Database\Seeders\DemoTenantSeeder .............................. 840 ms DONE  
+

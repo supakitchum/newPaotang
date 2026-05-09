@@ -1,0 +1,42 @@
+name: Platform API M10 Readiness
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/platform-api/**"
+      - "compose.yaml"
+      - "docs/m10-deployment-monitoring-load-test.md"
+      - "load-tests/**"
+      - "scripts/platform-api-*.sh"
+      - ".github/workflows/platform-api-m10.yml"
+
+jobs:
+  platform-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build platform API image
+        run: docker compose build platform-api
+
+      - name: Start backend dependencies
+        run: docker compose up -d postgres valkey platform-api
+
+      - name: Install PHP dependencies in container
+        run: docker compose run --rm platform-api composer install
+
+      - name: Migrate and seed testing database
+        run: docker compose run --rm platform-api php artisan migrate:fresh --seed --env=testing
+
+      - name: Run platform API tests
+        run: docker compose run --rm platform-api php artisan test
+
+      - name: Rebuild seeded database for smoke checks
+        run: docker compose run --rm platform-api php artisan migrate:fresh --seed --env=testing
+
+      - name: Smoke backend runtime
+        run: docker compose exec platform-api php artisan platform:smoke
+
+      - name: Validate scheduler registration
+        run: docker compose run --rm platform-api php artisan schedule:list

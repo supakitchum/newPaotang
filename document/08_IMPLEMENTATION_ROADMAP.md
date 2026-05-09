@@ -170,6 +170,7 @@ rollback plan
 
 ```text
 Docker images
+Docker Compose runtime for all local/dev commands
 CI/CD pipeline
 environment templates
 wildcard domain
@@ -196,6 +197,13 @@ Cloudflare custom domain verification
 HTTPS enforcement
 redirect HTTP to HTTPS
 WAF/rate limit rules
+```
+
+Runtime rule:
+
+```text
+All development, test, build, migration, queue, and maintenance commands must run through Docker containers.
+Do not run PHP, Composer, Node, npm, Nuxt, Vite, Artisan, tests, builds, or migrations directly on the host machine.
 ```
 
 ## Required Load Test Scenarios

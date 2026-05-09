@@ -10,6 +10,18 @@ apps/back-office
 apps/customer
 ```
 
+## Runtime Rule
+
+โปรเจคนี้ใช้ Docker เป็น runtime เดียวสำหรับทุก app และทุก service ดูรายละเอียดที่ `docs/docker-runtime-policy.md`
+
+```text
+ห้าม run PHP/Composer/Artisan/Node/npm/Nuxt/Vite/test/build/migration บน host machine
+คำสั่งของ platform-api ต้องผ่าน container platform-api
+คำสั่งของ back-office ต้องผ่าน container back-office
+คำสั่งของ customer ต้องผ่าน container customer
+ใช้ docker compose exec หรือ docker compose run --rm เท่านั้นสำหรับ application commands
+```
+
 ## platform-api
 
 `platform-api` คือกล่องสำหรับ API ทั้งหมดของ platform

@@ -71,7 +71,7 @@ definePageMeta({
   requiresAuth: true
 })
 
-const axios = useAxios()
+const platformApi = usePlatformApi()
 const { showAlert } = useAppAlert()
 const { toNumber, formatMoney, formatDate, getStatusText, getStatusClass } = useTopup()
 
@@ -108,13 +108,10 @@ const fetchHistories = async (page = currentPage.value) => {
   isLoading.value = true
 
   try {
-    const response = await axios.get('/deposit', {
-      params: {
-        page,
-        per_page: perPage
-      }
+    const result = await platformApi.topupOverviewLegacy({
+      page,
+      per_page: perPage
     })
-    const result = response.data?.result || {}
     histories.value = Array.isArray(result.histories) ? result.histories : []
     pagination.value = result.pagination || null
     currentPage.value = pagination.value?.current_page || page

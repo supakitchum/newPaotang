@@ -71,7 +71,7 @@ interface LotteryTicket {
   highlight?: string
 }
 
-const axios = useAxios()
+const platformApi = usePlatformApi()
 const { isAuthenticated, clearAuthToken } = useAuth()
 const { currentDrawDate: drawDate } = useAppInit()
 const lotteries = ref<LotteryTicket[]>([])
@@ -132,18 +132,10 @@ const startCooldown = () => {
 
 async function getData(options: { append?: boolean, cursor?: string | null } = {}) {
   try {
-    const params: Record<string, string> = {}
-    const endpoint = isAuthenticated.value ? '/stores' : '/lotteries/guest'
-
-    if (seed.value) {
-      params.seed = seed.value
-    }
-
-    if (options.cursor) {
-      params.cursor = options.cursor
-    }
-
-    const response = await axios.get(endpoint, { params })
+    const response = await platformApi.searchStockLegacy({
+      mode: 'random',
+      cursor: options.cursor || seed.value
+    })
     if (response.data.code === 0) {
       const result = response.data.result || {}
       const pagination = response.data.result.pagination || {}

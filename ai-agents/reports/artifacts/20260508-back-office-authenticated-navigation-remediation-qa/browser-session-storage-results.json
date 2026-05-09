@@ -1,0 +1,24 @@
+{
+  "authedAfterLogin": {
+    "path": "/admin/central/partners",
+    "markerCookie": true,
+    "sessionStorageHasSession": true,
+    "sessionStorageKeys": [
+      "newpaotang.back-office.session.v1"
+    ]
+  },
+  "validSessionDeepLink": {
+    "path": "/admin/central/partners",
+    "markerCookie": true,
+    "sessionStorageHasSession": true,
+    "headings": [
+      "Partners",
+      "Partners"
+    ]
+  },
+  "staleMarker": {
+    "path": "/login?redirect=/admin/central/partners",
+    "markerCookie": true,
+    "sessionStorageHasSession": false
+  }
+}

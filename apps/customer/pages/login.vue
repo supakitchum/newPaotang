@@ -97,8 +97,8 @@ const rememberMe = ref(true)
 const showPassword = ref(false)
 const isSubmitting = ref(false)
 const route = useRoute()
-const axios = useAxios()
-const {setAuthToken, setAuthUser, setLineRedirect} = useAuth()
+const platformApi = usePlatformApi()
+const {setAuthSession, setLineRedirect} = useAuth()
 const {refreshAppInit} = useAppInit()
 const {showAlert} = useAppAlert()
 
@@ -134,15 +134,15 @@ const handleSubmit = async () => {
   isSubmitting.value = true
 
   try {
-    const response = await axios.post('/login', {
+    const response = await platformApi.login({
       username: phone.value,
+      phone: phone.value,
       password: password.value
     })
 
-    if (response.data?.token) {
-      setAuthToken(response.data.token)
-      setAuthUser(response.data.user || {})
-      await refreshAppInit(response.data.token)
+    if (response?.token) {
+      setAuthSession(response)
+      await refreshAppInit(response.token)
       await navigateTo(getSafeRedirect())
     }
   } catch (error: any) {
@@ -158,10 +158,10 @@ const handleSubmit = async () => {
 
 const handleLineLogin = async () => {
   setLineRedirect(getSafeRedirect())
-  const response = await axios.post('/line/login', {store_id: null})
+  const response = await platformApi.lineLogin({store_id: null})
 
-  if (response.data.code === 0) {
-    await navigateTo(response.data.url, {external: true})
+  if (response.code === 0) {
+    await navigateTo(response.url, {external: true})
   }
 }
 </script>

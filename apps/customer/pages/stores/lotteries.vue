@@ -81,7 +81,7 @@ definePageMeta({
 })
 
 const route = useRoute()
-const axios = useAxios()
+const platformApi = usePlatformApi()
 const { currentDrawDate: drawDate } = useAppInit()
 const lotteries = ref<StoreLotteryTicket[]>([])
 const storeName = ref('ร้านสลากฯ')
@@ -161,14 +161,12 @@ const withHighlight = (ticket: StoreLotteryTicket): StoreLotteryTicket => ({
 
 async function getData(options: { append?: boolean } = {}) {
   try {
-    const params: Record<string, string | number> = {}
-
-    if (options.append && pagination.value?.seed) {
-      params.seed = pagination.value.seed
-      params.page = currentPage.value + 1
-    }
-
-    const response = await axios.post('/lotteries/search', buildPostData(), { params })
+    const response = await platformApi.searchStockLegacy({
+      storeId: String(buildPostData().store_id || ''),
+      mode: 'browse',
+      cursor: options.append ? pagination.value?.seed || null : null,
+      page: options.append ? currentPage.value + 1 : 1
+    })
 
     if (response.data.code === 0) {
       const nextPagination = response.data.result.pagination || {}

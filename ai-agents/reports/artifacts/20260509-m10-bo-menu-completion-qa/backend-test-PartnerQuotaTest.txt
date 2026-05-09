@@ -1,0 +1,16 @@
+Running PartnerQuotaTest
+ Container newpaotang-valkey-1 Running 
+ Container newpaotang-postgres-1 Running 
+ Container newpaotang-postgres-1 Waiting 
+ Container newpaotang-valkey-1 Waiting 
+ Container newpaotang-valkey-1 Healthy 
+ Container newpaotang-postgres-1 Healthy 
+ Container newpaotang-platform-api-run-ac5c88cb5e46 Creating 
+ Container newpaotang-platform-api-run-ac5c88cb5e46 Created 
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\PartnerQuotaTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpartner quota create list update validate active constraints and de[39m[90m…[39m [90m2.04s[39m  
+
+  [90mTests:[39m    [32;1m1 passed[39;22m[90m (24 assertions)[39m
+  [90mDuration:[39m [39m2.18s[39m
+

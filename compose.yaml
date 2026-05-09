@@ -7,6 +7,7 @@ services:
     working_dir: /var/www/html
     command: php artisan serve --host=0.0.0.0 --port=8000
     environment:
+      WORKSPACE_ROOT: /workspace
       APP_ENV: local
       APP_DEBUG: "true"
       DB_CONNECTION: pgsql
@@ -23,6 +24,106 @@ services:
     ports:
       - "8000:8000"
     volumes:
+      - ./:/workspace:ro
+      - ./apps/platform-api:/var/www/html
+      - platform-api-vendor:/var/www/html/vendor
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  platform-api-worker:
+    profiles: ["worker"]
+    build:
+      context: ./apps/platform-api
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /var/www/html
+    command: php artisan queue:work --sleep=1 --tries=3 --timeout=90 --queue=${PLATFORM_WORKER_QUEUES:-partner-inbox-high,partner-inbox-normal,stock-allocation,stock-sold-events,stock-recall,stock-sync,reservation-expiration,checkout-finalize,central-outbox,affiliate-commission,reward-validate,reward-check-high,reward-check-normal,reward-summary,reward-publish,reward-notification,report-build,webhook-dispatch,notification,usage-metering,partner-monitoring,default}
+    environment:
+      WORKSPACE_ROOT: /workspace
+      APP_ENV: local
+      APP_DEBUG: "true"
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: newpaotang
+      DB_USERNAME: newpaotang
+      DB_PASSWORD: newpaotang
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: redis
+      REDIS_HOST: valkey
+      REDIS_PORT: "6379"
+    volumes:
+      - ./:/workspace:ro
+      - ./apps/platform-api:/var/www/html
+      - platform-api-vendor:/var/www/html/vendor
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  platform-api-scheduler:
+    profiles: ["scheduler"]
+    build:
+      context: ./apps/platform-api
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /var/www/html
+    command: sh -c "while true; do php artisan schedule:run --no-interaction; sleep 60; done"
+    environment:
+      WORKSPACE_ROOT: /workspace
+      APP_ENV: local
+      APP_DEBUG: "true"
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: newpaotang
+      DB_USERNAME: newpaotang
+      DB_PASSWORD: newpaotang
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: redis
+      REDIS_HOST: valkey
+      REDIS_PORT: "6379"
+    volumes:
+      - ./:/workspace:ro
+      - ./apps/platform-api:/var/www/html
+      - platform-api-vendor:/var/www/html/vendor
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  platform-api-smoke:
+    profiles: ["smoke"]
+    build:
+      context: ./apps/platform-api
+      dockerfile: Dockerfile
+      target: development
+    working_dir: /var/www/html
+    command: php artisan platform:smoke
+    environment:
+      WORKSPACE_ROOT: /workspace
+      APP_ENV: local
+      APP_DEBUG: "true"
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: newpaotang
+      DB_USERNAME: newpaotang
+      DB_PASSWORD: newpaotang
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: redis
+      REDIS_HOST: valkey
+      REDIS_PORT: "6379"
+    volumes:
+      - ./:/workspace:ro
       - ./apps/platform-api:/var/www/html
       - platform-api-vendor:/var/www/html/vendor
     depends_on:

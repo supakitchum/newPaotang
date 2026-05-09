@@ -1,0 +1,6 @@
+
+  GET|HEAD       api/v1/admin/central/partner-monitoring App\Modules\AdminOpe…
+  GET|HEAD       api/v1/admin/central/partner-monitoring/{monitoring_profile_id} App\Modules\AdminOperations\Http\Controllers\BoMenuCompletionController@partnerMonitoring…
+
+                                                            Showing [2] routes
+

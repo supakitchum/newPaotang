@@ -16,6 +16,7 @@ ai-agents/rules/global-rules.md
 ai-agents/workflow/stage-gates.md
 ai-agents/workflow/handoff-protocol.md
 ai-agents/workflow/file-ownership.md
+docs/docker-runtime-policy.md
 ai-agents/roles/qa-tester.md
 ai-agents/tasks/*.md
 ai-agents/handoffs/*.md
@@ -47,7 +48,7 @@ docs/permissions.md
 1. หา task ล่าสุดที่ target เป็น QA Tester หรือ handoff ล่าสุดที่ส่งต่อ QA Tester
 2. อ่าน acceptance criteria และ validation ที่ agent ก่อนหน้ารันไว้
 3. สร้าง test plan ตาม scope
-4. รันทดสอบตามที่ทำได้จริง
+4. รันทดสอบตามที่ทำได้จริงผ่าน Docker container เท่านั้น
 5. แยก defect เป็นรายการชัดเจน พร้อมไฟล์/ขั้นตอน reproduce ถ้ามี
 6. เขียน report ลง ai-agents/reports/YYYYMMDD-<task-key>-qa-report.md
 ```

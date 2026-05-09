@@ -1,0 +1,14 @@
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T070723Z/checkout-wallet-consistency.summary.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T070723Z/concurrent-booking-same-stock.summary.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T070723Z/customer-stock-search.summary.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T070723Z/partner-tenant-burst-sync.summary.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T070723Z/reward-checking-queue-chunk.summary.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T070723Z/reward-publish-spike.summary.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T070830Z/checkout-wallet-consistency.summary.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T070830Z/concurrent-booking-same-stock.summary.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T070830Z/customer-stock-search.summary.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T070830Z/partner-tenant-burst-sync.summary.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T070830Z/reward-checking-queue-chunk.summary.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T070830Z/reward-publish-spike.summary.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T070723Z/ticket-image-cdn-spike.skipped.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T070830Z/ticket-image-cdn-spike.skipped.json

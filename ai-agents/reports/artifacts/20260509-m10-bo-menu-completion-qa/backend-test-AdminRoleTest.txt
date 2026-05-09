@@ -1,0 +1,24 @@
+Running AdminRoleTest
+ Container newpaotang-valkey-1 Running 
+ Container newpaotang-postgres-1 Running 
+ Container newpaotang-valkey-1 Waiting 
+ Container newpaotang-postgres-1 Waiting 
+ Container newpaotang-postgres-1 Healthy 
+ Container newpaotang-valkey-1 Healthy 
+ Container newpaotang-platform-api-run-ff507f26642a Creating 
+ Container newpaotang-platform-api-run-ff507f26642a Created 
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\AdminRoleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcentral role manager can create list update and archive roles[39m[90m       [39m [90m1.74s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtenant role manager can create list update and archive roles[39m[90m        [39m [90m0.55s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrole management defaults to deny without role manage permission[39m[90m     [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtenant admin cannot manage another tenant role[39m[90m                      [39m [90m0.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcentral admin cannot use tenant role endpoints without tenant acces[39m[90m…[39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrole permission codes must match requested scope[39m[90m                    [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrole writes reject invalid idempotency keys[39m[90m                         [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrole name and code must be unique in scope[39m[90m                          [39m [90m0.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrole update increments version and invalidates permission cache[39m[90m     [39m [90m0.51s[39m  
+
+  [90mTests:[39m    [32;1m9 passed[39;22m[90m (70 assertions)[39m
+  [90mDuration:[39m [39m5.98s[39m
+

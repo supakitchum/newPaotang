@@ -1,0 +1,76 @@
+13:use App\Shared\Idempotency\IdempotencyService;
+24:    private const PASSWORD_RESET_IDEMPOTENCY_ACTOR_ID = 'password_reset';
+29:        private readonly IdempotencyService $idempotency,
+40:        $idempotencyKey = (string) $request->header('Idempotency-Key');
+42:        $replay = $this->idempotency->replayOrConflict(null, 'admin_password_reset', $emailHash, 'auth.admin.password.forgot', $idempotencyKey, ['email_hash' => $emailHash]);
+52:        DB::transaction(function () use ($email, $emailHash, $request, $idempotencyKey): void {
+119:            $this->idempotency->storeResponse(null, 'admin_password_reset', $emailHash, 'auth.admin.password.forgot', $idempotencyKey, ['email_hash' => $emailHash], 202, null);
+133:        $normalized = $this->passwordResetIdempotencyPayload($token, $payload);
+134:        $idempotencyKey = (string) $request->header('Idempotency-Key');
+135:        $replay = $this->idempotency->replayOrConflict(null, 'admin_password_reset', self::PASSWORD_RESET_IDEMPOTENCY_ACTOR_ID, 'auth.admin.password.reset', $idempotencyKey, $normalized);
+147:        return DB::transaction(function () use ($request, $tokenHash, $password, $idempotencyKey, $normalized, $payload): array {
+199:            $this->idempotency->storeResponse(null, 'admin_password_reset', self::PASSWORD_RESET_IDEMPOTENCY_ACTOR_ID, 'auth.admin.password.reset', $idempotencyKey, $normalized, 204, null);
+211:        $normalized = $this->passwordChangeIdempotencyPayload($context, $payload);
+212:        $idempotencyKey = (string) $request->header('Idempotency-Key');
+213:        $replay = $this->idempotency->replayOrConflict($context->activeTenantId(), 'admin', $context->adminUser['id'], 'auth.admin.password.change', $idempotencyKey, $normalized);
+254:        $this->idempotency->storeResponse($context->activeTenantId(), 'admin', $context->adminUser['id'], 'auth.admin.password.change', $idempotencyKey, $normalized, 204, null);
+287:        $idempotencyKey = (string) $request->header('Idempotency-Key');
+289:        $replay = $this->idempotency->replayOrConflict($context->activeTenantId(), 'admin', $context->adminUser['id'], 'auth.admin.2fa.setup', $idempotencyKey, $normalized);
+343:        $this->storeRedactedIdempotencyResponse($context, 'auth.admin.2fa.setup', $idempotencyKey, $normalized, 200, $resource);
+354:        $idempotencyKey = (string) $request->header('Idempotency-Key');
+355:        $normalized = $this->twoFactorCodeIdempotencyPayload($context, $payload, 'enable_2fa');
+356:        $replay = $this->idempotency->replayOrConflict($context->activeTenantId(), 'admin', $context->adminUser['id'], 'auth.admin.2fa.enable', $idempotencyKey, $normalized);
+366:        return DB::transaction(function () use ($context, $payload, $request, $idempotencyKey, $normalized): array {
+402:                payload: $this->twoFactorAuditPayload($payload, ['other_sessions_revoked' => true]),
+409:            $this->idempotency->storeResponse($context->activeTenantId(), 'admin', $context->adminUser['id'], 'auth.admin.2fa.enable', $idempotencyKey, $normalized, 200, $resource);
+421:        $idempotencyKey = (string) $request->header('Idempotency-Key');
+422:        $normalized = $this->twoFactorCodeIdempotencyPayload($context, $payload, 'rotate_recovery_codes', includeCurrentPassword: true);
+423:        $replay = $this->idempotency->replayOrConflict($context->activeTenantId(), 'admin', $context->adminUser['id'], 'auth.admin.2fa.recovery-codes', $idempotencyKey, $normalized);
+433:        return DB::transaction(function () use ($context, $payload, $request, $idempotencyKey, $normalized): array {
+464:                payload: $this->twoFactorAuditPayload($payload, ['recovery_codes' => $recoveryCodes, 'other_sessions_revoked' => true]),
+471:            $this->storeRedactedIdempotencyResponse($context, 'auth.admin.2fa.recovery-codes', $idempotencyKey, $normalized, 200, $resource);
+483:        $idempotencyKey = (string) $request->header('Idempotency-Key');
+484:        $normalized = $this->twoFactorCodeIdempotencyPayload($context, $payload, 'disable_2fa', includeCurrentPassword: true);
+485:        $replay = $this->idempotency->replayOrConflict($context->activeTenantId(), 'admin', $context->adminUser['id'], 'auth.admin.2fa.disable', $idempotencyKey, $normalized);
+495:        return DB::transaction(function () use ($context, $payload, $request, $idempotencyKey, $normalized): array {
+531:                payload: $this->twoFactorAuditPayload($payload, ['other_sessions_revoked' => true]),
+538:            $this->idempotency->storeResponse($context->activeTenantId(), 'admin', $context->adminUser['id'], 'auth.admin.2fa.disable', $idempotencyKey, $normalized, 204, null);
+609:                payload: $this->twoFactorAuditPayload($payload),
+740:    private function passwordResetIdempotencyPayload(string $token, array $payload): array
+743:            'reset_token_fingerprint' => $this->sensitiveFingerprint('password_reset.token', $token),
+744:            'password_fingerprint' => $this->sensitiveFingerprint('password_reset.password', (string) ($payload['password'] ?? '')),
+745:            'password_confirmation_fingerprint' => $this->sensitiveFingerprint('password_reset.password_confirmation', (string) ($payload['password_confirmation'] ?? '')),
+754:    private function passwordChangeIdempotencyPayload(AdminSessionContext $context, array $payload): array
+758:            'current_password_fingerprint' => $this->sensitiveFingerprint('password_change.current_password', (string) ($payload['current_password'] ?? '')),
+759:            'new_password_fingerprint' => $this->sensitiveFingerprint('password_change.new_password', (string) ($payload['new_password'] ?? '')),
+760:            'new_password_confirmation_fingerprint' => $this->sensitiveFingerprint('password_change.new_password_confirmation', (string) ($payload['new_password_confirmation'] ?? '')),
+769:    private function twoFactorCodeIdempotencyPayload(AdminSessionContext $context, array $payload, string $action, bool $includeCurrentPassword = false): array
+774:            'totp_code_fingerprint' => $this->sensitiveFingerprint('admin_2fa.'.$action.'.code', $this->normalizeTotpCode((string) ($payload['code'] ?? ''))),
+778:            $normalized['current_password_fingerprint'] = $this->sensitiveFingerprint('admin_2fa.'.$action.'.current_password', (string) ($payload['current_password'] ?? ''));
+789:    private function twoFactorAuditPayload(array $payload, array $extra = []): array
+803:        return hash_hmac('sha256', $purpose.'|'.$value, $this->localSecretKey());
+866:        $hash = hash_hmac('sha1', $binaryCounter, $key, true);
+1008:    private function storeRedactedIdempotencyResponse(AdminSessionContext $context, string $routeKey, string $idempotencyKey, array $payload, int $status, array $resource): void
+1010:        $this->idempotency->storeResponse(
+1015:            $idempotencyKey,
+59:            ->value('payload_redacted_json'), true, flags: JSON_THROW_ON_ERROR);
+98:            ->value('payload_redacted_json'), true, flags: JSON_THROW_ON_ERROR);
+248:            ->value('payload_redacted_json'), true, flags: JSON_THROW_ON_ERROR);
+267:    public function test_M10AdminSecurityLinePolicy_sensitive_idempotency_conflicts_use_fingerprints_and_do_not_mutate_twice(): void
+296:            'Idempotency-Key' => 'idem-reset-fingerprint',
+304:            'Idempotency-Key' => 'idem-reset-fingerprint',
+312:            'Idempotency-Key' => 'idem-reset-fingerprint',
+314:            ->assertJsonPath('error.code', 'idempotency_conflict');
+321:            'Idempotency-Key' => 'idem-reset-fingerprint',
+323:            ->assertJsonPath('error.code', 'idempotency_conflict');
+336:                'Idempotency-Key' => 'idem-change-fingerprint',
+352:                'Idempotency-Key' => 'idem-change-fingerprint',
+362:                    'Idempotency-Key' => 'idem-change-fingerprint',
+365:                ->assertJsonPath('error.code', 'idempotency_conflict');
+406:            ->assertJsonPath('error.code', 'idempotency_conflict');
+446:                ->assertJsonPath('error.code', 'idempotency_conflict');
+483:                ->assertJsonPath('error.code', 'idempotency_conflict');
+490:        $this->assertNoRawSensitiveValuesInIdempotencyOrAudit([
+651:    private function assertNoRawSensitiveValuesInIdempotencyOrAudit(array $values): void
+654:            ->pluck('response_body_json')
+658:            ->pluck('payload_redacted_json')

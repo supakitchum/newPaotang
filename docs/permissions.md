@@ -491,6 +491,7 @@ auditor
 | `GET /admin/tenant/maintenance` | tenant | maintenance.view |
 | `PUT /admin/tenant/maintenance` | tenant | maintenance.update |
 | `GET /admin/tenant/maintenance/events` | tenant | maintenance.view |
+| `GET /admin/tenant/maintenance/bypasses` | tenant | maintenance.bypass |
 | `POST /admin/tenant/maintenance/bypasses` | tenant | maintenance.bypass |
 | `DELETE /admin/tenant/maintenance/bypasses/{bypass_id}` | tenant | maintenance.bypass |
 | `GET /admin/tenant/support-access` | tenant | support_access.audit |

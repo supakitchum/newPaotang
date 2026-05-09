@@ -1,0 +1,6 @@
+
+  POST       api/v1/auth/admin/login App\Modules\Auth\Http\Controllers\AdminAuthController@login
+             ⇂ api
+
+                                                            Showing [1] routes
+

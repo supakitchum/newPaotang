@@ -1,0 +1,3 @@
+nuxt: current=3.11.2 wanted=3.11.2 latest=4.4.4 type=None
+vue: current=3.4.21 wanted=3.4.21 latest=3.5.34 type=None
+package_count: 2

@@ -1,0 +1,75 @@
+{
+  "version": "2026-05-08",
+  "scope": "newpaotang-m10-cloudflare-cache-bypass-template",
+  "mode": "template_dry_run",
+  "production_approved": false,
+  "notes": [
+    "Template only. Do not deploy to a real Cloudflare zone without QA/Ops evidence and non-production approval.",
+    "Dynamic API, webhook, admin, auth, and maintenance responses must not be cached at the edge.",
+    "Immutable ticket images and static build assets may use long-lived cache only when object keys are versioned or immutable."
+  ],
+  "rules": [
+    {
+      "id": "api-all-bypass",
+      "category": "api_dynamic",
+      "description": "Bypass cache for all platform API responses unless an endpoint is explicitly proven cache-safe.",
+      "expression": "starts_with(http.request.uri.path, \"/api/\")",
+      "action": "bypass_cache"
+    },
+    {
+      "id": "webhook-callback-bypass",
+      "category": "webhook_payment_topup_callbacks",
+      "description": "Bypass cache for payment and topup callbacks.",
+      "expression": "starts_with(http.request.uri.path, \"/api/v1/webhooks/payments/\") or starts_with(http.request.uri.path, \"/api/v1/webhooks/topups/\")",
+      "action": "bypass_cache"
+    },
+    {
+      "id": "admin-back-office-bypass",
+      "category": "admin_back_office",
+      "description": "Bypass cache for central and tenant admin APIs.",
+      "expression": "starts_with(http.request.uri.path, \"/api/v1/admin/\")",
+      "action": "bypass_cache"
+    },
+    {
+      "id": "auth-session-bypass",
+      "category": "auth_session_protected",
+      "description": "Bypass cache for admin and customer auth, wallet, checkout, orders, tickets, reservations, and topups.",
+      "expression": "starts_with(http.request.uri.path, \"/api/v1/auth/\") or starts_with(http.request.uri.path, \"/api/v1/customer/\")",
+      "action": "bypass_cache"
+    },
+    {
+      "id": "tenant-maintenance-dynamic-bypass",
+      "category": "tenant_maintenance_dynamic_pages",
+      "description": "Bypass cache for tenant site-config and maintenance-sensitive dynamic pages.",
+      "expression": "http.request.uri.path in {\"/api/v1/public/site-config\" \"/maintenance\" \"/api/v1/admin/tenant/maintenance\"} or starts_with(http.request.uri.path, \"/api/v1/admin/tenant/maintenance\")",
+      "action": "bypass_cache"
+    },
+    {
+      "id": "partner-sync-bypass",
+      "category": "partner_sync",
+      "description": "Bypass cache for partner sync ingress and status APIs.",
+      "expression": "starts_with(http.request.uri.path, \"/api/v1/partner-sync/\")",
+      "action": "bypass_cache"
+    },
+    {
+      "id": "ticket-image-immutable-cache",
+      "category": "ticket_images_static",
+      "description": "Allow immutable cache for ticket images only when paths are object keys or versioned CDN URLs.",
+      "expression": "starts_with(http.request.uri.path, \"/ticket-images/\") or starts_with(http.request.uri.path, \"/tickets/images/\")",
+      "action": "cache_immutable",
+      "cache_control": "public, max-age=31536000, immutable"
+    },
+    {
+      "id": "static-asset-immutable-cache",
+      "category": "static_assets",
+      "description": "Allow long cache for hashed static assets.",
+      "expression": "starts_with(http.request.uri.path, \"/_nuxt/\") or starts_with(http.request.uri.path, \"/build/assets/\") or starts_with(http.request.uri.path, \"/assets/\")",
+      "action": "cache_immutable",
+      "cache_control": "public, max-age=31536000, immutable"
+    }
+  ],
+  "validation": {
+    "local_json_parse": "jq empty ops/m10/cloudflare-cache-bypass-rules.json",
+    "backend_report": "docker compose exec platform-api php artisan platform:cloudflare:readiness --format=json"
+  }
+}

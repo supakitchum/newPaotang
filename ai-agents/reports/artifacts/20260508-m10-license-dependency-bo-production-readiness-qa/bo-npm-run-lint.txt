@@ -1,0 +1,7 @@
+ Container newpaotang-back-office-run-c01a27089c5e Creating 
+ Container newpaotang-back-office-run-c01a27089c5e Created 
+
+> lint
+> node scripts/check.mjs lint
+
+lint passed: back-office foundation, operations catalog OpenAPI snapshot, Meno/Bootstrap static assets, Nuxt head order, JS replacement evidence, API headers, hydration guardrails, backend metadata/bypass readiness, license notice blocker, and one-time support token checks are present.

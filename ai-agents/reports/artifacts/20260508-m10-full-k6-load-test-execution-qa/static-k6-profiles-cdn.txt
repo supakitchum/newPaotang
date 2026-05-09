@@ -1,0 +1,53 @@
+scripts/k6-run-baseline.sh:6:ENV_FILE=${K6_ENV_FILE:-"$RESULTS_DIR/k6-baseline.env"}
+scripts/k6-run-baseline.sh:10:K6_PROFILE=${K6_PROFILE:-"smoke"}
+scripts/k6-run-baseline.sh:13:  echo "Missing $ENV_FILE. Run scripts/k6-prepare-baseline-fixtures.sh first." >&2
+scripts/k6-run-baseline.sh:30:    -e K6_PROFILE="$K6_PROFILE" \
+scripts/k6-run-baseline.sh:45:if [ "${IMAGE_PATH:-}" != "" ] && { [ "${CDN_BASE_URL:-}" != "" ] || [ "${BASE_URL:-}" != "" ]; }; then
+scripts/k6-run-baseline.sh:46:  run_k6 ticket-image-cdn-spike.js
+scripts/k6-run-baseline.sh:48:  cat > "$RUN_DIR/ticket-image-cdn-spike.skipped.json" <<'JSON'
+scripts/k6-run-baseline.sh:50:  "scenario": "ticket-image-cdn-spike",
+scripts/k6-run-baseline.sh:52:  "reason": "Local/dev baseline has no Cloudflare CDN/R2 ticket image path. Set CDN_BASE_URL and IMAGE_PATH to run this scenario."
+load-tests/README.md:5:## Local/dev baseline
+load-tests/README.md:11:scripts/k6-prepare-baseline-fixtures.sh
+load-tests/README.md:16:- `k6-baseline-env.json` machine-readable fixture metadata.
+load-tests/README.md:17:- `k6-baseline.env` Docker/k6 env file.
+load-tests/README.md:21:3. Run the short API-backed baseline:
+load-tests/README.md:24:scripts/k6-run-baseline.sh
+load-tests/README.md:27:The runner defaults to `K6_PROFILE=smoke` and writes `*.summary.json` artifacts under `load-tests/results/<run-id>/`.
+load-tests/README.md:29:Use larger profiles only after the short baseline is healthy:
+load-tests/README.md:32:K6_PROFILE=baseline scripts/k6-run-baseline.sh
+load-tests/README.md:33:K6_PROFILE=release-candidate scripts/k6-run-baseline.sh
+load-tests/README.md:44:- `ticket-image-cdn-spike.js`
+load-tests/README.md:46:The first six scenarios run against local/dev API fixtures. `ticket-image-cdn-spike.js` remains a runnable CDN/object-storage template; the baseline runner records a skipped artifact unless `CDN_BASE_URL` and `IMAGE_PATH` are supplied for a real Cloudflare/CDN/R2 ticket image path.
+load-tests/k6/lib/profile.js:1:const PROFILE = __ENV.K6_PROFILE || 'smoke';
+load-tests/k6/lib/profile.js:4:  smoke: {
+load-tests/k6/lib/profile.js:12:  baseline: {
+load-tests/k6/lib/profile.js:20:  'release-candidate': {
+load-tests/k6/lib/profile.js:31:  return PROFILES[PROFILE] || PROFILES.smoke;
+load-tests/k6/lib/profile.js:40:  const useScenarioDefaults = PROFILE === 'baseline';
+load-tests/k6/lib/profile.js:51:  const useScenarioDefaults = PROFILE === 'baseline';
+load-tests/k6/ticket-image-cdn-spike.js:5:const BASE_URL = __ENV.CDN_BASE_URL || __ENV.BASE_URL || '';
+load-tests/k6/ticket-image-cdn-spike.js:6:const IMAGE_PATH = __ENV.IMAGE_PATH || '';
+load-tests/k6/ticket-image-cdn-spike.js:17:  requireEnv(['IMAGE_PATH'], 'ticket image CDN spike testing');
+load-tests/k6/ticket-image-cdn-spike.js:20:    throw new Error('Set CDN_BASE_URL or BASE_URL for ticket image CDN spike testing.');
+load-tests/k6/ticket-image-cdn-spike.js:23:  const res = http.get(`${BASE_URL}${IMAGE_PATH}`);
+docs/m10-deployment-monitoring-load-test.md:15:platform-api-smoke: one-shot platform:smoke readiness profile
+docs/m10-deployment-monitoring-load-test.md:27:docker compose --profile smoke run --rm platform-api-smoke
+docs/m10-deployment-monitoring-load-test.md:43:docker compose exec platform-api php artisan platform:smoke
+docs/m10-deployment-monitoring-load-test.md:119:Docker smoke command:
+docs/m10-deployment-monitoring-load-test.md:122:docker compose exec platform-api php artisan platform:smoke
+docs/m10-deployment-monitoring-load-test.md:125:Run the seed-dependent smoke check after a successful seed. If the full PHPUnit suite ran immediately before smoke, rebuild the seeded local/testing database first because the feature suite uses database refreshes:
+docs/m10-deployment-monitoring-load-test.md:129:docker compose exec platform-api php artisan platform:smoke
+docs/m10-deployment-monitoring-load-test.md:132:`platform:smoke` checks:
+docs/m10-deployment-monitoring-load-test.md:146:docker compose run --rm platform-api php artisan platform:smoke --no-seed-login
+docs/m10-deployment-monitoring-load-test.md:189:Daily usage summaries are documented as an M10 follow-up job. This slice keeps readiness at seed/provisioning defaults and smoke checks; it does not add a second analytics database.
+docs/m10-deployment-monitoring-load-test.md:196:scripts/k6-prepare-baseline-fixtures.sh
+docs/m10-deployment-monitoring-load-test.md:197:scripts/k6-run-baseline.sh
+docs/m10-deployment-monitoring-load-test.md:200:`scripts/k6-prepare-baseline-fixtures.sh` runs `php artisan load-tests:k6:prepare` inside the `platform-api` Docker service and writes generated env/fixture artifacts to `load-tests/results/`. Generated bearer tokens stay in ignored local artifacts and are not committed.
+docs/m10-deployment-monitoring-load-test.md:202:`scripts/k6-run-baseline.sh` runs k6 through `grafana/k6` Docker with `K6_PROFILE=smoke` by default. Larger `baseline` and `release-candidate` profiles are available through `K6_PROFILE`.
+docs/m10-deployment-monitoring-load-test.md:213:ticket-image-cdn-spike.js: CDN/object-storage image spike placeholder; requires CDN base URL and image path
+docs/m10-deployment-monitoring-load-test.md:216:The first six scenarios are covered by the local/dev baseline fixture command. The scripts intentionally fail fast when required data is missing. They do not fake pass results.
+docs/m10-deployment-monitoring-load-test.md:218:`ticket-image-cdn-spike.js` is runnable when `CDN_BASE_URL` and `IMAGE_PATH` point at a real CDN/object-storage ticket image. Local/dev does not provision Cloudflare/R2 ticket images, so the baseline runner emits `ticket-image-cdn-spike.skipped.json` with that blocker instead of claiming coverage.
+docs/m10-deployment-monitoring-load-test.md:226:run smoke checks after migrations
+docs/m10-deployment-monitoring-load-test.md:240:run platform:smoke with production-safe seed-login check disabled unless approved credentials exist
+docs/m10-deployment-monitoring-load-test.md:255:re-run health and smoke checks after rollback

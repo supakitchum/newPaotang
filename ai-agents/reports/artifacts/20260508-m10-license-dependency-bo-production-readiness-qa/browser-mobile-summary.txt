@@ -1,0 +1,4 @@
+viewport=390x844
+mobile_maintenance_contains_title=false
+mobile_maintenance_contains_admin_sign_in=true
+mobile_maintenance_contains_active_bypasses=false

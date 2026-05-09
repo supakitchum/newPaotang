@@ -1,0 +1,2 @@
+prior_failed: size=390x844 nonwhite_x_range=17-382 left_80_nonwhite_samples=101 center_left_content_samples=0
+current_closed: size=390x844 nonwhite_x_range=12-377 left_80_nonwhite_samples=1175 center_left_content_samples=1412

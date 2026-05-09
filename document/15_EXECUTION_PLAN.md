@@ -440,6 +440,7 @@ Ownership:
 
 ```text
 Docker images
+Docker Compose runtime for all local/dev commands
 CI/CD
 environment templates
 queue worker profiles
@@ -466,6 +467,14 @@ load test scripts
 migration scripts
 cutover plan
 rollback plan
+```
+
+Runtime acceptance:
+
+```text
+all application commands run through docker compose exec or docker compose run --rm
+no PHP/Composer/Artisan/Node/npm/Nuxt/Vite/test/build/migration command is run directly on the host machine
+validation commands in Orchestrator tasks use Docker container service names
 ```
 
 Acceptance:

@@ -147,7 +147,7 @@ export const useAppInit = () => {
   const isLoading = useState<boolean>('app_init_loading', () => false)
   const isReady = useState<boolean>('app_init_ready', () => false)
   const error = useState<unknown>('app_init_error', () => null)
-  const axios = useAxios()
+  const platformApi = usePlatformApi()
   const { items, setCartItems } = useCart()
 
   const currentGame = computed(() => data.value?.game || null)
@@ -186,12 +186,7 @@ export const useAppInit = () => {
       error.value = null
 
       try {
-        const response = await axios.get('/init', {
-          headers: options.token ? {
-            Authorization: `Bearer ${options.token}`
-          } : undefined
-        })
-        const nextData = normalizeInitData(response.data)
+        const nextData = normalizeInitData(await platformApi.loadAppInit())
         const now = Date.now()
 
         if (requestVersion === initFetchVersion) {

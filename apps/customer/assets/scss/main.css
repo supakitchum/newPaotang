@@ -310,6 +310,14 @@ a {
   letter-spacing: -.5px;
 }
 
+.brand-logo-image {
+  width: auto;
+  max-width: 96px;
+  height: 34px;
+  object-fit: contain;
+  object-position: left center;
+}
+
 .brand-lockup .brand-main {
   font-size: 28px;
   font-weight: 700;

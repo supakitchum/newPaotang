@@ -71,6 +71,7 @@ docs/permissions.md
 docs/events.md
 docs/erd.md
 docs/status-enums.md
+docs/docker-runtime-policy.md
 docs/workspace-app-structure.md
 document/01_SYSTEM_OVERVIEW.md
 document/07_SECURITY_ADMIN_PERMISSION.md
@@ -124,10 +125,9 @@ Backend Develop writes a handoff to ai-agents/handoffs/20260506-m1-platform-core
 Suggested Validation Commands:
 
 ```sh
-cd apps/platform-api
-composer install
-php artisan test
-php artisan migrate:fresh --env=testing
+docker compose run --rm platform-api composer install
+docker compose exec platform-api php artisan test
+docker compose exec platform-api php artisan migrate:fresh --env=testing
 ```
 
 ## Reason

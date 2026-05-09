@@ -1,0 +1,31 @@
+docs/back-office-admin-foundation.md:81:- Mobile admin shell behavior is intentionally owned by `admin-foundation.css`: below the Bootstrap `lg` breakpoint the whole `app-sidebar` shell is closed by default, `data-toggled="open"` slides it over the page with a backdrop, and `main-content app-content` plus its `container-fluid` stay constrained to the viewport.
+apps/back-office/scripts/check.mjs:168:  ['mobile sidebar shell default closed', adminFoundationCss.includes('@media (max-width: 991.98px)') && adminFoundationCss.includes('.app-sidebar') && adminFoundationCss.includes('transform: translateX(-100%)') && adminFoundationCss.includes("[data-toggled='open'] .app-sidebar")],
+apps/back-office/scripts/check.mjs:169:  ['mobile content viewport fit', adminFoundationCss.includes('.main-content.app-content') && adminFoundationCss.includes('max-width: 100vw') && adminFoundationCss.includes('.main-content.app-content > .container-fluid') && adminFoundationCss.includes('padding-inline: 0.75rem')],
+apps/back-office/scripts/check.mjs:323:  ['sticky sidebar class', adminSidebar.includes('app-sidebar sticky')],
+apps/back-office/scripts/check.mjs:338:console.log(`${mode} passed: back-office foundation, operations catalog OpenAPI snapshot, Meno/Bootstrap static assets, Nuxt head order, JS replacement evidence, API headers, protected deep-link marker bridge, mobile no-overflow shell guardrails, hydration guardrails, backend metadata/bypass readiness, license notice blocker, and one-time support token checks are present.`)
+apps/back-office/layouts/admin.vue:5:    <button class="np-sidebar-backdrop border-0" type="button" aria-label="Close sidebar" @click="closeSidebar" />
+apps/back-office/layouts/admin.vue:7:      <div class="container-fluid">
+apps/back-office/assets/css/admin-foundation.css:11:  min-width: 0;
+apps/back-office/assets/css/admin-foundation.css:19:.main-content.app-content,
+apps/back-office/assets/css/admin-foundation.css:20:.main-content.app-content > .container-fluid {
+apps/back-office/assets/css/admin-foundation.css:21:  min-width: 0;
+apps/back-office/assets/css/admin-foundation.css:41:.np-sidebar-backdrop {
+apps/back-office/assets/css/admin-foundation.css:90:.main-sidebar {
+apps/back-office/assets/css/admin-foundation.css:98:@media (max-width: 991.98px) {
+apps/back-office/assets/css/admin-foundation.css:100:  .main-content.app-content,
+apps/back-office/assets/css/admin-foundation.css:103:    max-width: 100vw;
+apps/back-office/assets/css/admin-foundation.css:111:    min-width: 0;
+apps/back-office/assets/css/admin-foundation.css:117:    min-width: 0;
+apps/back-office/assets/css/admin-foundation.css:127:    min-width: 0;
+apps/back-office/assets/css/admin-foundation.css:137:  .app-sidebar {
+apps/back-office/assets/css/admin-foundation.css:144:  [dir='rtl'] .app-sidebar {
+apps/back-office/assets/css/admin-foundation.css:148:  .main-sidebar {
+apps/back-office/assets/css/admin-foundation.css:153:  [data-toggled='close'] .app-sidebar {
+apps/back-office/assets/css/admin-foundation.css:157:  [data-toggled='close'][dir='rtl'] .app-sidebar {
+apps/back-office/assets/css/admin-foundation.css:161:  [data-toggled='open'] .app-sidebar {
+apps/back-office/assets/css/admin-foundation.css:165:  [data-toggled='open'] .np-sidebar-backdrop {
+apps/back-office/assets/css/admin-foundation.css:177:  .main-content.app-content {
+apps/back-office/assets/css/admin-foundation.css:181:  .main-content.app-content > .container-fluid {
+apps/back-office/assets/css/admin-foundation.css:184:    min-width: 0;
+apps/back-office/assets/css/admin-foundation.css:190:    min-width: 0;
+apps/back-office/assets/css/admin-foundation.css:194:@media (max-width: 575.98px) {

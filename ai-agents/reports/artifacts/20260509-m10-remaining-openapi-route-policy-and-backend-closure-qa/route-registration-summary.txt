@@ -1,0 +1,29 @@
+Implemented route checks in route:list
+api/v1/admin/central/assets/uploads => 1
+api/v1/admin/central/assets/{asset_id} => 2
+api/v1/admin/central/assets/{asset_id}/commit => 1
+api/v1/admin/tenant/assets/uploads => 1
+api/v1/admin/tenant/assets/{asset_id} => 2
+api/v1/admin/tenant/assets/{asset_id}/commit => 1
+api/v1/admin/tenant/payment-settings => 2
+api/v1/admin/tenant/payment-channels => 5
+api/v1/public/seo/page => 1
+api/v1/public/news => 1
+api/v1/public/stores => 1
+api/v1/admin/tenant/seo => 6
+api/v1/admin/tenant/seo/pages => 4
+api/v1/admin/tenant/redirects => 4
+api/v1/customer/realtime/auth => 1
+
+Blocked route checks in app route parity missing list
+DELETE /auth/admin/2fa
+GET /auth/admin/2fa
+GET /customer/auth/line/callback
+POST /auth/admin/2fa/enable
+POST /auth/admin/2fa/recovery-codes
+POST /auth/admin/2fa/setup
+POST /auth/admin/2fa/verify
+POST /auth/admin/password/change
+POST /auth/admin/password/forgot
+POST /auth/admin/password/reset
+POST /customer/auth/line/login

@@ -1,0 +1,4 @@
+docs/backend-console-commands.md:78:The active Platform API controller convention is module-based. This backend is a Laravel Modular Monolith, so controllers sit inside their owning domain modules:
+docs/backend-request-validation.md:8:App\Shared\Validation\RequestPayloadValidator shared JSON, Laravel validator, money/date helpers
+docs/backend-architecture-compliance.md:19:Modular Monolith controller convention documented under App\Modules\<Domain>\Http\Controllers
+docs/backend-architecture-compliance.md:27:controllers use the module controller convention:

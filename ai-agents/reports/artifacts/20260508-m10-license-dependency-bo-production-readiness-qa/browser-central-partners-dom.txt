@@ -1,0 +1,18 @@
+- heading "NewPaotang Back Office" [level=1]
+- paragraph: Central and tenant operations, rendered through backend RBAC menus and Meno dashboard patterns.
+- img "NewPaotang"
+- heading "Admin sign in" [level=4]
+- paragraph: Use an approved central or tenant admin account.
+- generic: Email
+- textbox
+- generic: Password
+- textbox
+- generic: Scope
+- combobox:
+  - option "Central" [selected]
+  - option "Tenant"
+- generic: Tenant ID
+- textbox "Required for tenant login" [disabled]
+- button "Sign in"
+- generic: 
+- text: Backend authorization remains the source of truth after login.

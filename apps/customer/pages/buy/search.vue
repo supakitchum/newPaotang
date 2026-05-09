@@ -82,7 +82,7 @@ definePageMeta({
   requiresAuth: false
 })
 
-const axios = useAxios()
+const platformApi = usePlatformApi()
 const route = useRoute()
 const { currentDrawDate: displayDrawDate } = useAppInit()
 const searchDigits = ref<string[]>(['', '', '', '', '', ''])
@@ -164,7 +164,10 @@ const search = async () => {
   pagination.value = null
 
   try {
-    const response = await axios.post('/lotteries/search', buildSearchPayload())
+    const response = await platformApi.searchStockLegacy({
+      number: String(buildSearchPayload().full_number || ''),
+      storeId: storeId.value || undefined
+    })
 
     if (response.data.code === 0) {
       updateSearchResult(response.data)
@@ -184,11 +187,11 @@ const loadNextPage = async () => {
   isLoadingMore.value = true
 
   try {
-    const response = await axios.post('/offline/lotteries/search', buildSearchPayload(), {
-      params: {
-        seed: pagination.value?.seed,
-        page: currentPage.value + 1
-      }
+    const response = await platformApi.searchStockLegacy({
+      number: String(buildSearchPayload().full_number || ''),
+      storeId: storeId.value || undefined,
+      cursor: pagination.value?.seed || null,
+      page: currentPage.value + 1
     })
 
     if (response.data.code === 0) {

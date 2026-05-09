@@ -1,0 +1,1 @@
+k6 v2.0.0-20260424105549-2a014daaa9f4+dirty (commit/2a014daaa9-dirty, go1.26.1, linux/arm64)

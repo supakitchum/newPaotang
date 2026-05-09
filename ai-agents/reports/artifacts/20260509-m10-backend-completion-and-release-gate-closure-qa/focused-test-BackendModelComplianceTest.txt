@@ -1,0 +1,22 @@
+Running BackendModelComplianceTest
+ Container newpaotang-postgres-1 Running 
+ Container newpaotang-valkey-1 Running 
+ Container newpaotang-postgres-1 Waiting 
+ Container newpaotang-valkey-1 Waiting 
+ Container newpaotang-postgres-1 Healthy 
+ Container newpaotang-valkey-1 Healthy 
+ Container newpaotang-platform-api-run-6d980404373a Creating 
+ Container newpaotang-platform-api-run-6d980404373a Created 
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\BackendModelComplianceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mall application tables have concrete eloquent models[39m[90m                [39m [90m0.92s[39m  
+  [32;1m✓[39;22m[90m [39m[90mconcrete models define explicit fillable and base models do not ung[39m[90m…[39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mapp source has no direct table query builder or raw table shortcuts[39m[90m [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mapp source uses imported model classes instead of fully qualified m[39m[90m…[39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrepresentative services use model query builders for backend paths[39m[90m  [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmodel layer represents core relationships and casts[39m[90m                 [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mgrowth dynamic table helpers resolve to model query builders[39m[90m        [39m [90m0.02s[39m  
+
+  [90mTests:[39m    [32;1m7 passed[39;22m[90m (1182 assertions)[39m
+  [90mDuration:[39m [39m1.30s[39m
+

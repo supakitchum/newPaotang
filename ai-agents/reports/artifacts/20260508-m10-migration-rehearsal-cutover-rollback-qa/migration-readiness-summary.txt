@@ -1,0 +1,60 @@
+[default-dry-run]
+status: blocked_external
+production_approved: False
+boundary.local_dev_verifiable: True
+boundary.dry_run: True
+boundary.synthetic_seeded_data_only: True
+boundary.external_services_called: False
+boundary.long_lived_processes_started: False
+boundary.destructive_production_operations_attempted: False
+boundary.old_data_payloads_loaded: False
+boundary.staging_approved: False
+boundary.production_approved: False
+boundary.production_cutover_approved: False
+boundary.production_rollback_approved: False
+section.old_data_migration_strategy.status: ready_local
+section.rehearsal_fixtures.status: ready_local
+section.snapshot_requirements.status: blocked_external
+section.cutover.status: blocked_external
+section.rollback.status: blocked_external
+section.production_secret_boundary.status: blocked_external
+section.helpers.status: ready_local
+blocker_count: 15
+blockers: real_database_snapshot_missing, real_object_storage_metadata_snapshot_missing, restore_rehearsal_evidence_missing, release_image_tag_not_verified, production_cutover_window_not_approved, staging_rehearsal_not_completed, cloudflare_cdn_r2_production_evidence_missing, production_monitoring_alert_channels_not_verified, previous_image_tag_missing, production_db_backward_compatibility_not_verified, object_storage_rollback_plan_not_verified, rollback_rehearsal_not_executed, production_secret_management_missing, migration_source_credentials_missing, real_old_data_source_missing
+redacted.source_dsn: None
+redacted.source_token: None
+redacted.object_storage_bucket: None
+redacted.secret_reference: None
+redacted.release_image_tag: None
+redacted.previous_image_tag: None
+
+[fake-env-dry-run]
+status: blocked_external
+production_approved: False
+boundary.local_dev_verifiable: True
+boundary.dry_run: True
+boundary.synthetic_seeded_data_only: True
+boundary.external_services_called: False
+boundary.long_lived_processes_started: False
+boundary.destructive_production_operations_attempted: False
+boundary.old_data_payloads_loaded: False
+boundary.staging_approved: False
+boundary.production_approved: False
+boundary.production_cutover_approved: False
+boundary.production_rollback_approved: False
+section.old_data_migration_strategy.status: ready_local
+section.rehearsal_fixtures.status: ready_local
+section.snapshot_requirements.status: blocked_external
+section.cutover.status: blocked_external
+section.rollback.status: blocked_external
+section.production_secret_boundary.status: blocked_external
+section.helpers.status: ready_local
+blocker_count: 13
+blockers: real_database_snapshot_missing, real_object_storage_metadata_snapshot_missing, restore_rehearsal_evidence_missing, production_cutover_window_not_approved, staging_rehearsal_not_completed, cloudflare_cdn_r2_production_evidence_missing, production_monitoring_alert_channels_not_verified, production_db_backward_compatibility_not_verified, object_storage_rollback_plan_not_verified, rollback_rehearsal_not_executed, production_secret_management_missing, migration_source_credentials_missing, real_old_data_source_missing
+redacted.source_dsn: [REDACTED]
+redacted.source_token: [REDACTED]
+redacted.object_storage_bucket: [CONFIGURED]
+redacted.secret_reference: [REDACTED]
+redacted.release_image_tag: [CONFIGURED]
+redacted.previous_image_tag: [CONFIGURED]
+

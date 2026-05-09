@@ -1,0 +1,605 @@
+{
+    "status": "ok",
+    "dry_run": true,
+    "generated_at": "2026-05-08T08:07:37.998291Z",
+    "boundary": {
+        "local_dev_verifiable": true,
+        "external_delivery_attempted": false,
+        "production_approved": false
+    },
+    "summary": {
+        "partners_evaluated": 3,
+        "policies_evaluated": 24,
+        "alerts_detected": 0,
+        "events_delivered": 0
+    },
+    "results": [
+        {
+            "policy_key": "api_error_rate_high",
+            "policy_id": "pap_970da72998ca476629ca",
+            "partner_id": "par_demo_alpha",
+            "tenant_id": "ten_demo_alpha",
+            "state": "no_data",
+            "severity": "critical",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "platform_api",
+                "partner_id": "par_demo_alpha",
+                "tenant_id": "ten_demo_alpha",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "reason": "No API request summary exists for this partner yet."
+            }
+        },
+        {
+            "policy_key": "booking_fail_rate_high",
+            "policy_id": "pap_e248c0935f1da2a7df27",
+            "partner_id": "par_demo_alpha",
+            "tenant_id": "ten_demo_alpha",
+            "state": "no_data",
+            "severity": "warning",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "booking",
+                "partner_id": "par_demo_alpha",
+                "tenant_id": "ten_demo_alpha",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "reason": "No dedicated request counter exists for this policy yet.",
+                "request_counter": "booking_request_count"
+            }
+        },
+        {
+            "policy_key": "checkout_fail_rate_high",
+            "policy_id": "pap_531f3f91bbda1c4798c6",
+            "partner_id": "par_demo_alpha",
+            "tenant_id": "ten_demo_alpha",
+            "state": "no_data",
+            "severity": "critical",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "checkout_wallet",
+                "partner_id": "par_demo_alpha",
+                "tenant_id": "ten_demo_alpha",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "reason": "No dedicated request counter exists for this policy yet.",
+                "request_counter": "checkout_request_count"
+            }
+        },
+        {
+            "policy_key": "sync_lag_high",
+            "policy_id": "pap_0cc95a0cc378926f2929",
+            "partner_id": "par_demo_alpha",
+            "tenant_id": "ten_demo_alpha",
+            "state": "ok",
+            "severity": "warning",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "partner_sync",
+                "partner_id": "par_demo_alpha",
+                "tenant_id": "ten_demo_alpha",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "pending_older_than_seconds": 300,
+                "pending_count": 0
+            }
+        },
+        {
+            "policy_key": "queue_lag_high",
+            "policy_id": "pap_f0efa184fd205ff8f9e1",
+            "partner_id": "par_demo_alpha",
+            "tenant_id": "ten_demo_alpha",
+            "state": "ok",
+            "severity": "warning",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "queue",
+                "partner_id": "par_demo_alpha",
+                "tenant_id": "ten_demo_alpha",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "pending_older_than_seconds": 300,
+                "pending_count": 0
+            }
+        },
+        {
+            "policy_key": "reward_check_failure",
+            "policy_id": "pap_85f2a3a99898af4bb4cf",
+            "partner_id": "par_demo_alpha",
+            "tenant_id": "ten_demo_alpha",
+            "state": "ok",
+            "severity": "critical",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "reward",
+                "partner_id": "par_demo_alpha",
+                "tenant_id": "ten_demo_alpha",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "failed_items": 0,
+                "window_seconds": 300
+            }
+        },
+        {
+            "policy_key": "permission_denied_spike",
+            "policy_id": "pap_eecc98776d8c8deeab9d",
+            "partner_id": "par_demo_alpha",
+            "tenant_id": "ten_demo_alpha",
+            "state": "ok",
+            "severity": "warning",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "security",
+                "partner_id": "par_demo_alpha",
+                "tenant_id": "ten_demo_alpha",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "count": 0,
+                "threshold": 10,
+                "window_seconds": 300
+            }
+        },
+        {
+            "policy_key": "cross_tenant_access_attempt",
+            "policy_id": "pap_e0b4b394befb3c3092ec",
+            "partner_id": "par_demo_alpha",
+            "tenant_id": "ten_demo_alpha",
+            "state": "ok",
+            "severity": "critical",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "security",
+                "partner_id": "par_demo_alpha",
+                "tenant_id": "ten_demo_alpha",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "count": 0,
+                "threshold": 1,
+                "window_seconds": 300
+            }
+        },
+        {
+            "policy_key": "api_error_rate_high",
+            "policy_id": "pap_9ea8b0266d012182ca37",
+            "partner_id": "par_demo_beta",
+            "tenant_id": "ten_demo_beta",
+            "state": "no_data",
+            "severity": "critical",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "platform_api",
+                "partner_id": "par_demo_beta",
+                "tenant_id": "ten_demo_beta",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "reason": "No API request summary exists for this partner yet."
+            }
+        },
+        {
+            "policy_key": "booking_fail_rate_high",
+            "policy_id": "pap_c60a58f456f675026c6b",
+            "partner_id": "par_demo_beta",
+            "tenant_id": "ten_demo_beta",
+            "state": "no_data",
+            "severity": "warning",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "booking",
+                "partner_id": "par_demo_beta",
+                "tenant_id": "ten_demo_beta",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "reason": "No dedicated request counter exists for this policy yet.",
+                "request_counter": "booking_request_count"
+            }
+        },
+        {
+            "policy_key": "checkout_fail_rate_high",
+            "policy_id": "pap_1e1806a0e2e7cb37c679",
+            "partner_id": "par_demo_beta",
+            "tenant_id": "ten_demo_beta",
+            "state": "no_data",
+            "severity": "critical",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "checkout_wallet",
+                "partner_id": "par_demo_beta",
+                "tenant_id": "ten_demo_beta",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "reason": "No dedicated request counter exists for this policy yet.",
+                "request_counter": "checkout_request_count"
+            }
+        },
+        {
+            "policy_key": "sync_lag_high",
+            "policy_id": "pap_9a292655209f058a66a5",
+            "partner_id": "par_demo_beta",
+            "tenant_id": "ten_demo_beta",
+            "state": "ok",
+            "severity": "warning",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "partner_sync",
+                "partner_id": "par_demo_beta",
+                "tenant_id": "ten_demo_beta",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "pending_older_than_seconds": 300,
+                "pending_count": 0
+            }
+        },
+        {
+            "policy_key": "queue_lag_high",
+            "policy_id": "pap_3db0ff280f72ff968471",
+            "partner_id": "par_demo_beta",
+            "tenant_id": "ten_demo_beta",
+            "state": "ok",
+            "severity": "warning",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "queue",
+                "partner_id": "par_demo_beta",
+                "tenant_id": "ten_demo_beta",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "pending_older_than_seconds": 300,
+                "pending_count": 0
+            }
+        },
+        {
+            "policy_key": "reward_check_failure",
+            "policy_id": "pap_7501e82483c21ef65c9b",
+            "partner_id": "par_demo_beta",
+            "tenant_id": "ten_demo_beta",
+            "state": "ok",
+            "severity": "critical",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "reward",
+                "partner_id": "par_demo_beta",
+                "tenant_id": "ten_demo_beta",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "failed_items": 0,
+                "window_seconds": 300
+            }
+        },
+        {
+            "policy_key": "permission_denied_spike",
+            "policy_id": "pap_33b9ad7557a328774000",
+            "partner_id": "par_demo_beta",
+            "tenant_id": "ten_demo_beta",
+            "state": "ok",
+            "severity": "warning",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "security",
+                "partner_id": "par_demo_beta",
+                "tenant_id": "ten_demo_beta",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "count": 0,
+                "threshold": 10,
+                "window_seconds": 300
+            }
+        },
+        {
+            "policy_key": "cross_tenant_access_attempt",
+            "policy_id": "pap_8a882216f98f1af83642",
+            "partner_id": "par_demo_beta",
+            "tenant_id": "ten_demo_beta",
+            "state": "ok",
+            "severity": "critical",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "security",
+                "partner_id": "par_demo_beta",
+                "tenant_id": "ten_demo_beta",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "count": 0,
+                "threshold": 1,
+                "window_seconds": 300
+            }
+        },
+        {
+            "policy_key": "api_error_rate_high",
+            "policy_id": "pap_dd7e8cac88434aeaaffb",
+            "partner_id": "par_demo_gamma",
+            "tenant_id": "ten_demo_gamma",
+            "state": "no_data",
+            "severity": "critical",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "platform_api",
+                "partner_id": "par_demo_gamma",
+                "tenant_id": "ten_demo_gamma",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "reason": "No API request summary exists for this partner yet."
+            }
+        },
+        {
+            "policy_key": "booking_fail_rate_high",
+            "policy_id": "pap_7fd6c8fe9ccebd1b1f78",
+            "partner_id": "par_demo_gamma",
+            "tenant_id": "ten_demo_gamma",
+            "state": "no_data",
+            "severity": "warning",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "booking",
+                "partner_id": "par_demo_gamma",
+                "tenant_id": "ten_demo_gamma",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "reason": "No dedicated request counter exists for this policy yet.",
+                "request_counter": "booking_request_count"
+            }
+        },
+        {
+            "policy_key": "checkout_fail_rate_high",
+            "policy_id": "pap_6f7de241399edff92014",
+            "partner_id": "par_demo_gamma",
+            "tenant_id": "ten_demo_gamma",
+            "state": "no_data",
+            "severity": "critical",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "checkout_wallet",
+                "partner_id": "par_demo_gamma",
+                "tenant_id": "ten_demo_gamma",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "reason": "No dedicated request counter exists for this policy yet.",
+                "request_counter": "checkout_request_count"
+            }
+        },
+        {
+            "policy_key": "sync_lag_high",
+            "policy_id": "pap_0dce4518e6b954e7d074",
+            "partner_id": "par_demo_gamma",
+            "tenant_id": "ten_demo_gamma",
+            "state": "ok",
+            "severity": "warning",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "partner_sync",
+                "partner_id": "par_demo_gamma",
+                "tenant_id": "ten_demo_gamma",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "pending_older_than_seconds": 300,
+                "pending_count": 0
+            }
+        },
+        {
+            "policy_key": "queue_lag_high",
+            "policy_id": "pap_5ae840e14ce618beaf33",
+            "partner_id": "par_demo_gamma",
+            "tenant_id": "ten_demo_gamma",
+            "state": "ok",
+            "severity": "warning",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "queue",
+                "partner_id": "par_demo_gamma",
+                "tenant_id": "ten_demo_gamma",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "pending_older_than_seconds": 300,
+                "pending_count": 0
+            }
+        },
+        {
+            "policy_key": "reward_check_failure",
+            "policy_id": "pap_f1857e8de03c5ba7d8af",
+            "partner_id": "par_demo_gamma",
+            "tenant_id": "ten_demo_gamma",
+            "state": "ok",
+            "severity": "critical",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "reward",
+                "partner_id": "par_demo_gamma",
+                "tenant_id": "ten_demo_gamma",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "failed_items": 0,
+                "window_seconds": 300
+            }
+        },
+        {
+            "policy_key": "permission_denied_spike",
+            "policy_id": "pap_d016e3257ec896d6b6ba",
+            "partner_id": "par_demo_gamma",
+            "tenant_id": "ten_demo_gamma",
+            "state": "ok",
+            "severity": "warning",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "security",
+                "partner_id": "par_demo_gamma",
+                "tenant_id": "ten_demo_gamma",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "count": 0,
+                "threshold": 10,
+                "window_seconds": 300
+            }
+        },
+        {
+            "policy_key": "cross_tenant_access_attempt",
+            "policy_id": "pap_51e75bc1b52a8754b31f",
+            "partner_id": "par_demo_gamma",
+            "tenant_id": "ten_demo_gamma",
+            "state": "ok",
+            "severity": "critical",
+            "labels": {
+                "platform": "newpaotang",
+                "environment": "local",
+                "module": "security",
+                "partner_id": "par_demo_gamma",
+                "tenant_id": "ten_demo_gamma",
+                "deployment_mode": "shared",
+                "package": null,
+                "endpoint": null,
+                "queue": null,
+                "game_id": null
+            },
+            "evidence": {
+                "count": 0,
+                "threshold": 1,
+                "window_seconds": 300
+            }
+        }
+    ],
+    "events": [],
+    "channels": {
+        "local": [
+            "database",
+            "log"
+        ],
+        "external": "blocked_until_credentials_and_production_secret_management_exist"
+    }
+}

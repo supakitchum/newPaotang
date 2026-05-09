@@ -45,6 +45,7 @@ export interface UserTicketPagination {
 
 export interface FetchTicketsOptions {
   gameId?: number | string | null
+  history?: boolean
   search?: string
   page?: number
   perPage?: number
@@ -108,8 +109,8 @@ export const getTicketSet = (ticket: Partial<UserTicket> | null | undefined) => 
 }
 
 export const useUserTickets = () => {
-  const axios = useAxios()
-  const config = useRuntimeConfig()
+  const platformApi = usePlatformApi()
+  const pageCursors = useState<Record<string, string | null>>('ticket_page_cursors', () => ({}))
 
   const fetchTickets = async (gameIdOrOptions?: number | string | null | FetchTicketsOptions, fetchOptions: FetchTicketsOptions = {}): Promise<UserTicketResponse> => {
     const options = typeof gameIdOrOptions === 'object' && gameIdOrOptions !== null
@@ -119,41 +120,31 @@ export const useUserTickets = () => {
           gameId: gameIdOrOptions
         }
 
-    const response = await axios.get('/lotteries', {
-      params: {
-        ...(options.gameId ? { game_id: options.gameId } : {}),
-        ...(options.search ? { search: options.search } : {}),
-        ...(options.page ? { page: options.page } : {}),
-        ...(options.perPage ? { per_page: options.perPage } : {}),
-        ...(options.status !== undefined ? { status: options.status } : {})
-      }
+    const history = options.history === true || Boolean(options.gameId)
+    const page = Number(options.page || 1)
+    const key = `${history ? 'history' : 'active'}-${options.gameId || 'all'}-${options.search || ''}`
+    const cursor = page > 1 ? pageCursors.value[`${key}-${page}`] || null : null
+    const response = await platformApi.ticketsLegacy({
+      cursor,
+      limit: options.perPage,
+      page,
+      history,
+      status: options.status
     })
+    const nextCursor = response.pagination.nextPageUrl || response.pagination.seed || null
 
-    const payload = response.data || {}
-    const result = payload.result || {}
-    const tickets = Array.isArray(result.data)
-      ? result.data
-      : Array.isArray(result)
-        ? result
-        : Array.isArray(payload.data)
-          ? payload.data
-          : []
-    const game = payload.game || result.game || null
-    const games = Array.isArray(payload.games) ? payload.games : Array.isArray(result.games) ? result.games : []
-    const pagination = {
-      currentPage: Number(result.current_page || payload.current_page || 1),
-      lastPage: Number(result.last_page || payload.last_page || 1),
-      perPage: Number(result.per_page || payload.per_page || options.perPage || tickets.length || 20),
-      total: Number(result.total || payload.total || tickets.length),
-      nextPageUrl: result.next_page_url || payload.next_page_url || null
+    if (nextCursor) {
+      pageCursors.value[`${key}-${page + 1}`] = nextCursor
     }
 
+    const filteredTickets = options.search
+      ? response.tickets.filter((ticket) => getTicketNumber(ticket).includes(String(options.search)))
+      : response.tickets
+
     return {
-      tickets,
-      game,
-      games,
-      pagination,
-      totalTicketCount: Number(payload.ticket_count || result.ticket_count || 0)
+      ...response,
+      tickets: filteredTickets,
+      totalTicketCount: response.totalTicketCount || filteredTickets.length
     }
   }
 
@@ -176,10 +167,7 @@ export const useUserTickets = () => {
       return imageUrl
     }
 
-    const baseUrl = String(config.public.apiBaseUrl || '').replace(/\/$/, '')
-    const normalizedPath = imageUrl.replace(/^\/+/, '')
-
-    return baseUrl ? `${baseUrl}/${normalizedPath}` : `/${normalizedPath}`
+    return imageUrl.startsWith('/') ? imageUrl : `/${imageUrl.replace(/^\/+/, '')}`
   }
 
   return {

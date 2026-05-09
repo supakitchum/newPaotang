@@ -1,0 +1,450 @@
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\AdminMenu;
+use App\Models\Permission;
+use Illuminate\Database\Seeder;
+
+class DefaultRbacMenuSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $now = now();
+
+        Permission::query()->upsert(
+            array_map(fn (array $permission): array => [
+                'id' => $this->stableId('per', $permission['scope_type'], $permission['code']),
+                'scope_type' => $permission['scope_type'],
+                'code' => $permission['code'],
+                'name' => $permission['name'],
+                'status' => 'active',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ], $this->permissions()),
+            ['scope_type', 'code'],
+            ['name', 'status', 'updated_at'],
+        );
+
+        AdminMenu::query()->upsert(
+            array_map(fn (array $menu): array => [
+                'id' => $this->stableId('men', $menu['scope_type'], $menu['code']),
+                'scope_type' => $menu['scope_type'],
+                'parent_id' => null,
+                'code' => $menu['code'],
+                'label' => $this->labelFor($menu['code']),
+                'route' => $menu['route'],
+                'category' => $this->categoryFor($menu['scope_type'], $menu['code']),
+                'icon' => $this->iconFor($menu['scope_type'], $menu['code']),
+                'required_permission_code' => $menu['required_permission_code'],
+                'sort_order' => $menu['sort_order'],
+                'status' => 'active',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ], $this->menus()),
+            ['scope_type', 'code'],
+            ['parent_id', 'label', 'route', 'category', 'icon', 'required_permission_code', 'sort_order', 'status', 'updated_at'],
+        );
+    }
+
+    /**
+     * @return array<int, array{scope_type: string, code: string, name: string}>
+     */
+    public function permissions(): array
+    {
+        return [
+            ...$this->scopedPermissions('central', [
+                'dashboard.view' => 'View central dashboard',
+                'game.view' => 'View games',
+                'game.create' => 'Create games',
+                'game.update' => 'Update games',
+                'game.close' => 'Close games',
+                'game.reward' => 'Manage game reward state',
+                'reward.view' => 'View reward results',
+                'reward.create' => 'Record reward results',
+                'reward.verify' => 'Verify reward summaries',
+                'reward.publish' => 'Publish rewards',
+                'reward.correct' => 'Correct published rewards through correction flow',
+                'reward.audit' => 'View reward audit',
+                'stock.view' => 'View master stock',
+                'stock.generate' => 'Generate/import master stock',
+                'stock.allocate' => 'Allocate stock to partners',
+                'stock.recall' => 'Recall allocated stock',
+                'stock.export' => 'Export stock data',
+                'partner.view' => 'View partners',
+                'partner.create' => 'Create partners',
+                'partner.update' => 'Update partners',
+                'partner.suspend' => 'Suspend partners',
+                'partner.api.manage' => 'Manage partner API clients',
+                'partner.quota.manage' => 'Manage partner quotas',
+                'partner.provision' => 'Provision partner tenant defaults',
+                'partner.monitoring.view' => 'View partner monitoring profile and health',
+                'partner.monitoring.manage' => 'Manage partner monitoring profile',
+                'partner.usage.view' => 'View partner usage meters',
+                'partner.usage.manage' => 'Manage partner usage meters and limits',
+                'partner.billing.view' => 'View partner billing bindings',
+                'partner.billing.manage' => 'Manage partner billing plans and bindings',
+                'partner.alert.view' => 'View partner alert policies and events',
+                'partner.alert.manage' => 'Manage partner alert policies and event states',
+                'settlement.view' => 'View settlements',
+                'settlement.approve' => 'Approve settlements',
+                'report.view' => 'View central reports',
+                'admin_user.manage' => 'Manage central admin users',
+                'role.manage' => 'Manage central roles',
+                'menu.manage' => 'Manage central menus',
+                'audit.view' => 'View central audit logs',
+                'system.settings.manage' => 'Manage platform settings',
+                'asset.manage' => 'Manage central asset upload intents',
+                'support_access.audit' => 'View support access audits',
+            ]),
+            ...$this->scopedPermissions('tenant', [
+                'dashboard.view' => 'View tenant dashboard',
+                'stock.view' => 'View tenant-local stock',
+                'stock.sync' => 'Run or view stock sync',
+                'stock.export' => 'Export tenant stock',
+                'reservation.view' => 'View reservations',
+                'reservation.cancel' => 'Cancel reservations',
+                'order.view' => 'View orders',
+                'order.update' => 'Update orders',
+                'order.cancel' => 'Cancel orders',
+                'order.refund' => 'Refund orders',
+                'customer.view' => 'View customers',
+                'customer.create' => 'Create customers',
+                'customer.update' => 'Update customers',
+                'customer.suspend' => 'Suspend or disable customers',
+                'wallet.view' => 'View wallets',
+                'wallet.adjust' => 'Adjust wallet through audited ledger flow',
+                'topup.view' => 'View topups',
+                'topup.approve' => 'Approve topups',
+                'topup.reject' => 'Reject topups',
+                'topup.cancel' => 'Cancel topups',
+                'ticket.view' => 'View tickets',
+                'reward_claim.view' => 'View reward cashout claims',
+                'reward_claim.approve' => 'Approve reward cashout claims',
+                'reward_claim.reject' => 'Reject reward cashout claims',
+                'reward_claim.pay' => 'Pay reward cashout claims',
+                'agent.view' => 'View agents',
+                'agent.create' => 'Create agents',
+                'agent.update' => 'Update agents',
+                'agent.quota.manage' => 'Manage agent quotas',
+                'price_rule.view' => 'View tenant price rules',
+                'price_rule.manage' => 'Manage tenant price rules',
+                'payment_settings.view' => 'View tenant payment settings and channels',
+                'payment_settings.manage' => 'Manage tenant payment settings and channels',
+                'affiliate.view' => 'View affiliate data',
+                'affiliate.create' => 'Create affiliate records',
+                'affiliate.update' => 'Update affiliate records',
+                'affiliate_program.view' => 'View affiliate programs',
+                'affiliate_program.manage' => 'Manage affiliate programs',
+                'affiliate_link.view' => 'View affiliate links',
+                'affiliate_link.manage' => 'Manage affiliate links',
+                'affiliate_attribution.view' => 'View affiliate attributions',
+                'commission.view' => 'View commissions',
+                'commission.approve' => 'Approve commissions',
+                'commission_rule.view' => 'View commission rules',
+                'commission_rule.manage' => 'Manage commission rules',
+                'payout.manage' => 'Manage payouts',
+                'report.view' => 'View tenant reports',
+                'monitoring.view' => 'View tenant monitoring and health',
+                'usage.view' => 'View tenant usage meters',
+                'sync_log.view' => 'View sync logs',
+                'seo.view' => 'View SEO settings',
+                'seo.update' => 'Update SEO settings',
+                'seo.redirect.manage' => 'Manage tenant redirects',
+                'maintenance.view' => 'View maintenance settings',
+                'maintenance.update' => 'Update maintenance settings',
+                'maintenance.schedule' => 'Schedule maintenance',
+                'maintenance.bypass' => 'Bypass maintenance',
+                'support_access.request' => 'Request support access',
+                'support_access.approve' => 'Approve support access',
+                'support_access.impersonate_customer' => 'Impersonate customer with limits',
+                'support_access.impersonate_admin' => 'Impersonate tenant admin with approval',
+                'support_access.elevated_action' => 'Request or use elevated support action',
+                'support_access.audit' => 'View support access audit',
+                'admin_user.manage' => 'Manage tenant admin users',
+                'role.manage' => 'Manage tenant roles',
+                'menu.manage' => 'Manage tenant menus',
+                'settings.view' => 'View tenant settings',
+                'settings.manage' => 'Manage tenant settings',
+                'asset.manage' => 'Manage tenant asset upload intents',
+                'audit.view' => 'View tenant audit logs',
+            ]),
+        ];
+    }
+
+    /**
+     * @return array<int, array{scope_type: string, code: string, required_permission_code: string, route: string|null, sort_order: int}>
+     */
+    public function menus(): array
+    {
+        return [
+            ...$this->scopedMenus('central', [
+                'dashboard' => 'dashboard.view',
+                'games' => 'game.view',
+                'rewards' => 'reward.view',
+                'prize_checking' => 'reward.view',
+                'master_stock' => 'stock.view',
+                'stock_generation' => 'stock.generate',
+                'partners' => 'partner.view',
+                'partner_provisioning' => 'partner.provision',
+                'partner_quotas' => 'partner.quota.manage',
+                'partner_monitoring' => 'partner.monitoring.view',
+                'partner_usage' => 'partner.usage.view',
+                'allocations' => 'stock.allocate',
+                'stock_recall' => 'stock.recall',
+                'billing_plans' => 'partner.billing.manage',
+                'alert_policies' => 'partner.alert.manage',
+                'alert_events' => 'partner.alert.view',
+                'reports' => 'report.view',
+                'settlement' => 'settlement.view',
+                'webhook_logs' => 'audit.view',
+                'audit_logs' => 'audit.view',
+                'admin_users' => 'admin_user.manage',
+                'roles_permissions' => 'role.manage',
+                'menu_management' => 'menu.manage',
+                'system_settings' => 'system.settings.manage',
+            ]),
+            ...$this->scopedMenus('tenant', [
+                'dashboard' => 'dashboard.view',
+                'local_stock' => 'stock.view',
+                'stock_sync' => 'stock.sync',
+                'price_rules' => 'price_rule.view',
+                'reservations' => 'reservation.view',
+                'orders' => 'order.view',
+                'customers' => 'customer.view',
+                'wallets' => 'wallet.view',
+                'topups' => 'topup.view',
+                'tickets' => 'ticket.view',
+                'agents' => 'agent.view',
+                'agent_quotas' => 'agent.quota.manage',
+                'payment_settings' => 'payment_settings.view',
+                'affiliate_programs' => 'affiliate_program.view',
+                'affiliate_accounts' => 'affiliate.view',
+                'affiliate_links' => 'affiliate_link.view',
+                'affiliate_attributions' => 'affiliate_attribution.view',
+                'commission_rules' => 'commission_rule.view',
+                'seo_settings' => 'seo.view',
+                'maintenance' => 'maintenance.view',
+                'support_access_logs' => 'support_access.audit',
+                'commission_transactions' => 'commission.view',
+                'payouts' => 'payout.manage',
+                'reports' => 'report.view',
+                'monitoring' => 'monitoring.view',
+                'usage' => 'usage.view',
+                'sync_logs' => 'sync_log.view',
+                'audit_logs' => 'audit.view',
+                'admin_users' => 'admin_user.manage',
+                'roles_permissions' => 'role.manage',
+                'menu_management' => 'menu.manage',
+                'settings' => 'settings.view',
+            ]),
+        ];
+    }
+
+    /**
+     * @param array<string, string> $permissions
+     * @return array<int, array{scope_type: string, code: string, name: string}>
+     */
+    private function scopedPermissions(string $scopeType, array $permissions): array
+    {
+        $rows = [];
+
+        foreach ($permissions as $code => $name) {
+            $rows[] = [
+                'scope_type' => $scopeType,
+                'code' => $code,
+                'name' => $name,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param array<string, string> $menus
+     * @return array<int, array{scope_type: string, code: string, required_permission_code: string, route: string|null, sort_order: int}>
+     */
+    private function scopedMenus(string $scopeType, array $menus): array
+    {
+        $rows = [];
+        $sortOrder = 10;
+
+        foreach ($menus as $code => $permissionCode) {
+            $rows[] = [
+                'scope_type' => $scopeType,
+                'code' => $code,
+                'required_permission_code' => $permissionCode,
+                'route' => $this->routeFor($scopeType, $code),
+                'sort_order' => $sortOrder,
+            ];
+
+            $sortOrder += 10;
+        }
+
+        return $rows;
+    }
+
+    private function routeFor(string $scopeType, string $code): ?string
+    {
+        return match ($scopeType.':'.$code) {
+            'central:dashboard' => '/admin/central/dashboard',
+            'central:games' => '/admin/central/games',
+            'central:rewards',
+            'central:prize_checking' => '/admin/central/rewards',
+            'central:master_stock',
+            'central:stock_generation',
+            'central:stock_recall' => '/admin/central/stock',
+            'central:partners',
+            'central:partner_provisioning',
+            'central:partner_quotas',
+            'central:partner_monitoring',
+            'central:partner_usage',
+            'central:billing_plans',
+            'central:alert_policies',
+            'central:alert_events' => '/admin/central/partners',
+            'central:allocations' => '/admin/central/allocations',
+            'central:reports' => '/admin/central/reports',
+            'central:settlement' => '/admin/central/settlements',
+            'central:webhook_logs',
+            'central:audit_logs' => '/admin/central/audit-logs',
+            'central:admin_users',
+            'central:roles_permissions',
+            'central:menu_management',
+            'central:system_settings' => '/admin/central/dashboard',
+            'tenant:dashboard' => '/admin/tenant/dashboard',
+            'tenant:local_stock' => '/admin/tenant/stock',
+            'tenant:stock_sync' => '/admin/tenant/stock-sync',
+            'tenant:price_rules' => '/admin/tenant/settings',
+            'tenant:reservations' => '/admin/tenant/reservations',
+            'tenant:orders' => '/admin/tenant/orders',
+            'tenant:customers' => '/admin/tenant/settings',
+            'tenant:wallets' => '/admin/tenant/wallets',
+            'tenant:topups' => '/admin/tenant/topups',
+            'tenant:tickets' => '/admin/tenant/tickets',
+            'tenant:agents',
+            'tenant:agent_quotas' => '/admin/tenant/growth/agents',
+            'tenant:payment_settings' => '/admin/tenant/payment-settings',
+            'tenant:affiliate_programs' => '/admin/tenant/growth/affiliate-programs',
+            'tenant:affiliate_accounts' => '/admin/tenant/growth/affiliates',
+            'tenant:affiliate_links' => '/admin/tenant/growth/affiliate-links',
+            'tenant:affiliate_attributions' => '/admin/tenant/growth/attributions',
+            'tenant:commission_rules' => '/admin/tenant/growth/commission-rules',
+            'tenant:commission_transactions' => '/admin/tenant/growth/commission-transactions',
+            'tenant:payouts' => '/admin/tenant/growth/payouts',
+            'tenant:seo_settings' => '/admin/tenant/seo',
+            'tenant:maintenance' => '/admin/tenant/maintenance',
+            'tenant:support_access_logs' => '/admin/tenant/support-access',
+            'tenant:reports' => '/admin/tenant/reports',
+            'tenant:monitoring',
+            'tenant:usage' => '/admin/tenant/reports',
+            'tenant:sync_logs' => '/admin/tenant/sync-logs',
+            'tenant:audit_logs' => '/admin/tenant/audit-logs',
+            'tenant:admin_users',
+            'tenant:roles_permissions',
+            'tenant:menu_management',
+            'tenant:settings' => '/admin/tenant/settings',
+            default => null,
+        };
+    }
+
+    private function stableId(string $prefix, string $scopeType, string $code): string
+    {
+        return $prefix.'_'.substr($scopeType, 0, 1).'_'.substr(sha1($scopeType.':'.$code), 0, 20);
+    }
+
+    private function labelFor(string $code): string
+    {
+        return str($code)->replace('_', ' ')->title()->toString();
+    }
+
+    private function categoryFor(string $scopeType, string $code): string
+    {
+        if ($code === 'dashboard') {
+            return 'Dashboard';
+        }
+
+        return match ($scopeType.':'.$code) {
+            'central:games',
+            'central:rewards',
+            'central:prize_checking',
+            'central:master_stock',
+            'central:stock_generation',
+            'central:allocations',
+            'central:stock_recall' => 'Lottery Operations',
+            'central:partners',
+            'central:partner_provisioning',
+            'central:partner_quotas',
+            'central:partner_monitoring',
+            'central:partner_usage',
+            'central:billing_plans',
+            'central:alert_policies',
+            'central:alert_events' => 'Partner Operations',
+            'central:reports',
+            'central:settlement' => 'Finance And Reports',
+            'central:webhook_logs',
+            'central:audit_logs',
+            'central:admin_users',
+            'central:roles_permissions',
+            'central:menu_management',
+            'central:system_settings' => 'Administration',
+            'tenant:local_stock',
+            'tenant:stock_sync',
+            'tenant:price_rules',
+            'tenant:reservations',
+            'tenant:orders',
+            'tenant:customers',
+            'tenant:wallets',
+            'tenant:topups',
+            'tenant:tickets',
+            'tenant:payment_settings' => 'Store Operations',
+            'tenant:agents',
+            'tenant:agent_quotas',
+            'tenant:affiliate_programs',
+            'tenant:affiliate_accounts',
+            'tenant:affiliate_links',
+            'tenant:affiliate_attributions',
+            'tenant:commission_rules',
+            'tenant:commission_transactions',
+            'tenant:payouts' => 'Growth',
+            'tenant:seo_settings',
+            'tenant:maintenance',
+            'tenant:support_access_logs',
+            'tenant:reports',
+            'tenant:monitoring',
+            'tenant:usage',
+            'tenant:sync_logs',
+            'tenant:audit_logs' => 'Operations Control',
+            'tenant:admin_users',
+            'tenant:roles_permissions',
+            'tenant:menu_management',
+            'tenant:settings' => 'Administration',
+            default => 'Administration',
+        };
+    }
+
+    private function iconFor(string $scopeType, string $code): string
+    {
+        return match (true) {
+            $code === 'dashboard' => 'ri-dashboard-line',
+            str_contains($code, 'stock') || str_contains($code, 'allocation') => 'ri-archive-stack-line',
+            str_contains($code, 'reward') || str_contains($code, 'prize') => 'ri-trophy-line',
+            str_contains($code, 'partner') => 'ri-building-4-line',
+            str_contains($code, 'quota') => 'ri-speed-up-line',
+            str_contains($code, 'billing') || str_contains($code, 'settlement') || str_contains($code, 'payout') => 'ri-bank-card-line',
+            str_contains($code, 'alert') || str_contains($code, 'monitoring') => 'ri-notification-3-line',
+            str_contains($code, 'report') || str_contains($code, 'usage') => 'ri-bar-chart-box-line',
+            str_contains($code, 'audit') || str_contains($code, 'log') => 'ri-history-line',
+            str_contains($code, 'admin_user') => 'ri-user-settings-line',
+            str_contains($code, 'role') || str_contains($code, 'permission') => 'ri-shield-user-line',
+            str_contains($code, 'menu') => 'ri-menu-2-line',
+            str_contains($code, 'setting') || str_contains($code, 'seo') => 'ri-settings-3-line',
+            str_contains($code, 'maintenance') => 'ri-tools-line',
+            str_contains($code, 'support') => 'ri-customer-service-2-line',
+            str_contains($code, 'order') || str_contains($code, 'ticket') => 'ri-receipt-line',
+            str_contains($code, 'wallet') || str_contains($code, 'topup') || str_contains($code, 'payment') => 'ri-wallet-3-line',
+            str_contains($code, 'agent') || str_contains($code, 'affiliate') || str_contains($code, 'commission') => 'ri-team-line',
+            $scopeType === 'central' => 'ri-apps-2-line',
+            default => 'ri-dashboard-line',
+        };
+    }
+}

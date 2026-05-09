@@ -1,0 +1,40 @@
+ M apps/customer/.env.example
+ M apps/customer/assets/scss/main.css
+ M apps/customer/components/BrandLogo.vue
+ M apps/customer/components/LotteryItem.vue
+ M apps/customer/components/ResultFullPage.vue
+ M apps/customer/composables/useAppInit.ts
+ M apps/customer/composables/useAuth.ts
+ M apps/customer/composables/useUserTickets.ts
+ M apps/customer/middleware/init.global.ts
+ M apps/customer/nuxt.config.ts
+ M apps/customer/pages/buy/index.vue
+ M apps/customer/pages/buy/more.vue
+ M apps/customer/pages/buy/search.vue
+ M apps/customer/pages/cart.vue
+ M apps/customer/pages/checkout.vue
+ M apps/customer/pages/index.vue
+ M apps/customer/pages/line/callback.vue
+ M apps/customer/pages/login.vue
+ M apps/customer/pages/profile.vue
+ M apps/customer/pages/register.vue
+ M apps/customer/pages/result/full.vue
+ M apps/customer/pages/result/index.vue
+ M apps/customer/pages/results/index.vue
+ M apps/customer/pages/stores/index.vue
+ M apps/customer/pages/stores/lotteries.vue
+ M apps/customer/pages/success.vue
+ M apps/customer/pages/tickets/history.vue
+ M apps/customer/pages/topup/history.vue
+ M apps/customer/pages/topup/index.vue
+ M apps/customer/plugins/axios.ts
+?? ai-agents/reports/artifacts/20260509-m10-remaining-openapi-route-policy-and-backend-closure-qa/
+?? apps/back-office/
+?? apps/customer/composables/usePlatformApi.ts
+?? apps/customer/composables/useSiteConfig.ts
+?? apps/customer/composables/useTenantSeo.ts
+?? apps/customer/pages/maintenance.vue
+?? apps/customer/server/
+?? apps/platform-api/
+?? docs/m10-backend-completion-and-release-gate-closure.md
+?? ops/m10/backend-release-gate-ledger.md

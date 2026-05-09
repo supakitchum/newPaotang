@@ -1,0 +1,18 @@
+ai-agents/BOARD.md:25:M10 release-gate follow-up is paused. Coordinator found backend modular monolith structure drift: controllers are centralized under App\Modules\Platform\Http\Controllers and domain services/validation are still mostly under Shared. Open Backend Module Structure Remediation to split controllers/services/validation into real domain modules without API path/contract/customer/back-office flow changes.
+ai-agents/decisions/20260508-backend-module-structure-remediation-decision.md:157:move controllers from App\Modules\Platform\Http\Controllers into App\Modules\<Domain>\Http\Controllers
+ai-agents/handoffs/20260508-backend-module-structure-remediation-qa-task-orchestrator-handoff.md:24:  - old `App\Modules\Platform\Http\Controllers` references in active app/routes/backend docs
+ai-agents/handoffs/20260508-backend-module-structure-remediation-qa-task-orchestrator-handoff.md:46:rg -n -F 'App\Modules\Platform\Http\Controllers' apps/platform-api/app apps/platform-api/routes docs/backend-architecture-compliance.md docs/backend-request-validation.md docs/backend-console-commands.md
+ai-agents/handoffs/20260508-backend-module-structure-remediation-qa-task-orchestrator-handoff.md:56:No active apps/platform-api app/routes/backend docs references to App\Modules\Platform\Http\Controllers were found.
+ai-agents/handoffs/20260508-backend-module-structure-remediation-backend-handoff.md:10:- Refactored `apps/platform-api` from the temporary centralized `App\Modules\Platform\Http\Controllers` controller namespace into domain-owned Modular Monolith controller namespaces.
+ai-agents/handoffs/20260508-backend-module-structure-remediation-backend-handoff.md:154:- No active `apps/platform-api` or backend docs match `App\Modules\Platform\Http\Controllers`.
+ai-agents/tasks/20260508-backend-module-structure-remediation-backend.md:15:routes/api.php imports all backend controllers from App\Modules\Platform\Http\Controllers
+ai-agents/tasks/20260508-backend-module-structure-remediation-backend.md:346:controllers are added under App\Modules\Platform\Http\Controllers
+ai-agents/tasks/20260508-backend-module-structure-remediation-backend.md:347:routes import App\Modules\Platform\Http\Controllers
+ai-agents/tasks/20260508-backend-module-structure-remediation-backend.md:382:- `routes/api.php` imports domain module controllers, not `App\Modules\Platform\Http\Controllers`.
+ai-agents/handoffs/20260508-backend-module-structure-remediation-coordinator-handoff.md:28:33 controllers currently live under App\Modules\Platform\Http\Controllers.
+ai-agents/handoffs/20260508-backend-module-structure-remediation-coordinator-handoff.md:29:routes/api.php imports all backend controllers from App\Modules\Platform\Http\Controllers.
+ai-agents/handoffs/20260508-backend-module-structure-remediation-orchestrator-handoff.md:60:routes/api.php and routes/health.php import controllers from App\Modules\Platform\Http\Controllers.
+ai-agents/handoffs/20260508-backend-module-structure-remediation-orchestrator-handoff.md:96:Historical ai-agents files will still mention App\Modules\Platform\Http\Controllers; QA should distinguish historical context from active app/routes/docs drift.
+ai-agents/tasks/20260508-backend-module-structure-remediation-qa.md:18:controllers moved from App\Modules\Platform\Http\Controllers to App\Modules\<Domain>\Http\Controllers
+ai-agents/tasks/20260508-backend-module-structure-remediation-qa.md:210:App\Modules\Platform\Http\Controllers
+ai-agents/tasks/20260508-backend-module-structure-remediation-qa.md:290:- `routes/api.php` imports domain module controllers, not `App\Modules\Platform\Http\Controllers`.

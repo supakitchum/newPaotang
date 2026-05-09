@@ -1,0 +1,2 @@
+load-tests/results/.gitignore:1:*	load-tests/results/k6-baseline.env
+load-tests/results/.gitignore:1:*	load-tests/results/k6-baseline-env.json

@@ -1,0 +1,6 @@
+?? load-tests/results/
+!! load-tests/results/20260508T070723Z/
+!! load-tests/results/20260508T070830Z/
+!! load-tests/results/20260508T072215Z/
+!! load-tests/results/k6-baseline-env.json
+!! load-tests/results/k6-baseline.env

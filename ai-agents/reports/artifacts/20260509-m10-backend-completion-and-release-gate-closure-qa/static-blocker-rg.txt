@@ -1,0 +1,693 @@
+ops/m10/cloudflare-cache-bypass-rules.json:5:  "production_approved": false,
+ops/m10/cloudflare-cache-bypass-rules.json:7:    "Template only. Do not deploy to a real Cloudflare zone without QA/Ops evidence and non-production approval.",
+docs/backend-maintenance-support.md:11:blocked sensitive support actions
+docs/backend-maintenance-support.md:21:Blocking is tenant scoped. `GET /api/v1/public/site-config` remains readable and returns `maintenance.active=true` when active. Public/customer endpoints that are blocked return `maintenance_active` with HTTP 503 and `Retry-After` when configured.
+docs/backend-maintenance-support.md:35:Maintenance bypasses are tenant scoped. `GET /api/v1/admin/tenant/maintenance/bypasses` requires `maintenance.bypass`, supports `cursor`, `limit`, and `status=active|revoked|expired`, and returns safe metadata only. It does not expose bearer tokens, support impersonation tokens, customer secrets, raw credentials, or broad login bypass material.
+docs/backend-maintenance-support.md:50:Sensitive tenant admin actions are blocked when valid support impersonation headers are present:
+docs/backend-maintenance-support.md:61:Blocked actions write `support_impersonation_blocked_actions`, `support_impersonation_events`, `audit_logs`, and `support_impersonation.action_blocked.v1` in `sync_outbox`.
+ops/m10/backend-release-gate-ledger.md:5:Gate status: Backend safe-scope ready for QA; production release remains blocked externally.
+ops/m10/backend-release-gate-ledger.md:17:| ERD/model compliance | ready_local | Existing models/tables reused; no migrations added; full `BackendModelComplianceTest` passed in suite | None | QA Tester |
+ops/m10/backend-release-gate-ledger.md:19:| Runtime readiness | blocked_external | `platform:runtime:readiness --format=json` executed; queue/scheduler/helpers ready local | Horizon package/config/supervision/dashboard policy and Reverb package/runtime/TLS/scaling are missing | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:20:| Observability | ready_local_with_external_followups | `platform:observability:report --format=json` executed with `ready_local` | External APM, alert delivery, edge/CDN security signals remain production integrations | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:21:| Cloudflare/CDN/R2 | blocked_external | `platform:cloudflare:readiness --format=json` executed; local domain guard and artifacts ready | Cloudflare account/zone/token, CDN base URL, R2 endpoint/bucket, and ticket image path evidence missing | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:22:| Migration rehearsal | blocked_external | `platform:migration:rehearsal --dry-run --format=json` executed; strategy and fixture docs ready local | Real snapshots, old-data source credentials, cutover window, release/previous tags, rollback evidence missing | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:23:| Remaining OpenAPI missing routes | blocked_coordinator | Parity after closure: OpenAPI 279, app 241, missing 38, undocumented 0 | Requires provider policy, security lifecycle, new persistence contracts, or external credentials | Orchestrator/Coordinator |
+ops/m10/backend-release-gate-ledger.md:30:| Asset uploads and commit | 6 | Needs storage/R2 presign policy, object lifecycle, and security guardrails | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:50:docker compose exec -T platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ops/m10/migration-rehearsal-fixtures.md:5:Local/dev rehearsal uses synthetic and seeded data only. Do not commit old-data dumps, customer exports, production database snapshots, object-storage manifests, bearer tokens, signed URLs, or PII.
+ops/m10/migration-rehearsal-fixtures.md:10:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ops/m10/migration-rehearsal-fixtures.md:31:no production hostnames or real object keys
+ops/m10/migration-rehearsal-fixtures.md:44:production_approved=false
+ops/m10/alert-channel-runbook.md:3:This runbook documents alert-channel readiness for local/dev QA. It does not approve production alert delivery.
+ops/m10/alert-channel-runbook.md:44:| webhook | Placeholder only; URL is redacted if configured | Needs real URL, secret management, retry policy, delivery QA |
+ops/m10/alert-channel-runbook.md:46:| Sentry | Placeholder only | Needs DSN/project and production secret management |
+ops/m10/alert-channel-runbook.md:48:| Datadog/New Relic | Template/blocker only | Needs account/API keys and production agent deployment |
+ops/m10/alert-channel-runbook.md:52:Production observability remains blocked on external credentials and infrastructure. Keep these gates separate:
+ops/m10/alert-channel-runbook.md:55:Cloudflare HTTPS/WAF/rate-limit/CDN/R2 integration
+ops/m10/alert-channel-runbook.md:56:real CDN/R2 ticket image load test
+ops/m10/alert-channel-runbook.md:59:migration rehearsal/cutover/rollback
+ops/m10/alert-channel-runbook.md:60:production secret management
+ops/m10/alert-channel-runbook.md:63:back-office production-readiness risks
+ops/m10/ticket-image-cdn-load-test-runbook.md:5:This runbook only proves ticket-image CDN/R2 behavior when a real CDN base URL and real object path are supplied. Normal API `BASE_URL` must not count as image CDN coverage.
+ops/m10/ticket-image-cdn-load-test-runbook.md:10:CDN_BASE_URL points at Cloudflare/CDN/R2 infrastructure
+ops/m10/ticket-image-cdn-load-test-runbook.md:32:With a real CDN/R2 object:
+ops/m10/ticket-image-cdn-load-test-runbook.md:52:confirmation that image bytes came from CDN/R2, not Laravel
+docs/api-conventions.md:40:Public site-config must remain readable during tenant maintenance so `customer` can render a branded maintenance page. It should return `200` with `maintenance.active = true` for an active tenant maintenance state. Write/action endpoints that are blocked by maintenance return `maintenance_active` with HTTP `503` and `Retry-After` when applicable.
+docs/api-conventions.md:227:Error responses must not reveal internal tenant ids, stack traces, SQL errors, queue names, provider secrets, password hashes, or support impersonation token material.
+apps/platform-api/.env.example:37:R2_ENDPOINT=
+apps/platform-api/.env.example:38:R2_BUCKET=
+apps/platform-api/.env.example:39:R2_ACCESS_KEY_ID=
+apps/platform-api/.env.example:40:R2_SECRET_ACCESS_KEY=
+ops/m10/reverb-deployment-readiness.md:16:They remain permissioned through the current admin auth and tenant-scope middleware. The readiness command reports endpoint presence without exposing `REVERB_APP_KEY`, `REVERB_APP_SECRET`, hostnames, or production URLs.
+ops/m10/reverb-deployment-readiness.md:46:Readiness output must use booleans or `[CONFIGURED]` / `[REDACTED]`, never raw keys, secrets, hosts, or URLs.
+ops/m10/reverb-deployment-readiness.md:56:secrets managed outside committed files
+ops/m10/scheduler-workload-runbook.md:5:This runbook covers local/dev scheduler readiness only. It does not approve production scheduler SLOs, process supervision, or long-running scheduler loops.
+ops/m10/scheduler-workload-runbook.md:32:unsafe or production-only jobs must be blockers instead of scheduled blindly
+ops/m10/scheduler-workload-runbook.md:39:overlap locks are backed by production Redis/Valkey
+ops/m10/cloudflare-waf-rate-limit-rules.json:5:  "production_approved": false,
+ops/m10/cloudflare-waf-rate-limit-rules.json:7:    "Template only. Do not deploy to a real Cloudflare zone without QA/Ops evidence and non-production approval.",
+ops/m10/cloudflare-waf-rate-limit-rules.json:8:    "Rules must be keyed by tenant host where Cloudflare supports it so one noisy tenant cannot exhaust shared capacity.",
+docs/events.md:39:support_impersonation.action_blocked.v1
+docs/events.md:432:### support_impersonation.action_blocked.v1
+docs/events.md:446:  "blocked_action": "wallet_adjust",
+ops/m10/rollback-drill-runbook.md:5:This is a local/dev rollback drill boundary. It is not approval for destructive down migrations or production rollback execution.
+ops/m10/rollback-drill-runbook.md:10:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ops/m10/rollback-drill-runbook.md:11:scripts/platform-rollback-drill.sh
+ops/m10/rollback-drill-runbook.md:24:post-rollback smoke/readiness checklist
+ops/m10/rollback-drill-runbook.md:35:avoid destructive down migrations unless a Coordinator-approved repair plan exists
+ops/m10/rollback-drill-runbook.md:36:run health endpoints, platform smoke, runtime readiness, and migration rehearsal report
+ops/m10/rollback-drill-runbook.md:42:Rollback assumes additive/backward-compatible migrations. Irreversible schema changes, old-data imports, ledger corrections, object-storage deletes, and ticket-image key rewrites require a separate repair plan and Coordinator approval.
+ops/m10/rollback-drill-runbook.md:49:object-storage rollback or repair plan not verified
+ops/m10/rollback-drill-runbook.md:50:rollback rehearsal not executed in staging
+ops/m10/rollback-drill-runbook.md:51:post-rollback smoke/readiness evidence missing
+docs/backend-model-layer.md:42:Every concrete model declares an explicit non-empty `protected $fillable = [...]`. `BaseModel` and `BasePivotModel` intentionally do not declare `protected $guarded = []`; strict mass-assignment diagnostics are enabled outside production with `Model::preventSilentlyDiscardingAttributes(! $this->app->isProduction())`.
+docs/backend-model-layer.md:120:| support_impersonation_blocked_actions | SupportImpersonationBlockedAction | blocked sensitive action model | `scopeForTenant` |
+docs/backend-model-layer.md:137:tenant -> maintenance settings/events/bypasses/support access requests/impersonation sessions/blocked actions
+docs/backend-model-layer.md:146:## Cloudflare Domain Readiness
+docs/backend-model-layer.md:155:M10 Cloudflare/CDN readiness adds nullable evidence fields without changing tenant resolution contracts:
+docs/backend-model-layer.md:164:Custom domains must not become `active` until DNS ownership, SSL readiness, Cloudflare proxy expectations, and HTTPS enforcement are satisfied. Local `.test` subdomains may remain active for Docker/local QA and are reported as local-only by `platform:cloudflare:readiness`.
+docs/backend-bootstrap-seeders.md:49:Do not use the default seed passwords in staging, production, or client delivery.
+docs/backend-bootstrap-seeders.md:93:Additional placeholder policies may be seeded for CDN hit ratio, storage quota, API rate-limit count, and payment callback failure. They are local/dev readiness records only until production observability feeds exist.
+docs/backend-bootstrap-seeders.md:119:Custom production domains are not seeded as active by local bootstrap data. They must pass Cloudflare/DNS/SSL/HTTPS readiness before active status outside local `.test` subdomain fixtures.
+docs/backend-query-builder-exceptions.md:45:all application migration tables have concrete Eloquent models, except Laravel runtime tables
+docs/backend-query-builder-exceptions.md:48:strict mass-assignment diagnostics are enabled outside production
+docs/permissions.md:533:support_impersonation.action_blocked
+apps/platform-api/config/platform.php:17:            'secret',
+apps/platform-api/config/platform.php:38:        'admin_secret' => env('REVERB_APP_SECRET', env('APP_KEY') ?: 'newpaotang-admin-secret'),
+apps/platform-api/config/platform.php:50:    'migration_rehearsal' => [
+apps/platform-api/config/platform.php:55:        'secret_reference' => env('MIGRATION_REHEARSAL_SECRET_REFERENCE'),
+apps/platform-api/config/platform.php:85:        'r2_endpoint' => env('R2_ENDPOINT'),
+apps/platform-api/config/platform.php:86:        'r2_bucket' => env('R2_BUCKET'),
+apps/platform-api/config/platform.php:87:        'r2_access_key_id' => env('R2_ACCESS_KEY_ID'),
+apps/platform-api/config/platform.php:88:        'r2_secret_access_key' => env('R2_SECRET_ACCESS_KEY'),
+apps/platform-api/bootstrap/app.php:7:use App\Console\Commands\PlatformCloudflareReadinessCommand;
+apps/platform-api/bootstrap/app.php:38:        PlatformCloudflareReadinessCommand::class,
+ops/m10/horizon-queue-supervision.md:5:This artifact is local/dev readiness only. It is not approval for a public Horizon dashboard, production queue supervision, process-manager configuration, or queue SLOs.
+ops/m10/horizon-queue-supervision.md:29:horizon_production_process_manager_missing
+ops/m10/horizon-queue-supervision.md:40:Critical customer, checkout, stock sync, webhook, and reward queues must not share production worker capacity with `report-build`, `usage-metering`, or `partner-monitoring`.
+ops/m10/horizon-queue-supervision.md:47:dashboard route restricted by admin auth, network controls, and production access policy
+docs/erd.md:3:This Milestone 0 ERD defines logical tables and ownership. Exact Laravel migration columns may evolve, but module boundaries and source-of-truth rules should remain stable.
+docs/erd.md:365:support_impersonation_blocked_actions
+apps/platform-api/config/database.php:30:    'migrations' => [
+apps/platform-api/config/database.php:31:        'table' => 'migrations',
+apps/platform-api/tests/Unit/AuditLoggerTest.php:14:            'password' => 'secret-password',
+apps/platform-api/tests/Unit/AuditLoggerTest.php:22:                'client_secret' => 'secret-value',
+apps/platform-api/tests/Unit/AuditLoggerTest.php:40:        $this->assertSame('[REDACTED]', $redacted['nested']['client_secret']);
+ops/m10/observability-signal-inventory.md:3:This artifact is local/dev verifiable readiness evidence. It is not staging, production, or client-delivery approval.
+ops/m10/observability-signal-inventory.md:25:| CDN ticket image metrics | blocked external | Cloudflare/CDN/R2 analytics | separate CDN/R2 slice |
+ops/m10/observability-signal-inventory.md:50:The local/dev report verifies schema, command output, default policy coverage, labels, redaction, and local database/log delivery paths. Production delivery still needs real infrastructure ownership for webhook/email/Sentry/Grafana/Datadog/New Relic, Cloudflare analytics, CDN/R2 ticket image metrics, Horizon, Reverb, and secret management.
+apps/platform-api/Dockerfile:25:FROM base AS production
+apps/platform-api/Dockerfile:27:ENV APP_ENV=production \
+ops/m10/runtime-hardening-readiness.md:5:This artifact summarizes local/dev runtime hardening for queues, Horizon, Reverb, and scheduler. It is not staging, production, or client-delivery approval.
+ops/m10/runtime-hardening-readiness.md:21:production_approved is always false
+ops/m10/runtime-hardening-readiness.md:40:horizon_production_process_manager_missing
+ops/m10/runtime-hardening-readiness.md:45:production scheduler leadership and SLO evidence missing
+docs/workspace-app-structure.md:18:ห้าม run PHP/Composer/Artisan/Node/npm/Nuxt/Vite/test/build/migration บน host machine
+docs/workspace-app-structure.md:129:ถ้าจะอัปเกรด customer เป็น Nuxt latest stable ต้องทำแผน migration แยกและทดสอบว่า flow เดิมไม่เสีย
+ops/m10/migration-rehearsal-runbook.md:5:This runbook is for local/dev rehearsal readiness. It does not approve staging, production, old-data import, production cutover, or production rollback.
+ops/m10/migration-rehearsal-runbook.md:12:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ops/m10/migration-rehearsal-runbook.md:24:run migration rehearsal dry-run report
+ops/m10/migration-rehearsal-runbook.md:27:review cutover and rollback blockers
+ops/m10/migration-rehearsal-runbook.md:37:do not run destructive production migrations
+ops/m10/migration-rehearsal-runbook.md:39:do not claim staging or production approval
+ops/m10/migration-rehearsal-runbook.md:44:The acceptable local evidence is command output, test results, Docker command logs, and runbook review. Real old-data source, snapshots, secret management, staging rehearsal, production cutover, and rollback execution remain blockers.
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:1:# M10 Cloudflare HTTPS WAF CDN R2 Readiness
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:5:This artifact is local/dev readiness only. It is not staging, production, Cloudflare activation, DNS ownership, SSL, WAF enforcement, R2 delivery, CDN cache-hit, or client-delivery approval.
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:13:It does not call or mutate Cloudflare/R2. It reports presence-only configured flags, constant redacted placeholders, domain readiness fields, local rule artifacts, ticket-image CDN prerequisites, blockers, and `production_approved=false`.
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:18:Cloudflare account and non-production/prod zone owner identified
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:19:Cloudflare DNS records verified for every public tenant host
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:20:Cloudflare proxy enabled where required
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:25:R2/object-storage bucket and CDN URL policy verified
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:27:secret management approved outside local env examples
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:49:Custom domains must not become `active` unless DNS ownership, SSL readiness, Cloudflare proxy expectation, and HTTPS enforcement are all satisfied. Local `.test` subdomains may remain active as local-only test domains, and the verifier marks that boundary explicitly.
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:60:The JSON rules are templates. Apply them to real Cloudflare zones only after Coordinator/Ops approval and QA evidence.
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:76:real Cloudflare credentials and zones are not present in this workspace
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:79:real R2 bucket/object path is not present in this workspace
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:80:real ticket-image CDN load test remains blocked until CDN_BASE_URL and IMAGE_PATH or TICKET_IMAGE_CDN_IMAGE_PATH point at CDN/R2
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:81:production secret management remains a separate release gate
+apps/platform-api/tests/Feature/ImpersonationSecurityTest.php:79:                'reason' => 'Should be blocked',
+apps/platform-api/tests/Feature/ImpersonationSecurityTest.php:91:        $this->assertDatabaseHas('support_impersonation_blocked_actions', [
+apps/platform-api/tests/Feature/ImpersonationSecurityTest.php:95:            'status' => 'blocked',
+apps/platform-api/tests/Feature/ImpersonationSecurityTest.php:99:            'event_type' => 'support_impersonation.action_blocked.v1',
+apps/platform-api/tests/Feature/ImpersonationSecurityTest.php:103:            'action' => 'support_impersonation.action_blocked',
+docs/buy-flow-adapter-contract.md:181:The customer UI should not call old endpoint names directly once the adapter is migrated. Old endpoint names in existing source are migration inputs, not the new backend contract.
+docs/buy-flow-adapter-contract.md:321:| `maintenance_active` | render maintenance page or blocked-action state |
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:9:use App\Console\Commands\PlatformCloudflareReadinessCommand;
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:37:            'platform:cloudflare:readiness' => PlatformCloudflareReadinessCommand::class,
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:38:            'platform:migration:rehearsal' => PlatformMigrationRehearsalCommand::class,
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:59:        $this->assertTrue($commands['platform:migration:rehearsal']->getDefinition()->hasOption('dry-run'));
+apps/platform-api/tests/Feature/ConsoleCommandStructureTest.php:60:        $this->assertTrue($commands['platform:migration:rehearsal']->getDefinition()->hasOption('format'));
+ops/m10/old-data-migration-strategy.md:5:This artifact defines a local/dev rehearsal strategy only. It is not approval to connect to a real old-data source, import production customer data, execute a production cutover, or run a production rollback.
+ops/m10/old-data-migration-strategy.md:10:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ops/m10/old-data-migration-strategy.md:13:The verifier must keep `production_approved=false` and must not emit raw secrets, production URLs, signed URLs, customer PII, or old-data payloads.
+ops/m10/old-data-migration-strategy.md:34:production payment provider credentials
+ops/m10/old-data-migration-strategy.md:71:Dry-run rehearsal must produce counts and categories only. Reject reports may include legacy ids, category, reason, and target table. Reject reports must not include customer PII, secrets, production URLs, signed URLs, or raw old-data payloads.
+ops/m10/old-data-migration-strategy.md:79:staging rehearsal completed from a snapshot
+ops/m10/old-data-migration-strategy.md:81:production secret-management owner approved
+docs/back-office-admin-foundation.md:93:That file was not present in the workspace during implementation. The copied asset folder includes `public/admin-template/README.md` and `public/admin-template/NOTICE.md`, and selected third-party library notices remain where they existed in copied library folders. `NOTICE.md` is only an evidence path and blocker note; it is not a replacement for the original Meno legal agreement. Template license confirmation remains required before staging, production, or client delivery.
+docs/back-office-admin-foundation.md:406:The audit fix path points to `nuxt@3.21.4` from the currently pinned `nuxt@3.11.2`. That is a broad framework upgrade affecting Nuxt, Nitro, Vite, Unhead, DevTools, telemetry, and related transitive packages. It is not applied in the BO slice without Coordinator approval. Until that decision, the app keeps Docker-validated lockfile behavior and carries the dependency risk as a production-readiness blocker.
+docs/back-office-admin-foundation.md:408:Known production-readiness blockers that remain outside BO-only approval:
+docs/back-office-admin-foundation.md:413:- final staging, production, client delivery, and M10 release approval remain Coordinator/Orchestrator decisions.
+docs/back-office-admin-foundation.md:415:Backend paired handoff `20260508-m10-license-dependency-bo-production-readiness-backend-handoff.md` adds presentation-only menu `category`/`icon` metadata and `GET /admin/tenant/maintenance/bypasses`. BO now consumes safe backend icon hints with a local fallback and shows active tenant maintenance bypasses from the list endpoint.
+docs/back-office-admin-foundation.md:420:- Tenant maintenance uses the approved bypass list endpoint for active bypass visibility, create, and revoke actions. The page does not expose raw metadata, bearer tokens, support impersonation tokens, or secret material.
+docs/frontend-routes.md:85:| `/` | Tenant storefront home | indexable tenant metadata | blocked by `full_site` or `customer_web_only` | `GET /api/v1/public/site-config` |
+docs/frontend-routes.md:86:| `/buy` | Existing customer flow shell | indexable or tenant-configured | blocked by `full_site`, `customer_web_only`, `checkout_payment_only` for writes | `GET /api/v1/public/games/current`, `GET /api/v1/public/stock/search` |
+docs/frontend-routes.md:87:| `/buy/more` | Existing customer more/browse stock route | indexable or tenant-configured | blocked by `full_site` or `customer_web_only` | `GET /api/v1/public/stock/search?mode=random` |
+docs/frontend-routes.md:88:| `/buy/search` | Existing customer flow search route | indexable or tenant-configured | blocked by `full_site` or `customer_web_only` | `GET /api/v1/public/stock/search` |
+docs/frontend-routes.md:89:| `/stores` | Tenant seller/store list | indexable or tenant-configured | blocked by `full_site` or `customer_web_only` | `GET /api/v1/public/stores` |
+docs/frontend-routes.md:90:| `/stores/lotteries` | Store-filtered stock browse route | indexable or tenant-configured | blocked by `full_site` or `customer_web_only` | `GET /api/v1/public/stock/search?store_id=&mode=browse` |
+docs/frontend-routes.md:91:| `/countdown` | Game close/countdown display | indexable or tenant-configured | blocked by `full_site` or `customer_web_only` | `GET /api/v1/public/games/current` |
+docs/frontend-routes.md:92:| `/result` | Published reward summary | indexable, cache-friendly | blocked by `full_site` or `customer_web_only` | `GET /api/v1/public/results/latest` |
+docs/frontend-routes.md:93:| `/result/full` | Full reward result | indexable, cache-friendly | blocked by `full_site` or `customer_web_only` | `GET /api/v1/public/results/{game_id}` |
+docs/frontend-routes.md:94:| `/results` | Existing alternate reward summary route | indexable, cache-friendly | blocked by `full_site` or `customer_web_only` | `GET /api/v1/public/results/latest` |
+docs/frontend-routes.md:95:| `/results/full` | Existing alternate full reward route | indexable, cache-friendly | blocked by `full_site` or `customer_web_only` | `GET /api/v1/public/results/{game_id}` |
+docs/frontend-routes.md:96:| `/term-reward` | Reward terms display | indexable or tenant-configured | blocked by `full_site` or `customer_web_only` | `GET /api/v1/public/site-config` |
+docs/frontend-routes.md:106:| `/register` | Customer registration | noindex | blocked by `full_site`, `customer_web_only`, or `read_only` for submit | `POST /api/v1/customer/auth/register` |
+docs/frontend-routes.md:113:| `/cart` | Active reservations and totals | noindex | writes blocked by maintenance mode | `GET /api/v1/customer/cart`, `POST /api/v1/customer/reservations/{reservation_id}/release` |
+docs/frontend-routes.md:114:| `/checkout` | Checkout and wallet payment UI | noindex | blocked by `full_site`, `customer_web_only`, `checkout_payment_only`, `read_only` | `POST /api/v1/customer/checkout` |
+docs/frontend-routes.md:116:| `/topup` | Wallet topup UI | noindex | blocked by payment maintenance modes | `GET /api/v1/customer/topups`, `POST /api/v1/customer/topups`, `POST /api/v1/customer/topups/credit` |
+docs/frontend-routes.md:121:| `/profile` | Customer profile | noindex | writes blocked by maintenance mode | `GET /api/v1/customer/profile`, `PATCH /api/v1/customer/profile` |
+docs/frontend-routes.md:165:- OpenAPI includes `503 maintenance_active`; search UI must render maintenance or blocked state when backend returns it.
+docs/frontend-routes.md:196:- On `maintenance_active`, render maintenance state or action-specific blocked message.
+docs/frontend-routes.md:301:      "blocked_route_patterns": ["/buy*", "/cart", "/checkout"]
+apps/platform-api/database/seeders/DemoTenantSeeder.php:222:                'maintenance_blocked_route_patterns_json' => [],
+apps/platform-api/database/seeders/DemoTenantSeeder.php:262:                'blocked_route_patterns_json' => [],
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:14:class M10CloudflareHttpsWafCdnR2Test extends TestCase
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:19:    public function test_Cloudflare_readiness_command_redacts_config_and_requires_ticket_image_evidence(): void
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:22:        config($this->configuredCloudflareReadinessConfig());
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:30:        $this->assertSame('blocked_external', $report['status']);
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:31:        $this->assertFalse($report['production_approved']);
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:32:        $this->assertFalse($report['boundary']['production_approved']);
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:57:        $this->assertSame('[REDACTED]', $report['cdn_r2_ticket_images']['redacted_config']['r2_secret_access_key']);
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:68:    public function test_Explicit_ticket_image_path_evidence_removes_image_path_blocker_without_production_approval(): void
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:71:        config($this->configuredCloudflareReadinessConfig('/tickets/qa-redaction-safe.png'));
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:81:        $this->assertFalse($report['production_approved']);
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:82:        $this->assertFalse($report['boundary']['production_approved']);
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:104:            config($this->configuredCloudflareReadinessConfig());
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:112:            $this->assertSame('blocked_external', $report['status']);
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:135:                'name' => 'Cloudflare Partner',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:147:            'tenant_name' => 'Cloudflare Tenant',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:151:            'owner_password' => 'secret-password',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:152:            'site_name' => 'Cloudflare Tickets',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:219:            'R2_ENDPOINT=',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:220:            'R2_BUCKET=',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:221:            'R2_ACCESS_KEY_ID=',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:222:            'R2_SECRET_ACCESS_KEY=',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:315:    private function configuredCloudflareReadinessConfig(?string $imagePath = null): array
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:318:            'platform.cloudflare.account_id' => 'acct-super-secret',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:320:            'platform.cloudflare.api_token' => 'cf-super-secret-token',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:327:            'platform.ticket_images.r2_secret_access_key' => 'r2-super-secret-key',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:338:            'acct-super-secret',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:340:            'cf-super-secret-token',
+apps/platform-api/tests/Feature/M10CloudflareHttpsWafCdnR2Test.php:346:            'r2-super-secret-key',
+apps/platform-api/config/app.php:5:    'env' => env('APP_ENV', 'production'),
+docs/backend-architecture-compliance.md:16:strict mass-assignment diagnostics enabled outside production
+docs/backend-architecture-compliance.md:18:production workflow console commands registered through bootstrap/app.php
+docs/backend-architecture-compliance.md:38:production workflow commands use the command-class layer:
+docs/backend-architecture-compliance.md:44:and Cloudflare/CDN/R2 readiness primitives under App\Shared\Cloudflare
+docs/backend-architecture-compliance.md:75:all application migration tables have concrete models except Laravel runtime tables
+docs/backend-architecture-compliance.md:84:routes/console.php no longer owns production workflow closure commands
+docs/backend-architecture-compliance.md:89:support impersonation tokens are hashed at rest and sensitive actions are blocked with evidence
+docs/backend-architecture-compliance.md:92:M10 Cloudflare readiness command emits safe local/dev domain, HTTPS, WAF/cache, CDN/R2 blockers without external Cloudflare/R2 calls
+docs/backend-architecture-compliance.md:93:custom domains remain guarded from active status until DNS, SSL, Cloudflare proxy, and HTTPS readiness evidence exists
+apps/platform-api/tests/Feature/AdminOperationsTest.php:150:                'password' => 'super-secret',
+apps/platform-api/tests/Feature/AdminOperationsTest.php:174:        $this->assertStringNotContainsString('super-secret', json_encode($auditPayload, JSON_THROW_ON_ERROR));
+apps/platform-api/tests/Feature/AdminOperationsTest.php:259:                'password' => 'central-secret',
+apps/platform-api/tests/Feature/AdminOperationsTest.php:275:                'secret' => 'tenant-secret',
+apps/platform-api/tests/Feature/AdminOperationsTest.php:291:            payload: ['secret' => 'other-secret'],
+apps/platform-api/tests/Feature/AdminOperationsTest.php:327:        $this->assertStringNotContainsString('other-secret', json_encode($tenantLogs, JSON_THROW_ON_ERROR));
+apps/platform-api/tests/Feature/AdminOperationsTest.php:361:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminOperationsTest.php:380:            'password' => 'secret-password',
+docs/back-office-menu-completion.md:35:| central:webhook_logs | /admin/central/audit-logs | /admin/central/webhook-logs | Complete | Catalog now calls registered list/detail with `audit.view`; backend redacts payload/response secret material. |
+docs/maintenance-page-contract.md:13:  -> blocked route renders branded maintenance UI
+docs/maintenance-page-contract.md:21:- Public blocked routes and OpenAPI-backed endpoints that return `maintenance_active` should preserve `503 Service Unavailable` and `Retry-After` during SSR when possible.
+docs/maintenance-page-contract.md:33:Usually blocked during `full_site` or `customer_web_only`:
+docs/maintenance-page-contract.md:53:`back-office` can be blocked separately by `admin_only`.
+docs/maintenance-page-contract.md:108:      "blocked_route_patterns": ["/buy*", "/cart", "/checkout"],
+docs/maintenance-page-contract.md:122:allowed_routes and blocked_route_patterns are OpenAPI-backed site-config fields.
+docs/maintenance-page-contract.md:163:For blocked public routes:
+docs/maintenance-page-contract.md:177:Render successfully even when other routes are blocked
+docs/maintenance-page-contract.md:202:  else if route matches blocked route patterns:
+docs/maintenance-page-contract.md:211:Backend response still wins. If any read or write endpoint returns `maintenance_active`, the UI must show a blocked-action state or route to `/maintenance`.
+docs/maintenance-page-contract.md:220:| release reservation | `full_site`, `customer_web_only`, `read_only` when writes are blocked |
+docs/maintenance-page-contract.md:249:## Caching And Cloudflare
+docs/maintenance-page-contract.md:255:- Do not cache dynamic blocked-page HTML for long periods.
+docs/maintenance-page-contract.md:257:- Cloudflare should not serve stale active maintenance after the tenant is reopened.
+docs/maintenance-page-contract.md:314:Write actions are pre-blocked by frontend mode rules and still enforced by backend
+docs/maintenance-page-contract.md:316:Cloudflare does not cache stale maintenance state across tenants
+docs/site-config-contract.md:109:      "blocked_route_patterns": []
+docs/status-enums.md:392:blocked
+apps/platform-api/tests/Feature/MaintenanceTest.php:65:                'Idempotency-Key' => 'm9-topup-blocked',
+apps/platform-api/storage/framework/testing/k6-xc2ayht8/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+ops/m10/runtime-readiness.md:14:Use Docker Compose only for every application command. The helper scripts in `scripts/` call Docker Compose and do not run PHP, Composer, Artisan, Node, npm, Nuxt, Vite, tests, builds, migrations, queue workers, or scheduler commands on the host machine.
+ops/m10/runtime-readiness.md:32:Migration rehearsal/cutover/rollback verifier:
+ops/m10/runtime-readiness.md:35:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ops/m10/runtime-readiness.md:41:ops/m10/old-data-migration-strategy.md
+ops/m10/runtime-readiness.md:42:ops/m10/migration-rehearsal-runbook.md
+ops/m10/runtime-readiness.md:43:ops/m10/migration-rehearsal-fixtures.md
+ops/m10/runtime-readiness.md:44:ops/m10/cutover-runbook.md
+ops/m10/runtime-readiness.md:45:ops/m10/rollback-drill-runbook.md
+ops/m10/runtime-readiness.md:47:ops/m10/production-secret-boundary.md
+apps/platform-api/database/migrations/2026_05_06_000004_create_partner_provisioning_tables.php:33:            $table->json('maintenance_blocked_route_patterns_json')->nullable();
+apps/platform-api/database/migrations/2026_05_06_000004_create_partner_provisioning_tables.php:151:            $table->string('secret_hash', 64);
+ops/m10/cutover-runbook.md:5:This is an operator checklist template. It is not approval for a real cutover. Production cutover remains blocked until Coordinator/Ops approve infrastructure, secrets, snapshots, staging rehearsal, release images, and communications.
+ops/m10/cutover-runbook.md:10:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ops/m10/cutover-runbook.md:11:scripts/platform-cutover-preflight.sh
+ops/m10/cutover-runbook.md:18:previous image tag recorded for rollback
+ops/m10/cutover-runbook.md:21:production secret references available in approved secret manager
+ops/m10/cutover-runbook.md:22:staging rehearsal completed with reject report reviewed
+ops/m10/cutover-runbook.md:23:Cloudflare DNS, HTTPS, cache-bypass, CDN/R2 evidence reviewed
+ops/m10/cutover-runbook.md:34:capture queue lag before migration
+ops/m10/cutover-runbook.md:35:capture outbox/inbox backlog before migration
+ops/m10/cutover-runbook.md:42:run production-safe migrations only after approval
+ops/m10/cutover-runbook.md:44:run platform smoke with production-safe seed-login behavior
+ops/m10/cutover-runbook.md:46:verify Cloudflare/CDN/R2 checkpoints
+ops/m10/cutover-runbook.md:59:Cloudflare/CDN/R2 production evidence missing
+ops/m10/cutover-runbook.md:60:secrets are not available through approved manager
+ops/m10/cutover-runbook.md:65:Capture timestamps, command output, release image tags, snapshot ids, reject counts, smoke results, readiness JSON, queue lag, alert channel state, and Coordinator approval references. Do not capture raw secrets or old-data payloads.
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:14:            'platform.migration_rehearsal.source_type' => 'legacy-postgres-redaction-source',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:15:            'platform.migration_rehearsal.source_dsn' => 'postgres://legacy-user:legacy-password@legacy-prod.internal/newpaotang',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:16:            'platform.migration_rehearsal.source_token' => 'legacy-source-token-placeholder',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:17:            'platform.migration_rehearsal.object_storage_bucket' => 'legacy-ticket-image-bucket',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:18:            'platform.migration_rehearsal.secret_reference' => 'secret-manager/prod/migration',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:19:            'platform.migration_rehearsal.release_image_tag' => 'paotang-api:release-redaction',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:20:            'platform.migration_rehearsal.previous_image_tag' => 'paotang-api:previous-redaction',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:23:        $exitCode = Artisan::call('platform:migration:rehearsal', ['--dry-run' => true, '--format' => 'json']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:29:        $this->assertSame('blocked_external', $report['status']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:30:        $this->assertFalse($report['production_approved']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:35:        $this->assertFalse($report['boundary']['destructive_production_operations_attempted']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:37:        $this->assertFalse($report['boundary']['production_approved']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:38:        $this->assertSame('ready_local', $report['old_data_migration_strategy']['status']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:40:        $this->assertSame('blocked_external', $report['snapshot_requirements']['status']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:41:        $this->assertSame('blocked_external', $report['cutover']['status']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:42:        $this->assertSame('blocked_external', $report['rollback']['status']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:43:        $this->assertSame('blocked_external', $report['production_secret_boundary']['status']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:50:        $this->assertContains('production_secret_management_missing', $report['blockers']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:51:        $this->assertContains('staging_rehearsal_not_completed', $report['blockers']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:52:        $this->assertContains('rollback_rehearsal_not_executed', $report['blockers']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:53:        $this->assertContains('docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json', $report['docker_validation_commands']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:54:        $this->assertSame('[REDACTED]', $report['production_secret_boundary']['redacted_config']['source_dsn']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:55:        $this->assertSame('[REDACTED]', $report['production_secret_boundary']['redacted_config']['source_token']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:56:        $this->assertSame('[CONFIGURED]', $report['production_secret_boundary']['redacted_config']['object_storage_bucket']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:57:        $this->assertSame('[REDACTED]', $report['production_secret_boundary']['redacted_config']['secret_reference']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:58:        $this->assertSame('[CONFIGURED]', $report['cutover']['redacted_config']['release_image_tag']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:59:        $this->assertSame('[CONFIGURED]', $report['rollback']['redacted_config']['previous_image_tag']);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:66:            'secret-manager/prod/migration',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:77:            'ops/m10/old-data-migration-strategy.md',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:78:            'ops/m10/migration-rehearsal-runbook.md',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:79:            'ops/m10/migration-rehearsal-fixtures.md',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:80:            'ops/m10/cutover-runbook.md',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:81:            'ops/m10/rollback-drill-runbook.md',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:83:            'ops/m10/production-secret-boundary.md',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:90:            $this->assertStringContainsString('production', strtolower($doc), $path);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:93:        $strategy = $this->workspaceFile('ops/m10/old-data-migration-strategy.md');
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:94:        $fixtures = $this->workspaceFile('ops/m10/migration-rehearsal-fixtures.md');
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:95:        $cutover = $this->workspaceFile('ops/m10/cutover-runbook.md');
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:96:        $rollback = $this->workspaceFile('ops/m10/rollback-drill-runbook.md');
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:98:        $secrets = $this->workspaceFile('ops/m10/production-secret-boundary.md');
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:103:        $this->assertStringContainsString('previous image tag', $rollback);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:104:        $this->assertStringContainsString('feature flag', $rollback);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:105:        $this->assertStringContainsString('queue pause', $rollback);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:106:        $this->assertStringContainsString('tenant maintenance', $rollback);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:107:        $this->assertStringContainsString('preflight', $cutover);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:108:        $this->assertStringContainsString('abort criteria', strtolower($cutover));
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:110:        $this->assertStringContainsString('[REDACTED]', $secrets);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:111:        $this->assertStringContainsString('production_approved=false', $strategy);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:114:    public function test_Helper_scripts_docs_and_env_keep_migration_rehearsal_docker_only(): void
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:117:            'scripts/platform-migration-rehearsal.sh',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:118:            'scripts/platform-cutover-preflight.sh',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:119:            'scripts/platform-rollback-drill.sh',
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:136:        $this->assertStringContainsString('platform:migration:rehearsal', $consoleDoc);
+apps/platform-api/tests/Feature/M10MigrationRehearsalCutoverRollbackTest.php:137:        $this->assertStringContainsString('platform:migration:rehearsal', $m10Doc);
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:99:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:110:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:240:        $this->assertSame('[REDACTED]', $webhook['payload']['client_secret']);
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:284:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:300:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:392:                'password' => 'member-secret',
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:530:            'payload_json' => json_encode(['client_secret' => 'sync-secret'], JSON_THROW_ON_ERROR),
+apps/platform-api/tests/Feature/BoMenuCompletionBackendGapTest.php:587:            'payload_json' => json_encode(['client_secret' => 'should-redact'], JSON_THROW_ON_ERROR),
+ops/m10/production-secret-boundary.md:5:Migration, cutover, rollback, database snapshots, and object-storage snapshots require production secrets that must never be committed to this repository.
+ops/m10/production-secret-boundary.md:10:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ops/m10/production-secret-boundary.md:27:Readiness output must use booleans, `[CONFIGURED]`, `[REDACTED]`, or `null`. It must not print raw database URLs, access tokens, object-storage credentials, signed URLs, private keys, DSNs, customer data, old-data payloads, or production hostnames.
+ops/m10/production-secret-boundary.md:31:Production values must come from a Coordinator/Ops-approved secret manager outside committed files. The handoff or QA report may name the external owner/system, but not the values.
+ops/m10/production-secret-boundary.md:36:production secret management missing
+ops/m10/production-secret-boundary.md:37:migration source credentials missing
+docs/m10-deployment-monitoring-load-test.md:5:This document records the first backend/ops foundation for Milestone 10. It makes release-readiness measurable for local/dev and QA, but it is not staging, production, or client-delivery approval.
+docs/m10-deployment-monitoring-load-test.md:35:All runtime, package, build, migration, queue, scheduler, test, and load-test commands must use Docker:
+docs/m10-deployment-monitoring-load-test.md:45:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+docs/m10-deployment-monitoring-load-test.md:48:Do not run PHP, Composer, Artisan, Node, npm, Nuxt, Vite, tests, builds, migrations, queue workers, or schedulers directly on the host machine.
+docs/m10-deployment-monitoring-load-test.md:57:production: copied application code and optimized Composer autoload
+docs/m10-deployment-monitoring-load-test.md:60:The production target is a build artifact foundation. Production-grade web serving, process supervision, Horizon, Reverb, and managed deployment are still release-gate work.
+docs/m10-deployment-monitoring-load-test.md:73:The runtime readiness report covers queue worker profiles, queue ownership, Horizon blockers, Reverb blockers, scheduler registration, helper scripts, Docker validation commands, and `production_approved=false`.
+docs/m10-deployment-monitoring-load-test.md:89:Local/dev migration rehearsal readiness is measured by:
+docs/m10-deployment-monitoring-load-test.md:92:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+docs/m10-deployment-monitoring-load-test.md:93:scripts/platform-migration-rehearsal.sh
+docs/m10-deployment-monitoring-load-test.md:94:scripts/platform-cutover-preflight.sh
+docs/m10-deployment-monitoring-load-test.md:95:scripts/platform-rollback-drill.sh
+docs/m10-deployment-monitoring-load-test.md:98:The migration rehearsal report covers old-data migration strategy, synthetic/seeded rehearsal fixtures, database and object-storage snapshot requirements, cutover checklist, rollback drill boundaries, production secret-management placeholders, Docker validation commands, and `production_approved=false`.
+docs/m10-deployment-monitoring-load-test.md:100:Migration/cutover/rollback artifacts:
+docs/m10-deployment-monitoring-load-test.md:103:ops/m10/old-data-migration-strategy.md
+docs/m10-deployment-monitoring-load-test.md:104:ops/m10/migration-rehearsal-runbook.md
+docs/m10-deployment-monitoring-load-test.md:105:ops/m10/migration-rehearsal-fixtures.md
+docs/m10-deployment-monitoring-load-test.md:106:ops/m10/cutover-runbook.md
+docs/m10-deployment-monitoring-load-test.md:107:ops/m10/rollback-drill-runbook.md
+docs/m10-deployment-monitoring-load-test.md:109:ops/m10/production-secret-boundary.md
+docs/m10-deployment-monitoring-load-test.md:112:The local/dev rehearsal uses synthetic and seeded data only. Real old-data sources, real production snapshots, object-storage metadata snapshots, production secret-management, staging rehearsal, production cutover, and production rollback remain explicit blockers. Do not run host PHP/Artisan, psql, pg_dump, cloud CLIs, destructive production migrations, or real data imports from this workspace.
+docs/m10-deployment-monitoring-load-test.md:127:S3/R2/CDN placeholders
+docs/m10-deployment-monitoring-load-test.md:128:Cloudflare readiness placeholders
+docs/m10-deployment-monitoring-load-test.md:148:## Cloudflare And HTTPS Readiness Gates
+docs/m10-deployment-monitoring-load-test.md:150:Public launch is blocked until these are verified outside local Docker:
+docs/m10-deployment-monitoring-load-test.md:153:Cloudflare proxy enabled for every public tenant domain
+docs/m10-deployment-monitoring-load-test.md:161:Local/dev readiness can be measured without calling Cloudflare:
+docs/m10-deployment-monitoring-load-test.md:168:The command emits redacted Cloudflare/R2 config presence, domain readiness, WAF/cache artifact status, ticket-image CDN prerequisites, blockers, and `production_approved=false`.
+docs/m10-deployment-monitoring-load-test.md:170:Configured Cloudflare/CDN/R2 values are reported as booleans or constant placeholders only; account IDs, zone IDs, tokens, API base URLs, CDN hosts, R2 endpoints, buckets, keys, and ticket-image object paths must not appear raw in readiness JSON.
+docs/m10-deployment-monitoring-load-test.md:182:R2_ENDPOINT
+docs/m10-deployment-monitoring-load-test.md:183:R2_BUCKET
+docs/m10-deployment-monitoring-load-test.md:184:R2_ACCESS_KEY_ID
+docs/m10-deployment-monitoring-load-test.md:185:R2_SECRET_ACCESS_KEY
+docs/m10-deployment-monitoring-load-test.md:191:Cloudflare/CDN/R2 ops artifacts:
+docs/m10-deployment-monitoring-load-test.md:291:M10 production observability/alerting readiness adds local/dev verifiable commands and artifacts without claiming production delivery:
+docs/m10-deployment-monitoring-load-test.md:309:The local database/log channel is verifiable in this repository. Webhook, email, Sentry, Grafana, Datadog, New Relic, Cloudflare analytics, CDN/R2 ticket image metrics, Horizon, Reverb, and production secret management remain release gates.
+docs/m10-deployment-monitoring-load-test.md:338:`ticket-image-cdn-spike.js` is runnable when `CDN_BASE_URL` and either `IMAGE_PATH` or `TICKET_IMAGE_CDN_IMAGE_PATH` point at a real CDN/object-storage ticket image. Local/dev does not provision Cloudflare/R2 ticket images, so the baseline runner emits `ticket-image-cdn-spike.skipped.json` with that blocker instead of claiming coverage.
+docs/m10-deployment-monitoring-load-test.md:340:`ticket-image-cdn-spike.js` intentionally ignores normal API `BASE_URL`. The scenario and `scripts/k6-run-baseline.sh` only claim ticket-image CDN/R2 coverage when explicit `CDN_BASE_URL` and `IMAGE_PATH` or `TICKET_IMAGE_CDN_IMAGE_PATH` are supplied.
+docs/m10-deployment-monitoring-load-test.md:346:run docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+docs/m10-deployment-monitoring-load-test.md:348:verify additive migrations before destructive changes
+docs/m10-deployment-monitoring-load-test.md:349:run smoke checks after migrations
+docs/m10-deployment-monitoring-load-test.md:352:record migration duration and rollback compatibility
+docs/m10-deployment-monitoring-load-test.md:360:run platform:migration:rehearsal --dry-run before production-safe migration
+docs/m10-deployment-monitoring-load-test.md:361:run production-safe migrations
+docs/m10-deployment-monitoring-load-test.md:364:run platform:smoke with production-safe seed-login check disabled unless approved credentials exist
+docs/m10-deployment-monitoring-load-test.md:365:verify Cloudflare HTTPS and cache-bypass rules
+docs/m10-deployment-monitoring-load-test.md:375:run platform:migration:rehearsal --dry-run and migrate:status during drill evidence capture
+docs/m10-deployment-monitoring-load-test.md:380:re-run health and smoke checks after rollback
+docs/m10-deployment-monitoring-load-test.md:391:Meno license notice missing before staging, production, or client delivery
+docs/m10-deployment-monitoring-load-test.md:392:npm audit vulnerabilities remain production-readiness concern
+docs/m10-deployment-monitoring-load-test.md:404:production process manager/web server image hardening
+docs/m10-deployment-monitoring-load-test.md:406:Reverb production deployment
+docs/m10-deployment-monitoring-load-test.md:407:Cloudflare account/API integration
+docs/m10-deployment-monitoring-load-test.md:408:real Cloudflare DNS/proxy/SSL/HTTPS evidence
+docs/m10-deployment-monitoring-load-test.md:410:real old-data migration scripts and rehearsal data
+docs/m10-deployment-monitoring-load-test.md:412:real production cutover and rollback drill evidence
+docs/m10-deployment-monitoring-load-test.md:413:production secret management
+docs/m10-backend-completion-and-release-gate-closure.md:18:- Reused existing ERD-backed models and tables; no migrations were added.
+docs/m10-backend-completion-and-release-gate-closure.md:98:- Central and tenant asset upload/commit need storage/R2 presign policy and object lifecycle guardrails.
+docs/m10-backend-completion-and-release-gate-closure.md:101:- Cloudflare/CDN/R2 readiness remains blocked on account credentials, zone/API token, CDN base URL, R2 bucket, and ticket image path evidence.
+docs/m10-backend-completion-and-release-gate-closure.md:102:- Runtime readiness remains blocked on Horizon/Reverb production packages, supervision, TLS/public host, and scaling evidence.
+docs/m10-backend-completion-and-release-gate-closure.md:103:- Migration/cutover/rollback remains blocked on production snapshots, old-data source credentials, release tags, cutover window, and rollback rehearsal.
+docs/m10-backend-completion-and-release-gate-closure.md:122:- `docker compose exec -T platform-api php artisan platform:runtime:readiness --format=json` executed and reported `blocked_external`.
+docs/m10-backend-completion-and-release-gate-closure.md:124:- `docker compose exec -T platform-api php artisan platform:cloudflare:readiness --format=json` executed and reported `blocked_external`.
+docs/m10-backend-completion-and-release-gate-closure.md:125:- `docker compose exec -T platform-api php artisan platform:migration:rehearsal --dry-run --format=json` executed and reported `blocked_external`.
+docs/m10-backend-completion-and-release-gate-closure.md:131:Backend implementation for the safe M10 gap closure scope is ready for QA. Full release Gate 5 is not triggered by this task. Coordinator/Orchestrator must decide the remaining 38 route blockers and external readiness gates before production release approval.
+docs/backend-console-commands.md:20:App\Console\Commands\PlatformCloudflareReadinessCommand
+docs/backend-console-commands.md:38:`apps/platform-api/routes/console.php` remains available for lightweight console bootstrapping, but production workflow commands should be first-class command classes instead of closure-only `Artisan::command(...)` definitions.
+docs/backend-console-commands.md:48:| `platform:cloudflare:readiness` | `platform:cloudflare:readiness {--format=table}` | `App\Shared\Cloudflare\CloudflareReadinessService::report()` |
+docs/backend-console-commands.md:49:| `platform:migration:rehearsal` | `platform:migration:rehearsal {--dry-run} {--format=table}` | `App\Shared\Migration\MigrationRehearsalReadinessService::report()` |
+docs/backend-console-commands.md:68:platform:cloudflare:readiness --format=json -> safe local/dev Cloudflare/HTTPS/WAF/cache/CDN/R2 readiness report with production_approved=false
+docs/backend-console-commands.md:69:platform:migration:rehearsal --dry-run --format=json -> safe local/dev migration rehearsal, cutover, rollback, snapshot, and secret-boundary readiness report with production_approved=false
+docs/backend-console-commands.md:70:platform:runtime:readiness --format=json -> safe local/dev queue/Horizon/Reverb/scheduler readiness report with production_approved=false
+docs/backend-console-commands.md:88:docker compose run --rm platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:5:use App\Shared\Cloudflare\CloudflareReadinessService;
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:8:class PlatformCloudflareReadinessCommand extends Command
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:12:    protected $description = 'Emit the local/dev M10 Cloudflare, HTTPS, WAF, cache, CDN, and R2 readiness report.';
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:14:    public function handle(CloudflareReadinessService $readiness): int
+apps/platform-api/app/Console/Commands/PlatformCloudflareReadinessCommand.php:30:        $this->line('production_approved: false');
+apps/platform-api/tests/Feature/AdminMenuTest.php:23:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminMenuTest.php:56:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminMenuTest.php:88:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminMenuTest.php:113:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminMenuTest.php:135:            'password' => 'secret-password',
+apps/platform-api/app/Console/Commands/PlatformRuntimeReadinessCommand.php:29:        $this->line('production_approved: false');
+apps/platform-api/database/migrations/2026_05_07_000004_create_maintenance_support_security_tables.php:25:            $table->json('blocked_route_patterns_json')->nullable();
+apps/platform-api/database/migrations/2026_05_07_000004_create_maintenance_support_security_tables.php:170:        Schema::create('support_impersonation_blocked_actions', function (Blueprint $table): void {
+apps/platform-api/database/migrations/2026_05_07_000004_create_maintenance_support_security_tables.php:176:            $table->string('status')->default('blocked');
+apps/platform-api/database/migrations/2026_05_07_000004_create_maintenance_support_security_tables.php:193:        Schema::dropIfExists('support_impersonation_blocked_actions');
+apps/platform-api/tests/Feature/CentralGameTest.php:82:                'api_secret' => 'should-redact',
+apps/platform-api/tests/Feature/CentralGameTest.php:105:        $this->assertSame('[REDACTED]', $auditPayload['payload']['api_secret']);
+apps/platform-api/app/Console/Commands/PlatformObservabilityReportCommand.php:28:        $this->line('production_approved: false');
+apps/platform-api/tests/Feature/CustomerAuthTest.php:15:    public function test_CustomerAuth_register_login_refresh_profile_and_logout_are_tenant_scoped_and_secret_safe(): void
+apps/platform-api/tests/Feature/CustomerAuthTest.php:22:            'password' => 'customer-secret',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:23:            'password_confirmation' => 'customer-secret',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:31:            'password' => 'customer-secret',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:32:            'password_confirmation' => 'customer-secret',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:56:            'password' => 'customer-secret',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:107:            'password' => 'customer-secret',
+apps/platform-api/tests/Feature/CustomerAuthTest.php:108:            'password_confirmation' => 'customer-secret',
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:17:            'platform.realtime.admin_secret' => 'reverb-secret-placeholder',
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:29:        $this->assertSame('blocked_external', $report['status']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:30:        $this->assertFalse($report['production_approved']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:31:        $this->assertFalse($report['boundary']['production_approved']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:35:        $this->assertSame('blocked_external', $report['horizon']['status']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:36:        $this->assertSame('blocked_external', $report['reverb']['status']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:45:        $this->assertSame('[REDACTED]', $report['reverb']['redacted_config']['app_secret']);
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:48:        foreach (['reverb-app-id-placeholder', 'reverb-key-placeholder', 'reverb-secret-placeholder', 'wss://reverb.fake-redaction.test'] as $rawValue) {
+apps/platform-api/tests/Feature/M10HorizonReverbSchedulerHardeningTest.php:126:            $this->assertStringContainsString('production', strtolower($doc));
+apps/platform-api/tests/Feature/M10K6LoadTestExecutionTest.php:57:        $this->assertStringNotContainsString('secret_hash', $envFile);
+apps/platform-api/tests/Feature/M10K6LoadTestExecutionTest.php:61:            ->where('secret_hash', $env['PARTNER_TOKEN'])
+apps/platform-api/storage/framework/testing/k6-xrdp7hpe/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:55:        if (app()->environment('production')) {
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:56:            $this->error('Refusing to create k6 load-test fixtures in production.');
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:133:                    'reason' => 'Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path.',
+apps/platform-api/app/Console/Commands/PrepareK6BaselineCommand.php:355:            'secret_hash' => hash('sha256', $partnerToken),
+apps/platform-api/tests/Support/M5CommerceFixtures.php:31:            'password' => 'customer-secret',
+apps/platform-api/tests/Support/M5CommerceFixtures.php:32:            'password_confirmation' => 'customer-secret',
+apps/platform-api/tests/Support/AdminAuthFixtures.php:45:        string $password = 'secret-password',
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:10:    protected $signature = 'platform:migration:rehearsal {--dry-run : Inspect local/dev migration rehearsal readiness without mutating data} {--format=table : Output format: table or json}';
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:12:    protected $description = 'Emit the local/dev M10 migration rehearsal, cutover, and rollback readiness report.';
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:28:        $this->line('cutover: '.$report['cutover']['status']);
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:29:        $this->line('rollback: '.$report['rollback']['status']);
+apps/platform-api/app/Console/Commands/PlatformMigrationRehearsalCommand.php:30:        $this->line('production_approved: false');
+ops/m10/r2-ticket-image-strategy.md:1:# R2 Ticket Image Strategy
+ops/m10/r2-ticket-image-strategy.md:27:private ticket images: short-lived signed CDN URL or equivalent Cloudflare signed access policy
+ops/m10/r2-ticket-image-strategy.md:38:R2 bucket exists and is non-public unless CDN policy requires otherwise
+ops/m10/r2-ticket-image-strategy.md:45:image bandwidth and storage usage feed partner usage metrics in a later production observability slice
+ops/m10/r2-ticket-image-strategy.md:58:The baseline k6 runner records the ticket-image scenario as skipped until a real CDN/R2 image path is supplied.
+apps/platform-api/tests/Support/PartnerStoreFixtures.php:51:            'password' => 'secret-password',
+apps/platform-api/tests/Support/PartnerStoreFixtures.php:203:            'maintenance_blocked_route_patterns_json' => null,
+apps/platform-api/app/Console/README.md:13:M10 Cloudflare/CDN readiness uses `platform:cloudflare:readiness --format=json` as a Docker-safe local/dev verifier. It emits blockers and keeps `production_approved=false`; it does not call or mutate Cloudflare/R2.
+apps/platform-api/app/Console/README.md:15:M10 migration rehearsal readiness uses `platform:migration:rehearsal --dry-run --format=json` as a Docker-safe local/dev verifier. It reports migration, cutover, rollback, snapshot, and secret-management blockers while keeping `production_approved=false`.
+apps/platform-api/tests/Support/CentralStockFixtures.php:26:            'password' => 'secret-password',
+ops/m10/snapshot-requirements.md:5:This artifact defines required database and object-storage metadata snapshots before migration/cutover/rollback approval. It does not create, export, restore, or validate real production snapshots.
+ops/m10/snapshot-requirements.md:10:docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+ops/m10/snapshot-requirements.md:16:schema and migration version
+ops/m10/snapshot-requirements.md:39:Raw binary objects must not be committed to the repository. Metadata artifacts for QA must not include signed URLs or production credentials.
+ops/m10/snapshot-requirements.md:48:secret material stored outside committed files
+ops/m10/snapshot-requirements.md:58:rollback compatibility evidence captured
+apps/platform-api/storage/framework/testing/k6-ktobgrr4/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/tests/Feature/AdminAuthTest.php:24:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminAuthTest.php:94:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminAuthTest.php:184:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminAuthTest.php:208:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminAuthTest.php:230:            'password' => 'secret-password',
+apps/platform-api/storage/framework/testing/k6-vdtptgwe/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/tests/Feature/BackendModelComplianceTest.php:17:        $migrationTables = $this->domainMigrationTables();
+apps/platform-api/tests/Feature/BackendModelComplianceTest.php:31:        $this->assertSame([], array_values(array_diff($migrationTables, $modelTables)), 'Every application table must have an Eloquent model.');
+apps/platform-api/tests/Feature/BackendModelComplianceTest.php:232:        foreach ($this->phpFiles(database_path('migrations')) as $file) {
+apps/platform-api/tests/Feature/AdminRoleTest.php:306:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminRoleTest.php:326:            'password' => 'secret-password',
+apps/platform-api/storage/framework/testing/k6-fisdwhxk/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:393:        $blockedId = 'sib_'.Str::ulid()->toBase32();
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:397:            'id' => $blockedId,
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:402:            'status' => 'blocked',
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:405:            'reason' => 'Sensitive action is blocked during support impersonation.',
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:419:            'event_type' => 'support_impersonation.action_blocked',
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:424:            'reason' => 'Sensitive action is blocked during support impersonation.',
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:435:            'support_impersonation.action_blocked',
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:436:            'support_impersonation_blocked_action',
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:437:            $blockedId,
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:442:                'blocked_action' => $action,
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:644:            eventType: 'support_impersonation.action_blocked.v1',
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:646:            aggregateType: 'support_impersonation_blocked_action',
+apps/platform-api/app/Modules/SupportAccess/Services/SupportAccessService.php:655:                'blocked_action' => $action,
+apps/platform-api/tests/Feature/AdminUserTest.php:27:                'password' => 'temporary-secret',
+apps/platform-api/tests/Feature/AdminUserTest.php:42:        $this->assertTrue(Hash::check('temporary-secret', (string) DB::table('admin_users')->where('id', $created['id'])->value('password_hash')));
+apps/platform-api/tests/Feature/AdminUserTest.php:330:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminUserTest.php:350:            'password' => 'secret-password',
+apps/platform-api/tests/Feature/AdminUserTest.php:416:            'password_hash' => Hash::make('secret-password'),
+apps/platform-api/tests/Feature/AdminUserTest.php:443:        $this->assertStringNotContainsString('temporary-secret', $json);
+docs/admin-dashboard-template-guidelines.md:32:ก่อนนำ template ไปใช้จริงใน product, staging, production หรือส่งมอบลูกค้า ต้องยืนยันว่า project มี license ที่ถูกต้องแล้ว ห้ามลบ license notice จาก template source โดยไม่ตรวจสิทธิ์
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:222:    public function test_PartnerApiClient_management_is_permissioned_and_never_returns_secret_material(): void
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:256:            ->assertJsonMissingPath('secret')
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:257:            ->assertJsonMissingPath('secret_hash')
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:260:        $this->assertStringNotContainsString('secret', json_encode($created, JSON_THROW_ON_ERROR));
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:266:        $this->assertNotNull(DB::table('partner_api_clients')->where('id', $created['id'])->value('secret_hash'));
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:274:        $this->assertArrayNotHasKey('secret_hash', $list[0]);
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:275:        $this->assertArrayNotHasKey('secret', $list[0]);
+apps/platform-api/tests/Feature/PartnerProvisioningTest.php:504:            'password' => 'secret-password',
+docs/docker-runtime-policy.md:10:Do not run PHP, Composer, Node, npm, pnpm, yarn, Nuxt, Vite, Artisan, queue workers, tests, builds, or migrations directly on the host machine.
+docs/docker-runtime-policy.md:67:QA Tester must run all test/build/migration commands through Docker containers only.
+apps/platform-api/storage/framework/testing/k6-u6h3epso/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/tests/Feature/CentralStockTest.php:54:                'api_secret' => 'redact-me',
+apps/platform-api/tests/Feature/CentralStockTest.php:147:        $secretValues = array_map(
+apps/platform-api/tests/Feature/CentralStockTest.php:148:            fn (array $auditPayload): ?string => $auditPayload['payload']['api_secret'] ?? null,
+apps/platform-api/tests/Feature/CentralStockTest.php:152:        $this->assertContains('[REDACTED]', $secretValues);
+apps/platform-api/tests/Feature/CentralStockTest.php:153:        $this->assertNotContains('redact-me', $secretValues);
+docs/openapi.yaml:392:          description: Admin two-factor setup secret and recovery context
+docs/openapi.yaml:7878:        blocked_route_patterns:
+apps/platform-api/storage/framework/testing/k6-oe1mmvsj/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/tests/Feature/M10ProductionObservabilityAlertingTest.php:21:        config(['platform.alerts.webhook_url' => 'https://hooks.example.test/services/super-secret-token']);
+apps/platform-api/tests/Feature/M10ProductionObservabilityAlertingTest.php:30:        $this->assertFalse($report['boundary']['production_approved']);
+apps/platform-api/tests/Feature/M10ProductionObservabilityAlertingTest.php:37:        $this->assertStringNotContainsString('super-secret-token', $output);
+apps/platform-api/tests/Feature/M10ProductionObservabilityAlertingTest.php:71:        $this->assertFalse($result['boundary']['production_approved']);
+apps/platform-api/tests/Feature/M10ProductionObservabilityAlertingTest.php:90:            'platform.alerts.webhook_url' => 'https://hooks.example.test/services/another-secret-token',
+apps/platform-api/tests/Feature/M10ProductionObservabilityAlertingTest.php:119:        $this->assertStringNotContainsString('another-secret-token', json_encode($payload));
+apps/platform-api/tests/Feature/M10ProductionObservabilityAlertingTest.php:120:        $this->assertStringNotContainsString('another-secret-token', $output);
+apps/platform-api/storage/framework/testing/k6-gxo2sfuk/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/storage/framework/testing/k6-8jj496g3/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/storage/framework/testing/k6-zvcmcwr1/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/app/Models/PartnerTenantMaintenanceSetting.php:29:        'blocked_route_patterns_json',
+apps/platform-api/app/Models/PartnerTenantMaintenanceSetting.php:43:        'blocked_route_patterns_json' => 'array',
+apps/platform-api/app/Modules/AdminOperations/Services/AdminOperationsService.php:101:        $secret = (string) config('platform.realtime.admin_secret', 'newpaotang-admin-secret');
+apps/platform-api/app/Modules/AdminOperations/Services/AdminOperationsService.php:107:        if ($secret === '') {
+apps/platform-api/app/Modules/AdminOperations/Services/AdminOperationsService.php:108:            $secret = 'newpaotang-admin-secret';
+apps/platform-api/app/Modules/AdminOperations/Services/AdminOperationsService.php:112:            'auth' => $key.':'.hash_hmac('sha256', $stringToSign, $secret),
+apps/platform-api/app/Modules/Maintenance/Services/MaintenanceService.php:72:                'blocked_route_patterns' => $this->decodeJsonList($legacy->maintenance_blocked_route_patterns_json),
+apps/platform-api/app/Modules/Maintenance/Services/MaintenanceService.php:97:            'blocked_route_patterns' => [],
+apps/platform-api/app/Modules/Maintenance/Services/MaintenanceService.php:151:                'blocked_route_patterns_json' => json_encode($this->normalizedStringList($payload['blocked_route_patterns'] ?? []), JSON_THROW_ON_ERROR),
+apps/platform-api/app/Modules/Maintenance/Services/MaintenanceService.php:391:            'maintenance_blocked_route_patterns_json' => json_encode($state['blocked_route_patterns'], JSON_THROW_ON_ERROR),
+apps/platform-api/app/Modules/Maintenance/Services/MaintenanceService.php:453:            'blocked_route_patterns_json' => $legacy->maintenance_blocked_route_patterns_json ?? json_encode([], JSON_THROW_ON_ERROR),
+apps/platform-api/app/Modules/Maintenance/Services/MaintenanceService.php:487:            'blocked_route_patterns' => $this->decodeJsonList($setting->blocked_route_patterns_json),
+apps/platform-api/app/Models/PartnerTenantSetting.php:35:        'maintenance_blocked_route_patterns_json',
+apps/platform-api/app/Models/PartnerTenantSetting.php:52:        'maintenance_blocked_route_patterns_json' => 'array',
+apps/platform-api/storage/framework/testing/k6-z72oke1j/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/storage/framework/testing/k6-v0lv1low/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/app/Modules/AdminOperations/Services/BoMenuCompletionService.php:1165:                return ['error' => 'validation_failed', 'errors' => ['status' => ['Active domains require DNS, SSL, Cloudflare proxy, and HTTPS readiness.']]];
+apps/platform-api/app/Modules/AdminOperations/Services/BoMenuCompletionService.php:1988:            $errors['status'][] = 'Active domains require DNS, SSL, Cloudflare proxy, and HTTPS readiness.';
+apps/platform-api/tests/Feature/TenantReservationTest.php:93:                'api_secret' => 'redact-admin',
+apps/platform-api/tests/Feature/TenantReservationTest.php:126:        $this->assertSame('[REDACTED]', $auditPayload['payload']['api_secret']);
+apps/platform-api/tests/Feature/TenantReservationTest.php:131:                'api_secret' => 'redact-admin',
+apps/platform-api/storage/framework/testing/k6-yujyqeih/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/app/Modules/Maintenance/Http/Requests/MaintenanceRequestValidator.php:56:        foreach (['allowed_routes', 'blocked_route_patterns'] as $field) {
+apps/platform-api/app/Models/SupportImpersonationSession.php:53:    public function blockedActions(): HasMany
+apps/platform-api/storage/framework/testing/k6-ecwt7zuo/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/storage/framework/testing/k6-yjslshda/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/app/Models/SupportImpersonationBlockedAction.php:12:    protected $table = 'support_impersonation_blocked_actions';
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:15:        $cutover = $this->cutoverReadiness();
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:16:        $rollback = $this->rollbackReadiness();
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:17:        $secrets = $this->secretBoundary();
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:19:        $blockers = $this->blockers($strategy, $fixtures, $snapshots, $cutover, $rollback, $secrets, $helpers);
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:26:            'status' => $blockers === [] ? 'ready_local' : 'blocked_external',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:28:            'production_approved' => false,
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:35:                'destructive_production_operations_attempted' => false,
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:37:                'staging_approved' => false,
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:38:                'production_approved' => false,
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:40:                'production_cutover_approved' => false,
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:41:                'production_rollback_approved' => false,
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:43:            'old_data_migration_strategy' => $strategy,
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:46:            'cutover' => $cutover,
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:47:            'rollback' => $rollback,
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:48:            'production_secret_boundary' => $secrets,
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:52:                'docker compose exec platform-api php artisan platform:migration:rehearsal --dry-run --format=json',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:68:        $artifact = 'ops/m10/old-data-migration-strategy.md';
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:87:                'production_payment_provider_secrets',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:106:                'secrets_reported_as_configured_or_redacted_only' => true,
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:108:            'blockers' => is_file($this->workspacePath($artifact)) ? [] : ['old_data_migration_strategy_artifact_missing'],
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:117:        $artifact = 'ops/m10/migration-rehearsal-fixtures.md';
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:128:            $blockers[] = 'migration_rehearsal_fixture_boundary_missing';
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:161:            'status' => 'blocked_external',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:167:                'local_rehearsal_boundary' => 'Use migrate:fresh --seed only for local/test rehearsal; never as production rollback.',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:186:    private function cutoverReadiness(): array
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:188:        $artifact = 'ops/m10/cutover-runbook.md';
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:190:            'release_image_tag' => trim((string) config('platform.migration_rehearsal.release_image_tag')) !== '',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:191:            'migration_source_type' => trim((string) config('platform.migration_rehearsal.source_type')) !== '',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:195:            'status' => 'blocked_external',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:201:                'migration_source_type' => $this->configuredPlaceholder($configured['migration_source_type']),
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:208:                'dry_run_then_production_safe_migration_boundary',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:216:                is_file($this->workspacePath($artifact)) ? null : 'cutover_runbook_missing',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:218:                'production_cutover_window_not_approved',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:219:                'staging_rehearsal_not_completed',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:220:                'cloudflare_cdn_r2_production_evidence_missing',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:221:                'production_monitoring_alert_channels_not_verified',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:229:    private function rollbackReadiness(): array
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:231:        $artifact = 'ops/m10/rollback-drill-runbook.md';
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:233:            'previous_image_tag' => trim((string) config('platform.migration_rehearsal.previous_image_tag')) !== '',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:237:            'status' => 'blocked_external',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:250:                'object_storage_rollback_or_repair_boundary',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:251:                'post_rollback_health_smoke_checks',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:255:                is_file($this->workspacePath($artifact)) ? null : 'rollback_drill_runbook_missing',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:257:                'production_db_backward_compatibility_not_verified',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:258:                'object_storage_rollback_plan_not_verified',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:259:                'rollback_rehearsal_not_executed',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:267:    private function secretBoundary(): array
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:269:        $artifact = 'ops/m10/production-secret-boundary.md';
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:271:            'source_dsn' => trim((string) config('platform.migration_rehearsal.source_dsn')) !== '',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:272:            'source_token' => trim((string) config('platform.migration_rehearsal.source_token')) !== '',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:273:            'object_storage_bucket' => trim((string) config('platform.migration_rehearsal.object_storage_bucket')) !== '',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:274:            'secret_reference' => trim((string) config('platform.migration_rehearsal.secret_reference')) !== '',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:278:            'status' => 'blocked_external',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:286:                'secret_reference' => $this->configuredPlaceholder($configured['secret_reference'], sensitive: true),
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:288:            'required_external_owner' => 'Coordinator/Ops approved secret manager outside committed files.',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:291:                is_file($this->workspacePath($artifact)) ? null : 'production_secret_boundary_artifact_missing',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:292:                'production_secret_management_missing',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:293:                'migration_source_credentials_missing',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:305:            'scripts/platform-migration-rehearsal.sh',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:306:            'scripts/platform-cutover-preflight.sh',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:307:            'scripts/platform-rollback-drill.sh',
+apps/platform-api/app/Shared/Migration/MigrationRehearsalReadinessService.php:319:            'blockers' => $missing === [] ? [] : ['migration_helper_missing_or_not_docker_only'],
+apps/platform-api/app/Modules/Tenancy/Services/TenantConfigurationService.php:147:        foreach (['maintenance_allowed_routes_json', 'maintenance_blocked_route_patterns_json'] as $field) {
+apps/platform-api/app/Modules/Tenancy/Services/TenantConfigurationService.php:354:            'maintenance_blocked_route_patterns_json' => json_encode([], JSON_THROW_ON_ERROR),
+apps/platform-api/app/Modules/Tenancy/Services/TenantConfigurationService.php:428:            'maintenance_blocked_route_patterns_json' => '[]',
+apps/platform-api/app/Modules/Tenancy/Services/TenantConfigurationService.php:501:            'blocked_route_patterns' => 'maintenance_blocked_route_patterns_json',
+apps/platform-api/app/Modules/Tenancy/Services/TenantConfigurationService.php:572:        foreach (['default_keywords_json', 'maintenance_allowed_routes_json', 'maintenance_blocked_route_patterns_json'] as $jsonField) {
+apps/platform-api/app/Modules/Tenancy/Services/TenantConfigurationService.php:654:            'blocked_route_patterns' => $this->decodeJsonList($settings->maintenance_blocked_route_patterns_json),
+apps/platform-api/storage/framework/testing/k6-j5a1uoib/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/storage/framework/testing/k6-c6yelaim/k6-baseline-env.json:22:        "ADMIN_TOKEN": "npa_at_v9bDl5bKjvHJsDZcXUZIINwJW1WETZm0R2lzr9J5ZWjE8auuYVipjvejhcvS4phk",
+apps/platform-api/storage/framework/testing/k6-c6yelaim/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/tests/Feature/TenantStockTest.php:81:                'api_secret' => 'redact-me',
+apps/platform-api/tests/Feature/TenantStockTest.php:94:                'api_secret' => 'redact-me',
+apps/platform-api/tests/Feature/TenantStockTest.php:113:        $this->assertSame('[REDACTED]', $auditPayload['payload']['api_secret']);
+apps/platform-api/storage/framework/testing/k6-8ykhyhjb/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/storage/framework/testing/k6-c6yelaim/k6-baseline.env:11:ADMIN_TOKEN=npa_at_v9bDl5bKjvHJsDZcXUZIINwJW1WETZm0R2lzr9J5ZWjE8auuYVipjvejhcvS4phk
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:109:                'description' => 'CDN hit ratio needs production CDN analytics before real evaluation.',
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:110:                'data_source' => 'Cloudflare/CDN analytics production gate',
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:118:                'data_source' => 'R2/S3 usage production gate',
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:181:            $this->signal('api', 'API request/error/latency', 'partial', 'health endpoints, access logs, partner_daily_usage_summaries', 'docker compose exec platform-api php artisan platform:observability:report --format=json', 'External APM/edge latency is a production integration gate.'),
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:184:            $this->signal('queue', 'Queue lag and failed job readiness', 'partial', 'jobs, failed_jobs, platform worker command path', 'docker compose run --rm platform-api php artisan queue:work --once --tries=1', 'Horizon dashboard and production queue supervision remain open gates.'),
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:186:            $this->signal('booking', 'Booking failure readiness', 'partial', 'partner_daily_usage_summaries and application logs', 'docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json', 'Dedicated booking failure counters are not yet production-fed.'),
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:187:            $this->signal('checkout', 'Checkout/wallet failure readiness', 'partial', 'partner_daily_usage_summaries and application logs', 'docker compose exec platform-api php artisan platform:alerts:check --dry-run --format=json', 'Dedicated checkout failure counters are not yet production-fed.'),
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:189:            $this->signal('support_access', 'Support access audit readiness', 'ready_local', 'support_impersonation_events, support_impersonation_blocked_actions, audit_logs', 'docker compose exec platform-api php artisan platform:observability:report --format=json', null),
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:192:            $this->signal('cdn_images', 'Ticket image CDN metrics', 'blocked_external', 'Cloudflare/CDN/R2 analytics', 'Run CDN/R2 slice validation after credentials and test image path exist.', 'Cloudflare/CDN/R2 integration remains an open release gate.'),
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:202:            ['integration' => 'webhook', 'status' => 'placeholder_only', 'owner' => 'Coordinator/Production Ops', 'blocker' => 'Real webhook URL and secret management are not available in this workspace.'],
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:204:            ['integration' => 'sentry', 'status' => 'placeholder_only', 'owner' => 'Coordinator/Production Ops', 'blocker' => 'Sentry DSN/project and production secret management remain open gates.'],
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:206:            ['integration' => 'datadog_new_relic', 'status' => 'template_only', 'owner' => 'Coordinator/Production Ops', 'blocker' => 'Vendor account/API keys and production agent deployment remain open gates.'],
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:207:            ['integration' => 'cloudflare_cdn_r2', 'status' => 'blocked_external', 'owner' => 'Coordinator/Production Ops', 'blocker' => 'Cloudflare account/API, WAF/rate-limit rules, R2 bucket, and real ticket-image path remain separate release gates.'],
+apps/platform-api/app/Shared/Observability/ObservabilityCatalog.php:223:            'production_blocker' => $blocker,
+apps/platform-api/app/Models/PartnerApiClient.php:16:        'secret_hash',
+apps/platform-api/app/Models/PartnerApiClient.php:26:        'secret_hash',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:27:            'status' => $blockers === [] ? 'ready_local' : 'blocked_external',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:29:            'production_approved' => false,
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:37:                'staging_approved' => false,
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:38:                'production_approved' => false,
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:172:            'status' => $packageInstalled && $configPresent ? 'ready_local' : 'blocked_external',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:176:            'dashboard_access_policy' => 'local/dev only until Horizon package, auth guard, network restriction, and production access policy are approved.',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:183:                'horizon_production_process_manager_missing',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:197:            'app_secret' => trim((string) config('platform.realtime.admin_secret')) !== '',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:208:            'status' => $packageInstalled ? 'ready_local' : 'blocked_external',
+apps/platform-api/app/Shared/Runtime/RuntimeReadinessService.php:214:                'app_secret' => $this->configuredPlaceholder($configured['app_secret'], sensitive: true),
+apps/platform-api/storage/framework/testing/k6-idxbm29f/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:472:            $secret = bin2hex(random_bytes(32));
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:480:                'secret_hash' => hash('sha256', $secret),
+apps/platform-api/app/Modules/Partner/Services/PartnerProvisioningService.php:750:                'maintenance_blocked_route_patterns_json' => json_encode([], JSON_THROW_ON_ERROR),
+apps/platform-api/app/Shared/Cloudflare/CloudflareReadinessService.php:3:namespace App\Shared\Cloudflare;
+apps/platform-api/app/Shared/Cloudflare/CloudflareReadinessService.php:7:class CloudflareReadinessService
+apps/platform-api/app/Shared/Cloudflare/CloudflareReadinessService.php:21:            'status' => $blockers === [] ? 'ready_local' : 'blocked_external',
+apps/platform-api/app/Shared/Cloudflare/CloudflareReadinessService.php:23:            'production_approved' => false,
+apps/platform-api/app/Shared/Cloudflare/CloudflareReadinessService.php:29:                'staging_approved' => false,
+apps/platform-api/app/Shared/Cloudflare/CloudflareReadinessService.php:30:                'production_approved' => false,
+apps/platform-api/app/Shared/Cloudflare/CloudflareReadinessService.php:79:            'note' => 'This verifier does not call or mutate Cloudflare. Real DNS, SSL, proxy, WAF, and cache evidence must be supplied by QA/Ops before production approval.',
+apps/platform-api/app/Shared/Cloudflare/CloudflareReadinessService.php:205:            'r2_secret_access_key' => trim((string) config('platform.ticket_images.r2_secret_access_key')) !== '',
+apps/platform-api/app/Shared/Cloudflare/CloudflareReadinessService.php:236:                'delivery_policy' => 'Serve ticket images from CDN/R2 or signed CDN URLs; do not proxy each request through Laravel.',
+apps/platform-api/app/Shared/Cloudflare/CloudflareReadinessService.php:244:                'r2_secret_access_key' => $this->configuredPlaceholder($configured['r2_secret_access_key'], sensitive: true),
+apps/platform-api/app/Shared/Observability/ObservabilityReportService.php:35:                'staging_approved' => false,
+apps/platform-api/app/Shared/Observability/ObservabilityReportService.php:36:                'production_approved' => false,
+apps/platform-api/app/Shared/Observability/ObservabilityReportService.php:69:                'production_placeholders' => ['webhook', 'email', 'sentry', 'grafana', 'datadog', 'new_relic'],
+apps/platform-api/app/Shared/Observability/AlertEvaluationService.php:86:                'production_approved' => false,
+apps/platform-api/app/Shared/Observability/AlertEvaluationService.php:98:                'external' => 'blocked_until_credentials_and_production_secret_management_exist',
+apps/platform-api/storage/framework/testing/k6-d1lagnp4/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/storage/framework/testing/k6-njfp7guj/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/app/Modules/Partner/Services/PartnerSyncService.php:41:            ->where('secret_hash', hash('sha256', $token))
+apps/platform-api/storage/framework/testing/k6-j4vj7mjl/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/storage/framework/testing/k6-bxvq7t68/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/storage/framework/testing/k6-7q6j62lm/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/storage/framework/testing/k6-ekfwb8yv/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."
+apps/platform-api/storage/framework/testing/k6-datojpwk/k6-baseline-env.json:39:            "reason": "Local/dev fixture does not provision Cloudflare CDN/R2 ticket images. Set CDN_BASE_URL and IMAGE_PATH to run ticket-image-cdn-spike.js against a real CDN/object path."

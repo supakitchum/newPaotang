@@ -56,8 +56,10 @@ Must not edit:
 
 ## Validation Commands
 
+Use Docker commands only. Do not write local PHP/Composer/Node/npm commands.
+
 ```sh
-<command>
+docker compose exec <service> <command>
 ```
 
 ## Handoff Requirements

@@ -307,6 +307,7 @@ Recommended pipeline:
 test
 static analysis
 build Docker image
+run development/test/build/migration commands through Docker Compose only
 push image
 run migrations
 deploy API

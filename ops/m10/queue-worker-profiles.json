@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "scope": "m10-horizon-reverb-scheduler-hardening",
+  "boundary": "local-dev-readiness-only",
+  "worker_profiles": [
+    {
+      "name": "partner-sync-critical",
+      "priority_class": "critical",
+      "queues": ["partner-inbox-high", "stock-allocation", "stock-sold-events", "stock-recall", "stock-sync", "central-outbox"],
+      "owner": "Partner/Central Stock",
+      "scale_policy": "Scale separately from reporting and monitoring workloads."
+    },
+    {
+      "name": "partner-sync-normal",
+      "priority_class": "normal",
+      "queues": ["partner-inbox-normal"],
+      "owner": "Partner",
+      "scale_policy": "Dedicated normal-priority sync capacity."
+    },
+    {
+      "name": "customer-commerce-critical",
+      "priority_class": "critical",
+      "queues": ["reservation-expiration", "checkout-finalize", "webhook-dispatch"],
+      "owner": "Partner Store/Commerce/Webhook",
+      "scale_policy": "Must not share workers with report-build or monitoring queues."
+    },
+    {
+      "name": "reward-critical",
+      "priority_class": "high",
+      "queues": ["reward-validate", "reward-check-high", "reward-publish"],
+      "owner": "Reward",
+      "scale_policy": "Separate from booking, checkout, stock sync, and report-build workloads."
+    },
+    {
+      "name": "reward-normal",
+      "priority_class": "normal",
+      "queues": ["reward-check-normal", "reward-summary", "reward-notification"],
+      "owner": "Reward",
+      "scale_policy": "Chunked reward processing and notifications without blocking commerce-critical queues."
+    },
+    {
+      "name": "growth-reporting",
+      "priority_class": "background",
+      "queues": ["affiliate-commission", "report-build"],
+      "owner": "Growth/Reports",
+      "scale_policy": "Background pool only; do not colocate with booking, checkout, or reward critical paths."
+    },
+    {
+      "name": "observability-background",
+      "priority_class": "background",
+      "queues": ["notification", "usage-metering", "partner-monitoring", "default"],
+      "owner": "Observability/Notifications",
+      "scale_policy": "Background pool for low-priority operational work and default fallback."
+    }
+  ],
+  "queue_ownership": [
+    {"queue": "partner-inbox-high", "owner": "Partner", "workload": "high-priority partner event inbox", "priority_class": "critical", "profile": "partner-sync-critical"},
+    {"queue": "partner-inbox-normal", "owner": "Partner", "workload": "normal partner event inbox", "priority_class": "normal", "profile": "partner-sync-normal"},
+    {"queue": "stock-allocation", "owner": "Central Stock", "workload": "allocation fan-out", "priority_class": "critical", "profile": "partner-sync-critical"},
+    {"queue": "stock-sold-events", "owner": "Commerce/Central Stock", "workload": "sold event reconciliation", "priority_class": "critical", "profile": "partner-sync-critical"},
+    {"queue": "stock-recall", "owner": "Central Stock", "workload": "stock recall propagation", "priority_class": "critical", "profile": "partner-sync-critical"},
+    {"queue": "stock-sync", "owner": "Partner Store", "workload": "tenant stock sync", "priority_class": "critical", "profile": "partner-sync-critical"},
+    {"queue": "reservation-expiration", "owner": "Partner Store", "workload": "reservation expiration", "priority_class": "critical", "profile": "customer-commerce-critical"},
+    {"queue": "checkout-finalize", "owner": "Commerce", "workload": "checkout finalization", "priority_class": "critical", "profile": "customer-commerce-critical"},
+    {"queue": "central-outbox", "owner": "Shared Events", "workload": "central outbox dispatch", "priority_class": "critical", "profile": "partner-sync-critical"},
+    {"queue": "affiliate-commission", "owner": "Growth", "workload": "affiliate commission calculation", "priority_class": "background", "profile": "growth-reporting"},
+    {"queue": "reward-validate", "owner": "Reward", "workload": "reward result validation", "priority_class": "high", "profile": "reward-critical"},
+    {"queue": "reward-check-high", "owner": "Reward", "workload": "high-priority reward checking", "priority_class": "high", "profile": "reward-critical"},
+    {"queue": "reward-check-normal", "owner": "Reward", "workload": "normal reward checking", "priority_class": "normal", "profile": "reward-normal"},
+    {"queue": "reward-summary", "owner": "Reward", "workload": "reward summary build", "priority_class": "normal", "profile": "reward-normal"},
+    {"queue": "reward-publish", "owner": "Reward", "workload": "reward publish", "priority_class": "high", "profile": "reward-critical"},
+    {"queue": "reward-notification", "owner": "Reward", "workload": "reward notification", "priority_class": "normal", "profile": "reward-normal"},
+    {"queue": "report-build", "owner": "Growth/Reports", "workload": "report export/build", "priority_class": "background", "profile": "growth-reporting"},
+    {"queue": "webhook-dispatch", "owner": "Webhook", "workload": "payment/topup webhook dispatch", "priority_class": "critical", "profile": "customer-commerce-critical"},
+    {"queue": "notification", "owner": "Notifications", "workload": "general notifications", "priority_class": "background", "profile": "observability-background"},
+    {"queue": "usage-metering", "owner": "Observability/Billing", "workload": "usage metering", "priority_class": "background", "profile": "observability-background"},
+    {"queue": "partner-monitoring", "owner": "Observability", "workload": "partner health monitoring", "priority_class": "background", "profile": "observability-background"},
+    {"queue": "default", "owner": "Platform", "workload": "fallback low-risk jobs", "priority_class": "background", "profile": "observability-background"}
+  ]
+}

@@ -1,0 +1,49 @@
+ Container newpaotang-postgres-1 Running 
+ Container newpaotang-valkey-1 Running 
+ Container newpaotang-postgres-1 Waiting 
+ Container newpaotang-valkey-1 Waiting 
+ Container newpaotang-postgres-1 Healthy 
+ Container newpaotang-valkey-1 Healthy 
+ Container newpaotang-platform-api-run-41a974d87117 Creating 
+ Container newpaotang-platform-api-run-41a974d87117 Created 
+
+  [39;41;1m FAIL [39;49;22m[39m Tests\Feature\MaintenanceTest[39m
+  [31;1m⨯[39;22m[90m [39m[90mmaintenance admin updates site config blocks by mode and keeps tenant isolation[39m
+  [31;1m⨯[39;22m[90m [39m[90mmaintenance rejects missing reason and requires schedule permission[39m
+  [31m────────────────────────────────────────────────────────────────────────────[39m  
+  [41;1m FAILED [49;22m [1mTests\Feature\MaintenanceTest[22m [90m>[39m maintenance admin… [41;1m QueryException [49;22m  
+[39;1m  SQLSTATE[42P01]: Undefined table: 7 ERROR:  table "admin_auth_sessions" does not exist (Connection: pgsql, Host: postgres, Port: 5432, Database: newpaotang, SQL: drop table "public"."admin_auth_sessions", "public"."admin_menus", "public"."admin_permission_cache_versions", "public"."admin_scopes", "public"."admin_user_roles", "public"."admin_users", "public"."affiliate_accounts", "public"."affiliate_attributions", "public"."affiliate_links", "public"."affiliate_payouts", "public"."affiliate_programs", "public"."agent_quotas", "public"."agents", "public"."audit_logs", "public"."cache", "public"."cache_locks", "public"."commission_rules", "public"."commission_transactions", "public"."customer_auth_sessions", "public"."customers", "public"."failed_jobs", "public"."games", "public"."idempotency_keys", "public"."jobs", "public"."local_stock_items", "public"."migrations", "public"."order_items", "public"."orders", "public"."partner_alert_events", "public"."partner_alert_policies", "public"."partner_api_clients", "public"."partner_billing_plan_bindings", "public"."partner_daily_usage_summaries", "public"."partner_health_checks", "public"."partner_monitoring_profiles", "public"."partner_quotas", "public"."partner_settlements", "public"."partner_stock_allocation_items", "public"."partner_stock_allocations", "public"."partner_tenant_deployment_profiles", "public"."partner_tenant_domains", "public"."partner_tenant_feature_flags", "public"."partner_tenant_maintenance_bypasses", "public"."partner_tenant_maintenance_events", "public"."partner_tenant_maintenance_settings", "public"."partner_tenant_settings", "public"."partner_tenant_themes", "public"."partner_tenants", "public"."partner_usage_events", "public"."partner_usage_meters", "public"."partners", "public"."payments", "public"."permissions", "public"."report_export_jobs", "public"."reward_check_batches", "public"."reward_check_items", "public"."reward_claims", "public"."reward_prizes", "public"."reward_publish_logs", "public"."reward_results", "public"."role_menus", "public"."role_permissions", "public"."roles", "public"."stock_generation_batches", "public"."stock_items", "public"."stock_reservation_items", "public"."stock_reservations", "public"."stock_sync_batches", "public"."support_access_approvals", "public"."support_access_requests", "public"."support_impersonation_blocked_actions", "public"."support_impersonation_events", "public"."support_impersonation_sessions", "public"."sync_inbox", "public"."sync_outbox", "public"."tenant_stock_export_jobs", "public"."tickets", "public"."topup_requests", "public"."wallet_ledger", "public"."wallets", "public"."webhook_callbacks", "public"."winning_tickets" cascade)[39;22m
+
+  at [32mvendor/laravel/framework/src/Illuminate/Database/Connection.php[39m:[32m841[39m
+    837▕             $exceptionType = ($isUniqueConstraintError = $this->isUniqueConstraintError($e))
+    838▕                 ? UniqueConstraintViolationException::class
+    839▕                 : QueryException::class;
+    840▕ 
+  ➜ 841▕             $exception = new $exceptionType(
+    842▕                 $this->getNameWithReadWriteType(),
+    843▕                 $query,
+    844▕                 $this->prepareBindings($bindings),
+    845▕                 $e,
+
+
+  [31m────────────────────────────────────────────────────────────────────────────[39m  
+  [41;1m FAILED [49;22m [1mTests\Feature\MaintenanceTest[22m [90m>[39m maintenance rejec… [41;1m QueryException [49;22m  
+[39;1m  SQLSTATE[42P07]: Duplicate table: 7 ERROR:  relation "migrations" already exists (Connection: pgsql, Host: postgres, Port: 5432, Database: newpaotang, SQL: create table "migrations" ("id" serial not null primary key, "migration" varchar(255) not null, "batch" integer not null))[39;22m
+
+  at [32mvendor/laravel/framework/src/Illuminate/Database/Connection.php[39m:[32m841[39m
+    837▕             $exceptionType = ($isUniqueConstraintError = $this->isUniqueConstraintError($e))
+    838▕                 ? UniqueConstraintViolationException::class
+    839▕                 : QueryException::class;
+    840▕ 
+  ➜ 841▕             $exception = new $exceptionType(
+    842▕                 $this->getNameWithReadWriteType(),
+    843▕                 $query,
+    844▕                 $this->prepareBindings($bindings),
+    845▕                 $e,
+
+
+
+  [90mTests:[39m    [31;1m2 failed[39;22m[90m (0 assertions)[39m
+  [90mDuration:[39m [39m0.64s[39m
+
+

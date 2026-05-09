@@ -1,0 +1,11 @@
+DELETE /auth/admin/2fa
+GET /auth/admin/2fa
+GET /customer/auth/line/callback
+POST /auth/admin/2fa/enable
+POST /auth/admin/2fa/recovery-codes
+POST /auth/admin/2fa/setup
+POST /auth/admin/2fa/verify
+POST /auth/admin/password/change
+POST /auth/admin/password/forgot
+POST /auth/admin/password/reset
+POST /customer/auth/line/login

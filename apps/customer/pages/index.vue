@@ -108,7 +108,7 @@ definePageMeta({
   requiresAuth: false
 })
 
-const axios = useAxios()
+const platformApi = usePlatformApi()
 const config = useRuntimeConfig()
 const { toSummary } = useLotteryReward()
 const { currentDrawDate: drawDate } = useAppInit()
@@ -173,7 +173,7 @@ const fetchReward = async () => {
   isRewardLoading.value = true
 
   try {
-    const response = await axios.get('/reward')
+    const response = await platformApi.rewardLegacy()
 
     if (response.data?.code === 0) {
       latestGame.value = response.data.result || null
@@ -223,7 +223,7 @@ const previousNews = () => {
 
 const fetchNews = async () => {
   try {
-    const response = await axios.get('/news')
+    const response = await platformApi.newsLegacy()
 
     if (response.data?.code === 0 && Array.isArray(response.data.result)) {
       newsItems.value = response.data.result

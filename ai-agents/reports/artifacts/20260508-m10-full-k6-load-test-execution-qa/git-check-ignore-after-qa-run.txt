@@ -1,0 +1,9 @@
+load-tests/results/.gitignore:1:*	load-tests/results/k6-baseline.env
+load-tests/results/.gitignore:1:*	load-tests/results/k6-baseline-env.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T072215Z/checkout-wallet-consistency.summary.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T072215Z/concurrent-booking-same-stock.summary.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T072215Z/customer-stock-search.summary.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T072215Z/partner-tenant-burst-sync.summary.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T072215Z/reward-checking-queue-chunk.summary.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T072215Z/reward-publish-spike.summary.json
+load-tests/results/.gitignore:1:*	load-tests/results/20260508T072215Z/ticket-image-cdn-spike.skipped.json

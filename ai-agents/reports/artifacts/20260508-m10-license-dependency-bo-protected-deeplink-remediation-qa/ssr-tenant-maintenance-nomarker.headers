@@ -1,0 +1,7 @@
+HTTP/1.1 302 Found
+location: /login?redirect=/admin/tenant/maintenance
+content-type: text/html
+date: Fri, 08 May 2026 13:08:05 GMT
+connection: close
+content-length: 127
+

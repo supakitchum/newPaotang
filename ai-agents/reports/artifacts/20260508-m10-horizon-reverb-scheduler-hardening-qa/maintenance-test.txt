@@ -1,0 +1,8 @@
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\MaintenanceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mmaintenance admin updates site config blocks by mode and keeps tena[39m[90m…[39m [90m1.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmaintenance rejects missing reason and requires schedule permission[39m[90m [39m [90m0.51s[39m  
+
+  [90mTests:[39m    [32;1m2 passed[39;22m[90m (37 assertions)[39m
+  [90mDuration:[39m [39m2.14s[39m
+

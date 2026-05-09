@@ -1,0 +1,20 @@
+ Container newpaotang-postgres-1 Running 
+ Container newpaotang-valkey-1 Running 
+ Container newpaotang-postgres-1 Waiting 
+ Container newpaotang-valkey-1 Waiting 
+ Container newpaotang-valkey-1 Healthy 
+ Container newpaotang-postgres-1 Healthy 
+ Container newpaotang-platform-api-run-5b16ada0a865 Creating 
+ Container newpaotang-platform-api-run-5b16ada0a865 Created 
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\M10AdminSecurityLinePolicyClosureTest[39m
+  [32;1m✓[39;22m[90m [39m[90mm10 admin security line policy routes are registered for all remain[39m[90m…[39m [90m0.86s[39m  
+  [32;1m✓[39;22m[90m [39m[90mm10 admin security line policy password reset uses hashes expiry si[39m[90m…[39m [90m1.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mm10 admin security line policy support impersonation blocks sensiti[39m[90m…[39m [90m0.50s[39m  
+  [32;1m✓[39;22m[90m [39m[90mm10 admin security line policy two factor uses real totp hashed rec[39m[90m…[39m [90m1.22s[39m  
+  [32;1m✓[39;22m[90m [39m[90mm10 admin security line policy sensitive idempotency conflicts use[39m[90m… [39m [90m3.34s[39m  
+  [32;1m✓[39;22m[90m [39m[90mm10 admin security line policy line routes are tenant bound and do[39m[90m… [39m [90m0.04s[39m  
+
+  [90mTests:[39m    [32;1m6 passed[39;22m[90m (169 assertions)[39m
+  [90mDuration:[39m [39m7.12s[39m
+

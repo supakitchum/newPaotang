@@ -88,6 +88,7 @@ Rules:
 - [13_REWARD_RESULT_ENGINE.md](13_REWARD_RESULT_ENGINE.md)
 - [14_MAINTENANCE_SUPPORT_ACCESS.md](14_MAINTENANCE_SUPPORT_ACCESS.md)
 - [15_EXECUTION_PLAN.md](15_EXECUTION_PLAN.md)
+- [../docs/docker-runtime-policy.md](../docs/docker-runtime-policy.md)
 - [../docs/workspace-app-structure.md](../docs/workspace-app-structure.md)
 - [../docs/customer-api-integration-map.md](../docs/customer-api-integration-map.md)
 
@@ -104,8 +105,18 @@ Rules:
 - Admin UI: ใช้ `apps/back-office` เป็นหลัก; Filament/Inertia ใช้ได้เฉพาะ internal tooling หากมีคำสั่งเพิ่ม
 - Image delivery: S3 compatible storage + CDN + cache headers
 - DNS/HTTPS/WAF: Cloudflare, all public websites must use HTTPS
-- Deployment: Docker image + CI/CD + wildcard domain + tenant provisioning
+- Runtime/Deployment: Docker Compose for all local/dev commands, Docker image + CI/CD + wildcard domain + tenant provisioning
 - Monitoring: Prometheus/Grafana or managed observability + tenant usage metering
+
+## Docker Runtime Requirement
+
+NewPaotang ต้อง run ผ่าน Docker ทั้งหมด ทั้ง backend, back-office, customer, database, cache, queue, realtime, test และ build command
+
+```text
+ห้าม run PHP/Composer/Artisan/Node/npm/Nuxt/Vite/test/build/migration บน host machine
+คำสั่ง application ทั้งหมดต้องผ่าน docker compose exec หรือ docker compose run --rm
+local machine ใช้ได้เฉพาะ git, docker, docker compose, file editing และ file inspection ที่ไม่ execute project runtime
+```
 
 ## Execution Approach
 

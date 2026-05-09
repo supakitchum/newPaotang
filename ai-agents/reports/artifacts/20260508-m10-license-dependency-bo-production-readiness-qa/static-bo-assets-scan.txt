@@ -1,0 +1,57 @@
+docs/back-office-admin-foundation.md:10:components/       Meno-based shared admin components
+docs/back-office-admin-foundation.md:14:plugins/          client-only Meno/Bootstrap/simplebar/node-waves behavior
+docs/back-office-admin-foundation.md:15:public/admin-template selected compiled Meno assets
+docs/back-office-admin-foundation.md:36:## Meno Asset Import
+docs/back-office-admin-foundation.md:38:The first slice uses the template guideline Option A: selected compiled assets from `admin_dashboard_template/Meno_esbuild/dist/assets` are copied into:
+docs/back-office-admin-foundation.md:47:/admin-template/assets/libs/bootstrap/css/bootstrap.min.css
+docs/back-office-admin-foundation.md:48:/admin-template/assets/css/styles.css
+docs/back-office-admin-foundation.md:49:/admin-template/assets/css/icons.css
+docs/back-office-admin-foundation.md:54:Bootstrap CSS is loaded before Meno `styles.css`, matching the Meno `mainhead.html` dependency order so Bootstrap grid, reboot, utility, button, dropdown, modal, and form classes exist before template overrides.
+docs/back-office-admin-foundation.md:59:/admin-template/assets/libs/bootstrap/css/bootstrap.min.css
+docs/back-office-admin-foundation.md:60:/admin-template/assets/libs/bootstrap/js/bootstrap.bundle.min.js
+docs/back-office-admin-foundation.md:61:/admin-template/assets/css/styles.css
+docs/back-office-admin-foundation.md:62:/admin-template/assets/css/icons.css
+docs/back-office-admin-foundation.md:68:/admin-template/assets/js/defaultmenu.min.js
+docs/back-office-admin-foundation.md:70:/admin-template/assets/js/sticky.js
+docs/back-office-admin-foundation.md:73:Meno template JS strategy:
+docs/back-office-admin-foundation.md:76:- SimpleBar and Waves are initialized in `plugins/meno.client.ts` and re-initialized after Nuxt route changes.
+docs/back-office-admin-foundation.md:78:- Sidebar submenu state is owned by `AdminSidebar.vue` through Vue state, while the scroll container keeps the Meno `data-simplebar` hook.
+docs/back-office-admin-foundation.md:79:- Sticky sidebar/header behavior is handled by the Meno classes and fixed-position CSS already used by the Vue layout.
+docs/back-office-admin-foundation.md:80:- The raw `main.js`, `defaultmenu.min.js`, `custom.js`, and `sticky.js` files are served as static template references but are not injected into Nuxt head, avoiding duplicate DOM event handlers and router conflicts.
+docs/back-office-admin-foundation.md:82:The admin layout and components use Meno classes such as `card custom-card`, `card-header`, `card-title`, `btn btn-primary btn-wave`, `btn-icon`, `badge`, `avatar`, `main-content app-content`, `page-header-breadcrumb`, `table text-nowrap`, `dropdown-menu`, `modal`, and `alert`.
+docs/back-office-admin-foundation.md:92:That file was not present in the workspace during implementation. The copied asset folder includes `public/admin-template/README.md` and `public/admin-template/NOTICE.md`, and selected third-party library notices remain where they existed in copied library folders. `NOTICE.md` is only an evidence path and blocker note; it is not a replacement for the original Meno legal agreement. Template license confirmation remains required before staging, production, or client delivery.
+docs/back-office-admin-foundation.md:123:- The protected route slot stays hidden behind a Meno restore card until the client is ready and authenticated, preventing stale-marker/client transitions from emitting route-specific protected content before validation.
+docs/back-office-admin-foundation.md:125:- Meno SimpleBar and Waves DOM mutations run after Nuxt app mount and after later route changes, avoiding pre-hydration class/wrapper changes.
+docs/back-office-admin-foundation.md:171:Errors are normalized for Meno alert/form display, including `401`, `403`, `422`, `409`, `429`, and `503` with `Retry-After` when present.
+docs/back-office-admin-foundation.md:337:- required Bootstrap/Meno static files are present under `public/admin-template`;
+docs/back-office-admin-foundation.md:338:- Nuxt head loads Bootstrap CSS before Meno `styles.css`;
+docs/back-office-admin-foundation.md:339:- Vue/plugin-owned Meno JS replacement behavior remains wired.
+docs/back-office-admin-foundation.md:340:- protected shell hydration guardrails, stale marker cleanup, safe redirect checks, and Meno license notice blocker are present.
+docs/back-office-admin-foundation.md:369:- original Meno legal agreement/license evidence is absent;
+apps/back-office/scripts/check.mjs:76:  'public/admin-template/assets/libs/bootstrap/css/bootstrap.min.css',
+apps/back-office/scripts/check.mjs:77:  'public/admin-template/assets/libs/bootstrap/js/bootstrap.bundle.min.js',
+apps/back-office/scripts/check.mjs:78:  'public/admin-template/assets/css/styles.css',
+apps/back-office/scripts/check.mjs:79:  'public/admin-template/assets/css/icons.css',
+apps/back-office/scripts/check.mjs:85:  'public/admin-template/assets/js/defaultmenu.min.js',
+apps/back-office/scripts/check.mjs:87:  'public/admin-template/assets/js/sticky.js',
+apps/back-office/scripts/check.mjs:221:const bootstrapCssIndex = nuxtConfig.indexOf('/admin-template/assets/libs/bootstrap/css/bootstrap.min.css')
+apps/back-office/scripts/check.mjs:222:const stylesCssIndex = nuxtConfig.indexOf('/admin-template/assets/css/styles.css')
+apps/back-office/scripts/check.mjs:224:  failures.push('Nuxt head must load Bootstrap CSS before Meno styles.css')
+apps/back-office/scripts/check.mjs:299:  ['Bootstrap plugin', menoPlugin.includes("bootstrap/dist/js/bootstrap.bundle.min.js")],
+apps/back-office/scripts/check.mjs:300:  ['SimpleBar plugin', menoPlugin.includes('new SimpleBar')],
+apps/back-office/scripts/check.mjs:301:  ['Waves plugin', menoPlugin.includes('Waves.attach')],
+apps/back-office/scripts/check.mjs:302:  ['deferred Meno hydration', menoPlugin.includes("nuxtApp.hook('app:mounted'") && menoPlugin.includes('requestAnimationFrame')],
+apps/back-office/scripts/check.mjs:308:  ['SimpleBar hook', adminSidebar.includes('data-simplebar')],
+apps/back-office/scripts/check.mjs:309:  ['sticky sidebar class', adminSidebar.includes('app-sidebar sticky')],
+apps/back-office/scripts/check.mjs:312:    failures.push(`Meno JS replacement evidence missing: ${evidence[0]}`)
+apps/back-office/scripts/check.mjs:324:console.log(`${mode} passed: back-office foundation, operations catalog OpenAPI snapshot, Meno/Bootstrap static assets, Nuxt head order, JS replacement evidence, API headers, hydration guardrails, backend metadata/bypass readiness, license notice blocker, and one-time support token checks are present.`)
+apps/back-office/plugins/meno.client.ts:1:import 'bootstrap/dist/js/bootstrap.bundle.min.js'
+apps/back-office/plugins/meno.client.ts:2:import SimpleBar from 'simplebar'
+apps/back-office/plugins/meno.client.ts:3:import Waves from 'node-waves'
+apps/back-office/plugins/meno.client.ts:17:      if (!(element as any).SimpleBar) {
+apps/back-office/plugins/meno.client.ts:18:        new SimpleBar(element as HTMLElement)
+apps/back-office/plugins/meno.client.ts:22:    Waves.init()
+apps/back-office/plugins/meno.client.ts:23:    Waves.attach('.btn-wave', ['waves-light'])
+apps/back-office/nuxt.config.ts:23:        { id: 'style', rel: 'stylesheet', href: '/admin-template/assets/libs/bootstrap/css/bootstrap.min.css' },
+apps/back-office/nuxt.config.ts:24:        { rel: 'stylesheet', href: '/admin-template/assets/css/styles.css' },
+apps/back-office/nuxt.config.ts:25:        { rel: 'stylesheet', href: '/admin-template/assets/css/icons.css' },

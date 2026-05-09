@@ -114,6 +114,11 @@ const confirmPassword = ref('')
 const acceptedTerms = ref(false)
 const showPassword = ref(false)
 const showConfirmPassword = ref(false)
+const isSubmitting = ref(false)
+const platformApi = usePlatformApi()
+const { setAuthToken, setAuthUser } = useAuth()
+const { refreshAppInit } = useAppInit()
+const { showAlert } = useAppAlert()
 
 const allowDigitsOnly = (event: InputEvent) => {
   if (event.data && !/^\d+$/.test(event.data)) {
@@ -125,7 +130,56 @@ const sanitizePhone = () => {
   phone.value = phone.value.replace(/\D/g, '').slice(0, 10)
 }
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
+  if (isSubmitting.value) {
+    return
+  }
+
   sanitizePhone()
+
+  if (!acceptedTerms.value) {
+    showAlert({
+      title: 'กรุณายอมรับเงื่อนไข',
+      message: 'ต้องยอมรับเงื่อนไขการใช้งานก่อนสมัครสมาชิก',
+      variant: 'warning'
+    })
+    return
+  }
+
+  if (password.value !== confirmPassword.value) {
+    showAlert({
+      title: 'รหัสผ่านไม่ตรงกัน',
+      message: 'กรุณากรอกรหัสผ่านและยืนยันรหัสผ่านให้ตรงกัน',
+      variant: 'warning'
+    })
+    return
+  }
+
+  isSubmitting.value = true
+
+  try {
+    const response = await platformApi.register({
+      name: fullName.value,
+      phone: phone.value,
+      username: phone.value,
+      password: password.value,
+      password_confirmation: confirmPassword.value
+    })
+
+    if (response?.token) {
+      setAuthToken(response.token)
+      setAuthUser(response.user || response.customer || {})
+      await refreshAppInit(response.token)
+      await navigateTo('/')
+    }
+  } catch (error: any) {
+    showAlert({
+      title: 'สมัครใช้งานไม่สำเร็จ',
+      message: error?.response?.data?.message || 'กรุณาตรวจสอบข้อมูลและลองใหม่อีกครั้ง',
+      variant: 'error'
+    })
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>

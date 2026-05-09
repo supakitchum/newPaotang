@@ -65,7 +65,7 @@ definePageMeta({
   requiresAuth: false
 })
 
-const axios = useAxios()
+const platformApi = usePlatformApi()
 const game = ref<LotteryRewardGame | null>(null)
 const historyGames = ref<LotteryRewardGame[]>([])
 const isLoading = ref(true)
@@ -85,7 +85,7 @@ const fetchReward = async () => {
   errorMessage.value = ''
 
   try {
-    const response = await axios.get('/reward')
+    const response = await platformApi.rewardLegacy()
 
     if (response.data?.code === 0) {
       game.value = response.data.result || null
