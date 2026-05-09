@@ -4,10 +4,12 @@ Date: 2026-05-09
 Agent: Backend Develop
 Task: 20260509-m10-admin-security-line-policy-backend-closure-backend
 Remediation Task: 20260509-m10-admin-security-idempotency-conflict-remediation-backend
-Gate status: Backend route-policy closure ready for QA; production release remains blocked externally.
+Closeout Task: 20260509-m10-backend-only-deploy-ready-closeout-backend
+Gate status: Backend-only local/dev deploy-readiness ready for QA; production release remains blocked externally.
 
 | Gate | Status | Evidence | Blocker | Next Owner |
 | --- | --- | --- | --- | --- |
+| Backend-only deploy-ready closeout | ready_for_qa | `docs/m10-backend-deploy-ready-closeout.md` and `ops/m10/backend-deploy-ready-blocker-matrix.md` created; no BO/customer/API contract edits | Production/Gate 5 still needs external evidence and Coordinator approval | Orchestrator |
 | OpenAPI route parity | ready_local | 279 OpenAPI routes, 279 app routes, 0 missing, 0 undocumented | None for backend route parity | QA Tester |
 | Final 11 route closure | ready_local | Password lifecycle, admin 2FA, and LINE policy-bound routes registered route-by-route | None for app-route registration | QA Tester |
 | Admin password lifecycle | ready_local_with_mail_boundary | Hashed reset tokens, expiry, single-use consumption, replay protection, enumeration-safe forgot, password confirmation, session revocation, audit redaction | Production mail provider/secret delivery policy remains external | Coordinator/Ops |
@@ -28,11 +30,17 @@ Gate status: Backend route-policy closure ready for QA; production release remai
 | Tenant payment settings/channels | ready_local_with_external_blocker | Prior safe route-policy closure remains unchanged and full suite passed | Payment provider credentials/activation policy missing | Coordinator/Ops |
 | Tenant SEO/redirect/public SEO/stores | ready_local | Prior safe route-policy closure remains unchanged and full suite passed | Public news content management source remains not configured | Coordinator/Product |
 | Customer realtime auth | guarded_local_dev | Prior safe route-policy closure remains unchanged and full suite passed | Public Reverb/websocket/TLS/scaling production policy missing | Coordinator/Ops |
-| Runtime readiness | blocked_external | Prior readiness boundary remains unchanged; full suite passed runtime-readiness tests | Horizon/Reverb production supervision, dashboard, TLS, and scaling policy remain missing | Coordinator/Ops |
-| Observability | ready_local_with_external_followups | Prior observability boundary remains unchanged; full suite passed observability tests | External APM, alert delivery, edge/CDN security signals remain production integrations | Coordinator/Ops |
-| Cloudflare/CDN/R2 | blocked_external | Prior Cloudflare/R2 boundary remains unchanged; full suite passed Cloudflare tests | Cloudflare account/zone/token, CDN base URL, R2 endpoint/bucket, and ticket image path evidence missing | Coordinator/Ops |
-| Migration rehearsal | blocked_external | Prior rehearsal boundary remains unchanged; full suite passed rehearsal tests | Real snapshots, old-data source credentials, cutover window, release/previous tags, rollback evidence missing | Coordinator/Ops |
-| Gate 5 release trigger | not_triggered | Task explicitly keeps work inside M10 backend route-policy closure | Gate 5 requires Coordinator/Orchestrator approval after blockers close | Orchestrator/Coordinator |
+| Runtime readiness | blocked_external | `platform:runtime:readiness --format=json` passed; queue workers and scheduler are ready local/dev | Horizon/Reverb production supervision, dashboard, TLS, and scaling policy remain missing | Coordinator/Ops |
+| Queue worker profiles | ready_local | Runtime readiness reports 22 configured queues mapped to `ops/m10/queue-worker-profiles.json`; bounded `queue:work --once` validation passed | Production worker supervision/drain/restart evidence missing | Coordinator/Ops |
+| Scheduler | ready_local | `schedule:list` passed with five bounded local/dev workloads | Production scheduler leader/SLO/missed-run alert evidence missing | Coordinator/Ops |
+| Backend Docker image/templates | ready_local_with_external_supervision_blocker | `apps/platform-api/Dockerfile` development/production targets and `.env.example` backend placeholders audited | Production process manager/orchestration and image digest evidence missing | Coordinator/Ops |
+| Observability | ready_local_with_external_followups | `platform:observability:report --format=json` passed with status `ready_local`; 3 partners, 30 usage meters, 39 alert policies | External APM, alert delivery, edge/CDN security signals remain production integrations | Coordinator/Ops |
+| Alert dry-run | ready_local_with_external_followups | `platform:alerts:check --dry-run --format=json` passed: 3 partners, 24 policies, 0 alerts, 0 deliveries | External webhook/email/Sentry/Grafana/Datadog/New Relic delivery QA missing | Coordinator/Ops |
+| Cloudflare/CDN/R2 | blocked_external | `platform:cloudflare:readiness --format=json` passed with redacted config and explicit blockers | Cloudflare account/zone/token, CDN base URL, R2 endpoint/bucket, and ticket image path evidence missing | Coordinator/Ops |
+| Load-test fixtures/scripts | ready_local_with_external_cdn_blocker | `load-tests:k6:prepare` passed; Docker k6 inspect passed for seven scenario scripts | Real release-candidate baseline and ticket-image CDN run require approved runtime/CDN evidence | QA Tester / Coordinator-Ops |
+| Migration rehearsal | blocked_external | `platform:migration:rehearsal --dry-run --format=json` passed; local strategy/fixtures ready | Real snapshots, old-data source credentials, staging rehearsal, cutover window, release/previous tags, rollback evidence missing | Coordinator/Ops |
+| Backend blocker matrix | ready_local | `ops/m10/backend-deploy-ready-blocker-matrix.md` lists local/dev status, external blockers, required evidence, and owners | External blockers remain open | Orchestrator/Coordinator |
+| Gate 5 release trigger | not_triggered | Backend-only closeout explicitly does not trigger Gate 5, staging, production, client delivery, or final release | Gate 5 requires Coordinator/Orchestrator approval after blockers close | Orchestrator/Coordinator |
 
 ## Route Closure Counts
 
@@ -103,4 +111,61 @@ docker compose run --rm platform-api php artisan migrate:fresh --seed
 # passed
 docker compose exec -T platform-api php artisan platform:smoke
 # passed: app/database/cache/queue/monitoring-defaults/seeded-logins ok
+```
+
+Backend-only deploy-ready closeout command results:
+
+```sh
+docker compose up -d postgres valkey platform-api
+# passed
+docker compose run --rm platform-api php artisan migrate:fresh --seed
+# passed
+docker compose run --rm platform-api php artisan test
+# passed: 152 tests, 4140 assertions
+docker compose exec -T platform-api php artisan route:list
+# passed: 284 Laravel routes shown
+ruby -ryaml -rjson -e '<OpenAPI route parity script using docker route:list --json>'
+# passed: 279 OpenAPI routes, 279 app routes, 0 missing, 0 undocumented
+docker compose run --rm platform-api php artisan migrate:fresh --seed
+# passed after the full suite before smoke
+docker compose exec -T platform-api php artisan platform:smoke
+# passed
+docker compose exec -T platform-api php artisan platform:runtime:readiness --format=json
+# passed: status blocked_external for Horizon/Reverb; queue workers and scheduler ready_local
+docker compose exec -T platform-api php artisan platform:observability:report --format=json
+# passed: status ready_local
+docker compose exec -T platform-api php artisan platform:alerts:check --dry-run --format=json
+# passed: status ok
+docker compose exec -T platform-api php artisan platform:cloudflare:readiness --format=json
+# passed: status blocked_external with explicit Cloudflare/CDN/R2 blockers
+docker compose exec -T platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+# passed: status blocked_external with local strategy/fixtures ready
+docker compose run --rm platform-api php artisan load-tests:k6:prepare --base-url=http://host.docker.internal:8000 --tenant-host=k6-alpha.newpaotang.test
+# passed
+docker compose run --rm platform-api php artisan schedule:list
+# passed: five scheduled workloads shown
+docker compose run --rm platform-api php artisan queue:work --once --tries=1 --timeout=30 --queue=default
+# passed
+docker compose run --rm platform-api php artisan list
+# passed
+docker run --rm -v "$PWD/load-tests/k6:/scripts:ro" grafana/k6:latest inspect /scripts/customer-stock-search.js
+docker run --rm -v "$PWD/load-tests/k6:/scripts:ro" grafana/k6:latest inspect /scripts/concurrent-booking-same-stock.js
+docker run --rm -v "$PWD/load-tests/k6:/scripts:ro" grafana/k6:latest inspect /scripts/checkout-wallet-consistency.js
+docker run --rm -v "$PWD/load-tests/k6:/scripts:ro" grafana/k6:latest inspect /scripts/reward-checking-queue-chunk.js
+docker run --rm -v "$PWD/load-tests/k6:/scripts:ro" grafana/k6:latest inspect /scripts/partner-tenant-burst-sync.js
+docker run --rm -v "$PWD/load-tests/k6:/scripts:ro" grafana/k6:latest inspect /scripts/ticket-image-cdn-spike.js
+docker run --rm -v "$PWD/load-tests/k6:/scripts:ro" grafana/k6:latest inspect /scripts/reward-publish-spike.js
+# passed for all inspected k6 scripts
+docker compose run --rm platform-api php artisan test --filter=M10DeploymentReadinessTest
+# passed: 5 tests, 94 assertions
+docker compose run --rm platform-api php artisan test --filter=M10K6LoadTestExecutionTest
+# passed: 1 test, 37 assertions
+docker compose run --rm platform-api php artisan test --filter=M10ProductionObservabilityAlertingTest
+# passed: 5 tests, 81 assertions
+docker compose run --rm platform-api php artisan test --filter=M10CloudflareHttpsWafCdnR2Test
+# passed: 5 tests, 136 assertions
+docker compose run --rm platform-api php artisan test --filter=M10MigrationRehearsalCutoverRollbackTest
+# passed: 3 tests, 110 assertions
+docker compose run --rm platform-api php artisan test --filter=M10HorizonReverbSchedulerHardeningTest
+# passed: 4 tests, 68 assertions
 ```
