@@ -5,7 +5,7 @@
 ## Active Task
 
 ```text
-back-office-p1-money-stock-crud-workflows
+dispatch-back-office-p1-money-stock-crud-workflows-to-qa
 ```
 
 ## Agent Status
@@ -13,16 +13,16 @@ back-office-p1-money-stock-crud-workflows
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
 | Coordinator | completed | 20260510-back-office-p1-money-stock-crud-workflows-restart | ai-agents/handoffs/20260510-back-office-p1-money-stock-crud-workflows-restart-coordinator-handoff.md |
-| Orchestrator | pending | dispatch-back-office-p1-money-stock-crud-workflows | ai-agents/handoffs/20260510-back-office-p1-money-stock-crud-workflows-restart-coordinator-handoff.md |
+| Orchestrator | ready | dispatch-back-office-p1-money-stock-crud-workflows-to-qa | ai-agents/handoffs/20260510-back-office-p1-money-stock-crud-workflows-bo-handoff.md |
 | Backend Develop | completed | backend-contract-frozen-for-bo | ai-agents/decisions/20260509-m10-backend-complete-bo-unblock-decision.md |
-| BO Develop | completed | back-office-crud-coverage-audit | ai-agents/handoffs/20260509-back-office-crud-coverage-audit-bo-handoff.md |
+| BO Develop | completed | back-office-p1-money-stock-crud-workflows | ai-agents/handoffs/20260510-back-office-p1-money-stock-crud-workflows-bo-handoff.md |
 | Customer Develop | frozen | no-customer-work-without-coordinator-regression-scope | ai-agents/decisions/20260509-backend-only-main-scope-deploy-ready-replan-decision.md |
-| QA Tester | pending | real-menu-workflow-qa-after-p1-bo-implementation | ai-agents/handoffs/20260510-back-office-p1-money-stock-crud-workflows-restart-coordinator-handoff.md |
+| QA Tester | waiting | waiting_for_orchestrator_qa_task | ai-agents/handoffs/20260510-back-office-p1-money-stock-crud-workflows-bo-handoff.md |
 
 ## Open Questions
 
 ```text
-Back-office CRUD Coverage Audit is accepted as the BO planning baseline. Official corrected BO completion is 0% verified complete (0/56 complete, 54 partial, 2 api_gap). Work resumes from clean branch develop at commit f44bee4592e9e012f406229f9f8fbbb2c61c8571 after removing the old codex/* branches and the misspelled deverlop branch. Next task is P1 money/stock CRUD/API workflows: central stock generation, allocations, stock recall, tenant local stock, stock sync, reservations, orders, wallets, topups, payouts, and payment settings. API gaps remain central:master_stock and tenant:commission_transactions. Backend contract remains frozen; no backend remediation is approved unless BO reports an exact P1 blocker and Coordinator approves a separate backend task. Customer frontend remains frozen. QA must test real menus and workflows, not only build/lint/unit tests.
+BO Develop completed P1 money/stock CRUD/API workflow implementation on develop. Implementation commit: 8a245b2a4244171bff786d1586570822e69671f0. Handoff commit: 3a211e8c56222e8f5c1ec0249d7ca34f5b854c2c. Next correct step is Orchestrator creating a QA Tester task from ai-agents/handoffs/20260510-back-office-p1-money-stock-crud-workflows-bo-handoff.md. All P1 rows remain partial until QA captures real authenticated BO menu workflow evidence. API gaps remain central:master_stock and tenant:commission_transactions. Backend contract remains frozen; no backend remediation is approved unless QA/BO reports an exact P1 blocker and Coordinator approves a separate backend task. Customer frontend remains frozen. QA must test real menus and workflows, not only build/lint/unit tests.
 ```
 
 ## Latest Decision

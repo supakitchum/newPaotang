@@ -134,9 +134,19 @@ Coordinator rules require real BO menu workflow QA evidence before any row is ma
 - Authenticated browser modal evidence remains pending because the Browser automation input failed on the login email field.
 - Local git emitted a repository maintenance warning during commit: too many unreachable loose objects; this did not block the scoped commits.
 
-## QA Focus
+## Orchestrator Routing Request
 
-Please test from the real authenticated BO menu:
+BO Develop must not create the QA task directly. Orchestrator should create the QA Tester task from this handoff and route real menu workflow QA.
+
+Recommended target:
+
+```text
+QA Tester
+```
+
+## QA Focus For Orchestrator Task
+
+Route QA to test from the real authenticated BO menu:
 
 - Central stock import/generate/export and recall modal context.
 - Central allocations create/cancel.
@@ -152,4 +162,4 @@ Do not mark a row `complete` unless the workflow is verified from the real menu 
 
 ## Next Agent
 
-QA Tester
+Orchestrator
