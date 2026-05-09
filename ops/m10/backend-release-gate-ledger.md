@@ -5,10 +5,13 @@ Agent: Backend Develop
 Task: 20260509-m10-admin-security-line-policy-backend-closure-backend
 Remediation Task: 20260509-m10-admin-security-idempotency-conflict-remediation-backend
 Closeout Task: 20260509-m10-backend-only-deploy-ready-closeout-backend
-Gate status: Backend-only local/dev deploy-readiness ready for QA; production release remains blocked externally.
+External Closure Task: 20260509-m10-production-external-readiness-closure-before-bo-backend
+Gate status: Backend-only local/dev deploy-readiness passed QA; M10 production/final readiness remains blocked by missing external evidence and Coordinator/user decisions.
 
 | Gate | Status | Evidence | Blocker | Next Owner |
 | --- | --- | --- | --- | --- |
+| Production/external readiness closure before BO | blocked_external | Backend refreshed Docker validation, searched workspace for real evidence, updated blocker matrix, and created `ops/m10/m10-production-evidence-request-list.md` | M10 cannot be finalized until external Horizon/Reverb, Cloudflare/CDN/R2, provider, secret-manager, migration, cutover, rollback, QA, Coordinator decision, and Git boundary evidence exists or the user explicitly accepts documented deferrals | Orchestrator/Coordinator |
+| Production evidence request list | ready_local | `ops/m10/m10-production-evidence-request-list.md` lists missing evidence, owners, accepted evidence format, and defer/risk decision notes | The listed evidence is not present in this workspace | Coordinator/Ops/User |
 | Backend-only deploy-ready closeout | ready_for_qa | `docs/m10-backend-deploy-ready-closeout.md` and `ops/m10/backend-deploy-ready-blocker-matrix.md` created; no BO/customer/API contract edits | Production/Gate 5 still needs external evidence and Coordinator approval | Orchestrator |
 | OpenAPI route parity | ready_local | 279 OpenAPI routes, 279 app routes, 0 missing, 0 undocumented | None for backend route parity | QA Tester |
 | Final 11 route closure | ready_local | Password lifecycle, admin 2FA, and LINE policy-bound routes registered route-by-route | None for app-route registration | QA Tester |
@@ -41,6 +44,70 @@ Gate status: Backend-only local/dev deploy-readiness ready for QA; production re
 | Migration rehearsal | blocked_external | `platform:migration:rehearsal --dry-run --format=json` passed; local strategy/fixtures ready | Real snapshots, old-data source credentials, staging rehearsal, cutover window, release/previous tags, rollback evidence missing | Coordinator/Ops |
 | Backend blocker matrix | ready_local | `ops/m10/backend-deploy-ready-blocker-matrix.md` lists local/dev status, external blockers, required evidence, and owners | External blockers remain open | Orchestrator/Coordinator |
 | Gate 5 release trigger | not_triggered | Backend-only closeout explicitly does not trigger Gate 5, staging, production, client delivery, or final release | Gate 5 requires Coordinator/Orchestrator approval after blockers close | Orchestrator/Coordinator |
+
+## Production External Readiness Closure Before BO
+
+Task `20260509-m10-production-external-readiness-closure-before-bo-backend` attempted to close the production/external gates using real evidence already present in the workspace.
+
+Result:
+
+```text
+M10 cannot be finalized yet.
+Backend local/dev readiness remains validated.
+Production/external gates remain blocked because real redacted external evidence is not present in this workspace.
+Back Office remains deferred.
+Customer frontend remains frozen.
+Gate 5 and final release are not triggered.
+```
+
+Evidence classification artifacts:
+
+```text
+ops/m10/backend-deploy-ready-blocker-matrix.md
+ops/m10/m10-production-evidence-request-list.md
+```
+
+Workspace evidence search result:
+
+```text
+Found: local/dev docs, Docker command evidence, readiness JSON behavior, Cloudflare/WAF/cache templates, R2/CDN strategy, migration/cutover/rollback runbooks, and placeholder env names.
+Not found: real Cloudflare account/zone/proxy/SSL evidence, real R2 bucket/object evidence, real ticket-image CDN URL/image path, real mail/payment/LINE provider credentials or delivery/signature evidence, approved production secret-manager references, real old-data source inventory, real snapshots, staging rehearsal logs, release/previous image digest, cutover approval, rollback drill evidence, or Coordinator final release approval.
+```
+
+Refreshed command evidence:
+
+```text
+docker compose up -d postgres valkey platform-api
+# passed
+docker compose run --rm platform-api php artisan migrate:fresh --seed
+# passed
+docker compose run --rm platform-api php artisan test
+# passed: 152 tests, 4140 assertions
+docker compose exec -T platform-api php artisan route:list
+# passed: 284 Laravel routes shown
+docker compose run --rm platform-api php artisan migrate:fresh --seed
+# passed before seed-dependent smoke/readiness commands
+docker compose exec -T platform-api php artisan platform:smoke
+# passed: app/database/cache/queue/monitoring-defaults/seeded-logins ok
+docker compose exec -T platform-api php artisan platform:runtime:readiness --format=json
+# passed: status blocked_external for Horizon/Reverb; queue workers and scheduler ready_local
+docker compose exec -T platform-api php artisan platform:observability:report --format=json
+# passed: status ready_local
+docker compose exec -T platform-api php artisan platform:alerts:check --dry-run --format=json
+# passed: status ok; 24 policies evaluated; 0 external deliveries attempted
+docker compose exec -T platform-api php artisan platform:cloudflare:readiness --format=json
+# passed: status blocked_external with missing Cloudflare/CDN/R2 prerequisites
+docker compose exec -T platform-api php artisan platform:migration:rehearsal --dry-run --format=json
+# passed: status blocked_external with local strategy/fixtures ready
+docker compose run --rm platform-api php artisan schedule:list
+# passed: five scheduled workloads shown
+docker compose run --rm platform-api php artisan queue:work --once --tries=1 --timeout=30 --queue=default
+# passed
+docker compose run --rm platform-api php artisan load-tests:k6:prepare --base-url=http://host.docker.internal:8000 --tenant-host=k6-alpha.newpaotang.test
+# passed: local/dev fixtures prepared and runtime artifacts cleaned from worktree
+docker run --rm -v "$PWD/load-tests/k6:/scripts:ro" grafana/k6:latest inspect /scripts/ticket-image-cdn-spike.js
+# passed
+```
 
 ## Route Closure Counts
 
