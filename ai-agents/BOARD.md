@@ -5,28 +5,28 @@
 ## Active Task
 
 ```text
-m10-production-evidence-collection-before-final-qa
+bo-phase-reopen-gap-analysis-after-backend-closure
 ```
 
 ## Agent Status
 
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
-| Coordinator | waiting_external_evidence | m10-production-evidence-collection-before-final-qa | ai-agents/handoffs/20260509-m10-production-evidence-collection-coordinator-handoff.md |
-| Orchestrator | blocked | wait-for-production-evidence-before-final-qa | ai-agents/handoffs/20260509-m10-production-external-readiness-closure-before-bo-blocked-coordinator-handoff.md |
-| Backend Develop | blocked_external | m10-production-external-readiness-closure-before-bo | ai-agents/handoffs/20260509-m10-production-external-readiness-closure-before-bo-backend-handoff.md |
-| BO Develop | deferred | phase-next-back-office-removed-from-main-plan | ai-agents/decisions/20260509-backend-only-main-scope-deploy-ready-replan-decision.md |
+| Coordinator | completed | 20260509-m10-backend-complete-bo-unblock | ai-agents/handoffs/20260509-m10-backend-complete-bo-unblock-coordinator-handoff.md |
+| Orchestrator | pending | dispatch-bo-phase-reopen-gap-analysis-after-backend-closure | ai-agents/handoffs/20260509-m10-backend-complete-bo-unblock-coordinator-handoff.md |
+| Backend Develop | completed | backend-contract-frozen-for-bo | ai-agents/decisions/20260509-m10-backend-complete-bo-unblock-decision.md |
+| BO Develop | ready | bo-phase-reopen-gap-analysis-after-backend-closure | ai-agents/handoffs/20260509-m10-backend-complete-bo-unblock-coordinator-handoff.md |
 | Customer Develop | frozen | no-customer-work-without-coordinator-regression-scope | ai-agents/decisions/20260509-backend-only-main-scope-deploy-ready-replan-decision.md |
-| QA Tester | pending | evidence-verification-after-production-evidence | ai-agents/handoffs/20260509-m10-production-evidence-collection-coordinator-handoff.md |
+| QA Tester | pending | bo-qa-after-bo-handoff | ai-agents/handoffs/20260509-m10-backend-complete-bo-unblock-coordinator-handoff.md |
 
 ## Open Questions
 
 ```text
-User instructed to finish M10 before starting BO. Backend Develop completed production/external readiness classification in commit e1f28d4 and reported M10 cannot be finalized from workspace evidence. The active next step is Coordinator/Ops/User evidence collection using ops/m10/m10-production-evidence-request-list.md. Do not route final QA until redacted production evidence is available or the user explicitly accepts selected deferrals. Back-office work remains deferred; do not dispatch BO Develop and do not edit apps/back-office/**. Customer frontend is frozen unless Coordinator scopes a regression-only backend contract check. Backend-only local/dev deploy-readiness remains approved: OpenAPI/app route parity 279/279/0/0 and full backend Docker suite 152 tests / 4140 assertions.
+User clarified that the goal is to close backend work completely so the project can proceed to Back Office. Coordinator accepted backend engineering closure for BO unblock: backend contract is frozen, OpenAPI/app route parity remains 279/279/0/0, full backend Docker suite passed 152 tests / 4140 assertions, and backend-only local/dev QA passed. Production/Ops evidence gates in ops/m10/m10-production-evidence-request-list.md remain open and not approved for staging, production, client delivery, Gate 5 final release, or final platform release, but they no longer block BO development. BO may now reopen through Orchestrator for gap analysis against the frozen backend contract. Customer frontend remains frozen.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/decisions/20260509-m10-production-evidence-collection-decision.md
+ai-agents/decisions/20260509-m10-backend-complete-bo-unblock-decision.md
 ```
