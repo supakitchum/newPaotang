@@ -14,6 +14,20 @@ export type OperationFilter = {
   options?: string[]
 }
 
+export type OperationFormField = {
+  key: string
+  label: string
+  type?: 'text' | 'number' | 'textarea' | 'select' | 'checkbox' | 'date' | 'lines' | 'password'
+  options?: string[]
+  required?: boolean
+  placeholder?: string
+  defaultValue?: string | number | boolean | null
+  help?: string
+  min?: number
+  step?: number
+  itemKey?: string
+}
+
 export type OperationAction = {
   key: string
   label: string
@@ -22,6 +36,23 @@ export type OperationAction = {
   variant?: 'primary' | 'success' | 'warning' | 'danger'
   reason?: boolean
   payloadTemplate?: Record<string, any>
+  formFields?: OperationFormField[]
+  contextFields?: string[]
+}
+
+export type OperationRelatedList = {
+  key: string
+  title: string
+  listEndpoint: string
+  detailEndpoint?: string
+  idParam: string
+  idKey?: string
+  columns: OperationColumn[]
+  filters?: OperationFilter[]
+  actions?: OperationAction[]
+  collectionActions?: OperationAction[]
+  emptyTitle?: string
+  emptyMessage?: string
 }
 
 export type OperationResource = {
@@ -40,6 +71,9 @@ export type OperationResource = {
   filters?: OperationFilter[]
   actions?: OperationAction[]
   collectionActions?: OperationAction[]
+  relatedLists?: OperationRelatedList[]
+  settingsFields?: OperationFormField[]
+  confirmContextFields?: string[]
   reportKeys?: string[]
   detailJsonEditor?: boolean
   apiGap?: string
@@ -103,6 +137,36 @@ const reportFilters: OperationFilter[] = [
   { key: 'limit', label: 'Limit', type: 'number' },
 ]
 
+const currencyOptions = ['THB']
+const notifyCustomerField: OperationFormField = {
+  key: 'notify_customer',
+  label: 'Notify customer',
+  type: 'checkbox',
+  defaultValue: true,
+  help: 'Send customer-facing notification when the backend supports it.',
+}
+
+const moneyFields = (prefix = 'amount', label = 'Amount', required = true): OperationFormField[] => [
+  {
+    key: `${prefix}.amount`,
+    label: `${label} (minor units)`,
+    type: 'number',
+    required,
+    step: 1,
+    help: 'Use the smallest currency unit, for example 10000 for THB 100.00.',
+  },
+  {
+    key: `${prefix}.currency`,
+    label: 'Currency',
+    type: 'select',
+    options: currencyOptions,
+    defaultValue: 'THB',
+  },
+]
+
+const stockActionContext = ['id', 'game_id', 'number', 'full_number', 'status', 'partner_id', 'tenant_id']
+const moneyActionContext = ['id', 'reference', 'customer_id', 'status', 'payment_status', 'total.amount', 'amount.amount', 'balance.amount']
+
 const tenant: OperationResource[] = [
   {
     scope: 'tenant',
@@ -125,7 +189,18 @@ const tenant: OperationResource[] = [
       statusFilter(['available', 'reserved', 'sold', 'recalled', 'inactive']),
       { key: 'number', label: 'Number' },
     ]),
-    collectionActions: [{ key: 'export', label: 'Export stock', endpoint: '/admin/tenant/stock/exports', reason: true }],
+    confirmContextFields: stockActionContext,
+    collectionActions: [{
+      key: 'export',
+      label: 'Export stock',
+      endpoint: '/admin/tenant/stock/exports',
+      reason: true,
+      formFields: [
+        { key: 'game_id', label: 'Game ID', placeholder: 'Optional game filter' },
+        { key: 'filters.status', label: 'Status', type: 'select', options: ['available', 'reserved', 'sold', 'recalled', 'inactive'] },
+        { key: 'number', label: 'Ticket number', placeholder: 'Optional exact number' },
+      ],
+    }],
   },
   {
     scope: 'tenant',
@@ -142,7 +217,20 @@ const tenant: OperationResource[] = [
       { key: 'created_at', label: 'Created', type: 'datetime' },
     ],
     filters: cursorFilters([statusFilter(['pending', 'running', 'completed', 'failed'])]),
-    collectionActions: [{ key: 'create_batch', label: 'Create sync batch', endpoint: '/admin/tenant/stock-sync/batches', reason: true }],
+    collectionActions: [{
+      key: 'create_batch',
+      label: 'Create sync batch',
+      endpoint: '/admin/tenant/stock-sync/batches',
+      reason: true,
+      formFields: [
+        {
+          key: 'note',
+          label: 'Operator note',
+          type: 'textarea',
+          placeholder: 'Optional context for this sync run',
+        },
+      ],
+    }],
   },
   editableResource('tenant', 'price-rules', 'Price Rules', 'Tenant Store Operations', '/admin/tenant/price-rules', '/admin/tenant/price-rules/{price_rule_id}', 'price_rule_id', [
     { key: 'id', label: 'Price rule' },
@@ -183,7 +271,8 @@ const tenant: OperationResource[] = [
       { key: 'expires_at', label: 'Expires', type: 'datetime' },
     ],
     filters: cursorFilters([statusFilter(['pending', 'confirmed', 'expired', 'cancelled']), { key: 'customer_id', label: 'Customer ID' }]),
-    actions: [{ key: 'cancel', label: 'Cancel', endpoint: '/admin/tenant/reservations/{reservation_id}/cancel', variant: 'warning', reason: true }],
+    confirmContextFields: ['id', 'customer_id', 'status', 'expires_at'],
+    actions: [{ key: 'cancel', label: 'Cancel', endpoint: '/admin/tenant/reservations/{reservation_id}/cancel', variant: 'warning', reason: true, contextFields: ['id', 'customer_id', 'status', 'expires_at'] }],
   },
   {
     scope: 'tenant',
@@ -198,13 +287,51 @@ const tenant: OperationResource[] = [
       { key: 'id', label: 'Order' },
       { key: 'customer_id', label: 'Customer' },
       { key: 'status', label: 'Status', type: 'status' },
-      { key: 'total_amount', label: 'Total', type: 'money' },
+      { key: 'total.amount', label: 'Total', type: 'money' },
       { key: 'created_at', label: 'Created', type: 'datetime' },
     ],
-    filters: cursorFilters([statusFilter(['pending', 'paid', 'cancelled', 'refunded', 'completed']), { key: 'customer_id', label: 'Customer ID' }]),
+    filters: cursorFilters([statusFilter(['draft', 'pending_payment', 'paid', 'cancelled', 'expired', 'refunded', 'failed']), { key: 'payment_status', label: 'Payment status', type: 'select', options: ['unpaid', 'pending', 'paid', 'refunded', 'failed'] }, { key: 'game_id', label: 'Game ID' }, { key: 'customer_id', label: 'Customer ID' }]),
+    confirmContextFields: moneyActionContext,
     actions: [
-      { key: 'cancel', label: 'Cancel', endpoint: '/admin/tenant/orders/{order_id}/cancel', variant: 'warning', reason: true },
-      { key: 'refund', label: 'Refund', endpoint: '/admin/tenant/orders/{order_id}/refund', variant: 'danger', reason: true },
+      {
+        key: 'update',
+        label: 'Update',
+        method: 'PATCH',
+        endpoint: '/admin/tenant/orders/{order_id}',
+        variant: 'primary',
+        reason: true,
+        contextFields: moneyActionContext,
+        formFields: [
+          { key: 'status', label: 'Order status', type: 'select', options: ['pending_payment', 'paid', 'cancelled', 'expired', 'refunded', 'failed'] },
+          { key: 'payment_status', label: 'Payment status', type: 'select', options: ['unpaid', 'pending', 'paid', 'refunded', 'failed'] },
+          { key: 'admin_note', label: 'Admin note', type: 'textarea', placeholder: 'Optional internal note' },
+        ],
+      },
+      {
+        key: 'cancel',
+        label: 'Cancel',
+        endpoint: '/admin/tenant/orders/{order_id}/cancel',
+        variant: 'warning',
+        reason: true,
+        contextFields: moneyActionContext,
+        formFields: [
+          { key: 'refund_policy', label: 'Refund policy', type: 'select', options: ['none', 'wallet_refund', 'manual_refund'], defaultValue: 'none' },
+          notifyCustomerField,
+        ],
+      },
+      {
+        key: 'refund',
+        label: 'Refund',
+        endpoint: '/admin/tenant/orders/{order_id}/refund',
+        variant: 'danger',
+        reason: true,
+        contextFields: moneyActionContext,
+        formFields: [
+          ...moneyFields('amount', 'Refund amount'),
+          { key: 'method', label: 'Refund method', type: 'select', options: ['wallet_refund', 'manual_refund', 'original_payment'], defaultValue: 'wallet_refund' },
+          notifyCustomerField,
+        ],
+      },
     ],
   },
   editableResource('tenant', 'customers', 'Customers', 'Tenant Store Operations', '/admin/tenant/members', '/admin/tenant/members/{member_id}', 'member_id', [
@@ -266,12 +393,50 @@ const tenant: OperationResource[] = [
       { key: 'status', label: 'Status', type: 'status' },
     ],
     filters: cursorFilters([{ key: 'customer_id', label: 'Customer ID' }]),
-    actions: [{ key: 'adjust', label: 'Adjust', method: 'PATCH', endpoint: '/admin/tenant/wallets/{wallet_id}/adjust', variant: 'warning', reason: true }],
+    confirmContextFields: moneyActionContext,
+    actions: [{
+      key: 'adjust',
+      label: 'Adjust',
+      method: 'PATCH',
+      endpoint: '/admin/tenant/wallets/{wallet_id}/adjust',
+      variant: 'warning',
+      reason: true,
+      contextFields: moneyActionContext,
+      formFields: moneyFields('amount', 'Adjustment amount'),
+    }],
+    relatedLists: [{
+      key: 'ledger',
+      title: 'Wallet Ledger',
+      listEndpoint: '/admin/tenant/wallets/{wallet_id}/ledger',
+      idParam: 'ledger_id',
+      columns: [
+        { key: 'id', label: 'Ledger' },
+        { key: 'entry_type', label: 'Type', type: 'status' },
+        { key: 'amount.amount', label: 'Amount', type: 'money' },
+        { key: 'balance_after.amount', label: 'Balance after', type: 'money' },
+        { key: 'reference_type', label: 'Reference' },
+        { key: 'created_at', label: 'Created', type: 'datetime' },
+      ],
+      emptyTitle: 'No ledger entries',
+      emptyMessage: 'No ledger entries were returned for this wallet.',
+    }],
   },
   actionResource('tenant', 'topups', 'Topups', 'Tenant Finance', '/admin/tenant/topups', '/admin/tenant/topups/{topup_id}', 'topup_id', [
-    { key: 'approve', label: 'Approve', endpoint: '/admin/tenant/topups/{topup_id}/approve', variant: 'success', reason: true },
-    { key: 'reject', label: 'Reject', endpoint: '/admin/tenant/topups/{topup_id}/reject', variant: 'danger', reason: true },
-    { key: 'cancel', label: 'Cancel', endpoint: '/admin/tenant/topups/{topup_id}/cancel', variant: 'warning', reason: true },
+    {
+      key: 'approve',
+      label: 'Approve',
+      endpoint: '/admin/tenant/topups/{topup_id}/approve',
+      variant: 'success',
+      reason: true,
+      contextFields: moneyActionContext,
+      formFields: [
+        ...moneyFields('approved_amount', 'Approved amount', false),
+        ...moneyFields('bonus_amount', 'Bonus amount', false),
+        notifyCustomerField,
+      ],
+    },
+    { key: 'reject', label: 'Reject', endpoint: '/admin/tenant/topups/{topup_id}/reject', variant: 'danger', reason: true, contextFields: moneyActionContext, formFields: [notifyCustomerField] },
+    { key: 'cancel', label: 'Cancel', endpoint: '/admin/tenant/topups/{topup_id}/cancel', variant: 'warning', reason: true, contextFields: moneyActionContext, formFields: [notifyCustomerField] },
   ]),
   actionResource('tenant', 'reward-claims', 'Reward Claims', 'Tenant Rewards', '/admin/tenant/reward-claims', '/admin/tenant/reward-claims/{claim_id}', 'claim_id', [
     { key: 'approve', label: 'Approve', endpoint: '/admin/tenant/reward-claims/{claim_id}/approve', variant: 'success', reason: true },
@@ -321,7 +486,21 @@ const tenant: OperationResource[] = [
       { key: 'created_at', label: 'Created', type: 'datetime' },
     ],
     filters: cursorFilters([statusFilter(['pending', 'approved', 'rejected', 'paid'])]),
-    actions: [{ key: 'approve', label: 'Approve', endpoint: '/admin/tenant/payouts/{payout_id}/approve', variant: 'success', reason: true }],
+    confirmContextFields: ['id', 'affiliate_id', 'affiliate_account_id', 'status', 'amount.amount', 'payout_method'],
+    actions: [{ key: 'approve', label: 'Approve', endpoint: '/admin/tenant/payouts/{payout_id}/approve', variant: 'success', reason: true, contextFields: ['id', 'affiliate_id', 'affiliate_account_id', 'status', 'amount.amount', 'payout_method'] }],
+    collectionActions: [{
+      key: 'create',
+      label: 'Create payout',
+      endpoint: '/admin/tenant/payouts',
+      reason: true,
+      formFields: [
+        { key: 'affiliate_id', label: 'Affiliate ID', required: true },
+        ...moneyFields('amount', 'Payout amount'),
+        { key: 'payout_method', label: 'Payout method', type: 'select', options: ['bank_transfer', 'manual_cash', 'wallet_credit'], defaultValue: 'bank_transfer', required: true },
+        { key: 'bank_account.bank_name', label: 'Bank name', placeholder: 'Required for bank transfer' },
+        { key: 'bank_account.account_number', label: 'Account number', placeholder: 'Required for bank transfer' },
+      ],
+    }],
   },
   summaryResource('tenant', 'monitoring', 'Monitoring', 'Tenant Operations Control', '/admin/tenant/monitoring'),
   summaryResource('tenant', 'usage', 'Usage', 'Tenant Operations Control', '/admin/tenant/usage', [
@@ -336,7 +515,82 @@ const tenant: OperationResource[] = [
   listResource('tenant', 'roles', 'Roles And Permissions', 'Tenant Administration', '/admin/tenant/roles', 'role_id', roleColumns, cursorFilters()),
   settingsResource('tenant', 'menu-management', 'Menu Management', '/admin/tenant/menu-management', 'PUT'),
   settingsResource('tenant', 'settings', 'Tenant Settings', '/admin/tenant/settings'),
-  settingsResource('tenant', 'payment-settings', 'Payment Settings', '/admin/tenant/payment-settings'),
+  {
+    scope: 'tenant',
+    slug: 'payment-settings',
+    title: 'Payment Settings',
+    group: 'Tenant Settings',
+    mode: 'settings',
+    listEndpoint: '/admin/tenant/payment-settings',
+    updateEndpoint: '/admin/tenant/payment-settings',
+    updateMethod: 'PATCH',
+    columns: [],
+    filters: [],
+    settingsFields: [
+      { key: 'status', label: 'Status', type: 'select', options: ['active', 'inactive', 'disabled'] },
+      { key: 'provider_mode', label: 'Provider mode', type: 'select', options: ['manual_only', 'external_configured'], defaultValue: 'manual_only' },
+      { key: 'default_currency', label: 'Default currency', type: 'select', options: currencyOptions, defaultValue: 'THB' },
+      { key: 'allow_manual_topup', label: 'Allow manual topup', type: 'checkbox', defaultValue: true },
+      { key: 'allow_external_payment', label: 'Allow external payment', type: 'checkbox', defaultValue: false },
+      { key: 'payment_provider_status', label: 'Provider status', type: 'select', options: ['blocked_external', 'local_dev_configured', 'manual_only', 'disabled'], defaultValue: 'manual_only' },
+      { key: 'config.display_name', label: 'Display name', placeholder: 'Optional customer-facing payment label' },
+    ],
+    relatedLists: [{
+      key: 'payment-channels',
+      title: 'Payment Channels',
+      listEndpoint: '/admin/tenant/payment-channels',
+      detailEndpoint: '/admin/tenant/payment-channels/{payment_channel_id}',
+      idParam: 'payment_channel_id',
+      columns: [
+        { key: 'id', label: 'Channel' },
+        { key: 'code', label: 'Code' },
+        { key: 'name', label: 'Name' },
+        { key: 'provider', label: 'Provider' },
+        { key: 'channel_type', label: 'Type' },
+        { key: 'status', label: 'Status', type: 'status' },
+        { key: 'provider_status', label: 'Provider status', type: 'status' },
+      ],
+      filters: cursorFilters([statusFilter(['draft', 'active', 'inactive', 'disabled', 'archived', 'blocked_external'])]),
+      collectionActions: [{
+        key: 'create',
+        label: 'Create channel',
+        endpoint: '/admin/tenant/payment-channels',
+        formFields: [
+          { key: 'code', label: 'Code', required: true, placeholder: 'credit_card' },
+          { key: 'name', label: 'Name', required: true, placeholder: 'Credit card' },
+          { key: 'provider', label: 'Provider', type: 'select', options: ['manual', 'external_payment'], defaultValue: 'manual', required: true },
+          { key: 'channel_type', label: 'Channel type', type: 'select', options: ['manual', 'bank_transfer', 'qr', 'card'], defaultValue: 'manual', required: true },
+          { key: 'status', label: 'Status', type: 'select', options: ['draft', 'active', 'inactive', 'disabled'], defaultValue: 'draft', required: true },
+          { key: 'sort_order', label: 'Sort order', type: 'number', step: 1 },
+          { key: 'config.public_label', label: 'Public label', placeholder: 'Shown to operators/customers where supported' },
+          { key: 'config.api_key', label: 'Provider API key', type: 'password', placeholder: 'Stored redacted by backend' },
+        ],
+      }],
+      actions: [
+        {
+          key: 'update',
+          label: 'Update',
+          method: 'PATCH',
+          endpoint: '/admin/tenant/payment-channels/{payment_channel_id}',
+          variant: 'primary',
+          contextFields: ['id', 'code', 'name', 'provider', 'channel_type', 'status'],
+          formFields: [
+            { key: 'code', label: 'Code' },
+            { key: 'name', label: 'Name' },
+            { key: 'provider', label: 'Provider', type: 'select', options: ['manual', 'external_payment'] },
+            { key: 'channel_type', label: 'Channel type', type: 'select', options: ['manual', 'bank_transfer', 'qr', 'card'] },
+            { key: 'status', label: 'Status', type: 'select', options: ['draft', 'active', 'inactive', 'disabled', 'archived', 'blocked_external'] },
+            { key: 'sort_order', label: 'Sort order', type: 'number', step: 1 },
+            { key: 'config.public_label', label: 'Public label' },
+            { key: 'config.api_key', label: 'Provider API key', type: 'password', placeholder: 'Leave blank to keep existing secret' },
+          ],
+        },
+        { key: 'archive', label: 'Archive', method: 'DELETE', endpoint: '/admin/tenant/payment-channels/{payment_channel_id}', variant: 'danger', reason: true, contextFields: ['id', 'code', 'name', 'provider', 'status'] },
+      ],
+      emptyTitle: 'No payment channels',
+      emptyMessage: 'Create a channel when this tenant needs manual or external payment routing.',
+    }],
+  },
   settingsResource('tenant', 'seo', 'Tenant SEO', '/admin/tenant/seo'),
   resource('tenant', 'domains', 'Domains', 'Tenant Settings', '/admin/tenant/domains', '/admin/tenant/domains/{domain_id}', 'domain_id', [
     { key: 'id', label: 'Domain' },
@@ -484,11 +738,49 @@ const central: OperationResource[] = [
       { key: 'status', label: 'Status', type: 'status' },
     ],
     filters: cursorFilters([{ key: 'game_id', label: 'Game ID' }, statusFilter(['available', 'allocated', 'sold', 'recalled']), { key: 'number', label: 'Number' }]),
-    actions: [{ key: 'recall', label: 'Recall', endpoint: '/admin/central/stock/{stock_item_id}/recall', variant: 'warning', reason: true }],
+    confirmContextFields: stockActionContext,
+    actions: [{ key: 'recall', label: 'Recall', endpoint: '/admin/central/stock/{stock_item_id}/recall', variant: 'warning', reason: true, contextFields: stockActionContext }],
     collectionActions: [
-      { key: 'import', label: 'Import stock', endpoint: '/admin/central/stock/imports', reason: true },
-      { key: 'generate', label: 'Generate stock', endpoint: '/admin/central/stock/generate', reason: true },
-      { key: 'export', label: 'Export stock', endpoint: '/admin/central/stock/exports', reason: true },
+      {
+        key: 'import',
+        label: 'Import stock',
+        endpoint: '/admin/central/stock/imports',
+        reason: true,
+        formFields: [
+          { key: 'game_id', label: 'Game ID', required: true },
+          {
+            key: 'items',
+            label: 'Full numbers',
+            type: 'lines',
+            required: true,
+            itemKey: 'full_number',
+            placeholder: '000010\n000011\n000012',
+            help: 'One stock full_number per line. Duplicates are deduped by the backend.',
+          },
+        ],
+      },
+      {
+        key: 'generate',
+        label: 'Generate stock',
+        endpoint: '/admin/central/stock/generate',
+        reason: true,
+        formFields: [
+          { key: 'game_id', label: 'Game ID', required: true },
+          { key: 'start_number', label: 'Start number', type: 'number', min: 1, step: 1, required: true },
+          { key: 'count', label: 'Count', type: 'number', min: 1, step: 1, required: true },
+        ],
+      },
+      {
+        key: 'export',
+        label: 'Export stock',
+        endpoint: '/admin/central/stock/exports',
+        reason: true,
+        formFields: [
+          { key: 'game_id', label: 'Game ID', placeholder: 'Optional game filter' },
+          { key: 'filters.status', label: 'Status', type: 'select', options: ['available', 'allocated', 'sold', 'recalled'] },
+          { key: 'number', label: 'Ticket number', placeholder: 'Optional exact number' },
+        ],
+      },
     ],
     detailApiGap: 'OpenAPI documents central stock list and recall action, but no central stock detail GET endpoint.',
   },
@@ -501,14 +793,48 @@ const central: OperationResource[] = [
     { key: 'close', label: 'Close', endpoint: '/admin/central/games/{game_id}/close', variant: 'warning', reason: true },
     { key: 'archive', label: 'Archive', endpoint: '/admin/central/games/{game_id}/archive', variant: 'danger', reason: true },
   ]),
-  resource('central', 'allocations', 'Allocations', 'Central Stock', '/admin/central/allocations', '/admin/central/allocations/{allocation_id}', 'allocation_id', [
-    { key: 'id', label: 'Allocation' },
-    { key: 'partner_id', label: 'Partner' },
-    { key: 'status', label: 'Status', type: 'status' },
-    { key: 'created_at', label: 'Created', type: 'datetime' },
-  ], cursorFilters([statusFilter(['pending', 'allocated', 'cancelled', 'completed'])]), [
-    { key: 'cancel', label: 'Cancel', endpoint: '/admin/central/allocations/{allocation_id}/cancel', variant: 'warning', reason: true },
-  ]),
+  {
+    scope: 'central',
+    slug: 'allocations',
+    title: 'Allocations',
+    group: 'Central Stock',
+    listEndpoint: '/admin/central/allocations',
+    detailEndpoint: '/admin/central/allocations/{allocation_id}',
+    idParam: 'allocation_id',
+    idKey: 'id',
+    columns: [
+      { key: 'id', label: 'Allocation' },
+      { key: 'partner_id', label: 'Partner' },
+      { key: 'tenant_id', label: 'Tenant' },
+      { key: 'game_id', label: 'Game' },
+      { key: 'requested_count', label: 'Requested' },
+      { key: 'allocated_count', label: 'Allocated' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'created_at', label: 'Created', type: 'datetime' },
+    ],
+    filters: cursorFilters([
+      { key: 'partner_id', label: 'Partner ID' },
+      { key: 'tenant_id', label: 'Tenant ID' },
+      { key: 'game_id', label: 'Game ID' },
+      statusFilter(['draft', 'pending', 'processing', 'allocated', 'partially_allocated', 'failed', 'recalled', 'cancelled']),
+    ]),
+    confirmContextFields: ['id', 'partner_id', 'tenant_id', 'game_id', 'requested_count', 'allocated_count', 'status'],
+    actions: [
+      { key: 'cancel', label: 'Cancel', endpoint: '/admin/central/allocations/{allocation_id}/cancel', variant: 'warning', reason: true, contextFields: ['id', 'partner_id', 'tenant_id', 'game_id', 'requested_count', 'allocated_count', 'status'] },
+    ],
+    collectionActions: [{
+      key: 'create',
+      label: 'Create allocation',
+      endpoint: '/admin/central/allocations',
+      reason: true,
+      formFields: [
+        { key: 'partner_id', label: 'Partner ID', required: true },
+        { key: 'tenant_id', label: 'Tenant ID', required: true },
+        { key: 'game_id', label: 'Game ID', required: true },
+        { key: 'requested_count', label: 'Requested count', type: 'number', min: 1, step: 1, required: true },
+      ],
+    }],
+  },
   resource('central', 'rewards', 'Rewards', 'Central Rewards', '/admin/central/rewards', '/admin/central/rewards/{reward_result_id}', 'reward_result_id', [
     { key: 'id', label: 'Reward' },
     { key: 'game_id', label: 'Game' },

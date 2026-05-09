@@ -1,6 +1,6 @@
 {
   "source": "docs/openapi.yaml",
-  "updated": "2026-05-09",
+  "updated": "2026-05-10",
   "note": "Static admin path snapshot used inside the back-office Docker mount. Refresh from docs/openapi.yaml when the approved OpenAPI contract changes.",
   "paths": {
     "/admin/central/allocations": ["get", "post"],
@@ -87,6 +87,8 @@
     "/admin/tenant/orders/{order_id}": ["get", "patch"],
     "/admin/tenant/orders/{order_id}/cancel": ["post"],
     "/admin/tenant/orders/{order_id}/refund": ["post"],
+    "/admin/tenant/payment-channels": ["get", "post"],
+    "/admin/tenant/payment-channels/{payment_channel_id}": ["get", "patch", "delete"],
     "/admin/tenant/payment-settings": ["get", "patch"],
     "/admin/tenant/payouts": ["get", "post"],
     "/admin/tenant/payouts/{payout_id}/approve": ["post"],
@@ -121,6 +123,7 @@
     "/admin/tenant/usage": ["get"],
     "/admin/tenant/wallets": ["get"],
     "/admin/tenant/wallets/{wallet_id}": ["get"],
-    "/admin/tenant/wallets/{wallet_id}/adjust": ["patch"]
+    "/admin/tenant/wallets/{wallet_id}/adjust": ["patch"],
+    "/admin/tenant/wallets/{wallet_id}/ledger": ["get"]
   }
 }

@@ -44,7 +44,57 @@
 
     <template v-else-if="mode === 'settings'">
       <AdminApiState :error="error" />
-      <div class="card custom-card">
+      <div v-if="hasSettingsForm" class="card custom-card">
+        <div class="card-header">
+          <div class="card-title">Configuration</div>
+        </div>
+        <div class="card-body">
+          <AdminLoader v-if="loading" />
+          <div v-else class="row g-3">
+            <div v-for="field in resource.settingsFields || []" :key="field.key" :class="field.type === 'textarea' || field.type === 'lines' ? 'col-12' : 'col-md-6'">
+              <div v-if="field.type === 'checkbox'" class="form-check form-switch mt-4">
+                <input :id="fieldId(`settings-${field.key}`)" v-model="settingsForm[field.key]" class="form-check-input" type="checkbox">
+                <label class="form-check-label" :for="fieldId(`settings-${field.key}`)">{{ field.label }}</label>
+                <div v-if="field.help" class="form-text">{{ field.help }}</div>
+              </div>
+              <template v-else>
+                <label class="form-label" :for="fieldId(`settings-${field.key}`)">{{ field.label }}</label>
+                <select v-if="field.type === 'select'" :id="fieldId(`settings-${field.key}`)" v-model="settingsForm[field.key]" class="form-select">
+                  <option value="">Select</option>
+                  <option v-for="option in field.options || []" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <textarea
+                  v-else-if="field.type === 'textarea' || field.type === 'lines'"
+                  :id="fieldId(`settings-${field.key}`)"
+                  v-model="settingsForm[field.key]"
+                  class="form-control"
+                  rows="4"
+                  :placeholder="field.placeholder"
+                />
+                <input
+                  v-else
+                  :id="fieldId(`settings-${field.key}`)"
+                  v-model="settingsForm[field.key]"
+                  class="form-control"
+                  :type="field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'password' ? 'password' : 'text'"
+                  :min="field.min"
+                  :step="field.step"
+                  :placeholder="field.placeholder"
+                >
+                <div v-if="field.help" class="form-text">{{ field.help }}</div>
+              </template>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer d-flex justify-content-end gap-2">
+          <button class="btn btn-light btn-wave" type="button" :disabled="loading" @click="resetSettingsForm">Reset</button>
+          <button class="btn btn-primary btn-wave" type="button" :disabled="saving" @click="saveSettingsForm">
+            <span v-if="saving" class="spinner-border spinner-border-sm me-2" />
+            Save
+          </button>
+        </div>
+      </div>
+      <div v-else class="card custom-card">
         <div class="card-header">
           <div class="card-title">Configuration JSON</div>
         </div>
@@ -138,22 +188,74 @@
       <AdminPagination :next-cursor="meta.next_cursor" :loading="loading" @next="load(meta.next_cursor)" />
     </template>
 
+    <template v-if="showRelatedLists">
+      <div v-for="related in resource.relatedLists || []" :key="related.key">
+        <AdminExportPanel :actions="related.collectionActions || []" @run="openRelatedCollectionAction(related, $event)" />
+        <AdminApiState :error="relatedErrors[related.key]" />
+        <AdminDataTable
+          :title="related.title"
+          :columns="related.columns || []"
+          :rows="relatedRows[related.key] || []"
+          :loading="relatedLoading[related.key]"
+          :empty-title="related.emptyTitle || `No ${related.title.toLowerCase()}`"
+          :empty-message="related.emptyMessage || 'No related records were returned from the approved back-office API.'"
+        >
+          <template v-for="column in related.columns || []" #[`cell-${column.key}`]="{ row }">
+            <AdminStatusBadge v-if="column.type === 'status'" :status="row[column.key]" />
+            <span v-else>{{ row[column.key] ?? '-' }}</span>
+          </template>
+          <template #rowActions="{ row }">
+            <div class="d-flex justify-content-end gap-1">
+              <button
+                v-if="related.detailEndpoint"
+                type="button"
+                class="btn btn-sm btn-primary btn-wave"
+                @click="openRelatedDetail(related, row)"
+              >
+                Detail
+              </button>
+              <button
+                v-for="action in related.actions || []"
+                :key="action.key"
+                type="button"
+                :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
+                @click="openRelatedRowAction(related, action, row)"
+              >
+                {{ action.label }}
+              </button>
+            </div>
+          </template>
+        </AdminDataTable>
+      </div>
+    </template>
+
     <AdminConfirmAction
       v-model="confirm.open"
       :title="confirm.title"
       :message="confirm.message"
       :requires-reason="confirm.action?.reason"
-      :requires-payload="Boolean(confirm.action?.payloadTemplate)"
+      :requires-payload="Boolean(confirm.action?.payloadTemplate) && !confirm.action?.formFields?.length"
       :payload-template="confirm.action?.payloadTemplate"
+      :form-fields="confirm.action?.formFields || []"
+      :record-context="confirm.row"
+      :context-fields="confirm.action?.contextFields || resource?.confirmContextFields || []"
       :loading="saving"
       :error="actionError"
       @confirm="runConfirmedAction"
     />
+
+    <AdminModal v-model="relatedDetail.open" :title="relatedDetail.title">
+      <AdminApiState :error="relatedDetail.error" />
+      <AdminDetailSection title="Detail" :record="relatedDetail.record" :loading="relatedDetail.loading" />
+      <template #footer>
+        <button class="btn btn-light btn-wave" type="button" @click="relatedDetail.open = false">Close</button>
+      </template>
+    </AdminModal>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { OperationAction, OperationResource } from '~/composables/useAdminOperationsCatalog'
+import type { OperationAction, OperationFormField, OperationRelatedList, OperationResource } from '~/composables/useAdminOperationsCatalog'
 import { formatDateTime, titleize } from '~/utils/format'
 
 const props = defineProps<{
@@ -172,21 +274,40 @@ const actionError = ref<any>(null)
 const rows = ref<any[]>([])
 const detail = ref<any>(null)
 const settingsDraft = ref('')
+const settingsForm = reactive<Record<string, any>>({})
 const detailDraft = ref('')
 const filters = ref<Record<string, any>>({})
 const meta = reactive({ next_cursor: null as string | null, has_more: false })
+const relatedRows = reactive<Record<string, any[]>>({})
+const relatedLoading = reactive<Record<string, boolean>>({})
+const relatedErrors = reactive<Record<string, any>>({})
 const confirm = reactive<{
   open: boolean
   title: string
   message: string
   action: OperationAction | null
   row: any
+  related: OperationRelatedList | null
 }>({
   open: false,
   title: '',
   message: '',
   action: null,
   row: null,
+  related: null,
+})
+const relatedDetail = reactive<{
+  open: boolean
+  title: string
+  loading: boolean
+  error: any
+  record: any
+}>({
+  open: false,
+  title: '',
+  loading: false,
+  error: null,
+  record: null,
 })
 
 const slugParts = computed(() => normalizeSlug(route.params.slug))
@@ -202,6 +323,13 @@ const canReload = computed(() => Boolean(resource.value && mode.value !== 'repor
 const hasDetailRoute = computed(() => Boolean(resource.value?.detailEndpoint || resource.value?.detailApiGap))
 const detailGap = computed(() => mode.value === 'detail' && !resource.value?.detailEndpoint ? resource.value?.detailApiGap || 'No documented detail GET endpoint is available for this route.' : '')
 const detailActions = computed(() => resource.value?.actions || [])
+const hasSettingsForm = computed(() => Boolean(resource.value?.settingsFields?.length))
+const showRelatedLists = computed(() => Boolean(
+  resource.value?.relatedLists?.length
+  && (mode.value === 'detail' || mode.value === 'settings')
+  && !resource.value.apiGap
+  && !detailGap.value,
+))
 const reportFilters = computed(() => resource.value?.filters?.length ? resource.value.filters : [
   { key: 'date_from', label: 'From', type: 'date' as const },
   { key: 'date_to', label: 'To', type: 'date' as const },
@@ -252,6 +380,7 @@ async function load(cursor?: string | null) {
       const response = await api.apiFetch(interpolate(resource.value.detailEndpoint || '', recordId.value), apiOptions())
       detail.value = extractData(response)
       detailDraft.value = JSON.stringify(detail.value || {}, null, 2)
+      await loadRelatedLists()
       return
     }
 
@@ -259,6 +388,8 @@ async function load(cursor?: string | null) {
       const response = await api.apiFetch(resource.value.listEndpoint || '', apiOptions())
       detail.value = extractData(response)
       settingsDraft.value = JSON.stringify(detail.value || {}, null, 2)
+      resetSettingsForm()
+      await loadRelatedLists()
       return
     }
 
@@ -311,6 +442,40 @@ const resetSettings = () => {
   settingsDraft.value = JSON.stringify(detail.value || {}, null, 2)
 }
 
+const resetSettingsForm = () => {
+  for (const key of Object.keys(settingsForm)) {
+    delete settingsForm[key]
+  }
+
+  for (const field of resource.value?.settingsFields || []) {
+    const value = getPath(detail.value || {}, field.key)
+    settingsForm[field.key] = value !== undefined && value !== null
+      ? normalizeInitialFieldValue(field, value)
+      : field.defaultValue !== undefined ? field.defaultValue : normalizeInitialFieldValue(field, value)
+  }
+}
+
+const saveSettingsForm = async () => {
+  if (!resource.value?.updateEndpoint || !resource.value.settingsFields?.length) return
+  saving.value = true
+  error.value = null
+  try {
+    const payload = buildPayloadFromFields(resource.value.settingsFields, settingsForm)
+    const response = await api.apiFetch(resource.value.updateEndpoint, apiOptions({
+      method: resource.value.updateMethod || 'PATCH',
+      body: payload,
+      idempotencyKey: api.idempotencyKey(),
+    }))
+    detail.value = extractData(response)
+    settingsDraft.value = JSON.stringify(detail.value || {}, null, 2)
+    resetSettingsForm()
+  } catch (err: any) {
+    error.value = err
+  } finally {
+    saving.value = false
+  }
+}
+
 const saveDetailDraft = async () => {
   if (!resource.value?.updateEndpoint || !recordId.value) return
   saving.value = true
@@ -339,6 +504,7 @@ const openRowAction = (action: OperationAction, row: any) => {
   confirm.open = true
   confirm.action = action
   confirm.row = row
+  confirm.related = null
   confirm.title = action.label
   confirm.message = `Confirm ${action.label.toLowerCase()} for ${row.__id || 'selected record'}.`
   actionError.value = null
@@ -352,19 +518,57 @@ const openCollectionAction = (action: OperationAction) => {
   confirm.open = true
   confirm.action = action
   confirm.row = null
+  confirm.related = null
   confirm.title = action.label
   confirm.message = `Confirm ${action.label.toLowerCase()} for ${resource.value?.title || 'this page'}.`
   actionError.value = null
 }
 
-const runConfirmedAction = async (reason: string, payloadJson = '') => {
+const openRelatedCollectionAction = (related: OperationRelatedList, action: OperationAction) => {
+  confirm.open = true
+  confirm.action = action
+  confirm.row = null
+  confirm.related = related
+  confirm.title = action.label
+  confirm.message = `Confirm ${action.label.toLowerCase()} for ${related.title}.`
+  actionError.value = null
+}
+
+const openRelatedRowAction = (related: OperationRelatedList, action: OperationAction, row: any) => {
+  confirm.open = true
+  confirm.action = action
+  confirm.row = row
+  confirm.related = related
+  confirm.title = action.label
+  confirm.message = `Confirm ${action.label.toLowerCase()} for ${row.__id || 'selected related record'}.`
+  actionError.value = null
+}
+
+const openRelatedDetail = async (related: OperationRelatedList, row: any) => {
+  if (!related.detailEndpoint) return
+  relatedDetail.open = true
+  relatedDetail.title = `${related.title} detail`
+  relatedDetail.loading = true
+  relatedDetail.error = null
+  relatedDetail.record = null
+  try {
+    const response = await api.apiFetch(interpolate(related.detailEndpoint, row.__id), apiOptions())
+    relatedDetail.record = extractData(response)
+  } catch (err) {
+    relatedDetail.error = err
+  } finally {
+    relatedDetail.loading = false
+  }
+}
+
+const runConfirmedAction = async (reason: string, payloadJson = '', formValues: Record<string, any> = {}) => {
   if (!confirm.action || !resource.value) return
   saving.value = true
   actionError.value = null
   try {
     const id = confirm.row?.__id || recordId.value
     const endpoint = interpolate(confirm.action.endpoint, id)
-    const body = buildActionBody(confirm.action, reason, payloadJson)
+    const body = buildActionBody(confirm.action, reason, payloadJson, formValues)
     await api.apiFetch(endpoint, apiOptions({
       method: confirm.action.method || 'POST',
       body,
@@ -379,13 +583,136 @@ const runConfirmedAction = async (reason: string, payloadJson = '') => {
   }
 }
 
-const buildActionBody = (action: OperationAction, reason: string, payloadJson: string) => {
-  if (action.payloadTemplate) {
+const loadRelatedLists = async () => {
+  const lists = resource.value?.relatedLists || []
+  if (!lists.length) return
+
+  await Promise.all(lists.map(async (related) => {
+    relatedLoading[related.key] = true
+    relatedErrors[related.key] = null
+    try {
+      const endpoint = interpolate(related.listEndpoint, recordId.value)
+      const response = await api.apiFetch(endpoint, apiOptions({ query: { limit: 20 } }))
+      relatedRows[related.key] = normalizeRows(response, {
+        scope: resource.value?.scope || props.scope,
+        slug: related.key,
+        title: related.title,
+        group: resource.value?.group || '',
+        idParam: related.idParam,
+        idKey: related.idKey || 'id',
+        columns: related.columns,
+      })
+    } catch (err) {
+      relatedErrors[related.key] = err
+      relatedRows[related.key] = []
+    } finally {
+      relatedLoading[related.key] = false
+    }
+  }))
+}
+
+const buildActionBody = (action: OperationAction, reason: string, payloadJson: string, formValues: Record<string, any>) => {
+  let payload: Record<string, any> = {}
+
+  if (action.formFields?.length) {
+    payload = buildPayloadFromFields(action.formFields, formValues)
+  } else if (action.payloadTemplate) {
     const payload = JSON.parse(payloadJson || '{}')
-    return action.reason ? { ...payload, reason } : payload
+    return action.reason ? compactPayload({ ...payload, reason }) : compactPayload(payload)
   }
 
-  return action.reason ? { reason } : undefined
+  if (action.reason) {
+    payload.reason = reason
+  }
+
+  const compacted = compactPayload(payload)
+  return Object.keys(compacted).length ? compacted : undefined
+}
+
+const buildPayloadFromFields = (fields: OperationFormField[], values: Record<string, any>) => {
+  const payload: Record<string, any> = {}
+
+  for (const field of fields) {
+    const value = normalizePayloadField(field, values[field.key])
+    if (value === undefined) continue
+    setPath(payload, field.key, value)
+  }
+
+  return compactPayload(payload)
+}
+
+const normalizePayloadField = (field: OperationFormField, value: any) => {
+  if (field.type === 'checkbox') {
+    return Boolean(value)
+  }
+
+  if (field.type === 'number') {
+    if (value === '' || value === undefined || value === null) return undefined
+    return Number(value)
+  }
+
+  if (field.type === 'lines') {
+    const lines = String(value || '')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+    if (!lines.length) return undefined
+    return field.itemKey ? lines.map((line) => ({ [field.itemKey || 'value']: line })) : lines
+  }
+
+  if (value === '' || value === undefined || value === null) {
+    return undefined
+  }
+
+  return value
+}
+
+const normalizeInitialFieldValue = (field: OperationFormField, value: any) => {
+  if (field.type === 'checkbox') {
+    return Boolean(value)
+  }
+
+  if (value === undefined || value === null || typeof value === 'object') {
+    return ''
+  }
+
+  return value
+}
+
+const setPath = (target: Record<string, any>, path: string, value: any) => {
+  const keys = path.split('.')
+  let current = target
+  keys.forEach((key, index) => {
+    if (index === keys.length - 1) {
+      current[key] = value
+      return
+    }
+
+    current[key] = typeof current[key] === 'object' && current[key] !== null ? current[key] : {}
+    current = current[key]
+  })
+}
+
+const compactPayload = (value: any): any => {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => compactPayload(entry))
+      .filter((entry) => entry !== undefined)
+  }
+
+  if (value && typeof value === 'object') {
+    const compacted = Object.fromEntries(Object.entries(value)
+      .map(([key, entry]) => [key, compactPayload(entry)])
+      .filter(([, entry]) => entry !== undefined && entry !== null && entry !== ''))
+
+    if ('currency' in compacted && !('amount' in compacted) && Object.keys(compacted).length === 1) {
+      return undefined
+    }
+
+    return compacted
+  }
+
+  return value
 }
 
 const apiOptions = (extra: Record<string, any> = {}) => ({
@@ -433,10 +760,15 @@ const normalizeRows = (response: any, item: OperationResource) => extractItems(r
 
 const getPath = (value: any, path: string) => path.split('.').reduce((current, key) => current?.[key], value)
 
+const fieldId = (key: string) => `admin-operation-${key.replace(/[^a-z0-9_-]/gi, '-')}`
+
 const formatValue = (value: any, type?: string) => {
   if (value === undefined || value === null || value === '') return '-'
   if (type === 'datetime') return formatDateTime(String(value))
-  if (type === 'money') return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value || 0))
+  if (type === 'money') {
+    const amount = typeof value === 'object' && value !== null ? value.amount : value
+    return amount === undefined || amount === null ? '-' : new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(amount || 0))
+  }
   if (type === 'json' || typeof value === 'object') return JSON.stringify(value)
   return value
 }
