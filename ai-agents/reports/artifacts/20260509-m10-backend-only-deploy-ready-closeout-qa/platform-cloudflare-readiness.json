@@ -1,0 +1,224 @@
+{
+    "status": "blocked_external",
+    "generated_at": "2026-05-09T13:04:18.208493Z",
+    "production_approved": false,
+    "boundary": {
+        "local_dev_verifiable": true,
+        "dry_run": true,
+        "external_cloudflare_calls_attempted": false,
+        "external_r2_calls_attempted": false,
+        "staging_approved": false,
+        "production_approved": false,
+        "client_delivery_approved": false
+    },
+    "cloudflare": {
+        "status": "missing_credentials",
+        "dry_run": true,
+        "proxy_required": true,
+        "https_required": true,
+        "configured": {
+            "account_id": false,
+            "zone_id": false,
+            "api_token": false,
+            "api_base_url": true
+        },
+        "redacted_config": {
+            "account_id": null,
+            "zone_id": null,
+            "api_token": null,
+            "api_base_url": "[CONFIGURED]"
+        },
+        "blockers": [
+            "cloudflare_account_id_missing",
+            "cloudflare_zone_id_missing",
+            "cloudflare_api_token_missing"
+        ],
+        "note": "This verifier does not call or mutate Cloudflare. Real DNS, SSL, proxy, WAF, and cache evidence must be supplied by QA/Ops before production approval."
+    },
+    "domains": {
+        "status": "guarded",
+        "total": 3,
+        "active": 3,
+        "custom_domains": 0,
+        "custom_pending": 0,
+        "unsafe_active": 0,
+        "items": [
+            {
+                "id": "dom_14f6d0741e76eca39c69",
+                "partner_id": "par_demo_alpha",
+                "tenant_id": "ten_demo_alpha",
+                "host": "alpha.newpaotang.test",
+                "type": "subdomain",
+                "status": "active",
+                "is_primary": true,
+                "local_only": true,
+                "readiness": {
+                    "dns_ownership_verified": true,
+                    "ssl_ready": true,
+                    "cloudflare_proxy_required": true,
+                    "cloudflare_proxy_verified": true,
+                    "https_required": true,
+                    "https_enforced": true,
+                    "can_activate": true
+                },
+                "timestamps": {
+                    "verified_at": "2026-05-09T13:03:58.000000Z",
+                    "ssl_ready_at": "2026-05-09T13:03:58.000000Z",
+                    "dns_verified_at": null,
+                    "cloudflare_proxy_verified_at": null,
+                    "https_enforced_at": null,
+                    "cloudflare_readiness_checked_at": null
+                },
+                "can_activate": true,
+                "unsafe_active": false,
+                "blockers": []
+            },
+            {
+                "id": "dom_8aaf050c272322c64eb6",
+                "partner_id": "par_demo_beta",
+                "tenant_id": "ten_demo_beta",
+                "host": "beta.newpaotang.test",
+                "type": "subdomain",
+                "status": "active",
+                "is_primary": true,
+                "local_only": true,
+                "readiness": {
+                    "dns_ownership_verified": true,
+                    "ssl_ready": true,
+                    "cloudflare_proxy_required": true,
+                    "cloudflare_proxy_verified": true,
+                    "https_required": true,
+                    "https_enforced": true,
+                    "can_activate": true
+                },
+                "timestamps": {
+                    "verified_at": "2026-05-09T13:03:58.000000Z",
+                    "ssl_ready_at": "2026-05-09T13:03:58.000000Z",
+                    "dns_verified_at": null,
+                    "cloudflare_proxy_verified_at": null,
+                    "https_enforced_at": null,
+                    "cloudflare_readiness_checked_at": null
+                },
+                "can_activate": true,
+                "unsafe_active": false,
+                "blockers": []
+            },
+            {
+                "id": "dom_4902b00d889e35361ee9",
+                "partner_id": "par_demo_gamma",
+                "tenant_id": "ten_demo_gamma",
+                "host": "gamma.newpaotang.test",
+                "type": "subdomain",
+                "status": "active",
+                "is_primary": true,
+                "local_only": true,
+                "readiness": {
+                    "dns_ownership_verified": true,
+                    "ssl_ready": true,
+                    "cloudflare_proxy_required": true,
+                    "cloudflare_proxy_verified": true,
+                    "https_required": true,
+                    "https_enforced": true,
+                    "can_activate": true
+                },
+                "timestamps": {
+                    "verified_at": "2026-05-09T13:03:58.000000Z",
+                    "ssl_ready_at": "2026-05-09T13:03:58.000000Z",
+                    "dns_verified_at": null,
+                    "cloudflare_proxy_verified_at": null,
+                    "https_enforced_at": null,
+                    "cloudflare_readiness_checked_at": null
+                },
+                "can_activate": true,
+                "unsafe_active": false,
+                "blockers": []
+            }
+        ],
+        "blockers": []
+    },
+    "cache": {
+        "status": "artifacts_ready_local",
+        "waf_rate_limit_rules": {
+            "path": "ops/m10/cloudflare-waf-rate-limit-rules.json",
+            "exists": true,
+            "valid": true,
+            "rule_count": 7,
+            "categories": [
+                "public_tenant_pages",
+                "public_stock_search_results",
+                "customer_auth_booking_checkout",
+                "admin_back_office",
+                "partner_sync",
+                "payment_topup_webhooks",
+                "support_impersonation_sensitive"
+            ]
+        },
+        "cache_bypass_rules": {
+            "path": "ops/m10/cloudflare-cache-bypass-rules.json",
+            "exists": true,
+            "valid": true,
+            "rule_count": 8,
+            "categories": [
+                "api_dynamic",
+                "webhook_payment_topup_callbacks",
+                "admin_back_office",
+                "auth_session_protected",
+                "tenant_maintenance_dynamic_pages",
+                "partner_sync",
+                "ticket_images_static",
+                "static_assets"
+            ]
+        },
+        "blockers": []
+    },
+    "cdn_r2_ticket_images": {
+        "status": "missing_cdn_or_r2_prerequisites",
+        "cdn_required": true,
+        "configured": {
+            "cdn_base_url": false,
+            "r2_endpoint": false,
+            "r2_bucket": false,
+            "r2_access_key_id": false,
+            "r2_secret_access_key": false,
+            "ticket_image_object_path": false
+        },
+        "k6_prerequisites": {
+            "requires_explicit_cdn_base_url": true,
+            "requires_explicit_image_path": true,
+            "image_path_evidence_present": false,
+            "accepted_image_path_env": "IMAGE_PATH or TICKET_IMAGE_CDN_IMAGE_PATH",
+            "base_url_fallback_allowed": false
+        },
+        "storage_policy": {
+            "database_policy": "Store ticket image key/path or CDN URL policy, never base64 payloads.",
+            "delivery_policy": "Serve ticket images from CDN/R2 or signed CDN URLs; do not proxy each request through Laravel.",
+            "cache_policy": "Use long-lived immutable cache headers for immutable ticket image objects."
+        },
+        "redacted_config": {
+            "cdn_base_url": null,
+            "r2_endpoint": null,
+            "r2_bucket": null,
+            "r2_access_key_id": null,
+            "r2_secret_access_key": null,
+            "ticket_image_object_path": null
+        },
+        "blockers": [
+            "cdn_base_url_missing",
+            "r2_endpoint_or_bucket_missing",
+            "ticket_image_cdn_image_path_missing"
+        ]
+    },
+    "blockers": [
+        "cloudflare_account_id_missing",
+        "cloudflare_zone_id_missing",
+        "cloudflare_api_token_missing",
+        "cdn_base_url_missing",
+        "r2_endpoint_or_bucket_missing",
+        "ticket_image_cdn_image_path_missing"
+    ],
+    "docker_validation_commands": [
+        "docker compose exec platform-api php artisan platform:cloudflare:readiness --format=json",
+        "docker run --rm -v \"$PWD/load-tests/k6:/scripts:ro\" grafana/k6:latest inspect /scripts/ticket-image-cdn-spike.js",
+        "docker run --rm -v \"$PWD/load-tests/k6:/scripts:ro\" -e CDN_BASE_URL=\"<cdn-base-url>\" -e IMAGE_PATH=\"<ticket-image-object-path>\" grafana/k6:latest inspect /scripts/ticket-image-cdn-spike.js"
+    ]
+}

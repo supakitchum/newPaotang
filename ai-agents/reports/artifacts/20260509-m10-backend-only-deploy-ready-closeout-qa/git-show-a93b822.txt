@@ -1,0 +1,5 @@
+a93b822 m10-backend-only-deploy-ready-closeout: close backend deploy readiness
+ docs/m10-backend-deploy-ready-closeout.md      | 219 +++++++++++++++++++++++++
+ ops/m10/backend-deploy-ready-blocker-matrix.md |  97 +++++++++++
+ ops/m10/backend-release-gate-ledger.md         |  77 ++++++++-
+ 3 files changed, 387 insertions(+), 6 deletions(-)

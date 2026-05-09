@@ -1,0 +1,15 @@
+ Container newpaotang-valkey-1 Running 
+ Container newpaotang-postgres-1 Running 
+ Container newpaotang-postgres-1 Waiting 
+ Container newpaotang-valkey-1 Waiting 
+ Container newpaotang-valkey-1 Healthy 
+ Container newpaotang-postgres-1 Healthy 
+ Container newpaotang-platform-api-run-4e64146fed8c Creating 
+ Container newpaotang-platform-api-run-4e64146fed8c Created 
+Prepared M10 k6 baseline fixtures.
+fixture_json: /var/www/html/storage/app/load-tests/k6-baseline-env.json
+fixture_env: /var/www/html/storage/app/load-tests/k6-baseline.env
+tenant_id: ten_k6_baseline
+partner_id: par_k6_baseline
+game_id: gam_k6_19nd82fktq
+reward_result_id: rew_k6_19nd82fktq

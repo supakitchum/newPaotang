@@ -1,0 +1,222 @@
+ops/m10/backend-deploy-ready-blocker-matrix.md:6:Status: Backend local/dev deploy-readiness ready for QA; production blocked externally.
+ops/m10/backend-deploy-ready-blocker-matrix.md:10:This matrix records backend-only deploy-readiness blockers for `apps/platform-api`. It is not a staging, production, client-delivery, Gate 5, or final release approval.
+ops/m10/backend-deploy-ready-blocker-matrix.md:19:| Models/migrations/seeders | ready_local | destructive commands are local/test only | production migration plan and approved seed/first-admin policy | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:22:| Outbox/inbox | ready_local | production worker supervision and replay runbooks | queue supervision, dead-letter handling, retry dashboards | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:23:| Queue worker profiles | ready_local | production process manager/Horizon missing | managed worker profiles, queue lag dashboard, restart/drain evidence | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:24:| Scheduler | ready_local | scheduler leader/SLO missing | single leader policy, production locks, missed schedule alerts | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:25:| Horizon | blocked_external | package/config/supervisors/dashboard policy missing | approved Horizon package/config, access controls, process manager, queue dashboards | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:26:| Reverb | blocked_external | package/runtime/TLS/public host/scaling missing | approved Reverb runtime, TLS host, auth load test, scaling evidence, secret manager | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:27:| Backend Docker image | ready_local_with_external_supervision_blocker | production web server/process supervision not approved | image digest, process manager/orchestration config, runtime health policy | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:28:| Smoke/readiness | ready_local | production seed-login behavior must be disabled or separately approved | production-safe smoke profile and credentials policy | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:29:| Observability report | ready_local_with_external_followups | external APM/edge/CDN signals missing | Sentry/Grafana/Datadog/New Relic or approved equivalent; Cloudflare analytics | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:31:| Cloudflare DNS/proxy | blocked_external | account, zone, token, DNS/proxy evidence missing | zone ownership, DNS records, proxy enabled evidence per tenant host | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:32:| HTTPS/SSL | blocked_external | SSL and HTTPS enforcement evidence missing | Full strict or equivalent origin cert, HTTPS redirect sample, domain readiness timestamps | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:33:| WAF/rate-limit/cache | blocked_external | templates only, not deployed | deployed WAF/rate-limit/cache-bypass rules with sampled evidence | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:34:| R2/object storage | blocked_external | endpoint, bucket, credentials, bucket policy missing | R2 bucket, endpoint, access policy, lifecycle, object verification | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:35:| Ticket-image CDN | blocked_external | real CDN base URL and image path missing | `CDN_BASE_URL` and `IMAGE_PATH` or `TICKET_IMAGE_CDN_IMAGE_PATH` returning 200 through CDN/R2 | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:36:| k6 baseline scripts | ready_local_with_external_cdn_blocker | measured release-candidate run missing | Docker k6 run artifacts and thresholds from approved environment | QA Tester / Coordinator-Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:37:| Mail/password reset delivery | blocked_external | provider credentials/delivery policy missing | approved provider, secret owner, deliverability and reset-link policy | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:38:| Payment/topup providers | blocked_external | provider activation credentials missing | provider credentials, webhook signatures, reconciliation, settlement policy | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:39:| LINE auth | blocked_external | credentials/callback/token exchange/account-linking policy missing | LINE channel credentials, callback URL, token exchange, account-linking/error policy | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:40:| Production secret manager | blocked_external | approved external secret store missing | secret owner/system, references for app, providers, migration, object storage | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:41:| Old-data migration | blocked_external | real old-data source inventory and credentials missing | source inventory, mapping signoff, reject report policy, dry-run from snapshot | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:42:| Database snapshots | blocked_external | real snapshot and restore rehearsal missing | snapshot id, restore proof, migration version, health/smoke after restore | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:43:| Object-storage snapshots | blocked_external | metadata snapshot missing | ticket image key inventory, CDN policy metadata, prefix ownership map | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:44:| Staging rehearsal | blocked_external | not executed | staging rehearsal log, reject counts, smoke/readiness evidence | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:45:| Cutover | blocked_external | release tag/window/monitoring evidence missing | release image tag/digest, cutover window approval, queue drain plan, abort criteria | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:46:| Rollback | blocked_external | previous tag and rollback drill missing | previous image tag/digest, backward compatibility note, rollback rehearsal evidence | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:47:| Gate 5/final release | not_triggered | Coordinator approval required after blockers close | Coordinator decision, QA report, git boundary, push/release evidence | Coordinator/Orchestrator |
+ops/m10/backend-deploy-ready-blocker-matrix.md:51:The backend package is ready for QA as a local/dev deploy-readiness closeout, but production remains blocked on:
+ops/m10/backend-deploy-ready-blocker-matrix.md:54:Horizon production supervision
+ops/m10/backend-deploy-ready-blocker-matrix.md:55:Reverb production websocket runtime
+ops/m10/backend-deploy-ready-blocker-matrix.md:61:production secret manager ownership and references
+ops/m10/backend-deploy-ready-blocker-matrix.md:64:staging rehearsal
+ops/m10/backend-deploy-ready-blocker-matrix.md:66:Gate 5/final release approval
+ops/m10/backend-deploy-ready-blocker-matrix.md:79:platform:cloudflare:readiness: blocked_external with redacted config and explicit blockers
+ops/m10/backend-deploy-ready-blocker-matrix.md:80:platform:migration:rehearsal --dry-run: blocked_external with local strategy/fixtures ready
+ops/m10/backend-deploy-ready-blocker-matrix.md:89:staging deployment
+ops/m10/backend-deploy-ready-blocker-matrix.md:90:production deployment
+ops/m10/backend-deploy-ready-blocker-matrix.md:91:client delivery
+ops/m10/backend-deploy-ready-blocker-matrix.md:95:Gate 5
+ops/m10/backend-release-gate-ledger.md:8:Gate status: Backend-only local/dev deploy-readiness ready for QA; production release remains blocked externally.
+ops/m10/backend-release-gate-ledger.md:12:| Backend-only deploy-ready closeout | ready_for_qa | `docs/m10-backend-deploy-ready-closeout.md` and `ops/m10/backend-deploy-ready-blocker-matrix.md` created; no BO/customer/API contract edits | Production/Gate 5 still needs external evidence and Coordinator approval | Orchestrator |
+ops/m10/backend-release-gate-ledger.md:32:| Customer realtime auth | guarded_local_dev | Prior safe route-policy closure remains unchanged and full suite passed | Public Reverb/websocket/TLS/scaling production policy missing | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:33:| Runtime readiness | blocked_external | `platform:runtime:readiness --format=json` passed; queue workers and scheduler are ready local/dev | Horizon/Reverb production supervision, dashboard, TLS, and scaling policy remain missing | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:36:| Backend Docker image/templates | ready_local_with_external_supervision_blocker | `apps/platform-api/Dockerfile` development/production targets and `.env.example` backend placeholders audited | Production process manager/orchestration and image digest evidence missing | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:37:| Observability | ready_local_with_external_followups | `platform:observability:report --format=json` passed with status `ready_local`; 3 partners, 30 usage meters, 39 alert policies | External APM, alert delivery, edge/CDN security signals remain production integrations | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:39:| Cloudflare/CDN/R2 | blocked_external | `platform:cloudflare:readiness --format=json` passed with redacted config and explicit blockers | Cloudflare account/zone/token, CDN base URL, R2 endpoint/bucket, and ticket image path evidence missing | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:40:| Load-test fixtures/scripts | ready_local_with_external_cdn_blocker | `load-tests:k6:prepare` passed; Docker k6 inspect passed for seven scenario scripts | Real release-candidate baseline and ticket-image CDN run require approved runtime/CDN evidence | QA Tester / Coordinator-Ops |
+ops/m10/backend-release-gate-ledger.md:41:| Migration rehearsal | blocked_external | `platform:migration:rehearsal --dry-run --format=json` passed; local strategy/fixtures ready | Real snapshots, old-data source credentials, staging rehearsal, cutover window, release/previous tags, rollback evidence missing | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:43:| Gate 5 release trigger | not_triggered | Backend-only closeout explicitly does not trigger Gate 5, staging, production, client delivery, or final release | Gate 5 requires Coordinator/Orchestrator approval after blockers close | Orchestrator/Coordinator |
+ops/m10/backend-release-gate-ledger.md:58:| Admin password lifecycle | 3 | Implemented and ready for QA; production mail delivery remains external | QA Tester / Coordinator-Ops |
+ops/m10/backend-release-gate-ledger.md:59:| Admin 2FA lifecycle | 6 | Implemented and ready for QA; production secret-manager policy remains external | QA Tester / Coordinator-Security-Ops |
+ops/m10/backend-release-gate-ledger.md:134:# passed: status blocked_external for Horizon/Reverb; queue workers and scheduler ready_local
+ops/m10/backend-release-gate-ledger.md:140:# passed: status blocked_external with explicit Cloudflare/CDN/R2 blockers
+ops/m10/backend-release-gate-ledger.md:142:# passed: status blocked_external with local strategy/fixtures ready
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:5:This artifact is local/dev readiness only. It is not staging, production, Cloudflare activation, DNS ownership, SSL, WAF enforcement, R2 delivery, CDN cache-hit, or client-delivery approval.
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:13:It does not call or mutate Cloudflare/R2. It reports presence-only configured flags, constant redacted placeholders, domain readiness fields, local rule artifacts, ticket-image CDN prerequisites, blockers, and `production_approved=false`.
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:18:Cloudflare account and non-production/prod zone owner identified
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:27:secret management approved outside local env examples
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:60:The JSON rules are templates. Apply them to real Cloudflare zones only after Coordinator/Ops approval and QA evidence.
+ops/m10/cloudflare-https-waf-cdn-r2-readiness.md:81:production secret management remains a separate release gate
+ops/m10/horizon-queue-supervision.md:5:This artifact is local/dev readiness only. It is not approval for a public Horizon dashboard, production queue supervision, process-manager configuration, or queue SLOs.
+ops/m10/horizon-queue-supervision.md:29:horizon_production_process_manager_missing
+ops/m10/horizon-queue-supervision.md:40:Critical customer, checkout, stock sync, webhook, and reward queues must not share production worker capacity with `report-build`, `usage-metering`, or `partner-monitoring`.
+ops/m10/horizon-queue-supervision.md:45:Laravel Horizon package and config approved
+ops/m10/horizon-queue-supervision.md:47:dashboard route restricted by admin auth, network controls, and production access policy
+ops/m10/cutover-runbook.md:5:This is an operator checklist template. It is not approval for a real cutover. Production cutover remains blocked until Coordinator/Ops approve infrastructure, secrets, snapshots, staging rehearsal, release images, and communications.
+ops/m10/cutover-runbook.md:17:approved release tag and image digest recorded
+ops/m10/cutover-runbook.md:21:production secret references available in approved secret manager
+ops/m10/cutover-runbook.md:22:staging rehearsal completed with reject report reviewed
+ops/m10/cutover-runbook.md:25:tenant maintenance and communication plan approved
+ops/m10/cutover-runbook.md:42:run production-safe migrations only after approval
+ops/m10/cutover-runbook.md:44:run platform smoke with production-safe seed-login behavior
+ops/m10/cutover-runbook.md:55:old-data reject rate exceeds approved threshold
+ops/m10/cutover-runbook.md:57:queue lag or DB lock wait exceeds approved threshold
+ops/m10/cutover-runbook.md:59:Cloudflare/CDN/R2 production evidence missing
+ops/m10/cutover-runbook.md:60:secrets are not available through approved manager
+ops/m10/cutover-runbook.md:65:Capture timestamps, command output, release image tags, snapshot ids, reject counts, smoke results, readiness JSON, queue lag, alert channel state, and Coordinator approval references. Do not capture raw secrets or old-data payloads.
+ops/m10/rollback-drill-runbook.md:5:This is a local/dev rollback drill boundary. It is not approval for destructive down migrations or production rollback execution.
+ops/m10/rollback-drill-runbook.md:35:avoid destructive down migrations unless a Coordinator-approved repair plan exists
+ops/m10/rollback-drill-runbook.md:42:Rollback assumes additive/backward-compatible migrations. Irreversible schema changes, old-data imports, ledger corrections, object-storage deletes, and ticket-image key rewrites require a separate repair plan and Coordinator approval.
+ops/m10/rollback-drill-runbook.md:50:rollback rehearsal not executed in staging
+docs/m10-deployment-monitoring-load-test.md:5:This document records the first backend/ops foundation for Milestone 10. It makes release-readiness measurable for local/dev and QA, but it is not staging, production, or client-delivery approval.
+docs/m10-deployment-monitoring-load-test.md:59:production: copied application code and optimized Composer autoload
+docs/m10-deployment-monitoring-load-test.md:62:The production target is a build artifact foundation. Production-grade web serving, process supervision, Horizon, Reverb, and managed deployment are still release-gate work.
+docs/m10-deployment-monitoring-load-test.md:75:The runtime readiness report covers queue worker profiles, queue ownership, Horizon blockers, Reverb blockers, scheduler registration, helper scripts, Docker validation commands, and `production_approved=false`.
+docs/m10-deployment-monitoring-load-test.md:87:Horizon and Reverb are explicit blockers until their packages, profiles, access policies, TLS/public hosts, scaling evidence, and process-manager supervision are approved. Queue worker validation remains bounded with `queue:work --once`; do not leave unmanaged long-lived workers, scheduler loops, Horizon, or Reverb processes running during validation.
+docs/m10-deployment-monitoring-load-test.md:100:The migration rehearsal report covers old-data migration strategy, synthetic/seeded rehearsal fixtures, database and object-storage snapshot requirements, cutover checklist, rollback drill boundaries, production secret-management placeholders, Docker validation commands, and `production_approved=false`.
+docs/m10-deployment-monitoring-load-test.md:111:ops/m10/production-secret-boundary.md
+docs/m10-deployment-monitoring-load-test.md:114:The local/dev rehearsal uses synthetic and seeded data only. Real old-data sources, real production snapshots, object-storage metadata snapshots, production secret-management, staging rehearsal, production cutover, and production rollback remain explicit blockers. Do not run host PHP/Artisan, psql, pg_dump, cloud CLIs, destructive production migrations, or real data imports from this workspace.
+docs/m10-deployment-monitoring-load-test.md:133:approved local seed credential overrides
+docs/m10-deployment-monitoring-load-test.md:170:The command emits redacted Cloudflare/R2 config presence, domain readiness, WAF/cache artifact status, ticket-image CDN prerequisites, blockers, and `production_approved=false`.
+docs/m10-deployment-monitoring-load-test.md:293:M10 production observability/alerting readiness adds local/dev verifiable commands and artifacts without claiming production delivery:
+docs/m10-deployment-monitoring-load-test.md:311:The local database/log channel is verifiable in this repository. Webhook, email, Sentry, Grafana, Datadog, New Relic, Cloudflare analytics, CDN/R2 ticket image metrics, Horizon, Reverb, and production secret management remain release gates.
+docs/m10-deployment-monitoring-load-test.md:362:run platform:migration:rehearsal --dry-run before production-safe migration
+docs/m10-deployment-monitoring-load-test.md:363:run production-safe migrations
+docs/m10-deployment-monitoring-load-test.md:366:run platform:smoke with production-safe seed-login check disabled unless approved credentials exist
+docs/m10-deployment-monitoring-load-test.md:391:From the approved Back-office Operations Page Slice 1 chain:
+docs/m10-deployment-monitoring-load-test.md:396:Meno license notice missing before staging, production, or client delivery
+docs/m10-deployment-monitoring-load-test.md:397:npm audit vulnerabilities remain production-readiness concern
+docs/m10-deployment-monitoring-load-test.md:409:production process manager/web server image hardening
+docs/m10-deployment-monitoring-load-test.md:411:Reverb production deployment
+docs/m10-deployment-monitoring-load-test.md:417:real production cutover and rollback drill evidence
+docs/m10-deployment-monitoring-load-test.md:418:production secret management
+ops/m10/backend-release-gate-ledger.md:8:Gate status: Backend-only local/dev deploy-readiness ready for QA; production release remains blocked externally.
+ops/m10/backend-release-gate-ledger.md:12:| Backend-only deploy-ready closeout | ready_for_qa | `docs/m10-backend-deploy-ready-closeout.md` and `ops/m10/backend-deploy-ready-blocker-matrix.md` created; no BO/customer/API contract edits | Production/Gate 5 still needs external evidence and Coordinator approval | Orchestrator |
+ops/m10/backend-release-gate-ledger.md:32:| Customer realtime auth | guarded_local_dev | Prior safe route-policy closure remains unchanged and full suite passed | Public Reverb/websocket/TLS/scaling production policy missing | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:33:| Runtime readiness | blocked_external | `platform:runtime:readiness --format=json` passed; queue workers and scheduler are ready local/dev | Horizon/Reverb production supervision, dashboard, TLS, and scaling policy remain missing | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:36:| Backend Docker image/templates | ready_local_with_external_supervision_blocker | `apps/platform-api/Dockerfile` development/production targets and `.env.example` backend placeholders audited | Production process manager/orchestration and image digest evidence missing | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:37:| Observability | ready_local_with_external_followups | `platform:observability:report --format=json` passed with status `ready_local`; 3 partners, 30 usage meters, 39 alert policies | External APM, alert delivery, edge/CDN security signals remain production integrations | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:39:| Cloudflare/CDN/R2 | blocked_external | `platform:cloudflare:readiness --format=json` passed with redacted config and explicit blockers | Cloudflare account/zone/token, CDN base URL, R2 endpoint/bucket, and ticket image path evidence missing | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:40:| Load-test fixtures/scripts | ready_local_with_external_cdn_blocker | `load-tests:k6:prepare` passed; Docker k6 inspect passed for seven scenario scripts | Real release-candidate baseline and ticket-image CDN run require approved runtime/CDN evidence | QA Tester / Coordinator-Ops |
+ops/m10/backend-release-gate-ledger.md:41:| Migration rehearsal | blocked_external | `platform:migration:rehearsal --dry-run --format=json` passed; local strategy/fixtures ready | Real snapshots, old-data source credentials, staging rehearsal, cutover window, release/previous tags, rollback evidence missing | Coordinator/Ops |
+ops/m10/backend-release-gate-ledger.md:43:| Gate 5 release trigger | not_triggered | Backend-only closeout explicitly does not trigger Gate 5, staging, production, client delivery, or final release | Gate 5 requires Coordinator/Orchestrator approval after blockers close | Orchestrator/Coordinator |
+ops/m10/backend-release-gate-ledger.md:58:| Admin password lifecycle | 3 | Implemented and ready for QA; production mail delivery remains external | QA Tester / Coordinator-Ops |
+ops/m10/backend-release-gate-ledger.md:59:| Admin 2FA lifecycle | 6 | Implemented and ready for QA; production secret-manager policy remains external | QA Tester / Coordinator-Security-Ops |
+ops/m10/backend-release-gate-ledger.md:134:# passed: status blocked_external for Horizon/Reverb; queue workers and scheduler ready_local
+ops/m10/backend-release-gate-ledger.md:140:# passed: status blocked_external with explicit Cloudflare/CDN/R2 blockers
+ops/m10/backend-release-gate-ledger.md:142:# passed: status blocked_external with local strategy/fixtures ready
+ops/m10/alert-channel-runbook.md:3:This runbook documents alert-channel readiness for local/dev QA. It does not approve production alert delivery.
+ops/m10/alert-channel-runbook.md:46:| Sentry | Placeholder only | Needs DSN/project and production secret management |
+ops/m10/alert-channel-runbook.md:48:| Datadog/New Relic | Template/blocker only | Needs account/API keys and production agent deployment |
+ops/m10/alert-channel-runbook.md:60:production secret management
+ops/m10/alert-channel-runbook.md:63:back-office production-readiness risks
+ops/m10/runtime-hardening-readiness.md:5:This artifact summarizes local/dev runtime hardening for queues, Horizon, Reverb, and scheduler. It is not staging, production, or client-delivery approval.
+ops/m10/runtime-hardening-readiness.md:21:production_approved is always false
+ops/m10/runtime-hardening-readiness.md:40:horizon_production_process_manager_missing
+ops/m10/runtime-hardening-readiness.md:45:production scheduler leadership and SLO evidence missing
+ops/m10/reverb-deployment-readiness.md:5:This artifact is local/dev readiness only. It is not approval for public websocket delivery, TLS termination, Reverb scaling, or client-delivery realtime behavior.
+ops/m10/reverb-deployment-readiness.md:16:They remain permissioned through the current admin auth and tenant-scope middleware. The readiness command reports endpoint presence without exposing `REVERB_APP_KEY`, `REVERB_APP_SECRET`, hostnames, or production URLs.
+ops/m10/reverb-deployment-readiness.md:51:Laravel Reverb package/runtime approved
+ops/m10/old-data-migration-strategy.md:5:This artifact defines a local/dev rehearsal strategy only. It is not approval to connect to a real old-data source, import production customer data, execute a production cutover, or run a production rollback.
+ops/m10/old-data-migration-strategy.md:13:The verifier must keep `production_approved=false` and must not emit raw secrets, production URLs, signed URLs, customer PII, or old-data payloads.
+ops/m10/old-data-migration-strategy.md:34:production payment provider credentials
+ops/m10/old-data-migration-strategy.md:71:Dry-run rehearsal must produce counts and categories only. Reject reports may include legacy ids, category, reason, and target table. Reject reports must not include customer PII, secrets, production URLs, signed URLs, or raw old-data payloads.
+ops/m10/old-data-migration-strategy.md:76:real old-data source inventory approved
+ops/m10/old-data-migration-strategy.md:79:staging rehearsal completed from a snapshot
+ops/m10/old-data-migration-strategy.md:81:production secret-management owner approved
+ops/m10/observability-signal-inventory.md:3:This artifact is local/dev verifiable readiness evidence. It is not staging, production, or client-delivery approval.
+ops/m10/runtime-readiness.md:47:ops/m10/production-secret-boundary.md
+ops/m10/backend-deploy-ready-blocker-matrix.md:6:Status: Backend local/dev deploy-readiness ready for QA; production blocked externally.
+ops/m10/backend-deploy-ready-blocker-matrix.md:10:This matrix records backend-only deploy-readiness blockers for `apps/platform-api`. It is not a staging, production, client-delivery, Gate 5, or final release approval.
+ops/m10/backend-deploy-ready-blocker-matrix.md:19:| Models/migrations/seeders | ready_local | destructive commands are local/test only | production migration plan and approved seed/first-admin policy | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:22:| Outbox/inbox | ready_local | production worker supervision and replay runbooks | queue supervision, dead-letter handling, retry dashboards | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:23:| Queue worker profiles | ready_local | production process manager/Horizon missing | managed worker profiles, queue lag dashboard, restart/drain evidence | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:24:| Scheduler | ready_local | scheduler leader/SLO missing | single leader policy, production locks, missed schedule alerts | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:25:| Horizon | blocked_external | package/config/supervisors/dashboard policy missing | approved Horizon package/config, access controls, process manager, queue dashboards | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:26:| Reverb | blocked_external | package/runtime/TLS/public host/scaling missing | approved Reverb runtime, TLS host, auth load test, scaling evidence, secret manager | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:27:| Backend Docker image | ready_local_with_external_supervision_blocker | production web server/process supervision not approved | image digest, process manager/orchestration config, runtime health policy | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:28:| Smoke/readiness | ready_local | production seed-login behavior must be disabled or separately approved | production-safe smoke profile and credentials policy | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:29:| Observability report | ready_local_with_external_followups | external APM/edge/CDN signals missing | Sentry/Grafana/Datadog/New Relic or approved equivalent; Cloudflare analytics | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:31:| Cloudflare DNS/proxy | blocked_external | account, zone, token, DNS/proxy evidence missing | zone ownership, DNS records, proxy enabled evidence per tenant host | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:32:| HTTPS/SSL | blocked_external | SSL and HTTPS enforcement evidence missing | Full strict or equivalent origin cert, HTTPS redirect sample, domain readiness timestamps | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:33:| WAF/rate-limit/cache | blocked_external | templates only, not deployed | deployed WAF/rate-limit/cache-bypass rules with sampled evidence | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:34:| R2/object storage | blocked_external | endpoint, bucket, credentials, bucket policy missing | R2 bucket, endpoint, access policy, lifecycle, object verification | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:35:| Ticket-image CDN | blocked_external | real CDN base URL and image path missing | `CDN_BASE_URL` and `IMAGE_PATH` or `TICKET_IMAGE_CDN_IMAGE_PATH` returning 200 through CDN/R2 | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:36:| k6 baseline scripts | ready_local_with_external_cdn_blocker | measured release-candidate run missing | Docker k6 run artifacts and thresholds from approved environment | QA Tester / Coordinator-Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:37:| Mail/password reset delivery | blocked_external | provider credentials/delivery policy missing | approved provider, secret owner, deliverability and reset-link policy | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:38:| Payment/topup providers | blocked_external | provider activation credentials missing | provider credentials, webhook signatures, reconciliation, settlement policy | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:39:| LINE auth | blocked_external | credentials/callback/token exchange/account-linking policy missing | LINE channel credentials, callback URL, token exchange, account-linking/error policy | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:40:| Production secret manager | blocked_external | approved external secret store missing | secret owner/system, references for app, providers, migration, object storage | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:41:| Old-data migration | blocked_external | real old-data source inventory and credentials missing | source inventory, mapping signoff, reject report policy, dry-run from snapshot | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:42:| Database snapshots | blocked_external | real snapshot and restore rehearsal missing | snapshot id, restore proof, migration version, health/smoke after restore | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:43:| Object-storage snapshots | blocked_external | metadata snapshot missing | ticket image key inventory, CDN policy metadata, prefix ownership map | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:44:| Staging rehearsal | blocked_external | not executed | staging rehearsal log, reject counts, smoke/readiness evidence | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:45:| Cutover | blocked_external | release tag/window/monitoring evidence missing | release image tag/digest, cutover window approval, queue drain plan, abort criteria | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:46:| Rollback | blocked_external | previous tag and rollback drill missing | previous image tag/digest, backward compatibility note, rollback rehearsal evidence | Coordinator/Ops |
+ops/m10/backend-deploy-ready-blocker-matrix.md:47:| Gate 5/final release | not_triggered | Coordinator approval required after blockers close | Coordinator decision, QA report, git boundary, push/release evidence | Coordinator/Orchestrator |
+ops/m10/backend-deploy-ready-blocker-matrix.md:51:The backend package is ready for QA as a local/dev deploy-readiness closeout, but production remains blocked on:
+ops/m10/backend-deploy-ready-blocker-matrix.md:54:Horizon production supervision
+ops/m10/backend-deploy-ready-blocker-matrix.md:55:Reverb production websocket runtime
+ops/m10/backend-deploy-ready-blocker-matrix.md:61:production secret manager ownership and references
+ops/m10/backend-deploy-ready-blocker-matrix.md:64:staging rehearsal
+ops/m10/backend-deploy-ready-blocker-matrix.md:66:Gate 5/final release approval
+ops/m10/backend-deploy-ready-blocker-matrix.md:79:platform:cloudflare:readiness: blocked_external with redacted config and explicit blockers
+ops/m10/backend-deploy-ready-blocker-matrix.md:80:platform:migration:rehearsal --dry-run: blocked_external with local strategy/fixtures ready
+ops/m10/backend-deploy-ready-blocker-matrix.md:89:staging deployment
+ops/m10/backend-deploy-ready-blocker-matrix.md:90:production deployment
+ops/m10/backend-deploy-ready-blocker-matrix.md:91:client delivery
+ops/m10/backend-deploy-ready-blocker-matrix.md:95:Gate 5
+ops/m10/migration-rehearsal-runbook.md:5:This runbook is for local/dev rehearsal readiness. It does not approve staging, production, old-data import, production cutover, or production rollback.
+ops/m10/migration-rehearsal-runbook.md:37:do not run destructive production migrations
+ops/m10/migration-rehearsal-runbook.md:39:do not claim staging or production approval
+ops/m10/migration-rehearsal-runbook.md:44:The acceptable local evidence is command output, test results, Docker command logs, and runbook review. Real old-data source, snapshots, secret management, staging rehearsal, production cutover, and rollback execution remain blockers.
+ops/m10/r2-ticket-image-strategy.md:45:image bandwidth and storage usage feed partner usage metrics in a later production observability slice
+docs/m10-backend-deploy-ready-closeout.md:10:This closeout covers `apps/platform-api` backend deploy-readiness only. It does not include Back Office implementation, Customer frontend changes, staging approval, production approval, client delivery, Gate 5, or final M10 release approval.
+docs/m10-backend-deploy-ready-closeout.md:29:| Runtime image/templates | ready_local_with_external_supervision_blockers | Dockerfile has development and production targets; production process supervision still external |
+docs/m10-backend-deploy-ready-closeout.md:30:| Horizon | blocked_external | package/config/supervisors/dashboard policy not present |
+docs/m10-backend-deploy-ready-closeout.md:31:| Reverb | blocked_external | package/runtime/TLS/public host/scaling not present |
+docs/m10-backend-deploy-ready-closeout.md:33:| Cloudflare/HTTPS/WAF/CDN/R2 | blocked_external | local templates/verifier pass; real account/zone/token/CDN/R2/image path missing |
+docs/m10-backend-deploy-ready-closeout.md:35:| Migration/cutover/rollback | blocked_external | local dry-run/readiness pass; real snapshots, old-data source, staging rehearsal, release tags, cutover, rollback missing |
+docs/m10-backend-deploy-ready-closeout.md:36:| Mail/payment/LINE/secret manager | blocked_external | backend boundaries are guarded; provider credentials and production secret owner remain external |
+docs/m10-backend-deploy-ready-closeout.md:66:- Seeded local credentials remain local/QA only and are not production approval.
+docs/m10-backend-deploy-ready-closeout.md:90:- `apps/platform-api/Dockerfile` has `development` and `production` targets.
+docs/m10-backend-deploy-ready-closeout.md:113:- Horizon remains `blocked_external`: package, config, supervisors, dashboard access policy, and production process manager are missing.
+docs/m10-backend-deploy-ready-closeout.md:114:- Reverb remains `blocked_external`: package, runtime profile, TLS/public host, and scaling/load evidence are missing.
+docs/m10-backend-deploy-ready-closeout.md:115:- Admin/customer realtime auth endpoints remain registered and tested at the API boundary, but public websocket delivery is not approved.
+docs/m10-backend-deploy-ready-closeout.md:126:External production follow-ups remain:
+docs/m10-backend-deploy-ready-closeout.md:129:- Cloudflare analytics, CDN/R2 ticket-image metrics, Horizon queue supervision, Reverb runtime signals, and production secret management.
+docs/m10-backend-deploy-ready-closeout.md:135:- `platform:cloudflare:readiness --format=json` returned `blocked_external`.
+docs/m10-backend-deploy-ready-closeout.md:161:Baseline execution was not used as production load evidence. The ticket-image scenario remains blocked until real CDN/R2 image evidence is supplied. Generated bearer tokens and env artifacts are local/runtime artifacts and were not committed.
+docs/m10-backend-deploy-ready-closeout.md:167:- `platform:migration:rehearsal --dry-run --format=json` returned `blocked_external` with local/dev strategy and fixtures ready.
+docs/m10-backend-deploy-ready-closeout.md:177:- Release image tag, previous image tag, staging rehearsal, cutover window, rollback drill, and Cloudflare/CDN/R2 production evidence.
+docs/m10-backend-deploy-ready-closeout.md:186:| Production secret manager | blocked_external | approved secret manager owner/references missing |
+docs/m10-backend-deploy-ready-closeout.md:200:| `docker compose exec -T platform-api php artisan platform:runtime:readiness --format=json` | passed, status `blocked_external` for Horizon/Reverb |
+docs/m10-backend-deploy-ready-closeout.md:203:| `docker compose exec -T platform-api php artisan platform:cloudflare:readiness --format=json` | passed, status `blocked_external` |
+docs/m10-backend-deploy-ready-closeout.md:204:| `docker compose exec -T platform-api php artisan platform:migration:rehearsal --dry-run --format=json` | passed, status `blocked_external` |
+docs/m10-backend-deploy-ready-closeout.md:219:Backend-only local/dev deploy-readiness is ready for QA. Production release remains blocked by external evidence and approvals listed in `ops/m10/backend-deploy-ready-blocker-matrix.md`. Gate 5 and final release are not triggered by this closeout.
+ops/m10/production-secret-boundary.md:5:Migration, cutover, rollback, database snapshots, and object-storage snapshots require production secrets that must never be committed to this repository.
+ops/m10/production-secret-boundary.md:27:Readiness output must use booleans, `[CONFIGURED]`, `[REDACTED]`, or `null`. It must not print raw database URLs, access tokens, object-storage credentials, signed URLs, private keys, DSNs, customer data, old-data payloads, or production hostnames.
+ops/m10/production-secret-boundary.md:31:Production values must come from a Coordinator/Ops-approved secret manager outside committed files. The handoff or QA report may name the external owner/system, but not the values.
+ops/m10/production-secret-boundary.md:36:production secret management missing
+ops/m10/snapshot-requirements.md:5:This artifact defines required database and object-storage metadata snapshots before migration/cutover/rollback approval. It does not create, export, restore, or validate real production snapshots.
+ops/m10/snapshot-requirements.md:39:Raw binary objects must not be committed to the repository. Metadata artifacts for QA must not include signed URLs or production credentials.
+ops/m10/snapshot-requirements.md:45:retention window approved
+ops/m10/snapshot-requirements.md:46:restore access restricted to approved operators
+ops/m10/scheduler-workload-runbook.md:5:This runbook covers local/dev scheduler readiness only. It does not approve production scheduler SLOs, process supervision, or long-running scheduler loops.
+ops/m10/scheduler-workload-runbook.md:32:unsafe or production-only jobs must be blockers instead of scheduled blindly
+ops/m10/scheduler-workload-runbook.md:39:overlap locks are backed by production Redis/Valkey
+ops/m10/migration-rehearsal-fixtures.md:5:Local/dev rehearsal uses synthetic and seeded data only. Do not commit old-data dumps, customer exports, production database snapshots, object-storage manifests, bearer tokens, signed URLs, or PII.
+ops/m10/migration-rehearsal-fixtures.md:31:no production hostnames or real object keys
+ops/m10/migration-rehearsal-fixtures.md:44:production_approved=false
