@@ -5,28 +5,28 @@
 ## Active Task
 
 ```text
-back-office-crud-coverage-audit
+back-office-p1-money-stock-crud-workflows
 ```
 
 ## Agent Status
 
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
-| Coordinator | completed | 20260509-back-office-crud-coverage-audit | ai-agents/handoffs/20260509-back-office-crud-coverage-audit-coordinator-handoff.md |
-| Orchestrator | pending | dispatch-back-office-crud-coverage-audit | ai-agents/handoffs/20260509-back-office-crud-coverage-audit-coordinator-handoff.md |
+| Coordinator | completed | 20260509-back-office-crud-coverage-audit-review | ai-agents/handoffs/20260509-back-office-crud-coverage-audit-review-coordinator-handoff.md |
+| Orchestrator | pending | dispatch-back-office-p1-money-stock-crud-workflows | ai-agents/handoffs/20260509-back-office-crud-coverage-audit-review-coordinator-handoff.md |
 | Backend Develop | completed | backend-contract-frozen-for-bo | ai-agents/decisions/20260509-m10-backend-complete-bo-unblock-decision.md |
-| BO Develop | pending | back-office-crud-coverage-audit | ai-agents/handoffs/20260509-back-office-crud-coverage-audit-coordinator-handoff.md |
+| BO Develop | completed | back-office-crud-coverage-audit | ai-agents/handoffs/20260509-back-office-crud-coverage-audit-bo-handoff.md |
 | Customer Develop | frozen | no-customer-work-without-coordinator-regression-scope | ai-agents/decisions/20260509-backend-only-main-scope-deploy-ready-replan-decision.md |
-| QA Tester | pending | real-menu-workflow-qa-after-crud-audit-and-bo-implementation | ai-agents/handoffs/20260509-back-office-crud-coverage-audit-coordinator-handoff.md |
+| QA Tester | pending | real-menu-workflow-qa-after-p1-bo-implementation | ai-agents/handoffs/20260509-back-office-crud-coverage-audit-review-coordinator-handoff.md |
 
 ## Open Questions
 
 ```text
-User reopened BO planning and corrected the BO progress model. Prior BO percentage is invalid because route/catalog/menu presence was over-counted. Active task is Back-office CRUD Coverage Audit. BO Develop must create docs/back-office-crud-coverage.md with a complete central/tenant menu matrix: menu key, frontend route, permission, list/detail/create/update/delete-action/export APIs, UI implemented, API connected, form/modal implemented, QA status, gap/blocker, and completion status. Coordinator will recalculate BO percentage only from working end-to-end CRUD/API workflow coverage, not route/catalog count. Backend contract remains frozen; backend gaps require Coordinator approval. Customer frontend remains frozen.
+Back-office CRUD Coverage Audit is accepted as the new BO planning baseline. Official corrected BO completion is 0% verified complete (0/56 complete, 54 partial, 2 api_gap). Do not use weighted partial credit for official BO percentage. Next task is P1 money/stock CRUD/API workflows: central stock generation, allocations, stock recall, tenant local stock, stock sync, reservations, orders, wallets, topups, payouts, and payment settings. API gaps remain central:master_stock and tenant:commission_transactions. Backend contract remains frozen; no backend remediation is approved unless BO reports an exact P1 blocker and Coordinator approves a separate backend task. Customer frontend remains frozen. QA must test real menus and workflows, not only build/lint/unit tests.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/decisions/20260509-back-office-crud-coverage-audit-decision.md
+ai-agents/decisions/20260509-back-office-crud-coverage-audit-review-decision.md
 ```
