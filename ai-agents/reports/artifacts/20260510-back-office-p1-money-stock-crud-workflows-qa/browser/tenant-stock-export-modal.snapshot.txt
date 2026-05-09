@@ -1,0 +1,237 @@
+- banner:
+  - button "":
+    - generic: 
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - button " Demo Alpha Lottery":
+    - generic: 
+    - text: Demo Alpha Lottery
+  - text: 
+  - button "":
+    - generic: 
+  - button "AL Alpha Owner":
+    - generic: AL
+    - generic: Alpha Owner
+  - text: 
+- complementary:
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - region "scrollable content":
+    - navigation:
+      - text: 
+      - list:
+        - listitem: Tenant Menu
+        - link " Dashboard":
+          - /url: /admin/tenant/dashboard
+          - generic: 
+          - generic: Dashboard
+        - link " Local Stock":
+          - /url: /admin/tenant/stock
+          - generic: 
+          - generic: Local Stock
+        - link " Stock Sync":
+          - /url: /admin/tenant/stock-sync
+          - generic: 
+          - generic: Stock Sync
+        - link " Price Rules":
+          - /url: /admin/tenant/price-rules
+          - generic: 
+          - generic: Price Rules
+        - link " Reservations":
+          - /url: /admin/tenant/reservations
+          - generic: 
+          - generic: Reservations
+        - link " Orders":
+          - /url: /admin/tenant/orders
+          - generic: 
+          - generic: Orders
+        - link " Customers":
+          - /url: /admin/tenant/customers
+          - generic: 
+          - generic: Customers
+        - link " Wallets":
+          - /url: /admin/tenant/wallets
+          - generic: 
+          - generic: Wallets
+        - link " Topups":
+          - /url: /admin/tenant/topups
+          - generic: 
+          - generic: Topups
+        - link " Tickets":
+          - /url: /admin/tenant/tickets
+          - generic: 
+          - generic: Tickets
+        - link " Agents":
+          - /url: /admin/tenant/growth/agents
+          - generic: 
+          - generic: Agents
+        - link " Agent Quotas":
+          - /url: /admin/tenant/growth/agent-quotas
+          - generic: 
+          - generic: Agent Quotas
+        - link " Payment Settings":
+          - /url: /admin/tenant/payment-settings
+          - generic: 
+          - generic: Payment Settings
+        - link " Affiliate Programs":
+          - /url: /admin/tenant/growth/affiliate-programs
+          - generic: 
+          - generic: Affiliate Programs
+        - link " Affiliate Accounts":
+          - /url: /admin/tenant/growth/affiliates
+          - generic: 
+          - generic: Affiliate Accounts
+        - link " Affiliate Links":
+          - /url: /admin/tenant/growth/affiliate-links
+          - generic: 
+          - generic: Affiliate Links
+        - link " Affiliate Attributions":
+          - /url: /admin/tenant/growth/attributions
+          - generic: 
+          - generic: Affiliate Attributions
+        - link " Commission Rules":
+          - /url: /admin/tenant/growth/commission-rules
+          - generic: 
+          - generic: Commission Rules
+        - link " Seo Settings":
+          - /url: /admin/tenant/seo
+          - generic: 
+          - generic: Seo Settings
+        - link " Maintenance":
+          - /url: /admin/tenant/maintenance
+          - generic: 
+          - generic: Maintenance
+        - link " Support Access Logs":
+          - /url: /admin/tenant/support-access
+          - generic: 
+          - generic: Support Access Logs
+        - link " Commission Transactions":
+          - /url: /admin/tenant/growth/commission-transactions
+          - generic: 
+          - generic: Commission Transactions
+        - link " Payouts":
+          - /url: /admin/tenant/growth/payouts
+          - generic: 
+          - generic: Payouts
+        - link " Reports":
+          - /url: /admin/tenant/reports
+          - generic: 
+          - generic: Reports
+        - link " Monitoring":
+          - /url: /admin/tenant/monitoring
+          - generic: 
+          - generic: Monitoring
+        - link " Usage":
+          - /url: /admin/tenant/usage
+          - generic: 
+          - generic: Usage
+        - link " Sync Logs":
+          - /url: /admin/tenant/sync-logs
+          - generic: 
+          - generic: Sync Logs
+        - link " Audit Logs":
+          - /url: /admin/tenant/audit-logs
+          - generic: 
+          - generic: Audit Logs
+        - link " Admin Users":
+          - /url: /admin/tenant/admin-users
+          - generic: 
+          - generic: Admin Users
+        - link " Roles Permissions":
+          - /url: /admin/tenant/roles
+          - generic: 
+          - generic: Roles Permissions
+        - link " Menu Management":
+          - /url: /admin/tenant/menu-management
+          - generic: 
+          - generic: Menu Management
+        - link " Settings":
+          - /url: /admin/tenant/settings
+          - generic: 
+          - generic: Settings
+      - text: 
+- main:
+  - heading "Tenant Stock" [level=2]
+  - list:
+    - listitem: Admin
+    - listitem:  Tenant
+    - listitem:  Tenant Operations
+    - listitem:  Tenant Stock
+  - button " Refresh":
+    - generic: 
+    - text: Refresh
+  - generic: Game ID
+  - textbox
+  - generic: Status
+  - combobox:
+    - option "All" [selected]
+    - option "Available"
+    - option "Reserved"
+    - option "Sold"
+    - option "Recalled"
+    - option "Inactive"
+  - generic: Number
+  - textbox
+  - generic: Cursor
+  - textbox
+  - generic: Limit
+  - spinbutton: "20"
+  - button " Apply filters":
+    - generic: 
+    - text: Apply filters
+  - generic: Documented operations
+  - button " Export stock" [active]:
+    - generic: 
+    - text: Export stock
+  - generic: Tenant Stock
+  - table:
+    - rowgroup:
+      - row "Stock item Game Number Status Updated Actions":
+        - columnheader "Stock item"
+        - columnheader "Game"
+        - columnheader "Number"
+        - columnheader "Status"
+        - columnheader "Updated"
+        - columnheader "Actions"
+    - rowgroup:
+      - row "lst_qa_p1_alpha gam_qa_p1_money_stock - Available 10 พ.ค. 2569 01:51 Detail":
+        - cell "lst_qa_p1_alpha"
+        - cell "gam_qa_p1_money_stock"
+        - cell "-"
+        - cell "Available":
+          - generic: Available
+        - cell "10 พ.ค. 2569 01:51"
+        - cell "Detail":
+          - link "Detail":
+            - /url: /admin/tenant/stock/lst_qa_p1_alpha
+  - generic: Cursor pagination
+  - button "Next " [disabled]:
+    - text: Next
+    - generic: 
+  - dialog:
+    - heading "Export stock" [level=6]
+    - button "Close"
+    - paragraph: Confirm export stock for Tenant Stock.
+    - generic: Game ID
+    - textbox "Game ID":
+      - /placeholder: Optional game filter
+    - generic: Status
+    - combobox "Status":
+      - option "Select" [selected]
+      - option "available"
+      - option "reserved"
+      - option "sold"
+      - option "recalled"
+      - option "inactive"
+    - generic: Ticket number
+    - textbox "Ticket number":
+      - /placeholder: Optional exact number
+    - generic: Reason
+    - textbox
+    - button "Cancel"
+    - button "Confirm" [disabled]
+- contentinfo:
+  - generic: NewPaotang Back Office · Meno template foundation · 2026
+- text:       

@@ -1,0 +1,7 @@
+8a245b2 back-office-p1-money-stock-crud-workflows: add typed BO money stock workflows
+apps/back-office/components/AdminConfirmAction.vue
+apps/back-office/components/AdminOperationsPage.vue
+apps/back-office/composables/useAdminOperationsCatalog.ts
+apps/back-office/scripts/check.mjs
+apps/back-office/scripts/openapi-admin-paths.snapshot.json
+docs/back-office-crud-coverage.md

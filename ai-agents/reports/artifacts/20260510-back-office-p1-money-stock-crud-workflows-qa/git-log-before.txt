@@ -1,0 +1,12 @@
+15b75ce (HEAD -> develop, origin/develop) back-office-p1-money-stock-crud-workflows: dispatch QA task
+15c9471 back-office-p1-money-stock-crud-workflows: route handoff to orchestrator
+3a211e8 back-office-p1-money-stock-crud-workflows: add BO handoff
+8a245b2 back-office-p1-money-stock-crud-workflows: add typed BO money stock workflows
+10d9249 back-office-p1-money-stock-crud-workflows: dispatch BO restart task
+839fce3 back-office-p1-money-stock-crud-workflows: restart orchestration
+f44bee4 back-office-p1-money-stock-crud-workflows: clear orchestrator dispatch
+b75914b back-office-p1-money-stock-crud-workflows: dispatch BO task
+b8c3c94 back-office-crud-coverage-audit-review: open P1 workflows
+abf75bc back-office-crud-coverage-audit: add BO handoff
+320fe8f back-office-crud-coverage-audit: add CRUD coverage matrix
+1412934 20260509-back-office-crud-coverage-audit

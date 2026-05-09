@@ -1,0 +1,6 @@
+15c9471 back-office-p1-money-stock-crud-workflows: route handoff to orchestrator
+ai-agents/BOARD.md
+ai-agents/handoffs/20260510-back-office-p1-money-stock-crud-workflows-bo-handoff.md
+15b75ce back-office-p1-money-stock-crud-workflows: dispatch QA task
+ai-agents/handoffs/20260510-back-office-p1-money-stock-crud-workflows-qa-task-orchestrator-handoff.md
+ai-agents/tasks/20260510-back-office-p1-money-stock-crud-workflows-qa.md
