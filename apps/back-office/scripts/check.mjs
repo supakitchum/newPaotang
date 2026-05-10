@@ -234,6 +234,10 @@ for (const routeSlug of [
 }
 
 for (const [routeKey, route] of [
+  ['central:rewards', '/admin/central/rewards'],
+  ['central:prize_checking', '/admin/central/rewards'],
+  ['central:reports', '/admin/central/reports'],
+  ['central:settlement', '/admin/central/settlements'],
   ['central:partner_provisioning', '/admin/central/partner-provisioning'],
   ['central:partner_quotas', '/admin/central/partner-quotas'],
   ['central:partner_monitoring', '/admin/central/partner-monitoring'],
@@ -242,6 +246,7 @@ for (const [routeKey, route] of [
   ['central:alert_policies', '/admin/central/alert-policies'],
   ['central:alert_events', '/admin/central/alert-events'],
   ['central:webhook_logs', '/admin/central/webhook-logs'],
+  ['central:audit_logs', '/admin/central/audit-logs'],
   ['central:admin_users', '/admin/central/admin-users'],
   ['central:roles_permissions', '/admin/central/roles'],
   ['central:menu_management', '/admin/central/menu-management'],
@@ -251,6 +256,9 @@ for (const [routeKey, route] of [
   ['tenant:agent_quotas', '/admin/tenant/growth/agent-quotas'],
   ['tenant:monitoring', '/admin/tenant/monitoring'],
   ['tenant:usage', '/admin/tenant/usage'],
+  ['tenant:reports', '/admin/tenant/reports'],
+  ['tenant:sync_logs', '/admin/tenant/sync-logs'],
+  ['tenant:audit_logs', '/admin/tenant/audit-logs'],
   ['tenant:admin_users', '/admin/tenant/admin-users'],
   ['tenant:roles_permissions', '/admin/tenant/roles'],
   ['tenant:menu_management', '/admin/tenant/menu-management'],
@@ -297,6 +305,7 @@ for (const evidence of [
   ['P1 tenant topup nested customer context', operationsCatalog.includes('const topupActionContext') && operationsCatalog.includes("'member_id'") && operationsCatalog.includes("'amount.currency'") && operationsCatalog.includes("'channel'") && operationsCatalog.includes("contextFields: topupActionContext")],
   ['P2 partner typed workflows', operationsCatalog.includes('const partnerCreateFields') && operationsCatalog.includes('const partnerProvisionFields') && operationsCatalog.includes('const partnerQuotaCreateFields') && operationsCatalog.includes("endpoint: '/admin/central/partners/{partner_id}/suspend'") && operationsCatalog.includes("formFields: partnerProvisionFields")],
   ['P2 billing alert typed workflows', operationsCatalog.includes('sourceKey?: string') && operationsCatalog.includes('const billingPlanFields') && operationsCatalog.includes('const billingPlanUpdateFields') && operationsCatalog.includes('const alertPolicyFields') && operationsCatalog.includes('const alertEventActionContext') && operationsCatalog.includes("formFields: billingPlanFields") && operationsCatalog.includes("formFields: alertPolicyFields")],
+  ['P3 reward report log workflows', operationsCatalog.includes("'prize-lines'") && operationsCatalog.includes('const rewardCreateFields') && operationsCatalog.includes('const rewardUpdateFields') && operationsCatalog.includes('Prize Check Batches') && operationsCatalog.includes('const settlementActionContext') && operationsCatalog.includes('const reportExportContext') && operationsCatalog.includes('function reportExportFields') && operationsPage.includes('buildCollectionContext') && operationsPage.includes('normalizePrizeLines') && existsSync(join(root, 'components/AdminReportPanel.vue')) && readFileSync(join(root, 'components/AdminReportPanel.vue'), 'utf8').includes('Report rows')],
   ['settings update method support', operationsPage.includes('resource.value.updateMethod') && operationsCatalog.includes("updateMethod?: 'PATCH' | 'PUT' | 'POST'")],
   ['menu management PUT resources', operationsCatalog.includes("settingsResource('tenant', 'menu-management', 'Menu Management', '/admin/tenant/menu-management', 'PUT')") && operationsCatalog.includes("settingsResource('central', 'menu-management', 'Menu Management', '/admin/central/menu-management', 'PUT')")],
 ]) {
@@ -427,14 +436,15 @@ for (const endpoint of catalogEndpoints) {
   }
 }
 
-for (const requiredReportPath of [
+for (const requiredAdminWorkflowPath of [
   '/admin/tenant/reports/{report_key}',
   '/admin/tenant/reports/{report_key}/exports',
   '/admin/central/reports/{report_key}',
   '/admin/central/reports/{report_key}/exports',
+  '/admin/central/rewards/{reward_result_id}/check-batches',
 ]) {
-  if (!documentedPaths[requiredReportPath]) {
-    failures.push(`OpenAPI snapshot is missing report path ${requiredReportPath}`)
+  if (!documentedPaths[requiredAdminWorkflowPath]) {
+    failures.push(`OpenAPI snapshot is missing admin workflow path ${requiredAdminWorkflowPath}`)
   }
 }
 

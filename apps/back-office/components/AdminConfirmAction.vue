@@ -13,7 +13,7 @@
     </div>
 
     <div v-if="formFields.length" class="row g-3 mb-3">
-      <div v-for="field in formFields" :key="field.key" :class="field.type === 'textarea' || field.type === 'lines' ? 'col-12' : 'col-md-6'">
+      <div v-for="field in formFields" :key="field.key" :class="field.type === 'textarea' || field.type === 'lines' || field.type === 'prize-lines' ? 'col-12' : 'col-md-6'">
         <div v-if="field.type === 'checkbox'" class="form-check form-switch mt-4">
           <input :id="fieldId(field.key)" v-model="formState[field.key]" class="form-check-input" type="checkbox">
           <label class="form-check-label" :for="fieldId(field.key)">{{ field.label }}</label>
@@ -34,7 +34,7 @@
             <option v-for="option in field.options || []" :key="option" :value="option">{{ option }}</option>
           </select>
           <textarea
-            v-else-if="field.type === 'textarea' || field.type === 'lines'"
+            v-else-if="field.type === 'textarea' || field.type === 'lines' || field.type === 'prize-lines'"
             :id="fieldId(field.key)"
             v-model="formState[field.key]"
             class="form-control"
@@ -139,6 +139,10 @@ const normalizeInitialValue = (field: OperationFormField, value: any) => {
     return Boolean(value)
   }
 
+  if (field.type === 'prize-lines') {
+    return formatPrizeLines(value)
+  }
+
   if (value === undefined || value === null || typeof value === 'object') {
     return ''
   }
@@ -162,6 +166,19 @@ const formatContextValue = (value: any) => {
   if (value === undefined || value === null || value === '') return '-'
   if (typeof value === 'object') return JSON.stringify(value)
   return String(value)
+}
+
+const formatPrizeLines = (value: any) => {
+  if (!Array.isArray(value)) {
+    return ''
+  }
+
+  return value.map((prize) => [
+    prize?.prize_type,
+    prize?.prize_number,
+    prize?.amount?.amount,
+    prize?.amount?.currency || 'THB',
+  ].filter((entry) => entry !== undefined && entry !== null && entry !== '').join(',')).join('\n')
 }
 
 watch(() => [props.modelValue, props.payloadTemplate, props.formFields, props.recordContext] as const, () => {

@@ -517,7 +517,7 @@ const openDetailAction = (action: OperationAction) => {
 const openCollectionAction = (action: OperationAction) => {
   confirm.open = true
   confirm.action = action
-  confirm.row = null
+  confirm.row = buildCollectionContext()
   confirm.related = null
   confirm.title = action.label
   confirm.message = `Confirm ${action.label.toLowerCase()} for ${resource.value?.title || 'this page'}.`
@@ -660,6 +660,11 @@ const normalizePayloadField = (field: OperationFormField, value: any) => {
     return field.itemKey ? lines.map((line) => ({ [field.itemKey || 'value']: line })) : lines
   }
 
+  if (field.type === 'prize-lines') {
+    const prizes = normalizePrizeLines(value)
+    return prizes.length ? prizes : undefined
+  }
+
   if (value === '' || value === undefined || value === null) {
     return undefined
   }
@@ -670,6 +675,10 @@ const normalizePayloadField = (field: OperationFormField, value: any) => {
 const normalizeInitialFieldValue = (field: OperationFormField, value: any) => {
   if (field.type === 'checkbox') {
     return Boolean(value)
+  }
+
+  if (field.type === 'prize-lines') {
+    return formatPrizeLines(value)
   }
 
   if (value === undefined || value === null || typeof value === 'object') {
@@ -728,6 +737,23 @@ const queryWithCursor = (cursor?: string | null) => ({
 
 const cleanQuery = (value: Record<string, any>) => Object.fromEntries(Object.entries(value)
   .filter(([, entry]) => entry !== '' && entry !== undefined && entry !== null))
+
+const buildCollectionContext = () => {
+  const currentFilters = cleanQuery(filters.value)
+  const reportKey = mode.value === 'report-detail' ? recordId.value : null
+  return {
+    __raw: {
+      scope: props.scope,
+      resource: resource.value?.title,
+      report_key: reportKey,
+      tenant_id: currentFilters.tenant_id || (props.scope === 'tenant' ? session.currentTenantId.value : undefined),
+      date_from: currentFilters.date_from,
+      date_to: currentFilters.date_to,
+      group_by: currentFilters.group_by,
+      filters: currentFilters,
+    },
+  }
+}
 
 const interpolate = (endpoint: string, id?: string | null) => endpoint.replace(/\{[^}]+\}/g, encodeURIComponent(id || ''))
 
@@ -794,5 +820,35 @@ const formatCustomerValue = (value: any) => {
   const parts = [name, contact, id].filter((part, index, all) => part && all.indexOf(part) === index)
 
   return parts.length ? parts.join(' | ') : JSON.stringify(value)
+}
+
+const normalizePrizeLines = (value: any) => String(value || '')
+  .split(/\r?\n/)
+  .map((line) => line.trim())
+  .filter(Boolean)
+  .map((line) => {
+    const [prizeType = '', prizeNumber = '', amount = '', currency = 'THB'] = line.split(',').map((part) => part.trim())
+    return {
+      prize_type: prizeType,
+      prize_number: prizeNumber,
+      amount: {
+        amount: Number(amount || 0),
+        currency: currency || 'THB',
+      },
+    }
+  })
+  .filter((prize) => prize.prize_type && prize.prize_number && Number.isFinite(prize.amount.amount))
+
+const formatPrizeLines = (value: any) => {
+  if (!Array.isArray(value)) {
+    return ''
+  }
+
+  return value.map((prize) => [
+    prize?.prize_type,
+    prize?.prize_number,
+    prize?.amount?.amount,
+    prize?.amount?.currency || 'THB',
+  ].filter((entry) => entry !== undefined && entry !== null && entry !== '').join(',')).join('\n')
 }
 </script>

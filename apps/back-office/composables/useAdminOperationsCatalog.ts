@@ -18,7 +18,7 @@ export type OperationFilter = {
 export type OperationFormField = {
   key: string
   label: string
-  type?: 'text' | 'number' | 'textarea' | 'select' | 'checkbox' | 'date' | 'lines' | 'password'
+  type?: 'text' | 'number' | 'textarea' | 'select' | 'checkbox' | 'date' | 'lines' | 'password' | 'prize-lines'
   sourceKey?: string
   options?: string[]
   required?: boolean
@@ -97,15 +97,24 @@ const cursorFilters = (extra: OperationFilter[] = []): OperationFilter[] => [
 
 const auditColumns: OperationColumn[] = [
   { key: 'id', label: 'Log' },
-  { key: 'actor_id', label: 'Actor' },
   { key: 'action', label: 'Action' },
+  { key: 'actor_id', label: 'Actor' },
+  { key: 'target_type', label: 'Target' },
+  { key: 'target_id', label: 'Target ID' },
+  { key: 'tenant_id', label: 'Tenant' },
+  { key: 'request_id', label: 'Request' },
   { key: 'created_at', label: 'Created', type: 'datetime' },
 ]
 
 const syncColumns: OperationColumn[] = [
   { key: 'id', label: 'Log' },
+  { key: 'direction', label: 'Direction', type: 'status' },
+  { key: 'event_type', label: 'Event' },
   { key: 'status', label: 'Status', type: 'status' },
-  { key: 'source', label: 'Source' },
+  { key: 'producer', label: 'Producer' },
+  { key: 'consumer', label: 'Consumer' },
+  { key: 'aggregate_id', label: 'Aggregate' },
+  { key: 'attempt_count', label: 'Attempts' },
   { key: 'created_at', label: 'Created', type: 'datetime' },
 ]
 
@@ -131,13 +140,22 @@ const genericColumns: OperationColumn[] = [
   { key: 'updated_at', label: 'Updated', type: 'datetime' },
 ]
 
-const reportFilters: OperationFilter[] = [
+const baseReportFilters: OperationFilter[] = [
   { key: 'date_from', label: 'From', type: 'date' },
   { key: 'date_to', label: 'To', type: 'date' },
-  { key: 'group_by', label: 'Group by' },
+  { key: 'group_by', label: 'Group by', type: 'select', options: ['day', 'week', 'month', 'game', 'status'] },
   { key: 'cursor', label: 'Cursor' },
   { key: 'limit', label: 'Limit', type: 'number' },
 ]
+const centralReportFilters: OperationFilter[] = [
+  { key: 'tenant_id', label: 'Tenant ID' },
+  { key: 'date_from', label: 'From', type: 'date' },
+  { key: 'date_to', label: 'To', type: 'date' },
+  { key: 'group_by', label: 'Group by', type: 'select', options: ['day', 'week', 'month', 'tenant', 'game', 'status'] },
+  { key: 'cursor', label: 'Cursor' },
+  { key: 'limit', label: 'Limit', type: 'number' },
+]
+const tenantReportFilters = baseReportFilters
 
 const currencyOptions = ['THB']
 const notifyCustomerField: OperationFormField = {
@@ -206,11 +224,16 @@ const billingPlanStatusOptions = ['active', 'archived']
 const alertPolicyStatusOptions = ['active', 'paused', 'archived']
 const alertSeverityOptions = ['info', 'warning', 'critical']
 const alertEventStatusOptions = ['open', 'acknowledged', 'resolved', 'suppressed']
+const rewardStatusOptions = ['recorded', 'checking', 'summary_ready', 'verified', 'published', 'corrected', 'archived']
 const partnerActionContext = ['id', 'code', 'name', 'type', 'status', 'tenants.0.id', 'tenants.0.code', 'domains.0.host', 'runtime.billing_status', 'runtime.monitoring_status']
 const partnerQuotaActionContext = ['id', 'partner_id', 'game_id', 'quota_count', 'allocated_count', 'remaining_count', 'status']
 const billingPlanActionContext = ['id', 'code', 'name', 'monthly_fee.amount', 'monthly_fee.currency', 'status']
 const alertPolicyActionContext = ['id', 'partner_id', 'partner.name', 'policy_key', 'severity', 'status']
 const alertEventActionContext = ['id', 'partner_id', 'partner.name', 'policy_key', 'severity', 'status', 'channel', 'title', 'triggered_at']
+const rewardActionContext = ['id', 'game_id', 'status', 'version', 'prizes.0.prize_type', 'prizes.0.prize_number', 'prizes.0.amount.amount', 'checked_at', 'verified_at', 'published_at']
+const settlementActionContext = ['id', 'partner_id', 'tenant_id', 'status', 'sales_amount.amount', 'commission_amount.amount', 'payout_amount.amount', 'net_amount.amount', 'period_from', 'period_to']
+const reportExportContext = ['scope', 'report_key', 'tenant_id', 'date_from', 'date_to', 'group_by', 'filters']
+const rewardPrizeLinesHelp = 'One prize per line: prize_type,prize_number,amount_minor,currency. Example: first_prize,123456,1000000,THB.'
 const partnerCreateFields: OperationFormField[] = [
   { key: 'code', label: 'Partner code', required: true, placeholder: 'acme_partner', help: 'Use lowercase letters, numbers, underscores, or hyphens.' },
   { key: 'name', label: 'Partner name', required: true, placeholder: 'Acme Partner' },
@@ -284,6 +307,23 @@ const alertPolicyFields: OperationFormField[] = [
   { key: 'config.description', label: 'Description', type: 'textarea' },
 ]
 const alertPolicyUpdateFields: OperationFormField[] = alertPolicyFields.map((field) => ({ ...field, required: false }))
+const rewardCreateFields: OperationFormField[] = [
+  { key: 'game_id', label: 'Game ID', required: true },
+  { key: 'prizes', label: 'Prize rows', type: 'prize-lines', required: true, placeholder: 'first_prize,123456,1000000,THB', help: rewardPrizeLinesHelp },
+]
+const rewardUpdateFields: OperationFormField[] = [
+  { key: 'game_id', label: 'Game ID' },
+  { key: 'prizes', label: 'Prize rows', type: 'prize-lines', sourceKey: 'prizes', placeholder: 'first_prize,123456,1000000,THB', help: rewardPrizeLinesHelp },
+]
+const rewardCheckBatchColumns: OperationColumn[] = [
+  { key: 'id', label: 'Batch' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'chunk_count', label: 'Chunks' },
+  { key: 'processed_ticket_count', label: 'Processed' },
+  { key: 'winning_count', label: 'Winning' },
+  { key: 'started_at', label: 'Started', type: 'datetime' },
+  { key: 'completed_at', label: 'Completed', type: 'datetime' },
+]
 
 const tenant: OperationResource[] = [
   {
@@ -1054,29 +1094,79 @@ const central: OperationResource[] = [
       ],
     }],
   },
-  resource('central', 'rewards', 'Rewards', 'Central Rewards', '/admin/central/rewards', '/admin/central/rewards/{reward_result_id}', 'reward_result_id', [
-    { key: 'id', label: 'Reward' },
-    { key: 'game_id', label: 'Game' },
-    { key: 'status', label: 'Status', type: 'status' },
-    { key: 'created_at', label: 'Created', type: 'datetime' },
-  ], cursorFilters([statusFilter(['draft', 'verified', 'corrected', 'published'])]), [
-    { key: 'verify', label: 'Verify', endpoint: '/admin/central/rewards/{reward_result_id}/verify', variant: 'success', reason: true },
-    { key: 'correct', label: 'Correct', endpoint: '/admin/central/rewards/{reward_result_id}/correct', variant: 'warning', reason: true },
-    { key: 'publish', label: 'Publish', endpoint: '/admin/central/rewards/{reward_result_id}/publish', variant: 'primary', reason: true },
-  ]),
-  resource('central', 'settlements', 'Settlements', 'Central Finance', '/admin/central/settlements', '/admin/central/settlements/{settlement_id}', 'settlement_id', [
-    { key: 'id', label: 'Settlement' },
-    { key: 'partner_id', label: 'Partner' },
-    { key: 'status', label: 'Status', type: 'status' },
-    { key: 'amount', label: 'Amount', type: 'money' },
-  ], cursorFilters([statusFilter(['pending', 'approved', 'paid', 'failed'])]), [
-    { key: 'approve', label: 'Approve', endpoint: '/admin/central/settlements/{settlement_id}/approve', variant: 'success', reason: true },
-  ]),
+  {
+    scope: 'central',
+    slug: 'rewards',
+    title: 'Rewards',
+    group: 'Central Rewards',
+    listEndpoint: '/admin/central/rewards',
+    detailEndpoint: '/admin/central/rewards/{reward_result_id}',
+    idParam: 'reward_result_id',
+    idKey: 'id',
+    columns: [
+      { key: 'id', label: 'Reward' },
+      { key: 'game_id', label: 'Game' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'version', label: 'Version' },
+      { key: 'prizes.0.prize_number', label: 'First prize' },
+      { key: 'checked_at', label: 'Checked', type: 'datetime' },
+    ],
+    filters: cursorFilters([{ key: 'game_id', label: 'Game ID' }, statusFilter(rewardStatusOptions)]),
+    confirmContextFields: rewardActionContext,
+    actions: [
+      { key: 'update', label: 'Update result', method: 'PATCH', endpoint: '/admin/central/rewards/{reward_result_id}', variant: 'primary', contextFields: rewardActionContext, formFields: rewardUpdateFields },
+      { key: 'verify', label: 'Verify', endpoint: '/admin/central/rewards/{reward_result_id}/verify', variant: 'success', reason: true, contextFields: rewardActionContext },
+      { key: 'correct', label: 'Correct', endpoint: '/admin/central/rewards/{reward_result_id}/correct', variant: 'warning', reason: true, contextFields: rewardActionContext },
+      { key: 'publish', label: 'Publish', endpoint: '/admin/central/rewards/{reward_result_id}/publish', variant: 'primary', reason: true, contextFields: rewardActionContext },
+    ],
+    collectionActions: [{
+      key: 'create',
+      label: 'Record reward result',
+      endpoint: '/admin/central/rewards',
+      formFields: rewardCreateFields,
+    }],
+    relatedLists: [{
+      key: 'check-batches',
+      title: 'Prize Check Batches',
+      listEndpoint: '/admin/central/rewards/{reward_result_id}/check-batches',
+      idParam: 'reward_check_batch_id',
+      idKey: 'id',
+      columns: rewardCheckBatchColumns,
+      emptyTitle: 'No check batches',
+      emptyMessage: 'No prize-checking batches were returned for this reward result.',
+    }],
+  },
+  {
+    scope: 'central',
+    slug: 'settlements',
+    title: 'Settlements',
+    group: 'Central Finance',
+    listEndpoint: '/admin/central/settlements',
+    detailEndpoint: '/admin/central/settlements/{settlement_id}',
+    idParam: 'settlement_id',
+    idKey: 'id',
+    columns: [
+      { key: 'id', label: 'Settlement' },
+      { key: 'partner_id', label: 'Partner' },
+      { key: 'tenant_id', label: 'Tenant' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'net_amount.amount', label: 'Net amount', type: 'money' },
+      { key: 'period_from', label: 'From' },
+      { key: 'period_to', label: 'To' },
+    ],
+    filters: cursorFilters([{ key: 'partner_id', label: 'Partner ID' }, { key: 'tenant_id', label: 'Tenant ID' }, statusFilter(['draft', 'pending', 'approved', 'paid', 'failed'])]),
+    confirmContextFields: settlementActionContext,
+    actions: [
+      { key: 'approve', label: 'Approve', endpoint: '/admin/central/settlements/{settlement_id}/approve', variant: 'success', reason: true, contextFields: settlementActionContext },
+    ],
+  },
   resource('central', 'webhook-logs', 'Webhook Logs', 'Central Administration', '/admin/central/webhook-logs', '/admin/central/webhook-logs/{webhook_log_id}', 'webhook_log_id', [
     { key: 'id', label: 'Webhook log' },
     { key: 'provider', label: 'Provider' },
+    { key: 'domain', label: 'Domain' },
     { key: 'status', label: 'Status', type: 'status' },
     { key: 'callback_key', label: 'Callback' },
+    { key: 'payload_hash', label: 'Payload hash' },
     { key: 'created_at', label: 'Created', type: 'datetime' },
     { key: 'updated_at', label: 'Updated', type: 'datetime' },
   ], cursorFilters([{ key: 'provider', label: 'Provider' }, statusFilter(['received', 'processed', 'failed', 'ignored'])])),
@@ -1121,17 +1211,26 @@ export const useAdminOperationsCatalog = () => {
 
     if (slugParts[0] === 'reports' && slugParts[1]) {
       const index = list.find((item) => item.scope === scope && item.slug === 'reports')
+      const reportKey = slugParts[1]
       return {
         resource: {
           ...index,
           slug,
-          title: `${titleizeReport(slugParts[1])} Report`,
+          title: `${titleizeReport(reportKey)} Report`,
           mode: 'report-detail' as OperationMode,
-          listEndpoint: `/admin/${scope}/reports/${slugParts[1]}`,
-          collectionActions: [{ key: 'export', label: 'Export report', endpoint: `/admin/${scope}/reports/${slugParts[1]}/exports`, reason: true }],
+          listEndpoint: `/admin/${scope}/reports/${reportKey}`,
+          filters: index?.filters || [],
+          collectionActions: [{
+            key: 'export',
+            label: 'Export report',
+            endpoint: `/admin/${scope}/reports/${reportKey}/exports`,
+            reason: true,
+            contextFields: reportExportContext,
+            formFields: reportExportFields(scope),
+          }],
         } as OperationResource,
         mode: 'report-detail' as OperationMode,
-        id: slugParts[1],
+        id: reportKey,
       }
     }
 
@@ -1295,7 +1394,20 @@ function reportIndex(scope: AdminScope, reportKeys: string[]): OperationResource
     group: `${scope === 'tenant' ? 'Tenant' : 'Central'} Reports`,
     mode: 'report-index',
     reportKeys,
+    filters: scope === 'central' ? centralReportFilters : tenantReportFilters,
   }
+}
+
+function reportExportFields(scope: AdminScope): OperationFormField[] {
+  return [
+    { key: 'format', label: 'Format', type: 'select', options: ['csv', 'xlsx', 'pdf'], defaultValue: 'csv', required: true },
+    ...(scope === 'central'
+      ? [{ key: 'tenant_id', label: 'Tenant ID', sourceKey: 'tenant_id', placeholder: 'Optional tenant drill-down' } as OperationFormField]
+      : []),
+    { key: 'date_from', label: 'From', type: 'date', sourceKey: 'date_from' },
+    { key: 'date_to', label: 'To', type: 'date', sourceKey: 'date_to' },
+    { key: 'filters.group_by', label: 'Group by', type: 'select', sourceKey: 'group_by', options: scope === 'central' ? ['day', 'week', 'month', 'tenant', 'game', 'status'] : ['day', 'week', 'month', 'game', 'status'] },
+  ]
 }
 
 function titleizeReport(value: string) {

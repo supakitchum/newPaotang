@@ -14,6 +14,10 @@ const routeHints: Record<string, string> = {
 }
 
 const scopedRouteOverrides: Record<string, string> = {
+  'central:rewards': '/admin/central/rewards',
+  'central:prize_checking': '/admin/central/rewards',
+  'central:reports': '/admin/central/reports',
+  'central:settlement': '/admin/central/settlements',
   'central:partner_provisioning': '/admin/central/partner-provisioning',
   'central:partner_quotas': '/admin/central/partner-quotas',
   'central:partner_monitoring': '/admin/central/partner-monitoring',
@@ -22,6 +26,7 @@ const scopedRouteOverrides: Record<string, string> = {
   'central:alert_policies': '/admin/central/alert-policies',
   'central:alert_events': '/admin/central/alert-events',
   'central:webhook_logs': '/admin/central/webhook-logs',
+  'central:audit_logs': '/admin/central/audit-logs',
   'central:admin_users': '/admin/central/admin-users',
   'central:roles_permissions': '/admin/central/roles',
   'central:menu_management': '/admin/central/menu-management',
@@ -31,6 +36,9 @@ const scopedRouteOverrides: Record<string, string> = {
   'tenant:agent_quotas': '/admin/tenant/growth/agent-quotas',
   'tenant:monitoring': '/admin/tenant/monitoring',
   'tenant:usage': '/admin/tenant/usage',
+  'tenant:reports': '/admin/tenant/reports',
+  'tenant:sync_logs': '/admin/tenant/sync-logs',
+  'tenant:audit_logs': '/admin/tenant/audit-logs',
   'tenant:admin_users': '/admin/tenant/admin-users',
   'tenant:roles_permissions': '/admin/tenant/roles',
   'tenant:menu_management': '/admin/tenant/menu-management',

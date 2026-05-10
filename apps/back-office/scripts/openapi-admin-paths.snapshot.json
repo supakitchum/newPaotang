@@ -36,6 +36,7 @@
     "/admin/central/reports/{report_key}/exports": ["post"],
     "/admin/central/rewards": ["get", "post"],
     "/admin/central/rewards/{reward_result_id}": ["get", "patch"],
+    "/admin/central/rewards/{reward_result_id}/check-batches": ["get"],
     "/admin/central/rewards/{reward_result_id}/correct": ["post"],
     "/admin/central/rewards/{reward_result_id}/publish": ["post"],
     "/admin/central/rewards/{reward_result_id}/verify": ["post"],
