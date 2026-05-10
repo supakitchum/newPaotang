@@ -1,0 +1,196 @@
+- banner:
+  - button "":
+    - generic: 
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - button " Central":
+    - generic: 
+    - text: Central
+  - text: 
+  - button "":
+    - generic: 
+  - button "PL Platform Owner":
+    - generic: PL
+    - generic: Platform Owner
+  - text: 
+- complementary:
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - region "scrollable content":
+    - navigation:
+      - text: 
+      - list:
+        - listitem: Central Menu
+        - link " Dashboard":
+          - /url: /admin/central/dashboard
+          - generic: 
+          - generic: Dashboard
+        - link " Games":
+          - /url: /admin/central/games
+          - generic: 
+          - generic: Games
+        - link " Rewards":
+          - /url: /admin/central/rewards
+          - generic: 
+          - generic: Rewards
+        - link " Prize Checking":
+          - /url: /admin/central/rewards
+          - generic: 
+          - generic: Prize Checking
+        - link " Master Stock":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Master Stock
+        - link " Stock Generation":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Stock Generation
+        - link " Partners":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Partners
+        - link " Partner Provisioning":
+          - /url: /admin/central/partner-provisioning
+          - generic: 
+          - generic: Partner Provisioning
+        - link " Partner Quotas":
+          - /url: /admin/central/partner-quotas
+          - generic: 
+          - generic: Partner Quotas
+        - link " Partner Monitoring":
+          - /url: /admin/central/partner-monitoring
+          - generic: 
+          - generic: Partner Monitoring
+        - link " Partner Usage":
+          - /url: /admin/central/partner-usage
+          - generic: 
+          - generic: Partner Usage
+        - link " Allocations":
+          - /url: /admin/central/allocations
+          - generic: 
+          - generic: Allocations
+        - link " Stock Recall":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Stock Recall
+        - link " Billing Plans":
+          - /url: /admin/central/billing-plans
+          - generic: 
+          - generic: Billing Plans
+        - link " Alert Policies":
+          - /url: /admin/central/alert-policies
+          - generic: 
+          - generic: Alert Policies
+        - link " Alert Events":
+          - /url: /admin/central/alert-events
+          - generic: 
+          - generic: Alert Events
+        - link " Reports":
+          - /url: /admin/central/reports
+          - generic: 
+          - generic: Reports
+        - link " Settlement":
+          - /url: /admin/central/settlements
+          - generic: 
+          - generic: Settlement
+        - link " Webhook Logs":
+          - /url: /admin/central/webhook-logs
+          - generic: 
+          - generic: Webhook Logs
+        - link " Audit Logs":
+          - /url: /admin/central/audit-logs
+          - generic: 
+          - generic: Audit Logs
+        - link " Admin Users":
+          - /url: /admin/central/admin-users
+          - generic: 
+          - generic: Admin Users
+        - link " Roles Permissions":
+          - /url: /admin/central/roles
+          - generic: 
+          - generic: Roles Permissions
+        - link " Menu Management":
+          - /url: /admin/central/menu-management
+          - generic: 
+          - generic: Menu Management
+        - link " System Settings":
+          - /url: /admin/central/system-settings
+          - generic: 
+          - generic: System Settings
+      - text: 
+- main:
+  - heading "Billing Plans" [level=2]
+  - list:
+    - listitem: Admin
+    - listitem:  Central
+    - listitem:  Central Partner Operations
+    - listitem:  Billing Plans
+  - button " Refresh":
+    - generic: 
+    - text: Refresh
+  - generic: Status
+  - combobox:
+    - option "All" [selected]
+    - option "Active"
+    - option "Archived"
+  - generic: Cursor
+  - textbox
+  - generic: Limit
+  - spinbutton: "20"
+  - button " Apply filters":
+    - generic: 
+    - text: Apply filters
+  - generic: Documented operations
+  - button " Create billing plan":
+    - generic: 
+    - text: Create billing plan
+  - generic: Billing Plans
+  - generic: 
+  - heading "No billing plans" [level=6]
+  - paragraph: No records were returned from the approved back-office API.
+  - generic: Cursor pagination
+  - button "Next " [disabled]:
+    - text: Next
+    - generic: 
+  - dialog:
+    - heading "Create billing plan" [level=6]
+    - button "Close"
+    - paragraph: Confirm create billing plan for Billing Plans.
+    - generic: Plan code *
+    - textbox "Plan code *":
+      - /placeholder: enterprise
+      - text: p2_write_qa_plan_20260510
+    - generic: Plan name *
+    - textbox "Plan name *":
+      - /placeholder: Enterprise
+      - text: P2 Write QA Plan
+    - generic: Monthly fee (minor units) *
+    - spinbutton "Monthly fee (minor units) *": "123400"
+    - generic: Currency *
+    - combobox "Currency *":
+      - option "Select"
+      - option "THB" [selected]
+    - generic: Status *
+    - combobox "Status *":
+      - option "Select"
+      - option "active" [selected]
+      - option "archived"
+    - checkbox "Affiliate included" [checked]
+    - generic: Affiliate included
+    - checkbox "Custom domain included" [checked]
+    - generic: Custom domain included
+    - checkbox "Priority support included"
+    - generic: Priority support included
+    - generic: Tenant limit
+    - spinbutton "Tenant limit": "7"
+    - generic: API request limit
+    - spinbutton "API request limit": "123456"
+    - generic: Alert policy limit
+    - spinbutton "Alert policy limit" [active]: "9"
+    - button "Cancel"
+    - button "Confirm"
+- contentinfo:
+  - generic: NewPaotang Back Office · Meno template foundation · 2026
+- text:       

@@ -1,0 +1,15 @@
+{
+  "captured": "before_browser_writes",
+  "statuses": {
+    "partners_list": 200,
+    "provision_partner_detail": 200,
+    "partner_quotas_list": 200,
+    "billing_plans_list": 200,
+    "alert_policies_list": 200,
+    "alert_event_detail": 200
+  },
+  "before_ids": {
+    "provision_partner": "par_p2_write_prov10",
+    "alert_event_status": "open"
+  }
+}

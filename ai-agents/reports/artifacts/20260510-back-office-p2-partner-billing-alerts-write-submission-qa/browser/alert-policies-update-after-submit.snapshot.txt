@@ -1,0 +1,424 @@
+- banner:
+  - button "":
+    - generic: 
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - button " Central":
+    - generic: 
+    - text: Central
+  - text: 
+  - button "":
+    - generic: 
+  - button "PL Platform Owner":
+    - generic: PL
+    - generic: Platform Owner
+  - text: 
+- complementary:
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - region "scrollable content":
+    - navigation:
+      - text: 
+      - list:
+        - listitem: Central Menu
+        - link " Dashboard":
+          - /url: /admin/central/dashboard
+          - generic: 
+          - generic: Dashboard
+        - link " Games":
+          - /url: /admin/central/games
+          - generic: 
+          - generic: Games
+        - link " Rewards":
+          - /url: /admin/central/rewards
+          - generic: 
+          - generic: Rewards
+        - link " Prize Checking":
+          - /url: /admin/central/rewards
+          - generic: 
+          - generic: Prize Checking
+        - link " Master Stock":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Master Stock
+        - link " Stock Generation":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Stock Generation
+        - link " Partners":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Partners
+        - link " Partner Provisioning":
+          - /url: /admin/central/partner-provisioning
+          - generic: 
+          - generic: Partner Provisioning
+        - link " Partner Quotas":
+          - /url: /admin/central/partner-quotas
+          - generic: 
+          - generic: Partner Quotas
+        - link " Partner Monitoring":
+          - /url: /admin/central/partner-monitoring
+          - generic: 
+          - generic: Partner Monitoring
+        - link " Partner Usage":
+          - /url: /admin/central/partner-usage
+          - generic: 
+          - generic: Partner Usage
+        - link " Allocations":
+          - /url: /admin/central/allocations
+          - generic: 
+          - generic: Allocations
+        - link " Stock Recall":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Stock Recall
+        - link " Billing Plans":
+          - /url: /admin/central/billing-plans
+          - generic: 
+          - generic: Billing Plans
+        - link " Alert Policies":
+          - /url: /admin/central/alert-policies
+          - generic: 
+          - generic: Alert Policies
+        - link " Alert Events":
+          - /url: /admin/central/alert-events
+          - generic: 
+          - generic: Alert Events
+        - link " Reports":
+          - /url: /admin/central/reports
+          - generic: 
+          - generic: Reports
+        - link " Settlement":
+          - /url: /admin/central/settlements
+          - generic: 
+          - generic: Settlement
+        - link " Webhook Logs":
+          - /url: /admin/central/webhook-logs
+          - generic: 
+          - generic: Webhook Logs
+        - link " Audit Logs":
+          - /url: /admin/central/audit-logs
+          - generic: 
+          - generic: Audit Logs
+        - link " Admin Users":
+          - /url: /admin/central/admin-users
+          - generic: 
+          - generic: Admin Users
+        - link " Roles Permissions":
+          - /url: /admin/central/roles
+          - generic: 
+          - generic: Roles Permissions
+        - link " Menu Management":
+          - /url: /admin/central/menu-management
+          - generic: 
+          - generic: Menu Management
+        - link " System Settings":
+          - /url: /admin/central/system-settings
+          - generic: 
+          - generic: System Settings
+      - text: 
+- main:
+  - heading "Alert Policies" [level=2]
+  - list:
+    - listitem: Admin
+    - listitem:  Central
+    - listitem:  Central Partner Operations
+    - listitem:  Alert Policies
+  - button " Refresh":
+    - generic: 
+    - text: Refresh
+  - generic: Partner ID
+  - textbox
+  - generic: Cursor
+  - textbox
+  - generic: Limit
+  - spinbutton: "20"
+  - button " Apply filters":
+    - generic: 
+    - text: Apply filters
+  - generic: Documented operations
+  - button " Create alert policy":
+    - generic: 
+    - text: Create alert policy
+  - generic: Alert Policies
+  - table:
+    - rowgroup:
+      - row "Alert policy Partner Policy Severity Status Updated Actions":
+        - columnheader "Alert policy"
+        - columnheader "Partner"
+        - columnheader "Policy"
+        - columnheader "Severity"
+        - columnheader "Status"
+        - columnheader "Updated"
+        - columnheader "Actions"
+    - rowgroup:
+      - row "pal_01KR8ZSV9688WKP11PEQRHJ5HX par_demo_gamma p2_write_qa_policy_20260510 Critical Paused 10 พ.ค. 2569 20:04 Detail Update":
+        - cell "pal_01KR8ZSV9688WKP11PEQRHJ5HX"
+        - cell "par_demo_gamma"
+        - cell "p2_write_qa_policy_20260510"
+        - cell "Critical":
+          - generic: Critical
+        - cell "Paused":
+          - generic: Paused
+        - cell "10 พ.ค. 2569 20:04"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pal_01KR8ZSV9688WKP11PEQRHJ5HX
+          - button "Update"
+      - row "pap_0cc95a0cc378926f2929 par_demo_alpha sync_lag_high Warning Active 10 พ.ค. 2569 19:50 Detail Update":
+        - cell "pap_0cc95a0cc378926f2929"
+        - cell "par_demo_alpha"
+        - cell "sync_lag_high"
+        - cell "Warning":
+          - generic: Warning
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:50"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pap_0cc95a0cc378926f2929
+          - button "Update"
+      - row "pap_0dce4518e6b954e7d074 par_demo_gamma sync_lag_high Warning Active 10 พ.ค. 2569 19:50 Detail Update":
+        - cell "pap_0dce4518e6b954e7d074"
+        - cell "par_demo_gamma"
+        - cell "sync_lag_high"
+        - cell "Warning":
+          - generic: Warning
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:50"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pap_0dce4518e6b954e7d074
+          - button "Update"
+      - row "pap_10e4cd071ff5b352f6ae par_p2_write_prov10 queue_lag_high Warning Paused 10 พ.ค. 2569 19:56 Detail Update":
+        - cell "pap_10e4cd071ff5b352f6ae"
+        - cell "par_p2_write_prov10"
+        - cell "queue_lag_high"
+        - cell "Warning":
+          - generic: Warning
+        - cell "Paused":
+          - generic: Paused
+        - cell "10 พ.ค. 2569 19:56"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pap_10e4cd071ff5b352f6ae
+          - button "Update"
+      - row "pap_19bb3aef7ab49ab856a7 par_p2_write_prov10 cross_tenant_access_attempt Critical Paused 10 พ.ค. 2569 19:56 Detail Update":
+        - cell "pap_19bb3aef7ab49ab856a7"
+        - cell "par_p2_write_prov10"
+        - cell "cross_tenant_access_attempt"
+        - cell "Critical":
+          - generic: Critical
+        - cell "Paused":
+          - generic: Paused
+        - cell "10 พ.ค. 2569 19:56"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pap_19bb3aef7ab49ab856a7
+          - button "Update"
+      - row "pap_1e1806a0e2e7cb37c679 par_demo_beta checkout_fail_rate_high Critical Active 10 พ.ค. 2569 19:50 Detail Update":
+        - cell "pap_1e1806a0e2e7cb37c679"
+        - cell "par_demo_beta"
+        - cell "checkout_fail_rate_high"
+        - cell "Critical":
+          - generic: Critical
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:50"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pap_1e1806a0e2e7cb37c679
+          - button "Update"
+      - row "pap_1f814b3e88f4c0cc44fa par_demo_alpha api_rate_limit_exceeded Warning Active 10 พ.ค. 2569 19:50 Detail Update":
+        - cell "pap_1f814b3e88f4c0cc44fa"
+        - cell "par_demo_alpha"
+        - cell "api_rate_limit_exceeded"
+        - cell "Warning":
+          - generic: Warning
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:50"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pap_1f814b3e88f4c0cc44fa
+          - button "Update"
+      - row "pap_2c985ef9473ebfb6cbb4 par_demo_beta default_health Warning Active 10 พ.ค. 2569 19:50 Detail Update":
+        - cell "pap_2c985ef9473ebfb6cbb4"
+        - cell "par_demo_beta"
+        - cell "default_health"
+        - cell "Warning":
+          - generic: Warning
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:50"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pap_2c985ef9473ebfb6cbb4
+          - button "Update"
+      - row "pap_3330ead7f183e7e6f6d4 par_p2_write_prov10 storage_quota_near_limit Warning Paused 10 พ.ค. 2569 19:56 Detail Update":
+        - cell "pap_3330ead7f183e7e6f6d4"
+        - cell "par_p2_write_prov10"
+        - cell "storage_quota_near_limit"
+        - cell "Warning":
+          - generic: Warning
+        - cell "Paused":
+          - generic: Paused
+        - cell "10 พ.ค. 2569 19:56"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pap_3330ead7f183e7e6f6d4
+          - button "Update"
+      - row "pap_33b9ad7557a328774000 par_demo_beta permission_denied_spike Warning Active 10 พ.ค. 2569 19:50 Detail Update":
+        - cell "pap_33b9ad7557a328774000"
+        - cell "par_demo_beta"
+        - cell "permission_denied_spike"
+        - cell "Warning":
+          - generic: Warning
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:50"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pap_33b9ad7557a328774000
+          - button "Update"
+      - row "pap_35ffc8a053e99b2714d4 par_p2_write_prov10 checkout_fail_rate_high Critical Paused 10 พ.ค. 2569 19:56 Detail Update":
+        - cell "pap_35ffc8a053e99b2714d4"
+        - cell "par_p2_write_prov10"
+        - cell "checkout_fail_rate_high"
+        - cell "Critical":
+          - generic: Critical
+        - cell "Paused":
+          - generic: Paused
+        - cell "10 พ.ค. 2569 19:56"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pap_35ffc8a053e99b2714d4
+          - button "Update"
+      - row "pap_3db0ff280f72ff968471 par_demo_beta queue_lag_high Warning Active 10 พ.ค. 2569 19:50 Detail Update":
+        - cell "pap_3db0ff280f72ff968471"
+        - cell "par_demo_beta"
+        - cell "queue_lag_high"
+        - cell "Warning":
+          - generic: Warning
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:50"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pap_3db0ff280f72ff968471
+          - button "Update"
+      - row "pap_3fd86e7f163bea91590f par_demo_gamma payment_callback_failure Critical Active 10 พ.ค. 2569 19:50 Detail Update":
+        - cell "pap_3fd86e7f163bea91590f"
+        - cell "par_demo_gamma"
+        - cell "payment_callback_failure"
+        - cell "Critical":
+          - generic: Critical
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:50"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pap_3fd86e7f163bea91590f
+          - button "Update"
+      - row "pap_45c1aaf28111a8ed18dd par_demo_alpha default_health Warning Active 10 พ.ค. 2569 19:50 Detail Update":
+        - cell "pap_45c1aaf28111a8ed18dd"
+        - cell "par_demo_alpha"
+        - cell "default_health"
+        - cell "Warning":
+          - generic: Warning
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:50"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pap_45c1aaf28111a8ed18dd
+          - button "Update"
+      - row "pap_4e2d3cc9c35486f87cf9 par_demo_alpha storage_quota_near_limit Warning Active 10 พ.ค. 2569 19:50 Detail Update":
+        - cell "pap_4e2d3cc9c35486f87cf9"
+        - cell "par_demo_alpha"
+        - cell "storage_quota_near_limit"
+        - cell "Warning":
+          - generic: Warning
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:50"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pap_4e2d3cc9c35486f87cf9
+          - button "Update"
+      - row "pap_50d90900cae25e21e970 par_demo_gamma image_cdn_hit_ratio_low Warning Active 10 พ.ค. 2569 19:50 Detail Update":
+        - cell "pap_50d90900cae25e21e970"
+        - cell "par_demo_gamma"
+        - cell "image_cdn_hit_ratio_low"
+        - cell "Warning":
+          - generic: Warning
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:50"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pap_50d90900cae25e21e970
+          - button "Update"
+      - row "pap_51e75bc1b52a8754b31f par_demo_gamma cross_tenant_access_attempt Critical Active 10 พ.ค. 2569 19:50 Detail Update":
+        - cell "pap_51e75bc1b52a8754b31f"
+        - cell "par_demo_gamma"
+        - cell "cross_tenant_access_attempt"
+        - cell "Critical":
+          - generic: Critical
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:50"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pap_51e75bc1b52a8754b31f
+          - button "Update"
+      - row "pap_531f3f91bbda1c4798c6 par_demo_alpha checkout_fail_rate_high Critical Active 10 พ.ค. 2569 19:50 Detail Update":
+        - cell "pap_531f3f91bbda1c4798c6"
+        - cell "par_demo_alpha"
+        - cell "checkout_fail_rate_high"
+        - cell "Critical":
+          - generic: Critical
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:50"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pap_531f3f91bbda1c4798c6
+          - button "Update"
+      - row "pap_5ae840e14ce618beaf33 par_demo_gamma queue_lag_high Warning Active 10 พ.ค. 2569 19:50 Detail Update":
+        - cell "pap_5ae840e14ce618beaf33"
+        - cell "par_demo_gamma"
+        - cell "queue_lag_high"
+        - cell "Warning":
+          - generic: Warning
+        - cell "Active":
+          - generic: Active
+        - cell "10 พ.ค. 2569 19:50"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pap_5ae840e14ce618beaf33
+          - button "Update"
+      - row "pap_5f513e3daa539e66679b par_p2_write_prov10 booking_fail_rate_high Warning Paused 10 พ.ค. 2569 19:56 Detail Update":
+        - cell "pap_5f513e3daa539e66679b"
+        - cell "par_p2_write_prov10"
+        - cell "booking_fail_rate_high"
+        - cell "Warning":
+          - generic: Warning
+        - cell "Paused":
+          - generic: Paused
+        - cell "10 พ.ค. 2569 19:56"
+        - cell "Detail Update":
+          - link "Detail":
+            - /url: /admin/central/alert-policies/pap_5f513e3daa539e66679b
+          - button "Update"
+  - generic: Cursor pagination
+  - button "Next ":
+    - text: Next
+    - generic: 
+- contentinfo:
+  - generic: NewPaotang Back Office · Meno template foundation · 2026
+- text:       

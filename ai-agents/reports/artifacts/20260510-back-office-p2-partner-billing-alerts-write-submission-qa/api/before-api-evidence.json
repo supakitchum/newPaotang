@@ -1,0 +1,1247 @@
+{
+    "captured": "before_browser_writes",
+    "paths": {
+        "partners_list": {
+            "status": 200,
+            "body": {
+                "data": [
+                    {
+                        "id": "par_demo_alpha",
+                        "tenant_id": "ten_demo_alpha",
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:45.000000Z",
+                        "updated_at": "2026-05-10T12:50:45.000000Z",
+                        "code": "demo_alpha",
+                        "name": "Demo Alpha Partner",
+                        "type": "white_label",
+                        "tenants": [
+                            {
+                                "id": "ten_demo_alpha",
+                                "partner_id": "par_demo_alpha",
+                                "code": "demo_alpha",
+                                "name": "Demo Alpha Lottery",
+                                "status": "active",
+                                "created_at": "2026-05-10T12:50:45.000000Z",
+                                "updated_at": "2026-05-10T12:50:45.000000Z"
+                            }
+                        ],
+                        "domains": [
+                            {
+                                "id": "dom_14f6d0741e76eca39c69",
+                                "tenant_id": "ten_demo_alpha",
+                                "host": "alpha.newpaotang.test",
+                                "type": "subdomain",
+                                "status": "active",
+                                "is_primary": true,
+                                "created_at": "2026-05-10T12:50:45.000000Z",
+                                "updated_at": "2026-05-10T12:50:45.000000Z"
+                            }
+                        ],
+                        "runtime": {
+                            "api_clients_total": 0,
+                            "monitoring_status": "active",
+                            "billing_status": "trial"
+                        }
+                    },
+                    {
+                        "id": "par_demo_beta",
+                        "tenant_id": "ten_demo_beta",
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "code": "demo_beta",
+                        "name": "Demo Beta Partner",
+                        "type": "white_label",
+                        "tenants": [
+                            {
+                                "id": "ten_demo_beta",
+                                "partner_id": "par_demo_beta",
+                                "code": "demo_beta",
+                                "name": "Demo Beta Rewards",
+                                "status": "active",
+                                "created_at": "2026-05-10T12:50:46.000000Z",
+                                "updated_at": "2026-05-10T12:50:46.000000Z"
+                            }
+                        ],
+                        "domains": [
+                            {
+                                "id": "dom_8aaf050c272322c64eb6",
+                                "tenant_id": "ten_demo_beta",
+                                "host": "beta.newpaotang.test",
+                                "type": "subdomain",
+                                "status": "active",
+                                "is_primary": true,
+                                "created_at": "2026-05-10T12:50:46.000000Z",
+                                "updated_at": "2026-05-10T12:50:46.000000Z"
+                            }
+                        ],
+                        "runtime": {
+                            "api_clients_total": 0,
+                            "monitoring_status": "active",
+                            "billing_status": "trial"
+                        }
+                    },
+                    {
+                        "id": "par_demo_gamma",
+                        "tenant_id": "ten_demo_gamma",
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "code": "demo_gamma",
+                        "name": "Demo Gamma Partner",
+                        "type": "white_label",
+                        "tenants": [
+                            {
+                                "id": "ten_demo_gamma",
+                                "partner_id": "par_demo_gamma",
+                                "code": "demo_gamma",
+                                "name": "Demo Gamma Prizes",
+                                "status": "active",
+                                "created_at": "2026-05-10T12:50:46.000000Z",
+                                "updated_at": "2026-05-10T12:50:46.000000Z"
+                            }
+                        ],
+                        "domains": [
+                            {
+                                "id": "dom_4902b00d889e35361ee9",
+                                "tenant_id": "ten_demo_gamma",
+                                "host": "gamma.newpaotang.test",
+                                "type": "subdomain",
+                                "status": "active",
+                                "is_primary": true,
+                                "created_at": "2026-05-10T12:50:46.000000Z",
+                                "updated_at": "2026-05-10T12:50:46.000000Z"
+                            }
+                        ],
+                        "runtime": {
+                            "api_clients_total": 0,
+                            "monitoring_status": "active",
+                            "billing_status": "trial"
+                        }
+                    },
+                    {
+                        "id": "par_p2_write_prov10",
+                        "tenant_id": null,
+                        "status": "draft",
+                        "created_at": "2026-05-10T12:51:18.000000Z",
+                        "updated_at": "2026-05-10T12:51:18.000000Z",
+                        "code": "p2_write_qa_provision_20260510",
+                        "name": "P2 Write QA Provision Partner",
+                        "type": "partner_store",
+                        "tenants": [],
+                        "domains": [],
+                        "runtime": {
+                            "api_clients_total": 0,
+                            "monitoring_status": null,
+                            "billing_status": null
+                        }
+                    }
+                ],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        "provision_partner_detail": {
+            "status": 200,
+            "body": {
+                "id": "par_p2_write_prov10",
+                "tenant_id": null,
+                "status": "draft",
+                "created_at": "2026-05-10T12:51:18.000000Z",
+                "updated_at": "2026-05-10T12:51:18.000000Z",
+                "code": "p2_write_qa_provision_20260510",
+                "name": "P2 Write QA Provision Partner",
+                "type": "partner_store",
+                "tenants": [],
+                "domains": [],
+                "runtime": {
+                    "api_clients_total": 0,
+                    "monitoring_status": null,
+                    "billing_status": null
+                }
+            }
+        },
+        "partner_quotas_list": {
+            "status": 200,
+            "body": {
+                "data": [],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        "billing_plans_list": {
+            "status": 200,
+            "body": {
+                "data": [],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        "alert_policies_list": {
+            "status": 200,
+            "body": {
+                "data": [
+                    {
+                        "id": "pap_0cc95a0cc378926f2929",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_alpha",
+                        "partner": {
+                            "id": "par_demo_alpha",
+                            "code": "demo_alpha",
+                            "name": "Demo Alpha Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "sync_lag_high",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "sync_pending_age",
+                            "threshold": {
+                                "pending_older_than_seconds": 300,
+                                "minimum_pending": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Partner inbox/outbox rows stayed pending beyond the local threshold.",
+                            "data_source": "sync_inbox, sync_outbox"
+                        }
+                    },
+                    {
+                        "id": "pap_0dce4518e6b954e7d074",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "sync_lag_high",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "sync_pending_age",
+                            "threshold": {
+                                "pending_older_than_seconds": 300,
+                                "minimum_pending": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Partner inbox/outbox rows stayed pending beyond the local threshold.",
+                            "data_source": "sync_inbox, sync_outbox"
+                        }
+                    },
+                    {
+                        "id": "pap_1e1806a0e2e7cb37c679",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_beta",
+                        "partner": {
+                            "id": "par_demo_beta",
+                            "code": "demo_beta",
+                            "name": "Demo Beta Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "checkout_fail_rate_high",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "checkout_failure_rate",
+                            "threshold": {
+                                "rate": 0.03,
+                                "minimum_requests": 20
+                            },
+                            "window_seconds": 300,
+                            "description": "Checkout failures exceeded the local policy threshold where counters exist.",
+                            "data_source": "partner_daily_usage_summaries"
+                        }
+                    },
+                    {
+                        "id": "pap_1f814b3e88f4c0cc44fa",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_alpha",
+                        "partner": {
+                            "id": "par_demo_alpha",
+                            "code": "demo_alpha",
+                            "name": "Demo Alpha Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "api_rate_limit_exceeded",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "rate_limited_count",
+                            "threshold": {
+                                "count": 50
+                            },
+                            "window_seconds": 300,
+                            "description": "Rate-limited request count exceeded the local policy threshold where counters exist.",
+                            "data_source": "partner_daily_usage_summaries.rate_limited_count"
+                        }
+                    },
+                    {
+                        "id": "pap_2c985ef9473ebfb6cbb4",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_beta",
+                        "partner": {
+                            "id": "par_demo_beta",
+                            "code": "demo_beta",
+                            "name": "Demo Beta Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "default_health",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "partner_health_status",
+                            "threshold": {
+                                "health_status": [
+                                    "critical"
+                                ]
+                            },
+                            "window_seconds": 300,
+                            "description": "Partner health check moved to a critical state.",
+                            "data_source": "partner_health_checks"
+                        }
+                    },
+                    {
+                        "id": "pap_33b9ad7557a328774000",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_beta",
+                        "partner": {
+                            "id": "par_demo_beta",
+                            "code": "demo_beta",
+                            "name": "Demo Beta Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "permission_denied_spike",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "permission_denied_count",
+                            "threshold": {
+                                "count": 10
+                            },
+                            "window_seconds": 300,
+                            "description": "Permission denied audit events exceeded the local threshold.",
+                            "data_source": "audit_logs"
+                        }
+                    },
+                    {
+                        "id": "pap_3db0ff280f72ff968471",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_beta",
+                        "partner": {
+                            "id": "par_demo_beta",
+                            "code": "demo_beta",
+                            "name": "Demo Beta Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "queue_lag_high",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "queue_pending_age",
+                            "threshold": {
+                                "pending_older_than_seconds": 300,
+                                "minimum_pending": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Laravel queue jobs stayed available beyond the local threshold.",
+                            "data_source": "jobs"
+                        }
+                    },
+                    {
+                        "id": "pap_3fd86e7f163bea91590f",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "payment_callback_failure",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "payment_callback_failure_count",
+                            "threshold": {
+                                "count": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Payment callback failure evaluation uses webhook callback rows where present.",
+                            "data_source": "webhook_callbacks"
+                        }
+                    },
+                    {
+                        "id": "pap_45c1aaf28111a8ed18dd",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_alpha",
+                        "partner": {
+                            "id": "par_demo_alpha",
+                            "code": "demo_alpha",
+                            "name": "Demo Alpha Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "default_health",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "partner_health_status",
+                            "threshold": {
+                                "health_status": [
+                                    "critical"
+                                ]
+                            },
+                            "window_seconds": 300,
+                            "description": "Partner health check moved to a critical state.",
+                            "data_source": "partner_health_checks"
+                        }
+                    },
+                    {
+                        "id": "pap_4e2d3cc9c35486f87cf9",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_alpha",
+                        "partner": {
+                            "id": "par_demo_alpha",
+                            "code": "demo_alpha",
+                            "name": "Demo Alpha Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "storage_quota_near_limit",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "storage_quota_ratio",
+                            "threshold": {
+                                "ratio_above": 0.8
+                            },
+                            "window_seconds": 3600,
+                            "description": "Storage quota evaluation requires object storage usage feed.",
+                            "data_source": "R2/S3 usage production gate"
+                        }
+                    },
+                    {
+                        "id": "pap_50d90900cae25e21e970",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "image_cdn_hit_ratio_low",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "image_cdn_hit_ratio",
+                            "threshold": {
+                                "ratio_below": 0.9
+                            },
+                            "window_seconds": 300,
+                            "description": "CDN hit ratio needs production CDN analytics before real evaluation.",
+                            "data_source": "Cloudflare/CDN analytics production gate"
+                        }
+                    },
+                    {
+                        "id": "pap_51e75bc1b52a8754b31f",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "cross_tenant_access_attempt",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "cross_tenant_access_attempt_count",
+                            "threshold": {
+                                "count": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Cross-tenant access attempts were recorded.",
+                            "data_source": "audit_logs"
+                        }
+                    },
+                    {
+                        "id": "pap_531f3f91bbda1c4798c6",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_alpha",
+                        "partner": {
+                            "id": "par_demo_alpha",
+                            "code": "demo_alpha",
+                            "name": "Demo Alpha Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "checkout_fail_rate_high",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "checkout_failure_rate",
+                            "threshold": {
+                                "rate": 0.03,
+                                "minimum_requests": 20
+                            },
+                            "window_seconds": 300,
+                            "description": "Checkout failures exceeded the local policy threshold where counters exist.",
+                            "data_source": "partner_daily_usage_summaries"
+                        }
+                    },
+                    {
+                        "id": "pap_5ae840e14ce618beaf33",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "queue_lag_high",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "queue_pending_age",
+                            "threshold": {
+                                "pending_older_than_seconds": 300,
+                                "minimum_pending": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Laravel queue jobs stayed available beyond the local threshold.",
+                            "data_source": "jobs"
+                        }
+                    },
+                    {
+                        "id": "pap_6f7de241399edff92014",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "checkout_fail_rate_high",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "checkout_failure_rate",
+                            "threshold": {
+                                "rate": 0.03,
+                                "minimum_requests": 20
+                            },
+                            "window_seconds": 300,
+                            "description": "Checkout failures exceeded the local policy threshold where counters exist.",
+                            "data_source": "partner_daily_usage_summaries"
+                        }
+                    },
+                    {
+                        "id": "pap_7501e82483c21ef65c9b",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_beta",
+                        "partner": {
+                            "id": "par_demo_beta",
+                            "code": "demo_beta",
+                            "name": "Demo Beta Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "reward_check_failure",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "reward_check_failed_items",
+                            "threshold": {
+                                "failed_items": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Reward checking produced failed items for a tenant.",
+                            "data_source": "reward_check_items"
+                        }
+                    },
+                    {
+                        "id": "pap_7b1a3fcd12ff95fd0499",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "storage_quota_near_limit",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "storage_quota_ratio",
+                            "threshold": {
+                                "ratio_above": 0.8
+                            },
+                            "window_seconds": 3600,
+                            "description": "Storage quota evaluation requires object storage usage feed.",
+                            "data_source": "R2/S3 usage production gate"
+                        }
+                    },
+                    {
+                        "id": "pap_7fd6c8fe9ccebd1b1f78",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "booking_fail_rate_high",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "booking_failure_rate",
+                            "threshold": {
+                                "rate": 0.05,
+                                "minimum_requests": 20
+                            },
+                            "window_seconds": 300,
+                            "description": "Booking failures exceeded the local policy threshold where counters exist.",
+                            "data_source": "partner_daily_usage_summaries"
+                        }
+                    },
+                    {
+                        "id": "pap_85f2a3a99898af4bb4cf",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_alpha",
+                        "partner": {
+                            "id": "par_demo_alpha",
+                            "code": "demo_alpha",
+                            "name": "Demo Alpha Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "reward_check_failure",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "reward_check_failed_items",
+                            "threshold": {
+                                "failed_items": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Reward checking produced failed items for a tenant.",
+                            "data_source": "reward_check_items"
+                        }
+                    },
+                    {
+                        "id": "pap_87d26370ecb9563d7652",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_beta",
+                        "partner": {
+                            "id": "par_demo_beta",
+                            "code": "demo_beta",
+                            "name": "Demo Beta Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "payment_callback_failure",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "payment_callback_failure_count",
+                            "threshold": {
+                                "count": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Payment callback failure evaluation uses webhook callback rows where present.",
+                            "data_source": "webhook_callbacks"
+                        }
+                    },
+                    {
+                        "id": "pap_88c5459761c918608c8f",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_beta",
+                        "partner": {
+                            "id": "par_demo_beta",
+                            "code": "demo_beta",
+                            "name": "Demo Beta Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "storage_quota_near_limit",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "storage_quota_ratio",
+                            "threshold": {
+                                "ratio_above": 0.8
+                            },
+                            "window_seconds": 3600,
+                            "description": "Storage quota evaluation requires object storage usage feed.",
+                            "data_source": "R2/S3 usage production gate"
+                        }
+                    },
+                    {
+                        "id": "pap_8a882216f98f1af83642",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_beta",
+                        "partner": {
+                            "id": "par_demo_beta",
+                            "code": "demo_beta",
+                            "name": "Demo Beta Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "cross_tenant_access_attempt",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "cross_tenant_access_attempt_count",
+                            "threshold": {
+                                "count": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Cross-tenant access attempts were recorded.",
+                            "data_source": "audit_logs"
+                        }
+                    },
+                    {
+                        "id": "pap_970da72998ca476629ca",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_alpha",
+                        "partner": {
+                            "id": "par_demo_alpha",
+                            "code": "demo_alpha",
+                            "name": "Demo Alpha Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "api_error_rate_high",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "api_error_rate",
+                            "threshold": {
+                                "rate": 0.05,
+                                "minimum_requests": 20
+                            },
+                            "window_seconds": 300,
+                            "description": "API error rate exceeded the local policy threshold.",
+                            "data_source": "partner_daily_usage_summaries.error_count/api_request_count"
+                        }
+                    },
+                    {
+                        "id": "pap_9a292655209f058a66a5",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_beta",
+                        "partner": {
+                            "id": "par_demo_beta",
+                            "code": "demo_beta",
+                            "name": "Demo Beta Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "sync_lag_high",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "sync_pending_age",
+                            "threshold": {
+                                "pending_older_than_seconds": 300,
+                                "minimum_pending": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Partner inbox/outbox rows stayed pending beyond the local threshold.",
+                            "data_source": "sync_inbox, sync_outbox"
+                        }
+                    },
+                    {
+                        "id": "pap_9d019a987a260b54f32f",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_alpha",
+                        "partner": {
+                            "id": "par_demo_alpha",
+                            "code": "demo_alpha",
+                            "name": "Demo Alpha Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "payment_callback_failure",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "payment_callback_failure_count",
+                            "threshold": {
+                                "count": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Payment callback failure evaluation uses webhook callback rows where present.",
+                            "data_source": "webhook_callbacks"
+                        }
+                    },
+                    {
+                        "id": "pap_9ea8b0266d012182ca37",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_beta",
+                        "partner": {
+                            "id": "par_demo_beta",
+                            "code": "demo_beta",
+                            "name": "Demo Beta Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "api_error_rate_high",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "api_error_rate",
+                            "threshold": {
+                                "rate": 0.05,
+                                "minimum_requests": 20
+                            },
+                            "window_seconds": 300,
+                            "description": "API error rate exceeded the local policy threshold.",
+                            "data_source": "partner_daily_usage_summaries.error_count/api_request_count"
+                        }
+                    },
+                    {
+                        "id": "pap_be42c5e8d292690d03b3",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_beta",
+                        "partner": {
+                            "id": "par_demo_beta",
+                            "code": "demo_beta",
+                            "name": "Demo Beta Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "api_rate_limit_exceeded",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "rate_limited_count",
+                            "threshold": {
+                                "count": 50
+                            },
+                            "window_seconds": 300,
+                            "description": "Rate-limited request count exceeded the local policy threshold where counters exist.",
+                            "data_source": "partner_daily_usage_summaries.rate_limited_count"
+                        }
+                    },
+                    {
+                        "id": "pap_c5b488e07b0daac4dbbd",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_beta",
+                        "partner": {
+                            "id": "par_demo_beta",
+                            "code": "demo_beta",
+                            "name": "Demo Beta Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "image_cdn_hit_ratio_low",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "image_cdn_hit_ratio",
+                            "threshold": {
+                                "ratio_below": 0.9
+                            },
+                            "window_seconds": 300,
+                            "description": "CDN hit ratio needs production CDN analytics before real evaluation.",
+                            "data_source": "Cloudflare/CDN analytics production gate"
+                        }
+                    },
+                    {
+                        "id": "pap_c60a58f456f675026c6b",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_beta",
+                        "partner": {
+                            "id": "par_demo_beta",
+                            "code": "demo_beta",
+                            "name": "Demo Beta Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "booking_fail_rate_high",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "booking_failure_rate",
+                            "threshold": {
+                                "rate": 0.05,
+                                "minimum_requests": 20
+                            },
+                            "window_seconds": 300,
+                            "description": "Booking failures exceeded the local policy threshold where counters exist.",
+                            "data_source": "partner_daily_usage_summaries"
+                        }
+                    },
+                    {
+                        "id": "pap_d016e3257ec896d6b6ba",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "permission_denied_spike",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "permission_denied_count",
+                            "threshold": {
+                                "count": 10
+                            },
+                            "window_seconds": 300,
+                            "description": "Permission denied audit events exceeded the local threshold.",
+                            "data_source": "audit_logs"
+                        }
+                    },
+                    {
+                        "id": "pap_d17b2f834afa38a8b559",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "api_rate_limit_exceeded",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "rate_limited_count",
+                            "threshold": {
+                                "count": 50
+                            },
+                            "window_seconds": 300,
+                            "description": "Rate-limited request count exceeded the local policy threshold where counters exist.",
+                            "data_source": "partner_daily_usage_summaries.rate_limited_count"
+                        }
+                    },
+                    {
+                        "id": "pap_dd7e8cac88434aeaaffb",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "api_error_rate_high",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "api_error_rate",
+                            "threshold": {
+                                "rate": 0.05,
+                                "minimum_requests": 20
+                            },
+                            "window_seconds": 300,
+                            "description": "API error rate exceeded the local policy threshold.",
+                            "data_source": "partner_daily_usage_summaries.error_count/api_request_count"
+                        }
+                    },
+                    {
+                        "id": "pap_e0b4b394befb3c3092ec",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_alpha",
+                        "partner": {
+                            "id": "par_demo_alpha",
+                            "code": "demo_alpha",
+                            "name": "Demo Alpha Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "cross_tenant_access_attempt",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "cross_tenant_access_attempt_count",
+                            "threshold": {
+                                "count": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Cross-tenant access attempts were recorded.",
+                            "data_source": "audit_logs"
+                        }
+                    },
+                    {
+                        "id": "pap_e248c0935f1da2a7df27",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_alpha",
+                        "partner": {
+                            "id": "par_demo_alpha",
+                            "code": "demo_alpha",
+                            "name": "Demo Alpha Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "booking_fail_rate_high",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "booking_failure_rate",
+                            "threshold": {
+                                "rate": 0.05,
+                                "minimum_requests": 20
+                            },
+                            "window_seconds": 300,
+                            "description": "Booking failures exceeded the local policy threshold where counters exist.",
+                            "data_source": "partner_daily_usage_summaries"
+                        }
+                    },
+                    {
+                        "id": "pap_eecc98776d8c8deeab9d",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_alpha",
+                        "partner": {
+                            "id": "par_demo_alpha",
+                            "code": "demo_alpha",
+                            "name": "Demo Alpha Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "permission_denied_spike",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "permission_denied_count",
+                            "threshold": {
+                                "count": 10
+                            },
+                            "window_seconds": 300,
+                            "description": "Permission denied audit events exceeded the local threshold.",
+                            "data_source": "audit_logs"
+                        }
+                    },
+                    {
+                        "id": "pap_f0efa184fd205ff8f9e1",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_alpha",
+                        "partner": {
+                            "id": "par_demo_alpha",
+                            "code": "demo_alpha",
+                            "name": "Demo Alpha Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "queue_lag_high",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "queue_pending_age",
+                            "threshold": {
+                                "pending_older_than_seconds": 300,
+                                "minimum_pending": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Laravel queue jobs stayed available beyond the local threshold.",
+                            "data_source": "jobs"
+                        }
+                    },
+                    {
+                        "id": "pap_f1857e8de03c5ba7d8af",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "reward_check_failure",
+                        "severity": "critical",
+                        "config": {
+                            "metric": "reward_check_failed_items",
+                            "threshold": {
+                                "failed_items": 1
+                            },
+                            "window_seconds": 300,
+                            "description": "Reward checking produced failed items for a tenant.",
+                            "data_source": "reward_check_items"
+                        }
+                    },
+                    {
+                        "id": "pap_f3a71f1cc7e72d7ef336",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_gamma",
+                        "partner": {
+                            "id": "par_demo_gamma",
+                            "code": "demo_gamma",
+                            "name": "Demo Gamma Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "default_health",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "partner_health_status",
+                            "threshold": {
+                                "health_status": [
+                                    "critical"
+                                ]
+                            },
+                            "window_seconds": 300,
+                            "description": "Partner health check moved to a critical state.",
+                            "data_source": "partner_health_checks"
+                        }
+                    },
+                    {
+                        "id": "pap_f7ee96a0a8cd1a97d878",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:50:46.000000Z",
+                        "updated_at": "2026-05-10T12:50:46.000000Z",
+                        "partner_id": "par_demo_alpha",
+                        "partner": {
+                            "id": "par_demo_alpha",
+                            "code": "demo_alpha",
+                            "name": "Demo Alpha Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "image_cdn_hit_ratio_low",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "image_cdn_hit_ratio",
+                            "threshold": {
+                                "ratio_below": 0.9
+                            },
+                            "window_seconds": 300,
+                            "description": "CDN hit ratio needs production CDN analytics before real evaluation.",
+                            "data_source": "Cloudflare/CDN analytics production gate"
+                        }
+                    },
+                    {
+                        "id": "pap_p2_write_event10",
+                        "tenant_id": null,
+                        "status": "active",
+                        "created_at": "2026-05-10T12:51:18.000000Z",
+                        "updated_at": "2026-05-10T12:51:18.000000Z",
+                        "partner_id": "par_demo_alpha",
+                        "partner": {
+                            "id": "par_demo_alpha",
+                            "code": "demo_alpha",
+                            "name": "Demo Alpha Partner",
+                            "status": "active"
+                        },
+                        "policy_key": "p2_write_qa_event_policy",
+                        "severity": "warning",
+                        "config": {
+                            "metric": "write_qa",
+                            "threshold_seconds": 300,
+                            "window_seconds": 60
+                        }
+                    }
+                ],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        "alert_event_detail": {
+            "status": 200,
+            "body": {
+                "id": "pae_p2_write_event10",
+                "tenant_id": "ten_demo_alpha",
+                "status": "open",
+                "created_at": "2026-05-10T12:51:18.000000Z",
+                "updated_at": "2026-05-10T12:51:18.000000Z",
+                "partner_id": "par_demo_alpha",
+                "partner": {
+                    "id": "par_demo_alpha",
+                    "code": "demo_alpha",
+                    "name": "Demo Alpha Partner",
+                    "status": "active"
+                },
+                "alert_policy_id": "pap_p2_write_event10",
+                "policy_key": "p2_write_qa_event_policy",
+                "severity": "warning",
+                "channel": "database",
+                "title": "P2 Write QA alert event",
+                "message": "Safe local write-submission QA event.",
+                "labels": {
+                    "source": "write-submission-qa"
+                },
+                "payload": {
+                    "sample": true
+                },
+                "dry_run": true,
+                "triggered_at": "2026-05-10T12:51:18.000000Z",
+                "delivered_at": null
+            }
+        }
+    }
+}
