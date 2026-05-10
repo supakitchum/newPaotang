@@ -1,0 +1,169 @@
+- banner:
+  - button "":
+    - generic: 
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - button " Central":
+    - generic: 
+    - text: Central
+  - text: 
+  - button "":
+    - generic: 
+  - button "PL Platform Owner":
+    - generic: PL
+    - generic: Platform Owner
+  - text: 
+- complementary:
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - region "scrollable content":
+    - navigation:
+      - text: 
+      - list:
+        - listitem: Central Menu
+        - link " Dashboard":
+          - /url: /admin/central/dashboard
+          - generic: 
+          - generic: Dashboard
+        - link " Games":
+          - /url: /admin/central/games
+          - generic: 
+          - generic: Games
+        - link " Rewards":
+          - /url: /admin/central/rewards
+          - generic: 
+          - generic: Rewards
+        - link " Prize Checking":
+          - /url: /admin/central/rewards
+          - generic: 
+          - generic: Prize Checking
+        - link " Master Stock":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Master Stock
+        - link " Stock Generation":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Stock Generation
+        - link " Partners":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Partners
+        - link " Partner Provisioning":
+          - /url: /admin/central/partner-provisioning
+          - generic: 
+          - generic: Partner Provisioning
+        - link " Partner Quotas":
+          - /url: /admin/central/partner-quotas
+          - generic: 
+          - generic: Partner Quotas
+        - link " Partner Monitoring":
+          - /url: /admin/central/partner-monitoring
+          - generic: 
+          - generic: Partner Monitoring
+        - link " Partner Usage":
+          - /url: /admin/central/partner-usage
+          - generic: 
+          - generic: Partner Usage
+        - link " Allocations":
+          - /url: /admin/central/allocations
+          - generic: 
+          - generic: Allocations
+        - link " Stock Recall":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Stock Recall
+        - link " Billing Plans":
+          - /url: /admin/central/billing-plans
+          - generic: 
+          - generic: Billing Plans
+        - link " Alert Policies":
+          - /url: /admin/central/alert-policies
+          - generic: 
+          - generic: Alert Policies
+        - link " Alert Events":
+          - /url: /admin/central/alert-events
+          - generic: 
+          - generic: Alert Events
+        - link " Reports":
+          - /url: /admin/central/reports
+          - generic: 
+          - generic: Reports
+        - link " Settlement":
+          - /url: /admin/central/settlements
+          - generic: 
+          - generic: Settlement
+        - link " Webhook Logs":
+          - /url: /admin/central/webhook-logs
+          - generic: 
+          - generic: Webhook Logs
+        - link " Audit Logs":
+          - /url: /admin/central/audit-logs
+          - generic: 
+          - generic: Audit Logs
+        - link " Admin Users":
+          - /url: /admin/central/admin-users
+          - generic: 
+          - generic: Admin Users
+        - link " Roles Permissions":
+          - /url: /admin/central/roles
+          - generic: 
+          - generic: Roles Permissions
+        - link " Menu Management":
+          - /url: /admin/central/menu-management
+          - generic: 
+          - generic: Menu Management
+        - link " System Settings":
+          - /url: /admin/central/system-settings
+          - generic: 
+          - generic: System Settings
+      - text: 
+- main:
+  - heading "Billing Plans detail" [level=2]
+  - list:
+    - listitem: Admin
+    - listitem:  Central
+    - listitem:  Central Partner Operations
+    - listitem:  Billing Plans detail
+  - link " Back":
+    - /url: /admin/central/billing-plans
+    - generic: 
+    - text: Back
+  - button " Refresh":
+    - generic: 
+    - text: Refresh
+  - generic: Billing Plans detail
+  - term: Id
+  - definition:
+    - code: pbp_p2_qa_20260510
+  - term: Tenant Id
+  - definition:
+    - code: "-"
+  - term: Status
+  - definition: active
+  - term: Created At
+  - definition: 2026-05-10T12:21:40.000000Z
+  - term: Updated At
+  - definition: 2026-05-10T12:21:40.000000Z
+  - term: Code
+  - definition: p2_qa_plan_20260510
+  - term: Name
+  - definition: P2 QA Plan 20260510
+  - term: Monthly Fee
+  - definition:
+    - code: "{ \"amount\": 99000, \"currency\": \"THB\" }"
+  - term: Features
+  - definition:
+    - code: "{ \"affiliate\": true, \"custom_domain\": true, \"priority_support\": false }"
+  - term: Limits
+  - definition:
+    - code: "{ \"tenants\": 5, \"api_requests\": 250000, \"alert_policies\": 10 }"
+  - generic: Documented operations
+  - button " Update":
+    - generic: 
+    - text: Update
+- contentinfo:
+  - generic: NewPaotang Back Office · Meno template foundation · 2026
+- text:       

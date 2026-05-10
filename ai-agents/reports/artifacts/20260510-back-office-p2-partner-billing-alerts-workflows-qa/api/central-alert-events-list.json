@@ -1,0 +1,40 @@
+{
+  "status": 200,
+  "body": {
+    "data": [
+      {
+        "id": "pae_p2_qa_20260510",
+        "tenant_id": "ten_demo_alpha",
+        "status": "open",
+        "created_at": "2026-05-10T12:21:40.000000Z",
+        "updated_at": "2026-05-10T12:21:40.000000Z",
+        "partner_id": "par_demo_alpha",
+        "partner": {
+          "id": "par_demo_alpha",
+          "code": "demo_alpha",
+          "name": "Demo Alpha Partner",
+          "status": "active"
+        },
+        "alert_policy_id": "pap_970da72998ca476629ca",
+        "policy_key": "p2_qa_sync_lag",
+        "severity": "warning",
+        "channel": "database",
+        "title": "P2 QA sync lag warning",
+        "message": "P2 QA alert event for acknowledge/resolve modal validation.",
+        "labels": {
+          "source": "qa"
+        },
+        "payload": {
+          "lag_seconds": 360
+        },
+        "dry_run": true,
+        "triggered_at": "2026-05-10T12:21:40.000000Z",
+        "delivered_at": null
+      }
+    ],
+    "meta": {
+      "next_cursor": null,
+      "has_more": false
+    }
+  }
+}
