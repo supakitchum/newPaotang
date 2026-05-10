@@ -5,7 +5,7 @@
 ## Active Task
 
 ```text
-back-office-p2-partner-billing-alerts-write-submission-qa
+dispatch-back-office-p2-partner-billing-alerts-write-submission-qa
 ```
 
 ## Agent Status
@@ -13,16 +13,16 @@ back-office-p2-partner-billing-alerts-write-submission-qa
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
 | Coordinator | completed | 20260510-back-office-p2-partner-billing-alerts-workflows-qa-review | ai-agents/handoffs/20260510-back-office-p2-partner-billing-alerts-workflows-qa-review-coordinator-handoff.md |
-| Orchestrator | completed | dispatch-back-office-p2-partner-billing-alerts-write-submission-qa | ai-agents/handoffs/20260510-back-office-p2-partner-billing-alerts-write-submission-qa-task-orchestrator-handoff.md |
+| Orchestrator | pending | dispatch-back-office-p2-partner-billing-alerts-write-submission-qa | ai-agents/handoffs/20260510-back-office-p2-partner-billing-alerts-workflows-qa-review-coordinator-handoff.md |
 | Backend Develop | completed | backend-contract-frozen-for-bo | ai-agents/decisions/20260509-m10-backend-complete-bo-unblock-decision.md |
 | BO Develop | completed | back-office-p2-partner-billing-alerts-workflows | ai-agents/handoffs/20260510-back-office-p2-partner-billing-alerts-workflows-bo-handoff.md |
 | Customer Develop | frozen | no-customer-work-without-coordinator-regression-scope | ai-agents/decisions/20260509-backend-only-main-scope-deploy-ready-replan-decision.md |
-| QA Tester | pending | back-office-p2-partner-billing-alerts-write-submission-qa | ai-agents/tasks/20260510-back-office-p2-partner-billing-alerts-write-submission-qa.md |
+| QA Tester | completed | back-office-p2-partner-billing-alerts-workflows-qa | ai-agents/reports/20260510-back-office-p2-partner-billing-alerts-workflows-qa-report.md |
 
 ## Open Questions
 
 ```text
-P2 partner/billing/alerts non-destructive QA passed with no defects, but Coordinator keeps official BO completion at 11/56 menus, or 19.6%, until focused write-submission QA verifies the six mutation/action candidate rows. Orchestrator dispatched back-office-p2-partner-billing-alerts-write-submission-qa to QA Tester. central:partner_monitoring and central:partner_usage remain partial permission/UX decision items because seeded menus are view-only while backend PATCH routes require manage permissions. Backend and customer frontend remain frozen. API gaps remain central:master_stock and tenant:commission_transactions.
+P2 partner/billing/alerts non-destructive QA passed with no defects, but Coordinator keeps official BO completion at 11/56 menus, or 19.6%, until focused write-submission QA verifies the six mutation/action candidate rows. Coordinator routes the next dispatch to Orchestrator; Orchestrator must create the QA task before QA Tester starts write-submission QA. central:partner_monitoring and central:partner_usage remain partial permission/UX decision items because seeded menus are view-only while backend PATCH routes require manage permissions. Backend and customer frontend remain frozen. API gaps remain central:master_stock and tenant:commission_transactions.
 ```
 
 ## Latest Decision
