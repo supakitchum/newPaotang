@@ -1,0 +1,153 @@
+{
+    "captured": "after_browser_p3_workflows",
+    "token_persisted": false,
+    "login_statuses": {
+        "central": 200,
+        "tenant": 200
+    },
+    "statuses": {
+        "central_rewards_list": 200,
+        "central_reward_detail": 200,
+        "central_reward_check_batches": 200,
+        "central_settlement_detail": 200,
+        "central_report_overview": 200,
+        "central_webhook_detail": 200,
+        "central_audit_logs": 200,
+        "tenant_report_overview": 200,
+        "tenant_sync_logs": 200,
+        "tenant_audit_logs": 200
+    },
+    "reward": {
+        "id": "rew_01KR93RA17AHD8Z5R84XA5S0FW",
+        "game_id": "gam_p3_reward_ui10",
+        "status": "corrected",
+        "version": 1,
+        "prizes": [
+            {
+                "prize_type": "first_prize",
+                "prize_number": "654321",
+                "amount": {
+                    "amount": 2000000,
+                    "currency": "THB"
+                }
+            }
+        ],
+        "summary": {
+            "game_id": "gam_p3_reward_ui10",
+            "reward_version": 1,
+            "status": "verified",
+            "prizes": [
+                {
+                    "prize_type": "first_prize",
+                    "prize_number": "654321",
+                    "amount": {
+                        "amount": 2000000,
+                        "currency": "THB"
+                    },
+                    "winning_count": 0,
+                    "total_amount": {
+                        "amount": 0,
+                        "currency": "THB"
+                    }
+                }
+            ],
+            "winning_count": 0,
+            "checked_ticket_count": 0
+        },
+        "checked_at": "2026-05-10T14:13:56.000000Z",
+        "verified_at": "2026-05-10T14:14:11.000000Z",
+        "published_at": "2026-05-10T14:14:29.000000Z"
+    },
+    "check_batches": [
+        {
+            "id": "rcb_01KR93SMHPA0C06JA532E1V120",
+            "status": "completed",
+            "processed_ticket_count": 0,
+            "completed_at": "2026-05-10T14:13:56.000000Z"
+        }
+    ],
+    "settlement": {
+        "id": "pst_p3_qa10",
+        "partner_id": "par_demo_alpha",
+        "tenant_id": "ten_demo_alpha",
+        "status": "approved",
+        "net_amount": {
+            "amount": 108000,
+            "currency": "THB"
+        },
+        "approved_at": "2026-05-10T14:15:31.000000Z"
+    },
+    "central_report": {
+        "report_key": "overview",
+        "scope": "central",
+        "tenant_id": "ten_demo_alpha",
+        "summary": {
+            "orders_count": 0,
+            "sales_total": {
+                "amount": 0,
+                "currency": "THB"
+            },
+            "stock_count": 0,
+            "wallet_ledger_total": {
+                "amount": 0,
+                "currency": "THB"
+            },
+            "commission_total": {
+                "amount": 0,
+                "currency": "THB"
+            },
+            "payout_total": {
+                "amount": 0,
+                "currency": "THB"
+            },
+            "customers_count": 0,
+            "settlements_count": 2
+        },
+        "meta": {
+            "next_cursor": null,
+            "has_more": false
+        }
+    },
+    "webhook_redaction": {
+        "contains_raw_secret": false,
+        "contains_redacted_marker": true
+    },
+    "central_audit_actions": [
+        "p3.qa.central.audit"
+    ],
+    "tenant_report": {
+        "report_key": "overview",
+        "scope": "tenant",
+        "tenant_id": "ten_demo_alpha",
+        "summary": {
+            "orders_count": 0,
+            "sales_total": {
+                "amount": 0,
+                "currency": "THB"
+            },
+            "stock_count": 0,
+            "wallet_ledger_total": {
+                "amount": 0,
+                "currency": "THB"
+            },
+            "commission_total": {
+                "amount": 0,
+                "currency": "THB"
+            },
+            "payout_total": {
+                "amount": 0,
+                "currency": "THB"
+            },
+            "customers_count": 0,
+            "settlements_count": 2
+        },
+        "meta": {
+            "next_cursor": null,
+            "has_more": false
+        }
+    },
+    "tenant_sync_fixture_seen": true,
+    "tenant_audit_actions": [
+        "p3.qa.tenant.audit"
+    ]
+}

@@ -1,0 +1,34 @@
+- banner:
+  - button "":
+    - generic: 
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - button " Scope":
+    - generic: 
+    - text: Scope
+  - button "":
+    - generic: 
+  - button "A Admin":
+    - generic: A
+    - generic: Admin
+  - text: 
+- complementary:
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - region "scrollable content":
+    - navigation:
+      - text: 
+      - list:
+        - listitem: Admin Menu
+        - listitem: Restoring menu...
+      - text: 
+- main:
+  - status "Loading"
+  - generic: Loading...
+  - heading "Restoring admin session" [level=6]
+  - paragraph: Protected content loads after the browser session is verified.
+- contentinfo:
+  - generic: NewPaotang Back Office · Meno template foundation · 2026
+- text: 

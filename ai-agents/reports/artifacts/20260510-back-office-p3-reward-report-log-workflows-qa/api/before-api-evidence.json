@@ -1,0 +1,357 @@
+{
+    "captured": "before_browser_p3_workflows",
+    "token_persisted": false,
+    "login_statuses": {
+        "central": 200,
+        "tenant": 200
+    },
+    "paths": {
+        "central_rewards_list": {
+            "status": 200,
+            "body": {
+                "data": [],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        "central_settlement_detail": {
+            "status": 200,
+            "body": {
+                "id": "pst_p3_qa10",
+                "partner_id": "par_demo_alpha",
+                "tenant_id": "ten_demo_alpha",
+                "status": "pending",
+                "sales_amount": {
+                    "amount": 120000,
+                    "currency": "THB"
+                },
+                "commission_amount": {
+                    "amount": 12000,
+                    "currency": "THB"
+                },
+                "payout_amount": {
+                    "amount": 108000,
+                    "currency": "THB"
+                },
+                "net_amount": {
+                    "amount": 108000,
+                    "currency": "THB"
+                },
+                "period_from": "2026-05-01T00:00:00.000000Z",
+                "period_to": "2026-05-09T00:00:00.000000Z",
+                "approved_by_admin_id": null,
+                "approved_at": null,
+                "summary": {
+                    "source": "p3-qa",
+                    "sales_count": 12
+                },
+                "created_at": "2026-05-10T14:06:14.000000Z",
+                "updated_at": "2026-05-10T14:06:14.000000Z"
+            }
+        },
+        "central_settlements_list": {
+            "status": 200,
+            "body": {
+                "data": [
+                    {
+                        "id": "pst_p3_qa10",
+                        "partner_id": "par_demo_alpha",
+                        "tenant_id": "ten_demo_alpha",
+                        "status": "pending",
+                        "sales_amount": {
+                            "amount": 120000,
+                            "currency": "THB"
+                        },
+                        "commission_amount": {
+                            "amount": 12000,
+                            "currency": "THB"
+                        },
+                        "payout_amount": {
+                            "amount": 108000,
+                            "currency": "THB"
+                        },
+                        "net_amount": {
+                            "amount": 108000,
+                            "currency": "THB"
+                        },
+                        "period_from": "2026-05-01T00:00:00.000000Z",
+                        "period_to": "2026-05-09T00:00:00.000000Z",
+                        "approved_by_admin_id": null,
+                        "approved_at": null,
+                        "summary": {
+                            "source": "p3-qa",
+                            "sales_count": 12
+                        },
+                        "created_at": "2026-05-10T14:06:14.000000Z",
+                        "updated_at": "2026-05-10T14:06:14.000000Z"
+                    },
+                    {
+                        "id": "set_01KR93CJGN763MWDN8WPN9GNPN",
+                        "partner_id": "par_demo_alpha",
+                        "tenant_id": "ten_demo_alpha",
+                        "status": "draft",
+                        "sales_amount": {
+                            "amount": 0,
+                            "currency": "THB"
+                        },
+                        "commission_amount": {
+                            "amount": 0,
+                            "currency": "THB"
+                        },
+                        "payout_amount": {
+                            "amount": 0,
+                            "currency": "THB"
+                        },
+                        "net_amount": {
+                            "amount": 0,
+                            "currency": "THB"
+                        },
+                        "period_from": "2026-05-01T00:00:00.000000Z",
+                        "period_to": "2026-05-31T00:00:00.000000Z",
+                        "approved_by_admin_id": null,
+                        "approved_at": null,
+                        "summary": {
+                            "orders_count": 0,
+                            "commission_count": 0,
+                            "payout_count": 0
+                        },
+                        "created_at": "2026-05-10T14:06:48.000000Z",
+                        "updated_at": "2026-05-10T14:06:48.000000Z"
+                    }
+                ],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        "central_report_overview": {
+            "status": 200,
+            "body": {
+                "report_key": "overview",
+                "scope": "central",
+                "tenant_id": "ten_demo_alpha",
+                "generated_at": "2026-05-10T14:06:48.386491Z",
+                "summary": {
+                    "orders_count": 0,
+                    "sales_total": {
+                        "amount": 0,
+                        "currency": "THB"
+                    },
+                    "stock_count": 0,
+                    "wallet_ledger_total": {
+                        "amount": 0,
+                        "currency": "THB"
+                    },
+                    "commission_total": {
+                        "amount": 0,
+                        "currency": "THB"
+                    },
+                    "payout_total": {
+                        "amount": 0,
+                        "currency": "THB"
+                    },
+                    "customers_count": 0,
+                    "settlements_count": 2
+                },
+                "rows": [],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        "central_webhook_logs_list": {
+            "status": 200,
+            "body": {
+                "data": [
+                    {
+                        "id": "whc_p3_qa10",
+                        "tenant_id": null,
+                        "status": "processed",
+                        "created_at": "2026-05-10T14:06:14.000000Z",
+                        "updated_at": "2026-05-10T14:06:14.000000Z",
+                        "domain": "alpha.newpaotang.test",
+                        "provider": "p3_qa_provider",
+                        "callback_key": "p3_qa_callback_10",
+                        "payload_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "payment_id": null,
+                        "topup_request_id": null,
+                        "payload": {
+                            "event": "payment.paid",
+                            "secret": "[REDACTED]",
+                            "token": "[REDACTED]",
+                            "amount": 120000
+                        },
+                        "response": {
+                            "status": "ok",
+                            "authorization": "[REDACTED]"
+                        }
+                    }
+                ],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        "central_webhook_log_detail": {
+            "status": 200,
+            "body": {
+                "id": "whc_p3_qa10",
+                "tenant_id": null,
+                "status": "processed",
+                "created_at": "2026-05-10T14:06:14.000000Z",
+                "updated_at": "2026-05-10T14:06:14.000000Z",
+                "domain": "alpha.newpaotang.test",
+                "provider": "p3_qa_provider",
+                "callback_key": "p3_qa_callback_10",
+                "payload_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "payment_id": null,
+                "topup_request_id": null,
+                "payload": {
+                    "event": "payment.paid",
+                    "secret": "[REDACTED]",
+                    "token": "[REDACTED]",
+                    "amount": 120000
+                },
+                "response": {
+                    "status": "ok",
+                    "authorization": "[REDACTED]"
+                }
+            }
+        },
+        "central_audit_logs": {
+            "status": 200,
+            "body": {
+                "data": [
+                    {
+                        "id": "aud_p3_central10",
+                        "tenant_id": null,
+                        "status": null,
+                        "created_at": "2026-05-10T14:06:14.000000Z",
+                        "updated_at": "2026-05-10T14:06:14.000000Z",
+                        "scope": "central",
+                        "actor_type": "admin",
+                        "actor_id": "adm_platform_owner",
+                        "partner_id": null,
+                        "action": "p3.qa.central.audit",
+                        "target_type": "p3_fixture",
+                        "target_id": "p3-central",
+                        "request_id": "req-p3-central",
+                        "payload": {
+                            "safe": "central",
+                            "token": "[REDACTED]"
+                        }
+                    }
+                ],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        "tenant_report_overview": {
+            "status": 200,
+            "body": {
+                "report_key": "overview",
+                "scope": "tenant",
+                "tenant_id": "ten_demo_alpha",
+                "generated_at": "2026-05-10T14:06:48.486356Z",
+                "summary": {
+                    "orders_count": 0,
+                    "sales_total": {
+                        "amount": 0,
+                        "currency": "THB"
+                    },
+                    "stock_count": 0,
+                    "wallet_ledger_total": {
+                        "amount": 0,
+                        "currency": "THB"
+                    },
+                    "commission_total": {
+                        "amount": 0,
+                        "currency": "THB"
+                    },
+                    "payout_total": {
+                        "amount": 0,
+                        "currency": "THB"
+                    },
+                    "customers_count": 0,
+                    "settlements_count": 2
+                },
+                "rows": [],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        "tenant_sync_logs": {
+            "status": 200,
+            "body": {
+                "data": [
+                    {
+                        "id": "sin_p3_qa10",
+                        "tenant_id": "ten_demo_alpha",
+                        "status": "processed",
+                        "created_at": "2026-05-10T14:06:14.000000Z",
+                        "updated_at": "2026-05-10T14:06:14.000000Z",
+                        "direction": "inbox",
+                        "event_id": "evt_p3_qa10",
+                        "event_type": "p3.qa.synced.v1",
+                        "event_version": 1,
+                        "producer": null,
+                        "consumer": "tenant-worker",
+                        "partner_id": "par_demo_alpha",
+                        "game_id": "gam_p3_report10",
+                        "aggregate_type": null,
+                        "aggregate_id": null,
+                        "attempt_count": null,
+                        "available_at": null,
+                        "processed_at": "2026-05-10T14:06:14.000000Z",
+                        "last_error": null,
+                        "payload_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                        "payload": []
+                    }
+                ],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        "tenant_audit_logs": {
+            "status": 200,
+            "body": {
+                "data": [
+                    {
+                        "id": "aud_p3_tenant10",
+                        "tenant_id": "ten_demo_alpha",
+                        "status": null,
+                        "created_at": "2026-05-10T14:06:14.000000Z",
+                        "updated_at": "2026-05-10T14:06:14.000000Z",
+                        "scope": "tenant",
+                        "actor_type": "admin",
+                        "actor_id": "adm_demo_alpha_owner",
+                        "partner_id": "par_demo_alpha",
+                        "action": "p3.qa.tenant.audit",
+                        "target_type": "p3_fixture",
+                        "target_id": "p3-tenant",
+                        "request_id": "req-p3-tenant",
+                        "payload": {
+                            "safe": "tenant",
+                            "secret": "[REDACTED]"
+                        }
+                    }
+                ],
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,41 @@
+- banner:
+  - button "":
+    - generic: 
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - button " Demo Alpha Lottery":
+    - generic: 
+    - text: Demo Alpha Lottery
+  - text: 
+  - button "":
+    - generic: 
+  - button "AL Alpha Owner":
+    - generic: AL
+    - generic: Alpha Owner
+  - text: 
+- complementary:
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - region "scrollable content":
+    - navigation:
+      - text: 
+      - list:
+        - listitem: Tenant Menu
+        - listitem: Loading menu...
+      - text: 
+- main:
+  - heading "Tenant Dashboard" [level=2]
+  - list:
+    - listitem: Admin
+    - listitem:  Tenant
+    - listitem:  Dashboard
+  - button " Refresh":
+    - generic: 
+    - text: Refresh
+  - status "Loading"
+  - generic: Loading...
+- contentinfo:
+  - generic: NewPaotang Back Office · Meno template foundation · 2026
+- text:       

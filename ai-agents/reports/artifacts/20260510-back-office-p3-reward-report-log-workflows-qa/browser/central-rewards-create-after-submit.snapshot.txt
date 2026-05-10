@@ -1,0 +1,189 @@
+- banner:
+  - button "":
+    - generic: 
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - button " Central":
+    - generic: 
+    - text: Central
+  - text: 
+  - button "":
+    - generic: 
+  - button "PL Platform Owner":
+    - generic: PL
+    - generic: Platform Owner
+  - text: 
+- complementary:
+  - link "NewPaotang":
+    - /url: /admin
+    - img "NewPaotang"
+  - region "scrollable content":
+    - navigation:
+      - text: 
+      - list:
+        - listitem: Central Menu
+        - link " Dashboard":
+          - /url: /admin/central/dashboard
+          - generic: 
+          - generic: Dashboard
+        - link " Games":
+          - /url: /admin/central/games
+          - generic: 
+          - generic: Games
+        - link " Rewards":
+          - /url: /admin/central/rewards
+          - generic: 
+          - generic: Rewards
+        - link " Prize Checking":
+          - /url: /admin/central/rewards
+          - generic: 
+          - generic: Prize Checking
+        - link " Master Stock":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Master Stock
+        - link " Stock Generation":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Stock Generation
+        - link " Partners":
+          - /url: /admin/central/partners
+          - generic: 
+          - generic: Partners
+        - link " Partner Provisioning":
+          - /url: /admin/central/partner-provisioning
+          - generic: 
+          - generic: Partner Provisioning
+        - link " Partner Quotas":
+          - /url: /admin/central/partner-quotas
+          - generic: 
+          - generic: Partner Quotas
+        - link " Partner Monitoring":
+          - /url: /admin/central/partner-monitoring
+          - generic: 
+          - generic: Partner Monitoring
+        - link " Partner Usage":
+          - /url: /admin/central/partner-usage
+          - generic: 
+          - generic: Partner Usage
+        - link " Allocations":
+          - /url: /admin/central/allocations
+          - generic: 
+          - generic: Allocations
+        - link " Stock Recall":
+          - /url: /admin/central/stock
+          - generic: 
+          - generic: Stock Recall
+        - link " Billing Plans":
+          - /url: /admin/central/billing-plans
+          - generic: 
+          - generic: Billing Plans
+        - link " Alert Policies":
+          - /url: /admin/central/alert-policies
+          - generic: 
+          - generic: Alert Policies
+        - link " Alert Events":
+          - /url: /admin/central/alert-events
+          - generic: 
+          - generic: Alert Events
+        - link " Reports":
+          - /url: /admin/central/reports
+          - generic: 
+          - generic: Reports
+        - link " Settlement":
+          - /url: /admin/central/settlements
+          - generic: 
+          - generic: Settlement
+        - link " Webhook Logs":
+          - /url: /admin/central/webhook-logs
+          - generic: 
+          - generic: Webhook Logs
+        - link " Audit Logs":
+          - /url: /admin/central/audit-logs
+          - generic: 
+          - generic: Audit Logs
+        - link " Admin Users":
+          - /url: /admin/central/admin-users
+          - generic: 
+          - generic: Admin Users
+        - link " Roles Permissions":
+          - /url: /admin/central/roles
+          - generic: 
+          - generic: Roles Permissions
+        - link " Menu Management":
+          - /url: /admin/central/menu-management
+          - generic: 
+          - generic: Menu Management
+        - link " System Settings":
+          - /url: /admin/central/system-settings
+          - generic: 
+          - generic: System Settings
+      - text: 
+- main:
+  - heading "Rewards" [level=2]
+  - list:
+    - listitem: Admin
+    - listitem:  Central
+    - listitem:  Central Rewards
+    - listitem:  Rewards
+  - button " Refresh":
+    - generic: 
+    - text: Refresh
+  - generic: Game ID
+  - textbox
+  - generic: Status
+  - combobox:
+    - option "All" [selected]
+    - option "Recorded"
+    - option "Checking"
+    - option "Summary Ready"
+    - option "Verified"
+    - option "Published"
+    - option "Corrected"
+    - option "Archived"
+  - generic: Cursor
+  - textbox
+  - generic: Limit
+  - spinbutton: "20"
+  - button " Apply filters":
+    - generic: 
+    - text: Apply filters
+  - generic: Documented operations
+  - button " Record reward result":
+    - generic: 
+    - text: Record reward result
+  - generic: Rewards
+  - table:
+    - rowgroup:
+      - row "Reward Game Status Version First prize Checked Actions":
+        - columnheader "Reward"
+        - columnheader "Game"
+        - columnheader "Status"
+        - columnheader "Version"
+        - columnheader "First prize"
+        - columnheader "Checked"
+        - columnheader "Actions"
+    - rowgroup:
+      - row "rew_01KR93RA17AHD8Z5R84XA5S0FW gam_p3_reward_ui10 Summary Ready 1 123456 10 พ.ค. 2569 21:13 Detail Update result Verify Correct Publish":
+        - cell "rew_01KR93RA17AHD8Z5R84XA5S0FW"
+        - cell "gam_p3_reward_ui10"
+        - cell "Summary Ready":
+          - generic: Summary Ready
+        - cell "1"
+        - cell "123456"
+        - cell "10 พ.ค. 2569 21:13"
+        - cell "Detail Update result Verify Correct Publish":
+          - link "Detail":
+            - /url: /admin/central/rewards/rew_01KR93RA17AHD8Z5R84XA5S0FW
+          - button "Update result"
+          - button "Verify"
+          - button "Correct"
+          - button "Publish"
+  - generic: Cursor pagination
+  - button "Next " [disabled]:
+    - text: Next
+    - generic: 
+- contentinfo:
+  - generic: NewPaotang Back Office · Meno template foundation · 2026
+- text:       

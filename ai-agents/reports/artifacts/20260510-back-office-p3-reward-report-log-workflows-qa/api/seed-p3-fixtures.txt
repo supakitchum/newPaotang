@@ -1,0 +1,13 @@
+INSERT 0 2
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 2
+     table_name      | count
+---------------------+-------
+ games               |     2
+ partner_settlements |     1
+ webhook_callbacks   |     1
+ sync_inbox          |     1
+ audit_logs          |     2
+(5 rows)
