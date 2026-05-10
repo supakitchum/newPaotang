@@ -1,0 +1,8 @@
+API-first tenant topups customer context validation
+Base: http://localhost:8000/api/v1
+Scope headers: X-Admin-Scope=tenant, X-Tenant-Id=ten_demo_alpha
+Validated topup id: top_qa_ctx_20260510
+List nested customer present: true
+Detail nested customer present: true
+Nested customer fields: id=cus_qa_ctx_20260510, name=QA Context Customer, phone=+66020000010, email=qa.ctx.20260510@example.test
+Fallback behavior note: fallback is not required for this seeded row because API returns complete nested customer context; BO should not fall back to a generic JSON-only workflow for this case.

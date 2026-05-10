@@ -1,0 +1,20 @@
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-platform-api-run-e387709bc11d Creating
+ Container newpaotang-platform-api-run-e387709bc11d Created
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\AdminOperationsTest[39m
+  [32;1m✓[39;22m[90m [39m[90madmin dashboard central and tenant summaries work with permission[39m[90m   [39m [90m1.88s[39m
+  [32;1m✓[39;22m[90m [39m[90madmin dashboard defaults to deny without dashboard view[39m[90m             [39m [90m0.49s[39m
+  [32;1m✓[39;22m[90m [39m[90madmin realtime authorizes allowed channels and rejects scope mismat[39m[90m…[39m [90m0.97s[39m
+  [32;1m✓[39;22m[90m [39m[90madmin menu management read and update validates idempotency and wri[39m[90m…[39m [90m0.51s[39m
+  [32;1m✓[39;22m[90m [39m[90madmin menu management rejects cross scope tree bad roles and duplic[39m[90m…[39m [90m0.51s[39m
+  [32;1m✓[39;22m[90m [39m[90maudit log lists are permissioned redacted and tenant isolated[39m[90m       [39m [90m0.98s[39m
+  [32;1m✓[39;22m[90m [39m[90maudit log defaults to deny without audit view[39m[90m                       [39m [90m0.49s[39m
+
+  [90mTests:[39m    [32;1m7 passed[39;22m[90m (95 assertions)[39m
+  [90mDuration:[39m [39m5.93s[39m
