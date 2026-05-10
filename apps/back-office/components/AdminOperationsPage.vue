@@ -753,17 +753,28 @@ const normalizeRows = (response: any, item: OperationResource) => extractItems(r
   const id = row?.[item.idKey || 'id'] || row?.id || row?.uuid
   const display: Record<string, any> = { ...row, __raw: row, __id: id }
   for (const column of item.columns || []) {
-    display[column.key] = formatValue(getPath(row, column.key), column.type)
+    display[column.key] = formatValue(getFirstPath(row, [column.key, ...(column.fallbackKeys || [])]), column.type)
   }
   return display
 })
 
 const getPath = (value: any, path: string) => path.split('.').reduce((current, key) => current?.[key], value)
 
+const getFirstPath = (value: any, paths: string[]) => {
+  for (const path of paths) {
+    const entry = getPath(value, path)
+    if (entry !== undefined && entry !== null && entry !== '') {
+      return entry
+    }
+  }
+  return undefined
+}
+
 const fieldId = (key: string) => `admin-operation-${key.replace(/[^a-z0-9_-]/gi, '-')}`
 
 const formatValue = (value: any, type?: string) => {
   if (value === undefined || value === null || value === '') return '-'
+  if (type === 'customer') return formatCustomerValue(value)
   if (type === 'datetime') return formatDateTime(String(value))
   if (type === 'money') {
     const amount = typeof value === 'object' && value !== null ? value.amount : value
@@ -771,5 +782,17 @@ const formatValue = (value: any, type?: string) => {
   }
   if (type === 'json' || typeof value === 'object') return JSON.stringify(value)
   return value
+}
+
+const formatCustomerValue = (value: any) => {
+  if (value === undefined || value === null || value === '') return '-'
+  if (typeof value !== 'object') return String(value)
+
+  const id = value.id || value.customer_id || value.member_id || value.member_no
+  const name = value.display_name || value.name || value.full_name
+  const contact = value.phone || value.email
+  const parts = [name, contact, id].filter((part, index, all) => part && all.indexOf(part) === index)
+
+  return parts.length ? parts.join(' | ') : JSON.stringify(value)
 }
 </script>

@@ -293,6 +293,7 @@ for (const evidence of [
   ['P1 related list support', operationsCatalog.includes('relatedLists') && operationsPage.includes('loadRelatedLists') && operationsPage.includes('openRelatedDetail')],
   ['P1 payment channel workflow', operationsCatalog.includes('/admin/tenant/payment-channels') && operationsCatalog.includes("settingsFields") && operationsCatalog.includes("title: 'Payment Channels'")],
   ['P1 wallet ledger workflow', operationsCatalog.includes('/admin/tenant/wallets/{wallet_id}/ledger') && operationsCatalog.includes("title: 'Wallet Ledger'")],
+  ['P1 tenant order nested customer context', operationsCatalog.includes("type?: 'text' | 'status' | 'datetime' | 'money' | 'json' | 'customer'") && operationsCatalog.includes('fallbackKeys?: string[]') && operationsCatalog.includes('const orderActionContext') && operationsCatalog.includes("'customer.id'") && operationsCatalog.includes("'customer.name'") && operationsCatalog.includes("'customer.phone'") && operationsCatalog.includes("type: 'customer'")],
   ['settings update method support', operationsPage.includes('resource.value.updateMethod') && operationsCatalog.includes("updateMethod?: 'PATCH' | 'PUT' | 'POST'")],
   ['menu management PUT resources', operationsCatalog.includes("settingsResource('tenant', 'menu-management', 'Menu Management', '/admin/tenant/menu-management', 'PUT')") && operationsCatalog.includes("settingsResource('central', 'menu-management', 'Menu Management', '/admin/central/menu-management', 'PUT')")],
 ]) {

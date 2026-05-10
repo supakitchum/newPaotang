@@ -4,7 +4,8 @@ export type OperationMode = 'list' | 'detail' | 'report-index' | 'report-detail'
 export type OperationColumn = {
   key: string
   label: string
-  type?: 'text' | 'status' | 'datetime' | 'money' | 'json'
+  type?: 'text' | 'status' | 'datetime' | 'money' | 'json' | 'customer'
+  fallbackKeys?: string[]
 }
 
 export type OperationFilter = {
@@ -166,6 +167,19 @@ const moneyFields = (prefix = 'amount', label = 'Amount', required = true): Oper
 
 const stockActionContext = ['id', 'game_id', 'number', 'full_number', 'status', 'partner_id', 'tenant_id']
 const moneyActionContext = ['id', 'reference', 'customer_id', 'status', 'payment_status', 'total.amount', 'amount.amount', 'balance.amount']
+const orderActionContext = [
+  'id',
+  'tenant_id',
+  'reference',
+  'customer_id',
+  'customer.id',
+  'customer.name',
+  'customer.phone',
+  'status',
+  'payment_status',
+  'total.amount',
+  'customer.email',
+]
 
 const tenant: OperationResource[] = [
   {
@@ -285,13 +299,13 @@ const tenant: OperationResource[] = [
     idParam: 'order_id',
     columns: [
       { key: 'id', label: 'Order' },
-      { key: 'customer_id', label: 'Customer' },
+      { key: 'customer', label: 'Customer', type: 'customer', fallbackKeys: ['customer_id', 'member_id'] },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'total.amount', label: 'Total', type: 'money' },
       { key: 'created_at', label: 'Created', type: 'datetime' },
     ],
     filters: cursorFilters([statusFilter(['draft', 'pending_payment', 'paid', 'cancelled', 'expired', 'refunded', 'failed']), { key: 'payment_status', label: 'Payment status', type: 'select', options: ['unpaid', 'pending', 'paid', 'refunded', 'failed'] }, { key: 'game_id', label: 'Game ID' }, { key: 'customer_id', label: 'Customer ID' }]),
-    confirmContextFields: moneyActionContext,
+    confirmContextFields: orderActionContext,
     actions: [
       {
         key: 'update',
@@ -300,7 +314,7 @@ const tenant: OperationResource[] = [
         endpoint: '/admin/tenant/orders/{order_id}',
         variant: 'primary',
         reason: true,
-        contextFields: moneyActionContext,
+        contextFields: orderActionContext,
         formFields: [
           { key: 'status', label: 'Order status', type: 'select', options: ['pending_payment', 'paid', 'cancelled', 'expired', 'refunded', 'failed'] },
           { key: 'payment_status', label: 'Payment status', type: 'select', options: ['unpaid', 'pending', 'paid', 'refunded', 'failed'] },
@@ -313,7 +327,7 @@ const tenant: OperationResource[] = [
         endpoint: '/admin/tenant/orders/{order_id}/cancel',
         variant: 'warning',
         reason: true,
-        contextFields: moneyActionContext,
+        contextFields: orderActionContext,
         formFields: [
           { key: 'refund_policy', label: 'Refund policy', type: 'select', options: ['none', 'wallet_refund', 'manual_refund'], defaultValue: 'none' },
           notifyCustomerField,
@@ -325,7 +339,7 @@ const tenant: OperationResource[] = [
         endpoint: '/admin/tenant/orders/{order_id}/refund',
         variant: 'danger',
         reason: true,
-        contextFields: moneyActionContext,
+        contextFields: orderActionContext,
         formFields: [
           ...moneyFields('amount', 'Refund amount'),
           { key: 'method', label: 'Refund method', type: 'select', options: ['wallet_refund', 'manual_refund', 'original_payment'], defaultValue: 'wallet_refund' },

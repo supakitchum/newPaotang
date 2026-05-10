@@ -105,7 +105,7 @@ const contextItems = computed(() => (props.contextFields || [])
     value: formatContextValue(getPath(sourceRecord.value, key)),
   }))
   .filter((item) => item.value !== '-')
-  .slice(0, 8))
+  .slice(0, 10))
 
 const missingRequired = computed(() => {
   if (props.requiresReason && reason.value.trim() === '') {
@@ -155,9 +155,7 @@ const fieldId = (key: string) => `admin-confirm-${key.replace(/[^a-z0-9_-]/gi, '
 const getPath = (value: any, path: string) => path.split('.').reduce((current, key) => current?.[key], value)
 
 const labelize = (key: string) => key
-  .split('.')
-  .at(-1)
-  ?.replace(/[_-]/g, ' ')
+  .replace(/[._-]/g, ' ')
   .replace(/\b\w/g, (char) => char.toUpperCase()) || key
 
 const formatContextValue = (value: any) => {
