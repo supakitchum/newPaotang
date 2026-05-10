@@ -127,7 +127,7 @@ const resetFormState = () => {
   }
 
   for (const field of formFields.value) {
-    const recordValue = getPath(sourceRecord.value, field.key)
+    const recordValue = getPath(sourceRecord.value, field.sourceKey || field.key)
     formState[field.key] = recordValue !== undefined && recordValue !== null
       ? normalizeInitialValue(field, recordValue)
       : field.defaultValue !== undefined ? field.defaultValue : normalizeInitialValue(field, recordValue)

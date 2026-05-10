@@ -19,6 +19,7 @@ export type OperationFormField = {
   key: string
   label: string
   type?: 'text' | 'number' | 'textarea' | 'select' | 'checkbox' | 'date' | 'lines' | 'password'
+  sourceKey?: string
   options?: string[]
   required?: boolean
   placeholder?: string
@@ -195,6 +196,94 @@ const topupActionContext = [
   'channel',
   'customer.email',
 ]
+const partnerStatusOptions = ['draft', 'active', 'suspended', 'closed']
+const partnerTypeOptions = ['partner_store', 'agent_network', 'white_label', 'api_partner', 'internal']
+const tenantStatusOptions = ['provisioning', 'active', 'maintenance', 'suspended', 'closed']
+const domainTypeOptions = ['subdomain', 'custom_domain']
+const deploymentModeOptions = ['shared', 'dedicated_runtime', 'dedicated_resource_pool']
+const quotaStatusOptions = ['active', 'inactive', 'archived']
+const billingPlanStatusOptions = ['active', 'archived']
+const alertPolicyStatusOptions = ['active', 'paused', 'archived']
+const alertSeverityOptions = ['info', 'warning', 'critical']
+const alertEventStatusOptions = ['open', 'acknowledged', 'resolved', 'suppressed']
+const partnerActionContext = ['id', 'code', 'name', 'type', 'status', 'tenants.0.id', 'tenants.0.code', 'domains.0.host', 'runtime.billing_status', 'runtime.monitoring_status']
+const partnerQuotaActionContext = ['id', 'partner_id', 'game_id', 'quota_count', 'allocated_count', 'remaining_count', 'status']
+const billingPlanActionContext = ['id', 'code', 'name', 'monthly_fee.amount', 'monthly_fee.currency', 'status']
+const alertPolicyActionContext = ['id', 'partner_id', 'partner.name', 'policy_key', 'severity', 'status']
+const alertEventActionContext = ['id', 'partner_id', 'partner.name', 'policy_key', 'severity', 'status', 'channel', 'title', 'triggered_at']
+const partnerCreateFields: OperationFormField[] = [
+  { key: 'code', label: 'Partner code', required: true, placeholder: 'acme_partner', help: 'Use lowercase letters, numbers, underscores, or hyphens.' },
+  { key: 'name', label: 'Partner name', required: true, placeholder: 'Acme Partner' },
+  { key: 'type', label: 'Partner type', type: 'select', options: partnerTypeOptions, defaultValue: 'partner_store', required: true },
+  { key: 'status', label: 'Status', type: 'select', options: partnerStatusOptions, defaultValue: 'draft', required: true },
+]
+const partnerUpdateFields: OperationFormField[] = [
+  { key: 'code', label: 'Partner code', placeholder: 'acme_partner', help: 'Use lowercase letters, numbers, underscores, or hyphens.' },
+  { key: 'name', label: 'Partner name' },
+  { key: 'type', label: 'Partner type', type: 'select', options: partnerTypeOptions },
+  { key: 'status', label: 'Status', type: 'select', options: partnerStatusOptions },
+]
+const partnerProvisionFields: OperationFormField[] = [
+  { key: 'tenant_code', label: 'Tenant code', placeholder: 'acme_tenant', help: 'Defaults to the partner code when left blank.' },
+  { key: 'tenant_name', label: 'Tenant name', placeholder: 'Acme Tenant' },
+  { key: 'tenant_status', label: 'Tenant status', type: 'select', options: tenantStatusOptions, defaultValue: 'active' },
+  { key: 'domain_host', label: 'Domain host', placeholder: 'acme.example.test' },
+  { key: 'domain_type', label: 'Domain type', type: 'select', options: domainTypeOptions, defaultValue: 'subdomain' },
+  { key: 'owner_email', label: 'Owner email', required: true, placeholder: 'owner@example.test' },
+  { key: 'owner_name', label: 'Owner name', placeholder: 'Tenant owner' },
+  { key: 'owner_password', label: 'Owner password', type: 'password', placeholder: 'Leave blank to keep generated/default handling' },
+  { key: 'site_name', label: 'Site name', placeholder: 'Public shop name' },
+  { key: 'billing_plan_code', label: 'Billing plan code', placeholder: 'starter' },
+  { key: 'deployment_mode', label: 'Deployment mode', type: 'select', options: deploymentModeOptions, defaultValue: 'shared' },
+  { key: 'features.affiliate', label: 'Affiliate feature', type: 'checkbox', defaultValue: false },
+  { key: 'features.custom_domain', label: 'Custom domain feature', type: 'checkbox', defaultValue: false },
+]
+const partnerQuotaCreateFields: OperationFormField[] = [
+  { key: 'partner_id', label: 'Partner ID', required: true },
+  { key: 'game_id', label: 'Game ID', required: true },
+  { key: 'quota_count', label: 'Quota count', type: 'number', min: 1, step: 1, required: true },
+  { key: 'status', label: 'Status', type: 'select', options: quotaStatusOptions, defaultValue: 'active' },
+]
+const partnerQuotaUpdateFields: OperationFormField[] = [
+  { key: 'partner_id', label: 'Partner ID' },
+  { key: 'game_id', label: 'Game ID' },
+  { key: 'quota_count', label: 'Quota count', type: 'number', min: 1, step: 1 },
+  { key: 'status', label: 'Status', type: 'select', options: quotaStatusOptions },
+]
+const billingPlanFields: OperationFormField[] = [
+  { key: 'code', label: 'Plan code', required: true, placeholder: 'enterprise' },
+  { key: 'name', label: 'Plan name', required: true, placeholder: 'Enterprise' },
+  { key: 'monthly_fee_amount', label: 'Monthly fee (minor units)', type: 'number', sourceKey: 'monthly_fee.amount', min: 0, step: 1, required: true },
+  { key: 'currency', label: 'Currency', type: 'select', sourceKey: 'monthly_fee.currency', options: currencyOptions, defaultValue: 'THB', required: true },
+  { key: 'status', label: 'Status', type: 'select', options: billingPlanStatusOptions, defaultValue: 'active', required: true },
+  { key: 'features.affiliate', label: 'Affiliate included', type: 'checkbox', defaultValue: false },
+  { key: 'features.custom_domain', label: 'Custom domain included', type: 'checkbox', defaultValue: false },
+  { key: 'features.priority_support', label: 'Priority support included', type: 'checkbox', defaultValue: false },
+  { key: 'limits.tenants', label: 'Tenant limit', type: 'number', min: 0, step: 1 },
+  { key: 'limits.api_requests', label: 'API request limit', type: 'number', min: 0, step: 1 },
+  { key: 'limits.alert_policies', label: 'Alert policy limit', type: 'number', min: 0, step: 1 },
+]
+const billingPlanUpdateFields: OperationFormField[] = [
+  { key: 'code', label: 'Plan code', placeholder: 'enterprise' },
+  { key: 'name', label: 'Plan name', placeholder: 'Enterprise' },
+  { key: 'monthly_fee_amount', label: 'Monthly fee (minor units)', type: 'number', sourceKey: 'monthly_fee.amount', min: 0, step: 1 },
+  { key: 'currency', label: 'Currency', type: 'select', sourceKey: 'monthly_fee.currency', options: currencyOptions },
+  { key: 'status', label: 'Status', type: 'select', options: billingPlanStatusOptions },
+  { key: 'limits.tenants', label: 'Tenant limit', type: 'number', sourceKey: 'limits.tenants', min: 0, step: 1 },
+  { key: 'limits.api_requests', label: 'API request limit', type: 'number', sourceKey: 'limits.api_requests', min: 0, step: 1 },
+  { key: 'limits.alert_policies', label: 'Alert policy limit', type: 'number', sourceKey: 'limits.alert_policies', min: 0, step: 1 },
+]
+const alertPolicyFields: OperationFormField[] = [
+  { key: 'partner_id', label: 'Partner ID', required: true },
+  { key: 'policy_key', label: 'Policy key', required: true, placeholder: 'sync_lag' },
+  { key: 'severity', label: 'Severity', type: 'select', options: alertSeverityOptions, defaultValue: 'warning', required: true },
+  { key: 'status', label: 'Status', type: 'select', options: alertPolicyStatusOptions, defaultValue: 'active', required: true },
+  { key: 'config.metric', label: 'Metric', placeholder: 'sync_lag_seconds' },
+  { key: 'config.threshold_seconds', label: 'Threshold seconds', type: 'number', min: 0, step: 1 },
+  { key: 'config.window_seconds', label: 'Window seconds', type: 'number', min: 0, step: 1 },
+  { key: 'config.description', label: 'Description', type: 'textarea' },
+]
+const alertPolicyUpdateFields: OperationFormField[] = alertPolicyFields.map((field) => ({ ...field, required: false }))
 
 const tenant: OperationResource[] = [
   {
@@ -652,31 +741,104 @@ const tenant: OperationResource[] = [
 ]
 
 const central: OperationResource[] = [
-  resource('central', 'partners', 'Partners', 'Central Operations', '/admin/central/partners', '/admin/central/partners/{partner_id}', 'partner_id', [
-    { key: 'id', label: 'Partner' },
-    { key: 'name', label: 'Name' },
-    { key: 'status', label: 'Status', type: 'status' },
-    { key: 'created_at', label: 'Created', type: 'datetime' },
-  ], cursorFilters([statusFilter(['active', 'suspended', 'provisioning'])]), [
-    { key: 'provision', label: 'Provision', endpoint: '/admin/central/partners/{partner_id}/provision', variant: 'success', reason: true },
-    { key: 'suspend', label: 'Suspend', endpoint: '/admin/central/partners/{partner_id}/suspend', variant: 'warning', reason: true },
-  ]),
-  resource('central', 'partner-provisioning', 'Partner Provisioning', 'Central Partner Operations', '/admin/central/partners', '/admin/central/partners/{partner_id}', 'partner_id', [
-    { key: 'id', label: 'Partner' },
-    { key: 'name', label: 'Name' },
-    { key: 'status', label: 'Status', type: 'status' },
-    { key: 'created_at', label: 'Created', type: 'datetime' },
-  ], cursorFilters([statusFilter(['active', 'suspended', 'provisioning'])]), [
-    { key: 'provision', label: 'Provision', endpoint: '/admin/central/partners/{partner_id}/provision', variant: 'success', reason: true },
-    { key: 'suspend', label: 'Suspend', endpoint: '/admin/central/partners/{partner_id}/suspend', variant: 'warning', reason: true },
-  ]),
-  listResource('central', 'partner-quotas', 'Partner Quotas', 'Central Partner Operations', '/admin/central/partner-quotas', 'quota_id', [
-    { key: 'id', label: 'Quota' },
-    { key: 'partner_id', label: 'Partner' },
-    { key: 'game_id', label: 'Game' },
-    { key: 'status', label: 'Status', type: 'status' },
-    { key: 'updated_at', label: 'Updated', type: 'datetime' },
-  ], cursorFilters([{ key: 'partner_id', label: 'Partner ID' }, { key: 'game_id', label: 'Game ID' }])),
+  {
+    scope: 'central',
+    slug: 'partners',
+    title: 'Partners',
+    group: 'Central Operations',
+    listEndpoint: '/admin/central/partners',
+    detailEndpoint: '/admin/central/partners/{partner_id}',
+    updateEndpoint: '/admin/central/partners/{partner_id}',
+    idParam: 'partner_id',
+    idKey: 'id',
+    columns: [
+      { key: 'id', label: 'Partner' },
+      { key: 'code', label: 'Code' },
+      { key: 'name', label: 'Name' },
+      { key: 'type', label: 'Type' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ],
+    filters: cursorFilters([{ key: 'q', label: 'Search' }, statusFilter(partnerStatusOptions)]),
+    confirmContextFields: partnerActionContext,
+    actions: [
+      { key: 'update', label: 'Update', method: 'PATCH', endpoint: '/admin/central/partners/{partner_id}', variant: 'primary', contextFields: partnerActionContext, formFields: partnerUpdateFields },
+      { key: 'suspend', label: 'Suspend', endpoint: '/admin/central/partners/{partner_id}/suspend', variant: 'warning', reason: true, contextFields: partnerActionContext },
+    ],
+    collectionActions: [{
+      key: 'create',
+      label: 'Create partner',
+      endpoint: '/admin/central/partners',
+      formFields: partnerCreateFields,
+    }],
+  },
+  {
+    scope: 'central',
+    slug: 'partner-provisioning',
+    title: 'Partner Provisioning',
+    group: 'Central Partner Operations',
+    listEndpoint: '/admin/central/partners',
+    detailEndpoint: '/admin/central/partners/{partner_id}',
+    idParam: 'partner_id',
+    idKey: 'id',
+    columns: [
+      { key: 'id', label: 'Partner' },
+      { key: 'code', label: 'Code' },
+      { key: 'name', label: 'Name' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'runtime.billing_status', label: 'Billing', type: 'status' },
+      { key: 'runtime.monitoring_status', label: 'Monitoring', type: 'status' },
+    ],
+    filters: cursorFilters([{ key: 'q', label: 'Search' }, statusFilter(partnerStatusOptions)]),
+    confirmContextFields: partnerActionContext,
+    actions: [
+      {
+        key: 'provision',
+        label: 'Provision',
+        endpoint: '/admin/central/partners/{partner_id}/provision',
+        variant: 'success',
+        reason: true,
+        contextFields: partnerActionContext,
+        formFields: partnerProvisionFields,
+      },
+      { key: 'suspend', label: 'Suspend', endpoint: '/admin/central/partners/{partner_id}/suspend', variant: 'warning', reason: true, contextFields: partnerActionContext },
+    ],
+  },
+  {
+    scope: 'central',
+    slug: 'partner-quotas',
+    title: 'Partner Quotas',
+    group: 'Central Partner Operations',
+    listEndpoint: '/admin/central/partner-quotas',
+    idParam: 'quota_id',
+    idKey: 'id',
+    columns: [
+      { key: 'id', label: 'Quota' },
+      { key: 'partner_id', label: 'Partner' },
+      { key: 'game_id', label: 'Game' },
+      { key: 'quota_count', label: 'Quota' },
+      { key: 'allocated_count', label: 'Allocated' },
+      { key: 'remaining_count', label: 'Remaining' },
+      { key: 'status', label: 'Status', type: 'status' },
+    ],
+    filters: cursorFilters([{ key: 'partner_id', label: 'Partner ID' }, { key: 'game_id', label: 'Game ID' }]),
+    confirmContextFields: partnerQuotaActionContext,
+    actions: [{
+      key: 'update',
+      label: 'Update',
+      method: 'PATCH',
+      endpoint: '/admin/central/partner-quotas/{quota_id}',
+      variant: 'primary',
+      contextFields: partnerQuotaActionContext,
+      formFields: partnerQuotaUpdateFields,
+    }],
+    collectionActions: [{
+      key: 'create',
+      label: 'Create quota',
+      endpoint: '/admin/central/partner-quotas',
+      formFields: partnerQuotaCreateFields,
+    }],
+  },
   resource('central', 'partner-monitoring', 'Partner Monitoring', 'Central Partner Operations', '/admin/central/partner-monitoring', '/admin/central/partner-monitoring/{monitoring_profile_id}', 'monitoring_profile_id', [
     { key: 'id', label: 'Profile' },
     { key: 'partner_id', label: 'Partner' },
@@ -697,50 +859,78 @@ const central: OperationResource[] = [
     { key: 'date_from', label: 'From', type: 'date' },
     { key: 'date_to', label: 'To', type: 'date' },
   ])),
-  editableResource('central', 'billing-plans', 'Billing Plans', 'Central Partner Operations', '/admin/central/billing-plans', '/admin/central/billing-plans/{billing_plan_id}', 'billing_plan_id', [
-    { key: 'id', label: 'Billing plan' },
-    { key: 'code', label: 'Code' },
-    { key: 'name', label: 'Name' },
-    { key: 'monthly_fee.amount', label: 'Monthly fee', type: 'money' },
-    { key: 'status', label: 'Status', type: 'status' },
-    { key: 'updated_at', label: 'Updated', type: 'datetime' },
-  ], cursorFilters([statusFilter(['active', 'archived'])]), [], [
-    {
+  {
+    scope: 'central',
+    slug: 'billing-plans',
+    title: 'Billing Plans',
+    group: 'Central Partner Operations',
+    listEndpoint: '/admin/central/billing-plans',
+    detailEndpoint: '/admin/central/billing-plans/{billing_plan_id}',
+    updateEndpoint: '/admin/central/billing-plans/{billing_plan_id}',
+    idParam: 'billing_plan_id',
+    idKey: 'id',
+    columns: [
+      { key: 'id', label: 'Billing plan' },
+      { key: 'code', label: 'Code' },
+      { key: 'name', label: 'Name' },
+      { key: 'monthly_fee.amount', label: 'Monthly fee', type: 'money' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ],
+    filters: cursorFilters([statusFilter(billingPlanStatusOptions)]),
+    confirmContextFields: billingPlanActionContext,
+    actions: [{
+      key: 'update',
+      label: 'Update',
+      method: 'PATCH',
+      endpoint: '/admin/central/billing-plans/{billing_plan_id}',
+      variant: 'primary',
+      contextFields: billingPlanActionContext,
+      formFields: billingPlanUpdateFields,
+    }],
+    collectionActions: [{
       key: 'create',
       label: 'Create billing plan',
       endpoint: '/admin/central/billing-plans',
-      payloadTemplate: {
-        code: '',
-        name: '',
-        monthly_fee_amount: 0,
-        currency: 'THB',
-        features: {},
-        limits: {},
-        status: 'active',
-      },
-    },
-  ]),
-  editableResource('central', 'alert-policies', 'Alert Policies', 'Central Partner Operations', '/admin/central/alert-policies', '/admin/central/alert-policies/{alert_policy_id}', 'alert_policy_id', [
-    { key: 'id', label: 'Alert policy' },
-    { key: 'partner_id', label: 'Partner' },
-    { key: 'policy_key', label: 'Policy' },
-    { key: 'severity', label: 'Severity', type: 'status' },
-    { key: 'status', label: 'Status', type: 'status' },
-    { key: 'updated_at', label: 'Updated', type: 'datetime' },
-  ], cursorFilters([{ key: 'partner_id', label: 'Partner ID' }]), [], [
-    {
+      formFields: billingPlanFields,
+    }],
+  },
+  {
+    scope: 'central',
+    slug: 'alert-policies',
+    title: 'Alert Policies',
+    group: 'Central Partner Operations',
+    listEndpoint: '/admin/central/alert-policies',
+    detailEndpoint: '/admin/central/alert-policies/{alert_policy_id}',
+    updateEndpoint: '/admin/central/alert-policies/{alert_policy_id}',
+    idParam: 'alert_policy_id',
+    idKey: 'id',
+    columns: [
+      { key: 'id', label: 'Alert policy' },
+      { key: 'partner_id', label: 'Partner' },
+      { key: 'policy_key', label: 'Policy' },
+      { key: 'severity', label: 'Severity', type: 'status' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ],
+    filters: cursorFilters([{ key: 'partner_id', label: 'Partner ID' }]),
+    confirmContextFields: alertPolicyActionContext,
+    actions: [{
+      key: 'update',
+      label: 'Update',
+      method: 'PATCH',
+      endpoint: '/admin/central/alert-policies/{alert_policy_id}',
+      variant: 'primary',
+      contextFields: alertPolicyActionContext,
+      formFields: alertPolicyUpdateFields,
+    }],
+    collectionActions: [{
       key: 'create',
       label: 'Create alert policy',
       endpoint: '/admin/central/alert-policies',
-      payloadTemplate: {
-        partner_id: '',
-        policy_key: '',
-        severity: 'warning',
-        status: 'active',
-        config: {},
-      },
-    },
-  ]),
+      formFields: alertPolicyFields,
+    }],
+  },
   resource('central', 'alert-events', 'Alert Events', 'Central Partner Operations', '/admin/central/alert-events', '/admin/central/alert-events/{alert_event_id}', 'alert_event_id', [
     { key: 'id', label: 'Alert event' },
     { key: 'partner_id', label: 'Partner' },
@@ -749,9 +939,9 @@ const central: OperationResource[] = [
     { key: 'status', label: 'Status', type: 'status' },
     { key: 'triggered_at', label: 'Triggered', type: 'datetime' },
     { key: 'delivered_at', label: 'Delivered', type: 'datetime' },
-  ], cursorFilters([{ key: 'partner_id', label: 'Partner ID' }, statusFilter(['open', 'acknowledged', 'resolved', 'suppressed'])]), [
-    { key: 'acknowledge', label: 'Acknowledge', endpoint: '/admin/central/alert-events/{alert_event_id}/acknowledge', variant: 'warning', reason: true },
-    { key: 'resolve', label: 'Resolve', endpoint: '/admin/central/alert-events/{alert_event_id}/resolve', variant: 'success', reason: true },
+  ], cursorFilters([{ key: 'partner_id', label: 'Partner ID' }, statusFilter(alertEventStatusOptions)]), [
+    { key: 'acknowledge', label: 'Acknowledge', endpoint: '/admin/central/alert-events/{alert_event_id}/acknowledge', variant: 'warning', reason: true, contextFields: alertEventActionContext },
+    { key: 'resolve', label: 'Resolve', endpoint: '/admin/central/alert-events/{alert_event_id}/resolve', variant: 'success', reason: true, contextFields: alertEventActionContext },
   ]),
   {
     scope: 'central',

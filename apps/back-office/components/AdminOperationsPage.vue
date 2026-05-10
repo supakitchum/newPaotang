@@ -448,7 +448,7 @@ const resetSettingsForm = () => {
   }
 
   for (const field of resource.value?.settingsFields || []) {
-    const value = getPath(detail.value || {}, field.key)
+    const value = getPath(detail.value || {}, field.sourceKey || field.key)
     settingsForm[field.key] = value !== undefined && value !== null
       ? normalizeInitialFieldValue(field, value)
       : field.defaultValue !== undefined ? field.defaultValue : normalizeInitialFieldValue(field, value)
