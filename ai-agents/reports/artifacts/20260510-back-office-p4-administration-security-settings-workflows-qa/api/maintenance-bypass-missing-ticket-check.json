@@ -1,0 +1,13 @@
+{
+  "status": 201,
+  "expected": "422 if ticket_id is required by P4 QA criteria",
+  "accepted_without_ticket": true,
+  "cleanup_status": 204,
+  "body": {
+    "id": "byp_01KR9AD7R1PMJ77V75JYKK1F69",
+    "ticket_id": null,
+    "effective_status": "active",
+    "actor_type": "tenant_admin",
+    "actor_id": "adm_demo_alpha_owner"
+  }
+}
