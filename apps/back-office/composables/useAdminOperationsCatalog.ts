@@ -775,7 +775,7 @@ const tenant: OperationResource[] = [
     group: 'Tenant Operations',
     listEndpoint: '/admin/tenant/sync-logs',
     columns: syncColumns,
-    filters: cursorFilters([statusFilter(['pending', 'running', 'completed', 'failed'])]),
+    filters: cursorFilters([statusFilter(['pending', 'running', 'completed', 'processed', 'failed'])]),
   },
   reportIndex('tenant', ['overview', 'sales', 'stock', 'wallet', 'commission', 'orders', 'customers', 'audit']),
 ]
