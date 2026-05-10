@@ -105,7 +105,7 @@ const contextItems = computed(() => (props.contextFields || [])
     value: formatContextValue(getPath(sourceRecord.value, key)),
   }))
   .filter((item) => item.value !== '-')
-  .slice(0, 10))
+  .slice(0, 13))
 
 const missingRequired = computed(() => {
   if (props.requiresReason && reason.value.trim() === '') {

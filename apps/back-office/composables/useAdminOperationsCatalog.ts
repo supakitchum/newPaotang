@@ -180,6 +180,21 @@ const orderActionContext = [
   'total.amount',
   'customer.email',
 ]
+const topupActionContext = [
+  'id',
+  'tenant_id',
+  'reference',
+  'customer_id',
+  'member_id',
+  'customer.id',
+  'customer.name',
+  'customer.phone',
+  'status',
+  'amount.amount',
+  'amount.currency',
+  'channel',
+  'customer.email',
+]
 
 const tenant: OperationResource[] = [
   {
@@ -442,15 +457,15 @@ const tenant: OperationResource[] = [
       endpoint: '/admin/tenant/topups/{topup_id}/approve',
       variant: 'success',
       reason: true,
-      contextFields: moneyActionContext,
+      contextFields: topupActionContext,
       formFields: [
         ...moneyFields('approved_amount', 'Approved amount', false),
         ...moneyFields('bonus_amount', 'Bonus amount', false),
         notifyCustomerField,
       ],
     },
-    { key: 'reject', label: 'Reject', endpoint: '/admin/tenant/topups/{topup_id}/reject', variant: 'danger', reason: true, contextFields: moneyActionContext, formFields: [notifyCustomerField] },
-    { key: 'cancel', label: 'Cancel', endpoint: '/admin/tenant/topups/{topup_id}/cancel', variant: 'warning', reason: true, contextFields: moneyActionContext, formFields: [notifyCustomerField] },
+    { key: 'reject', label: 'Reject', endpoint: '/admin/tenant/topups/{topup_id}/reject', variant: 'danger', reason: true, contextFields: topupActionContext, formFields: [notifyCustomerField] },
+    { key: 'cancel', label: 'Cancel', endpoint: '/admin/tenant/topups/{topup_id}/cancel', variant: 'warning', reason: true, contextFields: topupActionContext, formFields: [notifyCustomerField] },
   ]),
   actionResource('tenant', 'reward-claims', 'Reward Claims', 'Tenant Rewards', '/admin/tenant/reward-claims', '/admin/tenant/reward-claims/{claim_id}', 'claim_id', [
     { key: 'approve', label: 'Approve', endpoint: '/admin/tenant/reward-claims/{claim_id}/approve', variant: 'success', reason: true },
