@@ -1,0 +1,4 @@
+Observed during docker compose run --rm back-office npm run build:
+- Node DEP0180 deprecation warning for fs.Stats constructor.
+- Existing unresolved runtime asset warning for /admin-template/assets/images/media/media-33.jpg.
+Build completed successfully; back-office-build.txt contains the completed Nuxt/Nitro output.

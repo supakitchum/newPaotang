@@ -23,10 +23,10 @@ Coordinator should calculate that from the counts and row-level evidence below.
 | Scope | complete | partial | not_started | api_gap | out_of_scope | Total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Central | 15 | 8 | 0 | 1 | 0 | 24 |
-| Tenant | 10 | 21 | 0 | 1 | 0 | 32 |
-| Total | 25 | 29 | 0 | 2 | 0 | 56 |
+| Tenant | 11 | 20 | 0 | 1 | 0 | 32 |
+| Total | 26 | 28 | 0 | 2 | 0 | 56 |
 
-Coordinator-approved BO completion from verified working CRUD/API workflow coverage is 25/56 menus, or 44.6%.
+Coordinator-approved BO completion from verified working CRUD/API workflow coverage is 26/56 menus, or 46.4%.
 
 ## Current BO Implementation Notes
 
@@ -95,7 +95,7 @@ Coordinator-approved BO completion from verified working CRUD/API workflow cover
 | tenant:reports | `/admin/tenant/reports` | `report.view` | `GET /admin/tenant/reports/{report_key}` | N/A | N/A | N/A | N/A | `POST /admin/tenant/reports/{report_key}/exports` | report index/detail with summary cards, rows table, filters, and raw payload fallback | connected for tenant-scoped report detail/export routes | export modal captures format, date range, group filter, current tenant/report context, and reason | P3 real menu QA pass (20260510); tenant overview drill-down/export preserved tenant scope and export job ready | None for P3. | complete |
 | tenant:monitoring | `/admin/tenant/monitoring` | `monitoring.view` | `GET /admin/tenant/monitoring` | N/A | N/A | N/A | N/A | N/A | generic summary page | connected | no form | route QA pass; workflow QA pending | Summary read flow exists, but no real workflow QA in this audit. | partial |
 | tenant:usage | `/admin/tenant/usage` | `usage.view` | `GET /admin/tenant/usage` | N/A | N/A | N/A | N/A | N/A | generic summary page | connected | no form | route QA pass; workflow QA pending | Summary read/filter flow exists, but no real workflow QA in this audit. | partial |
-| tenant:sync_logs | `/admin/tenant/sync-logs` | `sync_log.view` | `GET /admin/tenant/sync-logs` | N/A | N/A | N/A | N/A | N/A | operations sync log list with status/cursor filters and direction/event metadata columns | connected for tenant-scoped list | no form; read-only cursor workflow | remediation implementation-ready; awaiting focused QA retest | Status filter now includes `processed` while preserving `pending`, `running`, `completed`, and `failed`; row remains partial until focused QA verifies the tenant menu workflow. | partial |
+| tenant:sync_logs | `/admin/tenant/sync-logs` | `sync_log.view` | `GET /admin/tenant/sync-logs` | N/A | N/A | N/A | N/A | N/A | operations sync log list with status/cursor filters and direction/event metadata columns | connected for tenant-scoped list/filter/cursor workflow | no form; read-only cursor workflow | Focused remediation QA pass (20260510); real tenant menu showed `Processed` filter and API `status=processed` returned tenant-scoped fixture | None for P3 remediation; no detail endpoint in frozen contract, accepted as list/filter/cursor workflow. | complete |
 | tenant:audit_logs | `/admin/tenant/audit-logs` | `audit.view` | `GET /admin/tenant/audit-logs` | N/A | N/A | N/A | N/A | N/A | operations audit log list with action filter and target/request columns | connected for tenant-scoped list | no form; read-only cursor workflow | P3 real menu QA pass (20260510); list/filter evidence captured for tenant audit event scoped to ten_demo_alpha | None for P3; no detail endpoint in frozen contract, accepted as list/filter/cursor workflow. | complete |
 | tenant:admin_users | `/admin/tenant/admin-users` | `admin_user.manage` | `GET /admin/tenant/admin-users` | `GET /admin/tenant/admin-users/{admin_user_id}` | `POST /admin/tenant/admin-users` | `PATCH /admin/tenant/admin-users/{admin_user_id}` | `DELETE /admin/tenant/admin-users/{admin_user_id}` | N/A | generic operations page | partial; list/detail connected only | no create/update/delete form or action | route QA pass; workflow QA pending | Admin user management APIs exist, but BO lacks create/update/delete workflow. | partial |
 | tenant:roles_permissions | `/admin/tenant/roles` | `role.manage` | `GET /admin/tenant/roles` | N/A | `POST /admin/tenant/roles` | `PATCH /admin/tenant/roles/{role_id}` | `DELETE /admin/tenant/roles/{role_id}` | N/A | generic list page | partial; list connected only | no role create/update/delete form | route QA pass; workflow QA pending | Role/permission management APIs exist, but BO lacks role editor workflow. | partial |
