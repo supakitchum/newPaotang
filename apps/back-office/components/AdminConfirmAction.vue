@@ -46,7 +46,7 @@
             :id="fieldId(field.key)"
             v-model="formState[field.key]"
             class="form-control"
-            :type="field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'password' ? 'password' : 'text'"
+            :type="inputType(field)"
             :min="field.min"
             :step="field.step"
             :placeholder="field.placeholder"
@@ -139,6 +139,10 @@ const normalizeInitialValue = (field: OperationFormField, value: any) => {
     return Boolean(value)
   }
 
+  if (field.type === 'lines') {
+    return formatLines(value, field.valueKey || field.itemKey)
+  }
+
   if (field.type === 'prize-lines') {
     return formatPrizeLines(value)
   }
@@ -155,6 +159,14 @@ const confirm = () => {
 }
 
 const fieldId = (key: string) => `admin-confirm-${key.replace(/[^a-z0-9_-]/gi, '-')}`
+
+const inputType = (field: OperationFormField) => {
+  if (field.type === 'number') return 'number'
+  if (field.type === 'date') return 'date'
+  if (field.type === 'password') return 'password'
+  if (field.type === 'color') return 'color'
+  return 'text'
+}
 
 const getPath = (value: any, path: string) => path.split('.').reduce((current, key) => current?.[key], value)
 
@@ -179,6 +191,27 @@ const formatPrizeLines = (value: any) => {
     prize?.amount?.amount,
     prize?.amount?.currency || 'THB',
   ].filter((entry) => entry !== undefined && entry !== null && entry !== '').join(',')).join('\n')
+}
+
+const formatLines = (value: any, valueKey?: string) => {
+  if (!Array.isArray(value)) {
+    return value === undefined || value === null ? '' : String(value)
+  }
+
+  return value
+    .map((entry) => {
+      if (valueKey && entry && typeof entry === 'object') {
+        return getPath(entry, valueKey)
+      }
+
+      if (entry && typeof entry === 'object') {
+        return JSON.stringify(entry)
+      }
+
+      return entry
+    })
+    .filter((entry) => entry !== undefined && entry !== null && entry !== '')
+    .join('\n')
 }
 
 watch(() => [props.modelValue, props.payloadTemplate, props.formFields, props.recordContext] as const, () => {

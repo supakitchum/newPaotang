@@ -72,9 +72,7 @@
         <div class="col-md-6">
           <label class="form-label">Scope</label>
           <select v-model="form.scope" class="form-select" :class="invalidClass('scope')">
-            <option value="read_only">Read only</option>
-            <option value="support">Support</option>
-            <option value="elevated">Elevated</option>
+            <option v-for="scopeOption in supportScopes" :key="scopeOption" :value="scopeOption">{{ titleize(scopeOption) }}</option>
           </select>
           <div class="invalid-feedback">{{ fieldError('scope') }}</div>
         </div>
@@ -125,12 +123,13 @@ const meta = reactive({ next_cursor: null as string | null, has_more: false })
 const form = reactive({
   target_user_type: 'customer',
   target_user_id: '',
-  scope: 'read_only',
+  scope: 'customer_read',
   reason: '',
   ticket_id: '',
 })
 
-const statuses = ['pending_approval', 'approved', 'revoked', 'completed', 'expired']
+const statuses = ['draft', 'pending_approval', 'approved', 'denied', 'expired', 'revoked', 'completed']
+const supportScopes = ['customer_read', 'customer_limited_write', 'tenant_admin_read', 'tenant_admin_limited_write', 'elevated_action']
 const columns = [
   { key: 'id', label: 'Request' },
   { key: 'target_user_type', label: 'Target type' },

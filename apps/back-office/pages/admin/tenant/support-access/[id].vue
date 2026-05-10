@@ -96,31 +96,31 @@
                 <div class="invalid-feedback">{{ fieldError('reason') }}</div>
               </div>
               <div class="col-md-6 col-lg-4">
-                <button class="btn btn-success btn-wave w-100" type="button" :disabled="saving" @click="writeAction('approve')">
+                <button class="btn btn-success btn-wave w-100" type="button" :disabled="actionDisabled" @click="writeAction('approve')">
                   <i class="ri-check-line me-1" />
                   Approve
                 </button>
               </div>
               <div class="col-md-6 col-lg-4">
-                <button class="btn btn-danger btn-wave w-100" type="button" :disabled="saving" @click="writeAction('revoke')">
+                <button class="btn btn-danger btn-wave w-100" type="button" :disabled="actionDisabled" @click="writeAction('revoke')">
                   <i class="ri-close-line me-1" />
                   Revoke
                 </button>
               </div>
               <div class="col-md-6 col-lg-4">
-                <button class="btn btn-primary btn-wave w-100" type="button" :disabled="saving" @click="writeAction('impersonate')">
+                <button class="btn btn-primary btn-wave w-100" type="button" :disabled="actionDisabled" @click="writeAction('impersonate')">
                   <i class="ri-user-shared-line me-1" />
                   Start impersonation
                 </button>
               </div>
               <div class="col-md-6">
-                <button class="btn btn-outline-primary btn-wave w-100" type="button" :disabled="saving" @click="writeAction('elevated-actions')">
+                <button class="btn btn-outline-primary btn-wave w-100" type="button" :disabled="actionDisabled" @click="writeAction('elevated-actions')">
                   <i class="ri-flashlight-line me-1" />
                   Log elevated action
                 </button>
               </div>
               <div class="col-md-6">
-                <button class="btn btn-outline-secondary btn-wave w-100" type="button" :disabled="saving" @click="writeAction('end-session')">
+                <button class="btn btn-outline-secondary btn-wave w-100" type="button" :disabled="actionDisabled" @click="writeAction('end-session')">
                   <i class="ri-logout-circle-r-line me-1" />
                   End session
                 </button>
@@ -189,6 +189,7 @@ const elevatedAction = ref('wallet_adjust')
 const showElevatedAction = ref(false)
 const oneTimeToken = ref<string | null>(null)
 const breadcrumbs = computed(() => ['Admin', 'Tenant', 'Support Access', String(route.params.id)])
+const actionDisabled = computed(() => saving.value || actionReason.value.trim() === '')
 
 const fieldError = (field: string) => validation.value[field]?.[0] || ''
 const invalidClass = (field: string) => fieldError(field) ? 'is-invalid' : ''

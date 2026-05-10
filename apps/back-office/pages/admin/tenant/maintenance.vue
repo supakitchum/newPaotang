@@ -53,7 +53,7 @@
               <div class="invalid-feedback">{{ fieldError('retry_after_seconds') }}</div>
             </div>
             <div class="col-md-6 d-flex align-items-end">
-              <button class="btn btn-primary btn-wave w-100" type="submit" :disabled="saving || !tenantId">
+              <button class="btn btn-primary btn-wave w-100" type="submit" :disabled="saving || !tenantId || !form.reason.trim()">
                 <span v-if="saving" class="spinner-border spinner-border-sm me-2" />
                 Save maintenance
               </button>
@@ -82,11 +82,16 @@
               <input v-model="bypass.reason" class="form-control" :class="invalidClass('reason')" />
             </div>
             <div class="col-md-6">
+              <label class="form-label">Ticket ID</label>
+              <input v-model="bypass.ticket_id" class="form-control" :class="invalidClass('ticket_id')" />
+              <div class="invalid-feedback">{{ fieldError('ticket_id') }}</div>
+            </div>
+            <div class="col-md-6">
               <label class="form-label">Expires at</label>
               <input v-model="bypass.expires_at" type="datetime-local" class="form-control" />
             </div>
             <div class="col-12">
-              <button class="btn btn-outline-primary btn-wave" type="submit" :disabled="saving || !tenantId">
+              <button class="btn btn-outline-primary btn-wave" type="submit" :disabled="saving || !tenantId || !bypass.reason.trim()">
                 <i class="ri-shield-check-line me-1" />
                 Create bypass
               </button>
@@ -156,7 +161,7 @@
                         class="btn btn-sm btn-danger btn-wave"
                         type="button"
                         :disabled="saving || !item.is_currently_active"
-                        @click="revokeBypass(item.id)"
+                        @click="prepareRevokeBypass(item)"
                       >
                         Revoke
                       </button>
@@ -170,6 +175,18 @@
         </div>
       </div>
     </div>
+
+    <AdminConfirmAction
+      v-model="revokeConfirm.open"
+      title="Revoke bypass"
+      message="Confirm revoke for the selected maintenance bypass."
+      :requires-reason="true"
+      :record-context="revokeConfirm.row"
+      :context-fields="['id', 'actor_type', 'actor_id', 'effective_status', 'expires_at', 'ticket_id']"
+      :loading="saving"
+      :error="error"
+      @confirm="confirmRevokeBypass"
+    />
   </div>
 </template>
 
@@ -209,7 +226,12 @@ const bypass = reactive<any>({
   actor_type: 'customer',
   actor_id: '',
   reason: '',
+  ticket_id: '',
   expires_at: '',
+})
+const revokeConfirm = reactive<{ open: boolean, row: any }>({
+  open: false,
+  row: null,
 })
 
 const alertType = (err: any) => err?.status === 403 ? 'warning' : err?.status === 503 ? 'warning' : 'danger'
@@ -328,6 +350,7 @@ const createBypass = async () => {
         actor_type: bypass.actor_type,
         actor_id: bypass.actor_id,
         reason: bypass.reason,
+        ticket_id: bypass.ticket_id,
         expires_at: toApiDate(bypass.expires_at),
       },
     })
@@ -340,8 +363,15 @@ const createBypass = async () => {
   }
 }
 
-const revokeBypass = async (id: string) => {
+const prepareRevokeBypass = (item: any) => {
+  revokeConfirm.row = item
+  revokeConfirm.open = true
+}
+
+const confirmRevokeBypass = async (reason: string) => {
   if (!tenantId.value) return
+  const id = revokeConfirm.row?.id
+  if (!id) return
   saving.value = true
   error.value = null
   try {
@@ -350,10 +380,12 @@ const revokeBypass = async (id: string) => {
       scope: 'tenant',
       tenantId: tenantId.value,
       idempotencyKey: api.idempotencyKey(),
+      body: { reason },
     })
     if (lastBypass.value?.id === id) {
       lastBypass.value = { ...lastBypass.value, status: 'revoked', effective_status: 'revoked', is_currently_active: false }
     }
+    revokeConfirm.open = false
     await Promise.all([loadBypasses(), loadEvents()])
   } catch (err) {
     error.value = err

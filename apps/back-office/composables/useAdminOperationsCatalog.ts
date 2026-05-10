@@ -18,8 +18,9 @@ export type OperationFilter = {
 export type OperationFormField = {
   key: string
   label: string
-  type?: 'text' | 'number' | 'textarea' | 'select' | 'checkbox' | 'date' | 'lines' | 'password' | 'prize-lines'
+  type?: 'text' | 'number' | 'textarea' | 'select' | 'checkbox' | 'date' | 'lines' | 'password' | 'color' | 'prize-lines'
   sourceKey?: string
+  valueKey?: string
   options?: string[]
   required?: boolean
   placeholder?: string
@@ -57,6 +58,15 @@ export type OperationRelatedList = {
   emptyMessage?: string
 }
 
+export type OperationSettingsPanel = {
+  key: string
+  title: string
+  listEndpoint: string
+  updateEndpoint: string
+  updateMethod?: 'PATCH' | 'PUT' | 'POST'
+  settingsFields: OperationFormField[]
+}
+
 export type OperationResource = {
   scope: AdminScope
   slug: string
@@ -74,6 +84,7 @@ export type OperationResource = {
   actions?: OperationAction[]
   collectionActions?: OperationAction[]
   relatedLists?: OperationRelatedList[]
+  secondarySettings?: OperationSettingsPanel[]
   settingsFields?: OperationFormField[]
   confirmContextFields?: string[]
   reportKeys?: string[]
@@ -122,13 +133,16 @@ const adminUserColumns: OperationColumn[] = [
   { key: 'id', label: 'Admin user' },
   { key: 'name', label: 'Name' },
   { key: 'email', label: 'Email' },
+  { key: 'roles.0.name', label: 'Primary role' },
   { key: 'status', label: 'Status', type: 'status' },
   { key: 'updated_at', label: 'Updated', type: 'datetime' },
 ]
 
 const roleColumns: OperationColumn[] = [
   { key: 'id', label: 'Role' },
+  { key: 'code', label: 'Code' },
   { key: 'name', label: 'Name' },
+  { key: 'permissions', label: 'Permissions', type: 'json' },
   { key: 'status', label: 'Status', type: 'status' },
   { key: 'updated_at', label: 'Updated', type: 'datetime' },
 ]
@@ -225,6 +239,11 @@ const alertPolicyStatusOptions = ['active', 'paused', 'archived']
 const alertSeverityOptions = ['info', 'warning', 'critical']
 const alertEventStatusOptions = ['open', 'acknowledged', 'resolved', 'suppressed']
 const rewardStatusOptions = ['recorded', 'checking', 'summary_ready', 'verified', 'published', 'corrected', 'archived']
+const adminUserStatusOptions = ['active', 'invited', 'suspended', 'disabled']
+const roleStatusOptions = ['active', 'archived']
+const maintenanceStatusOptions = ['inactive', 'scheduled', 'active', 'ended', 'cancelled']
+const maintenanceModeOptions = ['full_site', 'customer_web_only', 'admin_only', 'checkout_payment_only', 'read_only', 'scheduled']
+const tenantDomainStatusOptions = ['pending_verification', 'dns_verified', 'ssl_pending', 'active', 'failed', 'suspended', 'archived']
 const partnerActionContext = ['id', 'code', 'name', 'type', 'status', 'tenants.0.id', 'tenants.0.code', 'domains.0.host', 'runtime.billing_status', 'runtime.monitoring_status']
 const partnerQuotaActionContext = ['id', 'partner_id', 'game_id', 'quota_count', 'allocated_count', 'remaining_count', 'status']
 const billingPlanActionContext = ['id', 'code', 'name', 'monthly_fee.amount', 'monthly_fee.currency', 'status']
@@ -233,7 +252,109 @@ const alertEventActionContext = ['id', 'partner_id', 'partner.name', 'policy_key
 const rewardActionContext = ['id', 'game_id', 'status', 'version', 'prizes.0.prize_type', 'prizes.0.prize_number', 'prizes.0.amount.amount', 'checked_at', 'verified_at', 'published_at']
 const settlementActionContext = ['id', 'partner_id', 'tenant_id', 'status', 'sales_amount.amount', 'commission_amount.amount', 'payout_amount.amount', 'net_amount.amount', 'period_from', 'period_to']
 const reportExportContext = ['scope', 'report_key', 'tenant_id', 'date_from', 'date_to', 'group_by', 'filters']
+const adminUserActionContext = ['id', 'tenant_id', 'name', 'email', 'phone', 'status', 'roles.0.id', 'roles.0.name', 'permissions.0']
+const roleActionContext = ['id', 'tenant_id', 'code', 'name', 'status', 'permissions.0', 'permissions.1', 'system_role']
+const domainActionContext = ['id', 'tenant_id', 'host', 'type', 'status', 'is_primary', 'readiness.local_only']
 const rewardPrizeLinesHelp = 'One prize per line: prize_type,prize_number,amount_minor,currency. Example: first_prize,123456,1000000,THB.'
+const roleIdsField = (required = false): OperationFormField => ({
+  key: 'role_ids',
+  label: 'Role IDs',
+  type: 'lines',
+  sourceKey: 'roles',
+  valueKey: 'id',
+  required,
+  placeholder: 'rol_example_one\nrol_example_two',
+  help: 'One role ID per line. Use IDs from the roles page for the same scope.',
+})
+const permissionsField = (required = false): OperationFormField => ({
+  key: 'permissions',
+  label: 'Permission codes',
+  type: 'lines',
+  required,
+  placeholder: 'dashboard.view\norder.view',
+  help: 'One permission code per line. Backend validates codes against the current scope.',
+})
+const adminUserCreateFields = (scope: AdminScope): OperationFormField[] => [
+  { key: 'name', label: 'Name', required: true },
+  { key: 'email', label: 'Email', required: true, placeholder: 'admin@example.test' },
+  { key: 'phone', label: 'Phone' },
+  ...(scope === 'central'
+    ? [
+        { key: 'password', label: 'Temporary password', type: 'password', placeholder: 'Leave blank for backend-generated secret' } as OperationFormField,
+        { key: 'status', label: 'Status', type: 'select', options: adminUserStatusOptions, defaultValue: 'active' } as OperationFormField,
+      ]
+    : [
+        { key: 'send_invitation', label: 'Send invitation', type: 'checkbox', defaultValue: true } as OperationFormField,
+      ]),
+  roleIdsField(true),
+]
+const adminUserUpdateFields: OperationFormField[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'email', label: 'Email' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'status', label: 'Status', type: 'select', options: adminUserStatusOptions },
+  { key: 'password', label: 'Temporary password', type: 'password', placeholder: 'Leave blank to keep current credential' },
+  roleIdsField(false),
+]
+const roleCreateFields: OperationFormField[] = [
+  { key: 'name', label: 'Role name', required: true },
+  { key: 'code', label: 'Role code', placeholder: 'Optional; backend derives one from the name' },
+  { key: 'status', label: 'Status', type: 'select', options: roleStatusOptions, defaultValue: 'active' },
+  permissionsField(true),
+]
+const roleUpdateFields: OperationFormField[] = [
+  { key: 'name', label: 'Role name' },
+  { key: 'code', label: 'Role code' },
+  { key: 'status', label: 'Status', type: 'select', options: roleStatusOptions },
+  permissionsField(false),
+]
+const systemSettingsFields: OperationFormField[] = [
+  { key: 'settings.platform_name', label: 'Platform name', sourceKey: 'settings.platform_name' },
+  { key: 'settings.admin_api_version', label: 'Admin API version', sourceKey: 'settings.admin_api_version' },
+  { key: 'settings.release_gate_note', label: 'Release gate note', sourceKey: 'settings.release_gate_note' },
+  { key: 'settings.bo_menu_completion_backend_gaps', label: 'BO backend gap status', sourceKey: 'settings.bo_menu_completion_backend_gaps' },
+]
+const tenantSettingsFields: OperationFormField[] = [
+  { key: 'site.site_name', label: 'Site name', required: true },
+  { key: 'site.display_name', label: 'Display name' },
+  { key: 'site.locale', label: 'Locale', defaultValue: 'th-TH' },
+  { key: 'site.timezone', label: 'Timezone', defaultValue: 'Asia/Bangkok' },
+  { key: 'site.support_email', label: 'Support email' },
+  { key: 'site.support_phone', label: 'Support phone' },
+  { key: 'seo.default_title', label: 'SEO title' },
+  { key: 'seo.default_description', label: 'SEO description', type: 'textarea' },
+  { key: 'seo.default_keywords', label: 'SEO keywords', type: 'lines', sourceKey: 'seo.default_keywords', placeholder: 'lottery\nlucky' },
+  { key: 'seo.robots_default', label: 'Robots default', defaultValue: 'index,follow' },
+  { key: 'seo.sitemap_enabled', label: 'Sitemap enabled', type: 'checkbox', sourceKey: 'seo.sitemap_enabled', defaultValue: true },
+  { key: 'seo.robots_enabled', label: 'Robots enabled', type: 'checkbox', sourceKey: 'seo.robots_enabled', defaultValue: true },
+  { key: 'maintenance.active', label: 'Maintenance active', type: 'checkbox', sourceKey: 'maintenance.active', defaultValue: false },
+  { key: 'maintenance.mode', label: 'Maintenance mode', type: 'select', options: maintenanceModeOptions, sourceKey: 'maintenance.mode' },
+  { key: 'maintenance.message', label: 'Maintenance message', type: 'textarea', sourceKey: 'maintenance.message' },
+  { key: 'maintenance.retry_after_seconds', label: 'Retry after seconds', type: 'number', sourceKey: 'maintenance.retry_after_seconds', min: 0, step: 1 },
+  { key: 'maintenance.allowed_routes', label: 'Allowed routes', type: 'lines', sourceKey: 'maintenance.allowed_routes', placeholder: '/\n/login' },
+  { key: 'maintenance.blocked_route_patterns', label: 'Blocked route patterns', type: 'lines', sourceKey: 'maintenance.blocked_route_patterns', placeholder: '/checkout/*' },
+  { key: 'api.base_url', label: 'API base URL', sourceKey: 'api.base_url' },
+  { key: 'api.realtime_url', label: 'Realtime URL', sourceKey: 'api.realtime_url' },
+  { key: 'api.asset_cdn_base_url', label: 'Asset CDN base URL', sourceKey: 'api.asset_cdn_base_url' },
+]
+const tenantThemeFields: OperationFormField[] = [
+  { key: 'brand.logo_url', label: 'Logo URL', sourceKey: 'brand.logo_url' },
+  { key: 'brand.favicon_url', label: 'Favicon URL', sourceKey: 'brand.favicon_url' },
+  { key: 'brand.og_image_url', label: 'Open graph image URL', sourceKey: 'brand.og_image_url' },
+  { key: 'theme.primary_color', label: 'Primary color', type: 'color', sourceKey: 'theme.primary_color', defaultValue: '#0F766E' },
+  { key: 'theme.secondary_color', label: 'Secondary color', type: 'color', sourceKey: 'theme.secondary_color', defaultValue: '#2563EB' },
+  { key: 'theme.accent_color', label: 'Accent color', type: 'color', sourceKey: 'theme.accent_color', defaultValue: '#F59E0B' },
+  { key: 'theme.background_color', label: 'Background color', type: 'color', sourceKey: 'theme.background_color', defaultValue: '#FFFFFF' },
+  { key: 'theme.text_color', label: 'Text color', type: 'color', sourceKey: 'theme.text_color', defaultValue: '#111827' },
+  { key: 'theme.font_family', label: 'Font family', sourceKey: 'theme.font_family', defaultValue: 'Inter, sans-serif' },
+]
+const tenantDomainCreateFields: OperationFormField[] = [
+  { key: 'host', label: 'Host', required: true, placeholder: 'shop.example.test' },
+  { key: 'type', label: 'Domain type', type: 'select', options: domainTypeOptions, defaultValue: 'custom_domain', required: true },
+  { key: 'status', label: 'Status', type: 'select', options: tenantDomainStatusOptions, defaultValue: 'pending_verification', required: true },
+  { key: 'is_primary', label: 'Primary domain', type: 'checkbox', defaultValue: false },
+]
+const tenantDomainUpdateFields: OperationFormField[] = tenantDomainCreateFields.map((field) => ({ ...field, required: false }))
 const partnerCreateFields: OperationFormField[] = [
   { key: 'code', label: 'Partner code', required: true, placeholder: 'acme_partner', help: 'Use lowercase letters, numbers, underscores, or hyphens.' },
   { key: 'name', label: 'Partner name', required: true, placeholder: 'Acme Partner' },
@@ -665,14 +786,61 @@ const tenant: OperationResource[] = [
     { key: 'date_from', label: 'From', type: 'date' },
     { key: 'date_to', label: 'To', type: 'date' },
   ]),
-  resource('tenant', 'admin-users', 'Admin Users', 'Tenant Administration', '/admin/tenant/admin-users', '/admin/tenant/admin-users/{admin_user_id}', 'admin_user_id', adminUserColumns, cursorFilters([
+  adminUserResource('tenant', cursorFilters([
     { key: 'q', label: 'Search' },
-    statusFilter(['active', 'invited', 'suspended', 'disabled']),
+    statusFilter(adminUserStatusOptions),
     { key: 'role_id', label: 'Role ID' },
   ])),
-  listResource('tenant', 'roles', 'Roles And Permissions', 'Tenant Administration', '/admin/tenant/roles', 'role_id', roleColumns, cursorFilters()),
+  roleManagementResource('tenant'),
   settingsResource('tenant', 'menu-management', 'Menu Management', '/admin/tenant/menu-management', 'PUT'),
-  settingsResource('tenant', 'settings', 'Tenant Settings', '/admin/tenant/settings'),
+  {
+    ...settingsResource('tenant', 'settings', 'Tenant Settings', '/admin/tenant/settings'),
+    settingsFields: tenantSettingsFields,
+    secondarySettings: [{
+      key: 'theme',
+      title: 'Theme And Branding',
+      listEndpoint: '/admin/tenant/theme',
+      updateEndpoint: '/admin/tenant/theme',
+      updateMethod: 'PATCH',
+      settingsFields: tenantThemeFields,
+    }],
+    relatedLists: [{
+      key: 'domains',
+      title: 'Tenant Domains',
+      listEndpoint: '/admin/tenant/domains',
+      detailEndpoint: '/admin/tenant/domains/{domain_id}',
+      idParam: 'domain_id',
+      idKey: 'id',
+      columns: [
+        { key: 'id', label: 'Domain' },
+        { key: 'host', label: 'Host' },
+        { key: 'type', label: 'Type' },
+        { key: 'status', label: 'Status', type: 'status' },
+        { key: 'is_primary', label: 'Primary', type: 'status' },
+        { key: 'updated_at', label: 'Updated', type: 'datetime' },
+      ],
+      collectionActions: [{
+        key: 'create',
+        label: 'Add domain',
+        endpoint: '/admin/tenant/domains',
+        reason: true,
+        formFields: tenantDomainCreateFields,
+      }],
+      actions: [
+        { key: 'update', label: 'Update', method: 'PATCH', endpoint: '/admin/tenant/domains/{domain_id}', variant: 'primary', reason: true, contextFields: domainActionContext, formFields: tenantDomainUpdateFields },
+        { key: 'verify', label: 'Verify', endpoint: '/admin/tenant/domains/{domain_id}/verify', variant: 'success', reason: true, contextFields: domainActionContext, formFields: [
+          { key: 'dns_ready', label: 'DNS ready', type: 'checkbox', defaultValue: true },
+          { key: 'ssl_ready', label: 'SSL ready', type: 'checkbox', defaultValue: true },
+          { key: 'cloudflare_proxy_verified', label: 'Cloudflare proxy verified', type: 'checkbox', defaultValue: true },
+          { key: 'https_enforced', label: 'HTTPS enforced', type: 'checkbox', defaultValue: true },
+          { key: 'status', label: 'Requested status', type: 'select', options: tenantDomainStatusOptions, defaultValue: 'active' },
+        ] },
+        { key: 'delete', label: 'Delete', method: 'DELETE', endpoint: '/admin/tenant/domains/{domain_id}', variant: 'danger', reason: true, contextFields: domainActionContext },
+      ],
+      emptyTitle: 'No tenant domains',
+      emptyMessage: 'Add a domain when this tenant needs an operator-managed host.',
+    }],
+  },
   {
     scope: 'tenant',
     slug: 'payment-settings',
@@ -1188,12 +1356,15 @@ const central: OperationResource[] = [
     columns: syncColumns,
     filters: cursorFilters([statusFilter(['pending', 'running', 'completed', 'failed'])]),
   },
-  resource('central', 'admin-users', 'Admin Users', 'Central Administration', '/admin/central/admin-users', '/admin/central/admin-users/{admin_user_id}', 'admin_user_id', adminUserColumns, cursorFilters([
+  adminUserResource('central', cursorFilters([
     { key: 'q', label: 'Search' },
   ])),
-  listResource('central', 'roles', 'Roles And Permissions', 'Central Administration', '/admin/central/roles', 'role_id', roleColumns, cursorFilters()),
+  roleManagementResource('central'),
   settingsResource('central', 'menu-management', 'Menu Management', '/admin/central/menu-management', 'PUT'),
-  settingsResource('central', 'system-settings', 'System Settings', '/admin/central/system-settings'),
+  {
+    ...settingsResource('central', 'system-settings', 'System Settings', '/admin/central/system-settings'),
+    settingsFields: systemSettingsFields,
+  },
   reportIndex('central', ['overview', 'sales', 'stock', 'wallet', 'commission', 'settlement', 'partner_usage', 'audit']),
 ]
 
@@ -1360,6 +1531,99 @@ function actionResource(
     { key: 'amount', label: 'Amount', type: 'money' },
     { key: 'created_at', label: 'Created', type: 'datetime' },
   ], cursorFilters([statusFilter()]), actions)
+}
+
+function adminUserResource(scope: AdminScope, filters: OperationFilter[]): OperationResource {
+  const baseEndpoint = `/admin/${scope}/admin-users`
+  const detailEndpoint = `${baseEndpoint}/{admin_user_id}`
+
+  return {
+    scope,
+    slug: 'admin-users',
+    title: 'Admin Users',
+    group: scope === 'tenant' ? 'Tenant Administration' : 'Central Administration',
+    listEndpoint: baseEndpoint,
+    detailEndpoint,
+    idParam: 'admin_user_id',
+    idKey: 'id',
+    columns: adminUserColumns,
+    filters,
+    confirmContextFields: adminUserActionContext,
+    collectionActions: [{
+      key: 'create',
+      label: 'Create admin user',
+      endpoint: baseEndpoint,
+      reason: true,
+      formFields: adminUserCreateFields(scope),
+    }],
+    actions: [
+      {
+        key: 'update',
+        label: 'Update',
+        method: 'PATCH',
+        endpoint: detailEndpoint,
+        variant: 'primary',
+        reason: true,
+        contextFields: adminUserActionContext,
+        formFields: adminUserUpdateFields,
+      },
+      {
+        key: 'delete',
+        label: 'Disable',
+        method: 'DELETE',
+        endpoint: detailEndpoint,
+        variant: 'danger',
+        reason: true,
+        contextFields: adminUserActionContext,
+      },
+    ],
+  }
+}
+
+function roleManagementResource(scope: AdminScope): OperationResource {
+  const baseEndpoint = `/admin/${scope}/roles`
+  const detailEndpoint = `${baseEndpoint}/{role_id}`
+
+  return {
+    scope,
+    slug: 'roles',
+    title: 'Roles And Permissions',
+    group: scope === 'tenant' ? 'Tenant Administration' : 'Central Administration',
+    listEndpoint: baseEndpoint,
+    idParam: 'role_id',
+    idKey: 'id',
+    columns: roleColumns,
+    filters: cursorFilters(),
+    confirmContextFields: roleActionContext,
+    collectionActions: [{
+      key: 'create',
+      label: 'Create role',
+      endpoint: baseEndpoint,
+      reason: true,
+      formFields: roleCreateFields,
+    }],
+    actions: [
+      {
+        key: 'update',
+        label: 'Update',
+        method: 'PATCH',
+        endpoint: detailEndpoint,
+        variant: 'primary',
+        reason: true,
+        contextFields: roleActionContext,
+        formFields: roleUpdateFields,
+      },
+      {
+        key: 'delete',
+        label: 'Archive',
+        method: 'DELETE',
+        endpoint: detailEndpoint,
+        variant: 'danger',
+        reason: true,
+        contextFields: roleActionContext,
+      },
+    ],
+  }
 }
 
 function growthColumns(): OperationColumn[] {

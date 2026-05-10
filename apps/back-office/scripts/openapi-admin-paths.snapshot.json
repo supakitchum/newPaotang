@@ -108,6 +108,7 @@
     "/admin/tenant/roles/{role_id}": ["patch", "delete"],
     "/admin/tenant/seo": ["get", "patch"],
     "/admin/tenant/settings": ["get", "patch"],
+    "/admin/tenant/theme": ["get", "patch"],
     "/admin/tenant/stock": ["get"],
     "/admin/tenant/stock-sync/batches": ["get", "post"],
     "/admin/tenant/stock-sync/batches/{batch_id}": ["get"],

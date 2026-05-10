@@ -50,6 +50,7 @@ const requiredComponents = [
   'AdminDetailSection',
   'AdminOperationHeader',
   'AdminConfirmAction',
+  'AdminMenuTreeEditor',
   'AdminReportPanel',
   'AdminExportPanel',
   'AdminDateRangeFilter',
@@ -307,6 +308,7 @@ for (const evidence of [
   ['P2 billing alert typed workflows', operationsCatalog.includes('sourceKey?: string') && operationsCatalog.includes('const billingPlanFields') && operationsCatalog.includes('const billingPlanUpdateFields') && operationsCatalog.includes('const alertPolicyFields') && operationsCatalog.includes('const alertEventActionContext') && operationsCatalog.includes("formFields: billingPlanFields") && operationsCatalog.includes("formFields: alertPolicyFields")],
   ['P3 reward report log workflows', operationsCatalog.includes("'prize-lines'") && operationsCatalog.includes('const rewardCreateFields') && operationsCatalog.includes('const rewardUpdateFields') && operationsCatalog.includes('Prize Check Batches') && operationsCatalog.includes('const settlementActionContext') && operationsCatalog.includes('const reportExportContext') && operationsCatalog.includes('function reportExportFields') && operationsPage.includes('buildCollectionContext') && operationsPage.includes('normalizePrizeLines') && existsSync(join(root, 'components/AdminReportPanel.vue')) && readFileSync(join(root, 'components/AdminReportPanel.vue'), 'utf8').includes('Report rows')],
   ['P3 tenant sync processed filter', operationsCatalog.includes("slug: 'sync-logs'") && operationsCatalog.includes("statusFilter(['pending', 'running', 'completed', 'processed', 'failed'])")],
+  ['P4 administration security settings workflows', operationsCatalog.includes('function adminUserResource') && operationsCatalog.includes('function roleManagementResource') && operationsCatalog.includes('const adminUserCreateFields') && operationsCatalog.includes('const roleCreateFields') && operationsCatalog.includes('const tenantSettingsFields') && operationsCatalog.includes('const tenantThemeFields') && operationsCatalog.includes('const tenantDomainCreateFields') && operationsCatalog.includes("secondarySettings") && operationsPage.includes('isMenuManagement') && operationsPage.includes('saveMenuTree') && operationsPage.includes('loadSecondarySettings') && existsSync(join(root, 'components/AdminMenuTreeEditor.vue')) && readFileSync(join(root, 'components/AdminMenuTreeEditor.vue'), 'utf8').includes('Save menu')],
   ['settings update method support', operationsPage.includes('resource.value.updateMethod') && operationsCatalog.includes("updateMethod?: 'PATCH' | 'PUT' | 'POST'")],
   ['menu management PUT resources', operationsCatalog.includes("settingsResource('tenant', 'menu-management', 'Menu Management', '/admin/tenant/menu-management', 'PUT')") && operationsCatalog.includes("settingsResource('central', 'menu-management', 'Menu Management', '/admin/central/menu-management', 'PUT')")],
 ]) {

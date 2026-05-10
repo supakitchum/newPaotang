@@ -44,7 +44,16 @@
 
     <template v-else-if="mode === 'settings'">
       <AdminApiState :error="error" />
-      <div v-if="hasSettingsForm" class="card custom-card">
+      <AdminMenuTreeEditor
+        v-if="isMenuManagement"
+        :scope="scope"
+        :model-value="detail"
+        :loading="loading"
+        :saving="saving"
+        :error="error"
+        @save="saveMenuTree"
+      />
+      <div v-else-if="hasSettingsForm" class="card custom-card">
         <div class="card-header">
           <div class="card-title">Configuration</div>
         </div>
@@ -76,7 +85,7 @@
                   :id="fieldId(`settings-${field.key}`)"
                   v-model="settingsForm[field.key]"
                   class="form-control"
-                  :type="field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'password' ? 'password' : 'text'"
+                  :type="inputType(field)"
                   :min="field.min"
                   :step="field.step"
                   :placeholder="field.placeholder"
@@ -106,6 +115,62 @@
           <button class="btn btn-light btn-wave" type="button" :disabled="loading" @click="resetSettings">Reset</button>
           <button class="btn btn-primary btn-wave" type="button" :disabled="saving" @click="saveSettings">
             <span v-if="saving" class="spinner-border spinner-border-sm me-2" />
+            Save
+          </button>
+        </div>
+      </div>
+
+      <div
+        v-for="panel in resource.secondarySettings || []"
+        :key="panel.key"
+        class="card custom-card"
+      >
+        <div class="card-header">
+          <div class="card-title">{{ panel.title }}</div>
+        </div>
+        <div class="card-body">
+          <AdminApiState :error="secondaryErrors[panel.key]" />
+          <AdminLoader v-if="secondaryLoading[panel.key]" />
+          <div v-else-if="secondaryForms[panel.key]" class="row g-3">
+            <div v-for="field in panel.settingsFields || []" :key="field.key" :class="field.type === 'textarea' || field.type === 'lines' ? 'col-12' : 'col-md-6'">
+              <div v-if="field.type === 'checkbox'" class="form-check form-switch mt-4">
+                <input :id="fieldId(`secondary-${panel.key}-${field.key}`)" v-model="secondaryForms[panel.key][field.key]" class="form-check-input" type="checkbox">
+                <label class="form-check-label" :for="fieldId(`secondary-${panel.key}-${field.key}`)">{{ field.label }}</label>
+                <div v-if="field.help" class="form-text">{{ field.help }}</div>
+              </div>
+              <template v-else>
+                <label class="form-label" :for="fieldId(`secondary-${panel.key}-${field.key}`)">{{ field.label }}</label>
+                <select v-if="field.type === 'select'" :id="fieldId(`secondary-${panel.key}-${field.key}`)" v-model="secondaryForms[panel.key][field.key]" class="form-select">
+                  <option value="">Select</option>
+                  <option v-for="option in field.options || []" :key="option" :value="option">{{ option }}</option>
+                </select>
+                <textarea
+                  v-else-if="field.type === 'textarea' || field.type === 'lines'"
+                  :id="fieldId(`secondary-${panel.key}-${field.key}`)"
+                  v-model="secondaryForms[panel.key][field.key]"
+                  class="form-control"
+                  rows="4"
+                  :placeholder="field.placeholder"
+                />
+                <input
+                  v-else
+                  :id="fieldId(`secondary-${panel.key}-${field.key}`)"
+                  v-model="secondaryForms[panel.key][field.key]"
+                  class="form-control"
+                  :type="inputType(field)"
+                  :min="field.min"
+                  :step="field.step"
+                  :placeholder="field.placeholder"
+                >
+                <div v-if="field.help" class="form-text">{{ field.help }}</div>
+              </template>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer d-flex justify-content-end gap-2">
+          <button class="btn btn-light btn-wave" type="button" :disabled="secondaryLoading[panel.key] || secondarySaving[panel.key]" @click="resetSecondarySettingsForm(panel)">Reset</button>
+          <button class="btn btn-primary btn-wave" type="button" :disabled="secondarySaving[panel.key]" @click="saveSecondarySettingsForm(panel)">
+            <span v-if="secondarySaving[panel.key]" class="spinner-border spinner-border-sm me-2" />
             Save
           </button>
         </div>
@@ -255,7 +320,7 @@
 </template>
 
 <script setup lang="ts">
-import type { OperationAction, OperationFormField, OperationRelatedList, OperationResource } from '~/composables/useAdminOperationsCatalog'
+import type { OperationAction, OperationFormField, OperationRelatedList, OperationResource, OperationSettingsPanel } from '~/composables/useAdminOperationsCatalog'
 import { formatDateTime, titleize } from '~/utils/format'
 
 const props = defineProps<{
@@ -275,6 +340,11 @@ const rows = ref<any[]>([])
 const detail = ref<any>(null)
 const settingsDraft = ref('')
 const settingsForm = reactive<Record<string, any>>({})
+const secondaryDetails = reactive<Record<string, any>>({})
+const secondaryForms = reactive<Record<string, Record<string, any>>>({})
+const secondaryLoading = reactive<Record<string, boolean>>({})
+const secondarySaving = reactive<Record<string, boolean>>({})
+const secondaryErrors = reactive<Record<string, any>>({})
 const detailDraft = ref('')
 const filters = ref<Record<string, any>>({})
 const meta = reactive({ next_cursor: null as string | null, has_more: false })
@@ -324,6 +394,7 @@ const hasDetailRoute = computed(() => Boolean(resource.value?.detailEndpoint || 
 const detailGap = computed(() => mode.value === 'detail' && !resource.value?.detailEndpoint ? resource.value?.detailApiGap || 'No documented detail GET endpoint is available for this route.' : '')
 const detailActions = computed(() => resource.value?.actions || [])
 const hasSettingsForm = computed(() => Boolean(resource.value?.settingsFields?.length))
+const isMenuManagement = computed(() => resource.value?.slug === 'menu-management')
 const showRelatedLists = computed(() => Boolean(
   resource.value?.relatedLists?.length
   && (mode.value === 'detail' || mode.value === 'settings')
@@ -389,7 +460,7 @@ async function load(cursor?: string | null) {
       detail.value = extractData(response)
       settingsDraft.value = JSON.stringify(detail.value || {}, null, 2)
       resetSettingsForm()
-      await loadRelatedLists()
+      await Promise.all([loadRelatedLists(), loadSecondarySettings()])
       return
     }
 
@@ -473,6 +544,80 @@ const saveSettingsForm = async () => {
     error.value = err
   } finally {
     saving.value = false
+  }
+}
+
+const saveMenuTree = async (reason: string, items: any[]) => {
+  if (!resource.value?.updateEndpoint) return
+  saving.value = true
+  error.value = null
+  try {
+    const response = await api.apiFetch(resource.value.updateEndpoint, apiOptions({
+      method: resource.value.updateMethod || 'PUT',
+      body: { items, reason },
+      idempotencyKey: api.idempotencyKey(),
+    }))
+    detail.value = extractData(response)
+    settingsDraft.value = JSON.stringify(detail.value || {}, null, 2)
+  } catch (err: any) {
+    error.value = err
+  } finally {
+    saving.value = false
+  }
+}
+
+const loadSecondarySettings = async () => {
+  const panels = resource.value?.secondarySettings || []
+  if (!panels.length) return
+
+  await Promise.all(panels.map(async (panel) => {
+    secondaryLoading[panel.key] = true
+    secondaryErrors[panel.key] = null
+    secondaryForms[panel.key] = secondaryForms[panel.key] || {}
+    try {
+      const response = await api.apiFetch(panel.listEndpoint, apiOptions())
+      secondaryDetails[panel.key] = extractData(response)
+      resetSecondarySettingsForm(panel)
+    } catch (err) {
+      secondaryErrors[panel.key] = err
+    } finally {
+      secondaryLoading[panel.key] = false
+    }
+  }))
+}
+
+const resetSecondarySettingsForm = (panel: OperationSettingsPanel) => {
+  const form = secondaryForms[panel.key] || {}
+  for (const key of Object.keys(form)) {
+    delete form[key]
+  }
+
+  for (const field of panel.settingsFields || []) {
+    const value = getPath(secondaryDetails[panel.key] || {}, field.sourceKey || field.key)
+    form[field.key] = value !== undefined && value !== null
+      ? normalizeInitialFieldValue(field, value)
+      : field.defaultValue !== undefined ? field.defaultValue : normalizeInitialFieldValue(field, value)
+  }
+
+  secondaryForms[panel.key] = form
+}
+
+const saveSecondarySettingsForm = async (panel: OperationSettingsPanel) => {
+  secondarySaving[panel.key] = true
+  secondaryErrors[panel.key] = null
+  try {
+    const payload = buildPayloadFromFields(panel.settingsFields, secondaryForms[panel.key] || {})
+    const response = await api.apiFetch(panel.updateEndpoint, apiOptions({
+      method: panel.updateMethod || 'PATCH',
+      body: payload,
+      idempotencyKey: api.idempotencyKey(),
+    }))
+    secondaryDetails[panel.key] = extractData(response)
+    resetSecondarySettingsForm(panel)
+  } catch (err: any) {
+    secondaryErrors[panel.key] = err
+  } finally {
+    secondarySaving[panel.key] = false
   }
 }
 
@@ -677,6 +822,10 @@ const normalizeInitialFieldValue = (field: OperationFormField, value: any) => {
     return Boolean(value)
   }
 
+  if (field.type === 'lines') {
+    return formatLines(value, field.valueKey || field.itemKey)
+  }
+
   if (field.type === 'prize-lines') {
     return formatPrizeLines(value)
   }
@@ -798,6 +947,14 @@ const getFirstPath = (value: any, paths: string[]) => {
 
 const fieldId = (key: string) => `admin-operation-${key.replace(/[^a-z0-9_-]/gi, '-')}`
 
+const inputType = (field: OperationFormField) => {
+  if (field.type === 'number') return 'number'
+  if (field.type === 'date') return 'date'
+  if (field.type === 'password') return 'password'
+  if (field.type === 'color') return 'color'
+  return 'text'
+}
+
 const formatValue = (value: any, type?: string) => {
   if (value === undefined || value === null || value === '') return '-'
   if (type === 'customer') return formatCustomerValue(value)
@@ -850,5 +1007,26 @@ const formatPrizeLines = (value: any) => {
     prize?.amount?.amount,
     prize?.amount?.currency || 'THB',
   ].filter((entry) => entry !== undefined && entry !== null && entry !== '').join(',')).join('\n')
+}
+
+const formatLines = (value: any, valueKey?: string) => {
+  if (!Array.isArray(value)) {
+    return value === undefined || value === null ? '' : String(value)
+  }
+
+  return value
+    .map((entry) => {
+      if (valueKey && entry && typeof entry === 'object') {
+        return getPath(entry, valueKey)
+      }
+
+      if (entry && typeof entry === 'object') {
+        return JSON.stringify(entry)
+      }
+
+      return entry
+    })
+    .filter((entry) => entry !== undefined && entry !== null && entry !== '')
+    .join('\n')
 }
 </script>
