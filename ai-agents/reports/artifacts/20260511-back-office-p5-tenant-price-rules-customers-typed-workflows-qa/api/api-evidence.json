@@ -1,0 +1,227 @@
+{
+    "generated_at": "2026-05-11T15:13:46+00:00",
+    "api_base": "http://platform-api:8000/api/v1",
+    "scope": "tenant",
+    "tenant_id": "ten_demo_alpha",
+    "run_id": "01krbskw977sdqad12a739vq4m",
+    "safe_fixture_ids": {
+        "price_rule_id": "prr_01KRBSKWKNSGDN4TQ987RE49MN",
+        "member_id": "cus_01KRBSKX1KT6P02YFWTT9S6QWQ",
+        "game_id": null
+    },
+    "events": [
+        {
+            "label": "price-rule-create",
+            "method": "POST",
+            "path": "/admin/tenant/price-rules",
+            "status": 201,
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "idempotency_key_present": true
+            },
+            "payload_keys": [
+                "code",
+                "name",
+                "game_id",
+                "rule_type",
+                "price_amount",
+                "currency",
+                "conditions",
+                "status"
+            ],
+            "checks": {
+                "tenant_id_matches": true,
+                "id_present": true,
+                "game_id_used": false,
+                "conditions_round_trip": true
+            }
+        },
+        {
+            "label": "price-rule-detail-after-create",
+            "method": "GET",
+            "path": "/admin/tenant/price-rules/{price_rule_id}",
+            "status": 200,
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "idempotency_key_present": false
+            },
+            "payload_keys": [],
+            "checks": {
+                "id_matches": true,
+                "code_matches": true
+            }
+        },
+        {
+            "label": "price-rule-update",
+            "method": "PATCH",
+            "path": "/admin/tenant/price-rules/{price_rule_id}",
+            "status": 200,
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "idempotency_key_present": true
+            },
+            "payload_keys": [
+                "name",
+                "rule_type",
+                "price_amount",
+                "currency",
+                "conditions",
+                "status"
+            ],
+            "checks": {
+                "name_updated": true,
+                "price_amount_updated": true,
+                "conditions_array_round_trip": true
+            }
+        },
+        {
+            "label": "price-rule-list-filter-active",
+            "method": "GET",
+            "path": "/admin/tenant/price-rules?status=active",
+            "status": 200,
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "idempotency_key_present": false
+            },
+            "payload_keys": [],
+            "checks": {
+                "created_rule_found": true,
+                "cursor_meta_present": true
+            }
+        },
+        {
+            "label": "price-rule-archive",
+            "method": "DELETE",
+            "path": "/admin/tenant/price-rules/{price_rule_id}",
+            "status": 204,
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "idempotency_key_present": true
+            },
+            "payload_keys": [
+                "reason"
+            ],
+            "checks": {
+                "no_content": true
+            }
+        },
+        {
+            "label": "price-rule-detail-after-archive",
+            "method": "GET",
+            "path": "/admin/tenant/price-rules/{price_rule_id}",
+            "status": 200,
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "idempotency_key_present": false
+            },
+            "payload_keys": [],
+            "checks": {
+                "status_archived": true
+            }
+        },
+        {
+            "label": "member-create",
+            "method": "POST",
+            "path": "/admin/tenant/members",
+            "status": 201,
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "idempotency_key_present": true
+            },
+            "payload_keys": [
+                "name",
+                "phone",
+                "email",
+                "password",
+                "status",
+                "send_invitation"
+            ],
+            "checks": {
+                "tenant_id_matches": true,
+                "id_present": true,
+                "password_hash_absent": true
+            }
+        },
+        {
+            "label": "member-detail-after-create",
+            "method": "GET",
+            "path": "/admin/tenant/members/{member_id}",
+            "status": 200,
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "idempotency_key_present": false
+            },
+            "payload_keys": [],
+            "checks": {
+                "id_matches": true,
+                "phone_matches": true,
+                "password_hash_absent": true
+            }
+        },
+        {
+            "label": "member-update",
+            "method": "PATCH",
+            "path": "/admin/tenant/members/{member_id}",
+            "status": 200,
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "idempotency_key_present": true
+            },
+            "payload_keys": [
+                "name",
+                "phone",
+                "email",
+                "admin_note"
+            ],
+            "checks": {
+                "name_updated": true,
+                "email_updated": true
+            }
+        },
+        {
+            "label": "member-status-change",
+            "method": "POST",
+            "path": "/admin/tenant/members/{member_id}/status",
+            "status": 200,
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "idempotency_key_present": true
+            },
+            "payload_keys": [
+                "status",
+                "notify_member",
+                "reason"
+            ],
+            "checks": {
+                "status_suspended": true
+            }
+        },
+        {
+            "label": "member-list-filter-suspended",
+            "method": "GET",
+            "path": "/admin/tenant/members?status=suspended&q={email}",
+            "status": 200,
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "idempotency_key_present": false
+            },
+            "payload_keys": [],
+            "checks": {
+                "updated_member_found": true,
+                "cursor_meta_present": true,
+                "password_hash_absent": true
+            }
+        }
+    ]
+}
