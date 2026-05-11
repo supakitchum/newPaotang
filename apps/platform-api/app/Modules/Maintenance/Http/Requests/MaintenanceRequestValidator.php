@@ -124,7 +124,7 @@ class MaintenanceRequestValidator
     {
         $errors = [];
 
-        foreach (['actor_type', 'actor_id', 'reason'] as $field) {
+        foreach (['actor_type', 'actor_id', 'reason', 'ticket_id'] as $field) {
             if ($this->blank($payload[$field] ?? null)) {
                 $errors[$field][] = 'The '.$field.' field is required.';
             }

@@ -221,4 +221,95 @@ class MaintenanceTest extends TestCase
             ->assertStatus(403)
             ->assertJsonPath('error.code', 'permission_denied');
     }
+
+    public function test_Maintenance_bypass_requires_ticket_id_before_mutations_and_preserves_idempotency(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_m9_bypass_ticket', 'ten_m9_bypass_ticket', 'm9-bypass-ticket.test');
+        $this->issueCustomerToken('ten_m9_bypass_ticket', 'cus_m9_bypass_ticket');
+        $admin = $this->createTenantSession('ten_m9_bypass_ticket', 'par_m9_bypass_ticket', [
+            'maintenance.bypass',
+        ], 'adm_m9_bypass_ticket', 'm9-bypass-ticket@example.test');
+
+        $headers = [
+            'X-Admin-Scope' => 'tenant',
+            'X-Tenant-Id' => 'ten_m9_bypass_ticket',
+        ];
+        $payload = [
+            'actor_type' => 'customer',
+            'actor_id' => 'cus_m9_bypass_ticket',
+            'reason' => 'Allow verification during maintenance',
+            'expires_at' => now()->addHour()->toISOString(),
+        ];
+
+        $this->withToken($admin['access_token'])
+            ->postJson('/api/v1/admin/tenant/maintenance/bypasses', $payload, $headers + [
+                'Idempotency-Key' => 'm9-bypass-missing-ticket',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.fields.ticket_id.0', 'The ticket_id field is required.');
+
+        $this->withToken($admin['access_token'])
+            ->postJson('/api/v1/admin/tenant/maintenance/bypasses', $payload + [
+                'ticket_id' => '   ',
+            ], $headers + [
+                'Idempotency-Key' => 'm9-bypass-blank-ticket',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.fields.ticket_id.0', 'The ticket_id field is required.');
+
+        $this->assertSame(0, DB::table('partner_tenant_maintenance_bypasses')->where('tenant_id', 'ten_m9_bypass_ticket')->count());
+        $this->assertDatabaseMissing('audit_logs', [
+            'tenant_id' => 'ten_m9_bypass_ticket',
+            'action' => 'maintenance.bypass_created',
+        ]);
+        $this->assertDatabaseMissing('idempotency_keys', [
+            'tenant_id' => 'ten_m9_bypass_ticket',
+            'route_key' => 'tenant.maintenance.bypass.create',
+            'idempotency_key' => 'm9-bypass-missing-ticket',
+        ]);
+        $this->assertDatabaseMissing('idempotency_keys', [
+            'tenant_id' => 'ten_m9_bypass_ticket',
+            'route_key' => 'tenant.maintenance.bypass.create',
+            'idempotency_key' => 'm9-bypass-blank-ticket',
+        ]);
+
+        $ticketedPayload = $payload + [
+            'ticket_id' => 'SUP-M9-BYPASS-TICKET',
+        ];
+
+        $bypass = $this->withToken($admin['access_token'])
+            ->postJson('/api/v1/admin/tenant/maintenance/bypasses', $ticketedPayload, $headers + [
+                'Idempotency-Key' => 'm9-bypass-ticketed-create',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('ticket_id', 'SUP-M9-BYPASS-TICKET')
+            ->json();
+
+        $this->withToken($admin['access_token'])
+            ->postJson('/api/v1/admin/tenant/maintenance/bypasses', $ticketedPayload, $headers + [
+                'Idempotency-Key' => 'm9-bypass-ticketed-create',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('id', $bypass['id'])
+            ->assertJsonPath('ticket_id', 'SUP-M9-BYPASS-TICKET');
+
+        $this->withToken($admin['access_token'])
+            ->postJson('/api/v1/admin/tenant/maintenance/bypasses', array_replace($ticketedPayload, [
+                'reason' => 'Changed reason must conflict with same key',
+            ]), $headers + [
+                'Idempotency-Key' => 'm9-bypass-ticketed-create',
+            ])
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'idempotency_conflict');
+
+        $this->assertDatabaseHas('partner_tenant_maintenance_bypasses', [
+            'id' => $bypass['id'],
+            'tenant_id' => 'ten_m9_bypass_ticket',
+            'ticket_id' => 'SUP-M9-BYPASS-TICKET',
+        ]);
+        $this->assertSame(1, DB::table('partner_tenant_maintenance_bypasses')->where('tenant_id', 'ten_m9_bypass_ticket')->count());
+    }
 }
