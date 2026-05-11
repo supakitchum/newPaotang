@@ -655,7 +655,7 @@ const tenant: OperationResource[] = [
     { key: 'customer_id', label: 'Customer' },
     { key: 'status', label: 'Status', type: 'status' },
     { key: 'created_at', label: 'Created', type: 'datetime' },
-  ], cursorFilters([statusFilter(['open', 'pending', 'resolved', 'closed'])])),
+  ], cursorFilters([statusFilter(['active', 'open', 'pending', 'resolved', 'closed'])])),
   {
     scope: 'tenant',
     slug: 'wallets',
