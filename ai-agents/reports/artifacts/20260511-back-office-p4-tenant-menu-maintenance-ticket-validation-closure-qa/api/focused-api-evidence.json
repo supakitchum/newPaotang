@@ -1,0 +1,169 @@
+{
+  "generated_at": "2026-05-11T05:35:49.567Z",
+  "run_id": "qa-closure-mp0rqe67",
+  "tenant_id": "ten_demo_alpha",
+  "checks": [
+    {
+      "method": "POST",
+      "path": "/auth/admin/login",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 200,
+      "ok": true,
+      "idempotency_key": null
+    },
+    {
+      "method": "GET",
+      "path": "/admin/tenant/menu-management",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 200,
+      "ok": true,
+      "idempotency_key": null
+    },
+    {
+      "method": "PUT",
+      "path": "/admin/tenant/menu-management",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 200,
+      "ok": true,
+      "idempotency_key": "qa-closure-mp0rqe67-menu-save"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/tenant/menu-management",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 200,
+      "ok": true,
+      "idempotency_key": null
+    },
+    {
+      "method": "PUT",
+      "path": "/admin/tenant/menu-management",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 200,
+      "ok": true,
+      "idempotency_key": "qa-closure-mp0rqe67-menu-restore"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/tenant/menu-management",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 200,
+      "ok": true,
+      "idempotency_key": null
+    },
+    {
+      "method": "POST",
+      "path": "/admin/tenant/maintenance/bypasses",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 422,
+      "ok": true,
+      "idempotency_key": "qa-closure-mp0rqe67-missing-ticket"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/tenant/maintenance/bypasses",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 422,
+      "ok": true,
+      "idempotency_key": "qa-closure-mp0rqe67-blank-ticket"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/tenant/maintenance/bypasses",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 201,
+      "ok": true,
+      "idempotency_key": "qa-closure-mp0rqe67-ticketed-create"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/tenant/maintenance/bypasses",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 201,
+      "ok": true,
+      "idempotency_key": "qa-closure-mp0rqe67-ticketed-create"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/tenant/maintenance/bypasses",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 409,
+      "ok": true,
+      "idempotency_key": "qa-closure-mp0rqe67-ticketed-create"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/tenant/maintenance/bypasses?status=active&limit=20",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 200,
+      "ok": true,
+      "idempotency_key": null
+    },
+    {
+      "method": "DELETE",
+      "path": "/admin/tenant/maintenance/bypasses/byp_01KRARHPBHM7S6G23HXC4VXBM8",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 204,
+      "ok": true,
+      "idempotency_key": "qa-closure-mp0rqe67-ticketed-revoke"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/tenant/maintenance/bypasses?status=revoked&limit=20",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 200,
+      "ok": true,
+      "idempotency_key": null
+    }
+  ],
+  "auth": {
+    "user_id": "adm_demo_alpha_owner",
+    "active_scope": "tenant",
+    "tenant_scope": "ten_demo_alpha"
+  },
+  "tenant_menu_api": {
+    "item_id": "men_t_0123ecdaf7360c7a4b39",
+    "original_label": "Dashboard",
+    "changed_label": "Dashboard [QA-CLOSURE-TENANT]",
+    "observed_changed": "Dashboard [QA-CLOSURE-TENANT]",
+    "observed_restored": "Dashboard",
+    "save_status": 200,
+    "item_count": 32
+  },
+  "missing_ticket_rejection": {
+    "status": 422,
+    "code": "validation_failed",
+    "ticket_error": "The ticket_id field is required."
+  },
+  "blank_ticket_rejection": {
+    "status": 422,
+    "code": "validation_failed",
+    "ticket_error": "The ticket_id field is required."
+  },
+  "ticketed_bypass": {
+    "create_status": 201,
+    "id": "byp_01KRARHPBHM7S6G23HXC4VXBM8",
+    "ticket_id_present": true,
+    "replay_status": 201,
+    "replay_same_id": true,
+    "conflict_status": 409,
+    "conflict_code": "idempotency_conflict",
+    "active_contains_created": true,
+    "revoke_status": 204,
+    "revoked_contains_created": true
+  }
+}

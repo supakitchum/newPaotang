@@ -1,0 +1,20 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0HTTP/1.1 403 Forbidden
+content-type: text/plain
+date: Mon, 11 May 2026 05:55:18 GMT
+connection: close
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0HTTP/1.1 200 OK
+Host: platform-api:8000
+Connection: close
+X-Powered-By: PHP/8.4.21
+Cache-Control: no-cache, private
+Date: Mon, 11 May 2026 05:55:18 GMT
+Content-Type: application/json
+Access-Control-Allow-Origin: *
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0

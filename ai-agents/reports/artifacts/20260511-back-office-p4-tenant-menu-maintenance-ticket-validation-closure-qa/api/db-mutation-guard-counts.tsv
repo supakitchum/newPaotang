@@ -1,0 +1,7 @@
+check	count
+missing_blank_bypass_rows	0
+missing_blank_audit_writes	0
+missing_blank_idempotency_rows	0
+ticketed_bypass_rows	1
+ticketed_idempotency_rows	1
+(5 rows)

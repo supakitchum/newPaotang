@@ -1,0 +1,7 @@
+ Container newpaotang-back-office-run-c552a2b673f7 Creating
+ Container newpaotang-back-office-run-c552a2b673f7 Created
+{
+  "ok": true,
+  "run_id": "qa-closure-mp0rqe67",
+  "checks": 14
+}
