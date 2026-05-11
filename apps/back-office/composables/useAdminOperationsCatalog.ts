@@ -233,6 +233,7 @@ const topupActionContext = [
 const partnerStatusOptions = ['draft', 'active', 'suspended', 'closed']
 const partnerTypeOptions = ['partner_store', 'agent_network', 'white_label', 'api_partner', 'internal']
 const tenantStatusOptions = ['provisioning', 'active', 'maintenance', 'suspended', 'closed']
+const agentStatusOptions = ['active', 'inactive', 'suspended']
 const domainTypeOptions = ['subdomain', 'custom_domain']
 const deploymentModeOptions = ['shared', 'dedicated_runtime', 'dedicated_resource_pool']
 const quotaStatusOptions = ['active', 'inactive', 'archived']
@@ -258,6 +259,8 @@ const rewardActionContext = ['id', 'game_id', 'status', 'version', 'prizes.0.pri
 const settlementActionContext = ['id', 'partner_id', 'tenant_id', 'status', 'sales_amount.amount', 'commission_amount.amount', 'payout_amount.amount', 'net_amount.amount', 'period_from', 'period_to']
 const priceRuleActionContext = ['id', 'tenant_id', 'code', 'name', 'game_id', 'rule_type', 'price.amount', 'price.currency', 'status', 'conditions', 'updated_at']
 const memberActionContext = ['id', 'tenant_id', 'member_no', 'name', 'phone', 'email', 'status', 'order_count', 'lifetime_spend.amount', 'updated_at']
+const agentActionContext = ['id', 'tenant_id', 'partner_id', 'code', 'name', 'phone', 'email', 'store_id', 'status', 'metadata', 'updated_at']
+const agentQuotaActionContext = ['id', 'tenant_id', 'code', 'name', 'store_id', 'status', 'quotas.0.game_id', 'quotas.0.quota_count', 'quotas.0.used_count', 'quotas.0.status', 'updated_at']
 const reportExportContext = ['scope', 'report_key', 'tenant_id', 'date_from', 'date_to', 'group_by', 'filters']
 const adminUserActionContext = ['id', 'tenant_id', 'name', 'email', 'phone', 'status', 'roles.0.id', 'roles.0.name', 'permissions.0']
 const roleActionContext = ['id', 'tenant_id', 'code', 'name', 'status', 'permissions.0', 'permissions.1', 'system_role']
@@ -398,6 +401,30 @@ const memberUpdateFields: OperationFormField[] = [
 const memberStatusFields: OperationFormField[] = [
   { key: 'status', label: 'Status', type: 'select', options: memberStatusOptions, defaultValue: 'suspended', required: true },
   { key: 'notify_member', label: 'Notify member', type: 'checkbox', defaultValue: true },
+]
+const agentCreateFields: OperationFormField[] = [
+  { key: 'code', label: 'Code', placeholder: 'agent_alpha', help: 'Unique within the active tenant. Backend derives one from name if blank.' },
+  { key: 'name', label: 'Name', required: true, placeholder: 'Agent Alpha' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'email', label: 'Email', placeholder: 'agent@example.test' },
+  { key: 'store_id', label: 'Store ID', placeholder: 'Optional store reference' },
+  { key: 'status', label: 'Status', type: 'select', options: agentStatusOptions, defaultValue: 'active' },
+  { key: 'metadata', label: 'Metadata JSON', type: 'json', defaultValue: '{}', placeholder: '{"source":"bo"}', help: 'Must be a JSON object or array.' },
+]
+const agentUpdateFields: OperationFormField[] = agentCreateFields.map((field) => {
+  const updateField: OperationFormField = {
+    ...field,
+    required: false,
+  }
+  delete updateField.defaultValue
+  return updateField
+})
+const agentQuotaFields: OperationFormField[] = [
+  { key: 'game_id', label: 'Game ID', sourceKey: 'quotas.0.game_id', placeholder: 'Leave blank for tenant-wide quota' },
+  { key: 'quota_count', label: 'Quota count', type: 'number', sourceKey: 'quotas.0.quota_count', min: 0, step: 1, defaultValue: 0 },
+  { key: 'used_count', label: 'Used count', type: 'number', sourceKey: 'quotas.0.used_count', min: 0, step: 1, defaultValue: 0 },
+  { key: 'status', label: 'Status', type: 'select', sourceKey: 'quotas.0.status', options: agentStatusOptions, defaultValue: 'active' },
+  { key: 'payload', label: 'Payload JSON', type: 'json', sourceKey: 'quotas.0.payload', defaultValue: '{}', placeholder: '{"source":"bo"}', help: 'Stored as payload_json. Must be a JSON object or array.' },
 ]
 const partnerCreateFields: OperationFormField[] = [
   { key: 'code', label: 'Partner code', required: true, placeholder: 'acme_partner', help: 'Use lowercase letters, numbers, underscores, or hyphens.' },
@@ -827,12 +854,84 @@ const tenant: OperationResource[] = [
     { key: 'reject', label: 'Reject', endpoint: '/admin/tenant/reward-claims/{claim_id}/reject', variant: 'danger', reason: true },
     { key: 'pay', label: 'Pay', endpoint: '/admin/tenant/reward-claims/{claim_id}/pay', variant: 'primary', reason: true },
   ]),
-  resource('tenant', 'growth/agents', 'Agents', 'Tenant Growth', '/admin/tenant/agents', '/admin/tenant/agents/{agent_id}', 'agent_id', growthColumns(), cursorFilters([statusFilter(['active', 'inactive', 'suspended'])]), [
-    { key: 'quotas', label: 'Update quotas', method: 'PATCH', endpoint: '/admin/tenant/agents/{agent_id}/quotas', variant: 'warning', reason: true },
-  ]),
-  resource('tenant', 'growth/agent-quotas', 'Agent Quotas', 'Tenant Growth', '/admin/tenant/agents', '/admin/tenant/agents/{agent_id}', 'agent_id', growthColumns(), cursorFilters([statusFilter(['active', 'inactive', 'suspended'])]), [
-    { key: 'quotas', label: 'Update quotas', method: 'PATCH', endpoint: '/admin/tenant/agents/{agent_id}/quotas', variant: 'warning', reason: true },
-  ]),
+  {
+    scope: 'tenant',
+    slug: 'growth/agents',
+    title: 'Agents',
+    group: 'Tenant Growth',
+    listEndpoint: '/admin/tenant/agents',
+    detailEndpoint: '/admin/tenant/agents/{agent_id}',
+    updateEndpoint: '/admin/tenant/agents/{agent_id}',
+    idParam: 'agent_id',
+    idKey: 'id',
+    columns: [
+      { key: 'id', label: 'Agent' },
+      { key: 'code', label: 'Code' },
+      { key: 'name', label: 'Name' },
+      { key: 'store_id', label: 'Store' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ],
+    filters: cursorFilters([statusFilter(agentStatusOptions)]),
+    confirmContextFields: agentActionContext,
+    actions: [
+      {
+        key: 'update',
+        label: 'Update agent',
+        method: 'PATCH',
+        endpoint: '/admin/tenant/agents/{agent_id}',
+        variant: 'primary',
+        contextFields: agentActionContext,
+        formFields: agentUpdateFields,
+      },
+      {
+        key: 'quotas',
+        label: 'Update quotas',
+        method: 'PATCH',
+        endpoint: '/admin/tenant/agents/{agent_id}/quotas',
+        variant: 'warning',
+        reason: true,
+        contextFields: agentQuotaActionContext,
+        formFields: agentQuotaFields,
+      },
+    ],
+    collectionActions: [{
+      key: 'create',
+      label: 'Create agent',
+      endpoint: '/admin/tenant/agents',
+      formFields: agentCreateFields,
+    }],
+  },
+  {
+    scope: 'tenant',
+    slug: 'growth/agent-quotas',
+    title: 'Agent Quotas',
+    group: 'Tenant Growth',
+    listEndpoint: '/admin/tenant/agents',
+    detailEndpoint: '/admin/tenant/agents/{agent_id}',
+    idParam: 'agent_id',
+    idKey: 'id',
+    columns: [
+      { key: 'id', label: 'Agent' },
+      { key: 'code', label: 'Code' },
+      { key: 'name', label: 'Name' },
+      { key: 'store_id', label: 'Store' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ],
+    filters: cursorFilters([statusFilter(agentStatusOptions)]),
+    confirmContextFields: agentQuotaActionContext,
+    actions: [{
+      key: 'quotas',
+      label: 'Update quotas',
+      method: 'PATCH',
+      endpoint: '/admin/tenant/agents/{agent_id}/quotas',
+      variant: 'warning',
+      reason: true,
+      contextFields: agentQuotaActionContext,
+      formFields: agentQuotaFields,
+    }],
+  },
   resource('tenant', 'growth/affiliate-programs', 'Affiliate Programs', 'Tenant Growth', '/admin/tenant/affiliate-programs', '/admin/tenant/affiliate-programs/{affiliate_program_id}', 'affiliate_program_id', growthColumns(), cursorFilters([statusFilter()]), [
     { key: 'delete', label: 'Delete', method: 'DELETE', endpoint: '/admin/tenant/affiliate-programs/{affiliate_program_id}', variant: 'danger', reason: true },
   ]),
