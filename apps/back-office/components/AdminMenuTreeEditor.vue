@@ -70,12 +70,76 @@
       </div>
     </div>
     <div class="card-footer d-flex justify-content-end">
-      <button class="btn btn-primary btn-wave" type="button" :disabled="saving || loading || !reason.trim() || !localItems.length" @click="save">
+      <button class="btn btn-primary btn-wave" type="button" :disabled="saving || loading || !reason.trim() || !localItems.length" @click="openConfirm">
         <span v-if="saving" class="spinner-border spinner-border-sm me-2" />
         Save menu
       </button>
     </div>
   </div>
+
+  <AdminModal v-model="confirmOpen" title="Confirm menu save" size="lg">
+    <AdminApiState :error="error" />
+    <p class="text-muted mb-3">Review the scope and changed menu items before saving this full menu tree.</p>
+
+    <div class="border rounded-2 bg-light p-3 mb-3">
+      <dl class="row small mb-0">
+        <dt class="col-sm-4 text-muted">Scope</dt>
+        <dd class="col-sm-8 mb-2 font-monospace">{{ scopeLabel }}</dd>
+        <dt class="col-sm-4 text-muted">Menu items</dt>
+        <dd class="col-sm-8 mb-2 font-monospace">{{ pendingItemCount }}</dd>
+        <dt class="col-sm-4 text-muted">Changed items</dt>
+        <dd class="col-sm-8 mb-2 font-monospace">{{ pendingChanges.length }}</dd>
+        <dt class="col-sm-4 text-muted">Reason</dt>
+        <dd class="col-sm-8 mb-0 text-break">{{ reason.trim() }}</dd>
+      </dl>
+    </div>
+
+    <div v-if="pendingChanges.length" class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Changed context</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="change in pendingChangesPreview" :key="change.identity">
+            <td>
+              <div class="fw-semibold">{{ change.label }}</div>
+              <div class="text-muted fs-12 font-monospace">{{ change.identity }}</div>
+            </td>
+            <td>
+              <ul class="mb-0 ps-3">
+                <li v-for="field in change.fields" :key="`${change.identity}-${field.field}`">
+                  <span class="fw-semibold">{{ field.label }}:</span>
+                  <span class="font-monospace text-break">{{ field.before }}</span>
+                  <i class="ri-arrow-right-line mx-1 text-muted" />
+                  <span class="font-monospace text-break">{{ field.after }}</span>
+                </li>
+              </ul>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-if="pendingChanges.length > pendingChangesPreview.length" class="text-muted fs-12 mb-0">
+        Showing {{ pendingChangesPreview.length }} of {{ pendingChanges.length }} changed items.
+      </p>
+    </div>
+    <AdminEmptyState
+      v-else
+      title="No field changes detected"
+      message="Confirmation will resubmit the current menu tree for this scope."
+      icon="ri-information-line"
+    />
+
+    <template #footer>
+      <button class="btn btn-light btn-wave" type="button" :disabled="saving" @click="cancelConfirm">Cancel</button>
+      <button class="btn btn-primary btn-wave" type="button" :disabled="saving || !pendingItems.length || !reason.trim()" @click="confirmSave">
+        <span v-if="saving" class="spinner-border spinner-border-sm me-2" />
+        Confirm save
+      </button>
+    </template>
+  </AdminModal>
 </template>
 
 <script setup lang="ts">
@@ -97,6 +161,34 @@ type EditableMenuItem = {
   children?: EditableMenuItem[]
 }
 
+type CleanMenuItem = {
+  id?: string
+  key?: string
+  code?: string
+  label?: string
+  route?: string | null
+  category?: string | null
+  icon?: string | null
+  required_permission_code?: string | null
+  status?: string
+  sort_order?: number
+  role_ids?: string[]
+  children?: CleanMenuItem[]
+}
+
+type MenuFieldChange = {
+  field: string
+  label: string
+  before: string
+  after: string
+}
+
+type MenuItemChange = {
+  identity: string
+  label: string
+  fields: MenuFieldChange[]
+}
+
 const props = defineProps<{
   scope: 'tenant' | 'central'
   modelValue: any
@@ -110,18 +202,41 @@ const emit = defineEmits<{
 }>()
 
 const localItems = ref<EditableMenuItem[]>([])
+const baselineItems = ref<CleanMenuItem[]>([])
+const pendingItems = ref<CleanMenuItem[]>([])
+const pendingChanges = ref<MenuItemChange[]>([])
+const confirmOpen = ref(false)
 const reason = ref('')
 const scopeLabel = computed(() => titleize(props.scope))
 
 const flatItems = computed(() => flatten(localItems.value))
+const pendingItemCount = computed(() => flattenClean(pendingItems.value).length)
+const pendingChangesPreview = computed(() => pendingChanges.value.slice(0, 8))
 
 const reset = () => {
-  localItems.value = normalizeMenuItems(props.modelValue)
+  const normalized = normalizeMenuItems(props.modelValue)
+  localItems.value = normalized
+  baselineItems.value = cleanMenuItems(normalized)
+  pendingItems.value = []
+  pendingChanges.value = []
+  confirmOpen.value = false
   reason.value = ''
 }
 
-const save = () => {
-  emit('save', reason.value.trim(), cleanMenuItems(localItems.value))
+const openConfirm = () => {
+  pendingItems.value = cleanMenuItems(localItems.value)
+  pendingChanges.value = diffMenuItems(baselineItems.value, pendingItems.value)
+  confirmOpen.value = true
+}
+
+const cancelConfirm = () => {
+  confirmOpen.value = false
+}
+
+const confirmSave = () => {
+  const items = pendingItems.value.length ? pendingItems.value : cleanMenuItems(localItems.value)
+  confirmOpen.value = false
+  emit('save', reason.value.trim(), items)
 }
 
 const normalizeMenuItems = (value: any): EditableMenuItem[] => {
@@ -145,9 +260,10 @@ const normalizeMenuItem = (item: any): EditableMenuItem => ({
   children: normalizeMenuItems(item?.children),
 })
 
-const cleanMenuItems = (items: EditableMenuItem[]): any[] => items.map((item, index) => ({
+const cleanMenuItems = (items: EditableMenuItem[]): CleanMenuItem[] => items.map((item, index) => ({
   id: item.id,
   key: item.key || item.code,
+  code: item.code || item.key,
   label: String(item.label || '').trim(),
   route: item.route ? String(item.route).trim() : null,
   category: item.category ? String(item.category).trim() : null,
@@ -166,6 +282,62 @@ const flatten = (items: EditableMenuItem[], depth = 0): Array<{ item: EditableMe
   { item, depth },
   ...flatten(item.children || [], depth + 1),
 ])
+
+const flattenClean = (items: CleanMenuItem[], depth = 0): Array<{ item: CleanMenuItem, depth: number }> => items.flatMap((item) => [
+  { item, depth },
+  ...flattenClean(item.children || [], depth + 1),
+])
+
+const diffMenuItems = (beforeItems: CleanMenuItem[], afterItems: CleanMenuItem[]): MenuItemChange[] => {
+  const beforeMap = new Map(flattenClean(beforeItems).map(({ item }) => [menuIdentity(item), item]))
+
+  return flattenClean(afterItems)
+    .map(({ item }) => {
+      const before = beforeMap.get(menuIdentity(item))
+      const fields = before ? changedFields(before, item) : [{
+        field: 'item',
+        label: 'Item',
+        before: '-',
+        after: 'Added to submitted tree',
+      }]
+
+      return {
+        identity: menuIdentity(item),
+        label: menuLabel(item),
+        fields,
+      }
+    })
+    .filter((change) => change.fields.length)
+}
+
+const changedFields = (before: CleanMenuItem, after: CleanMenuItem): MenuFieldChange[] => ([
+  ['label', 'Label'],
+  ['route', 'Route'],
+  ['required_permission_code', 'Permission'],
+  ['status', 'Status'],
+  ['sort_order', 'Order'],
+  ['role_ids', 'Role IDs'],
+] as const).flatMap(([field, label]) => {
+  const beforeValue = menuFieldValue(before, field)
+  const afterValue = menuFieldValue(after, field)
+
+  return beforeValue === afterValue ? [] : [{
+    field,
+    label,
+    before: beforeValue || '-',
+    after: afterValue || '-',
+  }]
+})
+
+const menuFieldValue = (item: CleanMenuItem, field: keyof CleanMenuItem) => {
+  const value = item[field]
+  if (Array.isArray(value)) return value.join(', ')
+  if (value === undefined || value === null || value === '') return ''
+  return String(value)
+}
+
+const menuIdentity = (item: CleanMenuItem | EditableMenuItem) => String(item.id || item.key || item.code || item.label || 'menu-item')
+const menuLabel = (item: CleanMenuItem | EditableMenuItem) => String(item.label || item.key || item.code || item.id || 'Menu item')
 
 watch(() => props.modelValue, reset, { immediate: true, deep: true })
 </script>

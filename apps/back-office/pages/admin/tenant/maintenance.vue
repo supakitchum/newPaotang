@@ -79,19 +79,21 @@
             </div>
             <div class="col-md-6">
               <label class="form-label">Reason</label>
-              <input v-model="bypass.reason" class="form-control" :class="invalidClass('reason')" />
+              <input v-model="bypass.reason" class="form-control" :class="bypassInvalidClass('reason')" />
+              <div class="invalid-feedback">{{ bypassFieldError('reason') }}</div>
             </div>
             <div class="col-md-6">
               <label class="form-label">Ticket ID</label>
-              <input v-model="bypass.ticket_id" class="form-control" :class="invalidClass('ticket_id')" />
-              <div class="invalid-feedback">{{ fieldError('ticket_id') }}</div>
+              <input v-model="bypass.ticket_id" class="form-control" :class="bypassInvalidClass('ticket_id')" />
+              <div class="invalid-feedback">{{ bypassFieldError('ticket_id') }}</div>
+              <div class="form-text" :class="bypassTicketMissing ? 'text-danger' : ''">Ticket ID is required before creating a bypass.</div>
             </div>
             <div class="col-md-6">
               <label class="form-label">Expires at</label>
               <input v-model="bypass.expires_at" type="datetime-local" class="form-control" />
             </div>
             <div class="col-12">
-              <button class="btn btn-outline-primary btn-wave" type="submit" :disabled="saving || !tenantId || !bypass.reason.trim()">
+              <button class="btn btn-outline-primary btn-wave" type="submit" :disabled="bypassSubmitDisabled">
                 <i class="ri-shield-check-line me-1" />
                 Create bypass
               </button>
@@ -205,6 +207,7 @@ const bypassLoading = ref(false)
 const error = ref<any>(null)
 const retryAfter = ref<string | null>(null)
 const validation = ref<Record<string, string[]>>({})
+const bypassValidation = ref<Record<string, string[]>>({})
 const setting = ref<any>(null)
 const events = ref<any[]>([])
 const bypasses = ref<any[]>([])
@@ -237,7 +240,16 @@ const revokeConfirm = reactive<{ open: boolean, row: any }>({
 const alertType = (err: any) => err?.status === 403 ? 'warning' : err?.status === 503 ? 'warning' : 'danger'
 const fieldError = (field: string) => validation.value[field]?.[0] || ''
 const invalidClass = (field: string) => fieldError(field) ? 'is-invalid' : ''
+const bypassFieldError = (field: string) => bypassValidation.value[field]?.[0] || ''
+const bypassInvalidClass = (field: string) => bypassFieldError(field) ? 'is-invalid' : ''
 const toApiDate = (value: string) => value ? new Date(value).toISOString() : null
+const bypassTicketMissing = computed(() => !String(bypass.ticket_id || '').trim())
+const bypassSubmitDisabled = computed(() => Boolean(
+  saving.value
+  || !tenantId.value
+  || !String(bypass.reason || '').trim()
+  || bypassTicketMissing.value,
+))
 
 const applySetting = (payload: any) => {
   setting.value = payload?.data || payload
@@ -337,9 +349,19 @@ const save = async () => {
 
 const createBypass = async () => {
   if (!tenantId.value) return
+  bypassValidation.value = {}
+  if (!String(bypass.reason || '').trim() || !String(bypass.ticket_id || '').trim()) {
+    bypassValidation.value = {
+      ...(!String(bypass.reason || '').trim() ? { reason: ['Reason is required before creating a bypass.'] } : {}),
+      ...(!String(bypass.ticket_id || '').trim() ? { ticket_id: ['Ticket ID is required before creating a bypass.'] } : {}),
+    }
+    return
+  }
+
   saving.value = true
   error.value = null
   validation.value = {}
+  bypassValidation.value = {}
   try {
     lastBypass.value = await api.apiFetch('/admin/tenant/maintenance/bypasses', {
       method: 'POST',
@@ -357,7 +379,7 @@ const createBypass = async () => {
     await Promise.all([loadBypasses(), loadEvents()])
   } catch (err: any) {
     error.value = err
-    validation.value = err?.details?.fields || {}
+    bypassValidation.value = err?.details?.fields || {}
   } finally {
     saving.value = false
   }
