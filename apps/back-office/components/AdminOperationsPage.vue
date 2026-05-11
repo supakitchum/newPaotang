@@ -822,6 +822,10 @@ const normalizeInitialFieldValue = (field: OperationFormField, value: any) => {
     return Boolean(value)
   }
 
+  if (field.type === 'datetime-local') {
+    return formatDateTimeLocalValue(value)
+  }
+
   if (field.type === 'lines') {
     return formatLines(value, field.valueKey || field.itemKey)
   }
@@ -949,6 +953,7 @@ const fieldId = (key: string) => `admin-operation-${key.replace(/[^a-z0-9_-]/gi,
 
 const inputType = (field: OperationFormField) => {
   if (field.type === 'number') return 'number'
+  if (field.type === 'datetime-local') return 'datetime-local'
   if (field.type === 'date') return 'date'
   if (field.type === 'password') return 'password'
   if (field.type === 'color') return 'color'
@@ -977,6 +982,24 @@ const formatCustomerValue = (value: any) => {
   const parts = [name, contact, id].filter((part, index, all) => part && all.indexOf(part) === index)
 
   return parts.length ? parts.join(' | ') : JSON.stringify(value)
+}
+
+const formatDateTimeLocalValue = (value: any) => {
+  if (value === undefined || value === null || value === '') return ''
+
+  const raw = String(value)
+  const localMatch = raw.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/)
+  if (localMatch) {
+    return `${localMatch[1]}T${localMatch[2]}`
+  }
+
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) {
+    return raw
+  }
+
+  const pad = (entry: number) => String(entry).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
 const normalizePrizeLines = (value: any) => String(value || '')

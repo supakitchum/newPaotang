@@ -18,7 +18,7 @@ export type OperationFilter = {
 export type OperationFormField = {
   key: string
   label: string
-  type?: 'text' | 'number' | 'textarea' | 'select' | 'checkbox' | 'date' | 'lines' | 'password' | 'color' | 'prize-lines'
+  type?: 'text' | 'number' | 'textarea' | 'select' | 'checkbox' | 'date' | 'datetime-local' | 'lines' | 'password' | 'color' | 'prize-lines'
   sourceKey?: string
   valueKey?: string
   options?: string[]
@@ -244,8 +244,11 @@ const roleStatusOptions = ['active', 'archived']
 const maintenanceStatusOptions = ['inactive', 'scheduled', 'active', 'ended', 'cancelled']
 const maintenanceModeOptions = ['full_site', 'customer_web_only', 'admin_only', 'checkout_payment_only', 'read_only', 'scheduled']
 const tenantDomainStatusOptions = ['pending_verification', 'dns_verified', 'ssl_pending', 'active', 'failed', 'suspended', 'archived']
+const gameCreateStatusOptions = ['draft', 'open']
+const gameLifecycleTransitionOptions = ['open', 'reward_recorded', 'reward_checking', 'reward_verified', 'reward_published']
 const partnerActionContext = ['id', 'code', 'name', 'type', 'status', 'tenants.0.id', 'tenants.0.code', 'domains.0.host', 'runtime.billing_status', 'runtime.monitoring_status']
 const partnerQuotaActionContext = ['id', 'partner_id', 'game_id', 'quota_count', 'allocated_count', 'remaining_count', 'status']
+const gameActionContext = ['id', 'code', 'name', 'status', 'draw_at', 'close_at', 'closed_at', 'archived_at']
 const billingPlanActionContext = ['id', 'code', 'name', 'monthly_fee.amount', 'monthly_fee.currency', 'status']
 const alertPolicyActionContext = ['id', 'partner_id', 'partner.name', 'policy_key', 'severity', 'status']
 const alertEventActionContext = ['id', 'partner_id', 'partner.name', 'policy_key', 'severity', 'status', 'channel', 'title', 'triggered_at']
@@ -393,6 +396,27 @@ const partnerQuotaUpdateFields: OperationFormField[] = [
   { key: 'game_id', label: 'Game ID' },
   { key: 'quota_count', label: 'Quota count', type: 'number', min: 1, step: 1 },
   { key: 'status', label: 'Status', type: 'select', options: quotaStatusOptions },
+]
+const gameCreateFields: OperationFormField[] = [
+  { key: 'code', label: 'Game code', required: true, placeholder: 'may_2026', help: 'Use lowercase letters, numbers, underscores, or hyphens.' },
+  { key: 'name', label: 'Game name', required: true, placeholder: 'May 2026 Draw' },
+  { key: 'draw_at', label: 'Draw at', type: 'datetime-local', required: true },
+  { key: 'close_at', label: 'Close at', type: 'datetime-local', help: 'Optional sales close date-time before draw.' },
+  { key: 'status', label: 'Initial status', type: 'select', options: gameCreateStatusOptions, defaultValue: 'draft', required: true },
+]
+const gameUpdateFields: OperationFormField[] = [
+  { key: 'code', label: 'Game code', placeholder: 'may_2026', help: 'Use lowercase letters, numbers, underscores, or hyphens.' },
+  { key: 'name', label: 'Game name' },
+  { key: 'draw_at', label: 'Draw at', type: 'datetime-local' },
+  { key: 'close_at', label: 'Close at', type: 'datetime-local', help: 'Leave blank to keep the current close date unchanged.' },
+  {
+    key: 'status',
+    label: 'Lifecycle transition',
+    type: 'select',
+    sourceKey: '__next_status',
+    options: gameLifecycleTransitionOptions,
+    help: 'Optional. Backend allows only the next valid transition, such as draft to open or closed to reward_recorded.',
+  },
 ]
 const billingPlanFields: OperationFormField[] = [
   { key: 'code', label: 'Plan code', required: true, placeholder: 'enterprise' },
@@ -1211,15 +1235,45 @@ const central: OperationResource[] = [
     ],
     detailApiGap: 'OpenAPI documents central stock list and recall action, but no central stock detail GET endpoint.',
   },
-  resource('central', 'games', 'Games', 'Central Games', '/admin/central/games', '/admin/central/games/{game_id}', 'game_id', [
-    { key: 'id', label: 'Game' },
-    { key: 'name', label: 'Name' },
-    { key: 'status', label: 'Status', type: 'status' },
-    { key: 'close_at', label: 'Close at', type: 'datetime' },
-  ], cursorFilters([statusFilter(['draft', 'open', 'closed', 'archived'])]), [
-    { key: 'close', label: 'Close', endpoint: '/admin/central/games/{game_id}/close', variant: 'warning', reason: true },
-    { key: 'archive', label: 'Archive', endpoint: '/admin/central/games/{game_id}/archive', variant: 'danger', reason: true },
-  ]),
+  {
+    scope: 'central',
+    slug: 'games',
+    title: 'Games',
+    group: 'Central Games',
+    listEndpoint: '/admin/central/games',
+    detailEndpoint: '/admin/central/games/{game_id}',
+    idParam: 'game_id',
+    idKey: 'id',
+    columns: [
+      { key: 'id', label: 'Game' },
+      { key: 'code', label: 'Code' },
+      { key: 'name', label: 'Name' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'draw_at', label: 'Draw at', type: 'datetime' },
+      { key: 'close_at', label: 'Close at', type: 'datetime' },
+    ],
+    filters: cursorFilters([statusFilter(['draft', 'open', 'closed', 'reward_recorded', 'reward_checking', 'reward_verified', 'reward_published', 'archived'])]),
+    confirmContextFields: gameActionContext,
+    actions: [
+      {
+        key: 'update',
+        label: 'Update',
+        method: 'PATCH',
+        endpoint: '/admin/central/games/{game_id}',
+        variant: 'primary',
+        contextFields: gameActionContext,
+        formFields: gameUpdateFields,
+      },
+      { key: 'close', label: 'Close', endpoint: '/admin/central/games/{game_id}/close', variant: 'warning', reason: true, contextFields: gameActionContext },
+      { key: 'archive', label: 'Archive', endpoint: '/admin/central/games/{game_id}/archive', variant: 'danger', reason: true, contextFields: gameActionContext },
+    ],
+    collectionActions: [{
+      key: 'create',
+      label: 'Create game',
+      endpoint: '/admin/central/games',
+      formFields: gameCreateFields,
+    }],
+  },
   {
     scope: 'central',
     slug: 'allocations',
