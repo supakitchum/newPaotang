@@ -23,10 +23,10 @@ Coordinator should calculate that from the counts and row-level evidence below.
 | Scope | complete | partial | not_started | api_gap | out_of_scope | Total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Central | 20 | 3 | 0 | 1 | 0 | 24 |
-| Tenant | 21 | 10 | 0 | 1 | 0 | 32 |
-| Total | 41 | 13 | 0 | 2 | 0 | 56 |
+| Tenant | 22 | 9 | 0 | 1 | 0 | 32 |
+| Total | 42 | 12 | 0 | 2 | 0 | 56 |
 
-Coordinator-approved BO completion from verified working CRUD/API workflow coverage is 41/56 menus, or 73.2%.
+Coordinator-approved BO completion from verified working CRUD/API workflow coverage is 42/56 menus, or 75.0%.
 
 ## Current BO Implementation Notes
 
@@ -78,7 +78,7 @@ Coordinator-approved BO completion from verified working CRUD/API workflow cover
 | tenant:customers | `/admin/tenant/customers` | `customer.view` | `GET /admin/tenant/members` | `GET /admin/tenant/members/{member_id}` | `POST /admin/tenant/members` | `PATCH /admin/tenant/members/{member_id}` | `POST /admin/tenant/members/{member_id}/status` | N/A | generic operations page with customers route override | connected | JSON payload create/status modal; detail JSON editor | route QA pass; detail/status not browser-exercised because seeded page had no links | Customer workflow exists generically, but not real detail/status QA and not typed forms. | partial |
 | tenant:wallets | `/admin/tenant/wallets` | `wallet.view` | `GET /admin/tenant/wallets` | `GET /admin/tenant/wallets/{wallet_id}`; `GET /ledger` | N/A | `PATCH /admin/tenant/wallets/{wallet_id}/adjust` | `PATCH /admin/tenant/wallets/{wallet_id}/adjust` | N/A | operations wallet page with related ledger | connected for list/detail/ledger/adjust | typed wallet adjustment amount/currency modal with reason and wallet context | P1 real menu QA pass (20260510); list/detail/ledger/adjust and mobile sanity passed | None for P1. | complete |
 | tenant:topups | `/admin/tenant/topups` | `topup.view` | `GET /admin/tenant/topups` | `GET /admin/tenant/topups/{topup_id}` | N/A | N/A | `POST /admin/tenant/topups/{topup_id}/approve`; `POST /reject`; `POST /cancel` | N/A | operations topups page | connected for list/detail/actions | typed approve optional amount/bonus, reject, and cancel confirmations with reason, notify controls, and nested customer context | Focused API-first remediation QA pass (20260510); list/detail/approve/reject/cancel customer context, typed controls, notify, and reason guards passed | None for P1. | complete |
-| tenant:tickets | `/admin/tenant/tickets` | `ticket.view` | `GET /admin/tenant/tickets` | `GET /admin/tenant/tickets/{ticket_id}` | N/A | N/A | N/A | N/A | generic operations page | connected for list/detail | no form | P5-A QA HOLD (20260511); real menu list/detail/API/header/mobile evidence passed, but status filter options missed visible API status `active` | BO status dropdown only offers `open`, `pending`, `resolved`, and `closed` while the tenant ticket API returns `active`; requires BO/catalog remediation before completion. | partial |
+| tenant:tickets | `/admin/tenant/tickets` | `ticket.view` | `GET /admin/tenant/tickets` | `GET /admin/tenant/tickets/{ticket_id}` | N/A | N/A | N/A | N/A | generic operations page | connected for list/detail | no form | P5 ticket status remediation QA pass (20260511); active/open/pending/resolved/closed filters, list/detail, cursor empty state, tenant headers, and mobile sanity passed | None for read/detail/filter workflow; broader ticket status enum contract cleanup remains a separate Coordinator decision. | complete |
 | tenant:agents | `/admin/tenant/growth/agents` | `agent.view` | `GET /admin/tenant/agents` | `GET /admin/tenant/agents/{agent_id}` | `POST /admin/tenant/agents` | `PATCH /admin/tenant/agents/{agent_id}` | `PATCH /admin/tenant/agents/{agent_id}/quotas` | N/A | generic operations page | partial; list/detail/quota action connected, create/update not surfaced | quota reason modal only | hard-refresh route QA pass; workflow QA pending | Agent create/update APIs exist, but BO only exposes quota action generically. | partial |
 | tenant:agent_quotas | `/admin/tenant/growth/agent-quotas` | `agent.quota.manage` | `GET /admin/tenant/agents` | `GET /admin/tenant/agents/{agent_id}` | N/A | `PATCH /admin/tenant/agents/{agent_id}/quotas` | N/A | N/A | generic operations page with dedicated route override | connected for list/detail/quota action | reason confirm quota action only | route QA pass; workflow QA pending | Quota action lacks typed quota fields and real workflow QA. | partial |
 | tenant:payment_settings | `/admin/tenant/payment-settings` | `payment_settings.view` | `GET /admin/tenant/payment-settings`; `GET /admin/tenant/payment-channels` | `GET /admin/tenant/payment-channels/{payment_channel_id}` | `POST /admin/tenant/payment-channels` | `PATCH /admin/tenant/payment-settings`; `PATCH /admin/tenant/payment-channels/{payment_channel_id}` | `DELETE /admin/tenant/payment-channels/{payment_channel_id}` | N/A | typed settings page with related payment channels | connected for settings and payment channel list/detail/create/update/archive | typed payment settings form and typed channel create/update/archive modals | P1 real menu QA pass (20260510); settings save controls and payment-channel list/detail/create/update/archive, mobile sanity passed | None for P1. | complete |
@@ -119,8 +119,8 @@ Other contract/scope questions that are not counted as `api_gap` yet:
 
 ## Remaining Implementation Priorities From The Matrix
 
-1. P5-A read-summary/list-detail QA promoted five rows; `tenant:tickets` remains partial pending BO status-filter remediation for API status `active`.
-2. BO implementation candidates: central games create/update, tenant price rules, tenant customer/admin-adjacent member workflows, tenant agents/quotas, affiliate workflows, commission rules, and SEO settings/pages/redirects.
+1. P5 ticket status remediation promoted `tenant:tickets`; next BO implementation candidate is central games typed create/update workflow.
+2. Remaining BO implementation candidates: tenant price rules, tenant customer/admin-adjacent member workflows, tenant agents/quotas, affiliate workflows, commission rules, and SEO settings/pages/redirects.
 3. Coordinator decision candidates: central partner monitoring/usage update permissions, central master-stock detail API gap, and tenant commission-transaction detail API gap.
 4. Customer-related CRUD verification must continue through API evidence first and must not enter the Customer UI unless Coordinator explicitly opens a customer frontend scope.
 
