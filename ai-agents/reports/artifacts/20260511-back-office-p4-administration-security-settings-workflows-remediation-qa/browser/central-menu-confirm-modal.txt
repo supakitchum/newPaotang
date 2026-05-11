@@ -1,0 +1,20 @@
+Confirm menu save
+
+Review the scope and changed menu items before saving this full menu tree.
+
+Scope
+Central
+Menu items
+24
+Changed items
+1
+Reason
+QA central menu confirmation evidence
+Item	Changed context
+
+Dashboard [UI-QA-CENTRAL]
+men_c_a532f385303fc1100c93
+
+Label:DashboardDashboard [UI-QA-CENTRAL]
+Cancel
+Confirm save

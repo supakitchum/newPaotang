@@ -1,0 +1,21 @@
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-platform-api-run-94d30c82cb82 Creating
+ Container newpaotang-platform-api-run-94d30c82cb82 Created
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\MaintenanceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mmaintenance admin updates site config blocks by mode and keeps tena[39m[90m…[39m [90m1.64s[39m
+  [32;1m✓[39;22m[90m [39m[90mmaintenance rejects missing reason and requires schedule permission[39m[90m [39m [90m0.53s[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\PartnerProvisioningTest[39m
+  [32;1m✓[39;22m[90m [39m[90msite config resolves host returns openapi shape maintenance and saf[39m[90m…[39m [90m0.84s[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\PublicStockSearchTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpublic stock search resolves tenant current game filters indexes an[39m[90m…[39m [90m2.04s[39m
+
+  [90mTests:[39m    [32;1m4 passed[39;22m[90m (132 assertions)[39m
+  [90mDuration:[39m [39m5.18s[39m

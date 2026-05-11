@@ -1,0 +1,224 @@
+{
+  "generated_at": "2026-05-11T04:17:02.397Z",
+  "api_base": "http://platform-api:8000/api/v1",
+  "checks": [
+    {
+      "method": "POST",
+      "path": "/auth/admin/login",
+      "scope": "central",
+      "tenant": null,
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "POST",
+      "path": "/auth/admin/login",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/central/menu-management",
+      "scope": "central",
+      "tenant": null,
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "PUT",
+      "path": "/admin/central/menu-management",
+      "scope": "central",
+      "tenant": null,
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/central/menu-management",
+      "scope": "central",
+      "tenant": null,
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "PUT",
+      "path": "/admin/central/menu-management",
+      "scope": "central",
+      "tenant": null,
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/central/menu-management",
+      "scope": "central",
+      "tenant": null,
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/tenant/menu-management",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "PUT",
+      "path": "/admin/tenant/menu-management",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/tenant/menu-management",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "PUT",
+      "path": "/admin/tenant/menu-management",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/tenant/menu-management",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/tenant/maintenance",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "POST",
+      "path": "/admin/tenant/maintenance/bypasses",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 201,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/tenant/maintenance/bypasses?status=active&limit=10",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "DELETE",
+      "path": "/admin/tenant/maintenance/bypasses/byp_01KRAM1E353C4S6NE174RMX5VY",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 204,
+      "ok": true
+    },
+    {
+      "method": "GET",
+      "path": "/admin/tenant/maintenance/bypasses?status=revoked&limit=10",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "method": "POST",
+      "path": "/admin/tenant/maintenance/bypasses",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 201,
+      "ok": true
+    },
+    {
+      "method": "DELETE",
+      "path": "/admin/tenant/maintenance/bypasses/byp_01KRAM1E702YGZMP11VKFH2N8V",
+      "scope": "tenant",
+      "tenant": "ten_demo_alpha",
+      "status": 204,
+      "ok": true
+    }
+  ],
+  "notes": [],
+  "auth": {
+    "central": {
+      "id": "adm_platform_owner",
+      "email": "admin@newpaotang.test",
+      "scopes": [
+        {
+          "scope": "central",
+          "tenant_id": null,
+          "permissions_count": 42
+        }
+      ]
+    },
+    "tenant": {
+      "id": "adm_demo_alpha_owner",
+      "email": "owner@alpha.newpaotang.test",
+      "scopes": [
+        {
+          "scope": "tenant",
+          "tenant_id": "ten_demo_alpha",
+          "permissions_count": 70
+        }
+      ]
+    }
+  },
+  "menu_round_trips": [
+    {
+      "path": "/admin/central/menu-management",
+      "mode": null,
+      "item_id": "men_c_a532f385303fc1100c93",
+      "original_label": "Dashboard",
+      "changed_label": "Dashboard [QA-CENTRAL]",
+      "observed_changed": "Dashboard [QA-CENTRAL]",
+      "observed_restored": "Dashboard",
+      "update_status": 200,
+      "item_count": 24
+    },
+    {
+      "path": "/admin/tenant/menu-management",
+      "mode": null,
+      "item_id": "men_t_0123ecdaf7360c7a4b39",
+      "original_label": "Dashboard",
+      "changed_label": "Dashboard [QA-TENANT]",
+      "observed_changed": "Dashboard [QA-TENANT]",
+      "observed_restored": "Dashboard",
+      "update_status": 200,
+      "item_count": 32
+    }
+  ],
+  "maintenance_initial": {
+    "status": 200,
+    "mode": "scheduled"
+  },
+  "bypass_round_trip": {
+    "create_status": 201,
+    "created_id": "byp_01KRAM1E353C4S6NE174RMX5VY",
+    "ticket_id_present": true,
+    "active_contains_created": true,
+    "revoke_status": 204,
+    "revoked_contains_created": true
+  },
+  "missing_ticket_direct_api_observation": {
+    "status": 201,
+    "accepted_without_ticket": true,
+    "cleanup": "revoked created no-ticket bypass"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "menuLinkCount": 1,
+  "original": "Dashboard",
+  "changed": "Dashboard [UI-QA-CENTRAL]",
+  "putsBeforeCancel": 0,
+  "putsAfterCancel": 0,
+  "putCountTotal": 2,
+  "saveStatus": 200,
+  "restoreStatus": 200,
+  "observedChanged": "Dashboard [UI-QA-CENTRAL]",
+  "observedRestored": "Dashboard"
+}
