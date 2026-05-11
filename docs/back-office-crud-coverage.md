@@ -22,11 +22,11 @@ Coordinator should calculate that from the counts and row-level evidence below.
 
 | Scope | complete | partial | not_started | api_gap | out_of_scope | Total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Central | 20 | 3 | 0 | 1 | 0 | 24 |
+| Central | 21 | 2 | 0 | 1 | 0 | 24 |
 | Tenant | 22 | 9 | 0 | 1 | 0 | 32 |
-| Total | 42 | 12 | 0 | 2 | 0 | 56 |
+| Total | 43 | 11 | 0 | 2 | 0 | 56 |
 
-Coordinator-approved BO completion from verified working CRUD/API workflow coverage is 42/56 menus, or 75.0%.
+Coordinator-approved BO completion from verified working CRUD/API workflow coverage is 43/56 menus, or 76.8%.
 
 ## Current BO Implementation Notes
 
@@ -41,7 +41,7 @@ Coordinator-approved BO completion from verified working CRUD/API workflow cover
 | menu key | frontend route | required permission | list API | detail API | create API | update API | delete/action APIs | export API | UI implemented status | API connected status | form/modal implemented status | QA status | gap/blocker | completion status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | central:dashboard | `/admin/central/dashboard` | `dashboard.view` | `GET /admin/central/dashboard/summary` | N/A | N/A | N/A | N/A | N/A | dedicated dashboard page | connected | refresh only; no CRUD form | P5-A real menu QA pass (20260511); API-backed summary cards/activity evidence, hard refresh, and mobile sanity passed | None for read-summary workflow. | complete |
-| central:games | `/admin/central/games` | `game.view` | `GET /admin/central/games` | `GET /admin/central/games/{game_id}` | `POST /admin/central/games` | `PATCH /admin/central/games/{game_id}` | `POST /admin/central/games/{game_id}/close`; `POST /admin/central/games/{game_id}/archive` | N/A | generic operations page | partial; list/detail/actions connected, create/update not surfaced | reason confirm for close/archive only; no create/update form | not workflow-tested | Backend has create/update, but BO lacks typed create/update workflow and QA. | partial |
+| central:games | `/admin/central/games` | `game.view` | `GET /admin/central/games` | `GET /admin/central/games/{game_id}` | `POST /admin/central/games` | `PATCH /admin/central/games/{game_id}` | `POST /admin/central/games/{game_id}/close`; `POST /admin/central/games/{game_id}/archive` | N/A | central games page with typed create/update and action workflow | connected for list/detail/create/update/close/archive | typed create/update game forms with code/name/draw_at/close_at/status controls; close/archive confirmations show game context and require reason | P5 central games QA pass (20260511); real central menu create/update/list/detail/close/archive/filter workflow passed with central scope and idempotency evidence | None for central games workflow. | complete |
 | central:rewards | `/admin/central/rewards` | `reward.view` | `GET /admin/central/rewards` | `GET /admin/central/rewards/{reward_result_id}` | `POST /admin/central/rewards` | `PATCH /admin/central/rewards/{reward_result_id}` | `GET /admin/central/rewards/{reward_result_id}/check-batches`; `POST /verify`; `POST /correct`; `POST /publish` | N/A | operations rewards page with typed reward-result workflow | connected for list/detail/create/update/check-batches/actions | typed prize-line create/update forms; verify/correct/publish confirmations show reward/game/prize context and require reason | P3 real menu QA pass (20260510); create/update/verify/publish/correct persisted with API before/after evidence | None for P3. | complete |
 | central:prize_checking | `/admin/central/rewards` | `reward.view` | `GET /admin/central/rewards` | `GET /admin/central/rewards/{reward_result_id}` | N/A | N/A | `GET /admin/central/rewards/{reward_result_id}/check-batches`; `POST /verify`; `POST /correct`; `POST /publish` | N/A | shared rewards workflow with prize-check batch detail table | connected for reward list/detail/check-batches/actions | reason confirmations show reward/game/prize/check context | P3 real menu QA pass (20260510); reward detail showed completed check-batch and API check-batches returned 200 | None for P3; shares rewards route by current contract. | complete |
 | central:master_stock | `/admin/central/stock` | `stock.view` | `GET /admin/central/stock` | missing in frozen backend | N/A | N/A | N/A | `POST /admin/central/stock/exports` | generic operations page | connected for list/export only | export reason modal only | not workflow-tested | Frozen backend has no central stock detail GET, so master stock inspection cannot be completed end-to-end. | api_gap |
@@ -119,8 +119,8 @@ Other contract/scope questions that are not counted as `api_gap` yet:
 
 ## Remaining Implementation Priorities From The Matrix
 
-1. P5 ticket status remediation promoted `tenant:tickets`; next BO implementation candidate is central games typed create/update workflow.
-2. Remaining BO implementation candidates: tenant price rules, tenant customer/admin-adjacent member workflows, tenant agents/quotas, affiliate workflows, commission rules, and SEO settings/pages/redirects.
+1. P5 central games typed workflow promoted `central:games`; next BO implementation candidates are tenant price rules and tenant customer/member workflows.
+2. Remaining BO implementation candidates: tenant agents/quotas, affiliate workflows, commission rules, and SEO settings/pages/redirects.
 3. Coordinator decision candidates: central partner monitoring/usage update permissions, central master-stock detail API gap, and tenant commission-transaction detail API gap.
 4. Customer-related CRUD verification must continue through API evidence first and must not enter the Customer UI unless Coordinator explicitly opens a customer frontend scope.
 

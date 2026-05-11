@@ -1,0 +1,5 @@
+1a79d33 back-office-p5-central-games-typed-workflow: add typed game forms
+ apps/back-office/components/AdminConfirmAction.vue | 23 +++++++
+ .../back-office/components/AdminOperationsPage.vue | 23 +++++++
+ .../composables/useAdminOperationsCatalog.ts       | 74 +++++++++++++++++++---
+ 3 files changed, 110 insertions(+), 10 deletions(-)
