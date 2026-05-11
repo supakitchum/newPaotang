@@ -1,0 +1,260 @@
+{
+    "generated_at": "2026-05-11T13:15:51+00:00",
+    "base_url": "http://127.0.0.1:8000/api/v1",
+    "fixtures": {
+        "customer_id": "cus_p5_read",
+        "stock_item_id": "stk_p5_read",
+        "local_stock_item_id": "lsi_p5_read",
+        "reservation_id": "res_p5_read",
+        "order_id": "ord_p5_read",
+        "ticket_id": "tic_p5_read",
+        "affiliate_id": "aff_p5_read",
+        "program_id": "afp_p5_read",
+        "link_id": "afl_p5_read",
+        "attribution_id": "aat_p5_read",
+        "tenant_id": "ten_demo_alpha",
+        "partner_id": "par_demo_alpha",
+        "game_id": "gam_p5_read"
+    },
+    "steps": [
+        {
+            "name": "central dashboard summary",
+            "method": "GET",
+            "path": "/admin/central/dashboard/summary",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "central"
+            },
+            "summary": {
+                "shape": "object",
+                "keys": [
+                    "scope",
+                    "tenant_id",
+                    "generated_at",
+                    "kpis",
+                    "charts",
+                    "alerts"
+                ],
+                "id": null,
+                "tenant_id": null,
+                "status": null,
+                "kpis": {
+                    "partners_total": 3,
+                    "partners_active": 3,
+                    "tenants_total": 3,
+                    "tenants_active": 3,
+                    "admin_users_total": 4,
+                    "roles_total": 1,
+                    "menus_total": 24,
+                    "audit_logs_total": 1
+                },
+                "totals": null
+            }
+        },
+        {
+            "name": "tenant dashboard summary",
+            "method": "GET",
+            "path": "/admin/tenant/dashboard/summary",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "tenant",
+                "x-tenant-id": "ten_demo_alpha"
+            },
+            "summary": {
+                "shape": "object",
+                "keys": [
+                    "scope",
+                    "tenant_id",
+                    "generated_at",
+                    "kpis",
+                    "charts",
+                    "alerts"
+                ],
+                "id": null,
+                "tenant_id": "ten_demo_alpha",
+                "status": null,
+                "kpis": {
+                    "admin_users_total": 1,
+                    "roles_total": 1,
+                    "menus_total": 32,
+                    "audit_logs_total": 1,
+                    "orders_total": 0,
+                    "tickets_total": 0,
+                    "topups_total": 0
+                },
+                "totals": null
+            }
+        },
+        {
+            "name": "tenant tickets list",
+            "method": "GET",
+            "path": "/admin/tenant/tickets?limit=20",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "tenant",
+                "x-tenant-id": "ten_demo_alpha"
+            },
+            "summary": {
+                "shape": "list",
+                "count": 1,
+                "first_id": "tic_p5_read",
+                "first_status": "active",
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        {
+            "name": "tenant ticket detail",
+            "method": "GET",
+            "path": "/admin/tenant/tickets/tic_p5_read",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "tenant",
+                "x-tenant-id": "ten_demo_alpha"
+            },
+            "summary": {
+                "shape": "object",
+                "keys": [
+                    "id",
+                    "game_id",
+                    "full_number",
+                    "status",
+                    "image_thumb_url",
+                    "image_url",
+                    "tenant_id",
+                    "order",
+                    "reward_status",
+                    "history"
+                ],
+                "id": "tic_p5_read",
+                "tenant_id": "ten_demo_alpha",
+                "status": "active",
+                "kpis": null,
+                "totals": null
+            }
+        },
+        {
+            "name": "tenant affiliate attributions list",
+            "method": "GET",
+            "path": "/admin/tenant/affiliate-attributions?limit=20",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "tenant",
+                "x-tenant-id": "ten_demo_alpha"
+            },
+            "summary": {
+                "shape": "list",
+                "count": 1,
+                "first_id": "aat_p5_read",
+                "first_status": "pending",
+                "meta": {
+                    "next_cursor": null,
+                    "has_more": false
+                }
+            }
+        },
+        {
+            "name": "tenant affiliate attribution detail",
+            "method": "GET",
+            "path": "/admin/tenant/affiliate-attributions/aat_p5_read",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "tenant",
+                "x-tenant-id": "ten_demo_alpha"
+            },
+            "summary": {
+                "shape": "object",
+                "keys": [
+                    "id",
+                    "tenant_id",
+                    "affiliate_id",
+                    "affiliate_account_id",
+                    "affiliate_link_id",
+                    "affiliate_program_id",
+                    "customer_id",
+                    "order_id",
+                    "status",
+                    "attributed_at",
+                    "converted_at",
+                    "metadata"
+                ],
+                "id": "aat_p5_read",
+                "tenant_id": "ten_demo_alpha",
+                "status": "pending",
+                "kpis": null,
+                "totals": null
+            }
+        },
+        {
+            "name": "tenant monitoring summary",
+            "method": "GET",
+            "path": "/admin/tenant/monitoring",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "tenant",
+                "x-tenant-id": "ten_demo_alpha"
+            },
+            "summary": {
+                "shape": "object",
+                "keys": [
+                    "id",
+                    "tenant_id",
+                    "status",
+                    "created_at",
+                    "updated_at",
+                    "partner_id",
+                    "health_status",
+                    "checks"
+                ],
+                "id": "pmp_bb8ba141b0d386ad79bd",
+                "tenant_id": "ten_demo_alpha",
+                "status": "active",
+                "kpis": null,
+                "totals": null
+            }
+        },
+        {
+            "name": "tenant usage summary filtered",
+            "method": "GET",
+            "path": "/admin/tenant/usage?date_from=2026-05-01&date_to=2026-05-31",
+            "status": 200,
+            "request_headers": {
+                "x-admin-scope": "tenant",
+                "x-tenant-id": "ten_demo_alpha"
+            },
+            "summary": {
+                "shape": "object",
+                "keys": [
+                    "id",
+                    "tenant_id",
+                    "status",
+                    "created_at",
+                    "updated_at",
+                    "date_from",
+                    "date_to",
+                    "summaries",
+                    "totals"
+                ],
+                "id": "tus_b82a88f9f0b366cdd5ce",
+                "tenant_id": "ten_demo_alpha",
+                "status": "active",
+                "kpis": null,
+                "totals": {
+                    "api_request_count": 55,
+                    "booking_request_count": 3,
+                    "checkout_request_count": 2,
+                    "order_count": 1,
+                    "sold_ticket_count": 1,
+                    "image_bandwidth_gb": 0.125,
+                    "storage_gb": 0.25,
+                    "queue_job_count": 7,
+                    "rate_limited_count": 0,
+                    "error_count": 0,
+                    "sync_event_count": 2
+                }
+            }
+        }
+    ]
+}

@@ -1,0 +1,45 @@
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-platform-api-run-b4a9da76ccf6 Creating
+ Container newpaotang-platform-api-run-b4a9da76ccf6 Created
+
+  Dropping all tables .......................................... 238.99ms DONE
+
+   INFO  Preparing database.
+
+  Creating migration table ....................................... 4.42ms DONE
+
+   INFO  Running migrations.
+
+  2026_05_06_000001_create_platform_core_tables ................. 43.05ms DONE
+  2026_05_06_000002_create_runtime_support_tables ................ 8.24ms DONE
+  2026_05_06_000003_create_admin_auth_sessions ................... 8.11ms DONE
+  2026_05_06_000004_create_partner_provisioning_tables .......... 33.23ms DONE
+  2026_05_06_000005_create_central_stock_allocation_tables ...... 38.32ms DONE
+  2026_05_06_000006_create_local_stock_booking_tables ........... 42.30ms DONE
+  2026_05_07_000001_create_checkout_wallet_sold_sync_tables ..... 61.93ms DONE
+  2026_05_07_000002_create_reward_result_engine_tables .......... 61.94ms DONE
+  2026_05_07_000003_create_affiliate_agent_reports_settlement_tables  100.50ms DONE
+  2026_05_07_000004_create_maintenance_support_security_tables .. 53.98ms DONE
+  2026_05_08_000001_create_observability_alerting_tables ........ 19.29ms DONE
+  2026_05_08_000002_add_cloudflare_readiness_to_partner_tenant_domains  1.67ms DONE
+  2026_05_08_000003_add_presentation_metadata_to_admin_menus ..... 0.95ms DONE
+  2026_05_09_000001_create_bo_menu_completion_gap_tables ........ 10.76ms DONE
+  2026_05_09_000002_create_remaining_openapi_route_closure_tables  23.97ms DONE
+  2026_05_09_000003_create_admin_security_line_policy_closure_tables  18.40ms DONE
+
+
+   INFO  Seeding database.
+
+  Database\Seeders\DefaultRbacMenuSeeder ............................. RUNNING
+  Database\Seeders\DefaultRbacMenuSeeder .......................... 10 ms DONE
+
+  Database\Seeders\BootstrapAdminSeeder .............................. RUNNING
+  Database\Seeders\BootstrapAdminSeeder .......................... 245 ms DONE
+
+  Database\Seeders\DemoTenantSeeder .................................. RUNNING
+  Database\Seeders\DemoTenantSeeder .............................. 788 ms DONE
