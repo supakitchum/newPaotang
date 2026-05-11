@@ -18,7 +18,7 @@ export type OperationFilter = {
 export type OperationFormField = {
   key: string
   label: string
-  type?: 'text' | 'number' | 'textarea' | 'select' | 'checkbox' | 'date' | 'datetime-local' | 'lines' | 'password' | 'color' | 'prize-lines'
+  type?: 'text' | 'number' | 'textarea' | 'json' | 'select' | 'checkbox' | 'date' | 'datetime-local' | 'lines' | 'password' | 'color' | 'prize-lines'
   sourceKey?: string
   valueKey?: string
   options?: string[]
@@ -172,6 +172,8 @@ const centralReportFilters: OperationFilter[] = [
 const tenantReportFilters = baseReportFilters
 
 const currencyOptions = ['THB']
+const priceRuleStatusOptions = ['active', 'archived']
+const memberStatusOptions = ['active', 'pending_verification', 'suspended', 'disabled']
 const notifyCustomerField: OperationFormField = {
   key: 'notify_customer',
   label: 'Notify customer',
@@ -254,6 +256,8 @@ const alertPolicyActionContext = ['id', 'partner_id', 'partner.name', 'policy_ke
 const alertEventActionContext = ['id', 'partner_id', 'partner.name', 'policy_key', 'severity', 'status', 'channel', 'title', 'triggered_at']
 const rewardActionContext = ['id', 'game_id', 'status', 'version', 'prizes.0.prize_type', 'prizes.0.prize_number', 'prizes.0.amount.amount', 'checked_at', 'verified_at', 'published_at']
 const settlementActionContext = ['id', 'partner_id', 'tenant_id', 'status', 'sales_amount.amount', 'commission_amount.amount', 'payout_amount.amount', 'net_amount.amount', 'period_from', 'period_to']
+const priceRuleActionContext = ['id', 'tenant_id', 'code', 'name', 'game_id', 'rule_type', 'price.amount', 'price.currency', 'status', 'conditions', 'updated_at']
+const memberActionContext = ['id', 'tenant_id', 'member_no', 'name', 'phone', 'email', 'status', 'order_count', 'lifetime_spend.amount', 'updated_at']
 const reportExportContext = ['scope', 'report_key', 'tenant_id', 'date_from', 'date_to', 'group_by', 'filters']
 const adminUserActionContext = ['id', 'tenant_id', 'name', 'email', 'phone', 'status', 'roles.0.id', 'roles.0.name', 'permissions.0']
 const roleActionContext = ['id', 'tenant_id', 'code', 'name', 'status', 'permissions.0', 'permissions.1', 'system_role']
@@ -358,6 +362,43 @@ const tenantDomainCreateFields: OperationFormField[] = [
   { key: 'is_primary', label: 'Primary domain', type: 'checkbox', defaultValue: false },
 ]
 const tenantDomainUpdateFields: OperationFormField[] = tenantDomainCreateFields.map((field) => ({ ...field, required: false }))
+const priceRuleCreateFields: OperationFormField[] = [
+  { key: 'code', label: 'Code', required: true, placeholder: 'vip_fixed', help: 'Unique within the active tenant.' },
+  { key: 'name', label: 'Name', required: true, placeholder: 'VIP Fixed Price' },
+  { key: 'game_id', label: 'Game ID', placeholder: 'Optional game scope' },
+  { key: 'rule_type', label: 'Rule type', defaultValue: 'fixed_price', placeholder: 'fixed_price' },
+  { key: 'price_amount', label: 'Price amount (minor units)', type: 'number', min: 0, step: 1, defaultValue: 0, help: 'Use the smallest currency unit, for example 12000 for THB 120.00.' },
+  { key: 'currency', label: 'Currency', type: 'select', options: currencyOptions, defaultValue: 'THB' },
+  { key: 'conditions', label: 'Conditions JSON', type: 'json', defaultValue: '{}', placeholder: '{"segment":"vip"}', help: 'Must be a JSON object or array.' },
+  { key: 'status', label: 'Status', type: 'select', options: priceRuleStatusOptions, defaultValue: 'active' },
+]
+const priceRuleUpdateFields: OperationFormField[] = priceRuleCreateFields.map((field) => {
+  const updateField: OperationFormField = {
+    ...field,
+    required: false,
+    sourceKey: field.key === 'price_amount' ? 'price.amount' : field.key === 'currency' ? 'price.currency' : field.key,
+  }
+  delete updateField.defaultValue
+  return updateField
+})
+const memberCreateFields: OperationFormField[] = [
+  { key: 'name', label: 'Name', required: true, placeholder: 'Tenant Member' },
+  { key: 'phone', label: 'Phone', required: true, placeholder: '0811111111' },
+  { key: 'email', label: 'Email', placeholder: 'member@example.test' },
+  { key: 'password', label: 'Temporary password', type: 'password', placeholder: 'Optional password for safe local fixture members' },
+  { key: 'status', label: 'Status', type: 'select', options: memberStatusOptions, defaultValue: 'active' },
+  { key: 'send_invitation', label: 'Send invitation', type: 'checkbox', defaultValue: false },
+]
+const memberUpdateFields: OperationFormField[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'email', label: 'Email' },
+  { key: 'admin_note', label: 'Admin note', type: 'textarea', placeholder: 'Optional internal note for audit context' },
+]
+const memberStatusFields: OperationFormField[] = [
+  { key: 'status', label: 'Status', type: 'select', options: memberStatusOptions, defaultValue: 'suspended', required: true },
+  { key: 'notify_member', label: 'Notify member', type: 'checkbox', defaultValue: true },
+]
 const partnerCreateFields: OperationFormField[] = [
   { key: 'code', label: 'Partner code', required: true, placeholder: 'acme_partner', help: 'Use lowercase letters, numbers, underscores, or hyphens.' },
   { key: 'name', label: 'Partner name', required: true, placeholder: 'Acme Partner' },
@@ -535,31 +576,54 @@ const tenant: OperationResource[] = [
       ],
     }],
   },
-  editableResource('tenant', 'price-rules', 'Price Rules', 'Tenant Store Operations', '/admin/tenant/price-rules', '/admin/tenant/price-rules/{price_rule_id}', 'price_rule_id', [
-    { key: 'id', label: 'Price rule' },
-    { key: 'game_id', label: 'Game' },
-    { key: 'code', label: 'Code' },
-    { key: 'rule_type', label: 'Type' },
-    { key: 'price.amount', label: 'Price', type: 'money' },
-    { key: 'status', label: 'Status', type: 'status' },
-    { key: 'updated_at', label: 'Updated', type: 'datetime' },
-  ], cursorFilters([{ key: 'game_id', label: 'Game ID' }, statusFilter(['active', 'archived'])]), [], [
-    {
+  {
+    scope: 'tenant',
+    slug: 'price-rules',
+    title: 'Price Rules',
+    group: 'Tenant Store Operations',
+    listEndpoint: '/admin/tenant/price-rules',
+    detailEndpoint: '/admin/tenant/price-rules/{price_rule_id}',
+    updateEndpoint: '/admin/tenant/price-rules/{price_rule_id}',
+    idParam: 'price_rule_id',
+    idKey: 'id',
+    columns: [
+      { key: 'id', label: 'Price rule' },
+      { key: 'game_id', label: 'Game' },
+      { key: 'code', label: 'Code' },
+      { key: 'rule_type', label: 'Type' },
+      { key: 'price.amount', label: 'Price', type: 'money' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ],
+    filters: cursorFilters([{ key: 'game_id', label: 'Game ID' }, statusFilter(priceRuleStatusOptions)]),
+    confirmContextFields: priceRuleActionContext,
+    actions: [
+      {
+        key: 'update',
+        label: 'Update price rule',
+        method: 'PATCH',
+        endpoint: '/admin/tenant/price-rules/{price_rule_id}',
+        variant: 'primary',
+        contextFields: priceRuleActionContext,
+        formFields: priceRuleUpdateFields,
+      },
+      {
+        key: 'archive',
+        label: 'Archive',
+        method: 'DELETE',
+        endpoint: '/admin/tenant/price-rules/{price_rule_id}',
+        variant: 'danger',
+        reason: true,
+        contextFields: priceRuleActionContext,
+      },
+    ],
+    collectionActions: [{
       key: 'create',
       label: 'Create price rule',
       endpoint: '/admin/tenant/price-rules',
-      payloadTemplate: {
-        code: '',
-        name: '',
-        game_id: null,
-        rule_type: 'fixed_price',
-        price_amount: 0,
-        currency: 'THB',
-        conditions: {},
-        status: 'active',
-      },
-    },
-  ]),
+      formFields: priceRuleCreateFields,
+    }],
+  },
   {
     scope: 'tenant',
     slug: 'reservations',
@@ -637,43 +701,60 @@ const tenant: OperationResource[] = [
       },
     ],
   },
-  editableResource('tenant', 'customers', 'Customers', 'Tenant Store Operations', '/admin/tenant/members', '/admin/tenant/members/{member_id}', 'member_id', [
-    { key: 'id', label: 'Member' },
-    { key: 'member_no', label: 'Member no' },
-    { key: 'name', label: 'Name' },
-    { key: 'phone', label: 'Phone' },
-    { key: 'status', label: 'Status', type: 'status' },
-    { key: 'order_count', label: 'Orders' },
-    { key: 'lifetime_spend.amount', label: 'Lifetime spend', type: 'money' },
-    { key: 'updated_at', label: 'Updated', type: 'datetime' },
-  ], cursorFilters([
-    { key: 'q', label: 'Search' },
-    statusFilter(['active', 'pending_verification', 'suspended', 'disabled']),
-    { key: 'registered_from', label: 'Registered from', type: 'date' },
-    { key: 'registered_to', label: 'Registered to', type: 'date' },
-  ]), [
-    {
-      key: 'status',
-      label: 'Change status',
-      endpoint: '/admin/tenant/members/{member_id}/status',
-      variant: 'warning',
-      reason: true,
-      payloadTemplate: { status: 'suspended' },
-    },
-  ], [
-    {
+  {
+    scope: 'tenant',
+    slug: 'customers',
+    title: 'Customers',
+    group: 'Tenant Store Operations',
+    listEndpoint: '/admin/tenant/members',
+    detailEndpoint: '/admin/tenant/members/{member_id}',
+    updateEndpoint: '/admin/tenant/members/{member_id}',
+    idParam: 'member_id',
+    idKey: 'id',
+    columns: [
+      { key: 'id', label: 'Member' },
+      { key: 'member_no', label: 'Member no' },
+      { key: 'name', label: 'Name' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'order_count', label: 'Orders' },
+      { key: 'lifetime_spend.amount', label: 'Lifetime spend', type: 'money' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ],
+    filters: cursorFilters([
+      { key: 'q', label: 'Search' },
+      statusFilter(memberStatusOptions),
+      { key: 'registered_from', label: 'Registered from', type: 'date' },
+      { key: 'registered_to', label: 'Registered to', type: 'date' },
+    ]),
+    confirmContextFields: memberActionContext,
+    actions: [
+      {
+        key: 'update',
+        label: 'Update member',
+        method: 'PATCH',
+        endpoint: '/admin/tenant/members/{member_id}',
+        variant: 'primary',
+        contextFields: memberActionContext,
+        formFields: memberUpdateFields,
+      },
+      {
+        key: 'status',
+        label: 'Change status',
+        endpoint: '/admin/tenant/members/{member_id}/status',
+        variant: 'warning',
+        reason: true,
+        contextFields: memberActionContext,
+        formFields: memberStatusFields,
+      },
+    ],
+    collectionActions: [{
       key: 'create',
       label: 'Create member',
       endpoint: '/admin/tenant/members',
-      payloadTemplate: {
-        name: '',
-        phone: '',
-        email: null,
-        status: 'active',
-        password: '',
-      },
-    },
-  ]),
+      formFields: memberCreateFields,
+    }],
+  },
   resource('tenant', 'tickets', 'Tickets', 'Tenant Support', '/admin/tenant/tickets', '/admin/tenant/tickets/{ticket_id}', 'ticket_id', [
     { key: 'id', label: 'Ticket' },
     { key: 'customer_id', label: 'Customer' },

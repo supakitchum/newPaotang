@@ -94,7 +94,7 @@
     "/admin/tenant/payouts": ["get", "post"],
     "/admin/tenant/payouts/{payout_id}/approve": ["post"],
     "/admin/tenant/price-rules": ["get", "post"],
-    "/admin/tenant/price-rules/{price_rule_id}": ["get", "patch"],
+    "/admin/tenant/price-rules/{price_rule_id}": ["get", "patch", "delete"],
     "/admin/tenant/reports/{report_key}": ["get"],
     "/admin/tenant/reports/{report_key}/exports": ["post"],
     "/admin/tenant/reservations": ["get"],

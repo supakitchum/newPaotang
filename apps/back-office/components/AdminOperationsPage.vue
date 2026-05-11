@@ -60,7 +60,7 @@
         <div class="card-body">
           <AdminLoader v-if="loading" />
           <div v-else class="row g-3">
-            <div v-for="field in resource.settingsFields || []" :key="field.key" :class="field.type === 'textarea' || field.type === 'lines' ? 'col-12' : 'col-md-6'">
+            <div v-for="field in resource.settingsFields || []" :key="field.key" :class="field.type === 'textarea' || field.type === 'json' || field.type === 'lines' ? 'col-12' : 'col-md-6'">
               <div v-if="field.type === 'checkbox'" class="form-check form-switch mt-4">
                 <input :id="fieldId(`settings-${field.key}`)" v-model="settingsForm[field.key]" class="form-check-input" type="checkbox">
                 <label class="form-check-label" :for="fieldId(`settings-${field.key}`)">{{ field.label }}</label>
@@ -73,7 +73,7 @@
                   <option v-for="option in field.options || []" :key="option" :value="option">{{ option }}</option>
                 </select>
                 <textarea
-                  v-else-if="field.type === 'textarea' || field.type === 'lines'"
+                  v-else-if="field.type === 'textarea' || field.type === 'json' || field.type === 'lines'"
                   :id="fieldId(`settings-${field.key}`)"
                   v-model="settingsForm[field.key]"
                   class="form-control"
@@ -132,7 +132,7 @@
           <AdminApiState :error="secondaryErrors[panel.key]" />
           <AdminLoader v-if="secondaryLoading[panel.key]" />
           <div v-else-if="secondaryForms[panel.key]" class="row g-3">
-            <div v-for="field in panel.settingsFields || []" :key="field.key" :class="field.type === 'textarea' || field.type === 'lines' ? 'col-12' : 'col-md-6'">
+            <div v-for="field in panel.settingsFields || []" :key="field.key" :class="field.type === 'textarea' || field.type === 'json' || field.type === 'lines' ? 'col-12' : 'col-md-6'">
               <div v-if="field.type === 'checkbox'" class="form-check form-switch mt-4">
                 <input :id="fieldId(`secondary-${panel.key}-${field.key}`)" v-model="secondaryForms[panel.key][field.key]" class="form-check-input" type="checkbox">
                 <label class="form-check-label" :for="fieldId(`secondary-${panel.key}-${field.key}`)">{{ field.label }}</label>
@@ -145,7 +145,7 @@
                   <option v-for="option in field.options || []" :key="option" :value="option">{{ option }}</option>
                 </select>
                 <textarea
-                  v-else-if="field.type === 'textarea' || field.type === 'lines'"
+                  v-else-if="field.type === 'textarea' || field.type === 'json' || field.type === 'lines'"
                   :id="fieldId(`secondary-${panel.key}-${field.key}`)"
                   v-model="secondaryForms[panel.key][field.key]"
                   class="form-control"
@@ -796,6 +796,17 @@ const normalizePayloadField = (field: OperationFormField, value: any) => {
     return Number(value)
   }
 
+  if (field.type === 'json') {
+    if (value === '' || value === undefined || value === null) return undefined
+
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value
+    if (parsed !== null && typeof parsed === 'object') {
+      return parsed
+    }
+
+    throw new Error(`${field.label} must be a JSON object or array.`)
+  }
+
   if (field.type === 'lines') {
     const lines = String(value || '')
       .split(/\r?\n/)
@@ -824,6 +835,10 @@ const normalizeInitialFieldValue = (field: OperationFormField, value: any) => {
 
   if (field.type === 'datetime-local') {
     return formatDateTimeLocalValue(value)
+  }
+
+  if (field.type === 'json') {
+    return formatJsonFieldValue(value)
   }
 
   if (field.type === 'lines') {
@@ -1000,6 +1015,18 @@ const formatDateTimeLocalValue = (value: any) => {
 
   const pad = (entry: number) => String(entry).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+const formatJsonFieldValue = (value: any) => {
+  if (value === undefined || value === null || value === '') {
+    return ''
+  }
+
+  if (typeof value === 'string') {
+    return value
+  }
+
+  return JSON.stringify(value, null, 2)
 }
 
 const normalizePrizeLines = (value: any) => String(value || '')

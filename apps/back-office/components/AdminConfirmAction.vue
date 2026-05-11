@@ -13,7 +13,7 @@
     </div>
 
     <div v-if="formFields.length" class="row g-3 mb-3">
-      <div v-for="field in formFields" :key="field.key" :class="field.type === 'textarea' || field.type === 'lines' || field.type === 'prize-lines' ? 'col-12' : 'col-md-6'">
+      <div v-for="field in formFields" :key="field.key" :class="field.type === 'textarea' || field.type === 'json' || field.type === 'lines' || field.type === 'prize-lines' ? 'col-12' : 'col-md-6'">
         <div v-if="field.type === 'checkbox'" class="form-check form-switch mt-4">
           <input :id="fieldId(field.key)" v-model="formState[field.key]" class="form-check-input" type="checkbox">
           <label class="form-check-label" :for="fieldId(field.key)">{{ field.label }}</label>
@@ -34,7 +34,7 @@
             <option v-for="option in field.options || []" :key="option" :value="option">{{ option }}</option>
           </select>
           <textarea
-            v-else-if="field.type === 'textarea' || field.type === 'lines' || field.type === 'prize-lines'"
+            v-else-if="field.type === 'textarea' || field.type === 'json' || field.type === 'lines' || field.type === 'prize-lines'"
             :id="fieldId(field.key)"
             v-model="formState[field.key]"
             class="form-control"
@@ -143,6 +143,10 @@ const normalizeInitialValue = (field: OperationFormField, value: any) => {
     return formatDateTimeLocalValue(value)
   }
 
+  if (field.type === 'json') {
+    return formatJsonFieldValue(value)
+  }
+
   if (field.type === 'lines') {
     return formatLines(value, field.valueKey || field.itemKey)
   }
@@ -183,6 +187,18 @@ const formatContextValue = (value: any) => {
   if (value === undefined || value === null || value === '') return '-'
   if (typeof value === 'object') return JSON.stringify(value)
   return String(value)
+}
+
+const formatJsonFieldValue = (value: any) => {
+  if (value === undefined || value === null || value === '') {
+    return ''
+  }
+
+  if (typeof value === 'string') {
+    return value
+  }
+
+  return JSON.stringify(value, null, 2)
 }
 
 const formatDateTimeLocalValue = (value: any) => {
