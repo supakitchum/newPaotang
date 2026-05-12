@@ -1,0 +1,293 @@
+{
+    "result": "PASS",
+    "run": "db9ca7d9",
+    "base_url": "http:\/\/platform-api:8000\/api\/v1",
+    "tenant_id": "ten_demo_alpha",
+    "fixtures": {
+        "game_id": "gam_msct_db9ca7d9",
+        "stock_batch_id": "stb_2ae9ce38545f7b5d831d",
+        "commission_id": "com_msct_db9ca7d9",
+        "affiliate_account_id": "aff_msct_db9ca7d9",
+        "order_id": "ord_msct_db9ca7d9",
+        "commission_rule_id": "cmr_msct_db9ca7d9"
+    },
+    "checks": {
+        "stock_list_loaded_with_rows": true,
+        "stock_list_has_cursor_meta": true,
+        "stock_export_accepted": true,
+        "commission_list_loaded_with_fixture": true,
+        "commission_approve_status_round_trip": true,
+        "commission_approved_list_contains_fixture": true,
+        "all_writes_had_idempotency_key": true,
+        "central_scope_headers_present": true,
+        "tenant_scope_headers_present": true,
+        "no_stock_or_commission_detail_get_called": true
+    },
+    "events": [
+        {
+            "label": "central-login",
+            "method": "POST",
+            "path": "\/auth\/admin\/login",
+            "status": 200,
+            "query_keys": [],
+            "payload_keys": [
+                "email",
+                "scope",
+                "tenant_id"
+            ],
+            "headers": {
+                "x_admin_scope": null,
+                "x_tenant_id": null,
+                "x_request_id_present": false,
+                "idempotency_key_present": false,
+                "authorization_present": false
+            },
+            "resource": {
+                "id": null,
+                "tenant_id": null,
+                "game_id": null,
+                "status": null,
+                "type": null,
+                "transaction_type": null,
+                "amount": null
+            },
+            "error_code": null
+        },
+        {
+            "label": "tenant-login",
+            "method": "POST",
+            "path": "\/auth\/admin\/login",
+            "status": 200,
+            "query_keys": [],
+            "payload_keys": [
+                "email",
+                "scope",
+                "tenant_id"
+            ],
+            "headers": {
+                "x_admin_scope": null,
+                "x_tenant_id": null,
+                "x_request_id_present": false,
+                "idempotency_key_present": false,
+                "authorization_present": false
+            },
+            "resource": {
+                "id": null,
+                "tenant_id": null,
+                "game_id": null,
+                "status": null,
+                "type": null,
+                "transaction_type": null,
+                "amount": null
+            },
+            "error_code": null
+        },
+        {
+            "label": "stock-generate-fixture",
+            "method": "POST",
+            "path": "\/admin\/central\/stock\/generate",
+            "status": 202,
+            "query_keys": [],
+            "payload_keys": [
+                "game_id",
+                "start_number",
+                "count",
+                "reason"
+            ],
+            "headers": {
+                "x_admin_scope": "central",
+                "x_tenant_id": null,
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "stb_2ae9ce38545f7b5d831d",
+                "tenant_id": null,
+                "game_id": "gam_msct_db9ca7d9",
+                "status": "completed",
+                "type": "generate",
+                "transaction_type": null,
+                "amount": null
+            },
+            "error_code": null
+        },
+        {
+            "label": "stock-list-filtered",
+            "method": "GET",
+            "path": "\/admin\/central\/stock",
+            "status": 200,
+            "query_keys": [
+                "game_id",
+                "status",
+                "limit"
+            ],
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "central",
+                "x_tenant_id": null,
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "list_count": 2,
+                "ids": [
+                    "stk_26b848408926a2a6ff7d",
+                    "stk_3486444685b605dc38bb"
+                ],
+                "meta": {
+                    "next_cursor_present": true,
+                    "has_more": true
+                }
+            },
+            "error_code": null
+        },
+        {
+            "label": "stock-list-cursor",
+            "method": "GET",
+            "path": "\/admin\/central\/stock",
+            "status": 200,
+            "query_keys": [
+                "game_id",
+                "status",
+                "cursor",
+                "limit"
+            ],
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "central",
+                "x_tenant_id": null,
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "list_count": 1,
+                "ids": [
+                    "stk_7e8e589724d7fab8f00c"
+                ],
+                "meta": {
+                    "next_cursor_present": false,
+                    "has_more": false
+                }
+            },
+            "error_code": null
+        },
+        {
+            "label": "stock-export",
+            "method": "POST",
+            "path": "\/admin\/central\/stock\/exports",
+            "status": 202,
+            "query_keys": [],
+            "payload_keys": [
+                "game_id",
+                "filters",
+                "filters.status",
+                "reason"
+            ],
+            "headers": {
+                "x_admin_scope": "central",
+                "x_tenant_id": null,
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "stb_f6f14db3d4a90bc55066",
+                "tenant_id": null,
+                "game_id": "gam_msct_db9ca7d9",
+                "status": "pending",
+                "type": "export",
+                "transaction_type": null,
+                "amount": null
+            },
+            "error_code": null
+        },
+        {
+            "label": "commission-list-calculated",
+            "method": "GET",
+            "path": "\/admin\/tenant\/commission-transactions",
+            "status": 200,
+            "query_keys": [
+                "status",
+                "limit"
+            ],
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "list_count": 1,
+                "ids": [
+                    "com_msct_db9ca7d9"
+                ],
+                "meta": {
+                    "next_cursor_present": false,
+                    "has_more": false
+                }
+            },
+            "error_code": null
+        },
+        {
+            "label": "commission-approve",
+            "method": "POST",
+            "path": "\/admin\/tenant\/commission-transactions\/com_msct_db9ca7d9\/approve",
+            "status": 200,
+            "query_keys": [],
+            "payload_keys": [
+                "reason"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "com_msct_db9ca7d9",
+                "tenant_id": "ten_demo_alpha",
+                "game_id": null,
+                "status": "approved",
+                "type": null,
+                "transaction_type": "commission",
+                "amount": 1500
+            },
+            "error_code": null
+        },
+        {
+            "label": "commission-list-approved",
+            "method": "GET",
+            "path": "\/admin\/tenant\/commission-transactions",
+            "status": 200,
+            "query_keys": [
+                "status",
+                "limit"
+            ],
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "list_count": 1,
+                "ids": [
+                    "com_msct_db9ca7d9"
+                ],
+                "meta": {
+                    "next_cursor_present": false,
+                    "has_more": false
+                }
+            },
+            "error_code": null
+        }
+    ]
+}

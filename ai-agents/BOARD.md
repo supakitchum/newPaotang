@@ -5,28 +5,28 @@
 ## Active Task
 
 ```text
-back-office-p5-master-stock-commission-transactions-list-action-remediation
+back-office-crud-api-workflow-coverage-closed
 ```
 
 ## Agent Status
 
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
-| Coordinator | completed | 20260512-back-office-p5-master-stock-commission-transactions-list-action-qa-review | ai-agents/handoffs/20260512-back-office-p5-master-stock-commission-transactions-list-action-qa-review-coordinator-handoff.md |
-| Orchestrator | pending | dispatch-back-office-p5-master-stock-commission-transactions-list-action-remediation | ai-agents/handoffs/20260512-back-office-p5-master-stock-commission-transactions-list-action-qa-review-coordinator-handoff.md |
+| Coordinator | completed | 20260512-back-office-p5-master-stock-commission-transactions-list-action-remediation-qa-review | ai-agents/handoffs/20260512-back-office-p5-master-stock-commission-transactions-list-action-remediation-qa-review-coordinator-handoff.md |
+| Orchestrator | completed | back-office-crud-api-workflow-coverage-closed | ai-agents/handoffs/20260512-back-office-p5-master-stock-commission-transactions-list-action-remediation-qa-review-coordinator-handoff.md |
 | Backend Develop | completed | back-office-p4-tenant-menu-maintenance-ticket-validation-closure | ai-agents/handoffs/20260511-back-office-p4-tenant-menu-maintenance-ticket-validation-closure-backend-handoff.md |
-| BO Develop | completed | back-office-p5-tenant-seo-settings-pages-redirects-workflows | ai-agents/handoffs/20260512-back-office-p5-tenant-seo-settings-pages-redirects-workflows-bo-handoff.md |
+| BO Develop | completed | back-office-p5-master-stock-commission-transactions-list-action-remediation | ai-agents/handoffs/20260512-back-office-p5-master-stock-commission-transactions-list-action-remediation-bo-handoff.md |
 | Customer Develop | frozen | no-customer-work-without-coordinator-regression-scope | ai-agents/decisions/20260509-backend-only-main-scope-deploy-ready-replan-decision.md |
-| QA Tester | completed | back-office-p5-tenant-seo-settings-pages-redirects-workflows-qa | ai-agents/reports/20260512-back-office-p5-tenant-seo-settings-pages-redirects-workflows-qa-report.md |
+| QA Tester | completed | back-office-p5-master-stock-commission-transactions-list-action-remediation-qa | ai-agents/reports/20260512-back-office-p5-master-stock-commission-transactions-list-action-remediation-qa-report.md |
 
 ## Open Questions
 
 ```text
-P5 master stock/commission transactions list-action QA failed. Backend/API evidence passed, no undocumented detail endpoints were called, and Customer frontend was not used. Official BO completion remains 54/56 menus, or 96.4%, with 2 partial rows and 0 active api_gap rows. Next priority is BO remediation through Orchestrator: central master stock must expose real stock number context and remove unsupported number filter; tenant commission transactions must expose safe approve context and calculated status filtering.
+P5 master stock/commission transactions remediation QA passed. Coordinator promoted central:master_stock and tenant:commission_transactions to complete. Official BO CRUD/API workflow coverage is now 56/56 menus, or 100.0%, with 0 partial rows and 0 api_gap rows. Customer frontend remains frozen; customer-related CRUD QA must use BO/API evidence first and must not enter the Customer UI unless Coordinator opens a customer scope.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/decisions/20260512-back-office-p5-master-stock-commission-transactions-list-action-qa-review-decision.md
+ai-agents/decisions/20260512-back-office-p5-master-stock-commission-transactions-list-action-remediation-qa-review-decision.md
 ```

@@ -1,0 +1,14 @@
+{
+    "run": "e1e1a97e",
+    "tenant_id": "ten_demo_alpha",
+    "game_id": "gam_bmsct_e1e1a97e",
+    "stock_ids": [
+        "stk_bmscta_e1e1a97e",
+        "stk_bmsctb_e1e1a97e",
+        "stk_bmsctc_e1e1a97e"
+    ],
+    "commission_id": "com_bmsct_e1e1a97e",
+    "affiliate_account_id": "aff_bmsct_e1e1a97e",
+    "order_id": "ord_bmsct_e1e1a97e",
+    "commission_rule_id": "cmr_bmsct_e1e1a97e"
+}
