@@ -1,0 +1,484 @@
+{
+    "result": "PASS",
+    "run": "796bd2f8",
+    "base_url": "http://platform-api:8000/api/v1",
+    "tenant_id": "ten_demo_alpha",
+    "fixtures": {
+        "seo_page_id": "seo_01KRDSJK43SB2DH0WKTNYH4K9R",
+        "seo_page_path": "/qa-seo-page-796bd2f8",
+        "redirect_id": "red_01KRDSJK8VH5BW8SZBF8549VZD",
+        "redirect_source_path": "/qa-old-seo-page-796bd2f8"
+    },
+    "checks": {
+        "settings_loaded": true,
+        "settings_update_round_trip": true,
+        "settings_blank_keywords_array": true,
+        "page_create_update_delete": true,
+        "redirect_create_update_delete": true,
+        "all_writes_had_idempotency_key": true,
+        "tenant_scope_headers_present": true,
+        "no_page_or_redirect_detail_get_called": true
+    },
+    "events": [
+        {
+            "label": "login",
+            "method": "POST",
+            "path": "/auth/admin/login",
+            "status": 200,
+            "payload_keys": [
+                "email",
+                "scope",
+                "tenant_id"
+            ],
+            "headers": {
+                "authorization_present": false
+            },
+            "resource": {
+                "access_token_present": true,
+                "refresh_token_present": true
+            }
+        },
+        {
+            "label": "settings-get-before",
+            "method": "GET",
+            "path": "/admin/tenant/seo",
+            "status": 200,
+            "query_keys": [],
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "seo_e2c086ae4f7ad1794bd9",
+                "tenant_id": "ten_demo_alpha",
+                "status": "active",
+                "default_title": "Alpha Lucky Shop",
+                "default_keywords_count": 3
+            },
+            "error_code": null
+        },
+        {
+            "label": "settings-update",
+            "method": "PATCH",
+            "path": "/admin/tenant/seo",
+            "status": 200,
+            "query_keys": [],
+            "payload_keys": [
+                "status",
+                "default_title",
+                "title_template",
+                "default_description",
+                "default_keywords",
+                "robots_default",
+                "canonical_base_url",
+                "og_image_url"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "seo_e2c086ae4f7ad1794bd9",
+                "tenant_id": "ten_demo_alpha",
+                "status": "active",
+                "default_title": "QA Tenant SEO 796bd2f8",
+                "default_keywords_count": 3
+            },
+            "error_code": null
+        },
+        {
+            "label": "settings-blank-keywords",
+            "method": "PATCH",
+            "path": "/admin/tenant/seo",
+            "status": 200,
+            "query_keys": [],
+            "payload_keys": [
+                "default_title",
+                "default_keywords"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "seo_e2c086ae4f7ad1794bd9",
+                "tenant_id": "ten_demo_alpha",
+                "status": "active",
+                "default_title": "QA Tenant SEO Blank 796bd2f8",
+                "default_keywords_count": 0
+            },
+            "error_code": null
+        },
+        {
+            "label": "page-list-before",
+            "method": "GET",
+            "path": "/admin/tenant/seo/pages",
+            "status": 200,
+            "query_keys": [
+                "limit"
+            ],
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "list_count": 0,
+                "ids": [],
+                "meta_keys": [
+                    "next_cursor",
+                    "has_more"
+                ]
+            },
+            "error_code": null
+        },
+        {
+            "label": "page-create",
+            "method": "POST",
+            "path": "/admin/tenant/seo/pages",
+            "status": 201,
+            "query_keys": [],
+            "payload_keys": [
+                "path",
+                "title",
+                "description",
+                "canonical_url",
+                "robots",
+                "og_image_url",
+                "status",
+                "metadata",
+                "metadata.source",
+                "metadata.run"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "seo_01KRDSJK43SB2DH0WKTNYH4K9R",
+                "tenant_id": "ten_demo_alpha",
+                "status": "active",
+                "path": "/qa-seo-page-796bd2f8",
+                "title": "QA SEO Page 796bd2f8",
+                "robots": "index,follow",
+                "metadata_type": "array"
+            },
+            "error_code": null
+        },
+        {
+            "label": "page-list-after-create",
+            "method": "GET",
+            "path": "/admin/tenant/seo/pages",
+            "status": 200,
+            "query_keys": [
+                "path",
+                "limit"
+            ],
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "list_count": 1,
+                "ids": [
+                    "seo_01KRDSJK43SB2DH0WKTNYH4K9R"
+                ],
+                "meta_keys": [
+                    "next_cursor",
+                    "has_more"
+                ]
+            },
+            "error_code": null
+        },
+        {
+            "label": "page-update",
+            "method": "PATCH",
+            "path": "/admin/tenant/seo/pages/seo_01KRDSJK43SB2DH0WKTNYH4K9R",
+            "status": 200,
+            "query_keys": [],
+            "payload_keys": [
+                "title",
+                "robots",
+                "status",
+                "metadata"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "seo_01KRDSJK43SB2DH0WKTNYH4K9R",
+                "tenant_id": "ten_demo_alpha",
+                "status": "inactive",
+                "path": "/qa-seo-page-796bd2f8",
+                "title": "QA SEO Page Updated 796bd2f8",
+                "robots": "noindex,nofollow",
+                "metadata_type": "array"
+            },
+            "error_code": null
+        },
+        {
+            "label": "page-filter-inactive",
+            "method": "GET",
+            "path": "/admin/tenant/seo/pages",
+            "status": 200,
+            "query_keys": [
+                "status",
+                "path",
+                "limit"
+            ],
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "list_count": 1,
+                "ids": [
+                    "seo_01KRDSJK43SB2DH0WKTNYH4K9R"
+                ],
+                "meta_keys": [
+                    "next_cursor",
+                    "has_more"
+                ]
+            },
+            "error_code": null
+        },
+        {
+            "label": "redirect-list-before",
+            "method": "GET",
+            "path": "/admin/tenant/redirects",
+            "status": 200,
+            "query_keys": [
+                "limit"
+            ],
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "list_count": 0,
+                "ids": [],
+                "meta_keys": [
+                    "next_cursor",
+                    "has_more"
+                ]
+            },
+            "error_code": null
+        },
+        {
+            "label": "redirect-create",
+            "method": "POST",
+            "path": "/admin/tenant/redirects",
+            "status": 201,
+            "query_keys": [],
+            "payload_keys": [
+                "source_path",
+                "target_url",
+                "status_code",
+                "status",
+                "metadata",
+                "metadata.source",
+                "metadata.run"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "red_01KRDSJK8VH5BW8SZBF8549VZD",
+                "tenant_id": "ten_demo_alpha",
+                "status": "active",
+                "source_path": "/qa-old-seo-page-796bd2f8",
+                "target_url": "https://alpha.newpaotang.test/qa-seo-page-796bd2f8",
+                "status_code": 301,
+                "metadata_type": "array"
+            },
+            "error_code": null
+        },
+        {
+            "label": "redirect-update",
+            "method": "PATCH",
+            "path": "/admin/tenant/redirects/red_01KRDSJK8VH5BW8SZBF8549VZD",
+            "status": 200,
+            "query_keys": [],
+            "payload_keys": [
+                "target_url",
+                "status_code",
+                "status",
+                "metadata"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": {
+                "id": "red_01KRDSJK8VH5BW8SZBF8549VZD",
+                "tenant_id": "ten_demo_alpha",
+                "status": "inactive",
+                "source_path": "/qa-old-seo-page-796bd2f8",
+                "target_url": "https://alpha.newpaotang.test/qa-seo-page-796bd2f8?updated=1",
+                "status_code": 302,
+                "metadata_type": "array"
+            },
+            "error_code": null
+        },
+        {
+            "label": "redirect-filter-inactive",
+            "method": "GET",
+            "path": "/admin/tenant/redirects",
+            "status": 200,
+            "query_keys": [
+                "status",
+                "limit"
+            ],
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "list_count": 1,
+                "ids": [
+                    "red_01KRDSJK8VH5BW8SZBF8549VZD"
+                ],
+                "meta_keys": [
+                    "next_cursor",
+                    "has_more"
+                ]
+            },
+            "error_code": null
+        },
+        {
+            "label": "page-delete",
+            "method": "DELETE",
+            "path": "/admin/tenant/seo/pages/seo_01KRDSJK43SB2DH0WKTNYH4K9R",
+            "status": 204,
+            "query_keys": [],
+            "payload_keys": [
+                "reason"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": [],
+            "error_code": null
+        },
+        {
+            "label": "page-list-after-delete",
+            "method": "GET",
+            "path": "/admin/tenant/seo/pages",
+            "status": 200,
+            "query_keys": [
+                "path",
+                "limit"
+            ],
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "list_count": 0,
+                "ids": [],
+                "meta_keys": [
+                    "next_cursor",
+                    "has_more"
+                ]
+            },
+            "error_code": null
+        },
+        {
+            "label": "redirect-delete",
+            "method": "DELETE",
+            "path": "/admin/tenant/redirects/red_01KRDSJK8VH5BW8SZBF8549VZD",
+            "status": 204,
+            "query_keys": [],
+            "payload_keys": [
+                "reason"
+            ],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": true,
+                "authorization_present": true
+            },
+            "resource": [],
+            "error_code": null
+        },
+        {
+            "label": "redirect-list-after-delete",
+            "method": "GET",
+            "path": "/admin/tenant/redirects",
+            "status": 200,
+            "query_keys": [
+                "status",
+                "limit"
+            ],
+            "payload_keys": [],
+            "headers": {
+                "x_admin_scope": "tenant",
+                "x_tenant_id": "ten_demo_alpha",
+                "x_request_id_present": true,
+                "idempotency_key_present": false,
+                "authorization_present": true
+            },
+            "resource": {
+                "list_count": 0,
+                "ids": [],
+                "meta_keys": [
+                    "next_cursor",
+                    "has_more"
+                ]
+            },
+            "error_code": null
+        }
+    ]
+}
