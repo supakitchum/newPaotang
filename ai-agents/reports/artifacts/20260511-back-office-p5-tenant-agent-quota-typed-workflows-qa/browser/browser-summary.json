@@ -1,0 +1,313 @@
+{
+  "generated_at": "2026-05-11T16:13:54.867Z",
+  "app_base": "http://172.22.0.6:3000",
+  "run_id": "mp1eivzt",
+  "safe_fixture_refs": {
+    "agent_code": "p5_ui_agent_mp1eivzt",
+    "agent_email": "p5.agent.mp1eivzt@example.test",
+    "agent_phone": "0856492272"
+  },
+  "checks": {
+    "usedCustomerFrontend": false,
+    "menuAgentsClicked": true,
+    "menuAgentQuotasClicked": true,
+    "agents": {
+      "createFieldsVisible": true,
+      "createStatus": 201,
+      "updateStatus": 200,
+      "quotaFieldsVisible": true,
+      "quotaReasonInitiallyRequired": true,
+      "quotaStatus": 200
+    },
+    "agentQuotas": {
+      "quotaFieldsVisible": true,
+      "quotaReasonInitiallyRequired": true,
+      "quotaUpdateStatus": 200
+    }
+  },
+  "request_events": [
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/agents",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/agents",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "POST",
+      "path": "/admin/tenant/agents",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": true
+      },
+      "payload_keys": [
+        "code",
+        "name",
+        "phone",
+        "email",
+        "store_id",
+        "status",
+        "metadata"
+      ]
+    },
+    {
+      "label": "response",
+      "method": "POST",
+      "path": "/admin/tenant/agents",
+      "status": 201
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/agents",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/agents",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/agents/agt_01KRBX1Z9A0V3S6WP3YBBSD3GW",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/agents/agt_01KRBX1Z9A0V3S6WP3YBBSD3GW",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "PATCH",
+      "path": "/admin/tenant/agents/agt_01KRBX1Z9A0V3S6WP3YBBSD3GW",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": true
+      },
+      "payload_keys": [
+        "code",
+        "name",
+        "phone",
+        "email",
+        "store_id",
+        "status",
+        "metadata"
+      ]
+    },
+    {
+      "label": "response",
+      "method": "PATCH",
+      "path": "/admin/tenant/agents/agt_01KRBX1Z9A0V3S6WP3YBBSD3GW",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/agents/agt_01KRBX1Z9A0V3S6WP3YBBSD3GW",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/agents/agt_01KRBX1Z9A0V3S6WP3YBBSD3GW",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "PATCH",
+      "path": "/admin/tenant/agents/agt_01KRBX1Z9A0V3S6WP3YBBSD3GW/quotas",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": true
+      },
+      "payload_keys": [
+        "quota_count",
+        "used_count",
+        "status",
+        "payload",
+        "reason"
+      ]
+    },
+    {
+      "label": "response",
+      "method": "PATCH",
+      "path": "/admin/tenant/agents/agt_01KRBX1Z9A0V3S6WP3YBBSD3GW/quotas",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/agents/agt_01KRBX1Z9A0V3S6WP3YBBSD3GW",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/agents/agt_01KRBX1Z9A0V3S6WP3YBBSD3GW",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/agents",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/agents",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/agents/agt_01KRBX1Z9A0V3S6WP3YBBSD3GW",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/agents/agt_01KRBX1Z9A0V3S6WP3YBBSD3GW",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "PATCH",
+      "path": "/admin/tenant/agents/agt_01KRBX1Z9A0V3S6WP3YBBSD3GW/quotas",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": true
+      },
+      "payload_keys": [
+        "quota_count",
+        "used_count",
+        "status",
+        "payload",
+        "reason"
+      ]
+    },
+    {
+      "label": "response",
+      "method": "PATCH",
+      "path": "/admin/tenant/agents/agt_01KRBX1Z9A0V3S6WP3YBBSD3GW/quotas",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/agents/agt_01KRBX1Z9A0V3S6WP3YBBSD3GW",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/agents/agt_01KRBX1Z9A0V3S6WP3YBBSD3GW",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/agents",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/agents",
+      "status": 200
+    },
+    {
+      "label": "request",
+      "method": "GET",
+      "path": "/admin/tenant/agents",
+      "headers": {
+        "x_admin_scope": "tenant",
+        "x_tenant_id": "ten_demo_alpha",
+        "idempotency_key_present": false
+      },
+      "payload_keys": []
+    },
+    {
+      "label": "response",
+      "method": "GET",
+      "path": "/admin/tenant/agents",
+      "status": 200
+    }
+  ],
+  "screenshots": [
+    "01-tenant-dashboard-after-login.png",
+    "02-agents-list.png",
+    "03-agent-create-modal-fields.png",
+    "04-agents-list-after-create.png",
+    "05-agent-detail-after-create.png",
+    "06-agent-update-modal-prefill.png",
+    "07-agent-detail-after-update.png",
+    "08-agent-quota-modal-context.png",
+    "09-agent-detail-after-quota.png",
+    "10-agent-quotas-list.png",
+    "11-agent-quotas-detail.png",
+    "12-agent-quotas-update-modal-context.png",
+    "13-agent-quotas-detail-after-update.png",
+    "14-agent-quotas-filter-inactive.png"
+  ],
+  "unsafe_text_written_to_summary": false
+}
