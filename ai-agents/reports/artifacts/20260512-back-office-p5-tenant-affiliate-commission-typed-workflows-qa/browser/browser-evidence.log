@@ -1,0 +1,16 @@
+{
+  "result": "PASS",
+  "fixtures": {
+    "affiliate_program_id": "afp_01KRDPB55S8P6H0V1P6WYFP4R3",
+    "affiliate_account_id": "aff_01KRDPB6VRQ0Z296TJ9ZB0KDR3",
+    "affiliate_link_id": "afl_01KRDPB9Q8M3BYN7V6SPJR25J1",
+    "commission_rule_id": "cmr_01KRDPBCFFEQD53X5XNHM14CWP"
+  },
+  "screenshots": 26,
+  "networkEvents": 42,
+  "networkChecks": {
+    "listCallsHaveTenantHeaders": true,
+    "writesHaveIdempotency": true,
+    "noCustomerApiSeen": true
+  }
+}
