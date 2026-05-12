@@ -29,6 +29,7 @@ export type OperationFormField = {
   min?: number
   step?: number
   itemKey?: string
+  emptyValue?: 'array'
 }
 
 export type OperationAction = {
@@ -236,6 +237,8 @@ const tenantStatusOptions = ['provisioning', 'active', 'maintenance', 'suspended
 const agentStatusOptions = ['active', 'inactive', 'suspended']
 const affiliateStatusOptions = ['active', 'inactive', 'archived']
 const commissionRuleTypeOptions = ['fixed_per_order', 'percent_sales', 'per_ticket']
+const seoStatusOptions = ['draft', 'active', 'inactive', 'archived']
+const redirectStatusCodeOptions = ['301', '302', '307', '308']
 const domainTypeOptions = ['subdomain', 'custom_domain']
 const deploymentModeOptions = ['shared', 'dedicated_runtime', 'dedicated_resource_pool']
 const quotaStatusOptions = ['active', 'inactive', 'archived']
@@ -267,6 +270,8 @@ const affiliateProgramActionContext = ['id', 'tenant_id', 'code', 'name', 'statu
 const affiliateAccountActionContext = ['id', 'tenant_id', 'customer_id', 'code', 'name', 'phone', 'email', 'status', 'wallet_balance.amount', 'wallet_balance.currency', 'payout_profile', 'metadata', 'updated_at']
 const affiliateLinkActionContext = ['id', 'tenant_id', 'affiliate_account_id', 'affiliate_program_id', 'code', 'url', 'status', 'metadata', 'updated_at']
 const commissionRuleActionContext = ['id', 'tenant_id', 'affiliate_program_id', 'affiliate_account_id', 'code', 'name', 'rule_type', 'amount.amount', 'amount.currency', 'rate_bps', 'status', 'metadata', 'updated_at']
+const seoPageActionContext = ['id', 'tenant_id', 'path', 'title', 'status', 'robots', 'canonical_url', 'og_image_url', 'metadata', 'updated_at']
+const redirectActionContext = ['id', 'tenant_id', 'source_path', 'target_url', 'status_code', 'status', 'metadata', 'updated_at']
 const reportExportContext = ['scope', 'report_key', 'tenant_id', 'date_from', 'date_to', 'group_by', 'filters']
 const adminUserActionContext = ['id', 'tenant_id', 'name', 'email', 'phone', 'status', 'roles.0.id', 'roles.0.name', 'permissions.0']
 const roleActionContext = ['id', 'tenant_id', 'code', 'name', 'status', 'permissions.0', 'permissions.1', 'system_role']
@@ -487,6 +492,35 @@ const commissionRuleUpdateFields = updateFields(commissionRuleCreateFields, {
   'amount.amount': 'amount.amount',
   'amount.currency': 'amount.currency',
 })
+const tenantSeoSettingsFields: OperationFormField[] = [
+  { key: 'status', label: 'Status', type: 'select', options: seoStatusOptions, defaultValue: 'active' },
+  { key: 'default_title', label: 'Default title', required: true, placeholder: 'Tenant SEO title' },
+  { key: 'title_template', label: 'Title template', placeholder: '{{title}} | NewPaotang' },
+  { key: 'default_description', label: 'Default description', type: 'textarea' },
+  { key: 'default_keywords', label: 'Default keywords', type: 'lines', emptyValue: 'array', placeholder: 'lottery\ntenant', help: 'One keyword per line. Submitted as an array.' },
+  { key: 'robots_default', label: 'Robots default', defaultValue: 'index,follow' },
+  { key: 'canonical_base_url', label: 'Canonical base URL', placeholder: 'https://tenant.example.test' },
+  { key: 'og_image_url', label: 'Open graph image URL' },
+]
+const seoPageCreateFields: OperationFormField[] = [
+  { key: 'path', label: 'Path', required: true, placeholder: '/promotions', help: 'Unique per tenant. Backend normalizes the path.' },
+  { key: 'title', label: 'Title', required: true, placeholder: 'Promotions' },
+  { key: 'description', label: 'Description', type: 'textarea' },
+  { key: 'canonical_url', label: 'Canonical URL', placeholder: 'https://tenant.example.test/promotions' },
+  { key: 'robots', label: 'Robots', defaultValue: 'index,follow' },
+  { key: 'og_image_url', label: 'Open graph image URL' },
+  { key: 'status', label: 'Status', type: 'select', options: seoStatusOptions, defaultValue: 'active' },
+  { key: 'metadata', label: 'Metadata JSON', type: 'json', defaultValue: '{}', placeholder: '{"source":"bo"}', help: 'Stored as metadata_json. Must be a JSON object or array.' },
+]
+const seoPageUpdateFields = updateFields(seoPageCreateFields)
+const redirectCreateFields: OperationFormField[] = [
+  { key: 'source_path', label: 'Source path', required: true, placeholder: '/old-promotions', help: 'Unique per tenant. Backend normalizes the path.' },
+  { key: 'target_url', label: 'Target URL', required: true, placeholder: 'https://tenant.example.test/promotions' },
+  { key: 'status_code', label: 'Status code', type: 'select', options: redirectStatusCodeOptions, defaultValue: '301' },
+  { key: 'status', label: 'Status', type: 'select', options: seoStatusOptions, defaultValue: 'active' },
+  { key: 'metadata', label: 'Metadata JSON', type: 'json', defaultValue: '{}', placeholder: '{"source":"bo"}', help: 'Stored as metadata_json. Must be a JSON object or array.' },
+]
+const redirectUpdateFields = updateFields(redirectCreateFields)
 const partnerCreateFields: OperationFormField[] = [
   { key: 'code', label: 'Partner code', required: true, placeholder: 'acme_partner', help: 'Use lowercase letters, numbers, underscores, or hyphens.' },
   { key: 'name', label: 'Partner name', required: true, placeholder: 'Acme Partner' },
@@ -1356,7 +1390,100 @@ const tenant: OperationResource[] = [
       emptyMessage: 'Create a channel when this tenant needs manual or external payment routing.',
     }],
   },
-  settingsResource('tenant', 'seo', 'Tenant SEO', '/admin/tenant/seo'),
+  {
+    ...settingsResource('tenant', 'seo', 'Tenant SEO', '/admin/tenant/seo'),
+    settingsFields: tenantSeoSettingsFields,
+    relatedLists: [
+      {
+        key: 'seo-pages',
+        title: 'SEO Pages',
+        listEndpoint: '/admin/tenant/seo/pages',
+        idParam: 'page_id',
+        idKey: 'id',
+        columns: [
+          { key: 'id', label: 'Page' },
+          { key: 'path', label: 'Path' },
+          { key: 'title', label: 'Title' },
+          { key: 'status', label: 'Status', type: 'status' },
+          { key: 'robots', label: 'Robots' },
+          { key: 'updated_at', label: 'Updated', type: 'datetime' },
+        ],
+        filters: cursorFilters([statusFilter(seoStatusOptions), { key: 'path', label: 'Path' }]),
+        collectionActions: [{
+          key: 'create',
+          label: 'Create SEO page',
+          endpoint: '/admin/tenant/seo/pages',
+          formFields: seoPageCreateFields,
+        }],
+        actions: [
+          {
+            key: 'update',
+            label: 'Update page',
+            method: 'PATCH',
+            endpoint: '/admin/tenant/seo/pages/{page_id}',
+            variant: 'primary',
+            contextFields: seoPageActionContext,
+            formFields: seoPageUpdateFields,
+          },
+          {
+            key: 'delete',
+            label: 'Delete page',
+            method: 'DELETE',
+            endpoint: '/admin/tenant/seo/pages/{page_id}',
+            variant: 'danger',
+            reason: true,
+            contextFields: seoPageActionContext,
+          },
+        ],
+        emptyTitle: 'No SEO pages',
+        emptyMessage: 'Create a page override when this tenant needs route-specific SEO metadata.',
+      },
+      {
+        key: 'redirects',
+        title: 'Redirects',
+        listEndpoint: '/admin/tenant/redirects',
+        idParam: 'redirect_id',
+        idKey: 'id',
+        columns: [
+          { key: 'id', label: 'Redirect' },
+          { key: 'source_path', label: 'Source' },
+          { key: 'target_url', label: 'Target' },
+          { key: 'status_code', label: 'Code' },
+          { key: 'status', label: 'Status', type: 'status' },
+          { key: 'updated_at', label: 'Updated', type: 'datetime' },
+        ],
+        filters: cursorFilters([statusFilter(seoStatusOptions)]),
+        collectionActions: [{
+          key: 'create',
+          label: 'Create redirect',
+          endpoint: '/admin/tenant/redirects',
+          formFields: redirectCreateFields,
+        }],
+        actions: [
+          {
+            key: 'update',
+            label: 'Update redirect',
+            method: 'PATCH',
+            endpoint: '/admin/tenant/redirects/{redirect_id}',
+            variant: 'primary',
+            contextFields: redirectActionContext,
+            formFields: redirectUpdateFields,
+          },
+          {
+            key: 'delete',
+            label: 'Delete redirect',
+            method: 'DELETE',
+            endpoint: '/admin/tenant/redirects/{redirect_id}',
+            variant: 'danger',
+            reason: true,
+            contextFields: redirectActionContext,
+          },
+        ],
+        emptyTitle: 'No redirects',
+        emptyMessage: 'Create a redirect when this tenant needs a managed route move.',
+      },
+    ],
+  },
   resource('tenant', 'domains', 'Domains', 'Tenant Settings', '/admin/tenant/domains', '/admin/tenant/domains/{domain_id}', 'domain_id', [
     { key: 'id', label: 'Domain' },
     { key: 'hostname', label: 'Hostname' },

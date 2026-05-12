@@ -1,6 +1,6 @@
 {
   "source": "docs/openapi.yaml",
-  "updated": "2026-05-10",
+  "updated": "2026-05-12",
   "note": "Static admin path snapshot used inside the back-office Docker mount. Refresh from docs/openapi.yaml when the approved OpenAPI contract changes.",
   "paths": {
     "/admin/central/allocations": ["get", "post"],
@@ -107,6 +107,10 @@
     "/admin/tenant/roles": ["get", "post"],
     "/admin/tenant/roles/{role_id}": ["patch", "delete"],
     "/admin/tenant/seo": ["get", "patch"],
+    "/admin/tenant/seo/pages": ["get", "post"],
+    "/admin/tenant/seo/pages/{page_id}": ["patch", "delete"],
+    "/admin/tenant/redirects": ["get", "post"],
+    "/admin/tenant/redirects/{redirect_id}": ["patch", "delete"],
     "/admin/tenant/settings": ["get", "patch"],
     "/admin/tenant/theme": ["get", "patch"],
     "/admin/tenant/stock": ["get"],

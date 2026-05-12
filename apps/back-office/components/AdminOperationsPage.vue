@@ -255,6 +255,12 @@
 
     <template v-if="showRelatedLists">
       <div v-for="related in resource.relatedLists || []" :key="related.key">
+        <AdminFilterBar
+          v-if="related.filters?.length"
+          :filters="related.filters"
+          :model-value="relatedFilters[related.key] || {}"
+          @apply="applyRelatedFilters(related, $event)"
+        />
         <AdminExportPanel :actions="related.collectionActions || []" @run="openRelatedCollectionAction(related, $event)" />
         <AdminApiState :error="relatedErrors[related.key]" />
         <AdminDataTable
@@ -291,6 +297,12 @@
             </div>
           </template>
         </AdminDataTable>
+        <AdminPagination
+          v-if="related.filters?.length"
+          :next-cursor="relatedMeta[related.key]?.next_cursor || null"
+          :loading="relatedLoading[related.key]"
+          @next="loadRelatedList(related, relatedMeta[related.key]?.next_cursor || null)"
+        />
       </div>
     </template>
 
@@ -320,7 +332,7 @@
 </template>
 
 <script setup lang="ts">
-import type { OperationAction, OperationFormField, OperationRelatedList, OperationResource, OperationSettingsPanel } from '~/composables/useAdminOperationsCatalog'
+import type { OperationAction, OperationFilter, OperationFormField, OperationRelatedList, OperationResource, OperationSettingsPanel } from '~/composables/useAdminOperationsCatalog'
 import { formatDateTime, titleize } from '~/utils/format'
 
 const props = defineProps<{
@@ -348,9 +360,11 @@ const secondaryErrors = reactive<Record<string, any>>({})
 const detailDraft = ref('')
 const filters = ref<Record<string, any>>({})
 const meta = reactive({ next_cursor: null as string | null, has_more: false })
+const relatedFilters = reactive<Record<string, Record<string, any>>>({})
 const relatedRows = reactive<Record<string, any[]>>({})
 const relatedLoading = reactive<Record<string, boolean>>({})
 const relatedErrors = reactive<Record<string, any>>({})
+const relatedMeta = reactive<Record<string, { next_cursor: string | null, has_more: boolean }>>({})
 const confirm = reactive<{
   open: boolean
   title: string
@@ -423,16 +437,18 @@ onMounted(() => {
 })
 
 const resetFilters = () => {
-  const next: Record<string, any> = {}
-  for (const filter of resource.value?.filters || []) {
-    next[filter.key] = filter.key === 'limit' ? 20 : ''
-  }
-  filters.value = next
+  filters.value = defaultFilterValues(resource.value?.filters || [])
+  resetRelatedFilters()
 }
 
 const applyFilters = (next: Record<string, any>) => {
   filters.value = { ...next }
   load()
+}
+
+const applyRelatedFilters = (related: OperationRelatedList, next: Record<string, any>) => {
+  relatedFilters[related.key] = { ...defaultFilterValues(related.filters || []), ...next }
+  loadRelatedList(related)
 }
 
 async function load(cursor?: string | null) {
@@ -732,28 +748,46 @@ const loadRelatedLists = async () => {
   const lists = resource.value?.relatedLists || []
   if (!lists.length) return
 
-  await Promise.all(lists.map(async (related) => {
-    relatedLoading[related.key] = true
-    relatedErrors[related.key] = null
-    try {
-      const endpoint = interpolate(related.listEndpoint, recordId.value)
-      const response = await api.apiFetch(endpoint, apiOptions({ query: { limit: 20 } }))
-      relatedRows[related.key] = normalizeRows(response, {
-        scope: resource.value?.scope || props.scope,
-        slug: related.key,
-        title: related.title,
-        group: resource.value?.group || '',
-        idParam: related.idParam,
-        idKey: related.idKey || 'id',
-        columns: related.columns,
-      })
-    } catch (err) {
-      relatedErrors[related.key] = err
-      relatedRows[related.key] = []
-    } finally {
-      relatedLoading[related.key] = false
+  await Promise.all(lists.map((related) => loadRelatedList(related)))
+}
+
+const loadRelatedList = async (related: OperationRelatedList, cursor?: string | null) => {
+  relatedLoading[related.key] = true
+  relatedErrors[related.key] = null
+  try {
+    const endpoint = interpolate(related.listEndpoint, recordId.value)
+    const relatedQuery = cleanQuery({
+      ...ensureRelatedFilters(related),
+      cursor: cursor || relatedFilters[related.key]?.cursor || undefined,
+    })
+
+    if (!relatedQuery.limit) {
+      relatedQuery.limit = 20
     }
-  }))
+
+    const response = await api.apiFetch(endpoint, apiOptions({ query: relatedQuery }))
+    const nextRows = normalizeRows(response, {
+      scope: resource.value?.scope || props.scope,
+      slug: related.key,
+      title: related.title,
+      group: resource.value?.group || '',
+      idParam: related.idParam,
+      idKey: related.idKey || 'id',
+      columns: related.columns,
+    })
+    relatedRows[related.key] = cursor ? [...(relatedRows[related.key] || []), ...nextRows] : nextRows
+    const nextMeta = extractMeta(response)
+    relatedMeta[related.key] = {
+      next_cursor: nextMeta.next_cursor || null,
+      has_more: Boolean(nextMeta.has_more || nextMeta.next_cursor),
+    }
+  } catch (err) {
+    relatedErrors[related.key] = err
+    relatedRows[related.key] = []
+    relatedMeta[related.key] = { next_cursor: null, has_more: false }
+  } finally {
+    relatedLoading[related.key] = false
+  }
 }
 
 const buildActionBody = (action: OperationAction, reason: string, payloadJson: string, formValues: Record<string, any>) => {
@@ -812,7 +846,7 @@ const normalizePayloadField = (field: OperationFormField, value: any) => {
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter(Boolean)
-    if (!lines.length) return undefined
+    if (!lines.length) return field.emptyValue === 'array' ? [] : undefined
     return field.itemKey ? lines.map((line) => ({ [field.itemKey || 'value']: line })) : lines
   }
 
@@ -902,6 +936,31 @@ const queryWithCursor = (cursor?: string | null) => ({
   ...cleanQuery(filters.value),
   cursor: cursor || filters.value.cursor || undefined,
 })
+
+const defaultFilterValues = (filterList: OperationFilter[] = []) => {
+  const next: Record<string, any> = {}
+  for (const filter of filterList) {
+    next[filter.key] = filter.key === 'limit' ? 20 : ''
+  }
+  return next
+}
+
+const resetRelatedFilters = () => {
+  for (const key of Object.keys(relatedFilters)) {
+    delete relatedFilters[key]
+  }
+  for (const key of Object.keys(relatedMeta)) {
+    delete relatedMeta[key]
+  }
+}
+
+const ensureRelatedFilters = (related: OperationRelatedList) => {
+  if (!relatedFilters[related.key]) {
+    relatedFilters[related.key] = defaultFilterValues(related.filters || [])
+  }
+
+  return relatedFilters[related.key]
+}
 
 const cleanQuery = (value: Record<string, any>) => Object.fromEntries(Object.entries(value)
   .filter(([, entry]) => entry !== '' && entry !== undefined && entry !== null))
