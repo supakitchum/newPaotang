@@ -234,6 +234,8 @@ const partnerStatusOptions = ['draft', 'active', 'suspended', 'closed']
 const partnerTypeOptions = ['partner_store', 'agent_network', 'white_label', 'api_partner', 'internal']
 const tenantStatusOptions = ['provisioning', 'active', 'maintenance', 'suspended', 'closed']
 const agentStatusOptions = ['active', 'inactive', 'suspended']
+const affiliateStatusOptions = ['active', 'inactive', 'archived']
+const commissionRuleTypeOptions = ['fixed_per_order', 'percent_sales', 'per_ticket']
 const domainTypeOptions = ['subdomain', 'custom_domain']
 const deploymentModeOptions = ['shared', 'dedicated_runtime', 'dedicated_resource_pool']
 const quotaStatusOptions = ['active', 'inactive', 'archived']
@@ -261,6 +263,10 @@ const priceRuleActionContext = ['id', 'tenant_id', 'code', 'name', 'game_id', 'r
 const memberActionContext = ['id', 'tenant_id', 'member_no', 'name', 'phone', 'email', 'status', 'order_count', 'lifetime_spend.amount', 'updated_at']
 const agentActionContext = ['id', 'tenant_id', 'partner_id', 'code', 'name', 'phone', 'email', 'store_id', 'status', 'metadata', 'updated_at']
 const agentQuotaActionContext = ['id', 'tenant_id', 'code', 'name', 'store_id', 'status', 'quotas.0.game_id', 'quotas.0.quota_count', 'quotas.0.used_count', 'quotas.0.status', 'updated_at']
+const affiliateProgramActionContext = ['id', 'tenant_id', 'code', 'name', 'status', 'starts_at', 'ends_at', 'metadata', 'updated_at']
+const affiliateAccountActionContext = ['id', 'tenant_id', 'customer_id', 'code', 'name', 'phone', 'email', 'status', 'wallet_balance.amount', 'wallet_balance.currency', 'payout_profile', 'metadata', 'updated_at']
+const affiliateLinkActionContext = ['id', 'tenant_id', 'affiliate_account_id', 'affiliate_program_id', 'code', 'url', 'status', 'metadata', 'updated_at']
+const commissionRuleActionContext = ['id', 'tenant_id', 'affiliate_program_id', 'affiliate_account_id', 'code', 'name', 'rule_type', 'amount.amount', 'amount.currency', 'rate_bps', 'status', 'metadata', 'updated_at']
 const reportExportContext = ['scope', 'report_key', 'tenant_id', 'date_from', 'date_to', 'group_by', 'filters']
 const adminUserActionContext = ['id', 'tenant_id', 'name', 'email', 'phone', 'status', 'roles.0.id', 'roles.0.name', 'permissions.0']
 const roleActionContext = ['id', 'tenant_id', 'code', 'name', 'status', 'permissions.0', 'permissions.1', 'system_role']
@@ -426,6 +432,61 @@ const agentQuotaFields: OperationFormField[] = [
   { key: 'status', label: 'Status', type: 'select', sourceKey: 'quotas.0.status', options: agentStatusOptions, defaultValue: 'active' },
   { key: 'payload', label: 'Payload JSON', type: 'json', sourceKey: 'quotas.0.payload', defaultValue: '{}', placeholder: '{"source":"bo"}', help: 'Stored as payload_json. Must be a JSON object or array.' },
 ]
+const updateFields = (fields: OperationFormField[], sourceKeys: Record<string, string> = {}): OperationFormField[] => fields.map((field) => {
+  const updateField: OperationFormField = {
+    ...field,
+    required: false,
+    sourceKey: sourceKeys[field.key] || field.sourceKey || field.key,
+  }
+  delete updateField.defaultValue
+  return updateField
+})
+const affiliateProgramCreateFields: OperationFormField[] = [
+  { key: 'code', label: 'Code', placeholder: 'program_may_2026', help: 'Unique within the active tenant. Backend derives one from name if blank.' },
+  { key: 'name', label: 'Name', required: true, placeholder: 'May 2026 Program' },
+  { key: 'status', label: 'Status', type: 'select', options: affiliateStatusOptions, defaultValue: 'active' },
+  { key: 'starts_at', label: 'Starts at', type: 'datetime-local' },
+  { key: 'ends_at', label: 'Ends at', type: 'datetime-local' },
+  { key: 'metadata', label: 'Metadata JSON', type: 'json', defaultValue: '{}', placeholder: '{"source":"bo"}', help: 'Must be a JSON object or array.' },
+]
+const affiliateProgramUpdateFields = updateFields(affiliateProgramCreateFields)
+const affiliateAccountCreateFields: OperationFormField[] = [
+  { key: 'customer_id', label: 'Customer ID', placeholder: 'Optional same-tenant customer ID' },
+  { key: 'code', label: 'Code', placeholder: 'affiliate_alpha', help: 'Unique within the active tenant. Backend derives one from name if blank.' },
+  { key: 'name', label: 'Name', required: true, placeholder: 'Affiliate Alpha' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'email', label: 'Email', placeholder: 'affiliate@example.test' },
+  { key: 'status', label: 'Status', type: 'select', options: affiliateStatusOptions, defaultValue: 'active' },
+  { key: 'currency', label: 'Currency', type: 'select', options: currencyOptions, defaultValue: 'THB' },
+  { key: 'payout_profile', label: 'Payout profile JSON', type: 'json', defaultValue: '{}', placeholder: '{"method":"bank_transfer"}', help: 'Stored as payout_profile_json. Must be a JSON object or array.' },
+  { key: 'metadata', label: 'Metadata JSON', type: 'json', defaultValue: '{}', placeholder: '{"source":"bo"}', help: 'Must be a JSON object or array.' },
+]
+const affiliateAccountUpdateFields = updateFields(affiliateAccountCreateFields)
+const affiliateLinkCreateFields: OperationFormField[] = [
+  { key: 'affiliate_account_id', label: 'Affiliate account ID', required: true },
+  { key: 'affiliate_program_id', label: 'Affiliate program ID', placeholder: 'Optional same-tenant program ID' },
+  { key: 'code', label: 'Code', defaultValue: 'link', placeholder: 'Unique link code' },
+  { key: 'url', label: 'URL', placeholder: 'Optional; backend defaults from code' },
+  { key: 'status', label: 'Status', type: 'select', options: affiliateStatusOptions, defaultValue: 'active' },
+  { key: 'metadata', label: 'Metadata JSON', type: 'json', defaultValue: '{}', placeholder: '{"source":"bo"}', help: 'Must be a JSON object or array.' },
+]
+const affiliateLinkUpdateFields = updateFields(affiliateLinkCreateFields)
+const commissionRuleCreateFields: OperationFormField[] = [
+  { key: 'affiliate_program_id', label: 'Affiliate program ID', placeholder: 'Optional same-tenant program ID' },
+  { key: 'affiliate_account_id', label: 'Affiliate account ID', placeholder: 'Optional same-tenant affiliate account ID' },
+  { key: 'code', label: 'Code', placeholder: 'commission_rule_alpha', help: 'Unique within the active tenant. Backend derives one from name if blank.' },
+  { key: 'name', label: 'Name', required: true, placeholder: 'Commission Rule Alpha' },
+  { key: 'rule_type', label: 'Rule type', type: 'select', options: commissionRuleTypeOptions, defaultValue: 'fixed_per_order', required: true },
+  { key: 'amount.amount', label: 'Amount (minor units)', type: 'number', min: 0, step: 1, defaultValue: 100, help: 'Required for fixed_per_order and per_ticket. Use the smallest currency unit.' },
+  { key: 'rate_bps', label: 'Rate (basis points)', type: 'number', min: 0, step: 1, defaultValue: 0, help: 'Required when rule_type is percent_sales. 100 bps = 1%.' },
+  { key: 'amount.currency', label: 'Currency', type: 'select', options: currencyOptions, defaultValue: 'THB' },
+  { key: 'status', label: 'Status', type: 'select', options: affiliateStatusOptions, defaultValue: 'active' },
+  { key: 'metadata', label: 'Metadata JSON', type: 'json', defaultValue: '{}', placeholder: '{"source":"bo"}', help: 'Must be a JSON object or array.' },
+]
+const commissionRuleUpdateFields = updateFields(commissionRuleCreateFields, {
+  'amount.amount': 'amount.amount',
+  'amount.currency': 'amount.currency',
+})
 const partnerCreateFields: OperationFormField[] = [
   { key: 'code', label: 'Partner code', required: true, placeholder: 'acme_partner', help: 'Use lowercase letters, numbers, underscores, or hyphens.' },
   { key: 'name', label: 'Partner name', required: true, placeholder: 'Acme Partner' },
@@ -932,17 +993,191 @@ const tenant: OperationResource[] = [
       formFields: agentQuotaFields,
     }],
   },
-  resource('tenant', 'growth/affiliate-programs', 'Affiliate Programs', 'Tenant Growth', '/admin/tenant/affiliate-programs', '/admin/tenant/affiliate-programs/{affiliate_program_id}', 'affiliate_program_id', growthColumns(), cursorFilters([statusFilter()]), [
-    { key: 'delete', label: 'Delete', method: 'DELETE', endpoint: '/admin/tenant/affiliate-programs/{affiliate_program_id}', variant: 'danger', reason: true },
-  ]),
-  resource('tenant', 'growth/affiliate-links', 'Affiliate Links', 'Tenant Growth', '/admin/tenant/affiliate-links', '/admin/tenant/affiliate-links/{affiliate_link_id}', 'affiliate_link_id', growthColumns(), cursorFilters([statusFilter()]), [
-    { key: 'delete', label: 'Delete', method: 'DELETE', endpoint: '/admin/tenant/affiliate-links/{affiliate_link_id}', variant: 'danger', reason: true },
-  ]),
+  {
+    scope: 'tenant',
+    slug: 'growth/affiliate-programs',
+    title: 'Affiliate Programs',
+    group: 'Tenant Growth',
+    listEndpoint: '/admin/tenant/affiliate-programs',
+    detailEndpoint: '/admin/tenant/affiliate-programs/{affiliate_program_id}',
+    updateEndpoint: '/admin/tenant/affiliate-programs/{affiliate_program_id}',
+    idParam: 'affiliate_program_id',
+    idKey: 'id',
+    columns: [
+      { key: 'id', label: 'Program' },
+      { key: 'code', label: 'Code' },
+      { key: 'name', label: 'Name' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'starts_at', label: 'Starts', type: 'datetime' },
+      { key: 'ends_at', label: 'Ends', type: 'datetime' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ],
+    filters: cursorFilters([statusFilter(affiliateStatusOptions)]),
+    confirmContextFields: affiliateProgramActionContext,
+    actions: [
+      {
+        key: 'update',
+        label: 'Update program',
+        method: 'PATCH',
+        endpoint: '/admin/tenant/affiliate-programs/{affiliate_program_id}',
+        variant: 'primary',
+        contextFields: affiliateProgramActionContext,
+        formFields: affiliateProgramUpdateFields,
+      },
+      {
+        key: 'delete',
+        label: 'Archive',
+        method: 'DELETE',
+        endpoint: '/admin/tenant/affiliate-programs/{affiliate_program_id}',
+        variant: 'danger',
+        reason: true,
+        contextFields: affiliateProgramActionContext,
+      },
+    ],
+    collectionActions: [{
+      key: 'create',
+      label: 'Create program',
+      endpoint: '/admin/tenant/affiliate-programs',
+      formFields: affiliateProgramCreateFields,
+    }],
+  },
+  {
+    scope: 'tenant',
+    slug: 'growth/affiliate-links',
+    title: 'Affiliate Links',
+    group: 'Tenant Growth',
+    listEndpoint: '/admin/tenant/affiliate-links',
+    detailEndpoint: '/admin/tenant/affiliate-links/{affiliate_link_id}',
+    updateEndpoint: '/admin/tenant/affiliate-links/{affiliate_link_id}',
+    idParam: 'affiliate_link_id',
+    idKey: 'id',
+    columns: [
+      { key: 'id', label: 'Link' },
+      { key: 'affiliate_account_id', label: 'Affiliate' },
+      { key: 'affiliate_program_id', label: 'Program' },
+      { key: 'code', label: 'Code' },
+      { key: 'url', label: 'URL' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ],
+    filters: cursorFilters([statusFilter(affiliateStatusOptions), { key: 'affiliate_id', label: 'Affiliate ID' }]),
+    confirmContextFields: affiliateLinkActionContext,
+    actions: [
+      {
+        key: 'update',
+        label: 'Update link',
+        method: 'PATCH',
+        endpoint: '/admin/tenant/affiliate-links/{affiliate_link_id}',
+        variant: 'primary',
+        contextFields: affiliateLinkActionContext,
+        formFields: affiliateLinkUpdateFields,
+      },
+      {
+        key: 'delete',
+        label: 'Archive',
+        method: 'DELETE',
+        endpoint: '/admin/tenant/affiliate-links/{affiliate_link_id}',
+        variant: 'danger',
+        reason: true,
+        contextFields: affiliateLinkActionContext,
+      },
+    ],
+    collectionActions: [{
+      key: 'create',
+      label: 'Create link',
+      endpoint: '/admin/tenant/affiliate-links',
+      formFields: affiliateLinkCreateFields,
+    }],
+  },
   resource('tenant', 'growth/attributions', 'Affiliate Attributions', 'Tenant Growth', '/admin/tenant/affiliate-attributions', '/admin/tenant/affiliate-attributions/{attribution_id}', 'attribution_id', growthColumns(), cursorFilters([statusFilter()])),
-  resource('tenant', 'growth/affiliates', 'Affiliates', 'Tenant Growth', '/admin/tenant/affiliates', '/admin/tenant/affiliates/{affiliate_id}', 'affiliate_id', growthColumns(), cursorFilters([statusFilter()])),
-  resource('tenant', 'growth/commission-rules', 'Commission Rules', 'Tenant Growth', '/admin/tenant/commission-rules', '/admin/tenant/commission-rules/{commission_rule_id}', 'commission_rule_id', growthColumns(), cursorFilters([statusFilter()]), [
-    { key: 'delete', label: 'Delete', method: 'DELETE', endpoint: '/admin/tenant/commission-rules/{commission_rule_id}', variant: 'danger', reason: true },
-  ]),
+  {
+    scope: 'tenant',
+    slug: 'growth/affiliates',
+    title: 'Affiliates',
+    group: 'Tenant Growth',
+    listEndpoint: '/admin/tenant/affiliates',
+    detailEndpoint: '/admin/tenant/affiliates/{affiliate_id}',
+    updateEndpoint: '/admin/tenant/affiliates/{affiliate_id}',
+    idParam: 'affiliate_id',
+    idKey: 'id',
+    columns: [
+      { key: 'id', label: 'Affiliate' },
+      { key: 'customer_id', label: 'Customer' },
+      { key: 'code', label: 'Code' },
+      { key: 'name', label: 'Name' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'wallet_balance.amount', label: 'Wallet', type: 'money' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ],
+    filters: cursorFilters([statusFilter(affiliateStatusOptions), { key: 'customer_id', label: 'Customer ID' }]),
+    confirmContextFields: affiliateAccountActionContext,
+    actions: [{
+      key: 'update',
+      label: 'Update affiliate',
+      method: 'PATCH',
+      endpoint: '/admin/tenant/affiliates/{affiliate_id}',
+      variant: 'primary',
+      contextFields: affiliateAccountActionContext,
+      formFields: affiliateAccountUpdateFields,
+    }],
+    collectionActions: [{
+      key: 'create',
+      label: 'Create affiliate',
+      endpoint: '/admin/tenant/affiliates',
+      formFields: affiliateAccountCreateFields,
+    }],
+  },
+  {
+    scope: 'tenant',
+    slug: 'growth/commission-rules',
+    title: 'Commission Rules',
+    group: 'Tenant Growth',
+    listEndpoint: '/admin/tenant/commission-rules',
+    detailEndpoint: '/admin/tenant/commission-rules/{commission_rule_id}',
+    updateEndpoint: '/admin/tenant/commission-rules/{commission_rule_id}',
+    idParam: 'commission_rule_id',
+    idKey: 'id',
+    columns: [
+      { key: 'id', label: 'Rule' },
+      { key: 'affiliate_account_id', label: 'Affiliate' },
+      { key: 'affiliate_program_id', label: 'Program' },
+      { key: 'code', label: 'Code' },
+      { key: 'name', label: 'Name' },
+      { key: 'rule_type', label: 'Type' },
+      { key: 'amount.amount', label: 'Amount', type: 'money' },
+      { key: 'rate_bps', label: 'BPS' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ],
+    filters: cursorFilters([statusFilter(affiliateStatusOptions), { key: 'affiliate_account_id', label: 'Affiliate account ID' }]),
+    confirmContextFields: commissionRuleActionContext,
+    actions: [
+      {
+        key: 'update',
+        label: 'Update rule',
+        method: 'PATCH',
+        endpoint: '/admin/tenant/commission-rules/{commission_rule_id}',
+        variant: 'primary',
+        contextFields: commissionRuleActionContext,
+        formFields: commissionRuleUpdateFields,
+      },
+      {
+        key: 'delete',
+        label: 'Archive',
+        method: 'DELETE',
+        endpoint: '/admin/tenant/commission-rules/{commission_rule_id}',
+        variant: 'danger',
+        reason: true,
+        contextFields: commissionRuleActionContext,
+      },
+    ],
+    collectionActions: [{
+      key: 'create',
+      label: 'Create commission rule',
+      endpoint: '/admin/tenant/commission-rules',
+      formFields: commissionRuleCreateFields,
+    }],
+  },
   {
     scope: 'tenant',
     slug: 'growth/commission-transactions',
