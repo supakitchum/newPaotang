@@ -5,15 +5,15 @@
 ## Active Task
 
 ```text
-back-office-p5-api-gap-decision-master-stock-commission-transactions
+back-office-p5-master-stock-commission-transactions-list-action-qa
 ```
 
 ## Agent Status
 
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
-| Coordinator | completed | 20260512-back-office-p5-central-partner-monitoring-usage-permission-decision | ai-agents/handoffs/20260512-back-office-p5-central-partner-monitoring-usage-permission-decision-coordinator-handoff.md |
-| Orchestrator | pending | dispatch-back-office-p5-api-gap-decision-master-stock-commission-transactions | ai-agents/handoffs/20260512-back-office-p5-central-partner-monitoring-usage-permission-decision-coordinator-handoff.md |
+| Coordinator | completed | 20260512-back-office-p5-api-gap-master-stock-commission-transactions-decision | ai-agents/handoffs/20260512-back-office-p5-api-gap-master-stock-commission-transactions-decision-coordinator-handoff.md |
+| Orchestrator | pending | dispatch-back-office-p5-master-stock-commission-transactions-list-action-qa | ai-agents/handoffs/20260512-back-office-p5-api-gap-master-stock-commission-transactions-decision-coordinator-handoff.md |
 | Backend Develop | completed | back-office-p4-tenant-menu-maintenance-ticket-validation-closure | ai-agents/handoffs/20260511-back-office-p4-tenant-menu-maintenance-ticket-validation-closure-backend-handoff.md |
 | BO Develop | completed | back-office-p5-tenant-seo-settings-pages-redirects-workflows | ai-agents/handoffs/20260512-back-office-p5-tenant-seo-settings-pages-redirects-workflows-bo-handoff.md |
 | Customer Develop | frozen | no-customer-work-without-coordinator-regression-scope | ai-agents/decisions/20260509-backend-only-main-scope-deploy-ready-replan-decision.md |
@@ -22,11 +22,11 @@ back-office-p5-api-gap-decision-master-stock-commission-transactions
 ## Open Questions
 
 ```text
-Coordinator accepted central:partner_monitoring and central:partner_usage as complete seeded view-only list/detail workflows because their menu permissions are partner.monitoring.view and partner.usage.view, while manage PATCH routes require separate manage permissions. Official BO completion is now 54/56 menus, or 96.4%. There are no remaining partial rows or BO implementation candidates under the frozen backend contract. Next priority is API-gap decision routing for central:master_stock and tenant:commission_transactions. Customer frontend remains frozen; customer-related CRUD QA must use BO/API evidence first and must not enter the Customer UI unless Coordinator opens a customer scope.
+Coordinator accepted list/action-only scope for central:master_stock and tenant:commission_transactions, so no backend detail endpoint remediation is opened under the current frozen contract. Official BO completion remains 54/56 menus, or 96.4%, with 2 partial rows and 0 active api_gap rows. Next priority is focused QA through Orchestrator for real central master stock list/export and tenant commission transaction list/approve workflows. Customer frontend remains frozen; customer-related CRUD QA must use BO/API evidence first and must not enter the Customer UI unless Coordinator opens a customer scope.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/decisions/20260512-back-office-p5-central-partner-monitoring-usage-permission-decision.md
+ai-agents/decisions/20260512-back-office-p5-api-gap-master-stock-commission-transactions-decision.md
 ```
