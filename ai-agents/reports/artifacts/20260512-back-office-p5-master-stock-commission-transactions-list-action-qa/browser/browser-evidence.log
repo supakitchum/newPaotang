@@ -1,0 +1,56 @@
+{
+  "result": "FAIL",
+  "fixture": {
+    "run": "13e46128",
+    "game_id": "gam_bmsct_13e46128",
+    "stock_ids": [
+      "stk_bmscta_13e46128",
+      "stk_bmsctb_13e46128",
+      "stk_bmsctc_13e46128"
+    ],
+    "commission_id": "com_bmsct_13e46128",
+    "affiliate_account_id": "aff_bmsct_13e46128",
+    "order_id": "ord_bmsct_13e46128",
+    "commission_rule_id": "cmr_bmsct_13e46128"
+  },
+  "screenshots": 11,
+  "networkEvents": 10,
+  "networkChecks": {
+    "centralListCallsHaveCentralScope": true,
+    "tenantListCallsHaveTenantHeaders": true,
+    "writesHaveIdempotency": true,
+    "noStockDetailGet": true,
+    "noCommissionDetailGet": true,
+    "noCustomerApiSeen": true
+  },
+  "observations": {
+    "stockNumberFilter": {
+      "present": true,
+      "requestSentUnsupportedNumber": true,
+      "rowCountAfterExactNumber": 3,
+      "unrelatedNumberStillVisible": false
+    },
+    "stockExportModal": {
+      "text": "Export stock Confirm export stock for Central Stock. Game ID Status Select available allocated sold recalled Ticket number Reason Cancel Confirm",
+      "contextItemCount": 0,
+      "ticketNumberFieldVisible": true
+    },
+    "commissionStatusFilter": {
+      "options": [
+        "All",
+        "Pending",
+        "Approved",
+        "Rejected",
+        "Paid"
+      ],
+      "calculatedOptionPresent": false
+    },
+    "commissionApproveModal": {
+      "text": "Approve Confirm approve for com_bmsct_13e46128. Reason Cancel Confirm",
+      "contextItemCount": 0,
+      "includesCommissionId": true,
+      "includesAffiliateAccountId": false,
+      "includesAmount": false
+    }
+  }
+}
