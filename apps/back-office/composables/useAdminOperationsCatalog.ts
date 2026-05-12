@@ -201,7 +201,7 @@ const moneyFields = (prefix = 'amount', label = 'Amount', required = true): Oper
   },
 ]
 
-const stockActionContext = ['id', 'game_id', 'number', 'full_number', 'status', 'partner_id', 'tenant_id']
+const stockActionContext = ['id', 'game_id', 'full_number', 'front3', 'back3', 'back2', 'status', 'partner_id', 'tenant_id', 'allocation_id']
 const moneyActionContext = ['id', 'reference', 'customer_id', 'status', 'payment_status', 'total.amount', 'amount.amount', 'balance.amount']
 const orderActionContext = [
   'id',
@@ -270,6 +270,7 @@ const affiliateProgramActionContext = ['id', 'tenant_id', 'code', 'name', 'statu
 const affiliateAccountActionContext = ['id', 'tenant_id', 'customer_id', 'code', 'name', 'phone', 'email', 'status', 'wallet_balance.amount', 'wallet_balance.currency', 'payout_profile', 'metadata', 'updated_at']
 const affiliateLinkActionContext = ['id', 'tenant_id', 'affiliate_account_id', 'affiliate_program_id', 'code', 'url', 'status', 'metadata', 'updated_at']
 const commissionRuleActionContext = ['id', 'tenant_id', 'affiliate_program_id', 'affiliate_account_id', 'code', 'name', 'rule_type', 'amount.amount', 'amount.currency', 'rate_bps', 'status', 'metadata', 'updated_at']
+const commissionTransactionActionContext = ['id', 'tenant_id', 'affiliate_account_id', 'order_id', 'commission_rule_id', 'transaction_type', 'status', 'amount.amount', 'amount.currency', 'calculated_at', 'approved_at']
 const seoPageActionContext = ['id', 'tenant_id', 'path', 'title', 'status', 'robots', 'canonical_url', 'og_image_url', 'metadata', 'updated_at']
 const redirectActionContext = ['id', 'tenant_id', 'source_path', 'target_url', 'status_code', 'status', 'metadata', 'updated_at']
 const reportExportContext = ['scope', 'report_key', 'tenant_id', 'date_from', 'date_to', 'group_by', 'filters']
@@ -1219,9 +1220,27 @@ const tenant: OperationResource[] = [
     group: 'Tenant Growth',
     listEndpoint: '/admin/tenant/commission-transactions',
     idParam: 'commission_id',
-    columns: growthColumns(),
-    filters: cursorFilters([statusFilter(['pending', 'approved', 'rejected', 'paid'])]),
-    actions: [{ key: 'approve', label: 'Approve', endpoint: '/admin/tenant/commission-transactions/{commission_id}/approve', variant: 'success', reason: true }],
+    columns: [
+      { key: 'id', label: 'Commission' },
+      { key: 'affiliate_account_id', label: 'Affiliate' },
+      { key: 'order_id', label: 'Order' },
+      { key: 'commission_rule_id', label: 'Rule' },
+      { key: 'transaction_type', label: 'Type' },
+      { key: 'amount', label: 'Amount', type: 'money' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'calculated_at', label: 'Calculated', type: 'datetime' },
+      { key: 'approved_at', label: 'Approved', type: 'datetime' },
+    ],
+    filters: cursorFilters([statusFilter(['calculated', 'approved', 'reversed'])]),
+    confirmContextFields: commissionTransactionActionContext,
+    actions: [{
+      key: 'approve',
+      label: 'Approve',
+      endpoint: '/admin/tenant/commission-transactions/{commission_id}/approve',
+      variant: 'success',
+      reason: true,
+      contextFields: commissionTransactionActionContext,
+    }],
     detailApiGap: 'OpenAPI documents list and approve action, but no commission transaction detail route.',
   },
   {
@@ -1726,11 +1745,15 @@ const central: OperationResource[] = [
     idParam: 'stock_item_id',
     columns: [
       { key: 'id', label: 'Stock item' },
+      { key: 'game_id', label: 'Game' },
       { key: 'partner_id', label: 'Partner' },
-      { key: 'number', label: 'Number' },
+      { key: 'full_number', label: 'Full number' },
+      { key: 'front3', label: 'Front 3' },
+      { key: 'back3', label: 'Back 3' },
+      { key: 'back2', label: 'Back 2' },
       { key: 'status', label: 'Status', type: 'status' },
     ],
-    filters: cursorFilters([{ key: 'game_id', label: 'Game ID' }, statusFilter(['available', 'allocated', 'sold', 'recalled']), { key: 'number', label: 'Number' }]),
+    filters: cursorFilters([{ key: 'game_id', label: 'Game ID' }, statusFilter(['available', 'allocated', 'sold', 'recalled'])]),
     confirmContextFields: stockActionContext,
     actions: [{ key: 'recall', label: 'Recall', endpoint: '/admin/central/stock/{stock_item_id}/recall', variant: 'warning', reason: true, contextFields: stockActionContext }],
     collectionActions: [
@@ -1771,7 +1794,6 @@ const central: OperationResource[] = [
         formFields: [
           { key: 'game_id', label: 'Game ID', placeholder: 'Optional game filter' },
           { key: 'filters.status', label: 'Status', type: 'select', options: ['available', 'allocated', 'sold', 'recalled'] },
-          { key: 'number', label: 'Ticket number', placeholder: 'Optional exact number' },
         ],
       },
     ],
