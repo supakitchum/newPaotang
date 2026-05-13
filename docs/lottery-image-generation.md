@@ -237,7 +237,23 @@ Backend Develop must decide and document the new asset location before porting:
 apps/platform-api/resources/lottery-images/**
 ```
 
-or another backend-owned path that is committed or mounted intentionally.
+The initial shared asset box is:
+
+```text
+apps/platform-api/resources/lottery-images/system/v1/emoji/e1
+apps/platform-api/resources/lottery-images/system/v1/emoji/e2
+apps/platform-api/resources/lottery-images/system/v1/emoji/e3
+apps/platform-api/resources/lottery-images/system/v1/emoji/e4
+apps/platform-api/resources/lottery-images/system/v1/number
+apps/platform-api/resources/lottery-images/system/v1/text_eng
+apps/platform-api/resources/lottery-images/system/v1/num_set_center
+apps/platform-api/resources/lottery-images/system/v1/num_set_right
+apps/platform-api/resources/lottery-images/system/v1/fonts
+apps/platform-api/resources/lottery-images/system/v1/beside
+apps/platform-api/resources/lottery-images/system/v1/backgrounds/odd
+apps/platform-api/resources/lottery-images/system/v1/backgrounds/even
+apps/platform-api/resources/lottery-images/system/v1/backgrounds/charity
+```
 
 Do not depend on files existing only in the legacy `paotang-center` project at runtime.
 
