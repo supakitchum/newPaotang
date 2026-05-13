@@ -28,6 +28,17 @@ Draw logo_qr, right_sidebar, and logo_bottom only when stock is allocated/synced
 Each partner site has its own logo_qr, right_sidebar, and logo_bottom assets.
 ```
 
+Additional background/mix rule:
+
+```text
+Backgrounds are game-scoped.
+odd/even/charity may be uploaded at different times.
+odd can be ready first and allow early sale when its configured minimum is complete.
+The generation mix is configured centrally, e.g. odd 45%, even 45%, charity 10%.
+Assignments must be deterministically shuffled so odd/even/charity rows are not grouped by adjacent stock numbers.
+Rows whose assigned background set is missing must be pending_assets and generated automatically when assets arrive.
+```
+
 ## Decision
 
 See:
@@ -66,6 +77,8 @@ generate/import stock dispatch integration
 game_id/batch_id object key layout
 WebP full + thumbnail variants
 image URL/path/status persistence on stock_items
+configurable background mix assignment with deterministic shuffle
+pending_assets handling and automatic retry when game background sets become ready
 partner branded image URL/path/status persistence or propagation to local_stock_items and tickets where relevant
 Docker-only tests and validation
 handoff with sample output sizes and known blockers

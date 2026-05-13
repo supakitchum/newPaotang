@@ -33,6 +33,16 @@ Do not draw logo_qr, right_sidebar, or logo_bottom during central stock generati
 Draw partner-specific logo_qr, right_sidebar, and logo_bottom only after stock is distributed to a partner/tenant for sale.
 ```
 
+Coordinator adds a game background rule:
+
+```text
+Backgrounds are scoped by game, set type, and version.
+odd can arrive first and can allow early sale when its configured minimum is ready.
+The central mix is configurable, for example odd 45%, even 45%, charity 10%.
+Generated rows must receive set assignments according to the configured mix and then be deterministically shuffled so adjacent stock numbers are not grouped by set.
+Rows whose assigned background set is not ready must stay pending_assets until the required background set is uploaded and validated.
+```
+
 ## Decision
 
 Open backend work for lottery image generation and S3 upload.
@@ -76,6 +86,8 @@ Object paths are grouped by game_id and batch_id.
 Central generate/import produces unbranded thumbnail and full WebP variants.
 Partner allocation/sync produces partner-branded thumbnail and full WebP variants.
 Partner-branded variants apply partner-specific logo_qr, right_sidebar, and logo_bottom.
+Background assignments honor the configured odd/even/charity percentages and are deterministically shuffled.
+Rows with missing assigned backgrounds are marked pending_assets and generated automatically after the set becomes ready.
 Thumbnail URLs are used for dense list/card responses.
 Full URLs are available for detail/ticket surfaces.
 Failures are recorded on stock_items and remain retryable.

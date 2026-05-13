@@ -33,6 +33,9 @@ GeneratePartnerLotteryImageJob or equivalent partner-branded generation path
 S3/S3-compatible upload config for lottery image output
 stock generate/import job dispatch
 game_id/batch_id object key layout
+game-scoped background upload/readiness model
+configurable odd/even/charity mix with deterministic shuffle
+pending_assets handling and automatic retry when backgrounds become ready
 unbranded central WebP full + thumbnail variants
 partner-branded WebP full + thumbnail variants after allocation/sync
 image URL/path/status persistence on stock_items
@@ -88,13 +91,18 @@ legacy paotang-center files
 4. Create `LotteryImageGenerator` by adapting the legacy `newCreateLottoImage` composition into a backend service with explicit render modes.
 5. Ensure central render mode does not draw `logo_qr`, `right_sidebar`, or `logo_bottom`.
 6. Ensure partner render mode draws partner-specific `logo_qr`, `right_sidebar`, and `logo_bottom` only after stock is allocated/synced to that partner for sale.
-7. Create `GenerateLotteryImageJob` to render/upload unbranded central full/thumb WebP variants, update stock image status, and record failures.
-8. Create `GeneratePartnerLotteryImageJob` or equivalent flow to render/upload partner-branded local stock full/thumb WebP variants and update `local_stock_items`.
-9. Dispatch central image jobs after generate/import stock rows are inserted, without making the API request wait for image encoding/upload.
-10. Dispatch partner-branded image jobs during allocation/sync to partner stock and propagate URLs to tickets when tickets are created.
-11. Add tests for dispatch, object key layout, branding separation, status persistence, failure handling, and URL propagation.
-12. Run Docker-only validation.
-13. Write Backend handoff.
+7. Move background handling out of system assets and model/read backgrounds per game, set type, and version.
+8. Add configurable odd/even/charity mix assignment for central generation/import.
+9. Deterministically shuffle assignments by game/batch/idempotency or payload hash so adjacent stock numbers are not grouped by set.
+10. Mark rows assigned to missing background sets as `pending_assets` without falling back to another set.
+11. Add a scheduled command/job to detect ready background sets and dispatch generation for pending rows.
+12. Create `GenerateLotteryImageJob` to render/upload unbranded central full/thumb WebP variants, update stock image status, and record failures.
+13. Create `GeneratePartnerLotteryImageJob` or equivalent flow to render/upload partner-branded local stock full/thumb WebP variants and update `local_stock_items`.
+14. Dispatch central image jobs after generate/import stock rows are inserted, without making the API request wait for image encoding/upload.
+15. Dispatch partner-branded image jobs during allocation/sync to partner stock and propagate URLs to tickets when tickets are created.
+16. Add tests for dispatch, object key layout, branding separation, mix assignment shuffle, pending_assets retry, status persistence, failure handling, and URL propagation.
+17. Run Docker-only validation.
+18. Write Backend handoff.
 
 ## Acceptance Criteria
 
@@ -104,6 +112,11 @@ legacy paotang-center files
 - Central images do not include `logo_qr`, `right_sidebar`, or `logo_bottom`.
 - Partner-branded full and thumbnail WebP variants are generated only after stock is allocated/synced to a partner.
 - Partner-branded images include the partner-specific `logo_qr`, `right_sidebar`, and `logo_bottom` where configured.
+- Backgrounds are scoped under game/set/version, not system assets.
+- Configurable odd/even/charity mix percentages are honored.
+- Background set assignments are deterministically shuffled and do not group adjacent stock numbers by set.
+- Missing background sets mark rows as `pending_assets`.
+- The system automatically dispatches generation when pending background sets become ready.
 - `stock_items` stores central URL/path/status/generated timestamp.
 - `local_stock_items` and tickets receive partner-facing image URLs from the local stock source.
 - Image generation failure does not roll back stock creation.

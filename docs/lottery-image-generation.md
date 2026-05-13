@@ -135,6 +135,7 @@ Suggested statuses:
 
 ```text
 pending
+pending_assets
 generated
 failed
 skipped
@@ -250,14 +251,128 @@ apps/platform-api/resources/lottery-images/system/v1/num_set_center
 apps/platform-api/resources/lottery-images/system/v1/num_set_right
 apps/platform-api/resources/lottery-images/system/v1/fonts
 apps/platform-api/resources/lottery-images/system/v1/beside
-apps/platform-api/resources/lottery-images/system/v1/backgrounds/odd
-apps/platform-api/resources/lottery-images/system/v1/backgrounds/even
-apps/platform-api/resources/lottery-images/system/v1/backgrounds/charity
+```
+
+Game backgrounds are separated by game, set type, and version:
+
+```text
+apps/platform-api/resources/lottery-images/games/{game_id}/backgrounds/{version}/odd
+apps/platform-api/resources/lottery-images/games/{game_id}/backgrounds/{version}/even
+apps/platform-api/resources/lottery-images/games/{game_id}/backgrounds/{version}/charity
 ```
 
 Do not depend on files existing only in the legacy `paotang-center` project at runtime.
 
 Partner-specific branding assets must be tenant/partner scoped. A missing partner logo/sidebar asset must not make central stock generation fail.
+
+## Game Background Upload And Readiness
+
+Backgrounds are game-scoped and may arrive in separate waves.
+
+The central workflow should support uploading backgrounds per:
+
+```text
+game_id
+set_type: odd | even | charity
+version: v1, v2, ...
+expected_count
+```
+
+Recommended operator upload format:
+
+```text
+odd-v1.zip
+even-v1.zip
+charity-v1.zip
+```
+
+Each zip should contain stable ordered files:
+
+```text
+001.jpg
+002.jpg
+...
+100.jpg
+```
+
+or pre-optimized WebP files:
+
+```text
+001.webp
+002.webp
+...
+100.webp
+```
+
+Upload handling should:
+
+```text
+accept one set at a time
+validate file count against expected_count
+validate image type and dimensions
+normalize names to 001..N
+convert/optimize to WebP when needed
+store source/normalized backgrounds in private S3-compatible storage or the local game asset path for local/dev fixtures
+mark the set ready only when validation passes
+trigger pending image generation for that game and set_type
+```
+
+Suggested private object keys:
+
+```text
+lottery-image-assets/games/{game_id}/backgrounds/{version}/{set_type}/001.webp
+lottery-image-assets/games/{game_id}/backgrounds/{version}/{set_type}/002.webp
+```
+
+`odd` can be the first ready set. The game may open for sale once `odd` reaches the configured minimum, while `even` and `charity` stock rows remain `pending_assets` until their background sets are ready.
+
+## Background Mix Assignment
+
+Central should define the background mix per game or per stock generation batch.
+
+Example for 100 generated stock items:
+
+```text
+odd: 45%
+even: 45%
+charity: 10%
+```
+
+The system should calculate exact counts from the requested count:
+
+```text
+odd_count = 45
+even_count = 45
+charity_count = 10
+```
+
+For counts that do not divide cleanly, allocate remainders deterministically by the largest fractional remainder, then by set order `odd`, `even`, `charity`.
+
+After calculating the set assignments, shuffle them with a deterministic seed so the same batch regenerates the same assignments but adjacent stock numbers are not grouped by set:
+
+```text
+seed = game_id + batch_id + idempotency_key or payload_hash
+assignments = deterministic_shuffle([odd x N, even x N, charity x N], seed)
+```
+
+Do not emit all odd rows first, then all even rows, then charity. The mix must be scattered across the generated stock list to avoid adjacent stock numbers sharing the same background type pattern.
+
+Each stock item should persist its assigned background set type and background index/path once implementation adds the needed columns or metadata:
+
+```text
+background_set_type: odd | even | charity
+background_asset_version
+background_asset_index
+```
+
+If the assigned set is not ready, mark the row:
+
+```text
+image_generation_status = pending_assets
+image_generation_error = background_set_not_ready:{set_type}
+```
+
+Do not silently fallback from `even` or `charity` to `odd`. That would violate the configured mix.
 
 ## Queue Behavior
 
@@ -276,6 +391,14 @@ or a configured queue included in worker configuration.
 
 Failed image generation must not corrupt stock creation. It should mark the stock row as `failed`, preserve the stock row, and expose enough operational evidence for retry.
 
+A scheduler or queue command should periodically check `pending_assets` rows:
+
+```text
+lottery-images:check-pending-backgrounds
+```
+
+When the required background set becomes ready, it should dispatch the normal image generation job for only the now-ready rows.
+
 ## Idempotency And Regeneration
 
 Stock generation/import is already idempotency-key driven. Image generation should respect the resulting stable `stock_item_id`.
@@ -288,6 +411,7 @@ safe retry may overwrite only non-versioned draft keys or write a new versioned 
 job replay must not create duplicate stock rows
 regenerate command/action can be added later for failed rows
 partner branded image regeneration must be safe per partner_id/local_stock_item_id
+pending_assets retry must preserve the original background set assignment and deterministic background index
 ```
 
 ## API Contract Impact
@@ -316,6 +440,9 @@ generated object keys are separated by game and batch
 central base full and thumbnail WebP variants are uploaded to S3-compatible storage without partner branding
 partner branded full and thumbnail WebP variants are generated only after stock is allocated/synced to a partner
 partner branded variants apply partner-specific logo_qr, right_sidebar, and logo_bottom assets
+background mix percentages are honored and deterministically shuffled so adjacent stock numbers are not grouped by set
+stock rows whose assigned background set is not ready are marked pending_assets
+pending_assets rows are generated automatically after their background set becomes ready
 object metadata includes image/webp content type and long-lived cache headers
 allocation/sync writes partner-facing image URLs to local_stock_items
 customer-facing stock/ticket APIs expose thumbnail/full image URLs
@@ -333,6 +460,7 @@ Do we allow generated objects to be overwritten, or require versioned immutable 
 Should the first pass generate only thumbnails until full ticket detail requires full images?
 What is the acceptable average thumbnail size target in KB after real template testing?
 Where are partner-specific logo_qr, right_sidebar, and logo_bottom assets stored and versioned?
+What minimum odd background count is required before allowing a game to open for sale?
 ```
 
 Initial recommendation:
@@ -346,4 +474,5 @@ full width 500
 object keys grouped by game_id and batch_id
 central image is unbranded
 partner branded image is generated per partner on allocation/sync
+backgrounds are game-scoped, uploaded per set/version, and assigned by configured shuffled mix
 ```

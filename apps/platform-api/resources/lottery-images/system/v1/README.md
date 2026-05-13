@@ -15,9 +15,12 @@ num_set_center
 num_set_right
 fonts
 beside
-backgrounds/odd
-backgrounds/even
-backgrounds/charity
 ```
 
 These assets are for central base images and shared rendering components only. Partner branding is applied later during partner/local stock image generation.
+
+Game backgrounds are not system assets. Place them under:
+
+```text
+apps/platform-api/resources/lottery-images/games/{game_id}/backgrounds/{version}/{odd|even|charity}
+```

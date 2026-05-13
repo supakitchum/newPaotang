@@ -17,9 +17,9 @@ system/v1/num_set_center
 system/v1/num_set_right
 system/v1/fonts
 system/v1/beside
-system/v1/backgrounds/odd
-system/v1/backgrounds/even
-system/v1/backgrounds/charity
+games/{game_id}/backgrounds/{version}/odd
+games/{game_id}/backgrounds/{version}/even
+games/{game_id}/backgrounds/{version}/charity
 ```
 
 ## Rules
@@ -27,5 +27,6 @@ system/v1/backgrounds/charity
 - Keep central base image assets unbranded.
 - Do not place partner-specific `logo_qr`, `right_sidebar`, or `logo_bottom` assets here.
 - Partner-specific branding assets should be stored per partner/version in private object storage or a later partner-owned asset path.
+- Backgrounds are game-scoped. Do not put game backgrounds under `system/v1`.
 - Keep file names stable because generated image jobs may reference assets by index or configured name.
 - Do not commit generated lottery images, caches, or rendered WebP outputs into this directory.
