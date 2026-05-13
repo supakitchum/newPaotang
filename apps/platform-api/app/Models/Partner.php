@@ -44,6 +44,11 @@ class Partner extends BaseModel
         return $this->hasMany(PartnerStockAllocation::class, 'partner_id');
     }
 
+    public function lotteryBrandingAssetSets(): HasMany
+    {
+        return $this->hasMany(PartnerLotteryBrandingAssetSet::class, 'partner_id');
+    }
+
     public function monitoringProfile(): HasOne
     {
         return $this->hasOne(PartnerMonitoringProfile::class, 'partner_id');

@@ -23,6 +23,7 @@ use App\Modules\PartnerStore\Http\Controllers\CustomerReservationController;
 use App\Modules\Reward\Http\Controllers\CustomerRewardController;
 use App\Modules\Health\Http\Controllers\HealthController;
 use App\Modules\Partner\Http\Controllers\PartnerApiClientController;
+use App\Modules\CentralStock\Http\Controllers\PartnerLotteryBrandingAssetController;
 use App\Modules\Partner\Http\Controllers\PartnerProvisioningController;
 use App\Modules\Partner\Http\Controllers\PartnerSyncController;
 use App\Modules\CentralStock\Http\Controllers\PartnerQuotaController;
@@ -185,6 +186,10 @@ Route::post('/admin/central/partners', [PartnerProvisioningController::class, 's
 Route::get('/admin/central/partners/{partner_id}', [PartnerProvisioningController::class, 'show'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::patch('/admin/central/partners/{partner_id}', [PartnerProvisioningController::class, 'update'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/partners/{partner_id}/lottery-branding-assets', [PartnerLotteryBrandingAssetController::class, 'show'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::put('/admin/central/partners/{partner_id}/lottery-branding-assets', [PartnerLotteryBrandingAssetController::class, 'update'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/partners/{partner_id}/provision', [PartnerProvisioningController::class, 'provision'])
     ->middleware(['admin.auth', 'admin.scope:central']);

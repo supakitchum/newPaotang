@@ -24,6 +24,16 @@ class StockItem extends BaseModel
         'partner_id',
         'tenant_id',
         'allocation_id',
+        'image_url',
+        'image_thumb_url',
+        'image_storage_path',
+        'image_thumb_storage_path',
+        'image_generation_status',
+        'image_generation_error',
+        'image_generated_at',
+        'background_set_type',
+        'background_asset_version',
+        'background_asset_index',
         'recall_reason',
         'recalled_at',
         'created_at',
@@ -32,6 +42,8 @@ class StockItem extends BaseModel
 
     protected $casts = [
         'recalled_at' => 'datetime',
+        'image_generated_at' => 'datetime',
+        'background_asset_index' => 'integer',
     ];
 
     public function game(): BelongsTo

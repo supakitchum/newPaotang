@@ -27,6 +27,11 @@ class LocalStockItem extends BaseModel
         'back2',
         'image_url',
         'image_thumb_url',
+        'image_storage_path',
+        'image_thumb_storage_path',
+        'image_generation_status',
+        'image_generation_error',
+        'image_generated_at',
         'status',
         'synced_at',
         'reserved_at',
@@ -39,6 +44,7 @@ class LocalStockItem extends BaseModel
         'synced_at' => 'datetime',
         'reserved_at' => 'datetime',
         'sold_at' => 'datetime',
+        'image_generated_at' => 'datetime',
     ];
 
     public function partner(): BelongsTo
