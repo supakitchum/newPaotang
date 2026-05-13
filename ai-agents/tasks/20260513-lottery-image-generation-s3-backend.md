@@ -10,7 +10,7 @@ Implement lottery image generation for newly generated/imported stock, upload ge
 
 ## Objective
 
-Port the legacy `newCreateLottoImage` rendering behavior into the new backend architecture as a service + queued job, with small WebP full/thumbnail variants and URL propagation into customer-facing stock/ticket flows.
+Port the legacy `newCreateLottoImage` rendering behavior into the new backend architecture as service + queued jobs, with unbranded central stock images, partner-branded local stock images, small WebP full/thumbnail variants, and URL propagation into customer-facing stock/ticket flows.
 
 ## Source Of Truth
 
@@ -29,10 +29,12 @@ Implement:
 stock_items image metadata migration
 LotteryImageGenerator service
 GenerateLotteryImageJob
+GeneratePartnerLotteryImageJob or equivalent partner-branded generation path
 S3/S3-compatible upload config for lottery image output
 stock generate/import job dispatch
 game_id/batch_id object key layout
-WebP full + thumbnail variants
+unbranded central WebP full + thumbnail variants
+partner-branded WebP full + thumbnail variants after allocation/sync
 image URL/path/status persistence on stock_items
 propagation to local_stock_items and tickets where relevant
 focused Docker-only tests
@@ -83,21 +85,27 @@ legacy paotang-center files
 1. Inspect current dirty worktree and identify unrelated in-progress edits before changing files.
 2. Add `stock_items` image metadata fields and update `StockItem` fillable/casts.
 3. Add lottery image config with disk, prefix, queue, dimensions, qualities, and CDN base URL behavior.
-4. Create `LotteryImageGenerator` by adapting the legacy `newCreateLottoImage` composition into a backend service.
-5. Create `GenerateLotteryImageJob` to render, upload full/thumb WebP variants, update stock image status, and record failures.
-6. Dispatch image jobs after generate/import stock rows are inserted, without making the API request wait for image encoding/upload.
-7. Propagate master stock image URLs to `local_stock_items` during allocation/sync and to tickets when tickets are created.
-8. Add tests for dispatch, object key layout, status persistence, failure handling, and URL propagation.
-9. Run Docker-only validation.
-10. Write Backend handoff.
+4. Create `LotteryImageGenerator` by adapting the legacy `newCreateLottoImage` composition into a backend service with explicit render modes.
+5. Ensure central render mode does not draw `logo_qr`, `right_sidebar`, or `logo_bottom`.
+6. Ensure partner render mode draws partner-specific `logo_qr`, `right_sidebar`, and `logo_bottom` only after stock is allocated/synced to that partner for sale.
+7. Create `GenerateLotteryImageJob` to render/upload unbranded central full/thumb WebP variants, update stock image status, and record failures.
+8. Create `GeneratePartnerLotteryImageJob` or equivalent flow to render/upload partner-branded local stock full/thumb WebP variants and update `local_stock_items`.
+9. Dispatch central image jobs after generate/import stock rows are inserted, without making the API request wait for image encoding/upload.
+10. Dispatch partner-branded image jobs during allocation/sync to partner stock and propagate URLs to tickets when tickets are created.
+11. Add tests for dispatch, object key layout, branding separation, status persistence, failure handling, and URL propagation.
+12. Run Docker-only validation.
+13. Write Backend handoff.
 
 ## Acceptance Criteria
 
 - Central generate/import stock creates image-generation work for every inserted stock item.
 - Object keys include `game_id` and `batch_id`.
-- Full and thumbnail WebP variants are uploaded through configured S3-compatible storage.
-- `stock_items` stores URL/path/status/generated timestamp.
-- `local_stock_items` and tickets receive image URLs from the master stock/local stock source.
+- Unbranded central full and thumbnail WebP variants are uploaded through configured S3-compatible storage.
+- Central images do not include `logo_qr`, `right_sidebar`, or `logo_bottom`.
+- Partner-branded full and thumbnail WebP variants are generated only after stock is allocated/synced to a partner.
+- Partner-branded images include the partner-specific `logo_qr`, `right_sidebar`, and `logo_bottom` where configured.
+- `stock_items` stores central URL/path/status/generated timestamp.
+- `local_stock_items` and tickets receive partner-facing image URLs from the local stock source.
 - Image generation failure does not roll back stock creation.
 - Dense list APIs can use `image_thumb_url`; detail/ticket APIs can use `image_url`.
 - No credentials are committed.

@@ -19,6 +19,35 @@ keep list/card images as small as practical
 avoid proxying images through Laravel or Nuxt for normal display
 ```
 
+## Two-Stage Image Model
+
+Lottery images must be generated in two stages:
+
+```text
+central base image
+partner branded image
+```
+
+Central base images are generated when master stock is generated/imported. They are the central stock image library and must not include partner-specific branding.
+
+Do not draw these legacy overlays on central base images:
+
+```text
+logo_qr
+right_sidebar
+logo_bottom
+```
+
+Partner branded images are generated only when stock is distributed to a partner/tenant for sale. Each partner site can have its own:
+
+```text
+logo_qr
+right_sidebar
+logo_bottom
+```
+
+Those partner assets must be applied to the partner/local stock image variant, not to the central master image.
+
 ## Legacy Source
 
 The legacy implementation to port from is:
@@ -36,7 +65,7 @@ beside/sidebar overlay
 emoji assets
 number glyph assets
 Thai text font
-partner/platform logo overlay
+partner/platform logo overlay for partner branded variants only
 WebP upload through Storage::disk('s3')
 ```
 
@@ -49,16 +78,18 @@ Use a service plus queued job:
 ```text
 CentralStockService::generateStock/importStock
   -> insert stock_items
-  -> dispatch GenerateLotteryImageJob for each stock item or chunk
+  -> dispatch GenerateLotteryImageJob for each stock item or chunk in central-base mode
 
 GenerateLotteryImageJob
   -> load StockItem + Game
   -> call LotteryImageGenerator
-  -> upload variants to S3-compatible disk
-  -> update stock_items image fields
+  -> upload unbranded central base variants to S3-compatible disk
+  -> update stock_items central image fields
 
 allocation/sync to tenant
-  -> copy stock_items image URLs to local_stock_items
+  -> dispatch partner-branded image generation for local stock items
+  -> apply partner logo_qr/right_sidebar/logo_bottom assets
+  -> update local_stock_items image fields
 
 customer/admin APIs
   -> expose image_thumb_url for lists
@@ -70,6 +101,7 @@ Recommended classes:
 ```text
 apps/platform-api/app/Modules/CentralStock/Services/LotteryImageGenerator.php
 apps/platform-api/app/Jobs/GenerateLotteryImageJob.php
+apps/platform-api/app/Jobs/GeneratePartnerLotteryImageJob.php
 ```
 
 The rendering code belongs in `LotteryImageGenerator`; the job should only coordinate loading, uploading, and database updates.
@@ -95,6 +127,10 @@ image_generation_status nullable string
 image_generation_error nullable text
 ```
 
+The `stock_items` image fields represent the central base image and must remain unbranded.
+
+The existing `local_stock_items.image_url` and `local_stock_items.image_thumb_url` fields represent the partner-facing branded image once stock is allocated/synced to a partner. If partner branded generation fails or is disabled, the system may temporarily fall back to the central base image URL, but the gap must be visible in status/evidence.
+
 Suggested statuses:
 
 ```text
@@ -113,15 +149,19 @@ Images must be separated by game.
 Recommended object keys:
 
 ```text
-lotteries/{game_id}/{batch_id}/{stock_item_id}.webp
-lotteries/{game_id}/{batch_id}/thumbs/{stock_item_id}.webp
+lotteries/{game_id}/{batch_id}/central/{stock_item_id}.webp
+lotteries/{game_id}/{batch_id}/central/thumbs/{stock_item_id}.webp
+lotteries/{game_id}/{batch_id}/partners/{partner_id}/{stock_item_id}.webp
+lotteries/{game_id}/{batch_id}/partners/{partner_id}/thumbs/{stock_item_id}.webp
 ```
 
 If the visual template changes and the object should not overwrite an immutable CDN object, add a version:
 
 ```text
-lotteries/{game_id}/{batch_id}/{stock_item_id}-v2.webp
-lotteries/{game_id}/{batch_id}/thumbs/{stock_item_id}-v2.webp
+lotteries/{game_id}/{batch_id}/central/{stock_item_id}-v2.webp
+lotteries/{game_id}/{batch_id}/central/thumbs/{stock_item_id}-v2.webp
+lotteries/{game_id}/{batch_id}/partners/{partner_id}/{stock_item_id}-v2.webp
+lotteries/{game_id}/{batch_id}/partners/{partner_id}/thumbs/{stock_item_id}-v2.webp
 ```
 
 Do not store generated image binary or base64 payloads in the database.
@@ -169,6 +209,8 @@ LOTTERY_IMAGE_FULL_QUALITY=70
 LOTTERY_IMAGE_THUMB_WIDTH=280
 LOTTERY_IMAGE_THUMB_QUALITY=60
 LOTTERY_IMAGE_QUEUE=stock-image-generation
+LOTTERY_PARTNER_IMAGE_QUEUE=stock-partner-image-generation
+LOTTERY_PARTNER_BRANDING_ON_ALLOCATION=true
 ```
 
 Existing Cloudflare/R2 readiness config can remain a release gate. Local/dev must not claim production CDN/R2 readiness just because image generation code exists.
@@ -199,6 +241,8 @@ or another backend-owned path that is committed or mounted intentionally.
 
 Do not depend on files existing only in the legacy `paotang-center` project at runtime.
 
+Partner-specific branding assets must be tenant/partner scoped. A missing partner logo/sidebar asset must not make central stock generation fail.
+
 ## Queue Behavior
 
 Generation must be asynchronous.
@@ -209,6 +253,7 @@ Image work should run on:
 
 ```text
 stock-image-generation
+stock-partner-image-generation
 ```
 
 or a configured queue included in worker configuration.
@@ -226,6 +271,7 @@ same stock_item_id + same image version should write same object key
 safe retry may overwrite only non-versioned draft keys or write a new versioned key
 job replay must not create duplicate stock rows
 regenerate command/action can be added later for failed rows
+partner branded image regeneration must be safe per partner_id/local_stock_item_id
 ```
 
 ## API Contract Impact
@@ -238,6 +284,7 @@ Backend implementation should ensure:
 public stock search returns image_thumb_url and image_url from local_stock_items
 cart/reservation/checkout/ticket responses preserve image fields
 ticket creation copies image_url and image_thumb_url from local_stock_items
+central/admin stock inspection can show central base image status without implying partner branding is complete
 ```
 
 If central stock APIs need to expose image status for operators, update OpenAPI only through a separate Coordinator contract decision unless already covered by existing schema flexibility.
@@ -250,9 +297,11 @@ Backend work is complete when:
 central stock generate/import dispatch image generation jobs
 stock_items persists image URL/path/status fields
 generated object keys are separated by game and batch
-full and thumbnail WebP variants are uploaded to S3-compatible storage
+central base full and thumbnail WebP variants are uploaded to S3-compatible storage without partner branding
+partner branded full and thumbnail WebP variants are generated only after stock is allocated/synced to a partner
+partner branded variants apply partner-specific logo_qr, right_sidebar, and logo_bottom assets
 object metadata includes image/webp content type and long-lived cache headers
-allocation/sync copies master image URLs to local_stock_items
+allocation/sync writes partner-facing image URLs to local_stock_items
 customer-facing stock/ticket APIs expose thumbnail/full image URLs
 failures are marked and retryable without deleting stock rows
 Docker-only tests cover dispatch, path layout, URL persistence, and propagation to local stock/tickets
@@ -267,6 +316,7 @@ Where will the legacy template/font/emoji/background assets live in the new repo
 Do we allow generated objects to be overwritten, or require versioned immutable keys?
 Should the first pass generate only thumbnails until full ticket detail requires full images?
 What is the acceptable average thumbnail size target in KB after real template testing?
+Where are partner-specific logo_qr, right_sidebar, and logo_bottom assets stored and versioned?
 ```
 
 Initial recommendation:
@@ -278,4 +328,6 @@ WebP thumbnail quality 60
 thumbnail width 280
 full width 500
 object keys grouped by game_id and batch_id
+central image is unbranded
+partner branded image is generated per partner on allocation/sync
 ```

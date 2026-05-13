@@ -19,6 +19,15 @@ function newCreateLottoImage(...)
 
 The new system must port the rendering behavior into the new backend architecture rather than copying the old long job as-is.
 
+Important Coordinator addition:
+
+```text
+Central stock generated/imported images must be unbranded.
+Do not draw logo_qr, right_sidebar, or logo_bottom for the central master image library.
+Draw logo_qr, right_sidebar, and logo_bottom only when stock is allocated/synced to a partner for sale.
+Each partner site has its own logo_qr, right_sidebar, and logo_bottom assets.
+```
+
 ## Decision
 
 See:
@@ -51,12 +60,13 @@ Backend Develop must first inspect current worktree changes because there are un
 stock_items image metadata migration
 LotteryImageGenerator service
 GenerateLotteryImageJob
+partner-branded image generation job/path for allocated local stock
 S3/S3-compatible config for lottery image output
 generate/import stock dispatch integration
 game_id/batch_id object key layout
 WebP full + thumbnail variants
 image URL/path/status persistence on stock_items
-propagation to local_stock_items and tickets where relevant
+partner branded image URL/path/status persistence or propagation to local_stock_items and tickets where relevant
 Docker-only tests and validation
 handoff with sample output sizes and known blockers
 ```

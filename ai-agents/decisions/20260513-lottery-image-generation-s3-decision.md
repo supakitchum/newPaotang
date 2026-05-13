@@ -25,6 +25,14 @@ function newCreateLottoImage(...)
 
 The current backend already has central stock generate/import flows and image URL fields on local stock/tickets, but master `stock_items` should become the source of truth for generated lottery image URLs.
 
+Coordinator adds a two-stage branding rule:
+
+```text
+Central stock images are an unbranded central library.
+Do not draw logo_qr, right_sidebar, or logo_bottom during central stock generation/import.
+Draw partner-specific logo_qr, right_sidebar, and logo_bottom only after stock is distributed to a partner/tenant for sale.
+```
+
 ## Decision
 
 Open backend work for lottery image generation and S3 upload.
@@ -49,6 +57,7 @@ Backend Develop may implement:
 stock_items image metadata migration
 LotteryImageGenerator service
 GenerateLotteryImageJob
+GeneratePartnerLotteryImageJob or equivalent partner-branded generation path
 S3/S3-compatible disk config needed for generated lottery images
 queue name/config for stock image generation
 generate/import stock integration
@@ -64,7 +73,9 @@ docs updates directly related to this feature
 Every central stock generate/import row gets an image-generation job.
 Images are uploaded to S3-compatible storage.
 Object paths are grouped by game_id and batch_id.
-Two WebP variants are generated: thumbnail and full.
+Central generate/import produces unbranded thumbnail and full WebP variants.
+Partner allocation/sync produces partner-branded thumbnail and full WebP variants.
+Partner-branded variants apply partner-specific logo_qr, right_sidebar, and logo_bottom.
 Thumbnail URLs are used for dense list/card responses.
 Full URLs are available for detail/ticket surfaces.
 Failures are recorded on stock_items and remain retryable.
