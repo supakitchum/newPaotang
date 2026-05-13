@@ -26,7 +26,10 @@ games/{game_id}/backgrounds/{version}/charity
 
 - Keep central base image assets unbranded.
 - Do not place partner-specific `logo_qr`, `right_sidebar`, or `logo_bottom` assets here.
-- Partner-specific branding assets should be stored per partner/version in private object storage or a later partner-owned asset path.
+- Partner-specific branding assets should be stored per partner/version in private object storage, for example `lottery-image-assets/partners/{partner_id}/branding/{version}/...`.
+- Partner-specific `logo_qr`, `right_sidebar`, and `logo_bottom` assets are managed only by central BO.
+- Partner/tenant users must not be able to edit those assets.
+- Central can replace those assets only before that partner has produced any partner-branded lottery image.
 - Backgrounds are game-scoped. Do not put game backgrounds under `system/v1`.
 - Keep file names stable because generated image jobs may reference assets by index or configured name.
 - Do not commit generated lottery images, caches, or rendered WebP outputs into this directory.

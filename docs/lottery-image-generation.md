@@ -265,6 +265,69 @@ Do not depend on files existing only in the legacy `paotang-center` project at r
 
 Partner-specific branding assets must be tenant/partner scoped. A missing partner logo/sidebar asset must not make central stock generation fail.
 
+## Partner Branding Asset Management
+
+Central back-office is the only place allowed to manage partner branding assets used for partner-branded lottery images.
+
+Partner admins must not be able to upload, edit, delete, or activate these assets from any tenant/partner UI or API:
+
+```text
+logo_qr
+right_sidebar
+logo_bottom
+```
+
+These assets are applied only when generating partner/local stock image variants. They must never be drawn onto the central base image library.
+
+Recommended private object keys:
+
+```text
+lottery-image-assets/partners/{partner_id}/branding/{version}/logo_qr.webp
+lottery-image-assets/partners/{partner_id}/branding/{version}/right_sidebar.webp
+lottery-image-assets/partners/{partner_id}/branding/{version}/logo_bottom.webp
+```
+
+Recommended metadata model:
+
+```text
+partner_lottery_branding_asset_sets
+  id
+  partner_id
+  version
+  logo_qr_storage_path
+  right_sidebar_storage_path
+  logo_bottom_storage_path
+  status: draft | ready | locked
+  uploaded_by_admin_id
+  activated_at
+  locked_at
+  generated_image_count
+```
+
+Edit lock rule:
+
+```text
+if partner_generated_image_count > 0:
+  central can view assets but cannot replace/delete/activate another set
+else:
+  central can upload/replace/activate assets
+```
+
+The lock must be enforced by backend authorization/business logic, not only by disabled UI controls. A partner is considered locked once any partner-branded lottery image exists or any partner-branded image job has produced an output for that partner. If a later business case requires changing branding after production, open a separate Coordinator decision for regeneration/version migration.
+
+Central BO upload form requirements:
+
+```text
+route: central partner detail or /admin/central/partners/{partner_id}/lottery-branding
+fields: logo_qr, right_sidebar, logo_bottom
+show current asset previews
+show lock status and generated image count
+disable save/replace actions when locked
+validate required dimensions, mime type, transparency where needed, and file size
+submit only to central admin APIs
+never expose an equivalent tenant/partner route
+```
+
 ## Game Background Upload And Readiness
 
 Backgrounds are game-scoped and may arrive in separate waves.
@@ -425,6 +488,7 @@ public stock search returns image_thumb_url and image_url from local_stock_items
 cart/reservation/checkout/ticket responses preserve image fields
 ticket creation copies image_url and image_thumb_url from local_stock_items
 central/admin stock inspection can show central base image status without implying partner branding is complete
+central partner detail can show partner branding asset status, lock status, and generated image count
 ```
 
 If central stock APIs need to expose image status for operators, update OpenAPI only through a separate Coordinator contract decision unless already covered by existing schema flexibility.
@@ -440,6 +504,9 @@ generated object keys are separated by game and batch
 central base full and thumbnail WebP variants are uploaded to S3-compatible storage without partner branding
 partner branded full and thumbnail WebP variants are generated only after stock is allocated/synced to a partner
 partner branded variants apply partner-specific logo_qr, right_sidebar, and logo_bottom assets
+partner logo_qr, right_sidebar, and logo_bottom assets are editable only by central before that partner has produced any partner-branded lottery image
+partner/tenant users cannot edit those branding assets
+central BO has an upload/edit form with preview and lock status for those partner branding assets
 background mix percentages are honored and deterministically shuffled so adjacent stock numbers are not grouped by set
 stock rows whose assigned background set is not ready are marked pending_assets
 pending_assets rows are generated automatically after their background set becomes ready
@@ -460,6 +527,7 @@ Do we allow generated objects to be overwritten, or require versioned immutable 
 Should the first pass generate only thumbnails until full ticket detail requires full images?
 What is the acceptable average thumbnail size target in KB after real template testing?
 Where are partner-specific logo_qr, right_sidebar, and logo_bottom assets stored and versioned?
+Which exact central permission should guard partner branding asset management?
 What minimum odd background count is required before allowing a game to open for sale?
 ```
 
@@ -475,4 +543,5 @@ object keys grouped by game_id and batch_id
 central image is unbranded
 partner branded image is generated per partner on allocation/sync
 backgrounds are game-scoped, uploaded per set/version, and assigned by configured shuffled mix
+partner branding assets are central-managed and immutable after first produced partner-branded image
 ```

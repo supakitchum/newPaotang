@@ -39,12 +39,23 @@ Assignments must be deterministically shuffled so odd/even/charity rows are not 
 Rows whose assigned background set is missing must be pending_assets and generated automatically when assets arrive.
 ```
 
+Additional partner branding asset rule:
+
+```text
+Central BO is the only place allowed to manage partner logo_qr, right_sidebar, and logo_bottom assets.
+Partner/tenant users must not be able to edit those assets.
+Central can edit them only while that partner has produced zero partner-branded lottery images.
+Once partner_generated_image_count > 0, backend must lock asset replacement/deletion/activation.
+BO must provide a central upload form with previews, lock status, and generated image count.
+```
+
 ## Decision
 
 See:
 
 ```text
 ai-agents/decisions/20260513-lottery-image-generation-s3-decision.md
+ai-agents/decisions/20260514-lottery-image-partner-branding-assets-decision.md
 ```
 
 ## Design Document
@@ -65,6 +76,8 @@ lottery-image-generation-s3-backend
 
 Backend Develop must first inspect current worktree changes because there are unrelated in-progress edits under `apps/platform-api` and `apps/back-office`.
 
+Backend Develop must include the central-only partner branding asset API and lock behavior before BO Develop starts the upload form.
+
 ## Required Backend Deliverables
 
 ```text
@@ -80,9 +93,21 @@ image URL/path/status persistence on stock_items
 configurable background mix assignment with deterministic shuffle
 pending_assets handling and automatic retry when game background sets become ready
 partner branded image URL/path/status persistence or propagation to local_stock_items and tickets where relevant
+central-only partner branding asset API for logo_qr/right_sidebar/logo_bottom
+partner branding edit lock after first produced partner-branded lottery image
 Docker-only tests and validation
 handoff with sample output sizes and known blockers
 ```
+
+## Required BO Deliverable After Backend
+
+Dispatch BO Develop to:
+
+```text
+ai-agents/tasks/20260514-lottery-image-partner-branding-assets-bo.md
+```
+
+after Backend Develop delivers the API contract/handoff.
 
 ## Optimization Requirement
 

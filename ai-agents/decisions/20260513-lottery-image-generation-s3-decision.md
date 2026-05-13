@@ -43,6 +43,16 @@ Generated rows must receive set assignments according to the configured mix and 
 Rows whose assigned background set is not ready must stay pending_assets until the required background set is uploaded and validated.
 ```
 
+Coordinator adds a partner branding asset management rule on 2026-05-14:
+
+```text
+Central BO is the only place allowed to manage partner logo_qr, right_sidebar, and logo_bottom assets.
+Partner/tenant users must not be able to upload, edit, delete, or activate those assets.
+Central can edit them only while that partner has produced zero partner-branded lottery images.
+Once partner_generated_image_count > 0, backend must reject asset replacement/deletion/activation.
+BO must provide a central upload form with previews, lock status, and generated image count.
+```
+
 ## Decision
 
 Open backend work for lottery image generation and S3 upload.
@@ -86,6 +96,8 @@ Object paths are grouped by game_id and batch_id.
 Central generate/import produces unbranded thumbnail and full WebP variants.
 Partner allocation/sync produces partner-branded thumbnail and full WebP variants.
 Partner-branded variants apply partner-specific logo_qr, right_sidebar, and logo_bottom.
+Partner branding assets are central-managed and editable only before that partner has produced any partner-branded lottery image.
+Partner/tenant users cannot manage partner branding assets.
 Background assignments honor the configured odd/even/charity percentages and are deterministically shuffled.
 Rows with missing assigned backgrounds are marked pending_assets and generated automatically after the set becomes ready.
 Thumbnail URLs are used for dense list/card responses.
@@ -112,6 +124,7 @@ Backend Develop may tune the values only with evidence from generated sample fil
 ```text
 customer UI redesign
 BO UI redesign
+partner/tenant-side branding asset editor
 production Cloudflare/R2 approval
 real AWS credential commit
 OpenAPI contract changes unless Coordinator opens a contract decision

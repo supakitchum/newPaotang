@@ -38,6 +38,8 @@ configurable odd/even/charity mix with deterministic shuffle
 pending_assets handling and automatic retry when backgrounds become ready
 unbranded central WebP full + thumbnail variants
 partner-branded WebP full + thumbnail variants after allocation/sync
+central-only partner branding asset metadata/API for logo_qr/right_sidebar/logo_bottom
+partner branding edit lock once a partner has produced any branded lottery image
 image URL/path/status persistence on stock_items
 propagation to local_stock_items and tickets where relevant
 focused Docker-only tests
@@ -63,14 +65,17 @@ Can edit:
 apps/platform-api/app/Jobs/**
 apps/platform-api/app/Modules/CentralStock/**
 apps/platform-api/app/Modules/PartnerStore/**
+apps/platform-api/app/Modules/Partner/**
 apps/platform-api/app/Modules/Commerce/**
 apps/platform-api/app/Models/StockItem.php
+apps/platform-api/app/Models/Partner.php
 apps/platform-api/database/migrations/**
 apps/platform-api/config/**
 apps/platform-api/tests/**
 docs/lottery-image-generation.md
 docs/erd.md
 docs/backend-console-commands.md
+docs/openapi.yaml only if exposing new central partner branding endpoints is unavoidable
 ai-agents/handoffs/**
 ```
 
@@ -79,7 +84,6 @@ Must not edit:
 ```text
 apps/customer/**
 apps/back-office/**
-docs/openapi.yaml unless Coordinator opens a contract decision
 legacy paotang-center files
 ```
 
@@ -98,11 +102,15 @@ legacy paotang-center files
 11. Add a scheduled command/job to detect ready background sets and dispatch generation for pending rows.
 12. Create `GenerateLotteryImageJob` to render/upload unbranded central full/thumb WebP variants, update stock image status, and record failures.
 13. Create `GeneratePartnerLotteryImageJob` or equivalent flow to render/upload partner-branded local stock full/thumb WebP variants and update `local_stock_items`.
-14. Dispatch central image jobs after generate/import stock rows are inserted, without making the API request wait for image encoding/upload.
-15. Dispatch partner-branded image jobs during allocation/sync to partner stock and propagate URLs to tickets when tickets are created.
-16. Add tests for dispatch, object key layout, branding separation, mix assignment shuffle, pending_assets retry, status persistence, failure handling, and URL propagation.
-17. Run Docker-only validation.
-18. Write Backend handoff.
+14. Add central-only partner branding asset management for `logo_qr`, `right_sidebar`, and `logo_bottom`.
+15. Reject tenant/partner attempts to upload/edit/delete partner branding assets.
+16. Reject central edits once that partner has produced any partner-branded lottery image or successful partner image output.
+17. Expose enough central API data for BO to render current previews, lock status, and generated image count.
+18. Dispatch central image jobs after generate/import stock rows are inserted, without making the API request wait for image encoding/upload.
+19. Dispatch partner-branded image jobs during allocation/sync to partner stock and propagate URLs to tickets when tickets are created.
+20. Add tests for dispatch, object key layout, branding separation, central-only branding authorization, branding edit lock, mix assignment shuffle, pending_assets retry, status persistence, failure handling, and URL propagation.
+21. Run Docker-only validation.
+22. Write Backend handoff.
 
 ## Acceptance Criteria
 
@@ -112,6 +120,10 @@ legacy paotang-center files
 - Central images do not include `logo_qr`, `right_sidebar`, or `logo_bottom`.
 - Partner-branded full and thumbnail WebP variants are generated only after stock is allocated/synced to a partner.
 - Partner-branded images include the partner-specific `logo_qr`, `right_sidebar`, and `logo_bottom` where configured.
+- Central can manage partner `logo_qr`, `right_sidebar`, and `logo_bottom` assets before that partner has produced any partner-branded lottery image.
+- Partner/tenant users cannot manage those branding assets.
+- Branding asset updates are rejected once that partner has at least one produced partner-branded lottery image.
+- Central APIs expose current asset previews/URLs, lock status, and generated image count for the BO form.
 - Backgrounds are scoped under game/set/version, not system assets.
 - Configurable odd/even/charity mix percentages are honored.
 - Background set assignments are deterministically shuffled and do not group adjacent stock numbers by set.
