@@ -1,0 +1,30 @@
+{
+  "result": "PASS",
+  "fixtures": {
+    "unlocked_partner_id": "par_lba_un_dfbc7682",
+    "locked_partner_id": "par_lba_lo_dfbc7682"
+  },
+  "routeChecks": {
+    "central_route_renders": true,
+    "tenant_route_does_not_render_branding_form": true
+  },
+  "workflows": {
+    "unlocked_read_uses_central_scope": true,
+    "unlocked_state_metadata_visible": true,
+    "client_rejects_unsupported_file_type": true,
+    "client_rejects_large_file": true,
+    "selected_file_previews_visible": true,
+    "unlocked_upload_commit_save_completed": true,
+    "locked_state_visible": true,
+    "locked_controls_disabled": true
+  },
+  "networkChecks": {
+    "readCallsHaveCentralScope": true,
+    "uploadIntentCallsHaveCentralScopeAndIdempotency": true,
+    "commitCallsHaveCentralScopeAndIdempotency": true,
+    "saveCallUsesNestedAssetPayloadAndIdempotency": true,
+    "noCustomerApiSeen": true
+  },
+  "screenshots": 7,
+  "networkEvents": 9
+}
