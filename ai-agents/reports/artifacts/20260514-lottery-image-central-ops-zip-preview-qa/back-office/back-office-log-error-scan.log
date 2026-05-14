@@ -1,0 +1,6 @@
+43:back-office-1  |  ERROR  [nuxt] [request error] [unhandled] [500] Package import specifier "#internal/nuxt/paths" is not defined in package /app/package.json imported from /app/.nuxt/dist/server/server.mjs
+55:back-office-1  |  ERROR  [nuxt] [request error] [unhandled] [500] Package import specifier "#internal/nuxt/paths" is not defined in package /app/package.json imported from /app/.nuxt/dist/server/server.mjs
+67:back-office-1  |  ERROR  [nuxt] [request error] [unhandled] [500] Package import specifier "#internal/nuxt/paths" is not defined in package /app/package.json imported from /app/.nuxt/dist/server/server.mjs
+79:back-office-1  |  ERROR  [nuxt] [request error] [unhandled] [500] Package import specifier "#internal/nuxt/paths" is not defined in package /app/package.json imported from /app/.nuxt/dist/server/server.mjs
+91:back-office-1  |  ERROR  [nuxt] [request error] [unhandled] [500] Package import specifier "#internal/nuxt/paths" is not defined in package /app/package.json imported from /app/.nuxt/dist/server/server.mjs
+103:back-office-1  |  ERROR  [nuxt] [request error] [unhandled] [500] Package import specifier "#internal/nuxt/paths" is not defined in package /app/package.json imported from /app/.nuxt/dist/server/server.mjs

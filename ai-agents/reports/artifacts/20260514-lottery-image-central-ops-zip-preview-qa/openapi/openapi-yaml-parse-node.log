@@ -1,0 +1,12 @@
+ Container newpaotang-back-office-run-ec8bfe788d69 Creating
+ Container newpaotang-back-office-run-ec8bfe788d69 Created
+Error: ENOENT: no such file or directory, open 'docs/openapi.yaml'
+    at Object.readFileSync (node:fs:440:20)
+    at [eval]:1:143
+    at runScriptInThisContext (node:internal/vm:209:10)
+    at node:internal/process/execution:446:12
+    at [eval]-wrapper:6:24
+    at runScriptInContext (node:internal/process/execution:444:60)
+    at evalFunction (node:internal/process/execution:279:30)
+    at evalTypeScript (node:internal/process/execution:291:3)
+    at node:internal/main/eval_string:74:3
