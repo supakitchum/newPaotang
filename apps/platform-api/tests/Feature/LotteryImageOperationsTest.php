@@ -422,6 +422,24 @@ class LotteryImageOperationsTest extends TestCase
             ->assertJsonPath('backgrounds.2.set_type', 'charity')
             ->assertJsonPath('backgrounds.2.available_count', 3)
             ->assertJsonPath('backgrounds.2.ready', true);
+
+        $this->insertGame('gam_lottery_zip_many', 'open');
+
+        $this->withToken($central['access_token'])
+            ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
+                'game_id' => 'gam_lottery_zip_many',
+                'version' => 'v1',
+                'set_type' => 'odd',
+                'zip' => $this->namedImageZipUpload($this->namedImageEntries(101)),
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'central-zip-import-many',
+            ])
+            ->assertOk()
+            ->assertJsonPath('meta.imported_count', 101)
+            ->assertJsonPath('meta.expected_count', 101)
+            ->assertJsonPath('data.100.position', 101)
+            ->assertJsonPath('data.100.assets.source.storage_path', 'lottery-image-assets/games/gam_lottery_zip_many/backgrounds/v1/odd/101/source.png');
     }
 
     public function test_LotteryImageZipImport_rejects_non_image_zip(): void
@@ -739,6 +757,20 @@ class LotteryImageOperationsTest extends TestCase
         $zip->close();
 
         return new UploadedFile($path, 'named-backgrounds.zip', 'application/zip', null, true);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function namedImageEntries(int $count): array
+    {
+        $entries = [];
+
+        for ($index = 1; $index <= $count; $index++) {
+            $entries[sprintf('background-%03d.png', $index)] = 'png';
+        }
+
+        return $entries;
     }
 
     private function mixedZipUpload(): UploadedFile

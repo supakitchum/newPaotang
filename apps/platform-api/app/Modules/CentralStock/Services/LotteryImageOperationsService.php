@@ -1014,10 +1014,6 @@ class LotteryImageOperationsService
             $errors['zip'][] = 'The zip file must contain at least 1 supported image file.';
         }
 
-        if ($detectedCount > 100) {
-            $errors['zip'][] = 'The zip file must contain no more than 100 image files.';
-        }
-
         if ($errors !== []) {
             return ['errors' => $errors];
         }

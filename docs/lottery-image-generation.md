@@ -356,7 +356,6 @@ The central workflow should support uploading backgrounds per:
 game_id
 set_type: odd | even | charity
 version: v1, v2, ...
-expected_count
 ```
 
 Recommended operator upload format:

@@ -7755,9 +7755,8 @@ components:
         expected_count:
           type: integer
           minimum: 1
-          maximum: 100
           deprecated: true
-          description: Deprecated and ignored. The API detects the image count from ordered root-level zip entries automatically.
+          description: Deprecated and ignored. The API detects the image count from readable root-level zip image entries automatically.
         status:
           type: string
           enum: [ready, inactive, retired]
