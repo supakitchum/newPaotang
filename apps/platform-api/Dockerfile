@@ -19,6 +19,12 @@ RUN apt-get update \
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
+RUN { \
+        echo "upload_max_filesize=500M"; \
+        echo "post_max_size=520M"; \
+        echo "memory_limit=768M"; \
+    } > /usr/local/etc/php/conf.d/newpaotang-uploads.ini
+
 WORKDIR /var/www/html
 
 FROM base AS development

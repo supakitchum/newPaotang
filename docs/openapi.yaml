@@ -7767,7 +7767,7 @@ components:
         zip:
           type: string
           format: binary
-          description: Root-level PNG-only zip containing 001.png, 002.png, and so on. Maximum upload size follows the running PHP upload_max_filesize and post_max_size limits.
+          description: Root-level PNG-only zip containing 001.png, 002.png, and so on. Maximum upload size follows the running PHP upload_max_filesize and post_max_size limits; the project Docker runtime sets lottery background uploads to 500M with post_max_size overhead.
     LotteryImageBackgroundZipImportResponse:
       type: object
       required: [data, meta]
