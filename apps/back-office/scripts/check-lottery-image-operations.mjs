@@ -10,6 +10,7 @@ const apiPath = join(root, 'composables/useAdminApi.ts')
 const catalogPath = join(root, 'composables/useAdminOperationsCatalog.ts')
 const operationsPagePath = join(root, 'components/AdminOperationsPage.vue')
 const navigationPath = join(root, 'composables/useAdminNavigation.ts')
+const sidebarPath = join(root, 'components/AdminSidebar.vue')
 
 const failures = []
 
@@ -28,6 +29,7 @@ const api = existsSync(apiPath) ? readFileSync(apiPath, 'utf8') : ''
 const catalog = existsSync(catalogPath) ? readFileSync(catalogPath, 'utf8') : ''
 const operationsPage = existsSync(operationsPagePath) ? readFileSync(operationsPagePath, 'utf8') : ''
 const navigation = existsSync(navigationPath) ? readFileSync(navigationPath, 'utf8') : ''
+const sidebar = existsSync(sidebarPath) ? readFileSync(sidebarPath, 'utf8') : ''
 
 for (const token of [
   '/admin/central/games',
@@ -107,6 +109,10 @@ if (!operationsPage.includes('action.route') || !operationsPage.includes('action
 
 if (!navigation.includes('central:lottery_images')) {
   failures.push('Central navigation does not map lottery image menu route override')
+}
+
+if (!sidebar.includes('/admin/central/lottery-images') || !sidebar.includes('/admin/central/games')) {
+  failures.push('Sidebar active state does not map lottery image operations back to the games menu')
 }
 
 if (component.includes("scope: 'tenant'") || page.includes('/admin/tenant/')) {

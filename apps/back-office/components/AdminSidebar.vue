@@ -74,10 +74,26 @@ const normalizePath = (path: string) => {
   return normalized || '/'
 }
 
+const activeRoutePaths = (currentPath: string) => {
+  const paths = [currentPath]
+
+  if (currentPath === '/admin/central/lottery-images' || currentPath.startsWith('/admin/central/lottery-images/')) {
+    paths.push('/admin/central/games')
+  }
+
+  if (/^\/admin\/central\/partners\/[^/]+\/lottery-branding$/.test(currentPath)) {
+    paths.push('/admin/central/partners')
+  }
+
+  return paths
+}
+
 const isRouteActive = (targetPath: string) => {
   const currentPath = normalizePath(route.path)
   const mappedPath = normalizePath(targetPath)
-  return currentPath === mappedPath || currentPath.startsWith(`${mappedPath}/`)
+  return activeRoutePaths(currentPath).some((path) => (
+    path === mappedPath || path.startsWith(`${mappedPath}/`)
+  ))
 }
 
 const isActive = (item: any): boolean => {

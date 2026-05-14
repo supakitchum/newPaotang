@@ -6,6 +6,7 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const componentPath = join(root, 'components/AdminPartnerLotteryBranding.vue')
 const pagePath = join(root, 'pages/admin/central/partners/[partner_id]/lottery-branding.vue')
 const catalogPath = join(root, 'composables/useAdminOperationsCatalog.ts')
+const sidebarPath = join(root, 'components/AdminSidebar.vue')
 
 const failures = []
 
@@ -20,6 +21,7 @@ if (!existsSync(pagePath)) {
 const component = existsSync(componentPath) ? readFileSync(componentPath, 'utf8') : ''
 const page = existsSync(pagePath) ? readFileSync(pagePath, 'utf8') : ''
 const catalog = existsSync(catalogPath) ? readFileSync(catalogPath, 'utf8') : ''
+const sidebar = existsSync(sidebarPath) ? readFileSync(sidebarPath, 'utf8') : ''
 
 for (const token of [
   '/admin/central/partners/${encodeURIComponent(props.partnerId)}/lottery-branding-assets',
@@ -50,6 +52,10 @@ for (const token of [
 
 if (!catalog.includes("adminUiRoute('central', 'partners/{id}/lottery-branding')")) {
   failures.push('Central partners catalog is missing lottery branding action link')
+}
+
+if (!sidebar.includes('lottery-branding') || !sidebar.includes('/admin/central/partners')) {
+  failures.push('Sidebar active state does not map lottery branding back to the partners menu')
 }
 
 if (component.includes('previewForm.partner_id') || component.includes('partner_id: previewForm')) {

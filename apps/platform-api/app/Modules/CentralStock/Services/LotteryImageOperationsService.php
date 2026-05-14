@@ -164,7 +164,7 @@ class LotteryImageOperationsService
                 : (int) ($payload['expected_count'] ?? 1),
             'supersede_existing' => filter_var($payload['supersede_existing'] ?? false, FILTER_VALIDATE_BOOLEAN),
         ];
-        $errors = $this->backgroundZipPayloadErrors($normalized, $zipFile);
+        $errors = $this->backgroundZipPayloadErrors($normalized, $zipFile, $request);
 
         if ($errors !== []) {
             return ['error' => 'validation_failed', 'errors' => $errors];
@@ -802,9 +802,10 @@ class LotteryImageOperationsService
      * @param array<string, mixed> $payload
      * @return array<string, array<int, string>>
      */
-    private function backgroundZipPayloadErrors(array $payload, ?UploadedFile $zipFile): array
+    private function backgroundZipPayloadErrors(array $payload, ?UploadedFile $zipFile, Request $request): array
     {
         $errors = $this->gameVersionErrors($payload);
+        $uploadLimit = $this->zipUploadLimitBytes();
 
         if (! in_array($payload['set_type'], self::SET_TYPES, true)) {
             $errors['set_type'][] = 'The set_type field must be odd, even, or charity.';
@@ -815,13 +816,83 @@ class LotteryImageOperationsService
         if (! is_int($payload['expected_count']) || $payload['expected_count'] < 1 || $payload['expected_count'] > 100) {
             $errors['expected_count'][] = 'The expected_count field must be an integer between 1 and 100.';
         }
-        if (! $zipFile instanceof UploadedFile || ! $zipFile->isValid()) {
-            $errors['zip'][] = 'The zip field is required and must be a valid upload.';
-        } elseif ((int) $zipFile->getSize() < 1 || (int) $zipFile->getSize() > 52428800) {
-            $errors['zip'][] = 'The zip file must be between 1 byte and 52428800 bytes.';
+        if (! $zipFile instanceof UploadedFile) {
+            $contentLength = (int) $request->server('CONTENT_LENGTH', 0);
+            $errors['zip'][] = $uploadLimit !== null && $contentLength > $uploadLimit
+                ? $this->zipUploadLimitExceededMessage($uploadLimit)
+                : 'The zip field is required and must be a valid upload.';
+        } elseif (! $zipFile->isValid()) {
+            $errors['zip'][] = in_array($zipFile->getError(), [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)
+                ? $this->zipUploadLimitExceededMessage($uploadLimit)
+                : 'The zip field is required and must be a valid upload.';
+        } elseif ((int) $zipFile->getSize() < 1) {
+            $errors['zip'][] = 'The zip file must be at least 1 byte.';
+        } elseif ($uploadLimit !== null && (int) $zipFile->getSize() > $uploadLimit) {
+            $errors['zip'][] = $this->zipUploadLimitExceededMessage($uploadLimit);
         }
 
         return $errors;
+    }
+
+    private function zipUploadLimitExceededMessage(?int $uploadLimit): string
+    {
+        $suffix = $uploadLimit === null
+            ? 'the PHP upload limit.'
+            : 'the PHP upload limit of '.$this->humanBytes($uploadLimit).' ('.$uploadLimit.' bytes).';
+
+        return 'The zip file exceeds '.$suffix.' Increase upload_max_filesize and post_max_size in php.ini or upload a smaller zip.';
+    }
+
+    private function zipUploadLimitBytes(): ?int
+    {
+        $limits = array_values(array_filter([
+            $this->iniBytes((string) ini_get('upload_max_filesize')),
+            $this->iniBytes((string) ini_get('post_max_size')),
+        ], static fn (?int $value): bool => $value !== null && $value > 0));
+
+        return $limits === [] ? null : min($limits);
+    }
+
+    private function iniBytes(string $value): ?int
+    {
+        $value = trim($value);
+
+        if ($value === '' || $value === '-1') {
+            return null;
+        }
+
+        $unit = strtolower(substr($value, -1));
+        $number = is_numeric($unit) ? (float) $value : (float) substr($value, 0, -1);
+
+        if ($number <= 0) {
+            return null;
+        }
+
+        $multiplier = match ($unit) {
+            'g' => 1024 * 1024 * 1024,
+            'm' => 1024 * 1024,
+            'k' => 1024,
+            default => 1,
+        };
+
+        return (int) ceil($number * $multiplier);
+    }
+
+    private function humanBytes(int $bytes): string
+    {
+        if ($bytes >= 1024 * 1024 * 1024) {
+            return round($bytes / (1024 * 1024 * 1024), 2).' GiB';
+        }
+
+        if ($bytes >= 1024 * 1024) {
+            return round($bytes / (1024 * 1024), 2).' MiB';
+        }
+
+        if ($bytes >= 1024) {
+            return round($bytes / 1024, 2).' KiB';
+        }
+
+        return $bytes.' B';
     }
 
     /**

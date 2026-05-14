@@ -444,6 +444,21 @@ class LotteryImageOperationsTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonPath('error.code', 'validation_failed');
+
+        $this->withToken($central['access_token'])
+            ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
+                'game_id' => 'gam_lottery_zip_invalid',
+                'version' => 'v1',
+                'set_type' => 'odd',
+                'expected_count' => 1,
+                'zip' => $this->phpIniRejectedZipUpload(),
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'zip-php-ini-limit',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.fields.zip.0', fn (string $message): bool => str_contains($message, 'PHP upload limit'));
     }
 
     public function test_LotteryImagePreview_supports_manual_number_modes_and_creates_no_rows(): void
@@ -683,6 +698,15 @@ class LotteryImageOperationsTest extends TestCase
         $zip->close();
 
         return new UploadedFile($path, 'mixed.zip', 'application/zip', null, true);
+    }
+
+    private function phpIniRejectedZipUpload(): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'lottery-ini-limit-zip-');
+        $this->assertIsString($path);
+        file_put_contents($path, 'zip upload rejected by php.ini');
+
+        return new UploadedFile($path, 'too-large.zip', 'application/zip', UPLOAD_ERR_INI_SIZE, true);
     }
 
     private function fixturePng(int $seed, int $width = 500, int $height = 280): string
