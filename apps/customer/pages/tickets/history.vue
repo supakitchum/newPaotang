@@ -46,6 +46,10 @@
             :draw="getTicketDraw(ticket, historyGame)"
             :set="getTicketSet(ticket)"
             :status="getTicketStatusText(ticket)"
+            :image-url="ticket.image_url || ticket.image"
+            :image-thumb-url="ticket.image_thumb_url"
+            :image-status="ticket.image_status"
+            :image-error="ticket.image_error"
           />
         </NuxtLink>
       </div>

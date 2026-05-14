@@ -16,6 +16,18 @@
           <span class="muted-text">ยอดชำระทั้งหมด</span>
           <span><strong class="text-primary fs-2">{{ formatMoney(orderTotal) }}</strong> บาท</span>
         </div>
+        <div v-if="orderTickets.length" class="checkout-ticket-preview mt-3">
+          <LotteryImage
+            v-for="(ticket, index) in orderTickets"
+            :key="`${ticket.token || ticket.number}-${index}`"
+            :src="ticket.image_url || ticket.image"
+            :thumb-src="ticket.image_thumb_url"
+            :status="ticket.image_status"
+            :error-message="ticket.image_error"
+            :number="getTicketNumber(ticket)"
+            variant="stub"
+          />
+        </div>
         <div v-if="isPreparing" class="text-primary fw-semibold mt-3">กำลังเตรียมรายการชำระเงิน...</div>
         <div v-else-if="prepareError" class="text-danger fw-semibold mt-3">{{ prepareError }}</div>
       </div>
@@ -156,6 +168,12 @@ const getOrderLotteries = (value: CheckoutOrder | null) => (
 )
 
 const getTicketCount = (ticket: Partial<CartLottery>) => Math.max(1, toNumber(ticket.count, 1))
+
+const getTicketNumber = (ticket: Partial<CartLottery>) => {
+  const value = ticket.number || ticket.full_number || ticket.lottery_number || ''
+
+  return String(value)
+}
 
 const getTicketPrice = (ticket: Partial<CartLottery>) => {
   const price = toNumber(ticket.price)

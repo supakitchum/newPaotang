@@ -77,9 +77,24 @@ const normalizeGame = (game: AnyRecord | null | undefined) => {
   }
 }
 
+const normalizeImageFields = (item: AnyRecord) => {
+  const imageUrl = item.image_url || item.image || ''
+  const imageThumbUrl = item.image_thumb_url || item.image_thumb || item.thumb_url || imageUrl
+  const imageStatus = item.image_status || (imageUrl || imageThumbUrl ? 'ready' : 'missing')
+
+  return {
+    image_url: imageUrl,
+    image_thumb_url: imageThumbUrl,
+    image_status: imageStatus,
+    image_error: item.image_error || null,
+    image: imageUrl || imageThumbUrl || ''
+  }
+}
+
 const normalizeStockItem = (item: AnyRecord, reservationId?: string): CartLottery & AnyRecord => {
   const number = String(item.full_number || item.number || item.lottery_number || '')
   const price = moneyToDisplayNumber(item.price)
+  const imageFields = normalizeImageFields(item)
 
   return {
     ...item,
@@ -92,7 +107,8 @@ const normalizeStockItem = (item: AnyRecord, reservationId?: string): CartLotter
     seller: item.seller || item.store?.name || item.store_name || '',
     store_name: item.store_name || item.store?.name || item.seller || '',
     price: price > 0 ? price : ticketPrice,
-    selected: item.selected === true
+    selected: item.selected === true,
+    ...imageFields
   }
 }
 
@@ -220,13 +236,17 @@ const ticketStatusToLegacy = (status: unknown) => {
   return 1
 }
 
-const normalizeTicket = (ticket: AnyRecord) => ({
-  ...ticket,
-  number: String(ticket.full_number || ticket.number || ticket.lottery_number || ''),
-  lottery_number: String(ticket.full_number || ticket.number || ticket.lottery_number || ''),
-  status: ticketStatusToLegacy(ticket.status),
-  image: ticket.image_url || ticket.image_thumb_url || ticket.image || ''
-})
+const normalizeTicket = (ticket: AnyRecord) => {
+  const imageFields = normalizeImageFields(ticket)
+
+  return {
+    ...ticket,
+    number: String(ticket.full_number || ticket.number || ticket.lottery_number || ''),
+    lottery_number: String(ticket.full_number || ticket.number || ticket.lottery_number || ''),
+    status: ticketStatusToLegacy(ticket.status),
+    ...imageFields
+  }
+}
 
 const normalizeOrder = (order: AnyRecord | null | undefined) => {
   if (!order) {

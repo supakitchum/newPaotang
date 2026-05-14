@@ -22,6 +22,10 @@
         :draw="getTicketDraw(selectedTicket, selectedGame)"
         :set="getTicketSet(selectedTicket)"
         :status="getTicketStatusText(selectedTicket)"
+        :image-url="selectedTicket.image_url || selectedTicket.image"
+        :image-thumb-url="selectedTicket.image_thumb_url"
+        :image-status="selectedTicket.image_status"
+        :image-error="selectedTicket.image_error"
       />
 
       <div v-else class="empty-lottery-state">
@@ -39,8 +43,14 @@
             <i class="bi bi-x-lg" />
           </button>
         </div>
-        <img v-if="ticketImageUrl" class="ticket-image-preview" :src="ticketImageUrl" :alt="ticketNumber">
-        <div v-else class="ticket-art">ขายแล้ว</div>
+        <LotteryImage
+          :src="ticketImageUrl"
+          :thumb-src="selectedTicket.image_thumb_url"
+          :status="selectedTicket.image_status"
+          :error-message="selectedTicket.image_error"
+          :number="ticketNumber"
+          variant="preview"
+        />
         <div class="d-flex align-items-center gap-3 p-3 mt-3" style="background:#edf8ff;margin:0 -18px;border-radius:0 0 12px 12px;">
           <div class="rounded-3 d-grid place-center text-white fw-bold" style="width:44px;height:44px;background:#1298d7">เป๋าตัง</div>
           <div class="fw-semibold">

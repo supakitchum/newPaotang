@@ -16,6 +16,10 @@ export interface UserTicket {
   status?: number | string
   paid?: number | string | boolean
   image?: string | null
+  image_url?: string | null
+  image_thumb_url?: string | null
+  image_status?: string | null
+  image_error?: string | null
   count?: number | string
   total?: number | string
   game_id?: number | string
@@ -68,6 +72,22 @@ export const getTicketTotal = (ticket: Partial<UserTicket> | null | undefined) =
   const value = Number(ticket?.total ?? 0)
 
   return Number.isFinite(value) ? value : 0
+}
+
+export const getTicketImageUrl = (ticket: Partial<UserTicket> | null | undefined) => {
+  const image = ticket?.image_url || ticket?.image_thumb_url || ticket?.image
+
+  if (!image) {
+    return ''
+  }
+
+  const imageUrl = String(image)
+
+  if (/^https?:\/\//i.test(imageUrl) || imageUrl.startsWith('data:')) {
+    return imageUrl
+  }
+
+  return imageUrl.startsWith('/') ? imageUrl : `/${imageUrl.replace(/^\/+/, '')}`
 }
 
 export const getTicketStatusText = (ticket: Partial<UserTicket> | null | undefined) => {
@@ -152,22 +172,6 @@ export const useUserTickets = () => {
     const dateText = formatDrawDateText(game?.name)
 
     return dateText === '-' ? '' : dateText
-  }
-
-  const getTicketImageUrl = (ticket: Partial<UserTicket> | null | undefined) => {
-    const image = ticket?.image
-
-    if (!image) {
-      return ''
-    }
-
-    const imageUrl = String(image)
-
-    if (/^https?:\/\//i.test(imageUrl) || imageUrl.startsWith('data:')) {
-      return imageUrl
-    }
-
-    return imageUrl.startsWith('/') ? imageUrl : `/${imageUrl.replace(/^\/+/, '')}`
   }
 
   return {

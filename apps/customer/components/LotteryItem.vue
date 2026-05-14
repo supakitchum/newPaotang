@@ -15,19 +15,29 @@
         </NuxtLink>
       </div>
       <div class="lottery-main-row">
-        <div class="ticket-data-grid">
-          <LotteryNumber :number="ticketNumber" :highlight="ticket.highlight" :highlight-digits="ticket.highlightDigits" />
-          <div class="ticket-meta-column">
-            <span>
-              <span class="tiny-label">งวดที่</span>
-              <span class="tiny-value">{{ drawNumber }}</span>
-            </span>
-          </div>
-          <div class="ticket-meta-column">
-            <span>
-              <span class="tiny-label">ชุดที่</span>
-              <span class="tiny-value">{{ setNumber }}</span>
-            </span>
+        <div class="lottery-display-grid">
+          <LotteryImage
+            :src="ticket.image_url || ticket.image"
+            :thumb-src="ticket.image_thumb_url"
+            :status="ticket.image_status"
+            :error-message="ticket.image_error"
+            :number="ticketNumber"
+            variant="card"
+          />
+          <div class="ticket-data-grid">
+            <LotteryNumber :number="ticketNumber" :highlight="ticket.highlight" :highlight-digits="ticket.highlightDigits" />
+            <div class="ticket-meta-column">
+              <span>
+                <span class="tiny-label">งวดที่</span>
+                <span class="tiny-value">{{ drawNumber }}</span>
+              </span>
+            </div>
+            <div class="ticket-meta-column">
+              <span>
+                <span class="tiny-label">ชุดที่</span>
+                <span class="tiny-value">{{ setNumber }}</span>
+              </span>
+            </div>
           </div>
         </div>
         <button
@@ -107,6 +117,11 @@ const props = defineProps<{
     selected?: boolean
     highlight?: string
     highlightDigits?: Array<string | null>
+    image?: string | null
+    image_url?: string | null
+    image_thumb_url?: string | null
+    image_status?: string | null
+    image_error?: string | null
   }
   confirmRemove?: boolean
   loading?: boolean

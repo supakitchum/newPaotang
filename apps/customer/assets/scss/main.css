@@ -1001,6 +1001,72 @@ a {
   gap: 12px;
 }
 
+.lottery-display-grid {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.lottery-image {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #dce7f5;
+  border-radius: 8px;
+  background: #f5f8fc;
+}
+
+.lottery-image img,
+.lottery-image-fallback {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.lottery-image img {
+  object-fit: cover;
+}
+
+.lottery-image-fallback {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  padding: 8px;
+  color: #637083;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  background:
+    repeating-linear-gradient(135deg, rgba(20, 122, 218, .08) 0 4px, transparent 4px 10px),
+    linear-gradient(135deg, #f7fbff, #fff9df);
+}
+
+.lottery-image-fallback i {
+  color: #1976d2;
+  font-size: 18px;
+}
+
+.lottery-image-card {
+  width: min(100%, 280px);
+  aspect-ratio: 5 / 2.8;
+}
+
+.lottery-image-stub {
+  width: 58px;
+  aspect-ratio: 5 / 2.8;
+}
+
+.lottery-image-preview {
+  width: 100%;
+  aspect-ratio: 5 / 2.8;
+}
+
+.lottery-image-preview img {
+  object-fit: contain;
+  background: #f5f7fb;
+}
+
 .ticket-data-grid {
   min-width: 0;
   display: grid;
@@ -1742,7 +1808,7 @@ a {
 .ticket-stub {
   position: relative;
   display: grid;
-  grid-template-columns: 48px 1fr 67px 45px;
+  grid-template-columns: 58px 48px 1fr 67px 45px;
   gap: 10px;
   align-items: center;
   min-height: 82px;
@@ -1753,6 +1819,13 @@ a {
     #fff;
   box-shadow: 0 8px 18px rgba(20, 38, 72, .12);
   overflow: hidden;
+}
+
+.checkout-ticket-preview,
+.receipt-ticket-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
+  gap: 8px;
 }
 
 .ticket-stub .side-label {

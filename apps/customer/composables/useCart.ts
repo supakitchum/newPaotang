@@ -18,6 +18,11 @@ export interface CartLottery {
   selected?: boolean
   highlight?: string
   highlightDigits?: Array<string | null>
+  image?: string | null
+  image_url?: string | null
+  image_thumb_url?: string | null
+  image_status?: string | null
+  image_error?: string | null
 }
 
 let timerInterval: ReturnType<typeof setInterval> | null = null
