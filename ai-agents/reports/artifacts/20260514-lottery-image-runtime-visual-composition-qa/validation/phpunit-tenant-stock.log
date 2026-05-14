@@ -1,0 +1,16 @@
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-platform-api-run-1a8543bd775a Creating
+ Container newpaotang-platform-api-run-1a8543bd775a Created
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\TenantStockTest[39m
+  [32;1m✓[39;22m[90m [39m[90mtenant stock list view export are permissioned tenant scoped and au[39m[90m…[39m [90m4.58s[39m
+
+  [90mTests:[39m    [32;1m1 passed[39;22m[90m (43 assertions)[39m
+  [90mDuration:[39m [39m4.72s[39m
+
+exit_code=0

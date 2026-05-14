@@ -1,0 +1,139 @@
+== PartnerLotteryBrandingAssetTest ==
+PartnerLotteryBrandingAssetTest exit_code=0
+   Container newpaotang-postgres-1 Running
+   Container newpaotang-valkey-1 Running
+   Container newpaotang-valkey-1 Waiting
+   Container newpaotang-postgres-1 Waiting
+   Container newpaotang-postgres-1 Healthy
+   Container newpaotang-valkey-1 Healthy
+   Container newpaotang-platform-api-run-8c1ec01c5a33 Creating
+   Container newpaotang-platform-api-run-8c1ec01c5a33 Created
+
+    [30;42;1m PASS [39;49;22m[39m Tests\Feature\PartnerLotteryBrandingAssetTest[39m
+    [32;1m✓[39;22m[90m [39m[90mcentral partner lottery branding assets are central only and lock a[39m[90m…[39m [90m2.13s[39m
+
+    [90mTests:[39m    [32;1m1 passed[39;22m[90m (24 assertions)[39m
+    [90mDuration:[39m [39m2.28s[39m
+
+  exit_code=0
+
+== CentralStockTest ==
+CentralStockTest exit_code=0
+   Container newpaotang-valkey-1 Running
+   Container newpaotang-postgres-1 Running
+   Container newpaotang-postgres-1 Waiting
+   Container newpaotang-valkey-1 Waiting
+   Container newpaotang-postgres-1 Healthy
+   Container newpaotang-valkey-1 Healthy
+   Container newpaotang-platform-api-run-e456bdf1eadc Creating
+   Container newpaotang-platform-api-run-e456bdf1eadc Created
+
+    [30;42;1m PASS [39;49;22m[39m Tests\Feature\CentralStockTest[39m
+    [32;1m✓[39;22m[90m [39m[90mcentral stock generate import export list and recall are permission[39m[90m…[39m [90m2.27s[39m
+
+    [90mTests:[39m    [32;1m1 passed[39;22m[90m (60 assertions)[39m
+    [90mDuration:[39m [39m2.41s[39m
+
+  exit_code=0
+
+== TenantStockTest ==
+TenantStockTest exit_code=0
+   Container newpaotang-postgres-1 Running
+   Container newpaotang-valkey-1 Running
+   Container newpaotang-valkey-1 Waiting
+   Container newpaotang-postgres-1 Waiting
+   Container newpaotang-postgres-1 Healthy
+   Container newpaotang-valkey-1 Healthy
+   Container newpaotang-platform-api-run-1a8543bd775a Creating
+   Container newpaotang-platform-api-run-1a8543bd775a Created
+
+    [30;42;1m PASS [39;49;22m[39m Tests\Feature\TenantStockTest[39m
+    [32;1m✓[39;22m[90m [39m[90mtenant stock list view export are permissioned tenant scoped and au[39m[90m…[39m [90m4.58s[39m
+
+    [90mTests:[39m    [32;1m1 passed[39;22m[90m (43 assertions)[39m
+    [90mDuration:[39m [39m4.72s[39m
+
+  exit_code=0
+
+== PublicStockSearchTest ==
+PublicStockSearchTest exit_code=0
+   Container newpaotang-postgres-1 Running
+   Container newpaotang-valkey-1 Running
+   Container newpaotang-valkey-1 Waiting
+   Container newpaotang-postgres-1 Waiting
+   Container newpaotang-valkey-1 Healthy
+   Container newpaotang-postgres-1 Healthy
+   Container newpaotang-platform-api-run-4cce86544bd9 Creating
+   Container newpaotang-platform-api-run-4cce86544bd9 Created
+
+    [30;42;1m PASS [39;49;22m[39m Tests\Feature\PublicStockSearchTest[39m
+    [32;1m✓[39;22m[90m [39m[90mpublic stock search resolves tenant current game filters indexes an[39m[90m…[39m [90m3.14s[39m
+    [32;1m✓[39;22m[90m [39m[90mpublic stock search filters by store id within tenant and composes[39m[90m… [39m [90m3.03s[39m
+    [32;1m✓[39;22m[90m [39m[90mpublic stock search returns multiple available tickets with same nu[39m[90m…[39m [90m0.04s[39m
+    [32;1m✓[39;22m[90m [39m[90mpublic stock search and reservations respect partner sale window ov[39m[90m…[39m [90m1.06s[39m
+
+    [90mTests:[39m    [32;1m4 passed[39;22m[90m (103 assertions)[39m
+    [90mDuration:[39m [39m7.41s[39m
+
+  exit_code=0
+
+== Checkout ==
+Checkout exit_code=0
+   Container newpaotang-valkey-1 Running
+   Container newpaotang-postgres-1 Running
+   Container newpaotang-postgres-1 Waiting
+   Container newpaotang-valkey-1 Waiting
+   Container newpaotang-valkey-1 Healthy
+   Container newpaotang-postgres-1 Healthy
+   Container newpaotang-platform-api-run-4ed1109edc4d Creating
+   Container newpaotang-platform-api-run-4ed1109edc4d Created
+
+    [30;42;1m PASS [39;49;22m[39m Tests\Feature\CustomerCheckoutTest[39m
+    [32;1m✓[39;22m[90m [39m[90mcustomer checkout wallet checkout is idempotent and emits paid sold[39m[90m…[39m [90m2.82s[39m
+
+    [90mTests:[39m    [32;1m1 passed[39;22m[90m (35 assertions)[39m
+    [90mDuration:[39m [39m2.94s[39m
+
+  exit_code=0
+
+== LotteryImage ==
+LotteryImage exit_code=0
+   Container newpaotang-postgres-1 Running
+   Container newpaotang-valkey-1 Running
+   Container newpaotang-postgres-1 Waiting
+   Container newpaotang-valkey-1 Waiting
+   Container newpaotang-valkey-1 Healthy
+   Container newpaotang-postgres-1 Healthy
+   Container newpaotang-platform-api-run-a2c32a34d936 Creating
+   Container newpaotang-platform-api-run-a2c32a34d936 Created
+
+    [30;42;1m PASS [39;49;22m[39m Tests\Feature\LotteryImageTest[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image generation assigns background mix and generates centr[39m[90m…[39m [90m2.69s[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image pending background command generates rows once their[39m[90m… [39m [90m0.69s[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image visual generation creates partner variant after stock[39m[90m…[39m [90m1.47s[39m
+
+    [90mTests:[39m    [32;1m3 passed[39;22m[90m (144 assertions)[39m
+    [90mDuration:[39m [39m5.03s[39m
+
+  exit_code=0
+
+== LotteryImageVisual ==
+LotteryImageVisual exit_code=0
+   Container newpaotang-valkey-1 Running
+   Container newpaotang-postgres-1 Running
+   Container newpaotang-postgres-1 Waiting
+   Container newpaotang-valkey-1 Waiting
+   Container newpaotang-valkey-1 Healthy
+   Container newpaotang-postgres-1 Healthy
+   Container newpaotang-platform-api-run-23b61eb5614e Creating
+   Container newpaotang-platform-api-run-23b61eb5614e Created
+
+    [30;42;1m PASS [39;49;22m[39m Tests\Feature\LotteryImageTest[39m
+    [32;1m✓[39;22m[90m [39m[90mlottery image visual generation creates partner variant after stock[39m[90m…[39m [90m2.46s[39m
+
+    [90mTests:[39m    [32;1m1 passed[39;22m[90m (51 assertions)[39m
+    [90mDuration:[39m [39m2.59s[39m
+
+  exit_code=0
+
+overall_exit_code=0

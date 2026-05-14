@@ -1,0 +1,67 @@
+{
+    "runtime": {
+        "gd_loaded": true,
+        "imagick_loaded": false,
+        "imagewebp": true,
+        "imagecreatefromwebp": true,
+        "lottery_images_runtime": "gd"
+    },
+    "asset_set": {
+        "status": "ready",
+        "logo_qr_exists": true,
+        "right_sidebar_exists": true,
+        "logo_bottom_exists": true
+    },
+    "images": {
+        "central_full": {
+            "bytes": 7026,
+            "riff_signature": "RIFF",
+            "webp_signature": "WEBP",
+            "width": 500,
+            "height": 280,
+            "mime": "image/webp",
+            "decoded_by_gd": true,
+            "sha256": "04504981821ff863f32bbb020f5e78e3f186b8fb3e611f9fc0fb064717bcb617"
+        },
+        "central_thumb": {
+            "bytes": 3804,
+            "riff_signature": "RIFF",
+            "webp_signature": "WEBP",
+            "width": 280,
+            "height": 157,
+            "mime": "image/webp",
+            "decoded_by_gd": true,
+            "sha256": "4ea6f3e3e018b1a3cdf96e625509c1c86ad8e8b6fb72f0eba9fc5be07d6c13a1"
+        },
+        "partner_full": {
+            "bytes": 9810,
+            "riff_signature": "RIFF",
+            "webp_signature": "WEBP",
+            "width": 500,
+            "height": 280,
+            "mime": "image/webp",
+            "decoded_by_gd": true,
+            "sha256": "7aa961d45f154ced8b24d1408c7aad4c600d483c27c07276b001bc4a0de4b0e3"
+        },
+        "partner_thumb": {
+            "bytes": 5246,
+            "riff_signature": "RIFF",
+            "webp_signature": "WEBP",
+            "width": 280,
+            "height": 157,
+            "mime": "image/webp",
+            "decoded_by_gd": true,
+            "sha256": "b2da4386404d9f4bc5b6a392904f6fce525399ee6a43024139a3d0cb74f53f25"
+        }
+    },
+    "visual_diffs": {
+        "right_sidebar_pixel_distance": 103,
+        "bottom_logo_pixel_distance": 237
+    },
+    "content_guards": {
+        "central_contains_placeholder_marker": false,
+        "partner_contains_placeholder_marker": false,
+        "central_contains_partner_storage_path_key": false,
+        "partner_contains_scope_metadata": false
+    }
+}
