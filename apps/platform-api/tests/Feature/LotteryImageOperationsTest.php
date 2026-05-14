@@ -356,7 +356,7 @@ class LotteryImageOperationsTest extends TestCase
                 'game_id' => 'gam_lottery_zip_ops',
                 'version' => 'v2',
                 'set_type' => 'charity',
-                'zip' => $this->imageZipUpload([1 => 'png', 2 => 'jpg', 3 => 'webp']),
+                'zip' => $this->imageZipUpload([1 => 'png', 2 => 'jpg', 3 => 'webp'], includeMacArtifacts: true),
             ], [
                 'X-Admin-Scope' => 'tenant',
                 'X-Tenant-Id' => 'ten_zip_ops',
@@ -678,7 +678,7 @@ class LotteryImageOperationsTest extends TestCase
     /**
      * @param array<int, string> $entries
      */
-    private function imageZipUpload(array $entries): UploadedFile
+    private function imageZipUpload(array $entries, bool $includeMacArtifacts = false): UploadedFile
     {
         $path = tempnam(sys_get_temp_dir(), 'lottery-png-zip-');
         $this->assertIsString($path);
@@ -695,6 +695,12 @@ class LotteryImageOperationsTest extends TestCase
             };
 
             $zip->addFromString(str_pad((string) $ordinal, 3, '0', STR_PAD_LEFT).'.'.$extension, $bytes);
+        }
+
+        if ($includeMacArtifacts) {
+            $zip->addFromString('__MACOSX/._001.png', 'macos resource fork');
+            $zip->addFromString('._002.jpg', 'macos root resource fork');
+            $zip->addFromString('.DS_Store', 'macos finder metadata');
         }
 
         $zip->close();

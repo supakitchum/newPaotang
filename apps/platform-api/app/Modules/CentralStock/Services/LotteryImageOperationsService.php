@@ -928,6 +928,10 @@ class LotteryImageOperationsService
                     continue;
                 }
 
+                if ($this->isIgnoredMacZipEntry($name)) {
+                    continue;
+                }
+
                 $basename = basename($name);
 
                 if ($basename !== $name || str_contains($name, '\\') || str_contains($name, '..') || str_starts_with($name, '.') || str_starts_with($name, '__MACOSX')) {
@@ -1021,6 +1025,15 @@ class LotteryImageOperationsService
         }
 
         return ['files' => array_values($files), 'detected_count' => $detectedCount];
+    }
+
+    private function isIgnoredMacZipEntry(string $name): bool
+    {
+        $basename = basename($name);
+
+        return $basename === '.DS_Store'
+            || str_starts_with($basename, '._')
+            || str_starts_with($name, '__MACOSX/');
     }
 
     private function renderBackgroundVariant(string $sourceBytes, string $variant): string
