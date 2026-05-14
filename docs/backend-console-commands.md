@@ -103,6 +103,55 @@ docker compose run --rm platform-api php artisan lottery-images:readiness --form
 
 Do not run `php artisan ...` directly on the host machine.
 
+## Lottery Image Production Ops Runbook
+
+Use `lottery-images:readiness --format=json` as the non-secret launch gate signal for image generation storage, queue, and GD/WebP runtime readiness.
+
+Expected production-ready signal:
+
+```text
+production_ready=true
+secrets_redacted=true
+disk_driver=s3
+bucket_present=true
+region_present=true
+cdn_base_url_present=true
+queue_configured=true
+runtime_webp_ready=true
+blocking_reasons=[]
+```
+
+Cloudflare R2 or other S3-compatible providers must also show `endpoint_present=true` in operator evidence. AWS S3 deployments may not need a custom endpoint, but the deployment checklist should still state that decision explicitly.
+
+Required queue workers:
+
+```sh
+docker compose exec platform-api php artisan queue:work --queue=stock-image-generation
+docker compose exec platform-api php artisan queue:work --queue=stock-partner-image-generation
+```
+
+Use the deployment supervisor/container runtime to keep both workers alive. The workers must run from the `platform-api` image and use the same environment as the API container so `LOTTERY_IMAGE_DISK`, CDN URL, queue connection, and object-storage credentials resolve identically.
+
+Pending background recovery:
+
+```sh
+docker compose run --rm platform-api php artisan lottery-images:check-pending-backgrounds --dry-run
+docker compose run --rm platform-api php artisan lottery-images:check-pending-backgrounds
+```
+
+Only run the non-dry command after the missing background asset set is ready. The command dispatches normal central and partner image jobs for rows that are still `pending_assets` and whose original assigned background set can now be read from storage.
+
+Failed generation recovery:
+
+```text
+1. Inspect last_error_samples from readiness output.
+2. Fix storage, runtime, background asset, or partner branding root cause first.
+3. Use pending retry for rows stuck in pending_assets.
+4. For rows already marked failed, open a targeted regeneration/remediation task unless a future regenerate command exists.
+```
+
+Readiness output must remain safe to paste into QA artifacts. It reports presence booleans and queue names only; it must not print access keys, secret keys, session tokens, signed URLs, bucket names, endpoint URLs, or raw CDN host values.
+
 ## Controller Convention
 
 The active Platform API controller convention is module-based. This backend is a Laravel Modular Monolith, so controllers sit inside their owning domain modules:

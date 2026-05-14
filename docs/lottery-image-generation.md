@@ -218,7 +218,7 @@ Add explicit config for lottery image generation instead of hiding it inside S3 
 LOTTERY_IMAGE_ENABLED=true
 LOTTERY_IMAGE_DISK=s3
 LOTTERY_IMAGE_CDN_BASE_URL=https://cdn.example.com
-LOTTERY_IMAGE_PREFIX=lotteries
+LOTTERY_IMAGE_OBJECT_PREFIX=lotteries
 LOTTERY_IMAGE_RUNTIME=gd
 LOTTERY_IMAGE_FULL_WIDTH=500
 LOTTERY_IMAGE_FULL_HEIGHT=280
@@ -226,8 +226,9 @@ LOTTERY_IMAGE_FULL_QUALITY=70
 LOTTERY_IMAGE_THUMB_WIDTH=280
 LOTTERY_IMAGE_THUMB_HEIGHT=157
 LOTTERY_IMAGE_THUMB_QUALITY=60
-LOTTERY_IMAGE_QUEUE=stock-image-generation
-LOTTERY_PARTNER_IMAGE_QUEUE=stock-partner-image-generation
+LOTTERY_IMAGE_CACHE_CONTROL=public, max-age=31536000, immutable
+LOTTERY_IMAGE_CENTRAL_QUEUE=stock-image-generation
+LOTTERY_IMAGE_PARTNER_QUEUE=stock-partner-image-generation
 LOTTERY_PARTNER_BRANDING_ON_ALLOCATION=true
 ```
 
@@ -533,6 +534,83 @@ docker compose run --rm platform-api php artisan lottery-images:readiness --form
 ```
 
 The readiness output reports disk driver, bucket/region/endpoint presence, CDN base URL presence, GD/WebP runtime, queue names, and blocking reasons. It never returns S3/R2 access keys, secret keys, tokens, signed URLs, or credential material.
+
+## Production Ops Launch Checklist
+
+Production readiness is non-secret and must be proven through configuration presence, runtime capability, and queue wiring. Do not commit real credential values to this repository or QA artifacts.
+
+Required object-storage environment shape:
+
+```text
+LOTTERY_IMAGE_ENABLED=true
+LOTTERY_IMAGE_DISK=lottery_images
+LOTTERY_IMAGE_CDN_BASE_URL=https://<cdn-host>
+LOTTERY_IMAGE_OBJECT_PREFIX=lotteries
+LOTTERY_IMAGE_RUNTIME=gd
+LOTTERY_IMAGE_CACHE_CONTROL=public, max-age=31536000, immutable
+FILESYSTEM_DISK or filesystems.disks.lottery_images.driver=s3
+S3/R2 bucket value present
+S3/R2 region value present
+S3/R2 endpoint value present for R2-compatible storage
+S3/R2 access key present only in the deployment secret store
+S3/R2 secret key present only in the deployment secret store
+```
+
+`production_ready=true` from `GET /api/v1/admin/central/lottery-images/production-readiness` and `lottery-images:readiness --format=json` requires:
+
+```text
+lottery image generation enabled
+configured lottery_images disk exists
+lottery_images disk driver is s3
+bucket_present=true
+region_present=true
+cdn_base_url_present=true
+queue_configured=true
+runtime_webp_ready=true
+blocking_reasons=[]
+secrets_redacted=true
+```
+
+`endpoint_present` is reported for S3-compatible providers. Cloudflare R2 and compatible providers should treat it as mandatory in the deployment checklist even if AWS S3 can operate without a custom endpoint.
+
+Object key and delivery contract:
+
+```text
+central full:  {object_prefix}/{game_id}/{batch_id}/central/{stock_item_id}.webp
+central thumb: {object_prefix}/{game_id}/{batch_id}/central/thumbs/{stock_item_id}.webp
+partner full:  {object_prefix}/{game_id}/{batch_id}/partners/{partner_id}/{stock_item_id}.webp
+partner thumb: {object_prefix}/{game_id}/{batch_id}/partners/{partner_id}/thumbs/{stock_item_id}.webp
+content type: image/webp
+cache control: public, max-age=31536000, immutable
+public URL: {LOTTERY_IMAGE_CDN_BASE_URL}/{object_key}
+```
+
+Queue workers required for launch:
+
+```sh
+php artisan queue:work --queue=stock-image-generation
+php artisan queue:work --queue=stock-partner-image-generation
+```
+
+When running through Docker Compose, wrap those commands in the `platform-api` service:
+
+```sh
+docker compose exec platform-api php artisan queue:work --queue=stock-image-generation
+docker compose exec platform-api php artisan queue:work --queue=stock-partner-image-generation
+```
+
+Recovery runbook:
+
+```text
+1. Inspect readiness with lottery-images:readiness --format=json or the central-admin production-readiness API.
+2. If missing backgrounds are reported, register the missing odd/even/charity background asset sets first.
+3. Dry-run pending retries with lottery-images:check-pending-backgrounds --dry-run.
+4. Execute retry without --dry-run only after ready counts match the operator expectation.
+5. Inspect failed_generation counts and last_error_samples from the readiness response.
+6. For failed rows, fix the root cause first; then use a future regenerate action or targeted remediation task. Do not delete stock rows to recover image output.
+```
+
+Launch gate operators should capture the readiness JSON, pending retry dry-run output, and queue worker process status as QA artifacts. Those artifacts must keep `secrets_redacted=true` and must not include access keys, secret keys, session tokens, signed URLs, or raw credential environment values.
 
 ## Idempotency And Regeneration
 

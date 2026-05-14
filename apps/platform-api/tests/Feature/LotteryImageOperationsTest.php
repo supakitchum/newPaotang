@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\GenerateLotteryImageJob;
+use App\Modules\CentralStock\Services\LotteryImageGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
@@ -250,6 +251,94 @@ class LotteryImageOperationsTest extends TestCase
             ->assertJsonPath('central.dispatched_count', 2);
 
         Queue::assertPushed(GenerateLotteryImageJob::class, 2);
+    }
+
+    public function test_LotteryImageReadiness_reports_production_ready_when_s3_queue_runtime_are_configured_and_redacts_values(): void
+    {
+        $this->seedDefaultRbac();
+        $central = $this->createCentralSession(['stock.view'], 'adm_lottery_prod_ops', 'lottery-prod-ops@example.test');
+
+        config([
+            'lottery_images.enabled' => true,
+            'lottery_images.disk' => 'lottery_images',
+            'lottery_images.cdn_base_url' => 'https://cdn.launch-lottery.example',
+            'lottery_images.queues.central' => 'stock-image-generation',
+            'lottery_images.queues.partner' => 'stock-partner-image-generation',
+            'filesystems.disks.lottery_images.driver' => 's3',
+            'filesystems.disks.lottery_images.bucket' => 'np-launch-lottery-private',
+            'filesystems.disks.lottery_images.region' => 'ap-southeast-1',
+            'filesystems.disks.lottery_images.endpoint' => 'https://r2.launch-lottery.example',
+            'filesystems.disks.lottery_images.key' => 'ACCESS_KEY_SHOULD_NOT_LEAK',
+            'filesystems.disks.lottery_images.secret' => 'SECRET_KEY_SHOULD_NOT_LEAK',
+            'filesystems.disks.lottery_images.token' => 'SESSION_TOKEN_SHOULD_NOT_LEAK',
+            'queue.default' => 'database',
+            'queue.connections.database' => [
+                'driver' => 'database',
+                'table' => 'jobs',
+                'queue' => 'default',
+                'retry_after' => 90,
+                'after_commit' => false,
+            ],
+        ]);
+
+        $body = $this->withToken($central['access_token'])
+            ->getJson('/api/v1/admin/central/lottery-images/production-readiness', [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('configured', true)
+            ->assertJsonPath('disk_driver', 's3')
+            ->assertJsonPath('bucket_present', true)
+            ->assertJsonPath('region_present', true)
+            ->assertJsonPath('endpoint_present', true)
+            ->assertJsonPath('cdn_base_url_present', true)
+            ->assertJsonPath('queue_configured', true)
+            ->assertJsonPath('runtime_webp_ready', true)
+            ->assertJsonPath('secrets_redacted', true)
+            ->assertJsonPath('production_ready', true)
+            ->assertJsonPath('blocking_reasons', [])
+            ->assertJsonPath('queues.required_queue_names.0', 'stock-image-generation')
+            ->assertJsonPath('queues.required_queue_names.1', 'stock-partner-image-generation')
+            ->baseResponse
+            ->getContent();
+
+        foreach ([
+            'np-launch-lottery-private',
+            'ap-southeast-1',
+            'https://r2.launch-lottery.example',
+            'https://cdn.launch-lottery.example',
+            'ACCESS_KEY_SHOULD_NOT_LEAK',
+            'SECRET_KEY_SHOULD_NOT_LEAK',
+            'SESSION_TOKEN_SHOULD_NOT_LEAK',
+        ] as $secretOrConfigValue) {
+            $this->assertStringNotContainsString($secretOrConfigValue, $body);
+        }
+    }
+
+    public function test_LotteryImageOps_object_keys_cdn_urls_and_cache_contract_are_stable(): void
+    {
+        config([
+            'lottery_images.object_prefix' => 'lotteries',
+            'lottery_images.cdn_base_url' => 'https://cdn.launch-lottery.example/assets',
+            'lottery_images.content_type' => 'image/webp',
+            'lottery_images.cache_control' => 'public, max-age=31536000, immutable',
+        ]);
+
+        /** @var LotteryImageGenerator $images */
+        $images = $this->app->make(LotteryImageGenerator::class);
+
+        $centralFull = $images->centralObjectKey('gam_launch', 'stb_launch', 'stk_000001');
+        $centralThumb = $images->centralObjectKey('gam_launch', 'stb_launch', 'stk_000001', 'thumb');
+        $partnerFull = $images->partnerObjectKey('gam_launch', 'stb_launch', 'par_alpha', 'stk_000001');
+        $partnerThumb = $images->partnerObjectKey('gam_launch', 'stb_launch', 'par_alpha', 'stk_000001', 'thumb');
+
+        $this->assertSame('lotteries/gam_launch/stb_launch/central/stk_000001.webp', $centralFull);
+        $this->assertSame('lotteries/gam_launch/stb_launch/central/thumbs/stk_000001.webp', $centralThumb);
+        $this->assertSame('lotteries/gam_launch/stb_launch/partners/par_alpha/stk_000001.webp', $partnerFull);
+        $this->assertSame('lotteries/gam_launch/stb_launch/partners/par_alpha/thumbs/stk_000001.webp', $partnerThumb);
+        $this->assertSame('https://cdn.launch-lottery.example/assets/'.$centralFull, $images->publicUrl($centralFull));
+        $this->assertSame('image/webp', config('lottery_images.content_type'));
+        $this->assertSame('public, max-age=31536000, immutable', config('lottery_images.cache_control'));
     }
 
     /**
