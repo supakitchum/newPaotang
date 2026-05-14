@@ -6,6 +6,7 @@ return [
     'cdn_base_url' => env('LOTTERY_IMAGE_CDN_BASE_URL', env('CDN_BASE_URL', 'https://local-assets.newpaotang.test')),
     'object_prefix' => env('LOTTERY_IMAGE_OBJECT_PREFIX', 'lotteries'),
     'asset_root' => env('LOTTERY_IMAGE_ASSET_ROOT', resource_path('lottery-images')),
+    'runtime' => env('LOTTERY_IMAGE_RUNTIME', 'gd'),
     'background_version' => env('LOTTERY_IMAGE_BACKGROUND_VERSION', 'v1'),
     'background_min_counts' => [
         'odd' => (int) env('LOTTERY_IMAGE_ODD_BACKGROUND_MIN_COUNT', 1),
@@ -18,8 +19,16 @@ return [
         'charity' => 10,
     ],
     'dimensions' => [
-        'full' => ['width' => 500, 'quality' => 70],
-        'thumb' => ['width' => 280, 'quality' => 60],
+        'full' => [
+            'width' => (int) env('LOTTERY_IMAGE_FULL_WIDTH', 500),
+            'height' => (int) env('LOTTERY_IMAGE_FULL_HEIGHT', 280),
+            'quality' => (int) env('LOTTERY_IMAGE_FULL_QUALITY', 70),
+        ],
+        'thumb' => [
+            'width' => (int) env('LOTTERY_IMAGE_THUMB_WIDTH', 280),
+            'height' => (int) env('LOTTERY_IMAGE_THUMB_HEIGHT', 157),
+            'quality' => (int) env('LOTTERY_IMAGE_THUMB_QUALITY', 60),
+        ],
     ],
     'queues' => [
         'central' => env('LOTTERY_IMAGE_CENTRAL_QUEUE', 'stock-image-generation'),

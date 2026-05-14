@@ -4,11 +4,16 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         git \
         unzip \
+        libfreetype6-dev \
+        libjpeg62-turbo-dev \
+        libpng-dev \
+        libwebp-dev \
         libpq-dev \
         libzip-dev \
         libonig-dev \
         libxml2-dev \
-    && docker-php-ext-install bcmath dom mbstring pcntl pdo_pgsql zip \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
+    && docker-php-ext-install bcmath dom gd mbstring pcntl pdo_pgsql zip \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

@@ -6,6 +6,7 @@ use App\Models\LocalStockItem;
 use App\Models\PartnerLotteryBrandingAssetSet;
 use App\Models\StockItem;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 
 class LotteryImageGenerator
 {
@@ -107,44 +108,253 @@ class LotteryImageGenerator
 
     public function renderCentralImage(StockItem $stock, string $variant): string
     {
-        return $this->webpBytes([
-            'scope' => 'central',
-            'variant' => $variant,
-            'game_id' => (string) $stock->game_id,
-            'batch_id' => (string) $stock->batch_id,
-            'stock_item_id' => (string) $stock->id,
-            'full_number' => (string) $stock->full_number,
-            'background_set_type' => (string) $stock->background_set_type,
-            'background_asset_version' => (string) $stock->background_asset_version,
-            'background_asset_index' => (int) $stock->background_asset_index,
-            'dimensions' => config('lottery_images.dimensions.'.$variant, []),
-            'branding' => null,
-        ]);
+        return $this->renderTicketImage($stock, null, null, $variant);
     }
 
     public function renderPartnerImage(LocalStockItem $localStock, StockItem $stock, PartnerLotteryBrandingAssetSet $assetSet, string $variant): string
     {
-        return $this->webpBytes([
-            'scope' => 'partner',
-            'variant' => $variant,
-            'partner_id' => (string) $localStock->partner_id,
-            'tenant_id' => (string) $localStock->tenant_id,
-            'game_id' => (string) $localStock->game_id,
-            'batch_id' => (string) $stock->batch_id,
-            'stock_item_id' => (string) $stock->id,
-            'local_stock_item_id' => (string) $localStock->id,
-            'full_number' => (string) $localStock->full_number,
-            'background_set_type' => (string) $stock->background_set_type,
-            'background_asset_version' => (string) $stock->background_asset_version,
-            'background_asset_index' => (int) $stock->background_asset_index,
-            'dimensions' => config('lottery_images.dimensions.'.$variant, []),
-            'branding' => [
-                'version' => (string) $assetSet->version,
-                'logo_qr_storage_path' => $assetSet->logo_qr_storage_path,
-                'right_sidebar_storage_path' => $assetSet->right_sidebar_storage_path,
-                'logo_bottom_storage_path' => $assetSet->logo_bottom_storage_path,
-            ],
-        ]);
+        return $this->renderTicketImage($stock, $localStock, $assetSet, $variant);
+    }
+
+    private function renderTicketImage(StockItem $stock, ?LocalStockItem $localStock, ?PartnerLotteryBrandingAssetSet $assetSet, string $variant): string
+    {
+        $this->assertGdWebpRuntime();
+        [$width, $height, $quality] = $this->variantSpec($variant);
+
+        $canvas = imagecreatetruecolor($width, $height);
+
+        if ($canvas === false) {
+            throw new RuntimeException('lottery_image_canvas_create_failed');
+        }
+
+        imagealphablending($canvas, true);
+
+        try {
+            $this->drawBackground($canvas, $stock, $width, $height);
+            $this->drawBaseTicket($canvas, $stock, $width, $height);
+
+            if ($localStock !== null && $assetSet !== null) {
+                $this->drawPartnerBranding($canvas, $localStock, $assetSet, $width, $height);
+            }
+
+            return $this->encodeWebp($canvas, $quality);
+        } finally {
+            imagedestroy($canvas);
+        }
+    }
+
+    private function assertGdWebpRuntime(): void
+    {
+        $runtime = (string) config('lottery_images.runtime', 'gd');
+
+        if ($runtime !== 'gd') {
+            throw new RuntimeException('lottery_image_runtime_unsupported:'.$runtime);
+        }
+
+        if (! extension_loaded('gd') || ! function_exists('imagewebp') || ! function_exists('imagecreatetruecolor')) {
+            throw new RuntimeException('lottery_image_runtime_gd_webp_unavailable');
+        }
+    }
+
+    /**
+     * @return array{0: int, 1: int, 2: int}
+     */
+    private function variantSpec(string $variant): array
+    {
+        $spec = config('lottery_images.dimensions.'.$variant);
+
+        if (! is_array($spec)) {
+            throw new RuntimeException('lottery_image_variant_unknown:'.$variant);
+        }
+
+        $width = max(1, (int) ($spec['width'] ?? 0));
+        $height = max(1, (int) ($spec['height'] ?? round($width * 0.56)));
+        $quality = min(100, max(0, (int) ($spec['quality'] ?? 70)));
+
+        return [$width, $height, $quality];
+    }
+
+    private function drawBackground(mixed $canvas, StockItem $stock, int $width, int $height): void
+    {
+        $path = $this->backgroundPath(
+            (string) $stock->game_id,
+            (string) $stock->background_asset_version,
+            (string) $stock->background_set_type,
+            (int) $stock->background_asset_index,
+        );
+
+        if ($path === null) {
+            throw new RuntimeException('background_set_not_ready:'.(string) $stock->background_set_type);
+        }
+
+        $source = $this->loadImageFile($path);
+
+        if ($source === null) {
+            throw new RuntimeException('background_decode_failed:'.basename($path));
+        }
+
+        try {
+            $this->copyCover($source, $canvas, 0, 0, $width, $height);
+        } finally {
+            imagedestroy($source);
+        }
+    }
+
+    private function drawBaseTicket(mixed $canvas, StockItem $stock, int $width, int $height): void
+    {
+        $palette = $this->setPalette($canvas, (string) $stock->background_set_type);
+        $white = imagecolorallocatealpha($canvas, 255, 255, 255, 24);
+        $softWhite = imagecolorallocatealpha($canvas, 255, 255, 255, 52);
+        $shadow = imagecolorallocatealpha($canvas, 31, 36, 48, 72);
+        $ink = imagecolorallocate($canvas, 40, 37, 48);
+        $muted = imagecolorallocatealpha($canvas, 72, 70, 82, 42);
+
+        $stripWidth = max(9, $this->sx(20, $width));
+        imagefilledrectangle($canvas, 0, 0, $stripWidth, $height, $palette['dark']);
+
+        for ($y = -$height; $y < $height * 2; $y += max(11, $this->sy(18, $height))) {
+            imageline($canvas, 0, $y, $stripWidth, $y + $this->sy(26, $height), $palette['accent']);
+        }
+
+        $left = $this->sx(34, $width);
+        $top = $this->sy(22, $height);
+        $right = $width - $this->sx(32, $width);
+        $bottom = $height - $this->sy(24, $height);
+
+        imagefilledrectangle($canvas, $left + $this->sx(4, $width), $top + $this->sy(5, $height), $right + $this->sx(4, $width), $bottom + $this->sy(5, $height), $shadow);
+        imagefilledrectangle($canvas, $left, $top, $right, $bottom, $white);
+        imagerectangle($canvas, $left, $top, $right, $bottom, $palette['accent']);
+        imagefilledrectangle($canvas, $left, $top, $right, $top + $this->sy(30, $height), $softWhite);
+
+        $this->drawCenteredText($canvas, 'NEWPAOTANG LOTTERY', (int) round($width / 2), $this->sy(45, $height), max(8, $this->sy(13, $height)), $ink);
+        $this->drawCenteredText($canvas, strtoupper((string) $stock->background_set_type).' SET', (int) round($width / 2), $this->sy(222, $height), max(7, $this->sy(11, $height)), $palette['dark']);
+
+        $digits = $this->normalizedTicketNumber((string) $stock->full_number);
+        $this->drawSevenSegmentNumber($canvas, $digits, $width, $height, $palette['digit'], $muted);
+
+        $badgeTop = $this->sy(197, $height);
+        $this->drawBadge($canvas, 'BATCH '.substr((string) $stock->batch_id, -6), $this->sx(62, $width), $badgeTop, $this->sx(130, $width), $this->sy(22, $height), $palette['accent'], $ink);
+        $this->drawBadge($canvas, 'NO. '.substr($digits, -3), $width - $this->sx(180, $width), $badgeTop, $this->sx(118, $width), $this->sy(22, $height), $softWhite, $ink);
+        $this->drawFixtureMarks($canvas, $width, $height, $palette['accent'], $palette['dark']);
+    }
+
+    private function drawPartnerBranding(mixed $canvas, LocalStockItem $localStock, PartnerLotteryBrandingAssetSet $assetSet, int $width, int $height): void
+    {
+        $primary = imagecolorallocate($canvas, 30, 86, 166);
+        $secondary = imagecolorallocate($canvas, 246, 182, 42);
+        $ink = imagecolorallocate($canvas, 20, 31, 49);
+        $white = imagecolorallocate($canvas, 255, 255, 255);
+        $soft = imagecolorallocatealpha($canvas, 255, 255, 255, 18);
+
+        $sidebarWidth = max(24, $this->sx(56, $width));
+        $sidebarX = $width - $sidebarWidth;
+        imagefilledrectangle($canvas, $sidebarX, 0, $width, $height, $primary);
+
+        for ($y = 0; $y < $height; $y += max(13, $this->sy(26, $height))) {
+            imagefilledrectangle($canvas, $sidebarX, $y, $width, min($height, $y + $this->sy(9, $height)), $secondary);
+        }
+
+        $qrSize = max(24, $this->sx(58, $width));
+        $qrX = max($this->sx(360, $width), $sidebarX - $this->sx(76, $width));
+        $qrY = $this->sy(39, $height);
+        $this->drawBrandingSlot(
+            $canvas,
+            $assetSet->logo_qr_storage_path,
+            $qrX,
+            $qrY,
+            $qrSize,
+            $qrSize,
+            'logo_qr:'.$localStock->partner_id,
+            $primary,
+            $secondary,
+        );
+
+        $bottomX = $this->sx(210, $width);
+        $bottomY = $height - $this->sy(68, $height);
+        $bottomW = max(48, $sidebarX - $bottomX - $this->sx(14, $width));
+        $bottomH = max(18, $this->sy(34, $height));
+        $this->drawBrandingSlot(
+            $canvas,
+            $assetSet->logo_bottom_storage_path,
+            $bottomX,
+            $bottomY,
+            $bottomW,
+            $bottomH,
+            'logo_bottom:'.$localStock->partner_id,
+            $secondary,
+            $ink,
+        );
+
+        $this->drawBrandingSlot(
+            $canvas,
+            $assetSet->right_sidebar_storage_path,
+            $sidebarX + $this->sx(7, $width),
+            $this->sy(12, $height),
+            max(12, $sidebarWidth - $this->sx(14, $width)),
+            $height - $this->sy(24, $height),
+            'right_sidebar:'.$localStock->partner_id,
+            $primary,
+            $white,
+        );
+
+        imagefilledrectangle($canvas, $this->sx(55, $width), $height - $this->sy(48, $height), $this->sx(188, $width), $height - $this->sy(26, $height), $soft);
+        $this->drawCenteredText($canvas, 'PARTNER '.substr((string) $localStock->partner_id, -8), $this->sx(121, $width), $height - $this->sy(31, $height), max(6, $this->sy(9, $height)), $white);
+    }
+
+    private function drawBrandingSlot(mixed $canvas, ?string $storagePath, int $x, int $y, int $width, int $height, string $fallbackSeed, int $primary, int $secondary): void
+    {
+        $asset = $this->loadStorageImage($storagePath);
+
+        if ($asset !== null) {
+            try {
+                $this->copyContain($asset, $canvas, $x, $y, $width, $height);
+
+                return;
+            } finally {
+                imagedestroy($asset);
+            }
+        }
+
+        imagefilledrectangle($canvas, $x, $y, $x + $width, $y + $height, imagecolorallocatealpha($canvas, 255, 255, 255, 22));
+        imagerectangle($canvas, $x, $y, $x + $width, $y + $height, $primary);
+
+        $hash = hash('sha256', $fallbackSeed.':'.(string) $storagePath);
+        $cell = max(3, (int) floor(min($width, $height) / 7));
+
+        for ($row = 0; $row < 7; $row++) {
+            for ($column = 0; $column < 7; $column++) {
+                $offset = ($row * 7 + $column) % strlen($hash);
+
+                if (hexdec($hash[$offset]) % 2 === 0) {
+                    $left = $x + 3 + ($column * $cell);
+                    $top = $y + 3 + ($row * $cell);
+                    imagefilledrectangle($canvas, $left, $top, min($x + $width - 3, $left + $cell - 1), min($y + $height - 3, $top + $cell - 1), $secondary);
+                }
+            }
+        }
+    }
+
+    private function loadStorageImage(?string $storagePath): mixed
+    {
+        if ($storagePath === null || trim($storagePath) === '') {
+            return null;
+        }
+
+        try {
+            $disk = Storage::disk((string) config('lottery_images.disk', 'lottery_images'));
+
+            if (! $disk->exists($storagePath)) {
+                return null;
+            }
+
+            $bytes = $disk->get($storagePath);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $image = @imagecreatefromstring($bytes);
+
+        return $image === false ? null : $image;
     }
 
     public function activePartnerAssetSet(string $partnerId): ?PartnerLotteryBrandingAssetSet
@@ -155,6 +365,209 @@ class LotteryImageGenerator
             ->orderByDesc('activated_at')
             ->orderByDesc('updated_at')
             ->first();
+    }
+
+    private function loadImageFile(string $path): mixed
+    {
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $image = match ($extension) {
+            'webp' => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($path) : false,
+            'png' => function_exists('imagecreatefrompng') ? @imagecreatefrompng($path) : false,
+            'jpg', 'jpeg' => function_exists('imagecreatefromjpeg') ? @imagecreatefromjpeg($path) : false,
+            default => false,
+        };
+
+        if ($image === false) {
+            $bytes = @file_get_contents($path);
+            $image = is_string($bytes) && $bytes !== '' ? @imagecreatefromstring($bytes) : false;
+        }
+
+        return $image === false ? null : $image;
+    }
+
+    private function copyCover(mixed $source, mixed $target, int $x, int $y, int $width, int $height): void
+    {
+        $sourceWidth = imagesx($source);
+        $sourceHeight = imagesy($source);
+
+        if ($sourceWidth <= 0 || $sourceHeight <= 0) {
+            return;
+        }
+
+        $scale = max($width / $sourceWidth, $height / $sourceHeight);
+        $cropWidth = max(1, (int) floor($width / $scale));
+        $cropHeight = max(1, (int) floor($height / $scale));
+        $sourceX = max(0, (int) floor(($sourceWidth - $cropWidth) / 2));
+        $sourceY = max(0, (int) floor(($sourceHeight - $cropHeight) / 2));
+
+        imagecopyresampled($target, $source, $x, $y, $sourceX, $sourceY, $width, $height, $cropWidth, $cropHeight);
+    }
+
+    private function copyContain(mixed $source, mixed $target, int $x, int $y, int $width, int $height): void
+    {
+        $sourceWidth = imagesx($source);
+        $sourceHeight = imagesy($source);
+
+        if ($sourceWidth <= 0 || $sourceHeight <= 0) {
+            return;
+        }
+
+        $scale = min($width / $sourceWidth, $height / $sourceHeight);
+        $targetWidth = max(1, (int) round($sourceWidth * $scale));
+        $targetHeight = max(1, (int) round($sourceHeight * $scale));
+        $targetX = $x + (int) floor(($width - $targetWidth) / 2);
+        $targetY = $y + (int) floor(($height - $targetHeight) / 2);
+
+        imagecopyresampled($target, $source, $targetX, $targetY, 0, 0, $targetWidth, $targetHeight, $sourceWidth, $sourceHeight);
+    }
+
+    /**
+     * @return array{accent: int, dark: int, digit: int}
+     */
+    private function setPalette(mixed $canvas, string $setType): array
+    {
+        return match ($setType) {
+            'even' => [
+                'accent' => imagecolorallocate($canvas, 52, 133, 91),
+                'dark' => imagecolorallocate($canvas, 22, 78, 59),
+                'digit' => imagecolorallocate($canvas, 24, 85, 64),
+            ],
+            'charity' => [
+                'accent' => imagecolorallocate($canvas, 219, 148, 33),
+                'dark' => imagecolorallocate($canvas, 119, 67, 21),
+                'digit' => imagecolorallocate($canvas, 130, 66, 17),
+            ],
+            default => [
+                'accent' => imagecolorallocate($canvas, 190, 59, 98),
+                'dark' => imagecolorallocate($canvas, 90, 42, 73),
+                'digit' => imagecolorallocate($canvas, 116, 47, 78),
+            ],
+        };
+    }
+
+    private function sx(int $value, int $width): int
+    {
+        return (int) round($value * $width / 500);
+    }
+
+    private function sy(int $value, int $height): int
+    {
+        return (int) round($value * $height / 280);
+    }
+
+    private function normalizedTicketNumber(string $number): string
+    {
+        $digits = preg_replace('/\D+/', '', $number) ?: '0';
+
+        return str_pad(substr($digits, -6), 6, '0', STR_PAD_LEFT);
+    }
+
+    private function drawSevenSegmentNumber(mixed $canvas, string $digits, int $width, int $height, int $color, int $muted): void
+    {
+        $digitWidth = max(20, $this->sx(44, $width));
+        $digitHeight = max(38, $this->sy(76, $height));
+        $gap = max(4, $this->sx(8, $width));
+        $totalWidth = (strlen($digits) * $digitWidth) + ((strlen($digits) - 1) * $gap);
+        $x = max($this->sx(42, $width), (int) floor(($width - $totalWidth) / 2));
+        $y = $this->sy(77, $height);
+
+        foreach (str_split($digits) as $digit) {
+            $this->drawSevenSegmentDigit($canvas, $digit, $x, $y, $digitWidth, $digitHeight, $color, $muted);
+            $x += $digitWidth + $gap;
+        }
+    }
+
+    private function drawSevenSegmentDigit(mixed $canvas, string $digit, int $x, int $y, int $width, int $height, int $color, int $muted): void
+    {
+        $thickness = max(3, (int) round(min($width, $height) * 0.16));
+        $middleTop = $y + (int) floor(($height - $thickness) / 2);
+        $middleBottom = $middleTop + $thickness;
+        $segments = [
+            'a' => [$x + $thickness, $y, $x + $width - $thickness, $y + $thickness],
+            'b' => [$x + $width - $thickness, $y + $thickness, $x + $width, $middleTop],
+            'c' => [$x + $width - $thickness, $middleBottom, $x + $width, $y + $height - $thickness],
+            'd' => [$x + $thickness, $y + $height - $thickness, $x + $width - $thickness, $y + $height],
+            'e' => [$x, $middleBottom, $x + $thickness, $y + $height - $thickness],
+            'f' => [$x, $y + $thickness, $x + $thickness, $middleTop],
+            'g' => [$x + $thickness, $middleTop, $x + $width - $thickness, $middleBottom],
+        ];
+        $active = match ($digit) {
+            '0' => ['a', 'b', 'c', 'd', 'e', 'f'],
+            '1' => ['b', 'c'],
+            '2' => ['a', 'b', 'g', 'e', 'd'],
+            '3' => ['a', 'b', 'g', 'c', 'd'],
+            '4' => ['f', 'g', 'b', 'c'],
+            '5' => ['a', 'f', 'g', 'c', 'd'],
+            '6' => ['a', 'f', 'g', 'e', 'c', 'd'],
+            '7' => ['a', 'b', 'c'],
+            '8' => ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
+            '9' => ['a', 'b', 'c', 'd', 'f', 'g'],
+            default => [],
+        };
+
+        foreach ($segments as $name => $coordinates) {
+            imagefilledrectangle($canvas, $coordinates[0], $coordinates[1], $coordinates[2], $coordinates[3], in_array($name, $active, true) ? $color : $muted);
+        }
+    }
+
+    private function drawBadge(mixed $canvas, string $text, int $x, int $y, int $width, int $height, int $background, int $ink): void
+    {
+        imagefilledrectangle($canvas, $x, $y, $x + $width, $y + $height, $background);
+        imagerectangle($canvas, $x, $y, $x + $width, $y + $height, $ink);
+        $this->drawCenteredText($canvas, $text, $x + (int) floor($width / 2), $y + (int) floor($height * 0.72), max(6, (int) floor($height * 0.45)), $ink);
+    }
+
+    private function drawFixtureMarks(mixed $canvas, int $width, int $height, int $accent, int $dark): void
+    {
+        $radius = max(4, $this->sx(9, $width));
+        $x = $this->sx(184, $width);
+        $y = $this->sy(61, $height);
+
+        for ($index = 0; $index < 4; $index++) {
+            $color = $index % 2 === 0 ? $accent : $dark;
+            imagefilledellipse($canvas, $x + ($index * $this->sx(33, $width)), $y, $radius, $radius, $color);
+        }
+    }
+
+    private function drawCenteredText(mixed $canvas, string $text, int $centerX, int $baselineY, int $size, int $color): void
+    {
+        $font = $this->fontPath();
+
+        if ($font !== null && function_exists('imagettftext')) {
+            $box = imagettfbbox($size, 0, $font, $text);
+
+            if (is_array($box)) {
+                $textWidth = abs($box[2] - $box[0]);
+                imagettftext($canvas, $size, 0, $centerX - (int) floor($textWidth / 2), $baselineY, $color, $font, $text);
+
+                return;
+            }
+        }
+
+        $builtInFont = $size >= 12 ? 5 : ($size >= 9 ? 4 : 3);
+        $textWidth = imagefontwidth($builtInFont) * strlen($text);
+        $textHeight = imagefontheight($builtInFont);
+
+        imagestring($canvas, $builtInFont, $centerX - (int) floor($textWidth / 2), $baselineY - $textHeight, $text, $color);
+    }
+
+    private function fontPath(): ?string
+    {
+        $assetRoot = rtrim((string) config('lottery_images.asset_root'), '/');
+        $paths = [
+            $assetRoot.'/system/v1/fonts/Kanit-Regular.ttf',
+            resource_path('lottery-images/system/v1/fonts/Kanit-Regular.ttf'),
+            resource_path('lottery-images/system/v1/fonts/THSarabunNew.ttf'),
+            resource_path('lottery-images/system/v1/fonts/lotto-font5.ttf'),
+        ];
+
+        foreach ($paths as $path) {
+            if (is_file($path)) {
+                return $path;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -284,16 +697,20 @@ class LotteryImageGenerator
         return (int) hexdec(substr(hash('sha256', $seed.':'.$position.':'.$type), 0, 8));
     }
 
-    /**
-     * @param array<string, mixed> $metadata
-     */
-    private function webpBytes(array $metadata): string
+    private function encodeWebp(mixed $canvas, int $quality): string
     {
-        $base = base64_decode('UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA', true);
-        $payload = json_encode($metadata, JSON_THROW_ON_ERROR);
-        $chunkPayload = $payload.(strlen($payload) % 2 === 1 ? "\0" : '');
-        $chunk = 'XMP '.pack('V', strlen($payload)).$chunkPayload;
+        ob_start();
+        $encoded = imagewebp($canvas, null, $quality);
+        $bytes = ob_get_clean();
 
-        return substr($base, 0, 4).pack('V', strlen($base) - 8 + strlen($chunk)).substr($base, 8).$chunk;
+        if ($encoded !== true || ! is_string($bytes) || $bytes === '') {
+            throw new RuntimeException('lottery_image_webp_encode_failed');
+        }
+
+        if (substr($bytes, 0, 4) !== 'RIFF' || substr($bytes, 8, 4) !== 'WEBP') {
+            throw new RuntimeException('lottery_image_webp_signature_invalid');
+        }
+
+        return $bytes;
     }
 }

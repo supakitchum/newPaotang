@@ -87,10 +87,12 @@ class LotteryImageTest extends TestCase
 
         $first = $rows->first();
         $bytes = Storage::disk('lottery_images')->get((string) $first->image_storage_path);
+        $thumbBytes = Storage::disk('lottery_images')->get((string) $first->image_thumb_storage_path);
 
-        $this->assertStringStartsWith('RIFF', $bytes);
-        $this->assertStringContainsString('WEBP', $bytes);
-        $this->assertStringContainsString('"scope":"central"', $bytes);
+        $this->assertWebpDimensions($bytes, 500, 280);
+        $this->assertWebpDimensions($thumbBytes, 280, 157);
+        $this->assertStringNotContainsString('metadata_webp_container_placeholder', $bytes);
+        $this->assertStringNotContainsString('"scope":"central"', $bytes);
         $this->assertStringNotContainsString('logo_qr_storage_path', $bytes);
     }
 
@@ -139,7 +141,7 @@ class LotteryImageTest extends TestCase
         $this->assertTrue(Storage::disk('lottery_images')->exists((string) $updated->image_storage_path));
     }
 
-    public function test_LotteryImageGeneration_creates_partner_variant_after_stock_sync_and_exposes_it_publicly(): void
+    public function test_LotteryImageVisual_generation_creates_partner_variant_after_stock_sync_and_exposes_it_publicly(): void
     {
         $this->seedDefaultRbac();
         $this->insertActivePartnerTenantWithDomain('par_lottery_partner', 'ten_lottery_partner', 'lottery-image.newpaotang.test');
@@ -164,6 +166,23 @@ class LotteryImageTest extends TestCase
                 'Idempotency-Key' => 'lottery-image-partner-generate',
             ])
             ->assertAccepted();
+
+        $stock = DB::table('stock_items')
+            ->where('game_id', 'gam_lottery_partner')
+            ->first();
+
+        (new GenerateLotteryImageJob((string) $stock->id))->handle(app(LotteryImageGenerator::class));
+
+        $stock = DB::table('stock_items')
+            ->where('game_id', 'gam_lottery_partner')
+            ->first();
+
+        $centralBytes = Storage::disk('lottery_images')->get((string) $stock->image_storage_path);
+        $centralThumbBytes = Storage::disk('lottery_images')->get((string) $stock->image_thumb_storage_path);
+
+        $this->assertWebpDimensions($centralBytes, 500, 280);
+        $this->assertWebpDimensions($centralThumbBytes, 280, 157);
+        $this->assertStringNotContainsString('logo_qr_storage_path', $centralBytes);
 
         $this->withToken($central['access_token'])
             ->postJson('/api/v1/admin/central/allocations', [
@@ -211,8 +230,20 @@ class LotteryImageTest extends TestCase
         $this->assertStringContainsString('/partners/par_lottery_partner/thumbs/', $localStock->image_thumb_url);
 
         $bytes = Storage::disk('lottery_images')->get((string) $localStock->image_storage_path);
-        $this->assertStringContainsString('"scope":"partner"', $bytes);
-        $this->assertStringContainsString('logo_qr_storage_path', $bytes);
+        $thumbBytes = Storage::disk('lottery_images')->get((string) $localStock->image_thumb_storage_path);
+
+        $this->assertWebpDimensions($bytes, 500, 280);
+        $this->assertWebpDimensions($thumbBytes, 280, 157);
+        $this->assertStringNotContainsString('metadata_webp_container_placeholder', $bytes);
+        $this->assertStringNotContainsString('"scope":"partner"', $bytes);
+        $this->assertGreaterThan(40, $this->colorDistance(
+            $this->pixelRgb($centralBytes, 474, 140),
+            $this->pixelRgb($bytes, 474, 140),
+        ));
+        $this->assertGreaterThan(40, $this->colorDistance(
+            $this->pixelRgb($centralBytes, 318, 230),
+            $this->pixelRgb($bytes, 318, 230),
+        ));
 
         $this->getJson('http://lottery-image.newpaotang.test/api/v1/public/stock/search?game_id=gam_lottery_partner&number=300000')
             ->assertOk()
@@ -235,7 +266,7 @@ class LotteryImageTest extends TestCase
             mkdir($directory, 0777, true);
         }
 
-        file_put_contents($directory.'/'.str_pad((string) $index, 3, '0', STR_PAD_LEFT).'.webp', $this->fixtureWebp());
+        file_put_contents($directory.'/'.str_pad((string) $index, 3, '0', STR_PAD_LEFT).'.webp', $this->fixtureWebp($setType));
     }
 
     private function insertBrandingAssetSet(string $partnerId): void
@@ -293,8 +324,84 @@ class LotteryImageTest extends TestCase
         ]);
     }
 
-    private function fixtureWebp(): string
+    private function assertWebpDimensions(string $bytes, int $width, int $height): void
     {
-        return base64_decode('UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA', true);
+        $this->assertStringStartsWith('RIFF', $bytes);
+        $this->assertSame('WEBP', substr($bytes, 8, 4));
+
+        $info = getimagesizefromstring($bytes);
+
+        $this->assertIsArray($info);
+        $this->assertSame($width, $info[0]);
+        $this->assertSame($height, $info[1]);
+        $this->assertSame('image/webp', $info['mime'] ?? null);
+
+        $image = imagecreatefromstring($bytes);
+
+        $this->assertNotFalse($image);
+
+        if ($image !== false) {
+            imagedestroy($image);
+        }
+    }
+
+    /**
+     * @return array{0: int, 1: int, 2: int}
+     */
+    private function pixelRgb(string $bytes, int $x, int $y): array
+    {
+        $image = imagecreatefromstring($bytes);
+
+        $this->assertNotFalse($image);
+
+        if ($image === false) {
+            return [0, 0, 0];
+        }
+
+        $rgb = imagecolorat($image, $x, $y);
+        imagedestroy($image);
+
+        return [
+            ($rgb >> 16) & 0xFF,
+            ($rgb >> 8) & 0xFF,
+            $rgb & 0xFF,
+        ];
+    }
+
+    /**
+     * @param array{0: int, 1: int, 2: int} $left
+     * @param array{0: int, 1: int, 2: int} $right
+     */
+    private function colorDistance(array $left, array $right): int
+    {
+        return abs($left[0] - $right[0]) + abs($left[1] - $right[1]) + abs($left[2] - $right[2]);
+    }
+
+    private function fixtureWebp(string $setType): string
+    {
+        $image = imagecreatetruecolor(640, 360);
+        $base = match ($setType) {
+            'even' => [72, 142, 112],
+            'charity' => [218, 158, 67],
+            default => [185, 96, 132],
+        };
+        $background = imagecolorallocate($image, $base[0], $base[1], $base[2]);
+        $line = imagecolorallocatealpha($image, 255, 255, 255, 58);
+        $dark = imagecolorallocatealpha($image, 35, 35, 45, 76);
+
+        imagefilledrectangle($image, 0, 0, 639, 359, $background);
+
+        for ($x = -360; $x < 700; $x += 42) {
+            imageline($image, $x, 0, $x + 360, 360, $line);
+        }
+
+        imagefilledrectangle($image, 0, 270, 639, 359, $dark);
+
+        ob_start();
+        imagewebp($image, null, 82);
+        $bytes = ob_get_clean();
+        imagedestroy($image);
+
+        return is_string($bytes) ? $bytes : '';
     }
 }

@@ -196,6 +196,20 @@ do not proxy image requests through Laravel or Nuxt
 
 AVIF can be evaluated later, but WebP is the safer first target because PHP image tooling and browser support are mature enough for the current stack.
 
+## Backend Rendering Runtime
+
+The platform-api backend uses the PHP GD extension with WebP support for the first production-capable renderer.
+
+```text
+required runtime evidence:
+gd_loaded=true
+imagewebp=true
+```
+
+The renderer composes a real browser-displayable WebP from the assigned game background, lottery number glyph drawing, shared ticket marks, set labels, and optional partner branding overlays. Central stock images must not draw `logo_qr`, `right_sidebar`, or `logo_bottom`; partner/local stock images draw those overlay slots only when a ready central-managed partner branding asset set is present.
+
+Local/dev may render deterministic overlay placeholders when the branding asset metadata is committed but the binary is not present in object storage. This keeps local validation credential-free and does not claim production CDN/R2 readiness.
+
 ## Configuration
 
 Add explicit config for lottery image generation instead of hiding it inside S3 code:
@@ -205,9 +219,12 @@ LOTTERY_IMAGE_ENABLED=true
 LOTTERY_IMAGE_DISK=s3
 LOTTERY_IMAGE_CDN_BASE_URL=https://cdn.example.com
 LOTTERY_IMAGE_PREFIX=lotteries
+LOTTERY_IMAGE_RUNTIME=gd
 LOTTERY_IMAGE_FULL_WIDTH=500
+LOTTERY_IMAGE_FULL_HEIGHT=280
 LOTTERY_IMAGE_FULL_QUALITY=70
 LOTTERY_IMAGE_THUMB_WIDTH=280
+LOTTERY_IMAGE_THUMB_HEIGHT=157
 LOTTERY_IMAGE_THUMB_QUALITY=60
 LOTTERY_IMAGE_QUEUE=stock-image-generation
 LOTTERY_PARTNER_IMAGE_QUEUE=stock-partner-image-generation
