@@ -1,18 +1,29 @@
 <template>
-  <div class="card custom-card">
-    <div v-if="title || $slots.actions" class="card-header">
+  <div :class="embedded ? 'np-data-table' : 'card custom-card'">
+    <div v-if="title || $slots.actions" :class="embedded ? 'd-flex flex-wrap align-items-center justify-content-between gap-2 mb-3' : 'card-header'">
       <div class="card-title">{{ title }}</div>
       <div v-if="$slots.actions" class="ms-auto">
         <slot name="actions" />
       </div>
     </div>
-    <div class="card-body">
+    <div :class="embedded ? 'p-0' : 'card-body'">
       <AdminLoader v-if="loading" />
       <AdminEmptyState v-else-if="!rows.length" :title="emptyTitle" :message="emptyMessage" />
       <div v-else class="table-responsive">
         <table class="table table-bordered text-nowrap w-100">
           <thead>
             <tr>
+              <th v-if="selectable" scope="col" class="np-select-col">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  :checked="allVisibleSelected"
+                  :indeterminate="someVisibleSelected && !allVisibleSelected"
+                  :disabled="!rows.length"
+                  aria-label="Select all visible rows"
+                  @change="toggleAllVisible"
+                >
+              </th>
               <th v-for="column in columns" :key="column.key" scope="col" :aria-sort="sortable ? ariaSort(column.key) : undefined">
                 <button v-if="sortable" class="np-sort-button" type="button" @click="toggleSort(column)">
                   <span>{{ column.label }}</span>
@@ -25,6 +36,15 @@
           </thead>
           <tbody>
             <tr v-for="row in rows" :key="row.id || row.__id || JSON.stringify(row)">
+              <td v-if="selectable" class="np-select-col">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  :checked="isSelected(row)"
+                  :aria-label="`Select row ${rowId(row)}`"
+                  @change="toggleRow(row)"
+                >
+              </td>
               <td v-for="column in columns" :key="column.key">
                 <slot :name="`cell-${column.key}`" :row="row" :value="row[column.key]">
                   {{ row[column.key] ?? '-' }}
@@ -58,6 +78,10 @@ const props = withDefaults(defineProps<{
   sortKey?: string
   sortDirection?: 'asc' | 'desc'
   sortable?: boolean
+  selectable?: boolean
+  selectedIds?: string[]
+  rowIdKey?: string
+  embedded?: boolean
 }>(), {
   title: '',
   rows: () => [],
@@ -67,11 +91,50 @@ const props = withDefaults(defineProps<{
   sortKey: '',
   sortDirection: 'asc',
   sortable: false,
+  selectable: false,
+  selectedIds: () => [],
+  rowIdKey: 'id',
+  embedded: false,
 })
 
 const emit = defineEmits<{
   sortChange: [value: { key: string, direction: 'asc' | 'desc' }]
+  'update:selectedIds': [value: string[]]
 }>()
+
+const visibleIds = computed(() => props.rows.map(rowId).filter(Boolean))
+const selectedSet = computed(() => new Set(props.selectedIds))
+const allVisibleSelected = computed(() => visibleIds.value.length > 0 && visibleIds.value.every((id) => selectedSet.value.has(id)))
+const someVisibleSelected = computed(() => visibleIds.value.some((id) => selectedSet.value.has(id)))
+
+const rowId = (row: any): string => String(row?.[props.rowIdKey] || row?.id || row?.__id || '')
+const isSelected = (row: any) => selectedSet.value.has(rowId(row))
+
+const toggleAllVisible = () => {
+  const next = new Set(props.selectedIds)
+
+  if (allVisibleSelected.value) {
+    visibleIds.value.forEach((id) => next.delete(id))
+  } else {
+    visibleIds.value.forEach((id) => next.add(id))
+  }
+
+  emit('update:selectedIds', Array.from(next))
+}
+
+const toggleRow = (row: any) => {
+  const id = rowId(row)
+  if (!id) return
+
+  const next = new Set(props.selectedIds)
+  if (next.has(id)) {
+    next.delete(id)
+  } else {
+    next.add(id)
+  }
+
+  emit('update:selectedIds', Array.from(next))
+}
 
 const toggleSort = (column: DataTableColumn) => {
   const nextDirection = props.sortKey === column.key && props.sortDirection === 'asc' ? 'desc' : 'asc'
@@ -113,5 +176,10 @@ const ariaSort = (key: string) => {
 .np-sort-button i {
   font-size: .95rem;
   line-height: 1;
+}
+
+.np-select-col {
+  text-align: center;
+  width: 44px;
 }
 </style>

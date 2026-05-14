@@ -216,70 +216,102 @@
               Refresh sets
             </button>
           </div>
-          <div class="card-body">
-            <AdminLoader v-if="assetSetsLoading" />
-            <AdminEmptyState v-else-if="!assetSets.length" title="No background asset sets" message="Import an image zip for odd, even, or charity backgrounds." icon="ri-folder-image-line" />
-            <div v-else class="table-responsive">
-              <table class="table table-hover text-nowrap mb-0">
-                <thead>
-                  <tr>
-                    <th>Game / Version</th>
-                    <th>Set</th>
-                    <th>Status</th>
-                    <th>Assets</th>
-                    <th>Updated</th>
-                    <th class="text-end">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="set in assetSets" :key="set.id">
-                    <td>
-                      <div class="fw-semibold">{{ gameName(set.game_id) }}</div>
-                      <code class="np-admin-code">{{ set.game_id }}</code>
-                      <div><code class="np-admin-code">{{ set.version }}</code></div>
-                    </td>
-                    <td>
-                      <div>{{ titleize(set.set_type || '-') }}</div>
-                      <span v-if="set.position" class="text-muted fs-12">Position {{ set.position }}</span>
-                    </td>
-                    <td>
-                      <div class="d-flex flex-column gap-1">
-                        <AdminStatusBadge :status="set.status" />
-                        <AdminStatusBadge :status="set.generation_ready ? 'ready' : 'pending_assets'" :label="set.generation_ready ? 'Generation ready' : 'Storage blocked'" />
-                      </div>
-                    </td>
-                    <td>
-                      <div class="d-flex flex-column gap-1 small">
-                        <span v-for="slot in assetSlots" :key="slot.key">
-                          {{ slot.label }}:
-                          <code class="np-admin-code">{{ assetId(set, slot.key) || '-' }}</code>
-                        </span>
-                      </div>
-                    </td>
-                    <td>{{ formatDateTime(set.updated_at) }}</td>
-                    <td>
-                      <div class="d-flex flex-wrap justify-content-end gap-1">
-                        <button class="btn btn-sm btn-light btn-wave" type="button" @click="fillZipForm(set)">
-                          Use
-                        </button>
-                        <button class="btn btn-sm btn-outline-success btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'ready')">
-                          Reactivate
-                        </button>
-                        <button class="btn btn-sm btn-outline-warning btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'inactive')">
-                          Inactive
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'retired')">
-                          Retire
-                        </button>
-                        <button class="btn btn-sm btn-primary btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'ready', true)">
-                          Supersede
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+          <div class="card-body d-flex flex-column gap-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="text-muted small">{{ selectedAssetSetIds.length }} selected / {{ assetSets.length }} total</span>
+                <select v-model.number="assetSetPageSize" class="form-select form-select-sm" style="width: 96px;" aria-label="Background asset set page size">
+                  <option :value="10">10</option>
+                  <option :value="25">25</option>
+                  <option :value="50">50</option>
+                  <option :value="100">100</option>
+                </select>
+              </div>
+              <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-sm btn-outline-success btn-wave" type="button" :disabled="!canBulkAssetSets" @click="openBulkStatusConfirm('ready')">
+                  Reactivate selected
+                </button>
+                <button class="btn btn-sm btn-outline-warning btn-wave" type="button" :disabled="!canBulkAssetSets" @click="openBulkStatusConfirm('inactive')">
+                  Inactive selected
+                </button>
+                <button class="btn btn-sm btn-outline-danger btn-wave" type="button" :disabled="!canBulkAssetSets" @click="openBulkStatusConfirm('retired')">
+                  Retire selected
+                </button>
+                <button class="btn btn-sm btn-light btn-wave" type="button" :disabled="!selectedAssetSetIds.length || statusUpdating" @click="selectedAssetSetIds = []">
+                  Clear selection
+                </button>
+              </div>
             </div>
+            <AdminDataTable
+              :columns="assetSetColumns"
+              :rows="paginatedAssetSets"
+              :loading="assetSetsLoading"
+              :sort-key="assetSetSort.key"
+              :sort-direction="assetSetSort.direction"
+              :selected-ids="selectedAssetSetIds"
+              empty-title="No background asset sets"
+              empty-message="Import an image zip for odd, even, or charity backgrounds."
+              embedded
+              selectable
+              sortable
+              @sort-change="applyAssetSetSort"
+              @update:selected-ids="selectedAssetSetIds = $event"
+            >
+              <template #cell-game="{ row: set }">
+                <div class="fw-semibold">{{ gameName(set.game_id) }}</div>
+                <code class="np-admin-code">{{ set.game_id }}</code>
+                <div><code class="np-admin-code">{{ set.version }}</code></div>
+              </template>
+              <template #cell-set_type="{ row: set }">
+                <div>{{ titleize(set.set_type || '-') }}</div>
+                <span v-if="set.position" class="text-muted fs-12">Position {{ set.position }}</span>
+              </template>
+              <template #cell-status="{ row: set }">
+                <div class="d-flex flex-column gap-1">
+                  <AdminStatusBadge :status="set.status" />
+                  <AdminStatusBadge :status="set.generation_ready ? 'ready' : 'pending_assets'" :label="set.generation_ready ? 'Generation ready' : 'Storage blocked'" />
+                </div>
+              </template>
+              <template #cell-assets="{ row: set }">
+                <div class="d-flex flex-column gap-1 small">
+                  <span v-for="slot in assetSlots" :key="slot.key">
+                    {{ slot.label }}:
+                    <code class="np-admin-code">{{ assetId(set, slot.key) || '-' }}</code>
+                  </span>
+                </div>
+              </template>
+              <template #cell-updated_at="{ row: set }">
+                {{ formatDateTime(set.updated_at) }}
+              </template>
+              <template #rowActions="{ row: set }">
+                <div class="d-flex flex-wrap justify-content-end gap-1">
+                  <button class="btn btn-sm btn-light btn-wave" type="button" @click="fillZipForm(set)">
+                    Use
+                  </button>
+                  <button class="btn btn-sm btn-outline-success btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'ready')">
+                    Reactivate
+                  </button>
+                  <button class="btn btn-sm btn-outline-warning btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'inactive')">
+                    Inactive
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'retired')">
+                    Retire
+                  </button>
+                  <button class="btn btn-sm btn-primary btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'ready', true)">
+                    Supersede
+                  </button>
+                </div>
+              </template>
+            </AdminDataTable>
+            <AdminPagination
+              :next-cursor="assetSetHasNextPage ? 'next' : null"
+              :has-previous="assetSetPage > 1"
+              :loading="assetSetsLoading"
+              :current-page="assetSetPage"
+              :page-size="assetSetPageSize"
+              @previous="assetSetPage = Math.max(1, assetSetPage - 1)"
+              @next="assetSetPage += 1"
+            />
           </div>
         </div>
       </div>
@@ -667,12 +699,14 @@
       <p class="text-muted mb-3">{{ statusConfirmMessage }}</p>
       <div class="border rounded bg-light p-3">
         <dl class="row small mb-0">
+          <dt class="col-4 text-muted">Selected</dt>
+          <dd class="col-8">{{ statusConfirm.sets.length || (statusConfirm.set ? 1 : 0) }}</dd>
           <dt class="col-4 text-muted">Asset Set</dt>
-          <dd class="col-8 text-break">{{ statusConfirm.set?.id || '-' }}</dd>
+          <dd class="col-8 text-break">{{ statusConfirm.set?.id || arrayText(statusConfirm.sets.map((set) => set.id)) || '-' }}</dd>
           <dt class="col-4 text-muted">Set Type</dt>
-          <dd class="col-8">{{ titleize(statusConfirm.set?.set_type || '-') }}</dd>
+          <dd class="col-8">{{ statusConfirm.set ? titleize(statusConfirm.set.set_type || '-') : arrayText(statusConfirm.sets.map((set) => titleize(set.set_type || '-'))) }}</dd>
           <dt class="col-4 text-muted">Version</dt>
-          <dd class="col-8">{{ statusConfirm.set?.version || '-' }}</dd>
+          <dd class="col-8">{{ statusConfirm.set?.version || arrayText([...new Set(statusConfirm.sets.map((set) => set.version))]) || '-' }}</dd>
         </dl>
       </div>
       <template #footer>
@@ -862,6 +896,13 @@ const assetSlots: Array<{ key: AssetSlot, label: string }> = [
   { key: 'full', label: 'Full WebP' },
   { key: 'thumb', label: 'Thumb WebP' },
 ]
+const assetSetColumns = [
+  { key: 'game', label: 'Game / Version' },
+  { key: 'set_type', label: 'Set' },
+  { key: 'status', label: 'Status' },
+  { key: 'assets', label: 'Assets' },
+  { key: 'updated_at', label: 'Updated' },
+]
 const layoutFieldOrder: LayoutField[] = ['x', 'y', 'width', 'height', 'gap', 'size', 'angle', 'rotate']
 const layoutSlotLabels: Record<string, string> = {
   beside: 'Beside Strip',
@@ -907,6 +948,13 @@ const mixLoading = ref(false)
 const layoutLoading = ref(false)
 const readiness = ref<ReadinessResponse | null>(null)
 const assetSets = ref<BackgroundSet[]>([])
+const selectedAssetSetIds = ref<string[]>([])
+const assetSetPage = ref(1)
+const assetSetPageSize = ref(10)
+const assetSetSort = reactive({
+  key: 'set_type',
+  direction: 'asc' as 'asc' | 'desc',
+})
 const productionReadiness = ref<ProductionReadiness | null>(null)
 const mix = ref<MixResponse | null>(null)
 const layout = ref<LayoutResponse | null>(null)
@@ -953,11 +1001,13 @@ const mixSubmitting = ref(false)
 const statusConfirm = reactive<{
   open: boolean
   set: BackgroundSet | null
+  sets: BackgroundSet[]
   status: BackgroundStatus
   supersede: boolean
 }>({
   open: false,
   set: null,
+  sets: [],
   status: 'ready',
   supersede: false,
 })
@@ -998,6 +1048,18 @@ const missingSetTypes = computed(() => readiness.value?.missing_set_types || [])
 const readinessBackgrounds = computed(() => readiness.value?.backgrounds || [])
 const lastErrors = computed(() => readiness.value?.last_error_samples || [])
 const blockingReasons = computed(() => productionReadiness.value?.blocking_reasons || [])
+const selectedAssetSets = computed(() => {
+  const selected = new Set(selectedAssetSetIds.value)
+  return assetSets.value.filter((set) => selected.has(set.id))
+})
+const sortedAssetSets = computed(() => [...assetSets.value].sort((left, right) => compareAssetSets(left, right)))
+const assetSetPageCount = computed(() => Math.max(1, Math.ceil(sortedAssetSets.value.length / assetSetPageSize.value)))
+const paginatedAssetSets = computed(() => {
+  const start = (assetSetPage.value - 1) * assetSetPageSize.value
+  return sortedAssetSets.value.slice(start, start + assetSetPageSize.value)
+})
+const assetSetHasNextPage = computed(() => assetSetPage.value < assetSetPageCount.value)
+const canBulkAssetSets = computed(() => selectedAssetSetIds.value.length > 0 && !statusUpdating.value)
 const mixTotal = computed(() => setTypes.reduce((sum, key) => sum + normalizedPercent(mixForm[key]), 0))
 const canSaveMix = computed(() => Boolean(canLoadContext.value && mixTotal.value === 100 && !mixSubmitting.value && !mixLoading.value))
 const canImportZip = computed(() => Boolean(
@@ -1107,7 +1169,10 @@ const queueItems = computed(() => {
 
 const statusConfirmMessage = computed(() => {
   const action = statusConfirm.supersede ? 'supersede and mark ready' : `set status to ${statusConfirm.status}`
-  return `Confirm ${action} for this background asset set.`
+  const count = statusConfirm.sets.length || (statusConfirm.set ? 1 : 0)
+  return count > 1
+    ? `Confirm ${action} for ${count} selected background asset sets.`
+    : `Confirm ${action} for this background asset set.`
 })
 
 watch(() => context.game_id, (value, oldValue) => {
@@ -1116,6 +1181,11 @@ watch(() => context.game_id, (value, oldValue) => {
 
 watch(() => context.version, (value, oldValue) => {
   syncVersionToForms(value || 'v1', oldValue)
+})
+
+watch([assetSetPageSize, () => assetSets.value.length], () => {
+  assetSetPage.value = Math.min(assetSetPage.value, assetSetPageCount.value)
+  if (assetSetPage.value < 1) assetSetPage.value = 1
 })
 
 watch(() => route.query.game_id, (value) => {
@@ -1218,6 +1288,8 @@ const loadBackgroundSets = async () => {
       },
     })
     assetSets.value = Array.isArray(response?.data) ? response.data : []
+    selectedAssetSetIds.value = selectedAssetSetIds.value.filter((id) => assetSets.value.some((set) => set.id === id))
+    assetSetPage.value = Math.min(assetSetPage.value, assetSetPageCount.value)
   } catch (err) {
     pageError.value = err
   } finally {
@@ -1432,32 +1504,73 @@ const fillZipForm = (set: BackgroundSet) => {
   zipForm.supersede_existing = false
 }
 
+const applyAssetSetSort = (value: { key: string, direction: 'asc' | 'desc' }) => {
+  assetSetSort.key = value.key
+  assetSetSort.direction = value.direction
+  assetSetPage.value = 1
+}
+
+const compareAssetSets = (left: BackgroundSet, right: BackgroundSet): number => {
+  const direction = assetSetSort.direction === 'desc' ? -1 : 1
+  const key = assetSetSort.key
+  const leftValue = assetSetSortValue(left, key)
+  const rightValue = assetSetSortValue(right, key)
+
+  return leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: 'base' }) * direction
+}
+
+const assetSetSortValue = (set: BackgroundSet, key: string): string => {
+  if (key === 'game') return `${gameName(set.game_id)} ${set.game_id} ${set.version}`
+  if (key === 'assets') return assetSlots.map((slot) => assetId(set, slot.key)).join(' ')
+  if (key === 'updated_at') return set.updated_at || ''
+  return String((set as any)[key] ?? '')
+}
+
 const openStatusConfirm = (set: BackgroundSet, status: BackgroundStatus, supersede = false) => {
   statusError.value = null
   statusConfirm.set = set
+  statusConfirm.sets = [set]
   statusConfirm.status = status
   statusConfirm.supersede = supersede
   statusConfirm.open = true
 }
 
+const openBulkStatusConfirm = (status: BackgroundStatus) => {
+  const sets = selectedAssetSets.value
+  if (!sets.length) return
+
+  statusError.value = null
+  statusConfirm.set = null
+  statusConfirm.sets = sets
+  statusConfirm.status = status
+  statusConfirm.supersede = false
+  statusConfirm.open = true
+}
+
 const submitStatusUpdate = async () => {
-  if (!statusConfirm.set) return
+  const sets = statusConfirm.sets.length ? statusConfirm.sets : (statusConfirm.set ? [statusConfirm.set] : [])
+  if (!sets.length) return
 
   statusUpdating.value = true
   statusError.value = null
   successMessage.value = ''
 
   try {
-    const response = await api.apiFetch<BackgroundSet>(`/admin/central/lottery-images/background-asset-sets/${encodeURIComponent(statusConfirm.set.id)}`, {
-      method: 'PATCH',
-      scope: 'central',
-      idempotencyKey: api.idempotencyKey(),
-      body: {
-        status: statusConfirm.status,
-        supersede_existing: statusConfirm.supersede,
-      },
-    })
-    successMessage.value = `${titleize(response.set_type)} set status updated.`
+    for (const set of sets) {
+      await api.apiFetch<BackgroundSet>(`/admin/central/lottery-images/background-asset-sets/${encodeURIComponent(set.id)}`, {
+        method: 'PATCH',
+        scope: 'central',
+        idempotencyKey: api.idempotencyKey(),
+        body: {
+          status: statusConfirm.status,
+          supersede_existing: statusConfirm.supersede,
+        },
+      })
+    }
+    successMessage.value = sets.length > 1
+      ? `${sets.length} background asset sets updated.`
+      : `${titleize(sets[0].set_type)} set status updated.`
+    selectedAssetSetIds.value = selectedAssetSetIds.value.filter((id) => !sets.some((set) => set.id === id))
     statusConfirm.open = false
     await Promise.all([loadBackgroundSets(), loadReadiness()])
   } catch (err) {
@@ -1504,6 +1617,8 @@ const resetContext = () => {
   context.version = 'v1'
   readiness.value = null
   assetSets.value = []
+  selectedAssetSetIds.value = []
+  assetSetPage.value = 1
   mix.value = null
   productionReadiness.value = null
   contextError.value = ''
