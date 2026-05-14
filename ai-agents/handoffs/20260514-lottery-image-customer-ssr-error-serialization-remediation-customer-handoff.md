@@ -10,7 +10,11 @@ Fix Customer Nuxt SSR serialization crashes on launch-gate routes caused by non-
 
 ## Commit Hash
 
-Customer remediation commit hash will be recorded after the scoped implementation commit is created.
+Customer remediation commit:
+
+```text
+c351606c7924dfd85824dd442ef03be7a2d2f98d
+```
 
 ## Root Cause
 
