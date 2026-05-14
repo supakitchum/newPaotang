@@ -1,0 +1,89 @@
+{
+    "result": "PASS",
+    "config": {
+        "enabled": true,
+        "disk": "lottery_images",
+        "cdn_base_url": "https:\/\/cdn.qa-lottery.test",
+        "object_prefix": "lotteries",
+        "background_mix": {
+            "odd": 45,
+            "even": 45,
+            "charity": 10
+        },
+        "dimensions": {
+            "full": {
+                "width": 500,
+                "quality": 70
+            },
+            "thumb": {
+                "width": 280,
+                "quality": 60
+            }
+        },
+        "content_type": "image\/webp",
+        "cache_control": "public, max-age=31536000, immutable"
+    },
+    "keys": {
+        "central_full": "lotteries\/gam_qa_runtime\/stb_qa_runtime\/central\/stk_qa_runtime.webp",
+        "central_thumb": "lotteries\/gam_qa_runtime\/stb_qa_runtime\/central\/thumbs\/stk_qa_runtime.webp",
+        "partner_full": "lotteries\/gam_qa_runtime\/stb_qa_runtime\/partners\/par_qa_runtime\/stk_qa_runtime.webp",
+        "partner_thumb": "lotteries\/gam_qa_runtime\/stb_qa_runtime\/partners\/par_qa_runtime\/thumbs\/stk_qa_runtime.webp"
+    },
+    "urls": {
+        "central_full": "https:\/\/cdn.qa-lottery.test\/lotteries\/gam_qa_runtime\/stb_qa_runtime\/central\/stk_qa_runtime.webp",
+        "partner_full": "https:\/\/cdn.qa-lottery.test\/lotteries\/gam_qa_runtime\/stb_qa_runtime\/partners\/par_qa_runtime\/stk_qa_runtime.webp"
+    },
+    "bytes": {
+        "central_full_sample_path": "\/tmp\/qa-lottery-runtime-evidence\/central-full.webp",
+        "partner_full_sample_path": "\/tmp\/qa-lottery-runtime-evidence\/partner-full.webp",
+        "central_first_16_hex": "524946464c0100005745425056503820",
+        "partner_first_16_hex": "52494646fa0200005745425056503820",
+        "central_full_size": 340,
+        "central_thumb_size": 342,
+        "partner_full_size": 770,
+        "partner_thumb_size": 772,
+        "central_starts_riff": true,
+        "central_contains_webp": true,
+        "central_contains_scope_central": true,
+        "central_contains_branding_paths": false,
+        "partner_contains_scope_partner": true,
+        "partner_contains_branding_paths": true
+    },
+    "storage": {
+        "central_full_exists": true,
+        "central_thumb_exists": true,
+        "partner_full_exists": true,
+        "partner_thumb_exists": true
+    },
+    "database_image_columns": {
+        "stock_items": [
+            "image_url",
+            "image_thumb_url",
+            "image_storage_path",
+            "image_thumb_storage_path",
+            "image_generation_status",
+            "image_generation_error",
+            "image_generated_at"
+        ],
+        "local_stock_items": [
+            "image_url",
+            "image_thumb_url",
+            "image_storage_path",
+            "image_thumb_storage_path",
+            "image_generation_status",
+            "image_generation_error",
+            "image_generated_at"
+        ],
+        "tickets": [
+            "image_url",
+            "image_thumb_url"
+        ]
+    },
+    "runtime_limitation": {
+        "gd_loaded": false,
+        "imagick_loaded": false,
+        "cwebp_available": false,
+        "renderer_mode": "metadata_webp_container_placeholder",
+        "full_visual_legacy_composition_available": false
+    }
+}
