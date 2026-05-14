@@ -208,7 +208,7 @@
           <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
             <div>
               <div class="card-title mb-1">Background Asset Sets</div>
-              <p class="text-muted mb-0 fs-12">Generated source/full/thumb rows from the PNG zip import.</p>
+              <p class="text-muted mb-0 fs-12">Generated source/full/thumb rows from the image zip import.</p>
             </div>
             <button class="btn btn-outline-primary btn-wave" type="button" :disabled="assetSetsLoading || !canLoadContext" @click="loadBackgroundSets">
               <span v-if="assetSetsLoading" class="spinner-border spinner-border-sm me-1" />
@@ -218,7 +218,7 @@
           </div>
           <div class="card-body">
             <AdminLoader v-if="assetSetsLoading" />
-            <AdminEmptyState v-else-if="!assetSets.length" title="No background asset sets" message="Import a PNG zip for odd, even, or charity backgrounds." icon="ri-folder-image-line" />
+            <AdminEmptyState v-else-if="!assetSets.length" title="No background asset sets" message="Import an image zip for odd, even, or charity backgrounds." icon="ri-folder-image-line" />
             <div v-else class="table-responsive">
               <table class="table table-hover text-nowrap mb-0">
                 <thead>
@@ -287,7 +287,7 @@
       <div class="col-xl-5">
         <div class="card custom-card h-100">
           <div class="card-header">
-            <div class="card-title">PNG Zip Import</div>
+            <div class="card-title">Image Zip Import</div>
           </div>
           <div class="card-body">
             <AdminAlert v-if="zipFormError" :type="alertType(zipFormError)" :message="errorMessage(zipFormError)" :details="zipFormError.details" dismissible @dismiss="zipFormError = null" />
@@ -325,7 +325,7 @@
                 </div>
               </div>
               <div class="col-12">
-                <label class="form-label" for="zip-file">Background PNG Zip</label>
+                <label class="form-label" for="zip-file">Background Image Zip</label>
                 <input
                   :key="zipInputKey"
                   id="zip-file"
@@ -335,7 +335,7 @@
                   :disabled="zipImporting"
                   @change="onZipFileChange"
                 >
-                <div class="form-text">Root-level PNG files only. Names must be sequential, for example 001.png through 100.png.</div>
+                <div class="form-text">Root-level image files only. Names must be sequential, for example 001.png, 002.jpg, or 003.webp.</div>
               </div>
             </div>
 
@@ -373,7 +373,7 @@
                   <span>{{ titleize(zipResult.meta?.set_type || '-') }}</span>
                 </div>
                 <div class="d-flex justify-content-between gap-2">
-                  <span class="text-muted">Detected PNGs</span>
+                  <span class="text-muted">Detected Images</span>
                   <span>{{ zipResult.meta?.expected_count ?? '-' }}</span>
                 </div>
               </div>
@@ -385,7 +385,7 @@
             </button>
             <button class="btn btn-primary btn-wave" type="button" :disabled="!canImportZip" @click="importZip">
               <span v-if="zipImporting" class="spinner-border spinner-border-sm me-2" />
-              Import PNG zip
+              Import image zip
             </button>
           </div>
         </div>
@@ -799,7 +799,7 @@ const zipUploadMaxBytes = 500 * 1024 * 1024
 const zipUploadMaxLabel = '500 MB'
 const setTypes: SetType[] = ['odd', 'even', 'charity']
 const assetSlots: Array<{ key: AssetSlot, label: string }> = [
-  { key: 'source', label: 'Source PNG' },
+  { key: 'source', label: 'Source Image' },
   { key: 'full', label: 'Full WebP' },
   { key: 'thumb', label: 'Thumb WebP' },
 ]
@@ -1202,7 +1202,7 @@ const importZip = async () => {
     zipResult.value = response
     context.game_id = response.meta?.game_id || zipForm.game_id
     context.version = response.meta?.version || zipForm.version || context.version
-    successMessage.value = `${response.meta?.imported_count || response.data?.length || 0} background rows imported from PNG zip.`
+    successMessage.value = `${response.meta?.imported_count || response.data?.length || 0} background rows imported from image zip.`
     zipForm.file = null
     zipInputKey.value += 1
     await Promise.all([loadBackgroundSets(), loadReadiness()])
@@ -1442,7 +1442,7 @@ const validateZipFile = (file: File) => {
   const acceptedTypes = ['', 'application/zip', 'application/x-zip-compressed', 'multipart/x-zip']
 
   if (!name.endsWith('.zip') || !acceptedTypes.includes(file.type || '')) {
-    return 'Upload must be a .zip file containing PNG files only.'
+    return 'Upload must be a .zip file containing image files only.'
   }
 
   if (file.size < 1 || file.size > zipUploadMaxBytes) {

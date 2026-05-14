@@ -371,19 +371,19 @@ Each zip should contain stable ordered files:
 
 ```text
 001.png
-002.png
+002.jpg
 ...
-100.png
+100.webp
 ```
 
 Upload handling should:
 
 ```text
 accept one set at a time
-validate file count against expected_count
-validate PNG image type and dimensions
+detect image count from ordered zip entries
+validate source image extension, MIME type, and dimensions
 normalize names to 001..N
-generate full/thumb WebP variants server-side from PNG sources
+generate full/thumb WebP variants server-side from image sources
 store source/normalized backgrounds in private S3-compatible storage or the local game asset path for local/dev fixtures
 mark the set ready only when validation passes
 trigger pending image generation for that game and set_type
@@ -392,7 +392,7 @@ trigger pending image generation for that game and set_type
 Suggested private object keys:
 
 ```text
-lottery-image-assets/games/{game_id}/backgrounds/{version}/{set_type}/001/source.png
+lottery-image-assets/games/{game_id}/backgrounds/{version}/{set_type}/001/source.{ext}
 lottery-image-assets/games/{game_id}/backgrounds/{version}/{set_type}/001/full.webp
 lottery-image-assets/games/{game_id}/backgrounds/{version}/{set_type}/001/thumb.webp
 ```
@@ -426,7 +426,7 @@ thumb
 
 State-changing background endpoints require `Idempotency-Key` and central `asset.manage`. Readiness and retry endpoints remain central-only; retry dispatches only rows whose original assigned set is ready and never falls back to another set type.
 
-The zip import endpoint is central-only and accepts one multipart `zip` upload per `game_id`, `version`, and `set_type`. Zip entries must be root-level PNG files named `001.png`, `002.png`, and so on with no gaps, unsafe paths, folders, or mixed file types. The backend writes the PNG source plus generated full/thumb WebP variants, then registers ordered background asset set rows only after those generated variants are present.
+The zip import endpoint is central-only and accepts one multipart `zip` upload per `game_id`, `version`, and `set_type`. Zip entries must be root-level image files named sequentially, such as `001.png`, `002.jpg`, and `003.webp`, with no gaps, unsafe paths, folders, or non-image file types. The backend writes the source image with its detected extension plus generated full/thumb WebP variants, then registers ordered background asset set rows only after those generated variants are present.
 
 Preview endpoints render a transient image from `lottery_number` without creating stock rows, permanent image rows, or partner branding locks. `/lottery-images/preview` defaults to `central_unbranded` even when `partner_id` is supplied; `partner_branded` must be requested explicitly and falls back with a warning if partner branding assets are not ready. `/partners/{partner_id}/lottery-branding/preview` uses the route partner and rejects a different body `partner_id`.
 

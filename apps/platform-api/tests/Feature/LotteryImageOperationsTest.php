@@ -343,7 +343,7 @@ class LotteryImageOperationsTest extends TestCase
         $this->assertSame('public, max-age=31536000, immutable', config('lottery_images.cache_control'));
     }
 
-    public function test_LotteryImageZipImport_central_admin_imports_png_zip_and_tenant_is_rejected(): void
+    public function test_LotteryImageZipImport_central_admin_imports_image_zip_and_tenant_is_rejected(): void
     {
         $this->seedDefaultRbac();
         $this->insertActivePartnerTenant('par_zip_ops', 'ten_zip_ops');
@@ -356,7 +356,7 @@ class LotteryImageOperationsTest extends TestCase
                 'game_id' => 'gam_lottery_zip_ops',
                 'version' => 'v2',
                 'set_type' => 'charity',
-                'zip' => $this->pngZipUpload([1, 2]),
+                'zip' => $this->imageZipUpload([1 => 'png', 2 => 'jpg', 3 => 'webp']),
             ], [
                 'X-Admin-Scope' => 'tenant',
                 'X-Tenant-Id' => 'ten_zip_ops',
@@ -370,7 +370,7 @@ class LotteryImageOperationsTest extends TestCase
                 'game_id' => 'gam_lottery_zip_ops',
                 'version' => 'v2',
                 'set_type' => 'charity',
-                'zip' => $this->pngZipUpload([1, 2]),
+                'zip' => $this->imageZipUpload([1 => 'png', 2 => 'jpg', 3 => 'webp']),
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'central-zip-import',
@@ -378,22 +378,25 @@ class LotteryImageOperationsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('meta.game_id', 'gam_lottery_zip_ops')
             ->assertJsonPath('meta.set_type', 'charity')
-            ->assertJsonPath('meta.imported_count', 2)
-            ->assertJsonPath('meta.expected_count', 2)
+            ->assertJsonPath('meta.imported_count', 3)
+            ->assertJsonPath('meta.expected_count', 3)
             ->assertJsonPath('data.0.position', 1)
             ->assertJsonPath('data.1.position', 2)
+            ->assertJsonPath('data.2.position', 3)
             ->assertJsonPath('data.0.assets.source.content_type', 'image/png')
+            ->assertJsonPath('data.1.assets.source.content_type', 'image/jpeg')
+            ->assertJsonPath('data.2.assets.source.content_type', 'image/webp')
             ->assertJsonPath('data.0.assets.full.content_type', 'image/webp')
             ->assertJsonPath('data.0.assets.thumb.content_type', 'image/webp')
             ->json();
 
-        $this->assertSame(2, DB::table('lottery_image_background_asset_sets')
+        $this->assertSame(3, DB::table('lottery_image_background_asset_sets')
             ->where('game_id', 'gam_lottery_zip_ops')
             ->where('version', 'v2')
             ->where('set_type', 'charity')
             ->where('status', 'ready')
             ->count());
-        $this->assertSame(6, DB::table('platform_assets')
+        $this->assertSame(9, DB::table('platform_assets')
             ->where('purpose', 'ticket_image')
             ->where('storage_key', 'like', 'lottery-image-assets/games/gam_lottery_zip_ops/backgrounds/v2/charity/%')
             ->count());
@@ -406,11 +409,11 @@ class LotteryImageOperationsTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('backgrounds.2.set_type', 'charity')
-            ->assertJsonPath('backgrounds.2.available_count', 2)
+            ->assertJsonPath('backgrounds.2.available_count', 3)
             ->assertJsonPath('backgrounds.2.ready', true);
     }
 
-    public function test_LotteryImageZipImport_rejects_non_png_or_wrong_count_zip(): void
+    public function test_LotteryImageZipImport_rejects_non_image_or_missing_sequence_zip(): void
     {
         $this->seedDefaultRbac();
         $this->insertGame('gam_lottery_zip_invalid', 'open');
@@ -428,7 +431,7 @@ class LotteryImageOperationsTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonPath('error.code', 'validation_failed')
-            ->assertJsonPath('error.details.fields.zip.0', 'The zip file is missing 002.png.');
+            ->assertJsonPath('error.details.fields.zip.0', 'The zip file is missing 002 image file.');
 
         $this->withToken($central['access_token'])
             ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
@@ -438,7 +441,7 @@ class LotteryImageOperationsTest extends TestCase
                 'zip' => $this->mixedZipUpload(),
             ], [
                 'X-Admin-Scope' => 'central',
-                'Idempotency-Key' => 'zip-non-png',
+                'Idempotency-Key' => 'zip-non-image',
             ])
             ->assertUnprocessable()
             ->assertJsonPath('error.code', 'validation_failed');
@@ -669,14 +672,29 @@ class LotteryImageOperationsTest extends TestCase
      */
     private function pngZipUpload(array $ordinals): UploadedFile
     {
+        return $this->imageZipUpload(array_fill_keys($ordinals, 'png'));
+    }
+
+    /**
+     * @param array<int, string> $entries
+     */
+    private function imageZipUpload(array $entries): UploadedFile
+    {
         $path = tempnam(sys_get_temp_dir(), 'lottery-png-zip-');
         $this->assertIsString($path);
 
         $zip = new ZipArchive();
         $this->assertTrue($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE));
 
-        foreach ($ordinals as $ordinal) {
-            $zip->addFromString(str_pad((string) $ordinal, 3, '0', STR_PAD_LEFT).'.png', $this->fixturePng($ordinal));
+        foreach ($entries as $ordinal => $extension) {
+            $extension = strtolower($extension);
+            $bytes = match ($extension) {
+                'jpg', 'jpeg' => $this->fixtureJpeg((int) $ordinal),
+                'webp' => $this->fixtureSourceWebp((int) $ordinal),
+                default => $this->fixturePng((int) $ordinal),
+            };
+
+            $zip->addFromString(str_pad((string) $ordinal, 3, '0', STR_PAD_LEFT).'.'.$extension, $bytes);
         }
 
         $zip->close();
@@ -691,7 +709,7 @@ class LotteryImageOperationsTest extends TestCase
 
         $zip = new ZipArchive();
         $this->assertTrue($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE));
-        $zip->addFromString('001.txt', 'not a png');
+        $zip->addFromString('001.txt', 'not an image');
         $zip->close();
 
         return new UploadedFile($path, 'mixed.zip', 'application/zip', null, true);
@@ -717,6 +735,44 @@ class LotteryImageOperationsTest extends TestCase
 
         ob_start();
         imagepng($image);
+        $bytes = ob_get_clean();
+        imagedestroy($image);
+
+        $this->assertIsString($bytes);
+
+        return $bytes;
+    }
+
+    private function fixtureJpeg(int $seed, int $width = 500, int $height = 280): string
+    {
+        $image = imagecreatetruecolor($width, $height);
+        $background = imagecolorallocate($image, (90 + ($seed * 20)) % 255, (80 + ($seed * 25)) % 255, (130 + ($seed * 15)) % 255);
+        $accent = imagecolorallocate($image, 255, 255, 255);
+
+        imagefilledrectangle($image, 0, 0, $width, $height, $background);
+        imagefilledellipse($image, (int) floor($width / 2), (int) floor($height / 2), 90, 90, $accent);
+
+        ob_start();
+        imagejpeg($image, null, 90);
+        $bytes = ob_get_clean();
+        imagedestroy($image);
+
+        $this->assertIsString($bytes);
+
+        return $bytes;
+    }
+
+    private function fixtureSourceWebp(int $seed, int $width = 500, int $height = 280): string
+    {
+        $image = imagecreatetruecolor($width, $height);
+        $background = imagecolorallocate($image, (110 + ($seed * 15)) % 255, (95 + ($seed * 25)) % 255, (150 + ($seed * 20)) % 255);
+        $accent = imagecolorallocate($image, 255, 255, 255);
+
+        imagefilledrectangle($image, 0, 0, $width, $height, $background);
+        imagefilledellipse($image, (int) floor($width / 2), (int) floor($height / 2), 90, 90, $accent);
+
+        ob_start();
+        imagewebp($image, null, 90);
         $bytes = ob_get_clean();
         imagedestroy($image);
 

@@ -167,7 +167,7 @@ class LotteryImageOperationsService
             return ['error' => 'validation_failed', 'errors' => $errors];
         }
 
-        $entries = $this->extractZipPngEntries($zipFile);
+        $entries = $this->extractZipImageEntries($zipFile);
 
         if (($entries['errors'] ?? []) !== []) {
             return ['error' => 'validation_failed', 'errors' => $entries['errors']];
@@ -175,7 +175,7 @@ class LotteryImageOperationsService
 
         $normalized['expected_count'] = (int) ($entries['detected_count'] ?? 0);
 
-        /** @var array<int, array{name: string, ordinal: int, bytes: string, width: int, height: int, size_bytes: int, checksum: string}> $files */
+        /** @var array<int, array{name: string, ordinal: int, extension: string, content_type: string, bytes: string, width: int, height: int, size_bytes: int, checksum: string}> $files */
         $files = $entries['files'];
         $expected = $this->expectedDimensions();
         $now = now();
@@ -190,20 +190,20 @@ class LotteryImageOperationsService
             foreach ($files as $file) {
                 $position = (int) $file['ordinal'];
                 $baseKey = 'lottery-image-assets/games/'.$normalized['game_id'].'/backgrounds/'.$normalized['version'].'/'.$normalized['set_type'].'/'.str_pad((string) $position, 3, '0', STR_PAD_LEFT);
-                $sourceKey = $baseKey.'/source.png';
+                $sourceKey = $baseKey.'/source.'.$file['extension'];
                 $fullKey = $baseKey.'/full.webp';
                 $thumbKey = $baseKey.'/thumb.webp';
                 $fullBytes = $this->renderBackgroundVariant($file['bytes'], 'full');
                 $thumbBytes = $this->renderBackgroundVariant($file['bytes'], 'thumb');
 
-                $this->storeGeneratedAssetBytes($sourceKey, $file['bytes'], 'image/png');
+                $this->storeGeneratedAssetBytes($sourceKey, $file['bytes'], $file['content_type']);
                 $this->storeGeneratedAssetBytes($fullKey, $fullBytes, 'image/webp');
                 $this->storeGeneratedAssetBytes($thumbKey, $thumbBytes, 'image/webp');
 
                 $sourceAsset = $this->upsertGeneratedPlatformAsset(
                     $sourceKey,
                     basename($sourceKey),
-                    'image/png',
+                    $file['content_type'],
                     $file['bytes'],
                     ['width' => $file['width'], 'height' => $file['height'], 'source_zip_entry' => $file['name']],
                     $actor,
@@ -247,7 +247,7 @@ class LotteryImageOperationsService
                         'source_storage_path' => $sourceKey,
                         'full_storage_path' => $fullKey,
                         'thumb_storage_path' => $thumbKey,
-                        'source_content_type' => 'image/png',
+                        'source_content_type' => $file['content_type'],
                         'full_content_type' => 'image/webp',
                         'thumb_content_type' => 'image/webp',
                         'source_width' => $file['width'],
@@ -892,9 +892,9 @@ class LotteryImageOperationsService
     }
 
     /**
-     * @return array{files?: array<int, array{name: string, ordinal: int, bytes: string, width: int, height: int, size_bytes: int, checksum: string}>, detected_count?: int, errors?: array<string, array<int, string>>}
+     * @return array{files?: array<int, array{name: string, ordinal: int, extension: string, content_type: string, bytes: string, width: int, height: int, size_bytes: int, checksum: string}>, detected_count?: int, errors?: array<string, array<int, string>>}
      */
-    private function extractZipPngEntries(?UploadedFile $zipFile): array
+    private function extractZipImageEntries(?UploadedFile $zipFile): array
     {
         if (! $zipFile instanceof UploadedFile) {
             return ['errors' => ['zip' => ['The zip field is required and must be a valid upload.']]];
@@ -911,6 +911,13 @@ class LotteryImageOperationsService
         $files = [];
         $expected = $this->expectedDimensions();
         $sourceLimit = $this->sizeLimitForSlot('source');
+        $allowedMimes = config('lottery_images.background_asset_limits.allowed_source_mimes', ['image/webp', 'image/png', 'image/jpeg']);
+        $allowedExtensions = [
+            'jpeg' => 'image/jpeg',
+            'jpg' => 'image/jpeg',
+            'png' => 'image/png',
+            'webp' => 'image/webp',
+        ];
 
         try {
             for ($index = 0; $index < $archive->numFiles; $index++) {
@@ -928,8 +935,16 @@ class LotteryImageOperationsService
                     continue;
                 }
 
-                if (preg_match('/^(\d{3})\.png$/', $name, $matches) !== 1) {
-                    $errors['zip'][] = 'Each zip entry must be named 001.png, 002.png, and so on.';
+                if (preg_match('/^(\d{3})\.([A-Za-z0-9]+)$/', $name, $matches) !== 1) {
+                    $errors['zip'][] = 'Each zip image entry must be named 001.png, 002.jpg, 003.webp, and so on.';
+                    continue;
+                }
+
+                $extension = strtolower($matches[2]);
+                $expectedMime = $allowedExtensions[$extension] ?? null;
+
+                if ($expectedMime === null || ! in_array($expectedMime, $allowedMimes, true)) {
+                    $errors['zip'][] = 'The zip entry '.$name.' must use a supported image extension: png, jpg, jpeg, or webp.';
                     continue;
                 }
 
@@ -946,9 +961,10 @@ class LotteryImageOperationsService
                 }
 
                 $info = @getimagesizefromstring($bytes);
+                $mime = is_array($info) ? (string) ($info['mime'] ?? '') : '';
 
-                if (! is_array($info) || ($info['mime'] ?? null) !== 'image/png') {
-                    $errors['zip'][] = 'The zip entry '.$name.' must be a valid PNG image.';
+                if (! is_array($info) || ! in_array($mime, $allowedMimes, true) || $mime !== $expectedMime) {
+                    $errors['zip'][] = 'The zip entry '.$name.' must be a readable image file matching its extension.';
                     continue;
                 }
 
@@ -970,6 +986,8 @@ class LotteryImageOperationsService
                 $files[$ordinal] = [
                     'name' => $name,
                     'ordinal' => $ordinal,
+                    'extension' => $extension === 'jpeg' ? 'jpg' : $extension,
+                    'content_type' => $mime,
                     'bytes' => $bytes,
                     'width' => $width,
                     'height' => $height,
@@ -985,16 +1003,16 @@ class LotteryImageOperationsService
         $detectedCount = count($files);
 
         if ($detectedCount < 1) {
-            $errors['zip'][] = 'The zip file must contain at least 1 PNG file.';
+            $errors['zip'][] = 'The zip file must contain at least 1 supported image file.';
         }
 
         if ($detectedCount > 100) {
-            $errors['zip'][] = 'The zip file must contain no more than 100 PNG files.';
+            $errors['zip'][] = 'The zip file must contain no more than 100 image files.';
         }
 
         for ($position = 1; $position <= $detectedCount; $position++) {
             if (! isset($files[$position])) {
-                $errors['zip'][] = 'The zip file is missing '.str_pad((string) $position, 3, '0', STR_PAD_LEFT).'.png.';
+                $errors['zip'][] = 'The zip file is missing '.str_pad((string) $position, 3, '0', STR_PAD_LEFT).' image file.';
             }
         }
 
@@ -1010,7 +1028,7 @@ class LotteryImageOperationsService
         $source = @imagecreatefromstring($sourceBytes);
 
         if ($source === false) {
-            throw new \RuntimeException('background_png_decode_failed');
+            throw new \RuntimeException('background_image_decode_failed');
         }
 
         $spec = $this->expectedDimensions()[$variant];
