@@ -69,6 +69,7 @@ class LotteryImageOperationsController extends Controller
         $file = $request->file('zip') ?? $request->file('file');
         $payload = $request->except(['zip', 'file']);
         $idempotencyPayload = $payload;
+        unset($idempotencyPayload['expected_count']);
 
         if ($file instanceof \Illuminate\Http\UploadedFile && $file->isValid()) {
             $realPath = $file->getRealPath();

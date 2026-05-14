@@ -7742,7 +7742,7 @@ components:
                   type: string
     LotteryImageBackgroundZipImportRequest:
       type: object
-      required: [game_id, version, set_type, expected_count, zip]
+      required: [game_id, version, set_type, zip]
       properties:
         game_id:
           type: string
@@ -7756,7 +7756,8 @@ components:
           type: integer
           minimum: 1
           maximum: 100
-          description: Exact number of ordered root-level PNG files expected in the zip.
+          deprecated: true
+          description: Deprecated and ignored. The API detects the PNG count from ordered root-level zip entries automatically.
         status:
           type: string
           enum: [ready, inactive, retired]
@@ -7791,6 +7792,7 @@ components:
               type: integer
             expected_count:
               type: integer
+              description: Detected PNG count from the imported zip.
     LotteryImageBackgroundAssetSetStatusRequest:
       type: object
       required: [status]

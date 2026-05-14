@@ -45,7 +45,7 @@ for (const token of [
   'idempotencyKey: api.idempotencyKey()',
   'new FormData()',
   "body.append('zip'",
-  'expected_count',
+  'Detected PNGs',
   'zipForm.progress',
   'previewForm.lottery_number',
   'mode: previewForm.mode',
@@ -80,6 +80,9 @@ for (const removedToken of [
   'uploadAssetSlot',
   'Zip size must be between 1 byte and 50 MB.',
   '52_428_800',
+  'Expected PNG Count',
+  "body.append('expected_count'",
+  'expectedCountValid',
 ]) {
   if (component.includes(removedToken)) {
     failures.push(`Lottery image operations component still contains old manual asset upload token ${removedToken}`)

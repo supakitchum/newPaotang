@@ -159,9 +159,6 @@ class LotteryImageOperationsService
             'version' => $this->versionFrom($payload['version'] ?? null),
             'set_type' => trim((string) ($payload['set_type'] ?? '')),
             'status' => trim((string) ($payload['status'] ?? 'ready')),
-            'expected_count' => filter_var($payload['expected_count'] ?? 1, FILTER_VALIDATE_INT) === false
-                ? null
-                : (int) ($payload['expected_count'] ?? 1),
             'supersede_existing' => filter_var($payload['supersede_existing'] ?? false, FILTER_VALIDATE_BOOLEAN),
         ];
         $errors = $this->backgroundZipPayloadErrors($normalized, $zipFile, $request);
@@ -170,11 +167,13 @@ class LotteryImageOperationsService
             return ['error' => 'validation_failed', 'errors' => $errors];
         }
 
-        $entries = $this->extractZipPngEntries($zipFile, (int) $normalized['expected_count']);
+        $entries = $this->extractZipPngEntries($zipFile);
 
         if (($entries['errors'] ?? []) !== []) {
             return ['error' => 'validation_failed', 'errors' => $entries['errors']];
         }
+
+        $normalized['expected_count'] = (int) ($entries['detected_count'] ?? 0);
 
         /** @var array<int, array{name: string, ordinal: int, bytes: string, width: int, height: int, size_bytes: int, checksum: string}> $files */
         $files = $entries['files'];
@@ -813,9 +812,6 @@ class LotteryImageOperationsService
         if (! in_array($payload['status'], self::BACKGROUND_STATUSES, true)) {
             $errors['status'][] = 'The status field must be ready, inactive, or retired.';
         }
-        if (! is_int($payload['expected_count']) || $payload['expected_count'] < 1 || $payload['expected_count'] > 100) {
-            $errors['expected_count'][] = 'The expected_count field must be an integer between 1 and 100.';
-        }
         if (! $zipFile instanceof UploadedFile) {
             $contentLength = (int) $request->server('CONTENT_LENGTH', 0);
             $errors['zip'][] = $uploadLimit !== null && $contentLength > $uploadLimit
@@ -896,9 +892,9 @@ class LotteryImageOperationsService
     }
 
     /**
-     * @return array{files?: array<int, array{name: string, ordinal: int, bytes: string, width: int, height: int, size_bytes: int, checksum: string}>, errors?: array<string, array<int, string>>}
+     * @return array{files?: array<int, array{name: string, ordinal: int, bytes: string, width: int, height: int, size_bytes: int, checksum: string}>, detected_count?: int, errors?: array<string, array<int, string>>}
      */
-    private function extractZipPngEntries(?UploadedFile $zipFile, int $expectedCount): array
+    private function extractZipPngEntries(?UploadedFile $zipFile): array
     {
         if (! $zipFile instanceof UploadedFile) {
             return ['errors' => ['zip' => ['The zip field is required and must be a valid upload.']]];
@@ -965,6 +961,12 @@ class LotteryImageOperationsService
                 }
 
                 $ordinal = (int) $matches[1];
+
+                if (isset($files[$ordinal])) {
+                    $errors['zip'][] = 'The zip file contains duplicate entry '.$name.'.';
+                    continue;
+                }
+
                 $files[$ordinal] = [
                     'name' => $name,
                     'ordinal' => $ordinal,
@@ -980,12 +982,17 @@ class LotteryImageOperationsService
         }
 
         ksort($files);
+        $detectedCount = count($files);
 
-        if (count($files) !== $expectedCount) {
-            $errors['expected_count'][] = 'The zip file must contain exactly '.$expectedCount.' PNG file(s).';
+        if ($detectedCount < 1) {
+            $errors['zip'][] = 'The zip file must contain at least 1 PNG file.';
         }
 
-        for ($position = 1; $position <= $expectedCount; $position++) {
+        if ($detectedCount > 100) {
+            $errors['zip'][] = 'The zip file must contain no more than 100 PNG files.';
+        }
+
+        for ($position = 1; $position <= $detectedCount; $position++) {
             if (! isset($files[$position])) {
                 $errors['zip'][] = 'The zip file is missing '.str_pad((string) $position, 3, '0', STR_PAD_LEFT).'.png.';
             }
@@ -995,7 +1002,7 @@ class LotteryImageOperationsService
             return ['errors' => $errors];
         }
 
-        return ['files' => array_values($files)];
+        return ['files' => array_values($files), 'detected_count' => $detectedCount];
     }
 
     private function renderBackgroundVariant(string $sourceBytes, string $variant): string

@@ -356,7 +356,6 @@ class LotteryImageOperationsTest extends TestCase
                 'game_id' => 'gam_lottery_zip_ops',
                 'version' => 'v2',
                 'set_type' => 'charity',
-                'expected_count' => 2,
                 'zip' => $this->pngZipUpload([1, 2]),
             ], [
                 'X-Admin-Scope' => 'tenant',
@@ -371,7 +370,6 @@ class LotteryImageOperationsTest extends TestCase
                 'game_id' => 'gam_lottery_zip_ops',
                 'version' => 'v2',
                 'set_type' => 'charity',
-                'expected_count' => 2,
                 'zip' => $this->pngZipUpload([1, 2]),
             ], [
                 'X-Admin-Scope' => 'central',
@@ -381,6 +379,7 @@ class LotteryImageOperationsTest extends TestCase
             ->assertJsonPath('meta.game_id', 'gam_lottery_zip_ops')
             ->assertJsonPath('meta.set_type', 'charity')
             ->assertJsonPath('meta.imported_count', 2)
+            ->assertJsonPath('meta.expected_count', 2)
             ->assertJsonPath('data.0.position', 1)
             ->assertJsonPath('data.1.position', 2)
             ->assertJsonPath('data.0.assets.source.content_type', 'image/png')
@@ -422,21 +421,20 @@ class LotteryImageOperationsTest extends TestCase
                 'game_id' => 'gam_lottery_zip_invalid',
                 'version' => 'v1',
                 'set_type' => 'odd',
-                'expected_count' => 2,
-                'zip' => $this->pngZipUpload([1]),
+                'zip' => $this->pngZipUpload([1, 3]),
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'zip-wrong-count',
             ])
             ->assertUnprocessable()
-            ->assertJsonPath('error.code', 'validation_failed');
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.fields.zip.0', 'The zip file is missing 002.png.');
 
         $this->withToken($central['access_token'])
             ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
                 'game_id' => 'gam_lottery_zip_invalid',
                 'version' => 'v1',
                 'set_type' => 'odd',
-                'expected_count' => 1,
                 'zip' => $this->mixedZipUpload(),
             ], [
                 'X-Admin-Scope' => 'central',
@@ -450,7 +448,6 @@ class LotteryImageOperationsTest extends TestCase
                 'game_id' => 'gam_lottery_zip_invalid',
                 'version' => 'v1',
                 'set_type' => 'odd',
-                'expected_count' => 1,
                 'zip' => $this->phpIniRejectedZipUpload(),
             ], [
                 'X-Admin-Scope' => 'central',

@@ -311,10 +311,6 @@
                 </select>
               </div>
               <div class="col-md-6">
-                <label class="form-label" for="zip-expected-count">Expected PNG Count</label>
-                <input id="zip-expected-count" v-model.number="zipForm.expected_count" class="form-control" type="number" min="1" max="100" step="1">
-              </div>
-              <div class="col-md-6">
                 <label class="form-label" for="zip-status">Status</label>
                 <select id="zip-status" v-model="zipForm.status" class="form-select">
                   <option value="ready">Ready</option>
@@ -377,7 +373,7 @@
                   <span>{{ titleize(zipResult.meta?.set_type || '-') }}</span>
                 </div>
                 <div class="d-flex justify-content-between gap-2">
-                  <span class="text-muted">Expected</span>
+                  <span class="text-muted">Detected PNGs</span>
                   <span>{{ zipResult.meta?.expected_count ?? '-' }}</span>
                 </div>
               </div>
@@ -838,7 +834,6 @@ const zipForm = reactive({
   game_id: '',
   version: 'v1',
   set_type: 'odd' as SetType,
-  expected_count: 100,
   status: 'ready' as BackgroundStatus,
   supersede_existing: true,
   file: null as File | null,
@@ -921,12 +916,10 @@ const lastErrors = computed(() => readiness.value?.last_error_samples || [])
 const blockingReasons = computed(() => productionReadiness.value?.blocking_reasons || [])
 const mixTotal = computed(() => setTypes.reduce((sum, key) => sum + normalizedPercent(mixForm[key]), 0))
 const canSaveMix = computed(() => Boolean(canLoadContext.value && mixTotal.value === 100 && !mixSubmitting.value && !mixLoading.value))
-const expectedCountValid = computed(() => Number(zipForm.expected_count) >= 1 && Number(zipForm.expected_count) <= 100)
 const canImportZip = computed(() => Boolean(
   zipForm.game_id.trim()
   && zipForm.version.trim()
   && zipForm.set_type
-  && expectedCountValid.value
   && zipForm.file
   && !zipForm.error
   && !zipImporting.value,
@@ -1193,7 +1186,6 @@ const importZip = async () => {
     body.append('game_id', zipForm.game_id)
     body.append('version', zipForm.version || 'v1')
     body.append('set_type', zipForm.set_type)
-    body.append('expected_count', String(Number(zipForm.expected_count) || 100))
     body.append('status', zipForm.status)
     body.append('supersede_existing', zipForm.supersede_existing ? '1' : '0')
     body.append('zip', zipForm.file)
@@ -1390,7 +1382,6 @@ const resetZipForm = () => {
   zipForm.game_id = context.game_id
   zipForm.version = context.version || 'v1'
   zipForm.set_type = 'odd'
-  zipForm.expected_count = 100
   zipForm.status = 'ready'
   zipForm.supersede_existing = true
   zipForm.file = null
