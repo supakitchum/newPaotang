@@ -33,6 +33,10 @@ storage/logs/
 storage/framework/cache/
 storage/framework/sessions/
 storage/framework/views/
+apps/platform-api/storage/framework/views/*.php
+
+# Local QA evidence can contain runtime credentials.
+ai-agents/reports/artifacts/**/after-api-evidence.php
 
 # Local archives / duplicated source bundles
 document.zip
