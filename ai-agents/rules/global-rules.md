@@ -111,6 +111,43 @@ Customer Develop ใช้ service customer
 QA Tester ทดสอบผ่าน Docker service ที่เกี่ยวข้องเท่านั้น
 ```
 
+## QA Runtime Restore Rule
+
+QA Tester ต้องคืนสภาพ local Docker runtime ให้ login ได้ก่อนส่งรายงานทุกครั้ง โดยเฉพาะงานที่แตะ database, migration, seeder, PHPUnit/feature test, Docker volume, Nuxt `.nuxt`, `npm run build`, หรือ browser QA
+
+QA Tester ห้ามส่ง `PASS` จนกว่าจะทำสิ่งนี้ครบและบันทึกผลไว้ใน QA report:
+
+```text
+1. ถ้า QA ใช้หรืออาจเปลี่ยน local/dev database ต้องรัน seed กลับเข้าระบบ
+2. ต้องรัน platform smoke และต้องเห็น seeded-logins: ok
+3. ถ้า QA แตะ back-office dev/build/browser flow ต้อง restart หรือ recreate back-office service หลัง test/build
+4. ต้องตรวจว่า /login เปิดได้ และ /admin/login ไม่พาไป redirect path เสีย
+5. ถ้าข้อใดทำไม่ได้ ต้อง mark เป็น FAIL หรือ PASS WITH RISK พร้อมระบุ blocker ห้ามเขียนว่าไม่มี defect
+```
+
+คำสั่ง baseline สำหรับ QA หลังจบทดสอบ local Docker:
+
+```sh
+docker compose -p newpaotang exec -T platform-api php artisan db:seed --no-interaction
+docker compose -p newpaotang exec -T platform-api php artisan platform:smoke
+docker compose -p newpaotang stop back-office
+docker compose -p newpaotang rm -f back-office
+docker compose -p newpaotang up -d back-office
+curl --max-time 5 -i -s http://localhost:3100/login
+curl --max-time 5 -i -s http://localhost:3100/admin/login
+```
+
+ข้อกำหนดผ่านขั้นต่ำ:
+
+```text
+platform:smoke ต้องแสดง app/database/cache/monitoring-defaults/seeded-logins เป็น ok
+POST /api/v1/auth/admin/login ด้วย seeded central admin ต้องได้ 200
+/login ต้องได้ 200
+/admin/login ต้อง redirect ไป /login โดยไม่เก็บ redirect=/admin/login
+```
+
+ถ้า QA ใช้ clean worktree แยก แต่ใช้ Docker project/database เดียวกันกับ local runtime หลัก กฎนี้ยังบังคับใช้ เพราะผลข้างเคียงอยู่ที่ container/volume ไม่ใช่เฉพาะไฟล์ใน worktree
+
 ## Git Boundary Rule
 
 ```text

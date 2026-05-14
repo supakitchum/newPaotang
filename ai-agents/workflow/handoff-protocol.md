@@ -32,6 +32,27 @@ ai-agents/decisions/YYYYMMDD-<task-key>-decision.md
 ## Next Agent
 ```
 
+## Required QA Report Extra Section
+
+QA report ทุกฉบับต้องเพิ่มหัวข้อนี้ก่อน `Recommendation`:
+
+```markdown
+## Runtime Restore / Login Smoke
+```
+
+หัวข้อนี้ต้องบันทึกว่า QA คืนสภาพ local Docker runtime แล้วหรือไม่ โดยเฉพาะ:
+
+```text
+db:seed after destructive or DB-touching tests
+platform:smoke result with seeded-logins
+central admin login API status
+back-office /login status
+back-office /admin/login redirect target
+back-office restart/recreate after Nuxt build/browser QA when applicable
+```
+
+ถ้าไม่ได้รันเพราะ task ไม่แตะ runtime เลย ต้องเขียนเหตุผลชัดเจน ถ้ารันแล้วไม่ผ่านห้ามสรุปเป็น clean PASS
+
 ## Next Agent Rule
 
 ทุก handoff ต้องระบุ `Next Agent` เสมอ:
