@@ -23,18 +23,55 @@ const { navigationMenus, loading, error, loadMenus } = navigation
 const session = useAdminSession()
 const route = useRoute()
 const { ready, markReady } = useAdminClientReady()
+const adminSessionRedirectTimeoutMs = 3000
 const clientReady = computed(() => ready.value)
 const isPublicAdminStatusPage = computed(() => ['/admin/403', '/admin/404', '/admin/500'].includes(route.path))
 const canRenderAdminContent = computed(() => isPublicAdminStatusPage.value || (clientReady.value && session.isAuthenticated.value))
 const visibleMenus = computed(() => canRenderAdminContent.value ? navigationMenus.value : [])
 const visibleMenuLoading = computed(() => canRenderAdminContent.value && loading.value)
+let sessionRedirectTimer: ReturnType<typeof setTimeout> | null = null
+
+const clearSessionRedirectTimer = () => {
+  if (!sessionRedirectTimer) {
+    return
+  }
+
+  clearTimeout(sessionRedirectTimer)
+  sessionRedirectTimer = null
+}
+
+const redirectExpiredAdminSession = async () => {
+  if (isPublicAdminStatusPage.value || session.isAuthenticated.value) {
+    return false
+  }
+
+  session.clear()
+  await navigateTo({ path: '/login', query: { redirect: route.fullPath } })
+  return true
+}
 
 onMounted(async () => {
+  sessionRedirectTimer = setTimeout(() => {
+    void redirectExpiredAdminSession()
+  }, adminSessionRedirectTimeoutMs)
+
   session.restore()
   markReady()
+
+  if (await redirectExpiredAdminSession()) {
+    clearSessionRedirectTimer()
+    return
+  }
+
   if (session.isAuthenticated.value) {
     await loadMenus()
   }
+
+  clearSessionRedirectTimer()
+})
+
+onBeforeUnmount(() => {
+  clearSessionRedirectTimer()
 })
 
 watch(() => [session.currentScope.value, session.currentTenantId.value], () => {
