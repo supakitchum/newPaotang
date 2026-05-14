@@ -2,6 +2,7 @@
 
 namespace App\Modules\CentralStock\Services;
 
+use App\Jobs\GenerateLotteryImageJob;
 use App\Models\Game;
 use App\Models\Partner;
 use App\Models\PartnerQuota;
@@ -45,8 +46,10 @@ class CentralStockService
     ];
     private const CANCELLABLE_ALLOCATION_STATUSES = ['draft', 'pending', 'processing', 'partially_allocated', 'failed'];
 
-    public function __construct(private readonly AuditLogger $auditLogger)
-    {
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly LotteryImageGenerator $lotteryImages,
+    ) {
     }
 
     /**
@@ -412,15 +415,30 @@ class CentralStockService
             $now = now();
 
             $rows = [];
+            $stockIds = [];
 
-            foreach ($normalized['numbers'] as $number) {
-                $rows[] = array_merge($this->stockInsertPayload((string) $number, $normalized['game_id'], $batch['id'], $now), [
-                    'id' => $this->stableId('stk', $normalized['game_id'].':'.$number),
-                ]);
+            foreach ($normalized['numbers'] as $index => $number) {
+                $stockIds[$index] = $this->stableId('stk', $normalized['game_id'].':'.$number);
+            }
+
+            $imageAssignments = $this->lotteryImages->assignmentsForStockIds(
+                $normalized['game_id'],
+                $batch['id'],
+                array_values($stockIds),
+                (string) $request->header('Idempotency-Key'),
+            );
+
+            foreach ($normalized['numbers'] as $index => $number) {
+                $stockId = $stockIds[$index];
+                $rows[] = array_merge(
+                    $this->stockInsertPayload((string) $number, $normalized['game_id'], $batch['id'], $now, $imageAssignments[$stockId] ?? null),
+                    ['id' => $stockId],
+                );
             }
 
             if ($rows !== []) {
                 StockItem::query()->insertOrIgnore($rows);
+                $this->dispatchCentralImageJobs(array_values($stockIds));
             }
 
             $generatedCount = StockItem::where('batch_id', $batch['id'])->count();
@@ -486,15 +504,30 @@ class CentralStockService
             $batch = $this->ensureStockBatch('import', $normalized, $actor, $request);
             $now = now();
             $rows = [];
+            $stockIds = [];
 
-            foreach ($normalized['numbers'] as $number) {
-                $rows[] = array_merge($this->stockInsertPayload((string) $number, $gameId, $batch['id'], $now), [
-                    'id' => $this->stableId('stk', $gameId.':'.$number),
-                ]);
+            foreach ($normalized['numbers'] as $index => $number) {
+                $stockIds[$index] = $this->stableId('stk', $gameId.':'.$number);
+            }
+
+            $imageAssignments = $this->lotteryImages->assignmentsForStockIds(
+                $gameId,
+                $batch['id'],
+                array_values($stockIds),
+                (string) $request->header('Idempotency-Key'),
+            );
+
+            foreach ($normalized['numbers'] as $index => $number) {
+                $stockId = $stockIds[$index];
+                $rows[] = array_merge(
+                    $this->stockInsertPayload((string) $number, $gameId, $batch['id'], $now, $imageAssignments[$stockId] ?? null),
+                    ['id' => $stockId],
+                );
             }
 
             if ($rows !== []) {
                 StockItem::query()->insertOrIgnore($rows);
+                $this->dispatchCentralImageJobs(array_values($stockIds));
             }
 
             $generatedCount = StockItem::where('batch_id', $batch['id'])->count();
@@ -1253,9 +1286,9 @@ class CentralStockService
     /**
      * @return array<string, mixed>
      */
-    private function stockInsertPayload(string $number, string $gameId, string $batchId, mixed $now): array
+    private function stockInsertPayload(string $number, string $gameId, string $batchId, mixed $now, ?array $imageAssignment = null): array
     {
-        return [
+        return array_merge([
             'game_id' => $gameId,
             'batch_id' => $batchId,
             'full_number' => $number,
@@ -1270,7 +1303,17 @@ class CentralStockService
             'recalled_at' => null,
             'created_at' => $now,
             'updated_at' => $now,
-        ];
+        ], $imageAssignment ?? []);
+    }
+
+    /**
+     * @param array<int, string> $stockIds
+     */
+    private function dispatchCentralImageJobs(array $stockIds): void
+    {
+        foreach ($stockIds as $stockId) {
+            GenerateLotteryImageJob::dispatch((string) $stockId)->afterCommit();
+        }
     }
 
     private function activeTenantForPartnerExists(string $partnerId, string $tenantId): bool

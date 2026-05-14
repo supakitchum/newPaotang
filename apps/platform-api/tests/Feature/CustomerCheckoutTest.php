@@ -22,10 +22,20 @@ class CustomerCheckoutTest extends TestCase
             ->assertJsonPath('item_count', 1)
             ->assertJsonPath('total.amount', 10000);
 
+        DB::table('local_stock_items')->where('id', $world['local_ids'][0])->update([
+            'image_url' => 'https://cdn.lottery.test/lotteries/gam_checkout/batch/partners/par_checkout/stk_checkout.webp',
+            'image_thumb_url' => 'https://cdn.lottery.test/lotteries/gam_checkout/batch/partners/par_checkout/thumbs/stk_checkout.webp',
+            'image_generation_status' => 'generated',
+            'image_generated_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         $order = $this->checkoutWallet($world, 'checkout-wallet-main');
 
         $this->assertSame('paid', $order['status']);
         $this->assertCount(1, $order['tickets']);
+        $this->assertSame('https://cdn.lottery.test/lotteries/gam_checkout/batch/partners/par_checkout/stk_checkout.webp', $order['tickets'][0]['image_url']);
+        $this->assertSame('https://cdn.lottery.test/lotteries/gam_checkout/batch/partners/par_checkout/thumbs/stk_checkout.webp', $order['tickets'][0]['image_thumb_url']);
         $this->assertDatabaseHas('stock_reservations', [
             'id' => $world['reservation']['id'],
             'status' => 'converted',
@@ -72,6 +82,12 @@ class CustomerCheckoutTest extends TestCase
         $this->assertSame($order['id'], $replay['id']);
         $this->assertSame(1, DB::table('orders')->where('tenant_id', 'ten_checkout')->count());
         $this->assertSame(1, DB::table('tickets')->where('tenant_id', 'ten_checkout')->count());
+        $this->assertDatabaseHas('tickets', [
+            'tenant_id' => 'ten_checkout',
+            'order_id' => $order['id'],
+            'image_url' => 'https://cdn.lottery.test/lotteries/gam_checkout/batch/partners/par_checkout/stk_checkout.webp',
+            'image_thumb_url' => 'https://cdn.lottery.test/lotteries/gam_checkout/batch/partners/par_checkout/thumbs/stk_checkout.webp',
+        ]);
         $this->assertSame(2, DB::table('wallet_ledger')->where('wallet_id', $world['wallet_id'])->count());
 
         $this->withToken($world['auth']['token'])
@@ -82,6 +98,8 @@ class CustomerCheckoutTest extends TestCase
         $this->withToken($world['auth']['token'])
             ->getJson('http://'.$world['host'].'/api/v1/customer/tickets')
             ->assertOk()
-            ->assertJsonPath('data.0.id', $order['tickets'][0]['id']);
+            ->assertJsonPath('data.0.id', $order['tickets'][0]['id'])
+            ->assertJsonPath('data.0.image_url', 'https://cdn.lottery.test/lotteries/gam_checkout/batch/partners/par_checkout/stk_checkout.webp')
+            ->assertJsonPath('data.0.image_thumb_url', 'https://cdn.lottery.test/lotteries/gam_checkout/batch/partners/par_checkout/thumbs/stk_checkout.webp');
     }
 }

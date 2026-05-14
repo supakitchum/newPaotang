@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\CalculateCommissionsCommand;
+use App\Console\Commands\CheckPendingLotteryBackgroundsCommand;
 use App\Console\Commands\ExpireStockReservationsCommand;
 use App\Console\Commands\PlatformAlertsCheckCommand;
 use App\Console\Commands\PlatformAboutCommand;
@@ -43,6 +44,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ProcessRewardCheckCommand::class,
         CalculateCommissionsCommand::class,
         PrepareK6BaselineCommand::class,
+        CheckPendingLotteryBackgroundsCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([

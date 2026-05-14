@@ -25,6 +25,7 @@ App\Console\Commands\ProcessSoldSyncCommand
 App\Console\Commands\ProcessRewardCheckCommand
 App\Console\Commands\CalculateCommissionsCommand
 App\Console\Commands\PrepareK6BaselineCommand
+App\Console\Commands\CheckPendingLotteryBackgroundsCommand
 ```
 
 ## Registration Convention
@@ -53,6 +54,7 @@ withCommands([...])
 | `reward:check` | `reward:check {reward_result_id?} {--chunk=100}` | `App\Modules\Reward\Services\RewardService::processRewardCheck()` |
 | `commission:calculate` | `commission:calculate {order_id?} {--tenant_id=} {--limit=100}` | `App\Modules\Growth\Services\GrowthService::calculateCommissions()` |
 | `load-tests:k6:prepare` | `load-tests:k6:prepare {--output-json=} {--output-env=} {--base-url=} {--tenant-host=} {--stock-count=}` | local/dev M10 k6 fixture setup |
+| `lottery-images:check-pending-backgrounds` | `lottery-images:check-pending-backgrounds {--limit=500} {--dry-run}` | `App\Modules\CentralStock\Services\LotteryImageGenerator` plus image queue jobs |
 
 Command classes must delegate business behavior to the listed services. They should not duplicate tenant, wallet, reward, stock, or commission business rules.
 
@@ -72,6 +74,7 @@ stock:reservations:expire -> Expired reservations: <count>
 stock:sold:sync -> Processed sold events: <count>
 reward:check -> Processed reward tickets: <count>
 commission:calculate -> Calculated commission transactions: <count>
+lottery-images:check-pending-backgrounds -> Pending central/partner ready and dispatched counts
 ```
 
 ## Docker-Only Execution Examples
@@ -91,6 +94,7 @@ docker compose run --rm platform-api php artisan stock:reservations:expire --lim
 docker compose run --rm platform-api php artisan stock:sold:sync --limit=100
 docker compose run --rm platform-api php artisan reward:check --chunk=100
 docker compose run --rm platform-api php artisan commission:calculate --limit=100
+docker compose run --rm platform-api php artisan lottery-images:check-pending-backgrounds --dry-run
 ```
 
 Do not run `php artisan ...` directly on the host machine.

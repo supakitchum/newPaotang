@@ -2,6 +2,7 @@
 
 namespace App\Modules\PartnerStore\Services;
 
+use App\Jobs\GeneratePartnerLotteryImageJob;
 use App\Models\CustomerAuthSession;
 use App\Models\Game;
 use App\Models\LocalStockItem;
@@ -904,6 +905,8 @@ class PartnerStoreService
                 'stock_items.front3',
                 'stock_items.back3',
                 'stock_items.back2',
+                'stock_items.image_generation_status as central_image_generation_status',
+                'stock_items.image_generation_error as central_image_generation_error',
             ])
             ->orderBy('stock_items.id')
             ->get()
@@ -927,6 +930,11 @@ class PartnerStoreService
                 'back2' => $stock->back2,
                 'image_url' => null,
                 'image_thumb_url' => null,
+                'image_storage_path' => null,
+                'image_thumb_storage_path' => null,
+                'image_generation_status' => $stock->central_image_generation_status === 'pending_assets' ? 'pending_assets' : 'pending',
+                'image_generation_error' => $stock->central_image_generation_status === 'pending_assets' ? $stock->central_image_generation_error : null,
+                'image_generated_at' => null,
                 'status' => 'available',
                 'synced_at' => $now,
                 'reserved_at' => null,
@@ -958,6 +966,8 @@ class PartnerStoreService
                 ]);
         }
 
+        $this->dispatchPartnerImageJobs(array_map(fn (array $row): string => (string) $row['id'], $rows));
+
         SyncInbox::query()->where('event_id', $event->event_id)->update([
             'status' => 'processed',
             'processed_at' => $now,
@@ -971,6 +981,16 @@ class PartnerStoreService
         ]);
 
         return $inserted;
+    }
+
+    /**
+     * @param array<int, string> $localStockItemIds
+     */
+    private function dispatchPartnerImageJobs(array $localStockItemIds): void
+    {
+        foreach ($localStockItemIds as $localStockItemId) {
+            GeneratePartnerLotteryImageJob::dispatch($localStockItemId)->afterCommit();
+        }
     }
 
     /**
