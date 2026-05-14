@@ -2,7 +2,11 @@
 
 ## Final Commit Hash
 
-Customer implementation commit hash will be recorded after the scoped implementation commit is created.
+Customer implementation commit:
+
+```text
+afd79933a5eb146a7880650144a91ff021430137
+```
 
 Current HEAD before finalization work:
 
