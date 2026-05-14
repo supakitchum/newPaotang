@@ -62,6 +62,8 @@ for (const token of [
   'secrets_redacted',
   'mixTotal !== 100',
   'retryConfirmOpen',
+  'zipUploadMaxBytes = 500 * 1024 * 1024',
+  "zipUploadMaxLabel = '500 MB'",
 ]) {
   if (!component.includes(token)) {
     failures.push(`Lottery image operations component missing ${token}`)
@@ -76,6 +78,8 @@ for (const removedToken of [
   'thumb: { asset_id: assetForm.assets.thumb.asset_id }',
   'onAssetFileChange',
   'uploadAssetSlot',
+  'Zip size must be between 1 byte and 50 MB.',
+  '52_428_800',
 ]) {
   if (component.includes(removedToken)) {
     failures.push(`Lottery image operations component still contains old manual asset upload token ${removedToken}`)

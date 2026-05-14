@@ -799,6 +799,8 @@ const route = useRoute()
 const api = useAdminApi()
 const session = useAdminSession()
 
+const zipUploadMaxBytes = 500 * 1024 * 1024
+const zipUploadMaxLabel = '500 MB'
 const setTypes: SetType[] = ['odd', 'even', 'charity']
 const assetSlots: Array<{ key: AssetSlot, label: string }> = [
   { key: 'source', label: 'Source PNG' },
@@ -1452,8 +1454,8 @@ const validateZipFile = (file: File) => {
     return 'Upload must be a .zip file containing PNG files only.'
   }
 
-  if (file.size < 1 || file.size > 52_428_800) {
-    return 'Zip size must be between 1 byte and 50 MB.'
+  if (file.size < 1 || file.size > zipUploadMaxBytes) {
+    return `Zip size must be between 1 byte and ${zipUploadMaxLabel}.`
   }
 
   return ''
