@@ -1,0 +1,36 @@
+1913:  /admin/central/lottery-images/readiness:
+1941:                $ref: "#/components/schemas/LotteryImageReadiness"
+1946:  /admin/central/lottery-images/background-asset-sets:
+1969:                $ref: "#/components/schemas/LotteryImageBackgroundAssetSetList"
+1982:              $ref: "#/components/schemas/LotteryImageBackgroundAssetSetUpsertRequest"
+1989:                $ref: "#/components/schemas/LotteryImageBackgroundAssetSet"
+1996:  /admin/central/lottery-images/background-asset-sets/{asset_set_id}:
+2014:              $ref: "#/components/schemas/LotteryImageBackgroundAssetSetStatusRequest"
+2021:                $ref: "#/components/schemas/LotteryImageBackgroundAssetSet"
+2022:  /admin/central/lottery-images/mix:
+2040:                $ref: "#/components/schemas/LotteryImageMix"
+2053:              $ref: "#/components/schemas/LotteryImageMixUpdateRequest"
+2060:                $ref: "#/components/schemas/LotteryImageMix"
+2061:  /admin/central/lottery-images/retry-pending:
+2074:              $ref: "#/components/schemas/LotteryImageRetryPendingRequest"
+2081:                $ref: "#/components/schemas/LotteryImageRetryPendingResponse"
+2082:  /admin/central/lottery-images/production-readiness:
+2095:                $ref: "#/components/schemas/LotteryImageProductionReadiness"
+7505:    LotteryImageBackgroundAssetSetList:
+7512:            $ref: "#/components/schemas/LotteryImageBackgroundAssetSet"
+7526:    LotteryImageBackgroundAssetSet:
+7600:    LotteryImageBackgroundAssetSetUpsertRequest:
+7641:    LotteryImageBackgroundAssetSetStatusRequest:
+7651:    LotteryImageMix:
+7683:    LotteryImageMixUpdateRequest:
+7705:    LotteryImageReadiness:
+7736:          $ref: "#/components/schemas/LotteryImageMix"
+7738:          $ref: "#/components/schemas/LotteryImageProductionReadiness"
+7740:          $ref: "#/components/schemas/LotteryImageQueueReadiness"
+7751:    LotteryImageRetryPendingRequest:
+7777:    LotteryImageRetryPendingResponse:
+7808:    LotteryImageProductionReadiness:
+7840:          $ref: "#/components/schemas/LotteryImageQueueReadiness"
+7841:    LotteryImageQueueReadiness:
+
+exit_code=0

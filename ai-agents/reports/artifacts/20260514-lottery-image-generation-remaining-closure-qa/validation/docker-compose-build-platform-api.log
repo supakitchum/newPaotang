@@ -1,0 +1,52 @@
+ Image newpaotang-platform-api Building
+#1 [internal] load local bake definitions
+#1 reading from stdin 627B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 1.19kB done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/php:8.4-cli
+#3 ...
+
+#4 [auth] library/composer:pull token for registry-1.docker.io
+#4 DONE 0.0s
+
+#5 [auth] library/php:pull token for registry-1.docker.io
+#5 DONE 0.0s
+
+#6 [internal] load metadata for docker.io/library/composer:2
+#6 DONE 1.6s
+
+#3 [internal] load metadata for docker.io/library/php:8.4-cli
+#3 DONE 1.7s
+
+#7 [internal] load .dockerignore
+#7 transferring context: 106B done
+#7 DONE 0.0s
+
+#8 [base 1/4] FROM docker.io/library/php:8.4-cli@sha256:026ca9f219631274dc8ad045935485c9b9f3d4f44b2ec96649b64a07dba3bf1c
+#8 DONE 0.0s
+
+#9 FROM docker.io/library/composer:2@sha256:02062f7719ec9433a9d4256cfba1c792db96dc9db60a4a92e48264c9e166b877
+#9 DONE 0.0s
+
+#10 [base 2/4] RUN apt-get update     && apt-get install -y --no-install-recommends         git         unzip         libfreetype6-dev         libjpeg62-turbo-dev         libpng-dev         libwebp-dev         libpq-dev         libzip-dev         libonig-dev         libxml2-dev     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp     && docker-php-ext-install bcmath dom gd mbstring pcntl pdo_pgsql zip     && apt-get clean     && rm -rf /var/lib/apt/lists/*
+#10 CACHED
+
+#11 [base 3/4] COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+#11 CACHED
+
+#12 [base 4/4] WORKDIR /var/www/html
+#12 CACHED
+
+#13 exporting to image
+#13 exporting layers done
+#13 writing image sha256:6ae4c34e0a81f7a93d1f2088feb0bde9bf1cb1962b31b5a5451c64024dc02db2 done
+#13 naming to docker.io/library/newpaotang-platform-api done
+#13 DONE 0.0s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+ Image newpaotang-platform-api Built

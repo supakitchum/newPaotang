@@ -1,0 +1,14 @@
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-platform-api-run-e2a79b2c8f00 Creating
+ Container newpaotang-platform-api-run-e2a79b2c8f00 Created
+Pending central ready: 0
+Pending central dispatched: 0
+Pending partner ready: 0
+Pending partner dispatched: 0
+
+exit_code=0
