@@ -46,6 +46,7 @@ for (const token of [
   'new FormData()',
   "body.append('zip'",
   'Detected Images',
+  'Names are sorted automatically',
   'zipForm.progress',
   'previewForm.lottery_number',
   'mode: previewForm.mode',
@@ -86,6 +87,7 @@ for (const removedToken of [
   'PNG files only',
   'Import PNG zip',
   'Source PNG',
+  'Names must be sequential',
   "body.append('expected_count'",
   'expectedCountValid',
 ]) {

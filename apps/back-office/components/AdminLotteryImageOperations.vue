@@ -335,7 +335,7 @@
                   :disabled="zipImporting"
                   @change="onZipFileChange"
                 >
-                <div class="form-text">Root-level image files only. Names must be sequential, for example 001.png, 002.jpg, or 003.webp.</div>
+                <div class="form-text">Root-level image files only. Names are sorted automatically and saved as 001.png, 002.jpg, or 003.webp.</div>
               </div>
             </div>
 

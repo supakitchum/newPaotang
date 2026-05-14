@@ -356,7 +356,11 @@ class LotteryImageOperationsTest extends TestCase
                 'game_id' => 'gam_lottery_zip_ops',
                 'version' => 'v2',
                 'set_type' => 'charity',
-                'zip' => $this->imageZipUpload([1 => 'png', 2 => 'jpg', 3 => 'webp'], includeMacArtifacts: true),
+                'zip' => $this->namedImageZipUpload([
+                    'zeta background.webp' => 'webp',
+                    'alpha background.png' => 'png',
+                    'middle background.jpg' => 'jpg',
+                ], includeMacArtifacts: true),
             ], [
                 'X-Admin-Scope' => 'tenant',
                 'X-Tenant-Id' => 'ten_zip_ops',
@@ -370,7 +374,11 @@ class LotteryImageOperationsTest extends TestCase
                 'game_id' => 'gam_lottery_zip_ops',
                 'version' => 'v2',
                 'set_type' => 'charity',
-                'zip' => $this->imageZipUpload([1 => 'png', 2 => 'jpg', 3 => 'webp']),
+                'zip' => $this->namedImageZipUpload([
+                    'zeta background.webp' => 'webp',
+                    'alpha background.png' => 'png',
+                    'middle background.jpg' => 'jpg',
+                ]),
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'central-zip-import',
@@ -386,6 +394,9 @@ class LotteryImageOperationsTest extends TestCase
             ->assertJsonPath('data.0.assets.source.content_type', 'image/png')
             ->assertJsonPath('data.1.assets.source.content_type', 'image/jpeg')
             ->assertJsonPath('data.2.assets.source.content_type', 'image/webp')
+            ->assertJsonPath('data.0.assets.source.storage_path', 'lottery-image-assets/games/gam_lottery_zip_ops/backgrounds/v2/charity/001/source.png')
+            ->assertJsonPath('data.1.assets.source.storage_path', 'lottery-image-assets/games/gam_lottery_zip_ops/backgrounds/v2/charity/002/source.jpg')
+            ->assertJsonPath('data.2.assets.source.storage_path', 'lottery-image-assets/games/gam_lottery_zip_ops/backgrounds/v2/charity/003/source.webp')
             ->assertJsonPath('data.0.assets.full.content_type', 'image/webp')
             ->assertJsonPath('data.0.assets.thumb.content_type', 'image/webp')
             ->json();
@@ -413,25 +424,11 @@ class LotteryImageOperationsTest extends TestCase
             ->assertJsonPath('backgrounds.2.ready', true);
     }
 
-    public function test_LotteryImageZipImport_rejects_non_image_or_missing_sequence_zip(): void
+    public function test_LotteryImageZipImport_rejects_non_image_zip(): void
     {
         $this->seedDefaultRbac();
         $this->insertGame('gam_lottery_zip_invalid', 'open');
         $central = $this->createCentralSession(['asset.manage'], 'adm_lottery_zip_invalid', 'lottery-zip-invalid@example.test');
-
-        $this->withToken($central['access_token'])
-            ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
-                'game_id' => 'gam_lottery_zip_invalid',
-                'version' => 'v1',
-                'set_type' => 'odd',
-                'zip' => $this->pngZipUpload([1, 3]),
-            ], [
-                'X-Admin-Scope' => 'central',
-                'Idempotency-Key' => 'zip-wrong-count',
-            ])
-            ->assertUnprocessable()
-            ->assertJsonPath('error.code', 'validation_failed')
-            ->assertJsonPath('error.details.fields.zip.0', 'The zip file is missing 002 image file.');
 
         $this->withToken($central['access_token'])
             ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
@@ -706,6 +703,42 @@ class LotteryImageOperationsTest extends TestCase
         $zip->close();
 
         return new UploadedFile($path, 'backgrounds.zip', 'application/zip', null, true);
+    }
+
+    /**
+     * @param array<string, string> $entries
+     */
+    private function namedImageZipUpload(array $entries, bool $includeMacArtifacts = false): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'lottery-named-image-zip-');
+        $this->assertIsString($path);
+
+        $zip = new ZipArchive();
+        $this->assertTrue($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE));
+
+        $seed = 1;
+
+        foreach ($entries as $name => $extension) {
+            $extension = strtolower($extension);
+            $bytes = match ($extension) {
+                'jpg', 'jpeg' => $this->fixtureJpeg($seed),
+                'webp' => $this->fixtureSourceWebp($seed),
+                default => $this->fixturePng($seed),
+            };
+
+            $zip->addFromString($name, $bytes);
+            $seed++;
+        }
+
+        if ($includeMacArtifacts) {
+            $zip->addFromString('__MACOSX/._alpha background.png', 'macos resource fork');
+            $zip->addFromString('._middle background.jpg', 'macos root resource fork');
+            $zip->addFromString('.DS_Store', 'macos finder metadata');
+        }
+
+        $zip->close();
+
+        return new UploadedFile($path, 'named-backgrounds.zip', 'application/zip', null, true);
     }
 
     private function mixedZipUpload(): UploadedFile

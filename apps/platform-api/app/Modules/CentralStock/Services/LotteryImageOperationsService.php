@@ -175,7 +175,7 @@ class LotteryImageOperationsService
 
         $normalized['expected_count'] = (int) ($entries['detected_count'] ?? 0);
 
-        /** @var array<int, array{name: string, ordinal: int, extension: string, content_type: string, bytes: string, width: int, height: int, size_bytes: int, checksum: string}> $files */
+        /** @var array<int, array{name: string, sort_name: string, ordinal: int, normalized_name: string, extension: string, content_type: string, bytes: string, width: int, height: int, size_bytes: int, checksum: string}> $files */
         $files = $entries['files'];
         $expected = $this->expectedDimensions();
         $now = now();
@@ -205,7 +205,7 @@ class LotteryImageOperationsService
                     basename($sourceKey),
                     $file['content_type'],
                     $file['bytes'],
-                    ['width' => $file['width'], 'height' => $file['height'], 'source_zip_entry' => $file['name']],
+                    ['width' => $file['width'], 'height' => $file['height'], 'source_zip_entry' => $file['name'], 'normalized_zip_entry' => $file['normalized_name']],
                     $actor,
                 );
                 $fullAsset = $this->upsertGeneratedPlatformAsset(
@@ -265,6 +265,7 @@ class LotteryImageOperationsService
                         'metadata_json' => [
                             'imported_from_zip' => true,
                             'zip_entry' => $file['name'],
+                            'normalized_zip_entry' => $file['normalized_name'],
                             'expected_count' => $normalized['expected_count'],
                             'expected_dimensions' => $expected,
                             'supersede_existing' => $normalized['supersede_existing'],
@@ -892,7 +893,7 @@ class LotteryImageOperationsService
     }
 
     /**
-     * @return array{files?: array<int, array{name: string, ordinal: int, extension: string, content_type: string, bytes: string, width: int, height: int, size_bytes: int, checksum: string}>, detected_count?: int, errors?: array<string, array<int, string>>}
+     * @return array{files?: array<int, array{name: string, sort_name: string, ordinal: int, normalized_name: string, extension: string, content_type: string, bytes: string, width: int, height: int, size_bytes: int, checksum: string}>, detected_count?: int, errors?: array<string, array<int, string>>}
      */
     private function extractZipImageEntries(?UploadedFile $zipFile): array
     {
@@ -909,6 +910,7 @@ class LotteryImageOperationsService
 
         $errors = [];
         $files = [];
+        $validEntries = [];
         $expected = $this->expectedDimensions();
         $sourceLimit = $this->sizeLimitForSlot('source');
         $allowedMimes = config('lottery_images.background_asset_limits.allowed_source_mimes', ['image/webp', 'image/png', 'image/jpeg']);
@@ -939,16 +941,16 @@ class LotteryImageOperationsService
                     continue;
                 }
 
-                if (preg_match('/^(\d{3})\.([A-Za-z0-9]+)$/', $name, $matches) !== 1) {
-                    $errors['zip'][] = 'Each zip image entry must be named 001.png, 002.jpg, 003.webp, and so on.';
+                $extension = strtolower(pathinfo($basename, PATHINFO_EXTENSION));
+                $expectedMime = $allowedExtensions[$extension] ?? null;
+
+                if ($extension === '' || $expectedMime === null || ! in_array($expectedMime, $allowedMimes, true)) {
+                    $errors['zip'][] = 'The zip entry '.$name.' must use a supported image extension: png, jpg, jpeg, or webp.';
                     continue;
                 }
 
-                $extension = strtolower($matches[2]);
-                $expectedMime = $allowedExtensions[$extension] ?? null;
-
-                if ($expectedMime === null || ! in_array($expectedMime, $allowedMimes, true)) {
-                    $errors['zip'][] = 'The zip entry '.$name.' must use a supported image extension: png, jpg, jpeg, or webp.';
+                if (isset($validEntries[strtolower($basename)])) {
+                    $errors['zip'][] = 'The zip file contains duplicate image name '.$name.'.';
                     continue;
                 }
 
@@ -980,16 +982,9 @@ class LotteryImageOperationsService
                     continue;
                 }
 
-                $ordinal = (int) $matches[1];
-
-                if (isset($files[$ordinal])) {
-                    $errors['zip'][] = 'The zip file contains duplicate entry '.$name.'.';
-                    continue;
-                }
-
-                $files[$ordinal] = [
+                $validEntries[strtolower($basename)] = [
                     'name' => $name,
-                    'ordinal' => $ordinal,
+                    'sort_name' => $basename,
                     'extension' => $extension === 'jpeg' ? 'jpg' : $extension,
                     'content_type' => $mime,
                     'bytes' => $bytes,
@@ -1003,7 +998,16 @@ class LotteryImageOperationsService
             $archive->close();
         }
 
-        ksort($files);
+        usort($validEntries, static fn (array $left, array $right): int => strnatcasecmp((string) $left['sort_name'], (string) $right['sort_name']));
+
+        foreach (array_values($validEntries) as $index => $entry) {
+            $files[] = [
+                ...$entry,
+                'ordinal' => $index + 1,
+                'normalized_name' => str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT).'.'.$entry['extension'],
+            ];
+        }
+
         $detectedCount = count($files);
 
         if ($detectedCount < 1) {
@@ -1014,17 +1018,11 @@ class LotteryImageOperationsService
             $errors['zip'][] = 'The zip file must contain no more than 100 image files.';
         }
 
-        for ($position = 1; $position <= $detectedCount; $position++) {
-            if (! isset($files[$position])) {
-                $errors['zip'][] = 'The zip file is missing '.str_pad((string) $position, 3, '0', STR_PAD_LEFT).' image file.';
-            }
-        }
-
         if ($errors !== []) {
             return ['errors' => $errors];
         }
 
-        return ['files' => array_values($files), 'detected_count' => $detectedCount];
+        return ['files' => $files, 'detected_count' => $detectedCount];
     }
 
     private function isIgnoredMacZipEntry(string $name): bool

@@ -7637,7 +7637,7 @@ components:
         position:
           type: integer
           minimum: 1
-          description: Ordered background position derived from zip names such as 001.png.
+          description: Ordered background position assigned after naturally sorting root-level image filenames from the zip.
         status:
           type: string
           enum: [ready, inactive, retired]
@@ -7768,7 +7768,7 @@ components:
         zip:
           type: string
           format: binary
-          description: Root-level image-only zip containing sequential files such as 001.png, 002.jpg, or 003.webp. Supported source image extensions are png, jpg, jpeg, and webp. Maximum upload size follows the running PHP upload_max_filesize and post_max_size limits; the project Docker runtime sets lottery background uploads to 500M with post_max_size overhead.
+          description: Root-level image-only zip. Source filenames may be custom; the API naturally sorts image filenames and normalizes stored sources to 001.ext, 002.ext, and so on using the detected source extension. Supported source image extensions are png, jpg, jpeg, and webp. Maximum upload size follows the running PHP upload_max_filesize and post_max_size limits; the project Docker runtime sets lottery background uploads to 500M with post_max_size overhead.
     LotteryImageBackgroundZipImportResponse:
       type: object
       required: [data, meta]

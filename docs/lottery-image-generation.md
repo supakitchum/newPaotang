@@ -367,13 +367,13 @@ even-v1.zip
 charity-v1.zip
 ```
 
-Each zip should contain stable ordered files:
+Each zip may contain custom root-level image filenames:
 
 ```text
-001.png
-002.jpg
+odd-background-front.png
+odd background 2.jpg
 ...
-100.webp
+charity-final.webp
 ```
 
 Upload handling should:
@@ -382,7 +382,7 @@ Upload handling should:
 accept one set at a time
 detect image count from ordered zip entries
 validate source image extension, MIME type, and dimensions
-normalize names to 001..N
+sort image filenames naturally and normalize names to 001..N with the detected extension
 generate full/thumb WebP variants server-side from image sources
 store source/normalized backgrounds in private S3-compatible storage or the local game asset path for local/dev fixtures
 mark the set ready only when validation passes
@@ -426,7 +426,7 @@ thumb
 
 State-changing background endpoints require `Idempotency-Key` and central `asset.manage`. Readiness and retry endpoints remain central-only; retry dispatches only rows whose original assigned set is ready and never falls back to another set type.
 
-The zip import endpoint is central-only and accepts one multipart `zip` upload per `game_id`, `version`, and `set_type`. Zip entries must be root-level image files named sequentially, such as `001.png`, `002.jpg`, and `003.webp`, with no gaps, unsafe paths, folders, or non-image file types. The backend writes the source image with its detected extension plus generated full/thumb WebP variants, then registers ordered background asset set rows only after those generated variants are present.
+The zip import endpoint is central-only and accepts one multipart `zip` upload per `game_id`, `version`, and `set_type`. Zip entries must be root-level image files with safe names, supported extensions (`png`, `jpg`, `jpeg`, `webp`), no unsafe paths, folders, or non-image file types. The backend naturally sorts the original image filenames, writes each source image with a normalized name such as `001.{ext}`, and writes generated full/thumb WebP variants before registering ordered background asset set rows.
 
 Preview endpoints render a transient image from `lottery_number` without creating stock rows, permanent image rows, or partner branding locks. `/lottery-images/preview` defaults to `central_unbranded` even when `partner_id` is supplied; `partner_branded` must be requested explicitly and falls back with a warning if partner branding assets are not ready. `/partners/{partner_id}/lottery-branding/preview` uses the route partner and rejects a different body `partner_id`.
 
