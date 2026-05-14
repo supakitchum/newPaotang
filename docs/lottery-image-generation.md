@@ -338,6 +338,7 @@ Central BO upload form requirements:
 ```text
 route: central partner detail or /admin/central/partners/{partner_id}/lottery-branding
 fields: logo_qr, right_sidebar, logo_bottom
+accepted source files: image extensions such as png, jpg, jpeg, webp, or gif
 show current asset previews
 show lock status and generated image count
 disable save/replace actions when locked

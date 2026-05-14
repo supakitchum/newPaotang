@@ -42,7 +42,8 @@ for (const token of [
   'side_effects',
   'generated_image_count',
   'branding?.locked',
-  'image/png,image/webp',
+  'accept="image/*"',
+  "new Set(['png', 'jpg', 'jpeg', 'webp', 'gif'])",
   '5 * 1024 * 1024',
 ]) {
   if (!component.includes(token)) {

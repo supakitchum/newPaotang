@@ -20,7 +20,7 @@ class PartnerLotteryBrandingAssetTest extends TestCase
         $tenant = $this->createTenantSession('ten_branding', 'par_branding', ['asset.manage'], 'adm_branding_tenant', 'branding-tenant@example.test');
 
         $assetIds = [
-            'logo_qr' => $this->insertCentralImageAsset('ast_logo_qr', 'logo-qr.webp'),
+            'logo_qr' => $this->insertCentralImageAsset('ast_logo_qr', 'logo-qr.jpg', 'image/jpeg'),
             'right_sidebar' => $this->insertCentralImageAsset('ast_right_sidebar', 'right-sidebar.webp'),
             'logo_bottom' => $this->insertCentralImageAsset('ast_logo_bottom', 'logo-bottom.webp'),
         ];
@@ -66,6 +66,7 @@ class PartnerLotteryBrandingAssetTest extends TestCase
             ->assertJsonPath('status', 'ready')
             ->assertJsonPath('locked', false)
             ->assertJsonPath('assets.logo_qr.asset_id', $assetIds['logo_qr'])
+            ->assertJsonPath('assets.logo_qr.content_type', 'image/jpeg')
             ->json();
 
         $this->assertSame($saved, $this->withToken($central['access_token'])
@@ -135,7 +136,7 @@ class PartnerLotteryBrandingAssetTest extends TestCase
             ->assertJsonPath('error.code', 'resource_conflict');
     }
 
-    private function insertCentralImageAsset(string $assetId, string $fileName): string
+    private function insertCentralImageAsset(string $assetId, string $fileName, string $contentType = 'image/webp'): string
     {
         DB::table('platform_assets')->insert([
             'id' => $assetId,
@@ -144,7 +145,7 @@ class PartnerLotteryBrandingAssetTest extends TestCase
             'created_by_admin_id' => null,
             'purpose' => 'ticket_image',
             'file_name' => $fileName,
-            'content_type' => 'image/webp',
+            'content_type' => $contentType,
             'size_bytes' => 1024,
             'checksum_sha256' => hash('sha256', $assetId),
             'status' => 'committed',

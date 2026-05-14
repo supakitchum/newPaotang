@@ -201,11 +201,11 @@
                   :id="`branding-file-${slot.key}`"
                   class="form-control"
                   type="file"
-                  accept="image/png,image/webp"
+                  accept="image/*"
                   :disabled="isLocked || saving || slotState[slot.key].uploading"
                   @change="onFileChange(slot.key, $event)"
                 >
-                <div class="form-text">PNG or WebP, up to 5 MB.</div>
+                <div class="form-text">Image file, up to 5 MB.</div>
               </div>
 
               <AdminAlert v-if="slotState[slot.key].error" type="danger" :message="slotState[slot.key].error" />
@@ -671,9 +671,13 @@ const assetMetadata = (slot: BrandingSlot) => {
   ]
 }
 
+const allowedImageExtensions = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif'])
+
 const validateFile = (file: File) => {
-  if (!['image/png', 'image/webp'].includes(file.type)) {
-    return 'Only PNG or WebP images are accepted.'
+  const extension = file.name.split('.').pop()?.toLowerCase() || ''
+
+  if (!allowedImageExtensions.has(extension)) {
+    return 'Only image files are accepted.'
   }
 
   if (file.size < 1 || file.size > 5 * 1024 * 1024) {
