@@ -2,6 +2,10 @@
   <div>
     <AdminPageHeader title="Central Dashboard" :breadcrumbs="['Admin', 'Central', 'Dashboard']">
       <template #actions>
+        <NuxtLink to="/admin/central/lottery-images" class="btn btn-light btn-wave">
+          <i class="ri-image-2-line me-1" />
+          Lottery Images
+        </NuxtLink>
         <button class="btn btn-primary btn-wave" type="button" @click="load">
           <i class="ri-refresh-line me-1" />
           Refresh
