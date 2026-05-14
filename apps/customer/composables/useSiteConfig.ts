@@ -1,3 +1,5 @@
+import { toSerializableError, type SerializableError } from '~/utils/serializableError'
+
 export interface SiteConfig {
   site?: {
     site_name?: string
@@ -92,7 +94,7 @@ const checkoutPaymentRoutes = ['/checkout', '/topup']
 
 export const useSiteConfig = () => {
   const config = useState<SiteConfig | null>('site_config', () => null)
-  const error = useState<any>('site_config_error', () => null)
+  const error = useState<SerializableError | null>('site_config_error', () => null)
   const isLoading = useState<boolean>('site_config_loading', () => false)
   const runtimeApiBaseUrl = useState<string>('platform_api_base_url')
   const axios = useAxios()
@@ -153,8 +155,8 @@ export const useSiteConfig = () => {
         setSiteConfig(nextConfig)
 
         return nextConfig
-      } catch (e: any) {
-        error.value = e
+      } catch (e) {
+        error.value = toSerializableError(e)
         setSiteConfig(null)
 
         return null
@@ -232,4 +234,3 @@ export const useSiteConfig = () => {
     isWriteBlockedByMaintenance
   }
 }
-

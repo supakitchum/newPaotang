@@ -1,5 +1,6 @@
 import { computed } from 'vue'
 import type { CartLottery } from '~/composables/useCart'
+import { toSerializableError, type SerializableError } from '~/utils/serializableError'
 import { formatDrawDateText } from '~/utils/formatDrawDate'
 
 export const APP_INIT_TTL_MS = 60 * 1000
@@ -146,7 +147,7 @@ export const useAppInit = () => {
   const fetchedAt = useState<number>('app_init_fetched_at', () => 0)
   const isLoading = useState<boolean>('app_init_loading', () => false)
   const isReady = useState<boolean>('app_init_ready', () => false)
-  const error = useState<unknown>('app_init_error', () => null)
+  const error = useState<SerializableError | null>('app_init_error', () => null)
   const platformApi = usePlatformApi()
   const { items, setCartItems } = useCart()
 
@@ -201,7 +202,7 @@ export const useAppInit = () => {
         return nextData
       } catch (e) {
         if (requestVersion === initFetchVersion) {
-          error.value = e
+          error.value = toSerializableError(e)
         }
 
         return data.value
