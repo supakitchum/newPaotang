@@ -391,7 +391,7 @@ trigger pending image generation for that game and set_type
 Suggested private object keys:
 
 ```text
-lottery-image-assets/games/{game_id}/backgrounds/{version}/{set_type}/001/source.{ext}
+lottery-image-assets/games/{game_id}/backgrounds/{version}/{set_type}/001/001.{ext}
 lottery-image-assets/games/{game_id}/backgrounds/{version}/{set_type}/001/full.webp
 lottery-image-assets/games/{game_id}/backgrounds/{version}/{set_type}/001/thumb.webp
 ```

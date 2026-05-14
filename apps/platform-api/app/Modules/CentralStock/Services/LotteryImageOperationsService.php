@@ -190,7 +190,7 @@ class LotteryImageOperationsService
             foreach ($files as $file) {
                 $position = (int) $file['ordinal'];
                 $baseKey = 'lottery-image-assets/games/'.$normalized['game_id'].'/backgrounds/'.$normalized['version'].'/'.$normalized['set_type'].'/'.str_pad((string) $position, 3, '0', STR_PAD_LEFT);
-                $sourceKey = $baseKey.'/source.'.$file['extension'];
+                $sourceKey = $baseKey.'/'.$file['normalized_name'];
                 $fullKey = $baseKey.'/full.webp';
                 $thumbKey = $baseKey.'/thumb.webp';
                 $fullBytes = $this->renderBackgroundVariant($file['bytes'], 'full');
@@ -205,7 +205,7 @@ class LotteryImageOperationsService
                     basename($sourceKey),
                     $file['content_type'],
                     $file['bytes'],
-                    ['width' => $file['width'], 'height' => $file['height'], 'source_zip_entry' => $file['name'], 'normalized_zip_entry' => $file['normalized_name']],
+                    ['width' => $file['width'], 'height' => $file['height'], 'zip_entry' => $file['normalized_name']],
                     $actor,
                 );
                 $fullAsset = $this->upsertGeneratedPlatformAsset(
@@ -213,7 +213,7 @@ class LotteryImageOperationsService
                     basename($fullKey),
                     'image/webp',
                     $fullBytes,
-                    ['width' => $expected['full']['width'], 'height' => $expected['full']['height'], 'source_zip_entry' => $file['name']],
+                    ['width' => $expected['full']['width'], 'height' => $expected['full']['height'], 'source_zip_entry' => $file['normalized_name']],
                     $actor,
                 );
                 $thumbAsset = $this->upsertGeneratedPlatformAsset(
@@ -221,7 +221,7 @@ class LotteryImageOperationsService
                     basename($thumbKey),
                     'image/webp',
                     $thumbBytes,
-                    ['width' => $expected['thumb']['width'], 'height' => $expected['thumb']['height'], 'source_zip_entry' => $file['name']],
+                    ['width' => $expected['thumb']['width'], 'height' => $expected['thumb']['height'], 'source_zip_entry' => $file['normalized_name']],
                     $actor,
                 );
                 $existing = LotteryImageBackgroundAssetSet::query()
@@ -264,8 +264,7 @@ class LotteryImageOperationsService
                         'retired_at' => $normalized['status'] === 'retired' ? $now : null,
                         'metadata_json' => [
                             'imported_from_zip' => true,
-                            'zip_entry' => $file['name'],
-                            'normalized_zip_entry' => $file['normalized_name'],
+                            'zip_entry' => $file['normalized_name'],
                             'expected_count' => $normalized['expected_count'],
                             'expected_dimensions' => $expected,
                             'supersede_existing' => $normalized['supersede_existing'],

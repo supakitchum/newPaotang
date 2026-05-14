@@ -3,6 +3,7 @@
 /.phpunit.cache
 /bootstrap/cache/*.php
 /storage/*.key
+/storage/app/lottery-images/
 /storage/logs/*.log
 /storage/framework/testing/*
 !/storage/framework/testing/.gitkeep
