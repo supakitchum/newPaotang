@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-05-14T10:30:23.074Z",
+  "results": [
+    {
+      "url": "http://localhost:3000/search",
+      "finalUrl": "http://localhost:3000/result",
+      "snapshot": "- heading \"500\" [level=1]\n- paragraph: Cannot stringify arbitrary non-POJOs\n- text: at flatten (./node_modules/devalue/src/stringify.js:140:13) at flatten (./node_modules/devalue/src/stringify.js:168:43) at flatten (./node_modules/devalue/src/stringify.js:168:43) at flatten (./node_modules/devalue/src/stringify.js:60:39) at stringify (./node_modules/devalue/src/stringify.js:180:16) at renderPayloadJsonScript (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:400:32)\n- generic: at (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:270:318)\n- text: at process.processTicksAndRejections (node:internal/process/task_queues:103:5) at async Object.handler (./node_modules/nitropack/dist/runtime/renderer.mjs:19:22) at async ./node_modules/h3/dist/index.mjs:2017:19"
+    },
+    {
+      "url": "http://localhost:3000/checkout",
+      "finalUrl": "http://localhost:3000/login?redirect=/checkout",
+      "snapshot": "- heading \"500\" [level=1]\n- paragraph: Cannot stringify arbitrary non-POJOs\n- text: at flatten (./node_modules/devalue/src/stringify.js:140:13) at flatten (./node_modules/devalue/src/stringify.js:168:43) at flatten (./node_modules/devalue/src/stringify.js:168:43) at flatten (./node_modules/devalue/src/stringify.js:60:39) at stringify (./node_modules/devalue/src/stringify.js:180:16) at renderPayloadJsonScript (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:400:32)\n- generic: at (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:270:318)\n- text: at process.processTicksAndRejections (node:internal/process/task_queues:103:5) at async Object.handler (./node_modules/nitropack/dist/runtime/renderer.mjs:19:22) at async ./node_modules/h3/dist/index.mjs:2017:19"
+    },
+    {
+      "url": "http://localhost:3000/success",
+      "finalUrl": "http://localhost:3000/login?redirect=/success",
+      "snapshot": "- heading \"500\" [level=1]\n- paragraph: Cannot stringify arbitrary non-POJOs\n- text: at flatten (./node_modules/devalue/src/stringify.js:140:13) at flatten (./node_modules/devalue/src/stringify.js:168:43) at flatten (./node_modules/devalue/src/stringify.js:168:43) at flatten (./node_modules/devalue/src/stringify.js:60:39) at stringify (./node_modules/devalue/src/stringify.js:180:16) at renderPayloadJsonScript (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:400:32)\n- generic: at (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:270:318)\n- text: at process.processTicksAndRejections (node:internal/process/task_queues:103:5) at async Object.handler (./node_modules/nitropack/dist/runtime/renderer.mjs:19:22) at async ./node_modules/h3/dist/index.mjs:2017:19"
+    },
+    {
+      "url": "http://localhost:3000/tickets",
+      "finalUrl": "http://localhost:3000/login?redirect=/tickets",
+      "snapshot": "- heading \"500\" [level=1]\n- paragraph: Cannot stringify arbitrary non-POJOs\n- text: at flatten (./node_modules/devalue/src/stringify.js:140:13) at flatten (./node_modules/devalue/src/stringify.js:168:43) at flatten (./node_modules/devalue/src/stringify.js:168:43) at flatten (./node_modules/devalue/src/stringify.js:60:39) at stringify (./node_modules/devalue/src/stringify.js:180:16) at renderPayloadJsonScript (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:400:32)\n- generic: at (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:270:318)\n- text: at process.processTicksAndRejections (node:internal/process/task_queues:103:5) at async Object.handler (./node_modules/nitropack/dist/runtime/renderer.mjs:19:22) at async ./node_modules/h3/dist/index.mjs:2017:19"
+    }
+  ]
+}

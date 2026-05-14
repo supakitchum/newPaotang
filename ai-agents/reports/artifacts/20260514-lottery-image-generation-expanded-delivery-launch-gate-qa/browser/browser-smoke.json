@@ -1,0 +1,35 @@
+{
+  "generated_at": "2026-05-14T10:29:55.905Z",
+  "results": [
+    {
+      "url": "http://localhost:3100/admin/central/lottery-images",
+      "finalUrl": "http://localhost:3100/login?redirect=/admin/central/lottery-images",
+      "snapshot": "- heading \"NewPaotang Back Office\" [level=1]\n- paragraph: Central and tenant operations, rendered through backend RBAC menus and Meno dashboard patterns.\n- img \"NewPaotang\"\n- heading \"Admin sign in\" [level=4]\n- paragraph: Use an approved central or tenant admin account.\n- generic: Email\n- textbox\n- generic: Password\n- textbox\n- generic: Scope\n- combobox:\n  - option \"Central\" [selected]\n  - option \"Tenant\"\n- generic: Tenant ID\n- textbox \"Required for tenant login\" [disabled]\n- button \"Sign in\"\n- generic: \n- text: Backend authorization remains the source of truth after login."
+    },
+    {
+      "url": "http://localhost:3100/admin/central/dashboard",
+      "finalUrl": "http://localhost:3100/login?redirect=/admin/central/dashboard",
+      "snapshot": "- heading \"NewPaotang Back Office\" [level=1]\n- paragraph: Central and tenant operations, rendered through backend RBAC menus and Meno dashboard patterns.\n- img \"NewPaotang\"\n- heading \"Admin sign in\" [level=4]\n- paragraph: Use an approved central or tenant admin account.\n- generic: Email\n- textbox\n- generic: Password\n- textbox\n- generic: Scope\n- combobox:\n  - option \"Central\" [selected]\n  - option \"Tenant\"\n- generic: Tenant ID\n- textbox \"Required for tenant login\" [disabled]\n- button \"Sign in\"\n- generic: \n- text: Backend authorization remains the source of truth after login."
+    },
+    {
+      "url": "http://localhost:3000/search",
+      "finalUrl": "http://localhost:3000/search",
+      "snapshot": "- heading \"500\" [level=1]\n- paragraph: Package import specifier \"#internal/nuxt/paths\" is not defined in package /app/package.json imported from /app/.nuxt/dist/server/server.mjs\n- generic: \"at importNotDefined (node:internal/modules/esm/resolve:301:10) at packageImportsResolve (node:internal/modules/esm/resolve:751:9) at moduleResolve (node:internal/modules/esm/resolve:844:16) at defaultResolve (node:internal/modules/esm/resolve:985:11) at #cachedDefaultResolve (node:internal/modules/esm/loader:731:20) at ModuleLoader.resolve (node:internal/modules/esm/loader:708:38) at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:310:38) at ModuleJob._link (node:internal/modules/esm/module_job:182:49) at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\""
+    },
+    {
+      "url": "http://localhost:3000/checkout",
+      "finalUrl": "http://localhost:3000/checkout",
+      "snapshot": "- heading \"500\" [level=1]\n- paragraph: Package import specifier \"#internal/nuxt/paths\" is not defined in package /app/package.json imported from /app/.nuxt/dist/server/server.mjs\n- generic: \"at importNotDefined (node:internal/modules/esm/resolve:301:10) at packageImportsResolve (node:internal/modules/esm/resolve:751:9) at moduleResolve (node:internal/modules/esm/resolve:844:16) at defaultResolve (node:internal/modules/esm/resolve:985:11) at #cachedDefaultResolve (node:internal/modules/esm/loader:731:20) at ModuleLoader.resolve (node:internal/modules/esm/loader:708:38) at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:310:38) at ModuleJob._link (node:internal/modules/esm/module_job:182:49) at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\""
+    },
+    {
+      "url": "http://localhost:3000/success",
+      "finalUrl": "http://localhost:3000/success",
+      "snapshot": "- heading \"500\" [level=1]\n- paragraph: Package import specifier \"#internal/nuxt/paths\" is not defined in package /app/package.json imported from /app/.nuxt/dist/server/server.mjs\n- generic: \"at importNotDefined (node:internal/modules/esm/resolve:301:10) at packageImportsResolve (node:internal/modules/esm/resolve:751:9) at moduleResolve (node:internal/modules/esm/resolve:844:16) at defaultResolve (node:internal/modules/esm/resolve:985:11) at #cachedDefaultResolve (node:internal/modules/esm/loader:731:20) at ModuleLoader.resolve (node:internal/modules/esm/loader:708:38) at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:310:38) at ModuleJob._link (node:internal/modules/esm/module_job:182:49) at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\""
+    },
+    {
+      "url": "http://localhost:3000/tickets",
+      "finalUrl": "http://localhost:3000/tickets",
+      "snapshot": "- heading \"500\" [level=1]\n- paragraph: Package import specifier \"#internal/nuxt/paths\" is not defined in package /app/package.json imported from /app/.nuxt/dist/server/server.mjs\n- generic: \"at importNotDefined (node:internal/modules/esm/resolve:301:10) at packageImportsResolve (node:internal/modules/esm/resolve:751:9) at moduleResolve (node:internal/modules/esm/resolve:844:16) at defaultResolve (node:internal/modules/esm/resolve:985:11) at #cachedDefaultResolve (node:internal/modules/esm/loader:731:20) at ModuleLoader.resolve (node:internal/modules/esm/loader:708:38) at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:310:38) at ModuleJob._link (node:internal/modules/esm/module_job:182:49) at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\""
+    }
+  ]
+}

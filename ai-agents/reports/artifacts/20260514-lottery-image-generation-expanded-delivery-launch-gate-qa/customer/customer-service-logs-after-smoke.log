@@ -1,0 +1,200 @@
+customer-1  |   at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:310:38)
+customer-1  |   at ModuleJob._link (node:internal/modules/esm/module_job:182:49)
+customer-1  |   at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+customer-1  |
+customer-1  |
+customer-1  |  ERROR  [nuxt] [request error] [unhandled] [500] Package import specifier "#internal/nuxt/paths" is not defined in package /app/package.json imported from /app/.nuxt/dist/server/server.mjs
+customer-1  |   at importNotDefined (node:internal/modules/esm/resolve:301:10)
+customer-1  |   at packageImportsResolve (node:internal/modules/esm/resolve:751:9)
+customer-1  |   at moduleResolve (node:internal/modules/esm/resolve:844:16)
+customer-1  |   at defaultResolve (node:internal/modules/esm/resolve:985:11)
+customer-1  |   at #cachedDefaultResolve (node:internal/modules/esm/loader:731:20)
+customer-1  |   at ModuleLoader.resolve (node:internal/modules/esm/loader:708:38)
+customer-1  |   at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:310:38)
+customer-1  |   at ModuleJob._link (node:internal/modules/esm/module_job:182:49)
+customer-1  |   at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+customer-1  |
+customer-1  | npm notice
+customer-1  | npm notice New major version of npm available! 10.9.7 -> 11.14.1
+customer-1  | npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.14.1
+customer-1  | npm notice To update run: npm install -g npm@11.14.1
+customer-1  | npm notice
+customer-1  |
+customer-1  | > dev
+customer-1  | > nuxt dev --host 0.0.0.0 --port 3000
+customer-1  |
+customer-1  | Nuxt 3.11.2 with Nitro 2.9.6
+customer-1  |
+customer-1  |  ERROR  (node:18) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+customer-1  | (Use node --trace-deprecation ... to show where the warning was created)
+customer-1  |
+customer-1  |
+customer-1  |
+customer-1  |               █▀▀▀▀▀▀▀█▀██▀▀███▀█▀▀▀▀▀▀▀█
+customer-1  |               █ █▀▀▀█ █▄▄ ▀  ▀███ █▀▀▀█ █
+customer-1  |               █ █   █ █▀▀ ▀█ ██ █ █   █ █
+customer-1  |               █ ▀▀▀▀▀ █ █▀▄▀▄▀█▀█ ▀▀▀▀▀ █
+customer-1  |               █▀▀▀██▀▀█ ▀ ▄▄█ ▄ ▀▀▀▀██▀▀█
+customer-1  |               █ ▀▀ ▀▄▀▀█▄▄▀█▀  ▀  ██ ▀▄ █
+customer-1  |               ██   ▄▄▀██ █▀▀█▀▀█▀ ▄█▄██▀█
+customer-1  |               █▀     ▀▄▀▄██ ▀  ▀█▄█▀▀▀▄ █
+customer-1  |               █▀▀▀▄ ▄▀▄▀█▀▄▄█▀▄ ▀ ▀▀██▀██
+customer-1  |               █▀▀▀▀▀▀▀█▄  ▀█▀ █ █▀█ ▀▄█ █
+customer-1  |               █ █▀▀▀█ █▄▀ ▀▀█▀▀ ▀▀▀ ▀█▄ █
+customer-1  |               █ █   █ █▀█▄█ ▄█▀ ██  ▄▄ ▀█
+customer-1  |               █ ▀▀▀▀▀ █ ▀█▄ ▀   ▀█▄▄▀██▀█
+customer-1  |               ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+customer-1  |
+customer-1  |   ➜ Local:    http://0.0.0.0:3000/
+customer-1  |   ➜ Network:  http://172.22.0.6:3000/ [QR code]
+customer-1  |
+customer-1  |
+customer-1  |  ERROR  (node:26) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+customer-1  | (Use node --trace-deprecation ... to show where the warning was created)
+customer-1  |
+customer-1  | ℹ Vite client warmed up in 2589ms
+customer-1  | ℹ Vite server warmed up in 2727ms
+customer-1  | [nitro] ✔ Nuxt Nitro server built in 1108 ms
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  ERROR  [nuxt] [request error] [unhandled] [500] Cannot stringify arbitrary non-POJOs
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:140:13)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:168:43)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:168:43)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:60:39)
+customer-1  |   at stringify (./node_modules/devalue/src/stringify.js:180:16)
+customer-1  |   at renderPayloadJsonScript (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:400:32)
+customer-1  |   at <anonymous> (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:270:318)
+customer-1  |   at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+customer-1  |   at async Object.handler (./node_modules/nitropack/dist/runtime/renderer.mjs:19:22)
+customer-1  |   at async ./node_modules/h3/dist/index.mjs:2017:19
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  ERROR  [nuxt] [request error] [unhandled] [500] Cannot stringify arbitrary non-POJOs
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:140:13)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:168:43)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:168:43)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:60:39)
+customer-1  |   at stringify (./node_modules/devalue/src/stringify.js:180:16)
+customer-1  |   at renderPayloadJsonScript (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:400:32)
+customer-1  |   at <anonymous> (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:270:318)
+customer-1  |   at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+customer-1  |   at async Object.handler (./node_modules/nitropack/dist/runtime/renderer.mjs:19:22)
+customer-1  |   at async ./node_modules/h3/dist/index.mjs:2017:19
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  ERROR  [nuxt] [request error] [unhandled] [500] Cannot stringify arbitrary non-POJOs
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:140:13)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:168:43)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:168:43)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:60:39)
+customer-1  |   at stringify (./node_modules/devalue/src/stringify.js:180:16)
+customer-1  |   at renderPayloadJsonScript (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:400:32)
+customer-1  |   at <anonymous> (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:270:318)
+customer-1  |   at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+customer-1  |   at async Object.handler (./node_modules/nitropack/dist/runtime/renderer.mjs:19:22)
+customer-1  |   at async ./node_modules/h3/dist/index.mjs:2017:19
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  ERROR  [nuxt] [request error] [unhandled] [500] Cannot stringify arbitrary non-POJOs
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:140:13)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:168:43)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:168:43)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:60:39)
+customer-1  |   at stringify (./node_modules/devalue/src/stringify.js:180:16)
+customer-1  |   at renderPayloadJsonScript (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:400:32)
+customer-1  |   at <anonymous> (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:270:318)
+customer-1  |   at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+customer-1  |   at async Object.handler (./node_modules/nitropack/dist/runtime/renderer.mjs:19:22)
+customer-1  |   at async ./node_modules/h3/dist/index.mjs:2017:19
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  ERROR  [nuxt] [request error] [unhandled] [500] Cannot stringify arbitrary non-POJOs
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:140:13)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:168:43)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:168:43)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:60:39)
+customer-1  |   at stringify (./node_modules/devalue/src/stringify.js:180:16)
+customer-1  |   at renderPayloadJsonScript (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:400:32)
+customer-1  |   at <anonymous> (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:270:318)
+customer-1  |   at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+customer-1  |   at async Object.handler (./node_modules/nitropack/dist/runtime/renderer.mjs:19:22)
+customer-1  |   at async ./node_modules/h3/dist/index.mjs:2017:19
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  ERROR  [nuxt] [request error] [unhandled] [500] Cannot stringify arbitrary non-POJOs
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:140:13)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:168:43)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:168:43)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:60:39)
+customer-1  |   at stringify (./node_modules/devalue/src/stringify.js:180:16)
+customer-1  |   at renderPayloadJsonScript (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:400:32)
+customer-1  |   at <anonymous> (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:270:318)
+customer-1  |   at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+customer-1  |   at async Object.handler (./node_modules/nitropack/dist/runtime/renderer.mjs:19:22)
+customer-1  |   at async ./node_modules/h3/dist/index.mjs:2017:19
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  ERROR  [nuxt] [request error] [unhandled] [500] Cannot stringify arbitrary non-POJOs
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:140:13)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:168:43)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:168:43)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:60:39)
+customer-1  |   at stringify (./node_modules/devalue/src/stringify.js:180:16)
+customer-1  |   at renderPayloadJsonScript (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:400:32)
+customer-1  |   at <anonymous> (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:270:318)
+customer-1  |   at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+customer-1  |   at async Object.handler (./node_modules/nitropack/dist/runtime/renderer.mjs:19:22)
+customer-1  |   at async ./node_modules/h3/dist/index.mjs:2017:19
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  ERROR  [nuxt] [request error] [unhandled] [500] Cannot stringify arbitrary non-POJOs
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:140:13)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:168:43)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:168:43)
+customer-1  |   at flatten (./node_modules/devalue/src/stringify.js:60:39)
+customer-1  |   at stringify (./node_modules/devalue/src/stringify.js:180:16)
+customer-1  |   at renderPayloadJsonScript (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:400:32)
+customer-1  |   at <anonymous> (./node_modules/nuxt/dist/core/runtime/nitro/renderer.js:270:318)
+customer-1  |   at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+customer-1  |   at async Object.handler (./node_modules/nitropack/dist/runtime/renderer.mjs:19:22)
+customer-1  |   at async ./node_modules/h3/dist/index.mjs:2017:19
+customer-1  |

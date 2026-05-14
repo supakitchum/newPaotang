@@ -5,28 +5,28 @@
 ## Active Task
 
 ```text
-lottery-image-generation-expanded-delivery
+lottery-image-customer-ssr-error-serialization-remediation
 ```
 
 ## Agent Status
 
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
-| Coordinator | completed | 20260514-lottery-image-generation-remaining-closure-qa-review | ai-agents/handoffs/20260514-lottery-image-generation-expanded-delivery-coordinator-handoff.md |
-| Orchestrator | pending | lottery-image-generation-expanded-delivery | ai-agents/handoffs/20260514-lottery-image-generation-expanded-delivery-coordinator-handoff.md |
-| Backend Develop | completed | lottery-image-generation-remaining-closure | ai-agents/handoffs/20260514-lottery-image-generation-remaining-closure-backend-handoff.md |
-| BO Develop | pending | lottery-image-operations-management-ui | ai-agents/handoffs/20260514-lottery-image-generation-expanded-delivery-coordinator-handoff.md |
-| Customer Develop | pending | lottery-image-customer-display-integration | ai-agents/handoffs/20260514-lottery-image-generation-expanded-delivery-coordinator-handoff.md |
-| QA Tester | completed | lottery-image-generation-remaining-closure-qa | ai-agents/reports/20260514-lottery-image-generation-remaining-closure-qa-report.md |
+| Coordinator | completed | 20260514-lottery-image-generation-expanded-delivery-launch-gate-qa-review | ai-agents/handoffs/20260514-lottery-image-expanded-delivery-launch-gate-remediation-coordinator-handoff.md |
+| Orchestrator | pending | lottery-image-customer-ssr-error-serialization-remediation | ai-agents/handoffs/20260514-lottery-image-expanded-delivery-launch-gate-remediation-coordinator-handoff.md |
+| Backend Develop | completed | lottery-image-production-ops-readiness | ai-agents/handoffs/20260514-lottery-image-production-ops-readiness-backend-handoff.md |
+| BO Develop | completed | lottery-image-operations-management-ui | ai-agents/handoffs/20260514-lottery-image-operations-management-ui-bo-handoff.md |
+| Customer Develop | pending | lottery-image-customer-ssr-error-serialization-remediation | ai-agents/handoffs/20260514-lottery-image-expanded-delivery-launch-gate-remediation-coordinator-handoff.md |
+| QA Tester | completed | lottery-image-generation-expanded-delivery-launch-gate-qa | ai-agents/reports/20260514-lottery-image-generation-expanded-delivery-launch-gate-qa-report.md |
 
 ## Open Questions
 
 ```text
-Lottery image backend operations closure passed QA and is approved. Per user direction, the next phase is expanded into parallel lanes: BO lottery image operations management, Customer/partner image display integration, Backend production storage/queue readiness closure, and final end-to-end QA launch gate. Orchestrator must create lane-specific tasks and dispatch the first non-conflicting batch rather than sending one narrow task.
+Expanded delivery launch gate failed on Customer SSR browser smoke. Backend/Ops and BO lanes passed, but Customer routes /search, /checkout, /success, and /tickets render Nuxt 500 with "Cannot stringify arbitrary non-POJOs". Orchestrator must dispatch focused Customer remediation for SSR-safe serializable error state, then route focused QA retest before launch gate can be approved.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/decisions/20260514-lottery-image-generation-remaining-closure-qa-review-decision.md
+ai-agents/decisions/20260514-lottery-image-generation-expanded-delivery-launch-gate-qa-review-decision.md
 ```
