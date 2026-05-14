@@ -13,6 +13,8 @@ use RuntimeException;
 class LotteryImageGenerator
 {
     public const SET_TYPES = ['odd', 'even', 'charity'];
+    private const DESIGN_WIDTH = 500;
+    private const DESIGN_HEIGHT = 280;
 
     /**
      * @param array<int, string> $stockIds
@@ -222,135 +224,154 @@ class LotteryImageGenerator
 
     private function drawBaseTicket(mixed $canvas, StockItem $stock, int $width, int $height): void
     {
-        $palette = $this->setPalette($canvas, (string) $stock->background_set_type);
-        $white = imagecolorallocatealpha($canvas, 255, 255, 255, 24);
-        $softWhite = imagecolorallocatealpha($canvas, 255, 255, 255, 52);
-        $shadow = imagecolorallocatealpha($canvas, 31, 36, 48, 72);
-        $ink = imagecolorallocate($canvas, 40, 37, 48);
-        $muted = imagecolorallocatealpha($canvas, 72, 70, 82, 42);
-
-        $stripWidth = max(9, $this->sx(20, $width));
-        imagefilledrectangle($canvas, 0, 0, $stripWidth, $height, $palette['dark']);
-
-        for ($y = -$height; $y < $height * 2; $y += max(11, $this->sy(18, $height))) {
-            imageline($canvas, 0, $y, $stripWidth, $y + $this->sy(26, $height), $palette['accent']);
-        }
-
-        $left = $this->sx(34, $width);
-        $top = $this->sy(22, $height);
-        $right = $width - $this->sx(32, $width);
-        $bottom = $height - $this->sy(24, $height);
-
-        imagefilledrectangle($canvas, $left + $this->sx(4, $width), $top + $this->sy(5, $height), $right + $this->sx(4, $width), $bottom + $this->sy(5, $height), $shadow);
-        imagefilledrectangle($canvas, $left, $top, $right, $bottom, $white);
-        imagerectangle($canvas, $left, $top, $right, $bottom, $palette['accent']);
-        imagefilledrectangle($canvas, $left, $top, $right, $top + $this->sy(30, $height), $softWhite);
-
-        $this->drawCenteredText($canvas, 'NEWPAOTANG LOTTERY', (int) round($width / 2), $this->sy(45, $height), max(8, $this->sy(13, $height)), $ink);
-        $this->drawCenteredText($canvas, strtoupper((string) $stock->background_set_type).' SET', (int) round($width / 2), $this->sy(222, $height), max(7, $this->sy(11, $height)), $palette['dark']);
-
+        $seed = $this->renderSeed($stock);
+        $this->drawBeside($canvas, $seed, $width, $height);
+        $this->drawEmojiSlots($canvas, $seed, $width, $height);
         $digits = $this->normalizedTicketNumber((string) $stock->full_number);
-        $this->drawSevenSegmentNumber($canvas, $digits, $width, $height, $palette['digit'], $muted);
-
-        $badgeTop = $this->sy(197, $height);
-        $this->drawBadge($canvas, 'BATCH '.substr((string) $stock->batch_id, -6), $this->sx(62, $width), $badgeTop, $this->sx(130, $width), $this->sy(22, $height), $palette['accent'], $ink);
-        $this->drawBadge($canvas, 'NO. '.substr($digits, -3), $width - $this->sx(180, $width), $badgeTop, $this->sx(118, $width), $this->sy(22, $height), $softWhite, $ink);
-        $this->drawFixtureMarks($canvas, $width, $height, $palette['accent'], $palette['dark']);
+        $this->drawLotteryDigits($canvas, $digits, $width, $height);
+        $this->drawThaiDigitText($canvas, $digits, $width, $height);
+        $this->drawNumSet($canvas, $this->numSetDigits($seed, (string) $stock->background_set_type), $width, $height);
     }
 
     private function drawPartnerBranding(mixed $canvas, LocalStockItem $localStock, PartnerLotteryBrandingAssetSet $assetSet, int $width, int $height): void
     {
-        $primary = imagecolorallocate($canvas, 30, 86, 166);
-        $secondary = imagecolorallocate($canvas, 246, 182, 42);
-        $ink = imagecolorallocate($canvas, 20, 31, 49);
-        $white = imagecolorallocate($canvas, 255, 255, 255);
-        $soft = imagecolorallocatealpha($canvas, 255, 255, 255, 18);
-
-        $sidebarWidth = max(24, $this->sx(56, $width));
-        $sidebarX = $width - $sidebarWidth;
-        imagefilledrectangle($canvas, $sidebarX, 0, $width, $height, $primary);
-
-        for ($y = 0; $y < $height; $y += max(13, $this->sy(26, $height))) {
-            imagefilledrectangle($canvas, $sidebarX, $y, $width, min($height, $y + $this->sy(9, $height)), $secondary);
-        }
-
-        $qrSize = max(24, $this->sx(58, $width));
-        $qrX = max($this->sx(360, $width), $sidebarX - $this->sx(76, $width));
-        $qrY = $this->sy(39, $height);
-        $this->drawBrandingSlot(
-            $canvas,
-            $assetSet->logo_qr_storage_path,
-            $qrX,
-            $qrY,
-            $qrSize,
-            $qrSize,
-            'logo_qr:'.$localStock->partner_id,
-            $primary,
-            $secondary,
-        );
-
-        $bottomX = $this->sx(210, $width);
-        $bottomY = $height - $this->sy(68, $height);
-        $bottomW = max(48, $sidebarX - $bottomX - $this->sx(14, $width));
-        $bottomH = max(18, $this->sy(34, $height));
-        $this->drawBrandingSlot(
-            $canvas,
-            $assetSet->logo_bottom_storage_path,
-            $bottomX,
-            $bottomY,
-            $bottomW,
-            $bottomH,
-            'logo_bottom:'.$localStock->partner_id,
-            $secondary,
-            $ink,
-        );
-
-        $this->drawBrandingSlot(
-            $canvas,
-            $assetSet->right_sidebar_storage_path,
-            $sidebarX + $this->sx(7, $width),
-            $this->sy(12, $height),
-            max(12, $sidebarWidth - $this->sx(14, $width)),
-            $height - $this->sy(24, $height),
-            'right_sidebar:'.$localStock->partner_id,
-            $primary,
-            $white,
-        );
-
-        imagefilledrectangle($canvas, $this->sx(55, $width), $height - $this->sy(48, $height), $this->sx(188, $width), $height - $this->sy(26, $height), $soft);
-        $this->drawCenteredText($canvas, 'PARTNER '.substr((string) $localStock->partner_id, -8), $this->sx(121, $width), $height - $this->sy(31, $height), max(6, $this->sy(9, $height)), $white);
+        $this->drawBrandingAsset($canvas, $assetSet->logo_bottom_storage_path, $this->sx(248, $width), $this->sy(85, $height), $this->sx(190, $width), null);
+        $this->drawBrandingAsset($canvas, $assetSet->logo_qr_storage_path, $this->sx(200, $width), $this->sy(55, $height), $this->sx(53, $width), null);
+        $this->drawBrandingAsset($canvas, $assetSet->right_sidebar_storage_path, $this->sx(440, $width), 0, $this->sx(61, $width), null, 90);
     }
 
-    private function drawBrandingSlot(mixed $canvas, ?string $storagePath, int $x, int $y, int $width, int $height, string $fallbackSeed, int $primary, int $secondary): void
+    private function drawBeside(mixed $canvas, string $seed, int $width, int $height): void
+    {
+        $path = $this->deterministicSystemAsset('beside', $seed, ['png']);
+
+        if ($path === null) {
+            return;
+        }
+
+        $this->drawLocalAsset($canvas, $path, $this->sx(1, $width), $this->sy(1, $height), $this->sx(43, $width), $this->sy(274, $height), stretch: true);
+    }
+
+    private function drawEmojiSlots(mixed $canvas, string $seed, int $width, int $height): void
+    {
+        $slots = [
+            ['emoji/e1', 192, 96],
+            ['emoji/e2', 220, 96],
+            ['emoji/e3', 192, 119],
+            ['emoji/e4', 220, 119],
+        ];
+
+        foreach ($slots as $index => [$directory, $x, $y]) {
+            $path = $this->deterministicSystemAsset($directory, $seed.':emoji:'.$index, ['png']);
+
+            if ($path !== null) {
+                $this->drawLocalAsset($canvas, $path, $this->sx($x, $width), $this->sy($y, $height), $this->sx(24, $width), null);
+            }
+        }
+    }
+
+    private function drawLotteryDigits(mixed $canvas, string $digits, int $width, int $height): void
+    {
+        $x = 252;
+
+        foreach (str_split($digits) as $digit) {
+            $numberPath = $this->systemAssetPath('number/'.$digit.'.png');
+
+            if ($numberPath !== null) {
+                $this->drawLocalAsset($canvas, $numberPath, $this->sx($x + 5, $width), $this->sy(23, $height), $this->sx(25, $width), $this->sy(20, $height));
+            }
+
+            $textPath = $this->systemAssetPath('text_eng/'.$digit.'.png');
+
+            if ($textPath !== null) {
+                $this->drawLocalAsset($canvas, $textPath, $this->sx($x + 6, $width), $this->sy(50, $height), $this->sx(12, $width), $this->sy(7, $height), stretch: true);
+            }
+
+            $x += 30;
+        }
+    }
+
+    private function drawThaiDigitText(mixed $canvas, string $digits, int $width, int $height): void
+    {
+        $font = $this->fontAssetPath('lotto-font5.ttf') ?? $this->fontPath();
+        $text = implode('', array_map(fn (string $digit): string => $this->thaiGlyphForDigit($digit), str_split($digits)));
+        $x = $this->sx(252 + (strlen($digits) * 30) + 14, $width);
+        $y = $this->sy(20, $height);
+        $color = imagecolorallocate($canvas, 73, 43, 47);
+
+        if ($font !== null && function_exists('imagettftext')) {
+            imagettftext($canvas, max(8, $this->sy(23, $height)), 90, $x, $y, $color, $font, $text);
+
+            return;
+        }
+
+        imagestringup($canvas, 3, $x, $this->sy(92, $height), $text, $color);
+    }
+
+    /**
+     * @param array{0: string, 1: string} $digits
+     */
+    private function drawNumSet(mixed $canvas, array $digits, int $width, int $height): void
+    {
+        [$left, $right] = $digits;
+        $this->drawSystemSlot($canvas, 'num_set_center/'.$left.'.png', 296, 67, 50, 46, $width, $height, true);
+        $this->drawSystemSlot($canvas, 'num_set_center/'.$right.'.png', 326, 67, 50, 46, $width, $height, true);
+        $this->drawSystemSlot($canvas, 'num_set_right/'.$left.'.png', 393, 117, 22, 22, $width, $height, true);
+        $this->drawSystemSlot($canvas, 'num_set_right/'.$right.'.png', 411, 117, 22, 22, $width, $height, true);
+        $this->drawSystemSlot($canvas, 'num_set_center/'.$left.'.png', 93, 163, 25, 25, $width, $height, true);
+        $this->drawSystemSlot($canvas, 'num_set_center/'.$right.'.png', 110, 163, 25, 25, $width, $height, true);
+    }
+
+    private function drawSystemSlot(mixed $canvas, string $relativePath, int $x, int $y, int $slotWidth, int $slotHeight, int $width, int $height, bool $stretch = false): void
+    {
+        $path = $this->systemAssetPath($relativePath);
+
+        if ($path !== null) {
+            $this->drawLocalAsset($canvas, $path, $this->sx($x, $width), $this->sy($y, $height), $this->sx($slotWidth, $width), $this->sy($slotHeight, $height), $stretch);
+        }
+    }
+
+    private function drawBrandingAsset(mixed $canvas, ?string $storagePath, int $x, int $y, int $targetWidth, ?int $targetHeight = null, int $rotateDegrees = 0): void
     {
         $asset = $this->loadStorageImage($storagePath);
 
-        if ($asset !== null) {
-            try {
-                $this->copyContain($asset, $canvas, $x, $y, $width, $height);
-
-                return;
-            } finally {
-                imagedestroy($asset);
-            }
+        if ($asset === null) {
+            return;
         }
 
-        imagefilledrectangle($canvas, $x, $y, $x + $width, $y + $height, imagecolorallocatealpha($canvas, 255, 255, 255, 22));
-        imagerectangle($canvas, $x, $y, $x + $width, $y + $height, $primary);
+        try {
+            if ($rotateDegrees !== 0) {
+                $rotated = imagerotate($asset, $rotateDegrees, imagecolorallocatealpha($asset, 0, 0, 0, 127));
 
-        $hash = hash('sha256', $fallbackSeed.':'.(string) $storagePath);
-        $cell = max(3, (int) floor(min($width, $height) / 7));
-
-        for ($row = 0; $row < 7; $row++) {
-            for ($column = 0; $column < 7; $column++) {
-                $offset = ($row * 7 + $column) % strlen($hash);
-
-                if (hexdec($hash[$offset]) % 2 === 0) {
-                    $left = $x + 3 + ($column * $cell);
-                    $top = $y + 3 + ($row * $cell);
-                    imagefilledrectangle($canvas, $left, $top, min($x + $width - 3, $left + $cell - 1), min($y + $height - 3, $top + $cell - 1), $secondary);
+                if ($rotated !== false) {
+                    imagedestroy($asset);
+                    $asset = $rotated;
+                    imagealphablending($asset, true);
+                    imagesavealpha($asset, true);
                 }
             }
+
+            $this->copyResizeWidth($asset, $canvas, $x, $y, $targetWidth, $targetHeight);
+        } finally {
+            imagedestroy($asset);
+        }
+    }
+
+    private function drawLocalAsset(mixed $canvas, string $path, int $x, int $y, int $targetWidth, ?int $targetHeight = null, bool $stretch = false): void
+    {
+        $asset = $this->loadImageFile($path);
+
+        if ($asset === null) {
+            return;
+        }
+
+        try {
+            if ($targetHeight !== null && $stretch) {
+                $this->copyStretch($asset, $canvas, $x, $y, $targetWidth, $targetHeight);
+            } else {
+                $this->copyResizeWidth($asset, $canvas, $x, $y, $targetWidth, $targetHeight);
+            }
+        } finally {
+            imagedestroy($asset);
         }
     }
 
@@ -427,56 +448,164 @@ class LotteryImageGenerator
         imagecopyresampled($target, $source, $x, $y, $sourceX, $sourceY, $width, $height, $cropWidth, $cropHeight);
     }
 
-    private function copyContain(mixed $source, mixed $target, int $x, int $y, int $width, int $height): void
+    private function copyStretch(mixed $source, mixed $target, int $x, int $y, int $width, int $height): void
     {
         $sourceWidth = imagesx($source);
         $sourceHeight = imagesy($source);
 
-        if ($sourceWidth <= 0 || $sourceHeight <= 0) {
+        if ($sourceWidth <= 0 || $sourceHeight <= 0 || $width <= 0 || $height <= 0) {
             return;
         }
 
-        $scale = min($width / $sourceWidth, $height / $sourceHeight);
-        $targetWidth = max(1, (int) round($sourceWidth * $scale));
-        $targetHeight = max(1, (int) round($sourceHeight * $scale));
-        $targetX = $x + (int) floor(($width - $targetWidth) / 2);
-        $targetY = $y + (int) floor(($height - $targetHeight) / 2);
+        imagecopyresampled($target, $source, $x, $y, 0, 0, $width, $height, $sourceWidth, $sourceHeight);
+    }
 
-        imagecopyresampled($target, $source, $targetX, $targetY, 0, 0, $targetWidth, $targetHeight, $sourceWidth, $sourceHeight);
+    private function copyResizeWidth(mixed $source, mixed $target, int $x, int $y, int $targetWidth, ?int $maxHeight = null): void
+    {
+        $sourceWidth = imagesx($source);
+        $sourceHeight = imagesy($source);
+
+        if ($sourceWidth <= 0 || $sourceHeight <= 0 || $targetWidth <= 0) {
+            return;
+        }
+
+        $scale = $targetWidth / $sourceWidth;
+        $targetHeight = max(1, (int) round($sourceHeight * $scale));
+
+        if ($maxHeight !== null && $targetHeight > $maxHeight) {
+            $scale = $maxHeight / $sourceHeight;
+            $targetHeight = max(1, $maxHeight);
+            $targetWidth = max(1, (int) round($sourceWidth * $scale));
+        }
+
+        imagecopyresampled($target, $source, $x, $y, 0, 0, $targetWidth, $targetHeight, $sourceWidth, $sourceHeight);
+    }
+
+    private function renderSeed(StockItem $stock): string
+    {
+        return implode(':', [
+            (string) $stock->game_id,
+            (string) $stock->batch_id,
+            (string) $stock->id,
+            (string) $stock->full_number,
+            (string) $stock->background_set_type,
+        ]);
     }
 
     /**
-     * @return array{accent: int, dark: int, digit: int}
+     * @return array{0: string, 1: string}
      */
-    private function setPalette(mixed $canvas, string $setType): array
+    private function numSetDigits(string $seed, string $setType): array
     {
-        return match ($setType) {
-            'even' => [
-                'accent' => imagecolorallocate($canvas, 52, 133, 91),
-                'dark' => imagecolorallocate($canvas, 22, 78, 59),
-                'digit' => imagecolorallocate($canvas, 24, 85, 64),
-            ],
-            'charity' => [
-                'accent' => imagecolorallocate($canvas, 219, 148, 33),
-                'dark' => imagecolorallocate($canvas, 119, 67, 21),
-                'digit' => imagecolorallocate($canvas, 130, 66, 17),
-            ],
-            default => [
-                'accent' => imagecolorallocate($canvas, 190, 59, 98),
-                'dark' => imagecolorallocate($canvas, 90, 42, 73),
-                'digit' => imagecolorallocate($canvas, 116, 47, 78),
-            ],
+        $min = $setType === 'charity' ? 0 : 21;
+        $max = $setType === 'charity' ? 20 : 89;
+        $number = $this->deterministicInt($seed.':num_set', $min, $max);
+        $digits = str_pad((string) $number, 2, '0', STR_PAD_LEFT);
+
+        return [$digits[0], $digits[1]];
+    }
+
+    private function deterministicInt(string $seed, int $min, int $max): int
+    {
+        $range = max(1, $max - $min + 1);
+
+        return $min + ((int) hexdec(substr(hash('sha256', $seed), 0, 8)) % $range);
+    }
+
+    private function deterministicSystemAsset(string $relativeDirectory, string $seed, array $extensions): ?string
+    {
+        $files = $this->systemAssetFiles($relativeDirectory, $extensions);
+
+        if ($files === []) {
+            return null;
+        }
+
+        return $files[$this->deterministicInt($seed.':'.$relativeDirectory, 0, count($files) - 1)];
+    }
+
+    /**
+     * @param array<int, string> $extensions
+     * @return array<int, string>
+     */
+    private function systemAssetFiles(string $relativeDirectory, array $extensions): array
+    {
+        $files = [];
+
+        foreach ($this->systemAssetRoots() as $root) {
+            $directory = $root.'/'.$relativeDirectory;
+
+            if (! is_dir($directory)) {
+                continue;
+            }
+
+            foreach ($extensions as $extension) {
+                $files = array_merge($files, glob($directory.'/*.'.$extension) ?: []);
+            }
+
+            if ($files !== []) {
+                break;
+            }
+        }
+
+        sort($files, SORT_NATURAL);
+
+        return array_values(array_filter($files, 'is_file'));
+    }
+
+    private function systemAssetPath(string $relativePath): ?string
+    {
+        foreach ($this->systemAssetRoots() as $root) {
+            $path = $root.'/'.$relativePath;
+
+            if (is_file($path)) {
+                return $path;
+            }
+        }
+
+        return null;
+    }
+
+    private function fontAssetPath(string $fileName): ?string
+    {
+        return $this->systemAssetPath('fonts/'.$fileName);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function systemAssetRoots(): array
+    {
+        $configured = rtrim((string) config('lottery_images.asset_root'), '/').'/system/v1';
+        $fallback = resource_path('lottery-images/system/v1');
+
+        return array_values(array_unique([$configured, $fallback]));
+    }
+
+    private function thaiGlyphForDigit(string $digit): string
+    {
+        return match ($digit) {
+            '0' => 'K',
+            '1' => 'L',
+            '2' => 'M',
+            '3' => 'N',
+            '4' => 'O',
+            '5' => 'P',
+            '6' => 'Q',
+            '7' => 'R',
+            '8' => 'S',
+            '9' => 'T',
+            default => '',
         };
     }
 
     private function sx(int $value, int $width): int
     {
-        return (int) round($value * $width / 500);
+        return (int) round($value * $width / self::DESIGN_WIDTH);
     }
 
     private function sy(int $value, int $height): int
     {
-        return (int) round($value * $height / 280);
+        return (int) round($value * $height / self::DESIGN_HEIGHT);
     }
 
     private function normalizedTicketNumber(string $number): string
@@ -484,95 +613,6 @@ class LotteryImageGenerator
         $digits = preg_replace('/\D+/', '', $number) ?: '0';
 
         return str_pad(substr($digits, -6), 6, '0', STR_PAD_LEFT);
-    }
-
-    private function drawSevenSegmentNumber(mixed $canvas, string $digits, int $width, int $height, int $color, int $muted): void
-    {
-        $digitWidth = max(20, $this->sx(44, $width));
-        $digitHeight = max(38, $this->sy(76, $height));
-        $gap = max(4, $this->sx(8, $width));
-        $totalWidth = (strlen($digits) * $digitWidth) + ((strlen($digits) - 1) * $gap);
-        $x = max($this->sx(42, $width), (int) floor(($width - $totalWidth) / 2));
-        $y = $this->sy(77, $height);
-
-        foreach (str_split($digits) as $digit) {
-            $this->drawSevenSegmentDigit($canvas, $digit, $x, $y, $digitWidth, $digitHeight, $color, $muted);
-            $x += $digitWidth + $gap;
-        }
-    }
-
-    private function drawSevenSegmentDigit(mixed $canvas, string $digit, int $x, int $y, int $width, int $height, int $color, int $muted): void
-    {
-        $thickness = max(3, (int) round(min($width, $height) * 0.16));
-        $middleTop = $y + (int) floor(($height - $thickness) / 2);
-        $middleBottom = $middleTop + $thickness;
-        $segments = [
-            'a' => [$x + $thickness, $y, $x + $width - $thickness, $y + $thickness],
-            'b' => [$x + $width - $thickness, $y + $thickness, $x + $width, $middleTop],
-            'c' => [$x + $width - $thickness, $middleBottom, $x + $width, $y + $height - $thickness],
-            'd' => [$x + $thickness, $y + $height - $thickness, $x + $width - $thickness, $y + $height],
-            'e' => [$x, $middleBottom, $x + $thickness, $y + $height - $thickness],
-            'f' => [$x, $y + $thickness, $x + $thickness, $middleTop],
-            'g' => [$x + $thickness, $middleTop, $x + $width - $thickness, $middleBottom],
-        ];
-        $active = match ($digit) {
-            '0' => ['a', 'b', 'c', 'd', 'e', 'f'],
-            '1' => ['b', 'c'],
-            '2' => ['a', 'b', 'g', 'e', 'd'],
-            '3' => ['a', 'b', 'g', 'c', 'd'],
-            '4' => ['f', 'g', 'b', 'c'],
-            '5' => ['a', 'f', 'g', 'c', 'd'],
-            '6' => ['a', 'f', 'g', 'e', 'c', 'd'],
-            '7' => ['a', 'b', 'c'],
-            '8' => ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
-            '9' => ['a', 'b', 'c', 'd', 'f', 'g'],
-            default => [],
-        };
-
-        foreach ($segments as $name => $coordinates) {
-            imagefilledrectangle($canvas, $coordinates[0], $coordinates[1], $coordinates[2], $coordinates[3], in_array($name, $active, true) ? $color : $muted);
-        }
-    }
-
-    private function drawBadge(mixed $canvas, string $text, int $x, int $y, int $width, int $height, int $background, int $ink): void
-    {
-        imagefilledrectangle($canvas, $x, $y, $x + $width, $y + $height, $background);
-        imagerectangle($canvas, $x, $y, $x + $width, $y + $height, $ink);
-        $this->drawCenteredText($canvas, $text, $x + (int) floor($width / 2), $y + (int) floor($height * 0.72), max(6, (int) floor($height * 0.45)), $ink);
-    }
-
-    private function drawFixtureMarks(mixed $canvas, int $width, int $height, int $accent, int $dark): void
-    {
-        $radius = max(4, $this->sx(9, $width));
-        $x = $this->sx(184, $width);
-        $y = $this->sy(61, $height);
-
-        for ($index = 0; $index < 4; $index++) {
-            $color = $index % 2 === 0 ? $accent : $dark;
-            imagefilledellipse($canvas, $x + ($index * $this->sx(33, $width)), $y, $radius, $radius, $color);
-        }
-    }
-
-    private function drawCenteredText(mixed $canvas, string $text, int $centerX, int $baselineY, int $size, int $color): void
-    {
-        $font = $this->fontPath();
-
-        if ($font !== null && function_exists('imagettftext')) {
-            $box = imagettfbbox($size, 0, $font, $text);
-
-            if (is_array($box)) {
-                $textWidth = abs($box[2] - $box[0]);
-                imagettftext($canvas, $size, 0, $centerX - (int) floor($textWidth / 2), $baselineY, $color, $font, $text);
-
-                return;
-            }
-        }
-
-        $builtInFont = $size >= 12 ? 5 : ($size >= 9 ? 4 : 3);
-        $textWidth = imagefontwidth($builtInFont) * strlen($text);
-        $textHeight = imagefontheight($builtInFont);
-
-        imagestring($canvas, $builtInFont, $centerX - (int) floor($textWidth / 2), $baselineY - $textHeight, $text, $color);
     }
 
     private function fontPath(): ?string

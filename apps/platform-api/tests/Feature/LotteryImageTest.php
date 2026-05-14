@@ -241,8 +241,8 @@ class LotteryImageTest extends TestCase
             $this->pixelRgb($bytes, 474, 140),
         ));
         $this->assertGreaterThan(40, $this->colorDistance(
-            $this->pixelRgb($centralBytes, 318, 230),
-            $this->pixelRgb($bytes, 318, 230),
+            $this->pixelRgb($centralBytes, 318, 110),
+            $this->pixelRgb($bytes, 318, 110),
         ));
 
         $this->getJson('http://lottery-image.newpaotang.test/api/v1/public/stock/search?game_id=gam_lottery_partner&number=300000')
@@ -282,6 +282,10 @@ class LotteryImageTest extends TestCase
         foreach ($assets as $slot => $fileName) {
             $assetId = 'ast_'.substr(sha1($partnerId.':'.$slot), 0, 20);
             $assetIds[$slot] = $assetId;
+            $storageKey = 'lottery-image-assets/partners/'.$partnerId.'/branding/v1/'.$fileName;
+            $bytes = $this->fixtureBrandingWebp($slot);
+
+            Storage::disk('lottery_images')->put($storageKey, $bytes);
 
             DB::table('platform_assets')->insert([
                 'id' => $assetId,
@@ -291,10 +295,10 @@ class LotteryImageTest extends TestCase
                 'purpose' => 'ticket_image',
                 'file_name' => $fileName,
                 'content_type' => 'image/webp',
-                'size_bytes' => 128,
+                'size_bytes' => strlen($bytes),
                 'checksum_sha256' => hash('sha256', $assetId),
                 'status' => 'committed',
-                'storage_key' => 'lottery-image-assets/partners/'.$partnerId.'/branding/v1/'.$fileName,
+                'storage_key' => $storageKey,
                 'upload_url' => null,
                 'public_url' => 'https://cdn.lottery.test/'.$fileName,
                 'metadata_json' => json_encode(['fixture' => true], JSON_THROW_ON_ERROR),
@@ -396,6 +400,29 @@ class LotteryImageTest extends TestCase
         }
 
         imagefilledrectangle($image, 0, 270, 639, 359, $dark);
+
+        ob_start();
+        imagewebp($image, null, 82);
+        $bytes = ob_get_clean();
+        imagedestroy($image);
+
+        return is_string($bytes) ? $bytes : '';
+    }
+
+    private function fixtureBrandingWebp(string $slot): string
+    {
+        [$width, $height, $rgb] = match ($slot) {
+            'right_sidebar' => [220, 60, [20, 40, 220]],
+            'logo_bottom' => [220, 80, [240, 190, 20]],
+            default => [80, 80, [230, 30, 45]],
+        };
+        $image = imagecreatetruecolor($width, $height);
+        $background = imagecolorallocate($image, $rgb[0], $rgb[1], $rgb[2]);
+        $line = imagecolorallocate($image, 255, 255, 255);
+
+        imagefilledrectangle($image, 0, 0, $width - 1, $height - 1, $background);
+        imageline($image, 0, 0, $width - 1, $height - 1, $line);
+        imageline($image, 0, $height - 1, $width - 1, 0, $line);
 
         ob_start();
         imagewebp($image, null, 82);

@@ -106,6 +106,24 @@ apps/platform-api/app/Jobs/GeneratePartnerLotteryImageJob.php
 
 The rendering code belongs in `LotteryImageGenerator`; the job should only coordinate loading, uploading, and database updates.
 
+## Renderer Composition Contract For Agents
+
+`LotteryImageGenerator` must follow the legacy `newCreateLottoImage` composition order from `/Users/supakit/WorkSpace/www/paotang-center/app/Jobs/UploadImage.php`. Do not replace this with generated placeholder cards, seven-segment digits, decorative sidebars, or synthetic branding blocks.
+
+Composition order:
+
+```text
+1. draw the selected game background
+2. draw the shared beside strip from system/v1/beside
+3. draw four emoji assets from system/v1/emoji/e1..e4
+4. draw each lottery digit from system/v1/number and system/v1/text_eng
+5. draw rotated lotto-font Thai glyph text
+6. draw num_set_center and num_set_right assets
+7. for partner-branded images only, draw logo_bottom, logo_qr, and right_sidebar
+```
+
+Base coordinates are the legacy 500x280 layout. Scale them by target variant dimensions for thumbnails. Central images must never draw `logo_qr`, `right_sidebar`, or `logo_bottom`; those slots are applied only in partner image generation.
+
 ## Data Model
 
 `local_stock_items` and `tickets` already carry:
@@ -206,9 +224,7 @@ gd_loaded=true
 imagewebp=true
 ```
 
-The renderer composes a real browser-displayable WebP from the assigned game background, lottery number glyph drawing, shared ticket marks, set labels, and optional partner branding overlays. Central stock images must not draw `logo_qr`, `right_sidebar`, or `logo_bottom`; partner/local stock images draw those overlay slots only when a ready central-managed partner branding asset set is present.
-
-Local/dev may render deterministic overlay placeholders when the branding asset metadata is committed but the binary is not present in object storage. This keeps local validation credential-free and does not claim production CDN/R2 readiness.
+The renderer composes a real browser-displayable WebP from the assigned game background and legacy image assets under `resources/lottery-images/system/v1`. Central stock images must not draw `logo_qr`, `right_sidebar`, or `logo_bottom`; partner/local stock images draw those overlay slots only when the ready central-managed partner branding asset binary exists in object storage. Local/dev tests must provide real fixture binaries for those slots instead of relying on placeholder overlays.
 
 ## Configuration
 
