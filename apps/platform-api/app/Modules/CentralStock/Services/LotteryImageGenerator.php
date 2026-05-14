@@ -3,6 +3,8 @@
 namespace App\Modules\CentralStock\Services;
 
 use App\Models\LocalStockItem;
+use App\Models\LotteryImageBackgroundAssetSet;
+use App\Models\LotteryImageMixSetting;
 use App\Models\PartnerLotteryBrandingAssetSet;
 use App\Models\StockItem;
 use Illuminate\Support\Facades\Storage;
@@ -10,7 +12,7 @@ use RuntimeException;
 
 class LotteryImageGenerator
 {
-    private const SET_TYPES = ['odd', 'even', 'charity'];
+    public const SET_TYPES = ['odd', 'even', 'charity'];
 
     /**
      * @param array<int, string> $stockIds
@@ -18,7 +20,7 @@ class LotteryImageGenerator
      */
     public function assignmentsForStockIds(string $gameId, string $batchId, array $stockIds, ?string $seedExtra = null): array
     {
-        $sequence = $this->backgroundSequence(count($stockIds), $gameId.':'.$batchId.':'.($seedExtra ?? ''));
+        $sequence = $this->backgroundSequence(count($stockIds), $gameId.':'.$batchId.':'.($seedExtra ?? ''), $gameId);
         $assignments = [];
         $version = (string) config('lottery_images.background_version', 'v1');
 
@@ -42,6 +44,24 @@ class LotteryImageGenerator
     public function enabled(): bool
     {
         return (bool) config('lottery_images.enabled', true);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function setTypes(): array
+    {
+        return self::SET_TYPES;
+    }
+
+    public function backgroundCount(string $gameId, string $version, string $setType): int
+    {
+        return count($this->backgroundFiles($gameId, $version, $setType));
+    }
+
+    public function minimumBackgroundCountFor(string $setType): int
+    {
+        return $this->minimumBackgroundCount($setType);
     }
 
     public function backgroundReadyForStock(StockItem $stock): bool
@@ -369,6 +389,10 @@ class LotteryImageGenerator
 
     private function loadImageFile(string $path): mixed
     {
+        if (str_starts_with($path, 'storage://')) {
+            return $this->loadStorageImage(substr($path, strlen('storage://')));
+        }
+
         $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         $image = match ($extension) {
             'webp' => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($path) : false,
@@ -573,13 +597,13 @@ class LotteryImageGenerator
     /**
      * @return array<int, string>
      */
-    private function backgroundSequence(int $count, string $seed): array
+    private function backgroundSequence(int $count, string $seed, string $gameId): array
     {
         if ($count <= 0) {
             return [];
         }
 
-        $remaining = $this->mixCounts($count);
+        $remaining = $this->mixCounts($count, $gameId);
         $sequence = [];
         $previous = null;
 
@@ -618,9 +642,9 @@ class LotteryImageGenerator
     /**
      * @return array<string, int>
      */
-    private function mixCounts(int $count): array
+    private function mixCounts(int $count, string $gameId): array
     {
-        $weights = config('lottery_images.background_mix', ['odd' => 45, 'even' => 45, 'charity' => 10]);
+        $weights = $this->backgroundMixForGame($gameId);
         $totalWeight = max(1, array_sum(array_map('intval', $weights)));
         $counts = [];
         $remainders = [];
@@ -650,6 +674,33 @@ class LotteryImageGenerator
         return $counts;
     }
 
+    /**
+     * @return array<string, int>
+     */
+    private function backgroundMixForGame(string $gameId): array
+    {
+        try {
+            $setting = LotteryImageMixSetting::query()
+                ->where('game_id', $gameId)
+                ->first();
+
+            if ($setting !== null) {
+                return [
+                    'odd' => (int) $setting->odd_percentage,
+                    'even' => (int) $setting->even_percentage,
+                    'charity' => (int) $setting->charity_percentage,
+                ];
+            }
+        } catch (\Throwable) {
+            //
+        }
+
+        return array_map(
+            fn (mixed $value): int => (int) $value,
+            config('lottery_images.background_mix', ['odd' => 45, 'even' => 45, 'charity' => 10]),
+        );
+    }
+
     private function backgroundIndex(string $gameId, string $version, string $setType, string $stockItemId, string $batchId): int
     {
         $availableCount = max(1, count($this->backgroundFiles($gameId, $version, $setType)));
@@ -670,13 +721,12 @@ class LotteryImageGenerator
      */
     private function backgroundFiles(string $gameId, string $version, string $setType): array
     {
+        $files = $this->registeredBackgroundFiles($gameId, $version, $setType);
         $directory = rtrim((string) config('lottery_images.asset_root'), '/').'/games/'.$gameId.'/backgrounds/'.$version.'/'.$setType;
 
         if (! is_dir($directory)) {
-            return [];
+            return $files;
         }
-
-        $files = [];
 
         foreach (['webp', 'png', 'jpg', 'jpeg'] as $extension) {
             $files = array_merge($files, glob($directory.'/*.'.$extension) ?: []);
@@ -685,6 +735,55 @@ class LotteryImageGenerator
         sort($files, SORT_NATURAL);
 
         return array_values($files);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function registeredBackgroundFiles(string $gameId, string $version, string $setType): array
+    {
+        try {
+            $rows = LotteryImageBackgroundAssetSet::query()
+                ->where('game_id', $gameId)
+                ->where('version', $version)
+                ->where('set_type', $setType)
+                ->where('status', 'ready')
+                ->orderByDesc('activated_at')
+                ->orderByDesc('updated_at')
+                ->get();
+        } catch (\Throwable) {
+            return [];
+        }
+
+        $paths = [];
+
+        foreach ($rows as $row) {
+            $path = trim((string) $row->full_storage_path);
+            $sourcePath = trim((string) $row->source_storage_path);
+            $thumbPath = trim((string) $row->thumb_storage_path);
+
+            if (
+                $path !== ''
+                && $sourcePath !== ''
+                && $thumbPath !== ''
+                && $this->storagePathExists($path)
+                && $this->storagePathExists($sourcePath)
+                && $this->storagePathExists($thumbPath)
+            ) {
+                $paths[] = 'storage://'.$path;
+            }
+        }
+
+        return $paths;
+    }
+
+    private function storagePathExists(string $storagePath): bool
+    {
+        try {
+            return Storage::disk((string) config('lottery_images.disk', 'lottery_images'))->exists($storagePath);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private function minimumBackgroundCount(string $setType): int

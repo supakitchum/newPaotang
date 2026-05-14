@@ -13,6 +13,7 @@ use App\Modules\Rbac\Http\Controllers\AdminRoleController;
 use App\Modules\Rbac\Http\Controllers\AdminUserController;
 use App\Modules\CentralStock\Http\Controllers\CentralAllocationController;
 use App\Modules\CentralStock\Http\Controllers\CentralGameController;
+use App\Modules\CentralStock\Http\Controllers\LotteryImageOperationsController;
 use App\Modules\Reward\Http\Controllers\CentralRewardController;
 use App\Modules\Growth\Http\Controllers\CentralSettlementController;
 use App\Modules\CentralStock\Http\Controllers\CentralStockController;
@@ -224,6 +225,22 @@ Route::post('/admin/central/stock/imports', [CentralStockController::class, 'imp
 Route::post('/admin/central/stock/exports', [CentralStockController::class, 'exports'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/stock/{stock_item_id}/recall', [CentralStockController::class, 'recall'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/lottery-images/readiness', [LotteryImageOperationsController::class, 'readiness'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/lottery-images/background-asset-sets', [LotteryImageOperationsController::class, 'backgroundSets'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::put('/admin/central/lottery-images/background-asset-sets', [LotteryImageOperationsController::class, 'upsertBackgroundSet'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::patch('/admin/central/lottery-images/background-asset-sets/{asset_set_id}', [LotteryImageOperationsController::class, 'updateBackgroundSetStatus'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/lottery-images/mix', [LotteryImageOperationsController::class, 'mix'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::put('/admin/central/lottery-images/mix', [LotteryImageOperationsController::class, 'updateMix'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/lottery-images/retry-pending', [LotteryImageOperationsController::class, 'retryPending'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/lottery-images/production-readiness', [LotteryImageOperationsController::class, 'productionReadiness'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/partner-quotas', [PartnerQuotaController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:central']);

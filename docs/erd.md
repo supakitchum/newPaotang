@@ -156,6 +156,28 @@ stock_items
   image_thumb_key
   status
 
+lottery_image_background_asset_sets
+  id pk
+  game_id fk -> games.id
+  version
+  set_type odd/even/charity
+  status ready/inactive/retired
+  source_asset_id fk -> platform_assets.id
+  full_asset_id fk -> platform_assets.id
+  thumb_asset_id fk -> platform_assets.id
+  source_storage_path
+  full_storage_path
+  thumb_storage_path
+  source/full/thumb dimensions and size metadata
+
+lottery_image_mix_settings
+  id pk
+  game_id unique fk -> games.id
+  odd_percentage
+  even_percentage
+  charity_percentage
+  updated_by_admin_id nullable fk -> admin_users.id
+
 partner_quotas
   id pk
   partner_id fk -> partners.id

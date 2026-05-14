@@ -2,72 +2,36 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\GenerateLotteryImageJob;
-use App\Jobs\GeneratePartnerLotteryImageJob;
-use App\Models\LocalStockItem;
-use App\Models\StockItem;
-use App\Modules\CentralStock\Services\LotteryImageGenerator;
+use App\Modules\CentralStock\Services\LotteryImageOperationsService;
 use Illuminate\Console\Command;
 
 class CheckPendingLotteryBackgroundsCommand extends Command
 {
-    protected $signature = 'lottery-images:check-pending-backgrounds {--limit=500} {--dry-run}';
+    protected $signature = 'lottery-images:check-pending-backgrounds {--limit=500} {--dry-run} {--game_id=} {--batch_id=} {--background-version=} {--set_type=}';
 
     protected $description = 'Dispatch lottery image jobs for pending rows whose required backgrounds and partner assets are ready.';
 
-    public function handle(LotteryImageGenerator $images): int
+    public function handle(LotteryImageOperationsService $operations): int
     {
-        $limit = max(1, (int) $this->option('limit'));
-        $dryRun = (bool) $this->option('dry-run');
-        $centralReady = 0;
-        $centralDispatched = 0;
-        $partnerReady = 0;
-        $partnerDispatched = 0;
+        $result = $operations->retryPending([
+            'limit' => max(1, (int) $this->option('limit')),
+            'dry_run' => (bool) $this->option('dry-run'),
+            'game_id' => $this->option('game_id'),
+            'batch_id' => $this->option('batch_id'),
+            'version' => $this->option('background-version'),
+            'set_type' => $this->option('set_type'),
+        ]);
 
-        $stockRows = StockItem::query()
-            ->where('image_generation_status', 'pending_assets')
-            ->orderBy('id')
-            ->limit($limit)
-            ->get();
+        if (($result['error'] ?? null) === 'validation_failed') {
+            $this->error(json_encode($result['errors'] ?? [], JSON_PRETTY_PRINT));
 
-        foreach ($stockRows as $stock) {
-            if (! $images->backgroundReadyForStock($stock)) {
-                continue;
-            }
-
-            $centralReady++;
-
-            if (! $dryRun) {
-                GenerateLotteryImageJob::dispatch((string) $stock->id);
-                $centralDispatched++;
-            }
+            return self::FAILURE;
         }
 
-        $localRows = LocalStockItem::query()
-            ->where('image_generation_status', 'pending_assets')
-            ->orderBy('id')
-            ->limit($limit)
-            ->get();
-
-        foreach ($localRows as $localStock) {
-            $stock = StockItem::query()->whereKey($localStock->stock_item_id)->first();
-
-            if ($stock === null || ! $images->backgroundReadyForStock($stock) || $images->activePartnerAssetSet((string) $localStock->partner_id) === null) {
-                continue;
-            }
-
-            $partnerReady++;
-
-            if (! $dryRun) {
-                GeneratePartnerLotteryImageJob::dispatch((string) $localStock->id);
-                $partnerDispatched++;
-            }
-        }
-
-        $this->line('Pending central ready: '.$centralReady);
-        $this->line('Pending central dispatched: '.$centralDispatched);
-        $this->line('Pending partner ready: '.$partnerReady);
-        $this->line('Pending partner dispatched: '.$partnerDispatched);
+        $this->line('Pending central ready: '.$result['central']['ready_count']);
+        $this->line('Pending central dispatched: '.$result['central']['dispatched_count']);
+        $this->line('Pending partner ready: '.$result['partner']['ready_count']);
+        $this->line('Pending partner dispatched: '.$result['partner']['dispatched_count']);
 
         return self::SUCCESS;
     }

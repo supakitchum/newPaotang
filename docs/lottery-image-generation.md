@@ -406,6 +406,30 @@ lottery-image-assets/games/{game_id}/backgrounds/{version}/{set_type}/002.webp
 
 `odd` can be the first ready set. The game may open for sale once `odd` reaches the configured minimum, while `even` and `charity` stock rows remain `pending_assets` until their background sets are ready.
 
+### Central Background Asset API
+
+Backend exposes central-only operations under:
+
+```text
+GET /api/v1/admin/central/lottery-images/background-asset-sets
+PUT /api/v1/admin/central/lottery-images/background-asset-sets
+PATCH /api/v1/admin/central/lottery-images/background-asset-sets/{asset_set_id}
+GET /api/v1/admin/central/lottery-images/readiness
+POST /api/v1/admin/central/lottery-images/retry-pending
+```
+
+The background set API registers committed central `platform_assets` for one `game_id`, `version`, and `set_type`. A set is considered generation-ready only when all three asset slots are present and readable from the configured lottery image disk:
+
+```text
+source
+full
+thumb
+```
+
+`full` and `thumb` must be `image/webp` with the configured full/thumb dimensions. `source` may be WebP, PNG, or JPEG and must be at least the full image dimensions. Responses include `missing_assets`, storage availability booleans, and `generation_ready` so BO can show actionable readiness without needing filesystem access.
+
+State-changing background endpoints require `Idempotency-Key` and central `asset.manage`. Readiness and retry endpoints remain central-only; retry dispatches only rows whose original assigned set is ready and never falls back to another set type.
+
 ## Background Mix Assignment
 
 Central should define the background mix per game or per stock generation batch.
@@ -417,6 +441,28 @@ odd: 45%
 even: 45%
 charity: 10%
 ```
+
+Central BO can read/update persisted per-game mix settings through:
+
+```text
+GET /api/v1/admin/central/lottery-images/mix?game_id={game_id}
+PUT /api/v1/admin/central/lottery-images/mix
+```
+
+The update payload accepts integer percentages and must sum to 100:
+
+```json
+{
+  "game_id": "gam_...",
+  "mix": {
+    "odd": 45,
+    "even": 45,
+    "charity": 10
+  }
+}
+```
+
+If no row exists, generation uses the default config mix. Once a row exists in `lottery_image_mix_settings`, central stock generation/import uses that persisted mix for deterministic assignment.
 
 The system should calculate exact counts from the requested count:
 
@@ -478,6 +524,15 @@ lottery-images:check-pending-backgrounds
 ```
 
 When the required background set becomes ready, it should dispatch the normal image generation job for only the now-ready rows.
+
+Operational readiness can be checked without secrets through:
+
+```text
+GET /api/v1/admin/central/lottery-images/production-readiness
+docker compose run --rm platform-api php artisan lottery-images:readiness --format=json
+```
+
+The readiness output reports disk driver, bucket/region/endpoint presence, CDN base URL presence, GD/WebP runtime, queue names, and blocking reasons. It never returns S3/R2 access keys, secret keys, tokens, signed URLs, or credential material.
 
 ## Idempotency And Regeneration
 

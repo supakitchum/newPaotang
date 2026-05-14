@@ -26,6 +26,7 @@ App\Console\Commands\ProcessRewardCheckCommand
 App\Console\Commands\CalculateCommissionsCommand
 App\Console\Commands\PrepareK6BaselineCommand
 App\Console\Commands\CheckPendingLotteryBackgroundsCommand
+App\Console\Commands\LotteryImageReadinessCommand
 ```
 
 ## Registration Convention
@@ -54,7 +55,8 @@ withCommands([...])
 | `reward:check` | `reward:check {reward_result_id?} {--chunk=100}` | `App\Modules\Reward\Services\RewardService::processRewardCheck()` |
 | `commission:calculate` | `commission:calculate {order_id?} {--tenant_id=} {--limit=100}` | `App\Modules\Growth\Services\GrowthService::calculateCommissions()` |
 | `load-tests:k6:prepare` | `load-tests:k6:prepare {--output-json=} {--output-env=} {--base-url=} {--tenant-host=} {--stock-count=}` | local/dev M10 k6 fixture setup |
-| `lottery-images:check-pending-backgrounds` | `lottery-images:check-pending-backgrounds {--limit=500} {--dry-run}` | `App\Modules\CentralStock\Services\LotteryImageGenerator` plus image queue jobs |
+| `lottery-images:check-pending-backgrounds` | `lottery-images:check-pending-backgrounds {--limit=500} {--dry-run} {--game_id=} {--batch_id=} {--background-version=} {--set_type=}` | `App\Modules\CentralStock\Services\LotteryImageOperationsService` plus image queue jobs |
+| `lottery-images:readiness` | `lottery-images:readiness {--game_id=} {--batch_id=} {--background-version=} {--format=table}` | `App\Modules\CentralStock\Services\LotteryImageOperationsService` |
 
 Command classes must delegate business behavior to the listed services. They should not duplicate tenant, wallet, reward, stock, or commission business rules.
 
@@ -75,6 +77,7 @@ stock:sold:sync -> Processed sold events: <count>
 reward:check -> Processed reward tickets: <count>
 commission:calculate -> Calculated commission transactions: <count>
 lottery-images:check-pending-backgrounds -> Pending central/partner ready and dispatched counts
+lottery-images:readiness --format=json -> safe lottery image storage/queue/runtime readiness with secrets_redacted=true
 ```
 
 ## Docker-Only Execution Examples
@@ -95,6 +98,7 @@ docker compose run --rm platform-api php artisan stock:sold:sync --limit=100
 docker compose run --rm platform-api php artisan reward:check --chunk=100
 docker compose run --rm platform-api php artisan commission:calculate --limit=100
 docker compose run --rm platform-api php artisan lottery-images:check-pending-backgrounds --dry-run
+docker compose run --rm platform-api php artisan lottery-images:readiness --format=json
 ```
 
 Do not run `php artisan ...` directly on the host machine.

@@ -3,6 +3,7 @@
 use App\Console\Commands\CalculateCommissionsCommand;
 use App\Console\Commands\CheckPendingLotteryBackgroundsCommand;
 use App\Console\Commands\ExpireStockReservationsCommand;
+use App\Console\Commands\LotteryImageReadinessCommand;
 use App\Console\Commands\PlatformAlertsCheckCommand;
 use App\Console\Commands\PlatformAboutCommand;
 use App\Console\Commands\PlatformCloudflareReadinessCommand;
@@ -45,6 +46,7 @@ return Application::configure(basePath: dirname(__DIR__))
         CalculateCommissionsCommand::class,
         PrepareK6BaselineCommand::class,
         CheckPendingLotteryBackgroundsCommand::class,
+        LotteryImageReadinessCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([

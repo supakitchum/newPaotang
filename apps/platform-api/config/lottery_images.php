@@ -18,6 +18,13 @@ return [
         'even' => 45,
         'charity' => 10,
     ],
+    'background_asset_limits' => [
+        'max_source_size_bytes' => (int) env('LOTTERY_IMAGE_BACKGROUND_SOURCE_MAX_BYTES', 10485760),
+        'max_full_size_bytes' => (int) env('LOTTERY_IMAGE_BACKGROUND_FULL_MAX_BYTES', 5242880),
+        'max_thumb_size_bytes' => (int) env('LOTTERY_IMAGE_BACKGROUND_THUMB_MAX_BYTES', 1048576),
+        'allowed_source_mimes' => ['image/webp', 'image/png', 'image/jpeg'],
+        'required_variant_mime' => 'image/webp',
+    ],
     'dimensions' => [
         'full' => [
             'width' => (int) env('LOTTERY_IMAGE_FULL_WIDTH', 500),

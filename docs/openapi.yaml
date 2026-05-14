@@ -1883,6 +1883,189 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminResource"
+  /admin/central/lottery-images/readiness:
+    get:
+      tags: [Central Admin]
+      summary: Inspect lottery image readiness by game, batch, and background version
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: game_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: batch_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: version
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lottery image readiness
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LotteryImageReadiness"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+  /admin/central/lottery-images/background-asset-sets:
+    get:
+      tags: [Central Admin]
+      summary: List central lottery background asset sets for a game/version
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: game_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lottery image background asset sets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LotteryImageBackgroundAssetSetList"
+    put:
+      tags: [Central Admin]
+      summary: Register or replace one central lottery background asset set
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LotteryImageBackgroundAssetSetUpsertRequest"
+      responses:
+        "200":
+          description: Background asset set registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LotteryImageBackgroundAssetSet"
+        "422":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /admin/central/lottery-images/background-asset-sets/{asset_set_id}:
+    patch:
+      tags: [Central Admin]
+      summary: Activate, deactivate, retire, or supersede a background asset set
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: asset_set_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LotteryImageBackgroundAssetSetStatusRequest"
+      responses:
+        "200":
+          description: Background asset set status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LotteryImageBackgroundAssetSet"
+  /admin/central/lottery-images/mix:
+    get:
+      tags: [Central Admin]
+      summary: Read current game-scoped lottery image background mix
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: game_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lottery image mix
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LotteryImageMix"
+    put:
+      tags: [Central Admin]
+      summary: Update game-scoped lottery image background mix
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LotteryImageMixUpdateRequest"
+      responses:
+        "200":
+          description: Lottery image mix updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LotteryImageMix"
+  /admin/central/lottery-images/retry-pending:
+    post:
+      tags: [Central Admin]
+      summary: Retry pending lottery image rows after required assets become ready
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LotteryImageRetryPendingRequest"
+      responses:
+        "202":
+          description: Pending retry accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LotteryImageRetryPendingResponse"
+  /admin/central/lottery-images/production-readiness:
+    get:
+      tags: [Central Admin]
+      summary: Inspect safe lottery image storage, queue, and runtime readiness
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: Lottery image production readiness with secrets redacted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LotteryImageProductionReadiness"
   /admin/central/games:
     get:
       tags: [Central Admin]
@@ -7292,6 +7475,364 @@ components:
           type: boolean
           nullable: true
       additionalProperties: true
+    LotteryImageBackgroundAssetSetList:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/LotteryImageBackgroundAssetSet"
+        meta:
+          type: object
+          required: [game_id, version, required_set_types]
+          properties:
+            game_id:
+              type: string
+            version:
+              type: string
+            required_set_types:
+              type: array
+              items:
+                type: string
+                enum: [odd, even, charity]
+    LotteryImageBackgroundAssetSet:
+      type: object
+      required: [id, game_id, version, set_type, status, ready, generation_ready, missing_assets, assets]
+      properties:
+        id:
+          type: string
+        game_id:
+          type: string
+        version:
+          type: string
+        set_type:
+          type: string
+          enum: [odd, even, charity]
+        status:
+          type: string
+          enum: [ready, inactive, retired]
+        ready:
+          type: boolean
+        generation_ready:
+          type: boolean
+        missing_assets:
+          type: array
+          items:
+            type: string
+            enum: [source, full, thumb]
+        assets:
+          type: object
+          required: [source, full, thumb]
+          properties:
+            source:
+              $ref: "#/components/schemas/LotteryImageBackgroundAsset"
+            full:
+              $ref: "#/components/schemas/LotteryImageBackgroundAsset"
+            thumb:
+              $ref: "#/components/schemas/LotteryImageBackgroundAsset"
+        activated_at:
+          type: string
+          format: date-time
+          nullable: true
+        retired_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_by:
+          type: string
+          nullable: true
+    LotteryImageBackgroundAsset:
+      type: object
+      required: [asset_id, storage_path, content_type, width, height, size_bytes, storage_available]
+      properties:
+        asset_id:
+          type: string
+          nullable: true
+        storage_path:
+          type: string
+          nullable: true
+        content_type:
+          type: string
+          nullable: true
+        width:
+          type: integer
+          nullable: true
+        height:
+          type: integer
+          nullable: true
+        size_bytes:
+          type: integer
+          nullable: true
+        storage_available:
+          type: boolean
+    LotteryImageBackgroundAssetSetUpsertRequest:
+      type: object
+      required: [game_id, version, set_type, assets]
+      properties:
+        game_id:
+          type: string
+        version:
+          type: string
+          example: v1
+        set_type:
+          type: string
+          enum: [odd, even, charity]
+        status:
+          type: string
+          enum: [ready, inactive, retired]
+          default: ready
+        supersede_existing:
+          type: boolean
+          default: false
+        assets:
+          type: object
+          required: [source, full, thumb]
+          properties:
+            source:
+              type: object
+              required: [asset_id]
+              properties:
+                asset_id:
+                  type: string
+            full:
+              type: object
+              required: [asset_id]
+              properties:
+                asset_id:
+                  type: string
+            thumb:
+              type: object
+              required: [asset_id]
+              properties:
+                asset_id:
+                  type: string
+    LotteryImageBackgroundAssetSetStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ready, inactive, retired]
+        supersede_existing:
+          type: boolean
+          default: false
+    LotteryImageMix:
+      type: object
+      required: [game_id, source, mix]
+      properties:
+        game_id:
+          type: string
+        source:
+          type: string
+          enum: [default_config, persisted]
+        mix:
+          type: object
+          required: [odd, even, charity]
+          properties:
+            odd:
+              type: integer
+              minimum: 0
+              maximum: 100
+            even:
+              type: integer
+              minimum: 0
+              maximum: 100
+            charity:
+              type: integer
+              minimum: 0
+              maximum: 100
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_by:
+          type: string
+          nullable: true
+    LotteryImageMixUpdateRequest:
+      type: object
+      required: [game_id, mix]
+      properties:
+        game_id:
+          type: string
+        mix:
+          type: object
+          required: [odd, even, charity]
+          properties:
+            odd:
+              type: integer
+              minimum: 0
+              maximum: 100
+            even:
+              type: integer
+              minimum: 0
+              maximum: 100
+            charity:
+              type: integer
+              minimum: 0
+              maximum: 100
+    LotteryImageReadiness:
+      type: object
+      required: [game_id, version, backgrounds, missing_set_types, pending_assets, failed_generation, storage_readiness, queue_readiness]
+      properties:
+        game_id:
+          type: string
+        batch_id:
+          type: string
+          nullable: true
+        version:
+          type: string
+        backgrounds:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        missing_set_types:
+          type: array
+          items:
+            type: string
+            enum: [odd, even, charity]
+        pending_assets:
+          $ref: "#/components/schemas/LotteryImageStatusCounts"
+        failed_generation:
+          $ref: "#/components/schemas/LotteryImageStatusCounts"
+        last_error_samples:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        mix:
+          $ref: "#/components/schemas/LotteryImageMix"
+        storage_readiness:
+          $ref: "#/components/schemas/LotteryImageProductionReadiness"
+        queue_readiness:
+          $ref: "#/components/schemas/LotteryImageQueueReadiness"
+    LotteryImageStatusCounts:
+      type: object
+      required: [central, partner, total]
+      properties:
+        central:
+          type: integer
+        partner:
+          type: integer
+        total:
+          type: integer
+    LotteryImageRetryPendingRequest:
+      type: object
+      properties:
+        game_id:
+          type: string
+          nullable: true
+        batch_id:
+          type: string
+          nullable: true
+        version:
+          type: string
+          nullable: true
+        set_types:
+          type: array
+          nullable: true
+          items:
+            type: string
+            enum: [odd, even, charity]
+        dry_run:
+          type: boolean
+          default: false
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          default: 500
+    LotteryImageRetryPendingResponse:
+      type: object
+      required: [dry_run, limit, filters, central, partner]
+      properties:
+        dry_run:
+          type: boolean
+        limit:
+          type: integer
+        filters:
+          type: object
+          additionalProperties: true
+        central:
+          type: object
+          required: [ready_count, dispatched_count, queue]
+          properties:
+            ready_count:
+              type: integer
+            dispatched_count:
+              type: integer
+            queue:
+              type: string
+        partner:
+          type: object
+          required: [ready_count, dispatched_count, queue]
+          properties:
+            ready_count:
+              type: integer
+            dispatched_count:
+              type: integer
+            queue:
+              type: string
+    LotteryImageProductionReadiness:
+      type: object
+      required: [configured, disk, bucket_present, region_present, endpoint_present, cdn_base_url_present, queue_configured, runtime_webp_ready, secrets_redacted, production_ready, blocking_reasons]
+      properties:
+        configured:
+          type: boolean
+        disk:
+          type: string
+        disk_driver:
+          type: string
+          nullable: true
+        bucket_present:
+          type: boolean
+        region_present:
+          type: boolean
+        endpoint_present:
+          type: boolean
+        cdn_base_url_present:
+          type: boolean
+        queue_configured:
+          type: boolean
+        runtime_webp_ready:
+          type: boolean
+        secrets_redacted:
+          type: boolean
+        production_ready:
+          type: boolean
+        blocking_reasons:
+          type: array
+          items:
+            type: string
+        queues:
+          $ref: "#/components/schemas/LotteryImageQueueReadiness"
+    LotteryImageQueueReadiness:
+      type: object
+      required: [queue_configured, jobs_can_run, connection, required_queue_names, central_queue, partner_queue]
+      properties:
+        queue_configured:
+          type: boolean
+        jobs_can_run:
+          type: boolean
+        connection:
+          type: string
+        required_queue_names:
+          type: array
+          items:
+            type: string
+        central_queue:
+          type: string
+        partner_queue:
+          type: string
+        worker_commands:
+          type: array
+          items:
+            type: string
     RealtimeAuthRequest:
       type: object
       required: [socket_id, channel_name]
