@@ -1,0 +1,49 @@
+{
+  "checkedAt": "2026-05-14T12:02:45.719Z",
+  "results": [
+    {
+      "route": "/search",
+      "requestedUrl": "http://127.0.0.1:3000/search",
+      "status": 200,
+      "finalUrl": "http://127.0.0.1:3000/result",
+      "bodyLength": 4949,
+      "keywordMatches": [
+        "500"
+      ],
+      "title": "สลากหกหลัก"
+    },
+    {
+      "route": "/checkout",
+      "requestedUrl": "http://127.0.0.1:3000/checkout",
+      "status": 200,
+      "finalUrl": "http://127.0.0.1:3000/login?redirect=/checkout",
+      "bodyLength": 5400,
+      "keywordMatches": [
+        "500"
+      ],
+      "title": "สลากหกหลัก"
+    },
+    {
+      "route": "/success",
+      "requestedUrl": "http://127.0.0.1:3000/success",
+      "status": 200,
+      "finalUrl": "http://127.0.0.1:3000/login?redirect=/success",
+      "bodyLength": 4962,
+      "keywordMatches": [
+        "500"
+      ],
+      "title": "สลากหกหลัก"
+    },
+    {
+      "route": "/tickets",
+      "requestedUrl": "http://127.0.0.1:3000/tickets",
+      "status": 200,
+      "finalUrl": "http://127.0.0.1:3000/login?redirect=/tickets",
+      "bodyLength": 5072,
+      "keywordMatches": [
+        "500"
+      ],
+      "title": "สลากหกหลัก"
+    }
+  ]
+}

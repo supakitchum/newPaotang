@@ -1,0 +1,45 @@
+{
+  "checkedAt": "2026-05-14T12:03:15.765Z",
+  "results": [
+    {
+      "route": "/search",
+      "status": 200,
+      "finalUrl": "http://127.0.0.1:3000/result",
+      "bodyLength": 5059,
+      "title": "สลากหกหลัก",
+      "errorMatches": [],
+      "containsBare500": true,
+      "first500Snippet": "\"#0a87f5\">\n<link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap\">\n<meta name=\"description\" content>\n<meta name=\"robots\" content=\"index,follow\">\n<meta property=\"og:type\" content=\"w"
+    },
+    {
+      "route": "/checkout",
+      "status": 200,
+      "finalUrl": "http://127.0.0.1:3000/login?redirect=/checkout",
+      "bodyLength": 5510,
+      "title": "สลากหกหลัก",
+      "errorMatches": [],
+      "containsBare500": true,
+      "first500Snippet": "\"#0a87f5\">\n<link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap\">\n<meta name=\"description\" content>\n<meta name=\"robots\" content=\"noindex,nofollow\">\n<meta property=\"og:type\" conten"
+    },
+    {
+      "route": "/success",
+      "status": 200,
+      "finalUrl": "http://127.0.0.1:3000/login?redirect=/success",
+      "bodyLength": 5072,
+      "title": "สลากหกหลัก",
+      "errorMatches": [],
+      "containsBare500": true,
+      "first500Snippet": "\"#0a87f5\">\n<link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap\">\n<meta name=\"description\" content>\n<meta name=\"robots\" content=\"noindex,nofollow\">\n<meta property=\"og:type\" conten"
+    },
+    {
+      "route": "/tickets",
+      "status": 200,
+      "finalUrl": "http://127.0.0.1:3000/login?redirect=/tickets",
+      "bodyLength": 5072,
+      "title": "สลากหกหลัก",
+      "errorMatches": [],
+      "containsBare500": true,
+      "first500Snippet": "\"#0a87f5\">\n<link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap\">\n<meta name=\"description\" content>\n<meta name=\"robots\" content=\"noindex,nofollow\">\n<meta property=\"og:type\" conten"
+    }
+  ]
+}
