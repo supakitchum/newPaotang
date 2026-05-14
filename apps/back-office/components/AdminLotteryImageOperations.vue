@@ -403,6 +403,7 @@
       <div class="card-body">
         <AdminAlert v-if="previewError" :type="alertType(previewError)" :message="errorMessage(previewError)" :details="previewError.details" dismissible @dismiss="previewError = null" />
         <AdminAlert v-if="partnersError" type="warning" :message="errorMessage(partnersError)" :details="partnersError.details" dismissible @dismiss="partnersError = null" />
+        <AdminAlert v-if="layoutError" :type="alertType(layoutError)" :message="errorMessage(layoutError)" :details="layoutError.details" dismissible @dismiss="layoutError = null" />
 
         <div class="row g-3">
           <div class="col-md-4 col-xl-3">
@@ -454,6 +455,54 @@
               <span v-if="previewLoading" class="spinner-border spinner-border-sm me-2" />
               Preview
             </button>
+          </div>
+        </div>
+
+        <div class="border rounded mt-3">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 p-3 border-bottom">
+            <div>
+              <div class="fw-semibold">Composition Layout</div>
+              <div class="text-muted fs-12">Global positions used by preview and generated lottery images. Background stays fixed as the base layer.</div>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <span class="text-muted fs-12">{{ layoutUpdatedText }}</span>
+              <button class="btn btn-light btn-sm btn-wave" type="button" :disabled="layoutLoading || layoutSaving" @click="resetLayoutForm">
+                Reset
+              </button>
+              <button class="btn btn-primary btn-sm btn-wave" type="button" :disabled="!canSaveLayout" @click="saveLayout">
+                <span v-if="layoutSaving" class="spinner-border spinner-border-sm me-1" />
+                Save layout
+              </button>
+            </div>
+          </div>
+          <AdminLoader v-if="layoutLoading" />
+          <div v-else class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th style="min-width: 190px;">Element</th>
+                  <th v-for="field in layoutFieldOrder" :key="field" class="text-center" style="min-width: 96px;">{{ layoutFieldLabel(field) }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="slotKey in layoutSlotKeys" :key="slotKey">
+                  <td>
+                    <div class="fw-semibold">{{ layoutSlotLabel(slotKey) }}</div>
+                    <code class="np-admin-code">{{ slotKey }}</code>
+                  </td>
+                  <td v-for="field in layoutFieldOrder" :key="field">
+                    <input
+                      v-if="slotFields(layoutForm[slotKey]).includes(field)"
+                      v-model.number="layoutForm[slotKey][field]"
+                      class="form-control form-control-sm"
+                      type="number"
+                      step="1"
+                    >
+                    <span v-else class="text-muted d-block text-center">-</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -664,6 +713,9 @@ type AssetSlot = 'source' | 'full' | 'thumb'
 type BackgroundStatus = 'ready' | 'inactive' | 'retired'
 type PreviewMode = 'central_unbranded' | 'partner_branded'
 type PreviewVariant = 'full' | 'thumb'
+type LayoutField = 'x' | 'y' | 'width' | 'height' | 'gap' | 'size' | 'angle' | 'rotate'
+type LayoutSlot = Partial<Record<LayoutField, number | null>>
+type LayoutMap = Record<string, LayoutSlot>
 
 type GameOption = {
   id: string
@@ -783,12 +835,22 @@ type LotteryPreviewResponse = {
   content_type?: string
   width?: number
   height?: number
+  layout?: LayoutMap
   data_url?: string
   side_effects?: {
     stock_rows_created?: number
     permanent_image_rows_created?: number
     branding_locked?: boolean
   }
+}
+
+type LayoutResponse = {
+  key: string
+  scope: string
+  layout: LayoutMap
+  default_layout?: LayoutMap
+  updated_at?: string | null
+  updated_by?: string | null
 }
 
 const route = useRoute()
@@ -803,6 +865,26 @@ const assetSlots: Array<{ key: AssetSlot, label: string }> = [
   { key: 'full', label: 'Full WebP' },
   { key: 'thumb', label: 'Thumb WebP' },
 ]
+const layoutFieldOrder: LayoutField[] = ['x', 'y', 'width', 'height', 'gap', 'size', 'angle', 'rotate']
+const layoutSlotLabels: Record<string, string> = {
+  beside: 'Beside Strip',
+  emoji_1: 'Emoji 1',
+  emoji_2: 'Emoji 2',
+  emoji_3: 'Emoji 3',
+  emoji_4: 'Emoji 4',
+  number_digits: 'Number Digits',
+  text_eng: 'English Text Digits',
+  thai_text: 'Thai Text',
+  num_set_center_left: 'Num Set Center Left',
+  num_set_center_right: 'Num Set Center Right',
+  num_set_right_left: 'Num Set Right Left',
+  num_set_right_right: 'Num Set Right Right',
+  num_set_bottom_left: 'Num Set Bottom Left',
+  num_set_bottom_right: 'Num Set Bottom Right',
+  logo_bottom: 'Logo Bottom',
+  logo_qr: 'Logo QR',
+  right_sidebar: 'Right Sidebar',
+}
 
 const context = reactive({
   game_id: '',
@@ -825,10 +907,15 @@ const readinessLoading = ref(false)
 const assetSetsLoading = ref(false)
 const productionLoading = ref(false)
 const mixLoading = ref(false)
+const layoutLoading = ref(false)
 const readiness = ref<ReadinessResponse | null>(null)
 const assetSets = ref<BackgroundSet[]>([])
 const productionReadiness = ref<ProductionReadiness | null>(null)
 const mix = ref<MixResponse | null>(null)
+const layout = ref<LayoutResponse | null>(null)
+const layoutForm = reactive<LayoutMap>({})
+const layoutError = ref<any>(null)
+const layoutSaving = ref(false)
 
 const zipForm = reactive({
   game_id: '',
@@ -909,7 +996,7 @@ const selectedGameWarning = computed(() => {
 })
 
 const canLoadContext = computed(() => context.game_id.trim() !== '')
-const loadingAny = computed(() => readinessLoading.value || assetSetsLoading.value || productionLoading.value || mixLoading.value || gamesLoading.value)
+const loadingAny = computed(() => readinessLoading.value || assetSetsLoading.value || productionLoading.value || mixLoading.value || layoutLoading.value || gamesLoading.value)
 const missingSetTypes = computed(() => readiness.value?.missing_set_types || [])
 const readinessBackgrounds = computed(() => readiness.value?.backgrounds || [])
 const lastErrors = computed(() => readiness.value?.last_error_samples || [])
@@ -955,6 +1042,9 @@ const previewDetails = computed(() => {
     { key: 'size', label: 'Image size', value: result.width && result.height ? `${result.width} x ${result.height}` : '-' },
   ]
 })
+const layoutSlotKeys = computed(() => Object.keys(layoutForm))
+const layoutUpdatedText = computed(() => layout.value?.updated_at ? formatDateTime(layout.value.updated_at) : 'Default layout')
+const canSaveLayout = computed(() => Boolean(!layoutSaving.value && !layoutLoading.value && layoutSlotKeys.value.length))
 
 const readinessCards = computed(() => [
   {
@@ -1086,6 +1176,7 @@ const loadAll = async () => {
     loadBackgroundSets(),
     loadMix(),
     loadProductionReadiness(),
+    loadLayout(),
   ])
 }
 
@@ -1154,6 +1245,23 @@ const loadMix = async () => {
     mixError.value = err
   } finally {
     mixLoading.value = false
+  }
+}
+
+const loadLayout = async () => {
+  layoutLoading.value = true
+  layoutError.value = null
+
+  try {
+    const response = await api.apiFetch<LayoutResponse>('/admin/central/lottery-images/layout', {
+      scope: 'central',
+    })
+    layout.value = response
+    applyLayout(response.layout || response.default_layout || {})
+  } catch (err) {
+    layoutError.value = err
+  } finally {
+    layoutLoading.value = false
   }
 }
 
@@ -1232,6 +1340,7 @@ const renderPreview = async () => {
         lottery_number: previewForm.lottery_number,
         mode: previewForm.mode,
         variant: previewForm.variant,
+        layout: serializeLayoutForm(),
         ...(previewForm.partner_id ? { partner_id: previewForm.partner_id } : {}),
       },
     })
@@ -1239,6 +1348,32 @@ const renderPreview = async () => {
     previewError.value = err
   } finally {
     previewLoading.value = false
+  }
+}
+
+const saveLayout = async () => {
+  if (!canSaveLayout.value) return
+
+  layoutSaving.value = true
+  layoutError.value = null
+  successMessage.value = ''
+
+  try {
+    const response = await api.apiFetch<LayoutResponse>('/admin/central/lottery-images/layout', {
+      method: 'PUT',
+      scope: 'central',
+      idempotencyKey: api.idempotencyKey(),
+      body: {
+        layout: serializeLayoutForm(),
+      },
+    })
+    layout.value = response
+    applyLayout(response.layout || {})
+    successMessage.value = 'Lottery image layout saved.'
+  } catch (err) {
+    layoutError.value = err
+  } finally {
+    layoutSaving.value = false
   }
 }
 
@@ -1402,6 +1537,10 @@ const resetMixForm = () => {
   mixForm.charity = 10
 }
 
+const resetLayoutForm = () => {
+  applyLayout(layout.value?.default_layout || layout.value?.layout || {})
+}
+
 const syncGameToForms = (value: string, oldValue?: string) => {
   if (!zipForm.game_id || zipForm.game_id === oldValue) zipForm.game_id = value
   if (!previewForm.game_id || previewForm.game_id === oldValue) previewForm.game_id = value
@@ -1436,6 +1575,38 @@ const applyMix = (response: MixResponse) => {
   mixForm.even = normalizedPercent(response.mix?.even)
   mixForm.charity = normalizedPercent(response.mix?.charity)
 }
+
+const applyLayout = (next: LayoutMap) => {
+  Object.keys(layoutForm).forEach((key) => delete layoutForm[key])
+
+  Object.entries(next || {}).forEach(([slotKey, slot]) => {
+    layoutForm[slotKey] = {}
+    layoutFieldOrder.forEach((field) => {
+      if (Object.prototype.hasOwnProperty.call(slot, field)) {
+        layoutForm[slotKey][field] = slot[field] ?? null
+      }
+    })
+  })
+}
+
+const serializeLayoutForm = (): LayoutMap => {
+  const output: LayoutMap = {}
+
+  Object.entries(layoutForm).forEach(([slotKey, slot]) => {
+    output[slotKey] = {}
+    layoutFieldOrder.forEach((field) => {
+      if (!Object.prototype.hasOwnProperty.call(slot, field)) return
+      const value = slot[field]
+      output[slotKey][field] = value === null || value === undefined || String(value) === '' ? null : Number(value)
+    })
+  })
+
+  return output
+}
+
+const slotFields = (slot: LayoutSlot): LayoutField[] => layoutFieldOrder.filter((field) => Object.prototype.hasOwnProperty.call(slot, field))
+const layoutSlotLabel = (slotKey: string) => layoutSlotLabels[slotKey] || titleize(slotKey)
+const layoutFieldLabel = (field: LayoutField) => field === 'width' ? 'W' : field === 'height' ? 'H' : titleize(field)
 
 const validateZipFile = (file: File) => {
   const name = file.name.toLowerCase()
@@ -1546,7 +1717,7 @@ onMounted(async () => {
   previewForm.version = context.version
   retryForm.version = context.version
 
-  await Promise.all([loadGames(), loadPartners()])
+  await Promise.all([loadGames(), loadPartners(), loadLayout()])
 
   if (initialGameId) {
     await loadAll()

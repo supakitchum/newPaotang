@@ -552,6 +552,61 @@ class LotteryImageOperationsTest extends TestCase
         $this->assertNull(DB::table('partner_lottery_branding_asset_sets')->where('partner_id', 'par_preview_ops')->value('locked_at'));
     }
 
+    public function test_LotteryImageLayout_persists_global_composition_and_preview_accepts_override(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertGame('gam_lottery_layout_ops', 'open');
+        $central = $this->createCentralSession(['asset.manage', 'stock.view'], 'adm_lottery_layout_ops', 'lottery-layout@example.test');
+        $this->registerBackgroundSet($central['access_token'], 'gam_lottery_layout_ops', 'odd', 'layout-odd-assets');
+
+        $this->withToken($central['access_token'])
+            ->getJson('/api/v1/admin/central/lottery-images/layout', [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('scope', 'global')
+            ->assertJsonPath('layout.logo_qr.x', 200)
+            ->assertJsonPath('layout.beside.width', 43);
+
+        $saved = $this->withToken($central['access_token'])
+            ->putJson('/api/v1/admin/central/lottery-images/layout', [
+                'layout' => [
+                    'logo_qr' => ['x' => 210, 'y' => 60, 'width' => 58, 'height' => null],
+                    'number_digits' => ['x' => 260, 'y' => 25, 'width' => 26, 'height' => 21, 'gap' => 31],
+                ],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'layout-update',
+            ])
+            ->assertOk()
+            ->assertJsonPath('layout.logo_qr.x', 210)
+            ->assertJsonPath('layout.logo_qr.height', null)
+            ->assertJsonPath('layout.number_digits.gap', 31)
+            ->json();
+
+        $this->assertSame(1, DB::table('platform_system_settings')->where('key', LotteryImageGenerator::LAYOUT_SETTING_KEY)->count());
+        $this->assertSame(210, $saved['layout']['logo_qr']['x']);
+
+        $preview = $this->withToken($central['access_token'])
+            ->postJson('/api/v1/admin/central/lottery-images/preview', [
+                'game_id' => 'gam_lottery_layout_ops',
+                'version' => 'v1',
+                'set_type' => 'odd',
+                'lottery_number' => '456789',
+                'layout' => [
+                    'logo_qr' => ['x' => 230, 'y' => 64, 'width' => 61, 'height' => null],
+                ],
+            ], [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('layout.logo_qr.x', 230)
+            ->assertJsonPath('layout.number_digits.gap', 31)
+            ->json();
+
+        $this->assertWebpBase64($preview['image_base64']);
+    }
+
     public function test_LotteryBrandingPreview_uses_route_partner_and_rejects_body_override(): void
     {
         $this->seedDefaultRbac();

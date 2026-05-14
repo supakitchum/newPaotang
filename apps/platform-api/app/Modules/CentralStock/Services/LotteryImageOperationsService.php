@@ -9,6 +9,7 @@ use App\Models\LocalStockItem;
 use App\Models\LotteryImageBackgroundAssetSet;
 use App\Models\LotteryImageMixSetting;
 use App\Models\Partner;
+use App\Models\PlatformSystemSetting;
 use App\Models\PlatformAsset;
 use App\Models\StockItem;
 use App\Shared\Audit\AuditLogger;
@@ -386,6 +387,59 @@ class LotteryImageOperationsService
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public function layout(): array
+    {
+        $row = PlatformSystemSetting::query()
+            ->where('key', LotteryImageGenerator::LAYOUT_SETTING_KEY)
+            ->where('status', 'active')
+            ->first();
+
+        $saved = is_array($row?->value_json) ? $row->value_json : [];
+        $layout = $this->images->layout($saved);
+
+        return [
+            'key' => LotteryImageGenerator::LAYOUT_SETTING_KEY,
+            'scope' => 'global',
+            'layout' => $layout,
+            'default_layout' => LotteryImageGenerator::defaultLayout(),
+            'updated_at' => $row?->updated_at?->toISOString(),
+            'updated_by' => null,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, error?: string, errors?: array<string, array<int, string>>}
+     */
+    public function updateLayout(array $payload, AdminSessionContext $actor, Request $request): array
+    {
+        [$layout, $errors] = $this->normalizedLayoutPayload($payload['layout'] ?? $payload);
+
+        if ($errors !== []) {
+            return ['error' => 'validation_failed', 'errors' => $errors];
+        }
+
+        return DB::transaction(function () use ($layout, $payload, $actor, $request): array {
+            PlatformSystemSetting::query()->updateOrCreate(
+                ['key' => LotteryImageGenerator::LAYOUT_SETTING_KEY],
+                [
+                    'id' => 'pss_'.substr(sha1(LotteryImageGenerator::LAYOUT_SETTING_KEY), 0, 20),
+                    'value_json' => $layout,
+                    'status' => 'active',
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ],
+            );
+
+            $this->audit($actor, $request, 'lottery_image_layout.updated', 'platform_system_settings', LotteryImageGenerator::LAYOUT_SETTING_KEY, $payload);
+
+            return ['resource' => $this->layout()];
+        });
+    }
+
+    /**
      * @param array<string, mixed> $payload
      * @return array{resource?: array<string, mixed>, error?: string, errors?: array<string, array<int, string>>}
      */
@@ -522,7 +576,13 @@ class LotteryImageOperationsService
         $variant = trim((string) ($payload['variant'] ?? 'full'));
         $bodyPartnerId = $this->nullableString($payload['partner_id'] ?? null);
         $partnerId = $routePartnerId ?? $bodyPartnerId;
+        $layoutOverride = null;
         $errors = $this->gameVersionErrors(['game_id' => $gameId, 'version' => $version]);
+
+        if (array_key_exists('layout', $payload)) {
+            [$layoutOverride, $layoutErrors] = $this->normalizedLayoutPayload($payload['layout'], partial: true);
+            $errors = array_merge($errors, $layoutErrors);
+        }
 
         if (! in_array($setType, self::SET_TYPES, true)) {
             $errors['set_type'][] = 'The set_type field must be odd, even, or charity.';
@@ -594,9 +654,9 @@ class LotteryImageOperationsService
                 'back2' => substr($digits, -2),
                 'status' => 'available',
             ]);
-            $bytes = $this->images->renderPartnerImage($local, $stock, $assetSet, $variant);
+            $bytes = $this->images->renderPartnerImage($local, $stock, $assetSet, $variant, $layoutOverride);
         } else {
-            $bytes = $this->images->renderCentralImage($stock, $variant);
+            $bytes = $this->images->renderCentralImage($stock, $variant, $layoutOverride);
         }
 
         $dimensions = $this->expectedDimensions()[$variant];
@@ -615,6 +675,7 @@ class LotteryImageOperationsService
             'content_type' => 'image/webp',
             'width' => $dimensions['width'],
             'height' => $dimensions['height'],
+            'layout' => $this->images->layout($layoutOverride),
             'image_base64' => base64_encode($bytes),
             'data_url' => 'data:image/webp;base64,'.base64_encode($bytes),
             'side_effects' => [
@@ -795,6 +856,76 @@ class LotteryImageOperationsService
                 'php artisan queue:work --queue='.$partner,
             ],
         ];
+    }
+
+    /**
+     * @param mixed $payload
+     * @return array{0: array<string, mixed>, 1: array<string, array<int, string>>}
+     */
+    private function normalizedLayoutPayload(mixed $payload, bool $partial = false): array
+    {
+        if (! is_array($payload)) {
+            return [[], ['layout' => ['The layout field must be an object.']]];
+        }
+
+        $defaults = LotteryImageGenerator::defaultLayout();
+        $normalized = [];
+        $errors = [];
+
+        foreach ($defaults as $slotKey => $fields) {
+            $slot = $payload[$slotKey] ?? [];
+
+            if ($partial && ! array_key_exists($slotKey, $payload)) {
+                continue;
+            }
+
+            if ($slot !== [] && ! is_array($slot)) {
+                $errors['layout.'.$slotKey][] = 'The '.$slotKey.' layout slot must be an object.';
+                continue;
+            }
+
+            $normalized[$slotKey] = [];
+
+            foreach ($fields as $field => $default) {
+                if ($partial && ! array_key_exists($field, $slot)) {
+                    continue;
+                }
+
+                $raw = $slot[$field] ?? $default;
+                $fieldKey = 'layout.'.$slotKey.'.'.$field;
+
+                if ($raw === null && $default === null) {
+                    $normalized[$slotKey][$field] = null;
+                    continue;
+                }
+
+                if (filter_var($raw, FILTER_VALIDATE_INT) === false) {
+                    $errors[$fieldKey][] = 'The '.$fieldKey.' field must be an integer.';
+                    continue;
+                }
+
+                $value = (int) $raw;
+
+                if (in_array($field, ['width', 'height', 'gap', 'size'], true) && ($value < 1 || $value > 1000)) {
+                    $errors[$fieldKey][] = 'The '.$fieldKey.' field must be between 1 and 1000.';
+                    continue;
+                }
+
+                if (in_array($field, ['x', 'y'], true) && ($value < -1000 || $value > 2000)) {
+                    $errors[$fieldKey][] = 'The '.$fieldKey.' field must be between -1000 and 2000.';
+                    continue;
+                }
+
+                if (in_array($field, ['angle', 'rotate'], true) && ($value < -360 || $value > 360)) {
+                    $errors[$fieldKey][] = 'The '.$fieldKey.' field must be between -360 and 360.';
+                    continue;
+                }
+
+                $normalized[$slotKey][$field] = $value;
+            }
+        }
+
+        return [$normalized, $errors];
     }
 
     /**

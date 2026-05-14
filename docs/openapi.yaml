@@ -2117,6 +2117,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /admin/central/lottery-images/layout:
+    get:
+      tags: [Central Admin]
+      summary: Read global lottery image composition layout
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: Global lottery image composition layout
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LotteryImageLayout"
+    put:
+      tags: [Central Admin]
+      summary: Update global lottery image composition layout
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LotteryImageLayoutUpdateRequest"
+      responses:
+        "200":
+          description: Global lottery image composition layout updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LotteryImageLayout"
   /admin/central/lottery-images/mix:
     get:
       tags: [Central Admin]
@@ -7829,6 +7863,8 @@ components:
           type: string
           enum: [full, thumb]
           default: full
+        layout:
+          $ref: "#/components/schemas/LotteryImageLayoutMap"
     LotteryImagePartnerBrandingPreviewRequest:
       type: object
       required: [game_id, version, set_type, lottery_number]
@@ -7852,6 +7888,8 @@ components:
           type: string
           enum: [full, thumb]
           default: full
+        layout:
+          $ref: "#/components/schemas/LotteryImageLayoutMap"
     LotteryImagePreviewResponse:
       type: object
       required: [mode, requested_mode, warnings, game_id, version, set_type, lottery_number, variant, content_type, width, height, image_base64, data_url, side_effects]
@@ -7894,6 +7932,8 @@ components:
           type: integer
         height:
           type: integer
+        layout:
+          $ref: "#/components/schemas/LotteryImageLayoutMap"
         image_base64:
           type: string
           format: byte
@@ -7912,6 +7952,75 @@ components:
             branding_locked:
               type: boolean
               enum: [false]
+    LotteryImageLayout:
+      type: object
+      required: [key, scope, layout, default_layout]
+      properties:
+        key:
+          type: string
+          enum: [lottery_image_layout]
+        scope:
+          type: string
+          enum: [global]
+        layout:
+          $ref: "#/components/schemas/LotteryImageLayoutMap"
+        default_layout:
+          $ref: "#/components/schemas/LotteryImageLayoutMap"
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_by:
+          type: string
+          nullable: true
+    LotteryImageLayoutUpdateRequest:
+      type: object
+      required: [layout]
+      properties:
+        layout:
+          $ref: "#/components/schemas/LotteryImageLayoutMap"
+    LotteryImageLayoutMap:
+      type: object
+      additionalProperties:
+        $ref: "#/components/schemas/LotteryImageLayoutSlot"
+      description: Global composition slots such as beside, emoji_1..emoji_4, number_digits, text_eng, thai_text, num_set_*, logo_qr, right_sidebar, and logo_bottom.
+    LotteryImageLayoutSlot:
+      type: object
+      properties:
+        x:
+          type: integer
+          minimum: -1000
+          maximum: 2000
+        y:
+          type: integer
+          minimum: -1000
+          maximum: 2000
+        width:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 1000
+        height:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 1000
+        gap:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        size:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        angle:
+          type: integer
+          minimum: -360
+          maximum: 360
+        rotate:
+          type: integer
+          minimum: -360
+          maximum: 360
     LotteryImageMix:
       type: object
       required: [game_id, source, mix]

@@ -163,6 +163,21 @@ class LotteryImageOperationsController extends Controller
         return $this->read($request, 'stock.view', fn (): array => $this->operations->preview($request->all()));
     }
 
+    public function layout(Request $request): JsonResponse
+    {
+        return $this->read($request, 'asset.manage', fn (): array => $this->operations->layout());
+    }
+
+    public function updateLayout(Request $request): JsonResponse
+    {
+        return $this->write(
+            $request,
+            'asset.manage',
+            'admin.central.lottery-images.layout.update',
+            fn (AdminSessionContext $context, array $payload): array => $this->operations->updateLayout($payload, $context, $request),
+        );
+    }
+
     private function read(Request $request, string $permissionCode, callable $callback): JsonResponse
     {
         $context = $this->authorizedContext($request, $permissionCode);

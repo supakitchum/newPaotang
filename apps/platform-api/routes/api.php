@@ -240,6 +240,10 @@ Route::patch('/admin/central/lottery-images/background-asset-sets/{asset_set_id}
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/lottery-images/preview', [LotteryImageOperationsController::class, 'preview'])
     ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/lottery-images/layout', [LotteryImageOperationsController::class, 'layout'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::put('/admin/central/lottery-images/layout', [LotteryImageOperationsController::class, 'updateLayout'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/lottery-images/mix', [LotteryImageOperationsController::class, 'mix'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::put('/admin/central/lottery-images/mix', [LotteryImageOperationsController::class, 'updateMix'])

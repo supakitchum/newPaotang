@@ -6,6 +6,7 @@ use App\Models\LocalStockItem;
 use App\Models\LotteryImageBackgroundAssetSet;
 use App\Models\LotteryImageMixSetting;
 use App\Models\PartnerLotteryBrandingAssetSet;
+use App\Models\PlatformSystemSetting;
 use App\Models\StockItem;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -13,8 +14,31 @@ use RuntimeException;
 class LotteryImageGenerator
 {
     public const SET_TYPES = ['odd', 'even', 'charity'];
+    public const LAYOUT_SETTING_KEY = 'lottery_image_layout';
     private const DESIGN_WIDTH = 500;
     private const DESIGN_HEIGHT = 280;
+    private const DEFAULT_LAYOUT = [
+        'beside' => ['x' => 1, 'y' => 1, 'width' => 43, 'height' => 274],
+        'emoji_1' => ['x' => 192, 'y' => 96, 'width' => 24, 'height' => null],
+        'emoji_2' => ['x' => 220, 'y' => 96, 'width' => 24, 'height' => null],
+        'emoji_3' => ['x' => 192, 'y' => 119, 'width' => 24, 'height' => null],
+        'emoji_4' => ['x' => 220, 'y' => 119, 'width' => 24, 'height' => null],
+        'number_digits' => ['x' => 257, 'y' => 23, 'width' => 25, 'height' => 20, 'gap' => 30],
+        'text_eng' => ['x' => 258, 'y' => 50, 'width' => 12, 'height' => 7, 'gap' => 30],
+        'thai_text' => ['x' => 446, 'y' => 20, 'size' => 23, 'angle' => 90],
+        'num_set_center_left' => ['x' => 296, 'y' => 67, 'width' => 50, 'height' => 46],
+        'num_set_center_right' => ['x' => 326, 'y' => 67, 'width' => 50, 'height' => 46],
+        'num_set_right_left' => ['x' => 393, 'y' => 117, 'width' => 22, 'height' => 22],
+        'num_set_right_right' => ['x' => 411, 'y' => 117, 'width' => 22, 'height' => 22],
+        'num_set_bottom_left' => ['x' => 93, 'y' => 163, 'width' => 25, 'height' => 25],
+        'num_set_bottom_right' => ['x' => 110, 'y' => 163, 'width' => 25, 'height' => 25],
+        'logo_bottom' => ['x' => 248, 'y' => 85, 'width' => 190, 'height' => null],
+        'logo_qr' => ['x' => 200, 'y' => 55, 'width' => 53, 'height' => null],
+        'right_sidebar' => ['x' => 440, 'y' => 0, 'width' => 61, 'height' => null, 'rotate' => 90],
+    ];
+
+    /** @var array<string, array<string, int|null>>|null */
+    private ?array $layoutCache = null;
 
     /**
      * @param array<int, string> $stockIds
@@ -128,20 +152,40 @@ class LotteryImageGenerator
         return Storage::disk((string) config('lottery_images.disk', 'lottery_images'))->url($key);
     }
 
-    public function renderCentralImage(StockItem $stock, string $variant): string
+    /**
+     * @return array<string, array<string, int|null>>
+     */
+    public static function defaultLayout(): array
     {
-        return $this->renderTicketImage($stock, null, null, $variant);
+        return self::DEFAULT_LAYOUT;
     }
 
-    public function renderPartnerImage(LocalStockItem $localStock, StockItem $stock, PartnerLotteryBrandingAssetSet $assetSet, string $variant): string
+    /**
+     * @param array<string, mixed>|null $override
+     * @return array<string, array<string, int|null>>
+     */
+    public function layout(?array $override = null): array
     {
-        return $this->renderTicketImage($stock, $localStock, $assetSet, $variant);
+        $stored = $this->storedLayout();
+
+        return $this->mergeLayout($override === null ? $stored : array_replace_recursive($stored, $override));
     }
 
-    private function renderTicketImage(StockItem $stock, ?LocalStockItem $localStock, ?PartnerLotteryBrandingAssetSet $assetSet, string $variant): string
+    public function renderCentralImage(StockItem $stock, string $variant, ?array $layoutOverride = null): string
+    {
+        return $this->renderTicketImage($stock, null, null, $variant, $layoutOverride);
+    }
+
+    public function renderPartnerImage(LocalStockItem $localStock, StockItem $stock, PartnerLotteryBrandingAssetSet $assetSet, string $variant, ?array $layoutOverride = null): string
+    {
+        return $this->renderTicketImage($stock, $localStock, $assetSet, $variant, $layoutOverride);
+    }
+
+    private function renderTicketImage(StockItem $stock, ?LocalStockItem $localStock, ?PartnerLotteryBrandingAssetSet $assetSet, string $variant, ?array $layoutOverride = null): string
     {
         $this->assertGdWebpRuntime();
         [$width, $height, $quality] = $this->variantSpec($variant);
+        $layout = $this->layout($layoutOverride);
 
         $canvas = imagecreatetruecolor($width, $height);
 
@@ -153,10 +197,10 @@ class LotteryImageGenerator
 
         try {
             $this->drawBackground($canvas, $stock, $width, $height);
-            $this->drawBaseTicket($canvas, $stock, $width, $height);
+            $this->drawBaseTicket($canvas, $stock, $width, $height, $layout);
 
             if ($localStock !== null && $assetSet !== null) {
-                $this->drawPartnerBranding($canvas, $localStock, $assetSet, $width, $height);
+                $this->drawPartnerBranding($canvas, $localStock, $assetSet, $width, $height, $layout);
             }
 
             return $this->encodeWebp($canvas, $quality);
@@ -222,25 +266,34 @@ class LotteryImageGenerator
         }
     }
 
-    private function drawBaseTicket(mixed $canvas, StockItem $stock, int $width, int $height): void
+    /**
+     * @param array<string, array<string, int|null>> $layout
+     */
+    private function drawBaseTicket(mixed $canvas, StockItem $stock, int $width, int $height, array $layout): void
     {
         $seed = $this->renderSeed($stock);
-        $this->drawBeside($canvas, $seed, $width, $height);
-        $this->drawEmojiSlots($canvas, $seed, $width, $height);
+        $this->drawBeside($canvas, $seed, $width, $height, $layout);
+        $this->drawEmojiSlots($canvas, $seed, $width, $height, $layout);
         $digits = $this->normalizedTicketNumber((string) $stock->full_number);
-        $this->drawLotteryDigits($canvas, $digits, $width, $height);
-        $this->drawThaiDigitText($canvas, $digits, $width, $height);
-        $this->drawNumSet($canvas, $this->numSetDigits($seed, (string) $stock->background_set_type), $width, $height);
+        $this->drawLotteryDigits($canvas, $digits, $width, $height, $layout);
+        $this->drawThaiDigitText($canvas, $digits, $width, $height, $layout);
+        $this->drawNumSet($canvas, $this->numSetDigits($seed, (string) $stock->background_set_type), $width, $height, $layout);
     }
 
-    private function drawPartnerBranding(mixed $canvas, LocalStockItem $localStock, PartnerLotteryBrandingAssetSet $assetSet, int $width, int $height): void
+    /**
+     * @param array<string, array<string, int|null>> $layout
+     */
+    private function drawPartnerBranding(mixed $canvas, LocalStockItem $localStock, PartnerLotteryBrandingAssetSet $assetSet, int $width, int $height, array $layout): void
     {
-        $this->drawBrandingAsset($canvas, $assetSet->logo_bottom_storage_path, $this->sx(248, $width), $this->sy(85, $height), $this->sx(190, $width), null);
-        $this->drawBrandingAsset($canvas, $assetSet->logo_qr_storage_path, $this->sx(200, $width), $this->sy(55, $height), $this->sx(53, $width), null);
-        $this->drawBrandingAsset($canvas, $assetSet->right_sidebar_storage_path, $this->sx(440, $width), 0, $this->sx(61, $width), null, 90);
+        $this->drawBrandingSlot($canvas, $assetSet->logo_bottom_storage_path, 'logo_bottom', $width, $height, $layout);
+        $this->drawBrandingSlot($canvas, $assetSet->logo_qr_storage_path, 'logo_qr', $width, $height, $layout);
+        $this->drawBrandingSlot($canvas, $assetSet->right_sidebar_storage_path, 'right_sidebar', $width, $height, $layout);
     }
 
-    private function drawBeside(mixed $canvas, string $seed, int $width, int $height): void
+    /**
+     * @param array<string, array<string, int|null>> $layout
+     */
+    private function drawBeside(mixed $canvas, string $seed, int $width, int $height, array $layout): void
     {
         $path = $this->deterministicSystemAsset('beside', $seed, ['png']);
 
@@ -248,86 +301,150 @@ class LotteryImageGenerator
             return;
         }
 
-        $this->drawLocalAsset($canvas, $path, $this->sx(1, $width), $this->sy(1, $height), $this->sx(43, $width), $this->sy(274, $height), stretch: true);
+        $this->drawLocalSlot($canvas, $path, 'beside', $width, $height, $layout, stretch: true);
     }
 
-    private function drawEmojiSlots(mixed $canvas, string $seed, int $width, int $height): void
+    /**
+     * @param array<string, array<string, int|null>> $layout
+     */
+    private function drawEmojiSlots(mixed $canvas, string $seed, int $width, int $height, array $layout): void
     {
         $slots = [
-            ['emoji/e1', 192, 96],
-            ['emoji/e2', 220, 96],
-            ['emoji/e3', 192, 119],
-            ['emoji/e4', 220, 119],
+            ['emoji/e1', 'emoji_1'],
+            ['emoji/e2', 'emoji_2'],
+            ['emoji/e3', 'emoji_3'],
+            ['emoji/e4', 'emoji_4'],
         ];
 
-        foreach ($slots as $index => [$directory, $x, $y]) {
+        foreach ($slots as $index => [$directory, $slotKey]) {
             $path = $this->deterministicSystemAsset($directory, $seed.':emoji:'.$index, ['png']);
 
             if ($path !== null) {
-                $this->drawLocalAsset($canvas, $path, $this->sx($x, $width), $this->sy($y, $height), $this->sx(24, $width), null);
+                $this->drawLocalSlot($canvas, $path, $slotKey, $width, $height, $layout);
             }
         }
     }
 
-    private function drawLotteryDigits(mixed $canvas, string $digits, int $width, int $height): void
+    /**
+     * @param array<string, array<string, int|null>> $layout
+     */
+    private function drawLotteryDigits(mixed $canvas, string $digits, int $width, int $height, array $layout): void
     {
-        $x = 252;
+        $number = $layout['number_digits'];
+        $text = $layout['text_eng'];
 
-        foreach (str_split($digits) as $digit) {
+        foreach (str_split($digits) as $index => $digit) {
             $numberPath = $this->systemAssetPath('number/'.$digit.'.png');
 
             if ($numberPath !== null) {
-                $this->drawLocalAsset($canvas, $numberPath, $this->sx($x + 5, $width), $this->sy(23, $height), $this->sx(25, $width), $this->sy(20, $height));
+                $this->drawLocalAsset(
+                    $canvas,
+                    $numberPath,
+                    $this->sx((int) $number['x'] + ((int) $number['gap'] * $index), $width),
+                    $this->sy((int) $number['y'], $height),
+                    $this->sx((int) $number['width'], $width),
+                    $this->sy((int) $number['height'], $height),
+                );
             }
 
             $textPath = $this->systemAssetPath('text_eng/'.$digit.'.png');
 
             if ($textPath !== null) {
-                $this->drawLocalAsset($canvas, $textPath, $this->sx($x + 6, $width), $this->sy(50, $height), $this->sx(12, $width), $this->sy(7, $height), stretch: true);
+                $this->drawLocalAsset(
+                    $canvas,
+                    $textPath,
+                    $this->sx((int) $text['x'] + ((int) $text['gap'] * $index), $width),
+                    $this->sy((int) $text['y'], $height),
+                    $this->sx((int) $text['width'], $width),
+                    $this->sy((int) $text['height'], $height),
+                    stretch: true,
+                );
             }
-
-            $x += 30;
         }
     }
 
-    private function drawThaiDigitText(mixed $canvas, string $digits, int $width, int $height): void
+    /**
+     * @param array<string, array<string, int|null>> $layout
+     */
+    private function drawThaiDigitText(mixed $canvas, string $digits, int $width, int $height, array $layout): void
     {
+        $slot = $layout['thai_text'];
         $font = $this->fontAssetPath('lotto-font5.ttf') ?? $this->fontPath();
         $text = implode('', array_map(fn (string $digit): string => $this->thaiGlyphForDigit($digit), str_split($digits)));
-        $x = $this->sx(252 + (strlen($digits) * 30) + 14, $width);
-        $y = $this->sy(20, $height);
+        $x = $this->sx((int) $slot['x'], $width);
+        $y = $this->sy((int) $slot['y'], $height);
         $color = imagecolorallocate($canvas, 73, 43, 47);
 
         if ($font !== null && function_exists('imagettftext')) {
-            imagettftext($canvas, max(8, $this->sy(23, $height)), 90, $x, $y, $color, $font, $text);
+            imagettftext($canvas, max(8, $this->sy((int) $slot['size'], $height)), (int) $slot['angle'], $x, $y, $color, $font, $text);
 
             return;
         }
 
-        imagestringup($canvas, 3, $x, $this->sy(92, $height), $text, $color);
+        imagestringup($canvas, 3, $x, $y, $text, $color);
     }
 
     /**
      * @param array{0: string, 1: string} $digits
+     * @param array<string, array<string, int|null>> $layout
      */
-    private function drawNumSet(mixed $canvas, array $digits, int $width, int $height): void
+    private function drawNumSet(mixed $canvas, array $digits, int $width, int $height, array $layout): void
     {
         [$left, $right] = $digits;
-        $this->drawSystemSlot($canvas, 'num_set_center/'.$left.'.png', 296, 67, 50, 46, $width, $height, true);
-        $this->drawSystemSlot($canvas, 'num_set_center/'.$right.'.png', 326, 67, 50, 46, $width, $height, true);
-        $this->drawSystemSlot($canvas, 'num_set_right/'.$left.'.png', 393, 117, 22, 22, $width, $height, true);
-        $this->drawSystemSlot($canvas, 'num_set_right/'.$right.'.png', 411, 117, 22, 22, $width, $height, true);
-        $this->drawSystemSlot($canvas, 'num_set_center/'.$left.'.png', 93, 163, 25, 25, $width, $height, true);
-        $this->drawSystemSlot($canvas, 'num_set_center/'.$right.'.png', 110, 163, 25, 25, $width, $height, true);
+        $this->drawSystemSlot($canvas, 'num_set_center/'.$left.'.png', 'num_set_center_left', $width, $height, $layout, true);
+        $this->drawSystemSlot($canvas, 'num_set_center/'.$right.'.png', 'num_set_center_right', $width, $height, $layout, true);
+        $this->drawSystemSlot($canvas, 'num_set_right/'.$left.'.png', 'num_set_right_left', $width, $height, $layout, true);
+        $this->drawSystemSlot($canvas, 'num_set_right/'.$right.'.png', 'num_set_right_right', $width, $height, $layout, true);
+        $this->drawSystemSlot($canvas, 'num_set_center/'.$left.'.png', 'num_set_bottom_left', $width, $height, $layout, true);
+        $this->drawSystemSlot($canvas, 'num_set_center/'.$right.'.png', 'num_set_bottom_right', $width, $height, $layout, true);
     }
 
-    private function drawSystemSlot(mixed $canvas, string $relativePath, int $x, int $y, int $slotWidth, int $slotHeight, int $width, int $height, bool $stretch = false): void
+    /**
+     * @param array<string, array<string, int|null>> $layout
+     */
+    private function drawSystemSlot(mixed $canvas, string $relativePath, string $slotKey, int $width, int $height, array $layout, bool $stretch = false): void
     {
         $path = $this->systemAssetPath($relativePath);
 
         if ($path !== null) {
-            $this->drawLocalAsset($canvas, $path, $this->sx($x, $width), $this->sy($y, $height), $this->sx($slotWidth, $width), $this->sy($slotHeight, $height), $stretch);
+            $this->drawLocalSlot($canvas, $path, $slotKey, $width, $height, $layout, $stretch);
         }
+    }
+
+    /**
+     * @param array<string, array<string, int|null>> $layout
+     */
+    private function drawLocalSlot(mixed $canvas, string $path, string $slotKey, int $width, int $height, array $layout, bool $stretch = false): void
+    {
+        $slot = $layout[$slotKey];
+
+        $this->drawLocalAsset(
+            $canvas,
+            $path,
+            $this->sx((int) $slot['x'], $width),
+            $this->sy((int) $slot['y'], $height),
+            $this->sx((int) $slot['width'], $width),
+            $slot['height'] === null ? null : $this->sy((int) $slot['height'], $height),
+            $stretch,
+        );
+    }
+
+    /**
+     * @param array<string, array<string, int|null>> $layout
+     */
+    private function drawBrandingSlot(mixed $canvas, ?string $storagePath, string $slotKey, int $width, int $height, array $layout): void
+    {
+        $slot = $layout[$slotKey];
+
+        $this->drawBrandingAsset(
+            $canvas,
+            $storagePath,
+            $this->sx((int) $slot['x'], $width),
+            $this->sy((int) $slot['y'], $height),
+            $this->sx((int) $slot['width'], $width),
+            $slot['height'] === null ? null : $this->sy((int) $slot['height'], $height),
+            (int) ($slot['rotate'] ?? 0),
+        );
     }
 
     private function drawBrandingAsset(mixed $canvas, ?string $storagePath, int $x, int $y, int $targetWidth, ?int $targetHeight = null, int $rotateDegrees = 0): void
@@ -354,6 +471,54 @@ class LotteryImageGenerator
         } finally {
             imagedestroy($asset);
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function storedLayout(): array
+    {
+        if ($this->layoutCache !== null) {
+            return $this->layoutCache;
+        }
+
+        $value = PlatformSystemSetting::query()
+            ->where('key', self::LAYOUT_SETTING_KEY)
+            ->where('status', 'active')
+            ->value('value_json');
+
+        if (is_string($value) && $value !== '') {
+            $decoded = json_decode($value, true);
+            $value = is_array($decoded) ? $decoded : [];
+        }
+
+        $this->layoutCache = is_array($value) ? $value : [];
+
+        return $this->layoutCache;
+    }
+
+    /**
+     * @param array<string, mixed> $layout
+     * @return array<string, array<string, int|null>>
+     */
+    private function mergeLayout(array $layout): array
+    {
+        $merged = self::DEFAULT_LAYOUT;
+
+        foreach (self::DEFAULT_LAYOUT as $slotKey => $defaults) {
+            $input = is_array($layout[$slotKey] ?? null) ? $layout[$slotKey] : [];
+
+            foreach ($defaults as $field => $default) {
+                if (! array_key_exists($field, $input)) {
+                    continue;
+                }
+
+                $value = $input[$field];
+                $merged[$slotKey][$field] = $value === null && $default === null ? null : (int) $value;
+            }
+        }
+
+        return $merged;
     }
 
     private function drawLocalAsset(mixed $canvas, string $path, int $x, int $y, int $targetWidth, ?int $targetHeight = null, bool $stretch = false): void

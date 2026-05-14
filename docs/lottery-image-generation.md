@@ -122,7 +122,7 @@ Composition order:
 7. for partner-branded images only, draw logo_bottom, logo_qr, and right_sidebar
 ```
 
-Base coordinates are the legacy 500x280 layout. Scale them by target variant dimensions for thumbnails. Central images must never draw `logo_qr`, `right_sidebar`, or `logo_bottom`; those slots are applied only in partner image generation.
+Base coordinates are the legacy 500x280 layout. Scale them by target variant dimensions for thumbnails. Central images must never draw `logo_qr`, `right_sidebar`, or `logo_bottom`; those slots are applied only in partner image generation. Agents must preserve the global layout setting path when changing renderer composition, so BO preview, saved presets, and background jobs remain aligned.
 
 ## Data Model
 
@@ -427,6 +427,8 @@ GET /api/v1/admin/central/lottery-images/readiness
 POST /api/v1/admin/central/lottery-images/retry-pending
 POST /api/v1/admin/central/lottery-images/background-asset-sets/import-zip
 POST /api/v1/admin/central/lottery-images/preview
+GET /api/v1/admin/central/lottery-images/layout
+PUT /api/v1/admin/central/lottery-images/layout
 POST /api/v1/admin/central/partners/{partner_id}/lottery-branding/preview
 ```
 
@@ -445,6 +447,33 @@ State-changing background endpoints require `Idempotency-Key` and central `asset
 The zip import endpoint is central-only and accepts one multipart `zip` upload per `game_id`, `version`, and `set_type`. Zip entries must be root-level image files with safe names, supported extensions (`png`, `jpg`, `jpeg`, `webp`), no unsafe paths, folders, or non-image file types. The backend naturally sorts the original image filenames, writes each source image with a normalized name such as `001.{ext}`, and writes generated full/thumb WebP variants before registering ordered background asset set rows.
 
 Preview endpoints render a transient image from `lottery_number` without creating stock rows, permanent image rows, or partner branding locks. `/lottery-images/preview` defaults to `central_unbranded` even when `partner_id` is supplied; `partner_branded` must be requested explicitly and falls back with a warning if partner branding assets are not ready. `/partners/{partner_id}/lottery-branding/preview` uses the route partner and rejects a different body `partner_id`.
+
+## Global Composition Layout
+
+Central can tune the lottery composition positions through a global layout preset. This is intentionally not game-scoped because all backgrounds must share the same base dimensions and alignment contract.
+
+```text
+GET /api/v1/admin/central/lottery-images/layout
+PUT /api/v1/admin/central/lottery-images/layout
+```
+
+The layout is stored in `platform_system_settings` under `lottery_image_layout`. The preview API may receive a transient `layout` object so BO can adjust fields and render immediately before saving. The generator uses the saved global layout for normal central and partner image jobs.
+
+Adjustable slots:
+
+```text
+beside
+emoji_1, emoji_2, emoji_3, emoji_4
+number_digits
+text_eng
+thai_text
+num_set_center_left, num_set_center_right
+num_set_right_left, num_set_right_right
+num_set_bottom_left, num_set_bottom_right
+logo_qr, right_sidebar, logo_bottom
+```
+
+The background remains the fixed base layer and must not expose x/y/size controls. Numeric slots support `x`, `y`, `width`, `height`, `gap`, `size`, `angle`, and `rotate` only where relevant. Blank nullable heights preserve the source image aspect ratio.
 
 ## Background Mix Assignment
 
