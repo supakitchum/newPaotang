@@ -19,14 +19,14 @@
 
 <script setup lang="ts">
 const navigation = useAdminNavigation()
-const { menus, loading, error, loadMenus } = navigation
+const { navigationMenus, loading, error, loadMenus } = navigation
 const session = useAdminSession()
 const route = useRoute()
 const { ready, markReady } = useAdminClientReady()
 const clientReady = computed(() => ready.value)
 const isPublicAdminStatusPage = computed(() => ['/admin/403', '/admin/404', '/admin/500'].includes(route.path))
 const canRenderAdminContent = computed(() => isPublicAdminStatusPage.value || (clientReady.value && session.isAuthenticated.value))
-const visibleMenus = computed(() => canRenderAdminContent.value ? menus.value : [])
+const visibleMenus = computed(() => canRenderAdminContent.value ? navigationMenus.value : [])
 const visibleMenuLoading = computed(() => canRenderAdminContent.value && loading.value)
 
 onMounted(async () => {

@@ -63,7 +63,6 @@ return new class extends Migration
             $table->foreign('stock_item_id')->references('id')->on('stock_items')->cascadeOnDelete();
             $table->foreign('allocation_id')->references('id')->on('partner_stock_allocations')->nullOnDelete();
             $table->unique(['tenant_id', 'stock_item_id']);
-            $table->unique(['tenant_id', 'game_id', 'store_id', 'full_number']);
             $table->index(['tenant_id', 'game_id', 'status']);
             $table->index(['tenant_id', 'game_id', 'store_id', 'status']);
             $table->index(['tenant_id', 'game_id', 'full_number']);

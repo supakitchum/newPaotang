@@ -130,7 +130,14 @@
           <div class="card-body">
             <AdminEmptyState v-if="!events.length" title="No events" message="Maintenance audit events will appear after changes." icon="ri-history-line" />
             <AdminTimeline v-else :items="events" />
-            <AdminPagination class="mt-3" :next-cursor="eventMeta.next_cursor" :loading="eventsLoading" @next="loadEvents(eventMeta.next_cursor)" />
+            <AdminPagination
+              class="mt-3"
+              :next-cursor="eventMeta.next_cursor"
+              :has-previous="eventPageState.index > 0"
+              :loading="eventsLoading"
+              @previous="loadPreviousEventsPage"
+              @next="loadNextEventsPage"
+            />
           </div>
         </div>
 
@@ -172,7 +179,14 @@
                 </tbody>
               </table>
             </div>
-            <AdminPagination class="mt-3" :next-cursor="bypassMeta.next_cursor" :loading="bypassLoading" @next="loadBypasses(bypassMeta.next_cursor)" />
+            <AdminPagination
+              class="mt-3"
+              :next-cursor="bypassMeta.next_cursor"
+              :has-previous="bypassPageState.index > 0"
+              :loading="bypassLoading"
+              @previous="loadPreviousBypassesPage"
+              @next="loadNextBypassesPage"
+            />
           </div>
         </div>
       </div>
@@ -213,6 +227,8 @@ const events = ref<any[]>([])
 const bypasses = ref<any[]>([])
 const eventMeta = reactive({ next_cursor: null as string | null, has_more: false })
 const bypassMeta = reactive({ next_cursor: null as string | null, has_more: false })
+const eventPageState = reactive({ cursors: [null] as Array<string | null>, index: 0 })
+const bypassPageState = reactive({ cursors: [null] as Array<string | null>, index: 0 })
 const lastBypass = ref<any>(null)
 
 const statuses = ['inactive', 'scheduled', 'active', 'ended', 'cancelled']
@@ -268,38 +284,78 @@ const loadSetting = async () => {
   applySetting(response)
 }
 
-const loadEvents = async (cursor?: string | null) => {
+const loadEvents = async (cursor?: string | null, pageMode: 'reset' | 'next' | 'previous' = 'reset') => {
   if (!tenantId.value) return
   eventsLoading.value = true
   try {
+    const pageCursor = cursor || null
     const response: any = await api.apiFetch('/admin/tenant/maintenance/events', {
       scope: 'tenant',
       tenantId: tenantId.value,
-      query: { cursor: cursor || undefined, limit: 20 },
+      query: { cursor: pageCursor || undefined, limit: 20 },
     })
-    events.value = cursor ? [...events.value, ...(response.data || [])] : (response.data || [])
+    events.value = response.data || []
     eventMeta.next_cursor = response.meta?.next_cursor || null
     eventMeta.has_more = Boolean(response.meta?.has_more)
+    updatePageState(eventPageState, pageCursor, pageMode)
   } finally {
     eventsLoading.value = false
   }
 }
 
-const loadBypasses = async (cursor?: string | null) => {
+const loadBypasses = async (cursor?: string | null, pageMode: 'reset' | 'next' | 'previous' = 'reset') => {
   if (!tenantId.value) return
   bypassLoading.value = true
   try {
+    const pageCursor = cursor || null
     const response: any = await api.apiFetch('/admin/tenant/maintenance/bypasses', {
       scope: 'tenant',
       tenantId: tenantId.value,
-      query: { cursor: cursor || undefined, limit: 20, status: 'active' },
+      query: { cursor: pageCursor || undefined, limit: 20, status: 'active' },
     })
-    bypasses.value = cursor ? [...bypasses.value, ...(response.data || [])] : (response.data || [])
+    bypasses.value = response.data || []
     bypassMeta.next_cursor = response.meta?.next_cursor || null
     bypassMeta.has_more = Boolean(response.meta?.has_more)
+    updatePageState(bypassPageState, pageCursor, pageMode)
   } finally {
     bypassLoading.value = false
   }
+}
+
+const loadNextEventsPage = () => {
+  if (!eventMeta.next_cursor) return
+  loadEvents(eventMeta.next_cursor, 'next')
+}
+
+const loadPreviousEventsPage = () => {
+  if (eventPageState.index <= 0) return
+  loadEvents(eventPageState.cursors[eventPageState.index - 1] || null, 'previous')
+}
+
+const loadNextBypassesPage = () => {
+  if (!bypassMeta.next_cursor) return
+  loadBypasses(bypassMeta.next_cursor, 'next')
+}
+
+const loadPreviousBypassesPage = () => {
+  if (bypassPageState.index <= 0) return
+  loadBypasses(bypassPageState.cursors[bypassPageState.index - 1] || null, 'previous')
+}
+
+const updatePageState = (state: { cursors: Array<string | null>, index: number }, cursor: string | null, mode: 'reset' | 'next' | 'previous') => {
+  if (mode === 'reset') {
+    state.cursors = [cursor]
+    state.index = 0
+    return
+  }
+
+  if (mode === 'next') {
+    state.cursors = [...state.cursors.slice(0, state.index + 1), cursor]
+    state.index += 1
+    return
+  }
+
+  state.index = Math.max(0, state.index - 1)
 }
 
 const loadAll = async () => {

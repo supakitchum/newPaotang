@@ -134,7 +134,10 @@ games
   id pk
   code unique
   name
+  sale_start_at
   draw_at
+  close_at
+  closed_at
   status
   reward_version
 
@@ -185,6 +188,8 @@ partner_quotas
   game_id fk -> games.id
   quota_count
   allocated_count
+  sale_start_at nullable partner override
+  sale_close_at nullable partner override
 
 partner_stock_allocations
   id pk
@@ -449,4 +454,3 @@ sync_outbox(status, available_at)
 sync_inbox(event_id)
 winning_tickets(game_id, ticket_id, prize_type, prize_number)
 ```
-

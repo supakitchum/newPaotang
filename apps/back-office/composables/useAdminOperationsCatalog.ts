@@ -1,10 +1,15 @@
 export type AdminScope = 'tenant' | 'central'
 export type OperationMode = 'list' | 'detail' | 'report-index' | 'report-detail' | 'settings' | 'summary'
+export type OperationOption = string | {
+  value: string | number
+  label: string
+}
+export type OperationOptionSource = 'central-games'
 
 export type OperationColumn = {
   key: string
   label: string
-  type?: 'text' | 'status' | 'datetime' | 'money' | 'json' | 'customer'
+  type?: 'text' | 'status' | 'datetime' | 'money' | 'json' | 'customer' | 'number'
   fallbackKeys?: string[]
 }
 
@@ -12,16 +17,24 @@ export type OperationFilter = {
   key: string
   label: string
   type?: 'text' | 'number' | 'date' | 'select'
-  options?: string[]
+  options?: OperationOption[]
+  optionSource?: OperationOptionSource
 }
 
 export type OperationFormField = {
   key: string
   label: string
-  type?: 'text' | 'number' | 'textarea' | 'json' | 'select' | 'checkbox' | 'date' | 'datetime-local' | 'lines' | 'password' | 'color' | 'prize-lines'
+  type?: 'text' | 'number' | 'textarea' | 'json' | 'select' | 'checkbox' | 'date' | 'datetime-local' | 'datetime-range' | 'lines' | 'password' | 'color' | 'prize-lines' | 'reward-prize-grid' | 'reward-prize-number-grid' | 'reward-prize-amount-grid'
   sourceKey?: string
+  rangeStartKey?: string
+  rangeEndKey?: string
+  rangeStartSourceKey?: string
+  rangeEndSourceKey?: string
+  rangeStartLabel?: string
+  rangeEndLabel?: string
   valueKey?: string
-  options?: string[]
+  options?: OperationOption[]
+  optionSource?: OperationOptionSource
   required?: boolean
   placeholder?: string
   defaultValue?: string | number | boolean | null
@@ -30,14 +43,14 @@ export type OperationFormField = {
   step?: number
   itemKey?: string
   emptyValue?: 'array'
+  partial?: boolean
 }
 
 export type OperationAction = {
   key: string
   label: string
   method?: 'POST' | 'PATCH' | 'DELETE'
-  endpoint?: string
-  route?: string
+  endpoint: string
   variant?: 'primary' | 'success' | 'warning' | 'danger'
   reason?: boolean
   payloadTemplate?: Record<string, any>
@@ -91,6 +104,10 @@ export type OperationResource = {
   confirmContextFields?: string[]
   reportKeys?: string[]
   detailJsonEditor?: boolean
+  detailRenderer?: 'reward'
+  defaultQuery?: Record<string, any>
+  stockGrouped?: boolean
+  apiSort?: boolean
   apiGap?: string
   detailApiGap?: string
 }
@@ -107,7 +124,21 @@ const cursorFilters = (extra: OperationFilter[] = []): OperationFilter[] => [
   { key: 'cursor', label: 'Cursor' },
   { key: 'limit', label: 'Limit', type: 'number' },
 ]
-const adminUiRoute = (scope: AdminScope, path: string) => `/admin/${scope}/${path}`
+
+const gameSelectFilter = (label = 'Game'): OperationFilter => ({
+  key: 'game_id',
+  label,
+  type: 'select',
+  optionSource: 'central-games',
+})
+
+const gameSelectField = (required = false, label = 'Game'): OperationFormField => ({
+  key: 'game_id',
+  label,
+  type: 'select',
+  optionSource: 'central-games',
+  required,
+})
 
 const auditColumns: OperationColumn[] = [
   { key: 'id', label: 'Log' },
@@ -248,7 +279,7 @@ const billingPlanStatusOptions = ['active', 'archived']
 const alertPolicyStatusOptions = ['active', 'paused', 'archived']
 const alertSeverityOptions = ['info', 'warning', 'critical']
 const alertEventStatusOptions = ['open', 'acknowledged', 'resolved', 'suppressed']
-const rewardStatusOptions = ['recorded', 'checking', 'summary_ready', 'verified', 'published', 'corrected', 'archived']
+const rewardStatusOptions = ['draft', 'recorded', 'checking', 'summary_ready', 'verified', 'published', 'corrected', 'archived']
 const adminUserStatusOptions = ['active', 'invited', 'suspended', 'disabled']
 const roleStatusOptions = ['active', 'archived']
 const maintenanceStatusOptions = ['inactive', 'scheduled', 'active', 'ended', 'cancelled']
@@ -257,12 +288,12 @@ const tenantDomainStatusOptions = ['pending_verification', 'dns_verified', 'ssl_
 const gameCreateStatusOptions = ['draft', 'open']
 const gameLifecycleTransitionOptions = ['open', 'reward_recorded', 'reward_checking', 'reward_verified', 'reward_published']
 const partnerActionContext = ['id', 'code', 'name', 'type', 'status', 'tenants.0.id', 'tenants.0.code', 'domains.0.host', 'runtime.billing_status', 'runtime.monitoring_status']
-const partnerQuotaActionContext = ['id', 'partner_id', 'game_id', 'quota_count', 'allocated_count', 'remaining_count', 'status']
-const gameActionContext = ['id', 'code', 'name', 'status', 'draw_at', 'close_at', 'closed_at', 'archived_at']
+const partnerQuotaActionContext = ['id', 'partner_id', 'game_id', 'quota_count', 'allocated_count', 'remaining_count', 'status', 'central_sale_start_at', 'central_sale_close_at', 'sale_start_at', 'sale_close_at']
+const gameActionContext = ['id', 'code', 'name', 'status', 'sale_start_at', 'draw_at', 'close_at', 'closed_at', 'archived_at']
 const billingPlanActionContext = ['id', 'code', 'name', 'monthly_fee.amount', 'monthly_fee.currency', 'status']
 const alertPolicyActionContext = ['id', 'partner_id', 'partner.name', 'policy_key', 'severity', 'status']
 const alertEventActionContext = ['id', 'partner_id', 'partner.name', 'policy_key', 'severity', 'status', 'channel', 'title', 'triggered_at']
-const rewardActionContext = ['id', 'game_id', 'status', 'version', 'prizes.0.prize_type', 'prizes.0.prize_number', 'prizes.0.amount.amount', 'checked_at', 'verified_at', 'published_at']
+const rewardActionContext = ['id', 'game_id', 'status', 'version', 'checked_at', 'verified_at', 'published_at']
 const settlementActionContext = ['id', 'partner_id', 'tenant_id', 'status', 'sales_amount.amount', 'commission_amount.amount', 'payout_amount.amount', 'net_amount.amount', 'period_from', 'period_to']
 const priceRuleActionContext = ['id', 'tenant_id', 'code', 'name', 'game_id', 'rule_type', 'price.amount', 'price.currency', 'status', 'conditions', 'updated_at']
 const memberActionContext = ['id', 'tenant_id', 'member_no', 'name', 'phone', 'email', 'status', 'order_count', 'lifetime_spend.amount', 'updated_at']
@@ -279,7 +310,8 @@ const reportExportContext = ['scope', 'report_key', 'tenant_id', 'date_from', 'd
 const adminUserActionContext = ['id', 'tenant_id', 'name', 'email', 'phone', 'status', 'roles.0.id', 'roles.0.name', 'permissions.0']
 const roleActionContext = ['id', 'tenant_id', 'code', 'name', 'status', 'permissions.0', 'permissions.1', 'system_role']
 const domainActionContext = ['id', 'tenant_id', 'host', 'type', 'status', 'is_primary', 'readiness.local_only']
-const rewardPrizeLinesHelp = 'One prize per line: prize_type,prize_number,amount_minor,currency. Example: first_prize,123456,1000000,THB.'
+const rewardPrizeNumberHelp = 'Update winning numbers only. Payout amounts are kept from the current reward template.'
+const rewardPrizeAmountHelp = 'Update payout amounts only. Each amount is edited once per prize group and applied to every row in that group.'
 const roleIdsField = (required = false): OperationFormField => ({
   key: 'role_ids',
   label: 'Role IDs',
@@ -555,26 +587,71 @@ const partnerQuotaCreateFields: OperationFormField[] = [
   { key: 'partner_id', label: 'Partner ID', required: true },
   { key: 'game_id', label: 'Game ID', required: true },
   { key: 'quota_count', label: 'Quota count', type: 'number', min: 1, step: 1, required: true },
+  {
+    key: 'partner_sale_window',
+    label: 'Partner sale window',
+    type: 'datetime-range',
+    rangeStartKey: 'sale_start_at',
+    rangeEndKey: 'sale_close_at',
+    rangeStartSourceKey: 'sale_start_at',
+    rangeEndSourceKey: 'sale_close_at',
+    rangeStartLabel: 'Sale start',
+    rangeEndLabel: 'Sale close',
+    help: 'Optional. Defaults to central sale window; start cannot be before central and close cannot be after central.',
+  },
   { key: 'status', label: 'Status', type: 'select', options: quotaStatusOptions, defaultValue: 'active' },
 ]
 const partnerQuotaUpdateFields: OperationFormField[] = [
   { key: 'partner_id', label: 'Partner ID' },
   { key: 'game_id', label: 'Game ID' },
   { key: 'quota_count', label: 'Quota count', type: 'number', min: 1, step: 1 },
+  {
+    key: 'partner_sale_window',
+    label: 'Partner sale window',
+    type: 'datetime-range',
+    rangeStartKey: 'sale_start_at',
+    rangeEndKey: 'sale_close_at',
+    rangeStartSourceKey: 'sale_start_override_at',
+    rangeEndSourceKey: 'sale_close_override_at',
+    rangeStartLabel: 'Sale start',
+    rangeEndLabel: 'Sale close',
+    help: 'Optional. Leave both blank to inherit central sale window.',
+  },
   { key: 'status', label: 'Status', type: 'select', options: quotaStatusOptions },
 ]
 const gameCreateFields: OperationFormField[] = [
-  { key: 'code', label: 'Game code', required: true, placeholder: 'may_2026', help: 'Use lowercase letters, numbers, underscores, or hyphens.' },
   { key: 'name', label: 'Game name', required: true, placeholder: 'May 2026 Draw' },
-  { key: 'draw_at', label: 'Draw at', type: 'datetime-local', required: true },
-  { key: 'close_at', label: 'Close at', type: 'datetime-local', help: 'Optional sales close date-time before draw.' },
+  {
+    key: 'sale_window',
+    label: 'Sale window',
+    type: 'datetime-range',
+    required: true,
+    rangeStartKey: 'sale_start_at',
+    rangeEndKey: 'close_at',
+    rangeStartSourceKey: 'sale_start_at',
+    rangeEndSourceKey: 'close_at',
+    rangeStartLabel: 'Sale start',
+    rangeEndLabel: 'Sale close',
+    help: 'Central sale opening and closing date-time.',
+  },
+  { key: 'draw_at', label: 'Draw at', type: 'datetime-local', required: true, help: 'Game code is generated from the draw date as DDMMBBBB, for example 01042569.' },
   { key: 'status', label: 'Initial status', type: 'select', options: gameCreateStatusOptions, defaultValue: 'draft', required: true },
 ]
 const gameUpdateFields: OperationFormField[] = [
-  { key: 'code', label: 'Game code', placeholder: 'may_2026', help: 'Use lowercase letters, numbers, underscores, or hyphens.' },
   { key: 'name', label: 'Game name' },
-  { key: 'draw_at', label: 'Draw at', type: 'datetime-local' },
-  { key: 'close_at', label: 'Close at', type: 'datetime-local', help: 'Leave blank to keep the current close date unchanged.' },
+  {
+    key: 'sale_window',
+    label: 'Sale window',
+    type: 'datetime-range',
+    rangeStartKey: 'sale_start_at',
+    rangeEndKey: 'close_at',
+    rangeStartSourceKey: 'sale_start_at',
+    rangeEndSourceKey: 'close_at',
+    rangeStartLabel: 'Sale start',
+    rangeEndLabel: 'Sale close',
+    help: 'Sale close must be after sale start and before draw.',
+  },
+  { key: 'draw_at', label: 'Draw at', type: 'datetime-local', help: 'Changing this date regenerates the game code as DDMMBBBB.' },
   {
     key: 'status',
     label: 'Lifecycle transition',
@@ -620,22 +697,14 @@ const alertPolicyFields: OperationFormField[] = [
 const alertPolicyUpdateFields: OperationFormField[] = alertPolicyFields.map((field) => ({ ...field, required: false }))
 const rewardCreateFields: OperationFormField[] = [
   { key: 'game_id', label: 'Game ID', required: true },
-  { key: 'prizes', label: 'Prize rows', type: 'prize-lines', required: true, placeholder: 'first_prize,123456,1000000,THB', help: rewardPrizeLinesHelp },
+  { key: 'prizes', label: 'Winning numbers', type: 'reward-prize-number-grid', required: true, help: rewardPrizeNumberHelp },
 ]
-const rewardUpdateFields: OperationFormField[] = [
-  { key: 'game_id', label: 'Game ID' },
-  { key: 'prizes', label: 'Prize rows', type: 'prize-lines', sourceKey: 'prizes', placeholder: 'first_prize,123456,1000000,THB', help: rewardPrizeLinesHelp },
+const rewardNumberUpdateFields: OperationFormField[] = [
+  { key: 'prize_number_updates', label: 'Winning numbers', type: 'reward-prize-number-grid', sourceKey: 'prizes', required: true, partial: true, help: rewardPrizeNumberHelp },
 ]
-const rewardCheckBatchColumns: OperationColumn[] = [
-  { key: 'id', label: 'Batch' },
-  { key: 'status', label: 'Status', type: 'status' },
-  { key: 'chunk_count', label: 'Chunks' },
-  { key: 'processed_ticket_count', label: 'Processed' },
-  { key: 'winning_count', label: 'Winning' },
-  { key: 'started_at', label: 'Started', type: 'datetime' },
-  { key: 'completed_at', label: 'Completed', type: 'datetime' },
+const rewardPayoutUpdateFields: OperationFormField[] = [
+  { key: 'payout_amount_updates', label: 'Payout amounts', type: 'reward-prize-amount-grid', sourceKey: 'prizes', required: true, partial: true, help: rewardPrizeAmountHelp },
 ]
-
 const tenant: OperationResource[] = [
   {
     scope: 'tenant',
@@ -646,10 +715,11 @@ const tenant: OperationResource[] = [
     detailEndpoint: '/admin/tenant/stock/{stock_item_id}',
     idParam: 'stock_item_id',
     idKey: 'id',
+    apiSort: true,
     columns: [
       { key: 'id', label: 'Stock item' },
       { key: 'game_id', label: 'Game' },
-      { key: 'number', label: 'Number' },
+      { key: 'full_number', label: 'Number' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
     ],
@@ -1557,7 +1627,6 @@ const central: OperationResource[] = [
     filters: cursorFilters([{ key: 'q', label: 'Search' }, statusFilter(partnerStatusOptions)]),
     confirmContextFields: partnerActionContext,
     actions: [
-      { key: 'lottery-branding', label: 'Lottery branding', route: adminUiRoute('central', 'partners/{id}/lottery-branding'), variant: 'success', contextFields: partnerActionContext },
       { key: 'update', label: 'Update', method: 'PATCH', endpoint: '/admin/central/partners/{partner_id}', variant: 'primary', contextFields: partnerActionContext, formFields: partnerUpdateFields },
       { key: 'suspend', label: 'Suspend', endpoint: '/admin/central/partners/{partner_id}/suspend', variant: 'warning', reason: true, contextFields: partnerActionContext },
     ],
@@ -1615,6 +1684,8 @@ const central: OperationResource[] = [
       { key: 'quota_count', label: 'Quota' },
       { key: 'allocated_count', label: 'Allocated' },
       { key: 'remaining_count', label: 'Remaining' },
+      { key: 'sale_start_at', label: 'Sale start', type: 'datetime' },
+      { key: 'sale_close_at', label: 'Sale close', type: 'datetime' },
       { key: 'status', label: 'Status', type: 'status' },
     ],
     filters: cursorFilters([{ key: 'partner_id', label: 'Partner ID' }, { key: 'game_id', label: 'Game ID' }]),
@@ -1746,17 +1817,27 @@ const central: OperationResource[] = [
     group: 'Central Operations',
     listEndpoint: '/admin/central/stock',
     idParam: 'stock_item_id',
+    stockGrouped: true,
+    defaultQuery: { grouped: true },
+    apiSort: true,
     columns: [
-      { key: 'id', label: 'Stock item' },
+      { key: 'full_number', label: 'Number' },
+      { key: 'total_count', label: 'Tickets', type: 'number' },
+      { key: 'available_count', label: 'Available', type: 'number' },
+      { key: 'allocated_count', label: 'Allocated', type: 'number' },
+      { key: 'sold_count', label: 'Sold', type: 'number' },
+      { key: 'recalled_count', label: 'Recalled', type: 'number' },
       { key: 'game_id', label: 'Game' },
-      { key: 'partner_id', label: 'Partner' },
-      { key: 'full_number', label: 'Full number' },
+      { key: 'last_updated_at', label: 'Updated', type: 'datetime' },
+    ],
+    filters: cursorFilters([
+      gameSelectFilter(),
+      { key: 'number', label: 'Number search' },
       { key: 'front3', label: 'Front 3' },
       { key: 'back3', label: 'Back 3' },
       { key: 'back2', label: 'Back 2' },
-      { key: 'status', label: 'Status', type: 'status' },
-    ],
-    filters: cursorFilters([{ key: 'game_id', label: 'Game ID' }, statusFilter(['available', 'allocated', 'sold', 'recalled'])]),
+      statusFilter(['available', 'allocated', 'sold', 'recalled']),
+    ]),
     confirmContextFields: stockActionContext,
     actions: [{ key: 'recall', label: 'Recall', endpoint: '/admin/central/stock/{stock_item_id}/recall', variant: 'warning', reason: true, contextFields: stockActionContext }],
     collectionActions: [
@@ -1766,7 +1847,7 @@ const central: OperationResource[] = [
         endpoint: '/admin/central/stock/imports',
         reason: true,
         formFields: [
-          { key: 'game_id', label: 'Game ID', required: true },
+          gameSelectField(true),
           {
             key: 'items',
             label: 'Full numbers',
@@ -1774,7 +1855,7 @@ const central: OperationResource[] = [
             required: true,
             itemKey: 'full_number',
             placeholder: '000010\n000011\n000012',
-            help: 'One stock full_number per line. Duplicates are deduped by the backend.',
+            help: 'One stock full_number per line. Duplicate numbers create separate ticket rows.',
           },
         ],
       },
@@ -1784,8 +1865,8 @@ const central: OperationResource[] = [
         endpoint: '/admin/central/stock/generate',
         reason: true,
         formFields: [
-          { key: 'game_id', label: 'Game ID', required: true },
-          { key: 'start_number', label: 'Start number', type: 'number', min: 1, step: 1, required: true },
+          gameSelectField(true),
+          { key: 'start_number', label: 'Start number', type: 'number', min: 0, step: 1, required: true },
           { key: 'count', label: 'Count', type: 'number', min: 1, step: 1, required: true },
         ],
       },
@@ -1795,7 +1876,7 @@ const central: OperationResource[] = [
         endpoint: '/admin/central/stock/exports',
         reason: true,
         formFields: [
-          { key: 'game_id', label: 'Game ID', placeholder: 'Optional game filter' },
+          gameSelectField(false),
           { key: 'filters.status', label: 'Status', type: 'select', options: ['available', 'allocated', 'sold', 'recalled'] },
         ],
       },
@@ -1816,13 +1897,13 @@ const central: OperationResource[] = [
       { key: 'code', label: 'Code' },
       { key: 'name', label: 'Name' },
       { key: 'status', label: 'Status', type: 'status' },
+      { key: 'sale_start_at', label: 'Sale start', type: 'datetime' },
+      { key: 'close_at', label: 'Sale close', type: 'datetime' },
       { key: 'draw_at', label: 'Draw at', type: 'datetime' },
-      { key: 'close_at', label: 'Close at', type: 'datetime' },
     ],
     filters: cursorFilters([statusFilter(['draft', 'open', 'closed', 'reward_recorded', 'reward_checking', 'reward_verified', 'reward_published', 'archived'])]),
     confirmContextFields: gameActionContext,
     actions: [
-      { key: 'lottery-images', label: 'Lottery images', route: adminUiRoute('central', 'lottery-images?game_id={id}'), variant: 'success', contextFields: gameActionContext },
       {
         key: 'update',
         label: 'Update',
@@ -1891,6 +1972,7 @@ const central: OperationResource[] = [
     group: 'Central Rewards',
     listEndpoint: '/admin/central/rewards',
     detailEndpoint: '/admin/central/rewards/{reward_result_id}',
+    detailRenderer: 'reward',
     idParam: 'reward_result_id',
     idKey: 'id',
     columns: [
@@ -1904,7 +1986,8 @@ const central: OperationResource[] = [
     filters: cursorFilters([{ key: 'game_id', label: 'Game ID' }, statusFilter(rewardStatusOptions)]),
     confirmContextFields: rewardActionContext,
     actions: [
-      { key: 'update', label: 'Update result', method: 'PATCH', endpoint: '/admin/central/rewards/{reward_result_id}', variant: 'primary', contextFields: rewardActionContext, formFields: rewardUpdateFields },
+      { key: 'update_numbers', label: 'Update winning numbers', method: 'PATCH', endpoint: '/admin/central/rewards/{reward_result_id}', variant: 'primary', contextFields: rewardActionContext, formFields: rewardNumberUpdateFields },
+      { key: 'update_payouts', label: 'Update payout amounts', method: 'PATCH', endpoint: '/admin/central/rewards/{reward_result_id}', variant: 'warning', contextFields: rewardActionContext, formFields: rewardPayoutUpdateFields },
       { key: 'verify', label: 'Verify', endpoint: '/admin/central/rewards/{reward_result_id}/verify', variant: 'success', reason: true, contextFields: rewardActionContext },
       { key: 'correct', label: 'Correct', endpoint: '/admin/central/rewards/{reward_result_id}/correct', variant: 'warning', reason: true, contextFields: rewardActionContext },
       { key: 'publish', label: 'Publish', endpoint: '/admin/central/rewards/{reward_result_id}/publish', variant: 'primary', reason: true, contextFields: rewardActionContext },
@@ -1914,16 +1997,6 @@ const central: OperationResource[] = [
       label: 'Record reward result',
       endpoint: '/admin/central/rewards',
       formFields: rewardCreateFields,
-    }],
-    relatedLists: [{
-      key: 'check-batches',
-      title: 'Prize Check Batches',
-      listEndpoint: '/admin/central/rewards/{reward_result_id}/check-batches',
-      idParam: 'reward_check_batch_id',
-      idKey: 'id',
-      columns: rewardCheckBatchColumns,
-      emptyTitle: 'No check batches',
-      emptyMessage: 'No prize-checking batches were returned for this reward result.',
     }],
   },
   {
@@ -1992,6 +2065,12 @@ const central: OperationResource[] = [
 
 const resources = [...tenant, ...central]
 
+const resourceAliases: Record<string, { target: string, title: string }> = {
+  'central:master-stock': { target: 'stock', title: 'Master Stock' },
+  'central:stock-generation': { target: 'stock', title: 'Stock Generation' },
+  'central:stock-recall': { target: 'stock', title: 'Stock Recall' },
+}
+
 export const useAdminOperationsCatalog = () => {
   const list = resources
 
@@ -2000,6 +2079,18 @@ export const useAdminOperationsCatalog = () => {
     const direct = list.find((item) => item.scope === scope && item.slug === slug)
     if (direct) {
       return { resource: direct, mode: direct.mode || 'list' as OperationMode, id: null as string | null }
+    }
+
+    const alias = resourceAliases[`${scope}:${slug}`]
+    if (alias) {
+      const target = list.find((item) => item.scope === scope && item.slug === alias.target)
+      if (target) {
+        return {
+          resource: { ...target, slug, title: alias.title },
+          mode: target.mode || 'list' as OperationMode,
+          id: null as string | null,
+        }
+      }
     }
 
     if (slugParts[0] === 'reports' && slugParts[1]) {

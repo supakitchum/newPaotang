@@ -2,6 +2,7 @@
 
 namespace Tests\Support;
 
+use App\Modules\Reward\Services\ThaiGovernmentLotteryRewardTemplate;
 use Illuminate\Support\Facades\DB;
 
 trait M7RewardFixtures
@@ -59,15 +60,12 @@ trait M7RewardFixtures
             'reward.correct',
             'reward.audit',
         ], 'reward-'.$keySuffix);
+        $prizes = $this->thaiGovernmentLotteryPrizes($prizeNumber ?? $world['ticket_number'], $world['ticket_number']);
 
         $reward = $this->withToken($admin['access_token'])
             ->postJson('/api/v1/admin/central/rewards', [
                 'game_id' => $world['game_id'],
-                'prizes' => [[
-                    'prize_type' => 'first_prize',
-                    'prize_number' => $prizeNumber ?? $world['ticket_number'],
-                    'amount' => ['amount' => 1000000, 'currency' => 'THB'],
-                ]],
+                'prizes' => $prizes,
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'reward-create-'.$keySuffix,
@@ -91,5 +89,68 @@ trait M7RewardFixtures
             ])
             ->assertOk()
             ->json();
+    }
+
+    /**
+     * @return array<int, array{prize_type: string, prize_number: string, amount: array{amount: int, currency: string}}>
+     */
+    protected function thaiGovernmentLotteryPrizes(string $firstPrizeNumber, ?string $avoidTicketNumber = null): array
+    {
+        $rows = [];
+        $avoidTicketNumber ??= $firstPrizeNumber;
+
+        foreach (ThaiGovernmentLotteryRewardTemplate::rules() as $type => $rule) {
+            for ($index = 1; $index <= $rule['count']; $index++) {
+                $rows[] = [
+                    'prize_type' => $type,
+                    'prize_number' => $type === 'first_prize'
+                        ? $firstPrizeNumber
+                        : $this->safeThaiGovernmentLotteryPrizeNumber($type, $rule['digits'], $index, $avoidTicketNumber),
+                    'amount' => [
+                        'amount' => $rule['amount'],
+                        'currency' => ThaiGovernmentLotteryRewardTemplate::CURRENCY,
+                    ],
+                ];
+            }
+        }
+
+        return $rows;
+    }
+
+    private function safeThaiGovernmentLotteryPrizeNumber(string $type, int $digits, int $index, string $avoidTicketNumber): string
+    {
+        $base = match ($digits) {
+            2 => 80,
+            3 => 800,
+            default => 800000,
+        };
+        $modulo = 10 ** $digits;
+
+        for ($offset = 0; $offset < $modulo; $offset++) {
+            $candidate = str_pad((string) (($base + $index + $offset) % $modulo), $digits, '0', STR_PAD_LEFT);
+
+            if (! $this->prizeNumberMatchesTicketSegment($type, $candidate, $avoidTicketNumber)) {
+                return $candidate;
+            }
+        }
+
+        return str_pad((string) $index, $digits, '0', STR_PAD_LEFT);
+    }
+
+    private function prizeNumberMatchesTicketSegment(string $type, string $candidate, string $ticketNumber): bool
+    {
+        if ($type === 'front3') {
+            return substr($ticketNumber, 0, 3) === $candidate;
+        }
+
+        if ($type === 'back3') {
+            return substr($ticketNumber, -3) === $candidate;
+        }
+
+        if ($type === 'back2') {
+            return substr($ticketNumber, -2) === $candidate;
+        }
+
+        return $ticketNumber === $candidate;
     }
 }

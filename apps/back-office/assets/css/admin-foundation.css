@@ -1,9 +1,11 @@
 :root {
   --np-admin-accent: #0d6efd;
+  --default-font-family: 'Kanit', sans-serif;
 }
 
 body {
   min-width: 320px;
+  font-family: var(--default-font-family);
 }
 
 .page {
@@ -22,12 +24,28 @@ body {
   max-width: 100%;
 }
 
+.main-content.app-content > .container-fluid {
+  padding-block-start: 1.25rem;
+}
+
+.main-header-container,
+.main-sidebar,
+.dropdown-menu,
+.modal,
+.btn,
+.form-control,
+.form-select,
+.form-label,
+.table {
+  font-family: var(--default-font-family);
+}
+
 .authentication .container {
   min-height: 100vh;
 }
 
 .np-login-media {
-  background: linear-gradient(rgba(13, 110, 253, 0.86), rgba(14, 165, 233, 0.76)), url('/admin-template/assets/images/media/media-33.jpg') center/cover;
+  background: linear-gradient(rgba(13, 110, 253, 0.86), rgba(14, 165, 233, 0.76));
 }
 
 .np-kpi-icon {
@@ -85,6 +103,27 @@ body {
 .side-menu__item.router-link-active {
   color: var(--primary-color);
   background-color: rgba(var(--primary-rgb), 0.08);
+}
+
+.slide.has-sub.open > .slide-menu {
+  display: block;
+}
+
+.slide.has-sub.active > .side-menu__item {
+  color: var(--primary-color);
+  background-color: rgba(var(--primary-rgb), 0.08);
+}
+
+.np-header-text {
+  max-width: 11rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.main-header-container .header-link {
+  color: var(--header-prime-color);
 }
 
 .main-sidebar {
@@ -182,6 +221,8 @@ body {
     width: 100%;
     max-width: 100%;
     min-width: 0;
+    padding-block-start: 1rem;
+    padding-block-end: 0;
     padding-inline: 0.75rem;
   }
 
@@ -193,6 +234,12 @@ body {
 
 @media (max-width: 575.98px) {
   .app-header .header-logo {
+    max-width: 9.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .app-header .horizontal-logo {
     display: none;
   }
 

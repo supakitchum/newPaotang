@@ -22,7 +22,7 @@ class RewardClaimTest extends TestCase
             ->assertOk()
             ->assertJsonPath('status', 'winning')
             ->assertJsonPath('claimable', true)
-            ->assertJsonPath('prize_amount.amount', 1000000);
+            ->assertJsonPath('prize_amount.amount', 6000000);
 
         $claim = $this->withToken($world['auth']['token'])
             ->postJson('http://'.$world['host'].'/api/v1/customer/reward-claims', [
@@ -119,7 +119,7 @@ class RewardClaimTest extends TestCase
             'tenant_id' => $world['tenant_id'],
             'wallet_id' => $world['wallet_id'],
             'entry_type' => 'credit',
-            'amount' => 1000000,
+            'amount' => 6000000,
             'reference_type' => 'reward_claim',
             'reference_id' => $claim['id'],
         ]);

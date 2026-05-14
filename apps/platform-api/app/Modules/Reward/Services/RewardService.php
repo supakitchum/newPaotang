@@ -41,7 +41,7 @@ class RewardService
      * @param array<string, mixed> $payload
      * @return array<string, array<int, string>>
      */
-    public function validateRewardPayload(array $payload, bool $creating = true): array
+    public function validateRewardPayload(array $payload, bool $creating = true, ?string $rewardResultId = null): array
     {
         $errors = [];
         $gameId = trim((string) ($payload['game_id'] ?? ''));
@@ -58,7 +58,24 @@ class RewardService
             }
         }
 
-        if (! array_key_exists('prizes', $payload) && ! $creating) {
+        if (! $creating && $rewardResultId !== null && $this->hasResultRecordingPayload($payload)) {
+            $result = RewardResult::query()->whereKey($rewardResultId)->first();
+            $status = $result === null ? null : Game::whereKey($result->game_id)->value('status');
+
+            if ($result !== null && ! in_array((string) $status, ['closed', 'reward_recorded', 'reward_checking', 'reward_verified', 'reward_published'], true)) {
+                $errors['game_id'][] = 'The game must be closed before reward results can be recorded.';
+            }
+        }
+
+        if (! $creating && ! $this->hasRewardUpdatePayload($payload)) {
+            $errors['prizes'][] = 'The prizes, prize_number_updates, or payout_amount_updates field is required to update Thai Government Lottery rewards.';
+
+            return $errors;
+        }
+
+        if (! $creating && ! array_key_exists('prizes', $payload)) {
+            $errors = $this->mergeFieldErrors($errors, $this->validatePartialRewardUpdates($payload, $rewardResultId));
+
             return $errors;
         }
 
@@ -70,7 +87,20 @@ class RewardService
             return $errors;
         }
 
+        return $this->mergeFieldErrors($errors, $this->validatePrizeRows($prizes, true));
+    }
+
+    /**
+     * @param array<int, mixed> $prizes
+     * @return array<string, array<int, string>>
+     */
+    private function validatePrizeRows(array $prizes, bool $requireComplete, bool $requireExactCounts = true): array
+    {
+        $errors = [];
         $seen = [];
+        $amountsByType = [];
+        $rules = ThaiGovernmentLotteryRewardTemplate::rules();
+        $counts = array_fill_keys(array_keys($rules), 0);
 
         foreach (array_values($prizes) as $index => $prize) {
             if (! is_array($prize)) {
@@ -81,28 +111,161 @@ class RewardService
             $type = trim((string) ($prize['prize_type'] ?? ''));
             $number = trim((string) ($prize['prize_number'] ?? ''));
             $amount = $this->moneyAmount($prize['amount'] ?? null, 0);
+            $currency = $this->moneyCurrency($prize['amount'] ?? null);
+            $rule = $rules[$type] ?? null;
             $key = $type.':'.$number;
 
             if ($type === '') {
                 $errors["prizes.$index.prize_type"][] = 'The prize_type field is required.';
+            } elseif ($rule === null) {
+                $errors["prizes.$index.prize_type"][] = 'The prize_type field must be a Thai Government Lottery prize type.';
+            } else {
+                $counts[$type]++;
             }
 
-            if ($number === '' || ! preg_match('/^[0-9]{2,12}$/', $number)) {
-                $errors["prizes.$index.prize_number"][] = 'The prize_number field must contain 2 to 12 digits.';
+            if ($number === '' || str_starts_with($number, 'pending_')) {
+                if (! $requireComplete) {
+                    continue;
+                }
+
+                $errors["prizes.$index.prize_number"][] = 'The prize_number field is required.';
+            } elseif ($rule !== null && ! preg_match('/^[0-9]{'.$rule['digits'].'}$/', $number)) {
+                $errors["prizes.$index.prize_number"][] = 'The '.$type.' prize_number field must contain exactly '.$rule['digits'].' digits.';
             }
 
             if ($amount <= 0) {
                 $errors["prizes.$index.amount"][] = 'The amount field must be greater than zero.';
+            } elseif ($rule !== null) {
+                if (! isset($amountsByType[$type])) {
+                    $amountsByType[$type] = $amount;
+                } elseif ($amountsByType[$type] !== $amount) {
+                    $errors["prizes.$index.amount"][] = 'The '.$type.' amount must be the same for every row in the prize group.';
+                }
             }
 
-            if (isset($seen[$key])) {
+            if ($currency !== ThaiGovernmentLotteryRewardTemplate::CURRENCY) {
+                $errors["prizes.$index.amount"][] = 'The amount currency must be THB.';
+            }
+
+            if ($number !== '' && ! str_starts_with($number, 'pending_') && isset($seen[$key])) {
                 $errors["prizes.$index"][] = 'Duplicate prize rows are not allowed.';
             }
 
-            $seen[$key] = true;
+            if ($number !== '' && ! str_starts_with($number, 'pending_')) {
+                $seen[$key] = true;
+            }
+        }
+
+        if ($requireExactCounts) {
+            foreach ($rules as $type => $rule) {
+                if (($counts[$type] ?? 0) !== $rule['count']) {
+                    $errors['prizes'][] = 'Thai Government Lottery rewards require '.$rule['count'].' '.$type.' row(s).';
+                }
+            }
         }
 
         return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    private function validatePartialRewardUpdates(array $payload, ?string $rewardResultId): array
+    {
+        $errors = [];
+        $hasUpdate = false;
+        $rules = ThaiGovernmentLotteryRewardTemplate::rules();
+
+        if (array_key_exists('prize_number_updates', $payload)) {
+            $updates = $payload['prize_number_updates'];
+
+            if (! is_array($updates) || $updates === []) {
+                $errors['prize_number_updates'][] = 'The prize_number_updates field must contain at least one prize group.';
+            } else {
+                foreach (array_values($updates) as $index => $update) {
+                    $row = is_array($update) ? $update : [];
+                    $type = trim((string) ($row['prize_type'] ?? ''));
+                    $numbers = $row['prize_numbers'] ?? [];
+                    $rule = $rules[$type] ?? null;
+
+                    if ($type === '' || $rule === null) {
+                        $errors["prize_number_updates.$index.prize_type"][] = 'The prize_type field must be a Thai Government Lottery prize type.';
+                        continue;
+                    }
+
+                    if (! is_array($numbers) || $numbers === []) {
+                        $errors["prize_number_updates.$index.prize_numbers"][] = 'The prize_numbers field must contain at least one prize number.';
+                        continue;
+                    }
+
+                    if (count($numbers) > $rule['count']) {
+                        $errors["prize_number_updates.$index.prize_numbers"][] = 'The '.$type.' prize_numbers field cannot contain more than '.$rule['count'].' number(s).';
+                    }
+
+                    foreach (array_values($numbers) as $numberIndex => $number) {
+                        $normalizedNumber = trim((string) $number);
+
+                        if ($normalizedNumber === '' || str_starts_with($normalizedNumber, 'pending_')) {
+                            continue;
+                        }
+
+                        $hasUpdate = true;
+
+                        if (! preg_match('/^[0-9]{'.$rule['digits'].'}$/', $normalizedNumber)) {
+                            $errors["prize_number_updates.$index.prize_numbers.$numberIndex"][] = 'The '.$type.' prize number must contain exactly '.$rule['digits'].' digits.';
+                        }
+                    }
+                }
+            }
+        }
+
+        if (array_key_exists('payout_amount_updates', $payload)) {
+            $updates = $payload['payout_amount_updates'];
+
+            if (! is_array($updates) || $updates === []) {
+                $errors['payout_amount_updates'][] = 'The payout_amount_updates field must contain at least one prize group.';
+            } else {
+                foreach (array_values($updates) as $index => $update) {
+                    $row = is_array($update) ? $update : [];
+                    $type = trim((string) ($row['prize_type'] ?? ''));
+                    $amount = $this->moneyAmount($row['amount'] ?? null, 0);
+                    $currency = $this->moneyCurrency($row['amount'] ?? null);
+
+                    if ($type === '' || ! isset($rules[$type])) {
+                        $errors["payout_amount_updates.$index.prize_type"][] = 'The prize_type field must be a Thai Government Lottery prize type.';
+                    }
+
+                    if ($amount <= 0) {
+                        $errors["payout_amount_updates.$index.amount"][] = 'The amount field must be greater than zero.';
+                    } else {
+                        $hasUpdate = true;
+                    }
+
+                    if ($currency !== ThaiGovernmentLotteryRewardTemplate::CURRENCY) {
+                        $errors["payout_amount_updates.$index.amount"][] = 'The amount currency must be THB.';
+                    }
+                }
+            }
+        }
+
+        if (! $hasUpdate && $errors === []) {
+            $errors['prizes'][] = 'At least one prize number or payout amount update is required.';
+        }
+
+        if ($errors !== [] || $rewardResultId === null) {
+            return $errors;
+        }
+
+        $existing = $this->rewardPrizePayloadRows($rewardResultId);
+
+        if ($existing === []) {
+            return ['prizes' => ['The reward result must have draft prize rows before partial updates can be applied.']];
+        }
+
+        $merged = $this->applyPartialRewardUpdatesToRows($existing, $this->normalizePartialRewardUpdates($payload));
+
+        return $this->mergeFieldErrors($errors, $this->validatePrizeRows($merged, false));
     }
 
     /**
@@ -169,23 +332,40 @@ class RewardService
                 return ['error' => $replay];
             }
 
-            if (RewardResult::where('game_id', $normalized['game_id'])->exists()) {
+            $existingResult = RewardResult::query()
+                ->where('game_id', $normalized['game_id'])
+                ->lockForUpdate()
+                ->first();
+
+            if ($existingResult !== null && (string) $existingResult->status !== 'draft') {
                 return ['error' => 'resource_conflict'];
             }
 
-            $resultId = 'rew_'.Str::ulid()->toBase32();
+            $resultId = $existingResult === null ? 'rew_'.Str::ulid()->toBase32() : (string) $existingResult->id;
             $now = now();
 
-            RewardResult::query()->insert([
-                'id' => $resultId,
-                'game_id' => $normalized['game_id'],
-                'status' => 'recorded',
-                'version' => 1,
-                'summary_json' => null,
-                'created_by_admin_id' => $actor->adminUser['id'],
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
+            if ($existingResult === null) {
+                RewardResult::query()->insert([
+                    'id' => $resultId,
+                    'game_id' => $normalized['game_id'],
+                    'status' => 'recorded',
+                    'version' => 1,
+                    'summary_json' => null,
+                    'created_by_admin_id' => $actor->adminUser['id'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            } else {
+                RewardResult::query()->where('id', $resultId)->update([
+                    'status' => 'recorded',
+                    'summary_json' => null,
+                    'checked_at' => null,
+                    'verified_at' => null,
+                    'published_at' => null,
+                    'corrected_at' => null,
+                    'updated_at' => $now,
+                ]);
+            }
 
             $this->replacePrizes($resultId, $normalized['game_id'], $normalized['prizes']);
             $this->setGameStatus($normalized['game_id'], 'reward_recorded');
@@ -238,14 +418,24 @@ class RewardService
                 $this->replacePrizes($rewardResultId, (string) $result->game_id, $normalized['prizes']);
             }
 
+            if (isset($normalized['prize_number_updates']) || isset($normalized['payout_amount_updates'])) {
+                $this->applyPartialRewardUpdates($rewardResultId, $normalized);
+            }
+
+            $isComplete = $this->rewardPrizesAreComplete($rewardResultId);
+            $nextStatus = $isComplete ? 'recorded' : 'draft';
+
             RewardResult::query()->where('id', $rewardResultId)->update([
-                'status' => 'recorded',
+                'status' => $nextStatus,
                 'summary_json' => null,
                 'checked_at' => null,
                 'updated_at' => now(),
             ]);
 
-            $this->processRewardCheck($rewardResultId, self::CHECK_CHUNK_SIZE, $idempotencyKey);
+            if ($isComplete) {
+                $this->processRewardCheck($rewardResultId, self::CHECK_CHUNK_SIZE, $idempotencyKey);
+            }
+
             $this->auditAdmin($actor, $request, 'reward.updated', 'reward_result', $rewardResultId, $normalized);
 
             $resource = $this->rewardResult($rewardResultId) ?? [];
@@ -1015,6 +1205,101 @@ class RewardService
     }
 
     /**
+     * @param array<string, mixed> $normalized
+     */
+    private function applyPartialRewardUpdates(string $rewardResultId, array $normalized): void
+    {
+        if (isset($normalized['prize_number_updates'])) {
+            foreach ($normalized['prize_number_updates'] as $update) {
+                $rows = RewardPrize::query()
+                    ->where('reward_result_id', $rewardResultId)
+                    ->where('prize_type', $update['prize_type'])
+                    ->orderBy('sort_order')
+                    ->get(['id'])
+                    ->all();
+
+                foreach ($update['prize_numbers'] as $index => $number) {
+                    if (! isset($rows[$index]) || $number === '' || str_starts_with($number, 'pending_')) {
+                        continue;
+                    }
+
+                    RewardPrize::query()->where('id', $rows[$index]->id)->update([
+                        'prize_number' => $number,
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+        }
+
+        if (isset($normalized['payout_amount_updates'])) {
+            foreach ($normalized['payout_amount_updates'] as $update) {
+                RewardPrize::query()
+                    ->where('reward_result_id', $rewardResultId)
+                    ->where('prize_type', $update['prize_type'])
+                    ->update([
+                        'amount' => $update['amount'],
+                        'currency' => $update['currency'],
+                        'updated_at' => now(),
+                    ]);
+            }
+        }
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $rows
+     * @param array<string, mixed> $updates
+     * @return array<int, array<string, mixed>>
+     */
+    private function applyPartialRewardUpdatesToRows(array $rows, array $updates): array
+    {
+        foreach ($updates['prize_number_updates'] ?? [] as $update) {
+            $indexes = array_keys(array_filter(
+                $rows,
+                fn (array $row): bool => ($row['prize_type'] ?? '') === $update['prize_type'],
+            ));
+
+            foreach ($update['prize_numbers'] as $index => $number) {
+                if (! isset($indexes[$index]) || $number === '' || str_starts_with($number, 'pending_')) {
+                    continue;
+                }
+
+                $rows[$indexes[$index]]['prize_number'] = $number;
+            }
+        }
+
+        foreach ($updates['payout_amount_updates'] ?? [] as $update) {
+            foreach ($rows as $index => $row) {
+                if (($row['prize_type'] ?? '') !== $update['prize_type']) {
+                    continue;
+                }
+
+                $rows[$index]['amount'] = [
+                    'amount' => $update['amount'],
+                    'currency' => $update['currency'],
+                ];
+            }
+        }
+
+        return array_values($rows);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function rewardPrizePayloadRows(string $rewardResultId): array
+    {
+        return array_map(
+            fn (object $prize): array => $this->prizeResource($prize),
+            RewardPrize::query()->where('reward_result_id', $rewardResultId)->orderBy('sort_order')->get()->all(),
+        );
+    }
+
+    private function rewardPrizesAreComplete(string $rewardResultId): bool
+    {
+        return $this->validatePrizeRows($this->rewardPrizePayloadRows($rewardResultId), true) === [];
+    }
+
+    /**
      * @param array<string, mixed> $payload
      * @return array<string, mixed>
      */
@@ -1037,6 +1322,47 @@ class RewardService
                     'currency' => $this->moneyCurrency($row['amount'] ?? null),
                 ];
             }, is_array($payload['prizes'] ?? null) ? $payload['prizes'] : []);
+        }
+
+        if (! $creating) {
+            $normalized = array_merge($normalized, $this->normalizePartialRewardUpdates($payload));
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function normalizePartialRewardUpdates(array $payload): array
+    {
+        $normalized = [];
+
+        if (array_key_exists('prize_number_updates', $payload) && is_array($payload['prize_number_updates'])) {
+            $normalized['prize_number_updates'] = array_values(array_filter(array_map(function (mixed $update): array {
+                $row = is_array($update) ? $update : [];
+
+                return [
+                    'prize_type' => trim((string) ($row['prize_type'] ?? '')),
+                    'prize_numbers' => array_values(array_map(
+                        fn (mixed $number): string => trim((string) $number),
+                        is_array($row['prize_numbers'] ?? null) ? $row['prize_numbers'] : [],
+                    )),
+                ];
+            }, $payload['prize_number_updates']), fn (array $update): bool => $update['prize_type'] !== '' && $update['prize_numbers'] !== []));
+        }
+
+        if (array_key_exists('payout_amount_updates', $payload) && is_array($payload['payout_amount_updates'])) {
+            $normalized['payout_amount_updates'] = array_values(array_filter(array_map(function (mixed $update): array {
+                $row = is_array($update) ? $update : [];
+
+                return [
+                    'prize_type' => trim((string) ($row['prize_type'] ?? '')),
+                    'amount' => $this->moneyAmount($row['amount'] ?? null, 0),
+                    'currency' => $this->moneyCurrency($row['amount'] ?? null),
+                ];
+            }, $payload['payout_amount_updates']), fn (array $update): bool => $update['prize_type'] !== ''));
         }
 
         return $normalized;
@@ -1342,6 +1668,39 @@ class RewardService
     private function moneyCurrency(mixed $value): string
     {
         return is_array($value) && isset($value['currency']) ? (string) $value['currency'] : 'THB';
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function hasRewardUpdatePayload(array $payload): bool
+    {
+        return array_key_exists('prizes', $payload)
+            || array_key_exists('prize_number_updates', $payload)
+            || array_key_exists('payout_amount_updates', $payload);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function hasResultRecordingPayload(array $payload): bool
+    {
+        return array_key_exists('prizes', $payload)
+            || array_key_exists('prize_number_updates', $payload);
+    }
+
+    /**
+     * @param array<string, array<int, string>> $base
+     * @param array<string, array<int, string>> $incoming
+     * @return array<string, array<int, string>>
+     */
+    private function mergeFieldErrors(array $base, array $incoming): array
+    {
+        foreach ($incoming as $field => $messages) {
+            $base[$field] = array_values(array_merge($base[$field] ?? [], $messages));
+        }
+
+        return $base;
     }
 
     private function limit(mixed $value): int

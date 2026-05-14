@@ -5,6 +5,7 @@ type AdminMenuItem = {
   category?: string
   icon?: string
   children?: AdminMenuItem[]
+  sort_order?: number
 }
 
 const routeHints: Record<string, string> = {
@@ -15,16 +16,15 @@ const routeHints: Record<string, string> = {
 
 const scopedRouteOverrides: Record<string, string> = {
   'central:rewards': '/admin/central/rewards',
-  'central:prize_checking': '/admin/central/rewards',
+  'central:master_stock': '/admin/central/master-stock',
+  'central:stock_generation': '/admin/central/stock-generation',
+  'central:stock_recall': '/admin/central/stock-recall',
   'central:reports': '/admin/central/reports',
   'central:settlement': '/admin/central/settlements',
   'central:partner_provisioning': '/admin/central/partner-provisioning',
   'central:partner_quotas': '/admin/central/partner-quotas',
   'central:partner_monitoring': '/admin/central/partner-monitoring',
   'central:partner_usage': '/admin/central/partner-usage',
-  'central:lottery_images': '/admin/central/lottery-images',
-  'central:lottery_image_operations': '/admin/central/lottery-images',
-  'central:lottery-images': '/admin/central/lottery-images',
   'central:billing_plans': '/admin/central/billing-plans',
   'central:alert_policies': '/admin/central/alert-policies',
   'central:alert_events': '/admin/central/alert-events',
@@ -53,6 +53,7 @@ export const useAdminNavigation = () => {
   const menus = useState<AdminMenuItem[]>('admin-menus', () => [])
   const loading = useState('admin-menus-loading', () => false)
   const error = useState<any>('admin-menus-error', () => null)
+  const navigationMenus = computed(() => buildMenuTree(menus.value))
 
   const loadMenus = async () => {
     session.restore()
@@ -71,7 +72,8 @@ export const useAdminNavigation = () => {
         scope,
         tenantId: session.currentTenantId.value,
       })
-      menus.value = Array.isArray(response?.data) ? response.data : []
+      const nextMenus = Array.isArray(response?.data) ? response.data : []
+      menus.value = scope === 'central' ? hideCentralOnlyMenus(nextMenus) : nextMenus
     } catch (err) {
       error.value = err
       menus.value = []
@@ -106,13 +108,13 @@ export const useAdminNavigation = () => {
     if (key.includes('audit')) return 'ri-history-line'
     if (key.includes('role') || key.includes('permission')) return 'ri-shield-user-line'
     if (key.includes('stock')) return 'ri-archive-stack-line'
-    if (key.includes('lottery') || key.includes('image')) return 'ri-image-2-line'
     if (key.includes('partner')) return 'ri-building-4-line'
     return item.children?.length ? 'ri-folder-2-line' : 'ri-dashboard-line'
   }
 
   return {
     menus,
+    navigationMenus,
     loading,
     error,
     loadMenus,
@@ -123,4 +125,68 @@ export const useAdminNavigation = () => {
 
 const safeIcon = (icon?: string) => {
   return typeof icon === 'string' && /^[a-z0-9_-]+(?:\s+[a-z0-9_-]+)*$/i.test(icon)
+}
+
+const buildMenuTree = (items: AdminMenuItem[]) => {
+  if (!Array.isArray(items)) return []
+
+  const normalizedItems = items.map((item) => ({
+    ...item,
+    children: Array.isArray(item.children) ? item.children : [],
+  }))
+
+  if (normalizedItems.some((item) => item.children.length)) {
+    return normalizedItems
+  }
+
+  const groups: AdminMenuItem[] = []
+  const groupByCategory = new Map<string, AdminMenuItem>()
+
+  normalizedItems.forEach((item) => {
+    const category = typeof item.category === 'string' ? item.category.trim() : ''
+
+    if (!category || category.toLowerCase() === 'dashboard') {
+      groups.push(item)
+      return
+    }
+
+    const groupKey = `category:${category.toLowerCase().replace(/[^a-z0-9]+/gi, '-')}`
+    let group = groupByCategory.get(groupKey)
+
+    if (!group) {
+      group = {
+        key: groupKey,
+        label: category,
+        icon: categoryIcon(category),
+        children: [],
+        sort_order: item.sort_order,
+      }
+      groupByCategory.set(groupKey, group)
+      groups.push(group)
+    }
+
+    group.children?.push(item)
+  })
+
+  return groups
+}
+
+const hideCentralOnlyMenus = (items: AdminMenuItem[]): AdminMenuItem[] => items
+  .filter((item) => item.key !== 'prize_checking')
+  .map((item) => ({
+    ...item,
+    children: Array.isArray(item.children) ? hideCentralOnlyMenus(item.children) : [],
+  }))
+
+const categoryIcon = (category: string) => {
+  const value = category.toLowerCase()
+
+  if (value.includes('lottery')) return 'ri-trophy-line'
+  if (value.includes('partner')) return 'ri-building-4-line'
+  if (value.includes('finance') || value.includes('report')) return 'ri-bar-chart-box-line'
+  if (value.includes('store')) return 'ri-store-2-line'
+  if (value.includes('growth')) return 'ri-line-chart-line'
+  if (value.includes('control')) return 'ri-pulse-line'
+  if (value.includes('administration')) return 'ri-shield-user-line'
+  return 'ri-folder-2-line'
 }

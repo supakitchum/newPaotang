@@ -69,7 +69,7 @@ class CentralRewardController extends Controller
             return $context;
         }
 
-        $errors = $this->headers->idempotencyKeyErrors($request) + $this->rewards->validateRewardPayload($request->all(), false);
+        $errors = $this->headers->idempotencyKeyErrors($request) + $this->rewards->validateRewardPayload($request->all(), false, $reward_result_id);
 
         if ($errors !== []) {
             return ApiErrorResponse::validationFailed($request, $errors);

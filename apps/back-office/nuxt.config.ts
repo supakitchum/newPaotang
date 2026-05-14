@@ -3,6 +3,7 @@ export default defineNuxtConfig({
   ssr: true,
   css: [
     '~/assets/css/admin-foundation.css',
+    'sweetalert2/dist/sweetalert2.min.css',
   ],
   app: {
     head: {
@@ -14,12 +15,15 @@ export default defineNuxtConfig({
         'data-theme-mode': 'light',
         'data-menu-styles': 'light',
         'data-header-styles': 'light',
+        'data-vertical-style': 'closed',
         'data-width': 'fullwidth',
         'data-menu-position': 'fixed',
         'data-header-position': 'fixed',
       },
       link: [
         { rel: 'icon', href: '/admin-template/assets/images/brand-logos/favicon.ico' },
+        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         { id: 'style', rel: 'stylesheet', href: '/admin-template/assets/libs/bootstrap/css/bootstrap.min.css' },
         { rel: 'stylesheet', href: '/admin-template/assets/css/styles.css' },
         { rel: 'stylesheet', href: '/admin-template/assets/css/icons.css' },

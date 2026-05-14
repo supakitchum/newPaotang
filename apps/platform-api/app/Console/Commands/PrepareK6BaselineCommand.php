@@ -29,6 +29,7 @@ use App\Models\StockReservation;
 use App\Models\StockReservationItem;
 use App\Models\Wallet;
 use App\Models\WalletLedger;
+use App\Modules\Reward\Services\ThaiGovernmentLotteryRewardTemplate;
 use Database\Seeders\DefaultRbacMenuSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -380,6 +381,7 @@ class PrepareK6BaselineCommand extends Command
             'id' => $gameId,
             'code' => $gameId,
             'name' => 'K6 Baseline Game '.$runId,
+            'sale_start_at' => $now->copy()->subMinute(),
             'draw_at' => $now->copy()->addDay(),
             'close_at' => $now->copy()->addHours(20),
             'closed_at' => null,
@@ -584,18 +586,15 @@ class PrepareK6BaselineCommand extends Command
     {
         $gameId = 'gmr_k6_'.$runId;
         $rewardResultId = 'rew_k6_'.$runId;
-        $prizeId = 'rpr_k6_'.$runId;
+        $prizes = $this->thaiGovernmentLotteryPrizes('100000');
         $summary = [
             'game_id' => $gameId,
             'reward_version' => 1,
             'status' => 'published',
-            'prizes' => [[
-                'prize_type' => 'first_prize',
-                'prize_number' => '100000',
-                'amount' => ['amount' => 1000000, 'currency' => 'THB'],
+            'prizes' => array_map(fn (array $prize): array => $prize + [
                 'winning_count' => 0,
                 'total_amount' => ['amount' => 0, 'currency' => 'THB'],
-            ]],
+            ], $prizes),
             'winning_count' => 0,
             'checked_ticket_count' => 0,
         ];
@@ -604,6 +603,7 @@ class PrepareK6BaselineCommand extends Command
             'id' => $gameId,
             'code' => $gameId,
             'name' => 'K6 Reward Game '.$runId,
+            'sale_start_at' => $now->copy()->subDay(),
             'draw_at' => $now->copy()->subHour(),
             'close_at' => $now->copy()->subHours(2),
             'closed_at' => $now->copy()->subHours(2),
@@ -633,18 +633,18 @@ class PrepareK6BaselineCommand extends Command
             'updated_at' => $now,
         ]);
 
-        RewardPrize::query()->insert([
-            'id' => $prizeId,
+        RewardPrize::query()->insert(array_map(fn (array $prize, int $index): array => [
+            'id' => 'rpr_'.substr(sha1($rewardResultId.':'.$index), 0, 20),
             'reward_result_id' => $rewardResultId,
             'game_id' => $gameId,
-            'prize_type' => 'first_prize',
-            'prize_number' => '100000',
-            'amount' => 1000000,
-            'currency' => 'THB',
-            'sort_order' => 1,
+            'prize_type' => $prize['prize_type'],
+            'prize_number' => $prize['prize_number'],
+            'amount' => $prize['amount']['amount'],
+            'currency' => $prize['amount']['currency'],
+            'sort_order' => $index,
             'created_at' => $now,
             'updated_at' => $now,
-        ]);
+        ], $prizes, array_keys($prizes)));
 
         RewardCheckBatch::query()->insert([
             'id' => 'rcb_k6_'.$runId,
@@ -678,6 +678,31 @@ class PrepareK6BaselineCommand extends Command
             'game_id' => $gameId,
             'reward_result_id' => $rewardResultId,
         ];
+    }
+
+    /**
+     * @return array<int, array{prize_type: string, prize_number: string, amount: array{amount: int, currency: string}}>
+     */
+    private function thaiGovernmentLotteryPrizes(string $firstPrizeNumber): array
+    {
+        $rows = [];
+
+        foreach (ThaiGovernmentLotteryRewardTemplate::rules() as $type => $rule) {
+            for ($index = 1; $index <= $rule['count']; $index++) {
+                $rows[] = [
+                    'prize_type' => $type,
+                    'prize_number' => $type === 'first_prize'
+                        ? $firstPrizeNumber
+                        : str_pad((string) $index, $rule['digits'], '0', STR_PAD_LEFT),
+                    'amount' => [
+                        'amount' => $rule['amount'],
+                        'currency' => ThaiGovernmentLotteryRewardTemplate::CURRENCY,
+                    ],
+                ];
+            }
+        }
+
+        return $rows;
     }
 
     private function pathOption(string $name, string $fallback): string

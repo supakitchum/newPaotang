@@ -121,18 +121,22 @@ class PartnerStoreService
      */
     public function currentGameForTenant(string $tenantId): ?array
     {
-        $game = Game::query()
-            ->where('status', 'open')
-            ->whereIn('id', LocalStockItem::query()
+        $partnerId = $this->partnerIdForTenant($tenantId);
+
+        if ($partnerId === null) {
+            return null;
+        }
+
+        $game = $this->saleOpenGameQuery($partnerId)
+            ->whereIn('games.id', LocalStockItem::query()
                 ->where('tenant_id', $tenantId)
                 ->select('game_id'))
-            ->orderBy('draw_at')
+            ->orderBy('games.draw_at')
             ->first();
 
         if ($game === null) {
-            $game = Game::query()
-                ->where('status', 'open')
-                ->orderBy('draw_at')
+            $game = $this->saleOpenGameQuery($partnerId)
+                ->orderBy('games.draw_at')
                 ->first();
         }
 
@@ -192,9 +196,22 @@ class PartnerStoreService
     public function searchLocalStock(string $tenantId, array $queryParams): array
     {
         $limit = $this->limit($queryParams['limit'] ?? null);
+        $gameId = trim((string) $queryParams['game_id']);
+        $partnerId = $this->partnerIdForTenant($tenantId);
+
+        if ($partnerId === null || ! $this->gameSaleOpenForPartner($partnerId, $gameId)) {
+            return [
+                'data' => [],
+                'meta' => [
+                    'next_cursor' => null,
+                    'has_more' => false,
+                ],
+            ];
+        }
+
         $query = LocalStockItem::query()
             ->where('tenant_id', $tenantId)
-            ->where('game_id', trim((string) $queryParams['game_id']))
+            ->where('game_id', $gameId)
             ->where('status', 'available')
             ->limit($limit + 1);
 
@@ -259,7 +276,8 @@ class PartnerStoreService
     public function listTenantStock(string $tenantId, array $queryParams): array
     {
         $limit = $this->limit($queryParams['limit'] ?? null);
-        $query = LocalStockItem::query()->forTenant($tenantId)->orderBy('id')->limit($limit + 1);
+        $sort = $this->resolveTenantStockSort($queryParams);
+        $query = LocalStockItem::query()->forTenant($tenantId)->limit($limit + 1);
 
         foreach (['game_id', 'status'] as $field) {
             if (($queryParams[$field] ?? null) !== null && trim((string) $queryParams[$field]) !== '') {
@@ -271,8 +289,16 @@ class PartnerStoreService
             $query->where('full_number', trim((string) $queryParams['number']));
         }
 
-        if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
+        if ($sort === null) {
+            $query->orderBy('id');
+        } else {
+            $this->applyTenantStockOrder($query, $sort);
+        }
+
+        if ($sort === null && ($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
             $query->where('id', '>', trim((string) $queryParams['cursor']));
+        } elseif ($sort !== null) {
+            $this->applyTenantStockCursor($query, $queryParams['cursor'] ?? null, $sort);
         }
 
         $rows = $query->get()->all();
@@ -282,9 +308,115 @@ class PartnerStoreService
         return [
             'data' => array_map(fn (object $stock): array => $this->tenantStockResource($stock), $rows),
             'meta' => [
-                'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->id : null,
+                'next_cursor' => $hasMore && $rows !== [] ? ($sort === null ? (string) end($rows)->id : $this->tenantStockCursor(end($rows), $sort)) : null,
                 'has_more' => $hasMore,
             ],
+        ];
+    }
+
+    /**
+     * @return array{key: string, column: string, direction: string}|null
+     */
+    private function resolveTenantStockSort(array $queryParams): ?array
+    {
+        $key = trim((string) ($queryParams['sort_by'] ?? ''));
+        if ($key === '') {
+            return null;
+        }
+
+        $allowed = [
+            'id' => 'id',
+            'game_id' => 'game_id',
+            'stock_item_id' => 'stock_item_id',
+            'full_number' => 'full_number',
+            'front3' => 'front3',
+            'back3' => 'back3',
+            'back2' => 'back2',
+            'status' => 'status',
+            'partner_id' => 'partner_id',
+            'tenant_id' => 'tenant_id',
+            'allocation_id' => 'allocation_id',
+            'created_at' => 'created_at',
+            'updated_at' => 'updated_at',
+            'synced_at' => 'synced_at',
+            'reserved_at' => 'reserved_at',
+        ];
+
+        if (! isset($allowed[$key])) {
+            return null;
+        }
+
+        return [
+            'key' => $key,
+            'column' => $allowed[$key],
+            'direction' => strtolower((string) ($queryParams['sort_dir'] ?? 'asc')) === 'desc' ? 'desc' : 'asc',
+        ];
+    }
+
+    private function applyTenantStockOrder(mixed $query, array $sort): void
+    {
+        $query->orderBy($sort['column'], $sort['direction']);
+
+        if ($sort['column'] !== 'id') {
+            $query->orderBy('id');
+        }
+    }
+
+    private function applyTenantStockCursor(mixed $query, mixed $rawCursor, array $sort): void
+    {
+        $cursor = $this->decodeTenantStockCursor($rawCursor, $sort);
+        if ($cursor === null) {
+            return;
+        }
+
+        $operator = $sort['direction'] === 'desc' ? '<' : '>';
+        $query->where(function ($nested) use ($cursor, $operator, $sort): void {
+            $nested
+                ->where($sort['column'], $operator, $cursor['value'])
+                ->orWhere(function ($sameValue) use ($cursor, $sort): void {
+                    $sameValue
+                        ->where($sort['column'], $cursor['value'])
+                        ->where('id', '>', $cursor['id']);
+                });
+        });
+    }
+
+    private function tenantStockCursor(object $stock, array $sort): string
+    {
+        return base64_encode(json_encode([
+            'sort_by' => $sort['key'],
+            'sort_dir' => $sort['direction'],
+            'value' => $stock->{$sort['column']} ?? null,
+            'id' => (string) $stock->id,
+        ], JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * @return array{value: mixed, id: string}|null
+     */
+    private function decodeTenantStockCursor(mixed $cursor, array $sort): ?array
+    {
+        if ($cursor === null || trim((string) $cursor) === '') {
+            return null;
+        }
+
+        try {
+            $decoded = json_decode((string) base64_decode((string) $cursor, true), true, flags: JSON_THROW_ON_ERROR);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if (! is_array($decoded)
+            || ($decoded['sort_by'] ?? null) !== $sort['key']
+            || ($decoded['sort_dir'] ?? null) !== $sort['direction']
+            || ! array_key_exists('value', $decoded)
+            || ! isset($decoded['id'])) {
+            return null;
+        }
+
+        return [
+            'value' => $decoded['value'],
+            'id' => (string) $decoded['id'],
         ];
     }
 
@@ -532,7 +664,13 @@ class PartnerStoreService
         return DB::transaction(function () use ($tenantId, $partnerId, $customer, $normalizedPayload, $itemIds, $request, $payloadHash, $idempotencyKey): array {
             $gameId = $normalizedPayload['game_id'];
 
-            if (! Game::query()->where('id', $gameId)->where('status', 'open')->lockForUpdate()->exists()) {
+            $game = Game::query()
+                ->where('id', $gameId)
+                ->where('status', 'open')
+                ->lockForUpdate()
+                ->first();
+
+            if ($game === null || ! $this->gameSaleOpenForPartner($partnerId, $gameId)) {
                 return ['error' => 'reservation_unavailable'];
             }
 
@@ -1091,11 +1229,45 @@ class PartnerStoreService
             'id' => (string) $game->id,
             'code' => (string) $game->code,
             'name' => (string) $game->name,
+            'sale_start_at' => $game->sale_start_at,
             'draw_at' => $game->draw_at,
             'close_at' => $game->close_at,
             'server_time' => now()->toISOString(),
             'status' => (string) $game->status,
         ];
+    }
+
+    private function gameSaleOpenForPartner(string $partnerId, string $gameId): bool
+    {
+        return $this->saleOpenGameQuery($partnerId, $gameId)->exists();
+    }
+
+    private function saleOpenGameQuery(string $partnerId, ?string $gameId = null): \Illuminate\Database\Eloquent\Builder
+    {
+        $now = now();
+        $query = Game::query()
+            ->leftJoin('partner_quotas', function ($join) use ($partnerId): void {
+                $join->on('partner_quotas.game_id', '=', 'games.id')
+                    ->where('partner_quotas.partner_id', '=', $partnerId);
+            })
+            ->where('games.status', 'open')
+            ->where('games.sale_start_at', '<=', $now)
+            ->where('games.close_at', '>', $now)
+            ->where(function ($nested) use ($now): void {
+                $nested->whereNull('partner_quotas.sale_start_at')
+                    ->orWhere('partner_quotas.sale_start_at', '<=', $now);
+            })
+            ->where(function ($nested) use ($now): void {
+                $nested->whereNull('partner_quotas.sale_close_at')
+                    ->orWhere('partner_quotas.sale_close_at', '>', $now);
+            })
+            ->select('games.*');
+
+        if ($gameId !== null && $gameId !== '') {
+            $query->where('games.id', $gameId);
+        }
+
+        return $query;
     }
 
     /**

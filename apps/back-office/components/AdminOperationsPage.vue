@@ -178,14 +178,14 @@
     </template>
 
     <template v-else-if="mode === 'report-detail'">
-      <AdminFilterBar :filters="reportFilters" :model-value="filters" @apply="applyFilters" />
-      <AdminExportPanel :actions="resource.collectionActions || []" @run="openCollectionAction" />
+      <AdminFilterBar :filters="hydratedReportFilters" :model-value="filters" @apply="applyFilters" />
+      <AdminExportPanel :actions="hydratedCollectionActions" @run="openCollectionAction" />
       <AdminApiState :error="error" />
       <AdminReportPanel :data="detail" :loading="loading" />
     </template>
 
     <template v-else-if="mode === 'summary'">
-      <AdminFilterBar v-if="resource.filters?.length" :filters="resource.filters" :model-value="filters" @apply="applyFilters" />
+      <AdminFilterBar v-if="resource.filters?.length" :filters="hydratedFilters" :model-value="filters" @apply="applyFilters" />
       <AdminApiState :error="error" />
       <AdminDetailSection :title="resource.title" :record="detail" :loading="loading" />
     </template>
@@ -193,7 +193,11 @@
     <template v-else-if="mode === 'detail'">
       <AdminApiState v-if="detailGap" :message="detailGap" />
       <AdminApiState :error="error" />
-      <AdminDetailSection :title="`${resource.title} detail`" :record="detail" :loading="loading && !detailGap" />
+      <AdminDetailSection :title="`${resource.title} detail`" :record="detailDisplayRecord" :loading="loading && !detailGap" />
+      <AdminRewardPrizes
+        v-if="resource.detailRenderer === 'reward' && !detailGap && detail"
+        :prizes="detail?.prizes || []"
+      />
       <div v-if="resource.detailJsonEditor && resource.updateEndpoint && !detailGap" class="card custom-card">
         <div class="card-header">
           <div class="card-title">Update JSON</div>
@@ -214,16 +218,20 @@
     </template>
 
     <template v-else>
-      <AdminFilterBar v-if="resource.filters?.length" :filters="resource.filters" :model-value="filters" @apply="applyFilters" />
-      <AdminExportPanel :actions="resource.collectionActions || []" @run="openCollectionAction" />
+      <AdminFilterBar v-if="resource.filters?.length" :filters="hydratedFilters" :model-value="filters" @apply="applyFilters" />
+      <AdminExportPanel :actions="hydratedCollectionActions" @run="openCollectionAction" />
       <AdminApiState :error="error" />
       <AdminDataTable
         :title="resource.title"
         :columns="resource.columns || []"
         :rows="rows"
         :loading="loading"
+        :sort-key="sortState.key"
+        :sort-direction="sortState.direction"
+        :sortable="Boolean(resource.apiSort)"
         :empty-title="`No ${resource.title.toLowerCase()}`"
         empty-message="No records were returned from the approved back-office API."
+        @sort-change="applySort"
       >
         <template v-for="column in resource.columns || []" #[`cell-${column.key}`]="{ row }">
           <AdminStatusBadge v-if="column.type === 'status'" :status="row[column.key]" />
@@ -233,32 +241,41 @@
           <div class="d-flex justify-content-end gap-1">
             <NuxtLink
               v-if="hasDetailRoute"
+              v-show="!isStockGrouped"
               :to="`${scopeBasePath}/${resource.slug}/${row.__id}`"
               class="btn btn-sm btn-primary btn-wave"
             >
               Detail
             </NuxtLink>
-            <template v-for="action in resource.actions || []" :key="action.key">
-              <NuxtLink
-                v-if="action.route"
-                :to="actionRoute(action, row)"
-                :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
-              >
-                {{ action.label }}
-              </NuxtLink>
-              <button
-                v-else
-                type="button"
-                :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
-                @click="openRowAction(action, row)"
-              >
-                {{ action.label }}
-              </button>
-            </template>
+            <button
+              v-if="isStockGrouped"
+              type="button"
+              class="btn btn-sm btn-primary btn-wave"
+              @click="openStockTickets(row)"
+            >
+              View tickets
+            </button>
+            <button
+              v-for="action in isStockGrouped ? [] : hydratedActions"
+              :key="action.key"
+              type="button"
+              :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
+              @click="openRowAction(action, row)"
+            >
+              {{ action.label }}
+            </button>
           </div>
         </template>
       </AdminDataTable>
-      <AdminPagination :next-cursor="meta.next_cursor" :loading="loading" @next="load(meta.next_cursor)" />
+      <AdminPagination
+        :next-cursor="meta.next_cursor"
+        :has-previous="pageState.index > 0"
+        :loading="loading"
+        :current-page="pageState.index + 1"
+        :page-size="filters.limit || 20"
+        @previous="loadPreviousPage"
+        @next="loadNextPage"
+      />
     </template>
 
     <template v-if="showRelatedLists">
@@ -293,34 +310,73 @@
               >
                 Detail
               </button>
-              <template v-for="action in related.actions || []" :key="action.key">
-                <NuxtLink
-                  v-if="action.route"
-                  :to="actionRoute(action, row)"
-                  :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
-                >
-                  {{ action.label }}
-                </NuxtLink>
-                <button
-                  v-else
-                  type="button"
-                  :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
-                  @click="openRelatedRowAction(related, action, row)"
-                >
-                  {{ action.label }}
-                </button>
-              </template>
+              <button
+                v-for="action in related.actions || []"
+                :key="action.key"
+                type="button"
+                :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
+                @click="openRelatedRowAction(related, action, row)"
+              >
+                {{ action.label }}
+              </button>
             </div>
           </template>
         </AdminDataTable>
         <AdminPagination
           v-if="related.filters?.length"
           :next-cursor="relatedMeta[related.key]?.next_cursor || null"
+          :has-previous="(relatedPageState[related.key]?.index || 0) > 0"
           :loading="relatedLoading[related.key]"
-          @next="loadRelatedList(related, relatedMeta[related.key]?.next_cursor || null)"
+          :current-page="(relatedPageState[related.key]?.index || 0) + 1"
+          :page-size="relatedFilters[related.key]?.limit || 20"
+          @previous="loadPreviousRelatedPage(related)"
+          @next="loadNextRelatedPage(related)"
         />
       </div>
     </template>
+
+    <AdminModal v-model="stockTickets.open" :title="stockTickets.title">
+      <AdminApiState :error="stockTickets.error" />
+      <AdminDataTable
+        title="Ticket rows"
+        :columns="stockTicketColumns"
+        :rows="stockTickets.rows"
+        :loading="stockTickets.loading"
+        :sort-key="stockTickets.sortKey"
+        :sort-direction="stockTickets.sortDirection"
+        sortable
+        empty-title="No tickets"
+        empty-message="No stock item rows matched this number."
+        @sort-change="applyStockTicketSort"
+      >
+        <template #cell-status="{ row }">
+          <AdminStatusBadge :status="row.status" />
+        </template>
+        <template #rowActions="{ row }">
+          <button
+            v-for="action in hydratedActions"
+            :key="action.key"
+            type="button"
+            :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
+            @click="openStockTicketAction(action, row)"
+          >
+            {{ action.label }}
+          </button>
+        </template>
+      </AdminDataTable>
+      <AdminPagination
+        :next-cursor="stockTickets.meta.next_cursor"
+        :has-previous="stockTickets.pageState.index > 0"
+        :loading="stockTickets.loading"
+        :current-page="stockTickets.pageState.index + 1"
+        :page-size="stockTickets.limit"
+        @previous="loadPreviousStockTicketPage"
+        @next="loadNextStockTicketPage"
+      />
+      <template #footer>
+        <button class="btn btn-light btn-wave" type="button" @click="stockTickets.open = false">Close</button>
+      </template>
+    </AdminModal>
 
     <AdminConfirmAction
       v-model="confirm.open"
@@ -348,7 +404,7 @@
 </template>
 
 <script setup lang="ts">
-import type { OperationAction, OperationFilter, OperationFormField, OperationRelatedList, OperationResource, OperationSettingsPanel } from '~/composables/useAdminOperationsCatalog'
+import type { OperationAction, OperationFilter, OperationFormField, OperationOption, OperationOptionSource, OperationRelatedList, OperationResource, OperationSettingsPanel } from '~/composables/useAdminOperationsCatalog'
 import { formatDateTime, titleize } from '~/utils/format'
 
 const props = defineProps<{
@@ -375,12 +431,15 @@ const secondarySaving = reactive<Record<string, boolean>>({})
 const secondaryErrors = reactive<Record<string, any>>({})
 const detailDraft = ref('')
 const filters = ref<Record<string, any>>({})
+const sortState = reactive<{ key: string, direction: 'asc' | 'desc' }>({ key: '', direction: 'asc' })
 const meta = reactive({ next_cursor: null as string | null, has_more: false })
+const pageState = reactive({ cursors: [null] as Array<string | null>, index: 0 })
 const relatedFilters = reactive<Record<string, Record<string, any>>>({})
 const relatedRows = reactive<Record<string, any[]>>({})
 const relatedLoading = reactive<Record<string, boolean>>({})
 const relatedErrors = reactive<Record<string, any>>({})
 const relatedMeta = reactive<Record<string, { next_cursor: string | null, has_more: boolean }>>({})
+const relatedPageState = reactive<Record<string, { cursors: Array<string | null>, index: number }>>({})
 const confirm = reactive<{
   open: boolean
   title: string
@@ -409,6 +468,41 @@ const relatedDetail = reactive<{
   error: null,
   record: null,
 })
+const stockTickets = reactive<{
+  open: boolean
+  title: string
+  loading: boolean
+  error: any
+  rows: any[]
+  gameId: string
+  fullNumber: string
+  status: string
+  limit: number
+  sortKey: string
+  sortDirection: 'asc' | 'desc'
+  meta: { next_cursor: string | null, has_more: boolean }
+  pageState: { cursors: Array<string | null>, index: number }
+}>({
+  open: false,
+  title: '',
+  loading: false,
+  error: null,
+  rows: [],
+  gameId: '',
+  fullNumber: '',
+  status: '',
+  limit: 20,
+  sortKey: '',
+  sortDirection: 'asc',
+  meta: { next_cursor: null, has_more: false },
+  pageState: { cursors: [null], index: 0 },
+})
+const optionSourceOptions = reactive<Record<OperationOptionSource, OperationOption[]>>({
+  'central-games': [],
+})
+const optionSourceLoading = reactive<Record<OperationOptionSource, boolean>>({
+  'central-games': false,
+})
 
 const slugParts = computed(() => normalizeSlug(route.params.slug))
 const resolved = computed(() => catalog.resolve(props.scope, slugParts.value))
@@ -422,7 +516,19 @@ const listPath = computed(() => resource.value ? `${scopeBasePath.value}/${resou
 const canReload = computed(() => Boolean(resource.value && mode.value !== 'report-index' && !resource.value.apiGap && !detailGap.value))
 const hasDetailRoute = computed(() => Boolean(resource.value?.detailEndpoint || resource.value?.detailApiGap))
 const detailGap = computed(() => mode.value === 'detail' && !resource.value?.detailEndpoint ? resource.value?.detailApiGap || 'No documented detail GET endpoint is available for this route.' : '')
-const detailActions = computed(() => resource.value?.actions || [])
+const isStockGrouped = computed(() => Boolean(resource.value?.stockGrouped))
+const hydratedFilters = computed(() => hydrateFilters(resource.value?.filters || []))
+const hydratedCollectionActions = computed(() => hydrateActions(resource.value?.collectionActions || []))
+const hydratedActions = computed(() => hydrateActions(resource.value?.actions || []))
+const detailActions = computed(() => hydratedActions.value)
+const detailDisplayRecord = computed(() => {
+  if (resource.value?.detailRenderer !== 'reward' || !detail.value) {
+    return detail.value
+  }
+
+  const { prizes, ...record } = detail.value
+  return record
+})
 const hasSettingsForm = computed(() => Boolean(resource.value?.settingsFields?.length))
 const isMenuManagement = computed(() => resource.value?.slug === 'menu-management')
 const showRelatedLists = computed(() => Boolean(
@@ -438,22 +544,37 @@ const reportFilters = computed(() => resource.value?.filters?.length ? resource.
   { key: 'cursor', label: 'Cursor' },
   { key: 'limit', label: 'Limit', type: 'number' as const },
 ])
+const hydratedReportFilters = computed(() => hydrateFilters(reportFilters.value))
+const stockTicketColumns = [
+  { key: 'id', label: 'Ticket' },
+  { key: 'full_number', label: 'Number' },
+  { key: 'status', label: 'Status', type: 'status' as const },
+  { key: 'partner_id', label: 'Partner' },
+  { key: 'tenant_id', label: 'Tenant' },
+  { key: 'allocation_id', label: 'Allocation' },
+  { key: 'batch_id', label: 'Batch' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' as const },
+]
 
 watch(() => route.fullPath, () => {
   if (!import.meta.client) {
     return
   }
   resetFilters()
+  void loadOptionSourcesForResource()
   load()
 })
 
 onMounted(() => {
   resetFilters()
+  void loadOptionSourcesForResource()
   load()
 })
 
 const resetFilters = () => {
   filters.value = defaultFilterValues(resource.value?.filters || [])
+  sortState.key = ''
+  sortState.direction = 'asc'
   resetRelatedFilters()
 }
 
@@ -462,12 +583,22 @@ const applyFilters = (next: Record<string, any>) => {
   load()
 }
 
+const applySort = (next: { key: string, direction: 'asc' | 'desc' }) => {
+  if (!resource.value?.apiSort) {
+    return
+  }
+
+  sortState.key = next.key
+  sortState.direction = next.direction
+  load(null, 'reset')
+}
+
 const applyRelatedFilters = (related: OperationRelatedList, next: Record<string, any>) => {
   relatedFilters[related.key] = { ...defaultFilterValues(related.filters || []), ...next }
   loadRelatedList(related)
 }
 
-async function load(cursor?: string | null) {
+async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previous' | 'current' = 'reset') {
   if (!session.isAuthenticated.value) {
     return
   }
@@ -508,16 +639,134 @@ async function load(cursor?: string | null) {
       return
     }
 
-    const response = await api.apiFetch(resource.value.listEndpoint || '', apiOptions({ query: queryWithCursor(cursor) }))
+    const pageCursor = cursor || null
+    const response = await api.apiFetch(resource.value.listEndpoint || '', apiOptions({ query: queryWithCursor(pageCursor) }))
     const nextRows = normalizeRows(response, resource.value)
-    rows.value = cursor ? [...rows.value, ...nextRows] : nextRows
+    rows.value = nextRows
     const nextMeta = extractMeta(response)
     meta.next_cursor = nextMeta.next_cursor || null
     meta.has_more = Boolean(nextMeta.has_more || nextMeta.next_cursor)
+    updatePageState(pageState, pageCursor, pageMode)
   } catch (err) {
     error.value = err
   } finally {
     loading.value = false
+  }
+}
+
+const loadNextPage = () => {
+  if (!meta.next_cursor) return
+  load(meta.next_cursor, 'next')
+}
+
+const loadPreviousPage = () => {
+  if (pageState.index <= 0) return
+  load(pageState.cursors[pageState.index - 1] || null, 'previous')
+}
+
+const hydrateFilters = (items: OperationFilter[]) => items.map((item) => ({
+  ...item,
+  options: item.optionSource ? hydratedOptions(item.optionSource, item.options) : item.options,
+}))
+
+const hydrateFields = (fields: OperationFormField[] = []) => fields.map((field) => ({
+  ...field,
+  options: field.optionSource ? hydratedOptions(field.optionSource, field.options) : field.options,
+}))
+
+const hydrateActions = (actions: OperationAction[] = []) => actions.map((action) => ({
+  ...action,
+  formFields: hydrateFields(action.formFields || []),
+}))
+
+const hydratedOptions = (source: OperationOptionSource, fallback: OperationOption[] = []) => {
+  const options = optionSourceOptions[source] || []
+  if (options.length) {
+    return options
+  }
+
+  if (optionSourceLoading[source]) {
+    return [{ value: '', label: 'Loading games...' }]
+  }
+
+  return fallback
+}
+
+const loadOptionSourcesForResource = async () => {
+  if (!session.isAuthenticated.value || !resource.value) {
+    return
+  }
+
+  const sources = collectOptionSources(resource.value)
+  await Promise.all([...sources].map((source) => loadOptionSource(source)))
+}
+
+const collectOptionSources = (item: OperationResource) => {
+  const sources = new Set<OperationOptionSource>()
+  const collectFields = (fields: OperationFormField[] = []) => {
+    for (const field of fields) {
+      if (field.optionSource) {
+        sources.add(field.optionSource)
+      }
+    }
+  }
+  const collectFilters = (filters: OperationFilter[] = []) => {
+    for (const filter of filters) {
+      if (filter.optionSource) {
+        sources.add(filter.optionSource)
+      }
+    }
+  }
+  const collectActions = (actions: OperationAction[] = []) => {
+    for (const action of actions) {
+      collectFields(action.formFields || [])
+    }
+  }
+
+  collectFilters(item.filters || [])
+  collectFields(item.settingsFields || [])
+  collectActions(item.actions || [])
+  collectActions(item.collectionActions || [])
+  for (const related of item.relatedLists || []) {
+    collectFilters(related.filters || [])
+    collectActions(related.actions || [])
+    collectActions(related.collectionActions || [])
+  }
+  for (const panel of item.secondarySettings || []) {
+    collectFields(panel.settingsFields || [])
+  }
+
+  return sources
+}
+
+const loadOptionSource = async (source: OperationOptionSource) => {
+  if (optionSourceOptions[source]?.length || optionSourceLoading[source]) {
+    return
+  }
+
+  optionSourceLoading[source] = true
+  try {
+    if (source === 'central-games') {
+      const response = await api.apiFetch('/admin/central/games', {
+        scope: 'central',
+        query: { limit: 100 },
+      })
+      optionSourceOptions[source] = extractItems(response).map(gameOption)
+    }
+  } catch {
+    optionSourceOptions[source] = []
+  } finally {
+    optionSourceLoading[source] = false
+  }
+}
+
+const gameOption = (game: any): OperationOption => {
+  const id = game?.id || game?.game_id || game?.uuid || game?.code
+  const name = game?.name || game?.game_name || game?.title || game?.code || id
+  const code = game?.code && game.code !== name ? ` (${game.code})` : ''
+  return {
+    value: id,
+    label: `${name}${code}`,
   }
 }
 
@@ -678,8 +927,6 @@ const resetDetailDraft = () => {
 }
 
 const openRowAction = (action: OperationAction, row: any) => {
-  if (action.route) return
-
   confirm.open = true
   confirm.action = action
   confirm.row = row
@@ -694,8 +941,6 @@ const openDetailAction = (action: OperationAction) => {
 }
 
 const openCollectionAction = (action: OperationAction) => {
-  if (action.route) return
-
   confirm.open = true
   confirm.action = action
   confirm.row = buildCollectionContext()
@@ -706,8 +951,6 @@ const openCollectionAction = (action: OperationAction) => {
 }
 
 const openRelatedCollectionAction = (related: OperationRelatedList, action: OperationAction) => {
-  if (action.route) return
-
   confirm.open = true
   confirm.action = action
   confirm.row = null
@@ -718,8 +961,6 @@ const openRelatedCollectionAction = (related: OperationRelatedList, action: Oper
 }
 
 const openRelatedRowAction = (related: OperationRelatedList, action: OperationAction, row: any) => {
-  if (action.route) return
-
   confirm.open = true
   confirm.action = action
   confirm.row = row
@@ -727,6 +968,81 @@ const openRelatedRowAction = (related: OperationRelatedList, action: OperationAc
   confirm.title = action.label
   confirm.message = `Confirm ${action.label.toLowerCase()} for ${row.__id || 'selected related record'}.`
   actionError.value = null
+}
+
+const openStockTickets = (row: any) => {
+  const source = row.__raw || row
+  stockTickets.open = true
+  stockTickets.title = `Tickets for ${source.full_number || row.full_number || '-'}`
+  stockTickets.error = null
+  stockTickets.rows = []
+  stockTickets.gameId = String(source.game_id || row.game_id || '')
+  stockTickets.fullNumber = String(source.full_number || row.full_number || '')
+  stockTickets.status = String(filters.value.status || '')
+  stockTickets.limit = Number(filters.value.limit || 20)
+  stockTickets.sortKey = ''
+  stockTickets.sortDirection = 'asc'
+  stockTickets.meta.next_cursor = null
+  stockTickets.meta.has_more = false
+  stockTickets.pageState = { cursors: [null], index: 0 }
+  void loadStockTickets()
+}
+
+const openStockTicketAction = (action: OperationAction, row: any) => {
+  stockTickets.open = false
+  openRowAction(action, row)
+}
+
+const loadStockTickets = async (cursor?: string | null, pageMode: 'reset' | 'next' | 'previous' | 'current' = 'reset') => {
+  if (!resource.value?.listEndpoint || !stockTickets.gameId || !stockTickets.fullNumber) {
+    return
+  }
+
+  stockTickets.loading = true
+  stockTickets.error = null
+  try {
+    const response = await api.apiFetch(resource.value.listEndpoint, apiOptions({
+      query: cleanQuery({
+        game_id: stockTickets.gameId,
+        full_number: stockTickets.fullNumber,
+        status: stockTickets.status,
+        grouped: false,
+        cursor: cursor || undefined,
+        limit: stockTickets.limit,
+        sort_by: stockTickets.sortKey || undefined,
+        sort_dir: stockTickets.sortKey ? stockTickets.sortDirection : undefined,
+      }),
+    }))
+    stockTickets.rows = normalizeRows(response, {
+      ...resource.value,
+      columns: stockTicketColumns,
+      idKey: 'id',
+    })
+    const nextMeta = extractMeta(response)
+    stockTickets.meta.next_cursor = nextMeta.next_cursor || null
+    stockTickets.meta.has_more = Boolean(nextMeta.has_more || nextMeta.next_cursor)
+    updatePageState(stockTickets.pageState, cursor || null, pageMode)
+  } catch (err) {
+    stockTickets.error = err
+  } finally {
+    stockTickets.loading = false
+  }
+}
+
+const loadNextStockTicketPage = () => {
+  if (!stockTickets.meta.next_cursor) return
+  loadStockTickets(stockTickets.meta.next_cursor, 'next')
+}
+
+const loadPreviousStockTicketPage = () => {
+  if (stockTickets.pageState.index <= 0) return
+  loadStockTickets(stockTickets.pageState.cursors[stockTickets.pageState.index - 1] || null, 'previous')
+}
+
+const applyStockTicketSort = (next: { key: string, direction: 'asc' | 'desc' }) => {
+  stockTickets.sortKey = next.key
+  stockTickets.sortDirection = next.direction
+  loadStockTickets(null, 'reset')
 }
 
 const openRelatedDetail = async (related: OperationRelatedList, row: any) => {
@@ -747,7 +1063,7 @@ const openRelatedDetail = async (related: OperationRelatedList, row: any) => {
 }
 
 const runConfirmedAction = async (reason: string, payloadJson = '', formValues: Record<string, any> = {}) => {
-  if (!confirm.action?.endpoint || !resource.value) return
+  if (!confirm.action || !resource.value) return
   saving.value = true
   actionError.value = null
   try {
@@ -775,14 +1091,15 @@ const loadRelatedLists = async () => {
   await Promise.all(lists.map((related) => loadRelatedList(related)))
 }
 
-const loadRelatedList = async (related: OperationRelatedList, cursor?: string | null) => {
+const loadRelatedList = async (related: OperationRelatedList, cursor?: string | null, pageMode: 'reset' | 'next' | 'previous' | 'current' = 'reset') => {
   relatedLoading[related.key] = true
   relatedErrors[related.key] = null
   try {
+    const pageCursor = cursor || null
     const endpoint = interpolate(related.listEndpoint, recordId.value)
     const relatedQuery = cleanQuery({
       ...ensureRelatedFilters(related),
-      cursor: cursor || relatedFilters[related.key]?.cursor || undefined,
+      cursor: pageCursor || relatedFilters[related.key]?.cursor || undefined,
     })
 
     if (!relatedQuery.limit) {
@@ -799,12 +1116,13 @@ const loadRelatedList = async (related: OperationRelatedList, cursor?: string | 
       idKey: related.idKey || 'id',
       columns: related.columns,
     })
-    relatedRows[related.key] = cursor ? [...(relatedRows[related.key] || []), ...nextRows] : nextRows
+    relatedRows[related.key] = nextRows
     const nextMeta = extractMeta(response)
     relatedMeta[related.key] = {
       next_cursor: nextMeta.next_cursor || null,
       has_more: Boolean(nextMeta.has_more || nextMeta.next_cursor),
     }
+    updatePageState(ensureRelatedPageState(related.key), pageCursor, pageMode)
   } catch (err) {
     relatedErrors[related.key] = err
     relatedRows[related.key] = []
@@ -812,6 +1130,18 @@ const loadRelatedList = async (related: OperationRelatedList, cursor?: string | 
   } finally {
     relatedLoading[related.key] = false
   }
+}
+
+const loadNextRelatedPage = (related: OperationRelatedList) => {
+  const nextCursor = relatedMeta[related.key]?.next_cursor || null
+  if (!nextCursor) return
+  loadRelatedList(related, nextCursor, 'next')
+}
+
+const loadPreviousRelatedPage = (related: OperationRelatedList) => {
+  const state = ensureRelatedPageState(related.key)
+  if (state.index <= 0) return
+  loadRelatedList(related, state.cursors[state.index - 1] || null, 'previous')
 }
 
 const buildActionBody = (action: OperationAction, reason: string, payloadJson: string, formValues: Record<string, any>) => {
@@ -832,12 +1162,30 @@ const buildActionBody = (action: OperationAction, reason: string, payloadJson: s
   return Object.keys(compacted).length ? compacted : undefined
 }
 
-const actionRoute = (action: OperationAction, row: any) => interpolateRecord(action.route || '', row)
-
 const buildPayloadFromFields = (fields: OperationFormField[], values: Record<string, any>) => {
   const payload: Record<string, any> = {}
 
   for (const field of fields) {
+    if (field.type === 'datetime-range') {
+      const rangeValue = values[field.key]
+      const startValue = normalizePayloadField(
+        { ...field, type: 'datetime-local' },
+        values[rangeStartFormKey(field)] ?? rangeValue?.start,
+      )
+      const endValue = normalizePayloadField(
+        { ...field, type: 'datetime-local' },
+        values[rangeEndFormKey(field)] ?? rangeValue?.end,
+      )
+
+      if (startValue !== undefined) {
+        setPath(payload, field.rangeStartKey || `${field.key}.start`, startValue)
+      }
+      if (endValue !== undefined) {
+        setPath(payload, field.rangeEndKey || `${field.key}.end`, endValue)
+      }
+      continue
+    }
+
     const value = normalizePayloadField(field, values[field.key])
     if (value === undefined) continue
     setPath(payload, field.key, value)
@@ -881,6 +1229,26 @@ const normalizePayloadField = (field: OperationFormField, value: any) => {
     return prizes.length ? prizes : undefined
   }
 
+  if (field.type === 'reward-prize-number-grid') {
+    if (field.key === 'prizes') {
+      const prizes = rewardPrizeGroupsToPayload(value || [])
+      return prizes.length ? prizes : undefined
+    }
+
+    const updates = rewardPrizeGroupsToNumberUpdates(value || [])
+    return updates.length ? updates : undefined
+  }
+
+  if (field.type === 'reward-prize-amount-grid') {
+    const updates = rewardPrizeGroupsToPayoutUpdates(value || [])
+    return updates.length ? updates : undefined
+  }
+
+  if (field.type === 'reward-prize-grid') {
+    const prizes = rewardPrizeGroupsToPayload(value || [])
+    return prizes.length ? prizes : undefined
+  }
+
   if (value === '' || value === undefined || value === null) {
     return undefined
   }
@@ -909,12 +1277,23 @@ const normalizeInitialFieldValue = (field: OperationFormField, value: any) => {
     return formatPrizeLines(value)
   }
 
+  if (
+    field.type === 'reward-prize-grid'
+    || field.type === 'reward-prize-number-grid'
+    || field.type === 'reward-prize-amount-grid'
+  ) {
+    return normalizeRewardPrizeGroups(value)
+  }
+
   if (value === undefined || value === null || typeof value === 'object') {
     return ''
   }
 
   return value
 }
+
+const rangeStartFormKey = (field: OperationFormField) => `${field.key}.__start`
+const rangeEndFormKey = (field: OperationFormField) => `${field.key}.__end`
 
 const setPath = (target: Record<string, any>, path: string, value: any) => {
   const keys = path.split('.')
@@ -959,8 +1338,11 @@ const apiOptions = (extra: Record<string, any> = {}) => ({
 })
 
 const queryWithCursor = (cursor?: string | null) => ({
+  ...(resource.value?.defaultQuery || {}),
   ...cleanQuery(filters.value),
   cursor: cursor || filters.value.cursor || undefined,
+  sort_by: resource.value?.apiSort && sortState.key ? sortState.key : undefined,
+  sort_dir: resource.value?.apiSort && sortState.key ? sortState.direction : undefined,
 })
 
 const defaultFilterValues = (filterList: OperationFilter[] = []) => {
@@ -977,6 +1359,9 @@ const resetRelatedFilters = () => {
   }
   for (const key of Object.keys(relatedMeta)) {
     delete relatedMeta[key]
+  }
+  for (const key of Object.keys(relatedPageState)) {
+    delete relatedPageState[key]
   }
 }
 
@@ -1009,10 +1394,6 @@ const buildCollectionContext = () => {
 }
 
 const interpolate = (endpoint: string, id?: string | null) => endpoint.replace(/\{[^}]+\}/g, encodeURIComponent(id || ''))
-const interpolateRecord = (template: string, row: any = {}) => template.replace(/\{([^}]+)\}/g, (_, key) => {
-  const value = getPath(row, key) ?? row.__id ?? ''
-  return encodeURIComponent(String(value))
-})
 
 const normalizeSlug = (value: unknown): string[] => {
   if (Array.isArray(value)) return value.map(String)
@@ -1031,6 +1412,32 @@ const extractItems = (response: any) => {
 }
 
 const extractMeta = (response: any) => response?.meta || response?.data?.meta || {}
+
+const updatePageState = (state: { cursors: Array<string | null>, index: number }, cursor: string | null, mode: 'reset' | 'next' | 'previous' | 'current') => {
+  if (mode === 'reset') {
+    state.cursors = [cursor]
+    state.index = 0
+    return
+  }
+
+  if (mode === 'next') {
+    state.cursors = [...state.cursors.slice(0, state.index + 1), cursor]
+    state.index += 1
+    return
+  }
+
+  if (mode === 'previous') {
+    state.index = Math.max(0, state.index - 1)
+  }
+}
+
+const ensureRelatedPageState = (key: string) => {
+  if (!relatedPageState[key]) {
+    relatedPageState[key] = { cursors: [null], index: 0 }
+  }
+
+  return relatedPageState[key]
+}
 
 const normalizeRows = (response: any, item: OperationResource) => extractItems(response).map((row: any) => {
   const id = row?.[item.idKey || 'id'] || row?.id || row?.uuid
@@ -1068,6 +1475,7 @@ const formatValue = (value: any, type?: string) => {
   if (value === undefined || value === null || value === '') return '-'
   if (type === 'customer') return formatCustomerValue(value)
   if (type === 'datetime') return formatDateTime(String(value))
+  if (type === 'number') return new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 }).format(Number(value || 0))
   if (type === 'money') {
     const amount = typeof value === 'object' && value !== null ? value.amount : value
     return amount === undefined || amount === null ? '-' : new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(amount || 0))

@@ -9,9 +9,12 @@ use App\Models\PartnerQuota;
 use App\Models\PartnerStockAllocation;
 use App\Models\PartnerStockAllocationItem;
 use App\Models\PartnerTenant;
+use App\Models\RewardPrize;
+use App\Models\RewardResult;
 use App\Models\StockGenerationBatch;
 use App\Models\StockItem;
 use App\Models\SyncOutbox;
+use App\Modules\Reward\Services\ThaiGovernmentLotteryRewardTemplate;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use Illuminate\Http\Request;
@@ -34,6 +37,7 @@ class CentralStockService
 
     private const STOCK_STATUSES = ['available', 'allocated', 'sold', 'recalled', 'voided'];
     private const QUOTA_STATUSES = ['active', 'inactive', 'archived'];
+    private const BUSINESS_TIMEZONE = 'Asia/Bangkok';
     private const ALLOCATION_STATUSES = [
         'draft',
         'pending',
@@ -86,11 +90,12 @@ class CentralStockService
      * @param array<string, mixed> $payload
      * @return array<string, array<int, string>>
      */
-    public function validateGamePayload(array $payload, bool $creating): array
+    public function validateGamePayload(array $payload, bool $creating, ?string $gameId = null): array
     {
         $errors = [];
+        $existingGame = ! $creating && $gameId !== null ? Game::whereKey($gameId)->first() : null;
 
-        if ($creating || array_key_exists('code', $payload)) {
+        if (! $creating && array_key_exists('code', $payload)) {
             $code = trim((string) ($payload['code'] ?? ''));
 
             if ($code === '' || ! preg_match('/^[a-z0-9][a-z0-9_-]*$/', $code)) {
@@ -106,14 +111,22 @@ class CentralStockService
             }
         }
 
+        if ($creating || array_key_exists('sale_start_at', $payload)) {
+            if (! $this->canParseDate($payload['sale_start_at'] ?? null)) {
+                $errors['sale_start_at'][] = 'The sale_start_at field must be a valid date-time.';
+            }
+        }
+
         if ($creating || array_key_exists('draw_at', $payload)) {
             if (! $this->canParseDate($payload['draw_at'] ?? null)) {
                 $errors['draw_at'][] = 'The draw_at field must be a valid date-time.';
             }
         }
 
-        if (array_key_exists('close_at', $payload) && $payload['close_at'] !== null && ! $this->canParseDate($payload['close_at'])) {
-            $errors['close_at'][] = 'The close_at field must be a valid date-time.';
+        if ($creating || array_key_exists('close_at', $payload)) {
+            if (! $this->canParseDate($payload['close_at'] ?? null)) {
+                $errors['close_at'][] = 'The close_at field must be a valid date-time.';
+            }
         }
 
         if (array_key_exists('status', $payload) && ! in_array($payload['status'], self::GAME_STATUSES, true)) {
@@ -124,7 +137,49 @@ class CentralStockService
             $errors['status'][] = 'A game can only be created as draft or open.';
         }
 
+        if (! isset($errors['sale_start_at']) && ! isset($errors['draw_at']) && ! isset($errors['close_at'])) {
+            $saleStartAt = $this->dateFromPayloadOrModel($payload, 'sale_start_at', $existingGame);
+            $drawAt = $this->dateFromPayloadOrModel($payload, 'draw_at', $existingGame);
+            $closeAt = $this->dateFromPayloadOrModel($payload, 'close_at', $existingGame);
+            $targetStatus = (string) ($payload['status'] ?? $existingGame?->status ?? '');
+
+            if ($targetStatus === 'open' && $saleStartAt === null) {
+                $errors['sale_start_at'][] = 'The sale_start_at field is required before opening a game.';
+            }
+
+            if ($targetStatus === 'open' && $closeAt === null) {
+                $errors['close_at'][] = 'The close_at field is required before opening a game.';
+            }
+
+            if ($saleStartAt !== null && $closeAt !== null && ! $closeAt->greaterThan($saleStartAt)) {
+                $errors['close_at'][] = 'The close_at field must be after sale_start_at.';
+            }
+
+            if ($drawAt !== null && $closeAt !== null && ! $drawAt->greaterThan($closeAt)) {
+                $errors['close_at'][] = 'The close_at field must be before draw_at.';
+            }
+
+            if ($gameId !== null && ($saleStartAt !== null || $closeAt !== null)) {
+                $errors = $this->mergeFieldErrors($errors, $this->partnerQuotaWindowErrorsForGame($gameId, $saleStartAt, $closeAt));
+            }
+        }
+
         return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    public function withGeneratedGameCode(array $payload): array
+    {
+        unset($payload['code']);
+
+        if ($this->canParseDate($payload['draw_at'] ?? null)) {
+            $payload['code'] = $this->gameCodeFromDrawAt($payload['draw_at']);
+        }
+
+        return $payload;
     }
 
     /**
@@ -180,7 +235,61 @@ class CentralStockService
             return ['status' => ['The requested game status transition is not allowed.']];
         }
 
-        return [];
+        return (string) $payload['status'] === 'open'
+            ? $this->gameOpeningErrors($gameId, $payload)
+            : [];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    public function gameOpeningErrors(?string $gameId, array $payload): array
+    {
+        if (($payload['status'] ?? null) !== 'open') {
+            return [];
+        }
+
+        $game = $gameId === null ? null : Game::whereKey($gameId)->first();
+        $drawAt = $this->dateFromPayloadOrModel($payload, 'draw_at', $game);
+
+        $openQuery = Game::query()->where('status', 'open');
+
+        if ($gameId !== null) {
+            $openQuery->where('id', '!=', $gameId);
+        }
+
+        $errors = [];
+
+        if ($openQuery->exists()) {
+            $errors['status'][] = 'Another game is already open for sale. Close it and record results before opening a new game.';
+        }
+
+        $previousQuery = Game::query()
+            ->where('status', '!=', 'archived')
+            ->orderByDesc('draw_at');
+
+        if ($gameId !== null) {
+            $previousQuery->where('id', '!=', $gameId);
+        }
+
+        if ($drawAt !== null) {
+            $previousQuery->where('draw_at', '<', $drawAt);
+        }
+
+        $previousGame = $previousQuery->first();
+
+        if (
+            $previousGame !== null
+            && (
+                $previousGame->closed_at === null
+                || ! RewardResult::where('game_id', $previousGame->id)->where('status', '!=', 'draft')->exists()
+            )
+        ) {
+            $errors['status'][] = 'The previous game must be closed and have recorded reward results before opening a new game.';
+        }
+
+        return $errors;
     }
 
     /**
@@ -195,12 +304,11 @@ class CentralStockService
 
             Game::query()->insert([
                 'id' => $gameId,
-                'code' => trim((string) $payload['code']),
+                'code' => $this->gameCodeFromDrawAt($payload['draw_at']),
                 'name' => trim((string) $payload['name']),
+                'sale_start_at' => $this->toTimestamp($payload['sale_start_at']),
                 'draw_at' => $this->toTimestamp($payload['draw_at']),
-                'close_at' => array_key_exists('close_at', $payload) && $payload['close_at'] !== null
-                    ? $this->toTimestamp($payload['close_at'])
-                    : null,
+                'close_at' => $this->toTimestamp($payload['close_at']),
                 'closed_at' => null,
                 'archived_at' => null,
                 'status' => $payload['status'] ?? 'draft',
@@ -209,6 +317,7 @@ class CentralStockService
                 'updated_at' => $now,
             ]);
 
+            $this->createDraftRewardForGame($gameId, $actor->adminUser['id'], $now);
             $this->auditGameChange($actor, $request, $gameId, 'created', $payload);
 
             return $this->findGame($gameId);
@@ -240,8 +349,12 @@ class CentralStockService
                 $updates['draw_at'] = $this->toTimestamp($payload['draw_at']);
             }
 
+            if (array_key_exists('sale_start_at', $payload)) {
+                $updates['sale_start_at'] = $this->toTimestamp($payload['sale_start_at']);
+            }
+
             if (array_key_exists('close_at', $payload)) {
-                $updates['close_at'] = $payload['close_at'] === null ? null : $this->toTimestamp($payload['close_at']);
+                $updates['close_at'] = $this->toTimestamp($payload['close_at']);
             }
 
             $metadata = array_merge($this->decodeJsonObject($game->metadata_json), $this->resourceMetadata($payload));
@@ -331,16 +444,26 @@ class CentralStockService
     public function listStock(array $queryParams): array
     {
         $limit = $this->limit($queryParams['limit'] ?? null);
-        $query = StockItem::query()->orderBy('id')->limit($limit + 1);
+        $grouped = filter_var($queryParams['grouped'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
-        foreach (['game_id', 'status'] as $filter) {
-            if (($queryParams[$filter] ?? null) !== null && trim((string) $queryParams[$filter]) !== '') {
-                $query->where($filter, trim((string) $queryParams[$filter]));
-            }
+        if ($grouped) {
+            return $this->listStockGroups($queryParams, $limit);
         }
 
-        if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
+        $sort = $this->resolveStockSort($queryParams);
+        $query = StockItem::query()->limit($limit + 1);
+        $this->applyStockFilters($query, $queryParams);
+
+        if ($sort === null) {
+            $query->orderBy('id');
+        } else {
+            $this->applyStockOrder($query, $sort);
+        }
+
+        if ($sort === null && ($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
             $query->where('id', '>', trim((string) $queryParams['cursor']));
+        } elseif ($sort !== null) {
+            $this->applyStockCursor($query, $queryParams['cursor'] ?? null, $sort);
         }
 
         $rows = $query->get()->all();
@@ -350,10 +473,266 @@ class CentralStockService
         return [
             'data' => array_map(fn (object $stock): array => $this->stockResource($stock), $rows),
             'meta' => [
-                'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->id : null,
+                'next_cursor' => $hasMore && $rows !== [] ? ($sort === null ? (string) end($rows)->id : $this->stockCursor(end($rows), $sort)) : null,
                 'has_more' => $hasMore,
             ],
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
+     */
+    private function listStockGroups(array $queryParams, int $limit): array
+    {
+        $sort = $this->resolveStockGroupSort($queryParams);
+        $query = StockItem::query()
+            ->select([
+                'game_id',
+                'full_number',
+                DB::raw('MIN(id) as sample_stock_item_id'),
+                DB::raw('MIN(created_at) as first_created_at'),
+                DB::raw('MAX(updated_at) as last_updated_at'),
+                DB::raw('COUNT(*) as total_count'),
+                DB::raw("SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) as available_count"),
+                DB::raw("SUM(CASE WHEN status = 'allocated' THEN 1 ELSE 0 END) as allocated_count"),
+                DB::raw("SUM(CASE WHEN status = 'sold' THEN 1 ELSE 0 END) as sold_count"),
+                DB::raw("SUM(CASE WHEN status = 'recalled' THEN 1 ELSE 0 END) as recalled_count"),
+            ])
+            ->groupBy('game_id', 'full_number')
+            ->limit($limit + 1);
+
+        $this->applyStockFilters($query, $queryParams);
+
+        if ($sort === null) {
+            $query->orderBy('game_id')->orderBy('full_number');
+        } else {
+            $this->applyStockGroupOrder($query, $sort);
+        }
+
+        $cursor = $this->decodeStockGroupCursor($queryParams['cursor'] ?? null);
+        if ($cursor !== null && $sort === null) {
+            $query->where(function ($nested) use ($cursor): void {
+                $nested
+                    ->where('game_id', '>', $cursor['game_id'])
+                    ->orWhere(function ($sameGame) use ($cursor): void {
+                        $sameGame
+                            ->where('game_id', $cursor['game_id'])
+                            ->where('full_number', '>', $cursor['full_number']);
+                    });
+            });
+        } elseif ($sort !== null) {
+            $this->applyStockGroupCursor($query, $cursor, $sort);
+        }
+
+        $rows = $query->get()->all();
+        $hasMore = count($rows) > $limit;
+        $rows = array_slice($rows, 0, $limit);
+
+        return [
+            'data' => array_map(fn (object $row): array => $this->stockGroupResource($row), $rows),
+            'meta' => [
+                'next_cursor' => $hasMore && $rows !== [] ? $this->stockGroupCursor(end($rows), $sort) : null,
+                'has_more' => $hasMore,
+            ],
+        ];
+    }
+
+    /**
+     * @return array{key: string, column: string, direction: string}|null
+     */
+    private function resolveStockSort(array $queryParams): ?array
+    {
+        $key = trim((string) ($queryParams['sort_by'] ?? ''));
+        if ($key === '') {
+            return null;
+        }
+
+        $allowed = [
+            'id' => 'id',
+            'game_id' => 'game_id',
+            'full_number' => 'full_number',
+            'front3' => 'front3',
+            'back3' => 'back3',
+            'back2' => 'back2',
+            'status' => 'status',
+            'partner_id' => 'partner_id',
+            'tenant_id' => 'tenant_id',
+            'allocation_id' => 'allocation_id',
+            'batch_id' => 'batch_id',
+            'created_at' => 'created_at',
+            'updated_at' => 'updated_at',
+        ];
+
+        if (! isset($allowed[$key])) {
+            return null;
+        }
+
+        return [
+            'key' => $key,
+            'column' => $allowed[$key],
+            'direction' => strtolower((string) ($queryParams['sort_dir'] ?? 'asc')) === 'desc' ? 'desc' : 'asc',
+        ];
+    }
+
+    /**
+     * @return array{key: string, order: string, expression: string, direction: string}|null
+     */
+    private function resolveStockGroupSort(array $queryParams): ?array
+    {
+        $key = trim((string) ($queryParams['sort_by'] ?? ''));
+        if ($key === '') {
+            return null;
+        }
+
+        $allowed = [
+            'game_id' => ['order' => 'game_id', 'expression' => 'game_id'],
+            'full_number' => ['order' => 'full_number', 'expression' => 'full_number'],
+            'total_count' => ['order' => 'total_count', 'expression' => 'COUNT(*)'],
+            'available_count' => ['order' => 'available_count', 'expression' => "SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END)"],
+            'allocated_count' => ['order' => 'allocated_count', 'expression' => "SUM(CASE WHEN status = 'allocated' THEN 1 ELSE 0 END)"],
+            'sold_count' => ['order' => 'sold_count', 'expression' => "SUM(CASE WHEN status = 'sold' THEN 1 ELSE 0 END)"],
+            'recalled_count' => ['order' => 'recalled_count', 'expression' => "SUM(CASE WHEN status = 'recalled' THEN 1 ELSE 0 END)"],
+            'first_created_at' => ['order' => 'first_created_at', 'expression' => 'MIN(created_at)'],
+            'last_updated_at' => ['order' => 'last_updated_at', 'expression' => 'MAX(updated_at)'],
+        ];
+
+        if (! isset($allowed[$key])) {
+            return null;
+        }
+
+        return [
+            'key' => $key,
+            'order' => $allowed[$key]['order'],
+            'expression' => $allowed[$key]['expression'],
+            'direction' => strtolower((string) ($queryParams['sort_dir'] ?? 'asc')) === 'desc' ? 'desc' : 'asc',
+        ];
+    }
+
+    private function applyStockOrder(mixed $query, array $sort): void
+    {
+        $query->orderBy($sort['column'], $sort['direction']);
+
+        if ($sort['column'] !== 'id') {
+            $query->orderBy('id');
+        }
+    }
+
+    private function applyStockCursor(mixed $query, mixed $rawCursor, array $sort): void
+    {
+        $cursor = $this->decodeStockCursor($rawCursor, $sort);
+        if ($cursor === null) {
+            return;
+        }
+
+        $operator = $sort['direction'] === 'desc' ? '<' : '>';
+        $query->where(function ($nested) use ($cursor, $operator, $sort): void {
+            $nested
+                ->where($sort['column'], $operator, $cursor['value'])
+                ->orWhere(function ($sameValue) use ($cursor, $sort): void {
+                    $sameValue
+                        ->where($sort['column'], $cursor['value'])
+                        ->where('id', '>', $cursor['id']);
+                });
+        });
+    }
+
+    private function stockCursor(object $stock, array $sort): string
+    {
+        return base64_encode(json_encode([
+            'sort_by' => $sort['key'],
+            'sort_dir' => $sort['direction'],
+            'value' => $stock->{$sort['column']} ?? null,
+            'id' => (string) $stock->id,
+        ], JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * @return array{value: mixed, id: string}|null
+     */
+    private function decodeStockCursor(mixed $cursor, array $sort): ?array
+    {
+        if ($cursor === null || trim((string) $cursor) === '') {
+            return null;
+        }
+
+        try {
+            $decoded = json_decode((string) base64_decode((string) $cursor, true), true, flags: JSON_THROW_ON_ERROR);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if (! is_array($decoded)
+            || ($decoded['sort_by'] ?? null) !== $sort['key']
+            || ($decoded['sort_dir'] ?? null) !== $sort['direction']
+            || ! array_key_exists('value', $decoded)
+            || ! isset($decoded['id'])) {
+            return null;
+        }
+
+        return [
+            'value' => $decoded['value'],
+            'id' => (string) $decoded['id'],
+        ];
+    }
+
+    private function applyStockGroupOrder(mixed $query, array $sort): void
+    {
+        $query->orderBy($sort['order'], $sort['direction']);
+
+        foreach (['game_id', 'full_number'] as $column) {
+            if ($sort['key'] !== $column) {
+                $query->orderBy($column);
+            }
+        }
+    }
+
+    private function applyStockGroupCursor(mixed $query, ?array $cursor, array $sort): void
+    {
+        if ($cursor === null
+            || ($cursor['sort_by'] ?? null) !== $sort['key']
+            || ($cursor['sort_dir'] ?? null) !== $sort['direction']
+            || ! array_key_exists('value', $cursor)) {
+            return;
+        }
+
+        $operator = $sort['direction'] === 'desc' ? '<' : '>';
+        $tieColumns = array_values(array_filter(['game_id', 'full_number'], fn (string $column): bool => $column !== $sort['key']));
+        $bindings = [$cursor['value'], $cursor['value']];
+
+        if ($tieColumns === ['game_id', 'full_number']) {
+            $tieSql = '(game_id > ? OR (game_id = ? AND full_number > ?))';
+            array_push($bindings, $cursor['game_id'], $cursor['game_id'], $cursor['full_number']);
+        } else {
+            $tieSql = $tieColumns[0].' > ?';
+            $bindings[] = $cursor[$tieColumns[0]];
+        }
+
+        $query->havingRaw($sort['expression'].' '.$operator.' ? OR ('.$sort['expression'].' = ? AND '.$tieSql.')', $bindings);
+    }
+
+    /**
+     * @param mixed $query
+     * @param array<string, mixed> $queryParams
+     */
+    private function applyStockFilters(mixed $query, array $queryParams): void
+    {
+        foreach (['game_id', 'status', 'partner_id', 'tenant_id', 'allocation_id'] as $filter) {
+            if (($queryParams[$filter] ?? null) !== null && trim((string) $queryParams[$filter]) !== '') {
+                $query->where($filter, trim((string) $queryParams[$filter]));
+            }
+        }
+
+        $number = trim((string) ($queryParams['number'] ?? $queryParams['full_number'] ?? ''));
+        if ($number !== '') {
+            $query->where('full_number', 'like', '%'.$number.'%');
+        }
+
+        foreach (['front3', 'back3', 'back2'] as $filter) {
+            if (($queryParams[$filter] ?? null) !== null && trim((string) $queryParams[$filter]) !== '') {
+                $query->where($filter, trim((string) $queryParams[$filter]));
+            }
+        }
     }
 
     /**
@@ -412,13 +791,18 @@ class CentralStockService
         return DB::transaction(function () use ($payload, $actor, $request): array {
             $normalized = $this->normalizedGeneratePayload($payload);
             $batch = $this->ensureStockBatch('generate', $normalized, $actor, $request);
+
+            if (! $batch['created']) {
+                return $this->batchResourceById($batch['id']);
+            }
+
             $now = now();
 
             $rows = [];
             $stockIds = [];
 
             foreach ($normalized['numbers'] as $index => $number) {
-                $stockIds[$index] = $this->stableId('stk', $normalized['game_id'].':'.$number);
+                $stockIds[$index] = $this->stableId('stk', $batch['id'].':'.$index.':'.$number);
             }
 
             $imageAssignments = $this->lotteryImages->assignmentsForStockIds(
@@ -437,7 +821,7 @@ class CentralStockService
             }
 
             if ($rows !== []) {
-                StockItem::query()->insertOrIgnore($rows);
+                StockItem::query()->insert($rows);
                 $this->dispatchCentralImageJobs(array_values($stockIds));
             }
 
@@ -490,7 +874,7 @@ class CentralStockService
     public function importStock(array $payload, AdminSessionContext $actor, Request $request): array
     {
         return DB::transaction(function () use ($payload, $actor, $request): array {
-            $numbers = array_values(array_unique($this->numbersFromImportPayload($payload)));
+            $numbers = $this->numbersFromImportPayload($payload);
             $gameId = trim((string) $payload['game_id']);
             $digits = max(1, min(12, $this->integerFrom($payload['number_digits'] ?? $payload['digits'] ?? 6)));
             $normalized = [
@@ -502,12 +886,17 @@ class CentralStockService
                 'number_digits' => $digits,
             ];
             $batch = $this->ensureStockBatch('import', $normalized, $actor, $request);
+
+            if (! $batch['created']) {
+                return $this->batchResourceById($batch['id']);
+            }
+
             $now = now();
             $rows = [];
             $stockIds = [];
 
             foreach ($normalized['numbers'] as $index => $number) {
-                $stockIds[$index] = $this->stableId('stk', $gameId.':'.$number);
+                $stockIds[$index] = $this->stableId('stk', $batch['id'].':'.$index.':'.$number);
             }
 
             $imageAssignments = $this->lotteryImages->assignmentsForStockIds(
@@ -526,7 +915,7 @@ class CentralStockService
             }
 
             if ($rows !== []) {
-                StockItem::query()->insertOrIgnore($rows);
+                StockItem::query()->insert($rows);
                 $this->dispatchCentralImageJobs(array_values($stockIds));
             }
 
@@ -722,6 +1111,16 @@ class CentralStockService
             $errors['status'][] = 'The status field is invalid.';
         }
 
+        foreach (['sale_start_at' => 'sale_start_at', 'sale_close_at' => 'sale_close_at'] as $field => $label) {
+            if (array_key_exists($field, $payload) && $payload[$field] !== null && trim((string) $payload[$field]) !== '' && ! $this->canParseDate($payload[$field])) {
+                $errors[$field][] = 'The '.$label.' field must be a valid date-time.';
+            }
+        }
+
+        if (! isset($errors['game_id']) && ! isset($errors['sale_start_at']) && ! isset($errors['sale_close_at'])) {
+            $errors = $this->mergeFieldErrors($errors, $this->quotaSaleWindowErrors($payload, $quotaId));
+        }
+
         return $errors;
     }
 
@@ -762,6 +1161,8 @@ class CentralStockService
                 'game_id' => trim((string) $payload['game_id']),
                 'quota_count' => $this->integerFrom($payload['quota_count']),
                 'allocated_count' => 0,
+                'sale_start_at' => $this->nullableTimestamp($payload['sale_start_at'] ?? null),
+                'sale_close_at' => $this->nullableTimestamp($payload['sale_close_at'] ?? null),
                 'status' => $payload['status'] ?? 'active',
                 'created_by_admin_id' => $actor->adminUser['id'],
                 'created_at' => $now,
@@ -797,6 +1198,14 @@ class CentralStockService
 
             if (array_key_exists('quota_count', $payload)) {
                 $updates['quota_count'] = $this->integerFrom($payload['quota_count']);
+            }
+
+            if (array_key_exists('sale_start_at', $payload)) {
+                $updates['sale_start_at'] = $this->nullableTimestamp($payload['sale_start_at']);
+            }
+
+            if (array_key_exists('sale_close_at', $payload)) {
+                $updates['sale_close_at'] = $this->nullableTimestamp($payload['sale_close_at']);
             }
 
             PartnerQuota::query()->where('id', $quotaId)->update($updates);
@@ -1217,12 +1626,13 @@ class CentralStockService
 
     /**
      * @param array<string, mixed> $normalized
-     * @return array{id: string}
+     * @return array{id: string, created: bool}
      */
     private function ensureStockBatch(string $type, array $normalized, AdminSessionContext $actor, Request $request): array
     {
         $payloadHash = $this->payloadHash($normalized);
-        $batchId = $this->stableId('stb', $type.':'.$payloadHash);
+        $idempotencyKey = (string) $request->header('Idempotency-Key');
+        $batchId = $this->stableId('stb', $type.':'.$idempotencyKey.':'.$payloadHash);
         $now = now();
 
         if (! StockGenerationBatch::where('id', $batchId)->exists()) {
@@ -1244,9 +1654,11 @@ class CentralStockService
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
+
+            return ['id' => $batchId, 'created' => true];
         }
 
-        return ['id' => $batchId];
+        return ['id' => $batchId, 'created' => false];
     }
 
     /**
@@ -1332,6 +1744,146 @@ class CentralStockService
         return in_array($status, ['closed', 'reward_recorded', 'reward_checking', 'reward_verified', 'reward_published'], true);
     }
 
+    private function createDraftRewardForGame(string $gameId, mixed $createdByAdminId, Carbon $now): void
+    {
+        if (RewardResult::query()->where('game_id', $gameId)->exists()) {
+            return;
+        }
+
+        $rewardResultId = 'rew_'.Str::ulid()->toBase32();
+
+        RewardResult::query()->insert([
+            'id' => $rewardResultId,
+            'game_id' => $gameId,
+            'status' => 'draft',
+            'version' => 1,
+            'summary_json' => null,
+            'created_by_admin_id' => $createdByAdminId === null ? null : (string) $createdByAdminId,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $rows = [];
+
+        foreach (ThaiGovernmentLotteryRewardTemplate::draftPrizes() as $index => $prize) {
+            $rows[] = [
+                'id' => 'rpr_'.Str::ulid()->toBase32(),
+                'reward_result_id' => $rewardResultId,
+                'game_id' => $gameId,
+                'prize_type' => $prize['prize_type'],
+                'prize_number' => $prize['prize_number'],
+                'amount' => $prize['amount']['amount'],
+                'currency' => $prize['amount']['currency'],
+                'sort_order' => $index,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        RewardPrize::query()->insert($rows);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    private function quotaSaleWindowErrors(array $payload, ?string $quotaId): array
+    {
+        $quota = $quotaId === null ? null : PartnerQuota::whereKey($quotaId)->first();
+        $gameId = trim((string) ($payload['game_id'] ?? $quota?->game_id ?? ''));
+
+        if ($gameId === '') {
+            return [];
+        }
+
+        $game = Game::whereKey($gameId)->first();
+
+        if ($game === null) {
+            return [];
+        }
+
+        $centralStartAt = $this->dateFromModelValue($game->sale_start_at);
+        $centralCloseAt = $this->dateFromModelValue($game->close_at);
+
+        if ($centralStartAt === null || $centralCloseAt === null) {
+            return ['game_id' => ['The game must define sale_start_at and close_at before partner sale windows can be configured.']];
+        }
+
+        $partnerStartAt = $this->dateFromPayloadOrModel($payload, 'sale_start_at', $quota);
+        $partnerCloseAt = $this->dateFromPayloadOrModel($payload, 'sale_close_at', $quota);
+        $effectiveStartAt = $partnerStartAt ?? $centralStartAt;
+        $effectiveCloseAt = $partnerCloseAt ?? $centralCloseAt;
+        $errors = [];
+
+        if ($partnerStartAt !== null && $partnerStartAt->lessThan($centralStartAt)) {
+            $errors['sale_start_at'][] = 'Partner sale_start_at cannot be before the central sale_start_at.';
+        }
+
+        if ($partnerCloseAt !== null && $partnerCloseAt->greaterThan($centralCloseAt)) {
+            $errors['sale_close_at'][] = 'Partner sale_close_at cannot be after the central close_at.';
+        }
+
+        if (! $effectiveCloseAt->greaterThan($effectiveStartAt)) {
+            $errors['sale_close_at'][] = 'Partner sale_close_at must be after the effective sale_start_at.';
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    private function partnerQuotaWindowErrorsForGame(string $gameId, ?Carbon $saleStartAt, ?Carbon $closeAt): array
+    {
+        $errors = [];
+
+        if (
+            $saleStartAt !== null
+            && PartnerQuota::query()
+                ->where('game_id', $gameId)
+                ->whereNotNull('sale_start_at')
+                ->where('sale_start_at', '<', $saleStartAt)
+                ->exists()
+        ) {
+            $errors['sale_start_at'][] = 'Existing partner sale_start_at overrides cannot be before the central sale_start_at.';
+        }
+
+        if (
+            $closeAt !== null
+            && PartnerQuota::query()
+                ->where('game_id', $gameId)
+                ->whereNotNull('sale_close_at')
+                ->where('sale_close_at', '>', $closeAt)
+                ->exists()
+        ) {
+            $errors['close_at'][] = 'Existing partner sale_close_at overrides cannot be after the central close_at.';
+        }
+
+        if (
+            $saleStartAt !== null
+            && PartnerQuota::query()
+                ->where('game_id', $gameId)
+                ->whereNotNull('sale_close_at')
+                ->where('sale_close_at', '<=', $saleStartAt)
+                ->exists()
+        ) {
+            $errors['sale_start_at'][] = 'Existing partner sale_close_at overrides must remain after the central sale_start_at.';
+        }
+
+        if (
+            $closeAt !== null
+            && PartnerQuota::query()
+                ->where('game_id', $gameId)
+                ->whereNotNull('sale_start_at')
+                ->where('sale_start_at', '>=', $closeAt)
+                ->exists()
+        ) {
+            $errors['close_at'][] = 'Existing partner sale_start_at overrides must remain before the central close_at.';
+        }
+
+        return $errors;
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -1341,6 +1893,7 @@ class CentralStockService
             'id' => (string) $game->id,
             'code' => (string) $game->code,
             'name' => (string) $game->name,
+            'sale_start_at' => $game->sale_start_at,
             'draw_at' => $game->draw_at,
             'close_at' => $game->close_at,
             'server_time' => now()->toISOString(),
@@ -1373,6 +1926,70 @@ class CentralStockService
             'allocation_id' => $stock->allocation_id,
             'recall_reason' => $stock->recall_reason,
             'recalled_at' => $stock->recalled_at,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function stockGroupResource(object $stock): array
+    {
+        return [
+            'id' => (string) $stock->game_id.':'.(string) $stock->full_number,
+            'game_id' => (string) $stock->game_id,
+            'full_number' => (string) $stock->full_number,
+            'sample_stock_item_id' => (string) $stock->sample_stock_item_id,
+            'total_count' => (int) $stock->total_count,
+            'available_count' => (int) $stock->available_count,
+            'allocated_count' => (int) $stock->allocated_count,
+            'sold_count' => (int) $stock->sold_count,
+            'recalled_count' => (int) $stock->recalled_count,
+            'first_created_at' => $stock->first_created_at,
+            'last_updated_at' => $stock->last_updated_at,
+        ];
+    }
+
+    private function stockGroupCursor(object $stock, ?array $sort = null): string
+    {
+        $cursor = [
+            'game_id' => (string) $stock->game_id,
+            'full_number' => (string) $stock->full_number,
+        ];
+
+        if ($sort !== null) {
+            $cursor['sort_by'] = $sort['key'];
+            $cursor['sort_dir'] = $sort['direction'];
+            $cursor['value'] = $stock->{$sort['key']} ?? null;
+        }
+
+        return base64_encode(json_encode($cursor, JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function decodeStockGroupCursor(mixed $cursor): ?array
+    {
+        if ($cursor === null || trim((string) $cursor) === '') {
+            return null;
+        }
+
+        try {
+            $decoded = json_decode((string) base64_decode((string) $cursor, true), true, flags: JSON_THROW_ON_ERROR);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if (! is_array($decoded) || ! isset($decoded['game_id'], $decoded['full_number'])) {
+            return null;
+        }
+
+        return [
+            'game_id' => (string) $decoded['game_id'],
+            'full_number' => (string) $decoded['full_number'],
+            'sort_by' => $decoded['sort_by'] ?? null,
+            'sort_dir' => $decoded['sort_dir'] ?? null,
+            'value' => $decoded['value'] ?? null,
         ];
     }
 
@@ -1421,6 +2038,8 @@ class CentralStockService
      */
     private function quotaResource(object $quota): array
     {
+        $game = Game::whereKey($quota->game_id)->first(['sale_start_at', 'close_at']);
+
         return [
             'id' => (string) $quota->id,
             'tenant_id' => null,
@@ -1432,6 +2051,12 @@ class CentralStockService
             'quota_count' => (int) $quota->quota_count,
             'allocated_count' => (int) $quota->allocated_count,
             'remaining_count' => max(0, (int) $quota->quota_count - (int) $quota->allocated_count),
+            'central_sale_start_at' => $game?->sale_start_at,
+            'central_sale_close_at' => $game?->close_at,
+            'sale_start_override_at' => $quota->sale_start_at,
+            'sale_close_override_at' => $quota->sale_close_at,
+            'sale_start_at' => $quota->sale_start_at ?? $game?->sale_start_at,
+            'sale_close_at' => $quota->sale_close_at ?? $game?->close_at,
         ];
     }
 
@@ -1629,9 +2254,62 @@ class CentralStockService
         }
     }
 
+    private function dateFromPayloadOrModel(array $payload, string $field, ?object $model): ?Carbon
+    {
+        if (array_key_exists($field, $payload)) {
+            if ($payload[$field] === null || trim((string) $payload[$field]) === '' || ! $this->canParseDate($payload[$field])) {
+                return null;
+            }
+
+            return Carbon::parse((string) $payload[$field]);
+        }
+
+        return $this->dateFromModelValue($model?->{$field} ?? null);
+    }
+
+    private function dateFromModelValue(mixed $value): ?Carbon
+    {
+        if ($value === null || trim((string) $value) === '') {
+            return null;
+        }
+
+        return Carbon::parse((string) $value);
+    }
+
     private function toTimestamp(mixed $value): string
     {
         return Carbon::parse((string) $value)->toISOString();
+    }
+
+    private function gameCodeFromDrawAt(mixed $value): string
+    {
+        $drawAt = Carbon::parse((string) $value)->copy()->setTimezone(self::BUSINESS_TIMEZONE);
+        $buddhistYear = (int) $drawAt->format('Y') + 543;
+
+        return $drawAt->format('dm').$buddhistYear;
+    }
+
+    private function nullableTimestamp(mixed $value): ?string
+    {
+        if ($value === null || trim((string) $value) === '') {
+            return null;
+        }
+
+        return $this->toTimestamp($value);
+    }
+
+    /**
+     * @param array<string, array<int, string>> $base
+     * @param array<string, array<int, string>> $incoming
+     * @return array<string, array<int, string>>
+     */
+    private function mergeFieldErrors(array $base, array $incoming): array
+    {
+        foreach ($incoming as $field => $messages) {
+            $base[$field] = array_values(array_merge($base[$field] ?? [], $messages));
+        }
+
+        return $base;
     }
 
     private function normalizeFullNumber(string $number, int $digits): string

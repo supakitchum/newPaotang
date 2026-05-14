@@ -5,11 +5,13 @@ type ApiOptions = {
   scope?: 'central' | 'tenant'
   tenantId?: string | null
   idempotencyKey?: string
+  successMessage?: string | false
 }
 
 export const useAdminApi = () => {
   const config = useRuntimeConfig()
   const session = useAdminSession()
+  const { showSuccessAlert } = useAdminSuccessAlert()
   const apiBase = computed(() => String(config.public.adminApiBase || '').replace(/\/$/, ''))
 
   const requestId = () => `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
@@ -22,7 +24,7 @@ export const useAdminApi = () => {
       'X-Request-Id': requestId(),
     }
 
-    if (options.body !== undefined && !isFormDataBody(options.body)) {
+    if (options.body !== undefined) {
       headers['Content-Type'] = 'application/json'
     }
 
@@ -42,13 +44,21 @@ export const useAdminApi = () => {
       headers['Idempotency-Key'] = options.idempotencyKey
     }
 
+    const method = (options.method || 'GET').toUpperCase()
+
     try {
-      return await $fetch<T>(`${apiBase.value}${path}`, {
-        method: options.method || 'GET',
+      const response = await $fetch<T>(`${apiBase.value}${path}`, {
+        method,
         body: options.body,
         query: options.query,
         headers,
       })
+
+      if (import.meta.client && isWriteMethod(method) && options.successMessage !== false) {
+        void showSuccessAlert(options.successMessage || successMessageFor(method))
+      }
+
+      return response
     } catch (error: any) {
       const status = error?.response?.status || error?.status || 500
       const body = error?.data || error?.response?._data || {}
@@ -77,6 +87,7 @@ export const useAdminApi = () => {
       body: payload,
       scope: payload.scope === 'tenant' ? 'tenant' : 'central',
       tenantId: payload.tenant_id,
+      successMessage: false,
     })
     session.applyAuthPayload(response, payload.scope as 'central' | 'tenant', payload.tenant_id)
     return response
@@ -90,6 +101,7 @@ export const useAdminApi = () => {
     const response = await apiFetch('/auth/admin/refresh', {
       method: 'POST',
       body: { refresh_token: session.session.value.refreshToken },
+      successMessage: false,
     })
     session.applyAuthPayload(response)
     return response
@@ -100,6 +112,7 @@ export const useAdminApi = () => {
       await apiFetch('/auth/admin/logout', {
         method: 'POST',
         idempotencyKey: idempotencyKey(),
+        successMessage: false,
       })
     } finally {
       session.clear()
@@ -129,7 +142,9 @@ const readableError = (status: number) => {
   return map[status] || 'The request failed.'
 }
 
-const isFormDataBody = (body: any) => typeof FormData !== 'undefined' && body instanceof FormData
+const isWriteMethod = (method: string) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
+
+const successMessageFor = (method: string) => method === 'DELETE' ? 'Completed successfully.' : 'Saved successfully.'
 
 const cryptoSafeRandom = () => {
   if (import.meta.client && window.crypto?.getRandomValues) {

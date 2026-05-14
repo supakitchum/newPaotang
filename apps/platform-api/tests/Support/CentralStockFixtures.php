@@ -57,6 +57,7 @@ trait CentralStockFixtures
             'id' => $gameId,
             'code' => $gameId,
             'name' => 'Game '.$gameId,
+            'sale_start_at' => now()->subHour(),
             'draw_at' => now()->addDay(),
             'close_at' => now()->addHours(20),
             'closed_at' => null,

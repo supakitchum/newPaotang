@@ -1,6 +1,6 @@
 <template>
   <div id="admin-search-modal" class="modal fade" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header">
           <h6 class="modal-title">Search menu</h6>
@@ -28,7 +28,7 @@
 const props = defineProps<{ menus: any[] }>()
 const query = ref('')
 const { mapRoute, iconFor } = useAdminNavigation()
-const flat = computed(() => props.menus.flatMap((item) => item.children?.length ? [item, ...item.children] : [item]))
+const flat = computed(() => props.menus.flatMap((item) => item.children?.length ? item.children : [item]))
 const filtered = computed(() => {
   const value = query.value.trim().toLowerCase()
   if (!value) return flat.value.slice(0, 6)

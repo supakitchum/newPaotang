@@ -12,6 +12,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     document.documentElement.setAttribute('data-theme-mode', 'light')
     document.documentElement.setAttribute('data-menu-styles', 'light')
     document.documentElement.setAttribute('data-header-styles', 'light')
+    document.documentElement.setAttribute('data-vertical-style', 'closed')
 
     document.querySelectorAll('[data-simplebar]').forEach((element) => {
       if (!(element as any).SimpleBar) {

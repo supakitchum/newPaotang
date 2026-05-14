@@ -56,7 +56,13 @@
       </template>
     </AdminDataTable>
 
-    <AdminPagination :next-cursor="meta.next_cursor" :loading="loading" @next="load(meta.next_cursor)" />
+    <AdminPagination
+      :next-cursor="meta.next_cursor"
+      :has-previous="pageState.index > 0"
+      :loading="loading"
+      @previous="loadPreviousPage"
+      @next="loadNextPage"
+    />
 
     <AdminModal v-model="openCreate" title="Create support access request" size="lg">
       <AdminAlert v-if="modalError" type="danger" :message="modalError.message" :details="modalError.details" />
@@ -120,6 +126,7 @@ const requests = ref<any[]>([])
 const openCreate = ref(false)
 const filters = reactive({ status: '', limit: 20 })
 const meta = reactive({ next_cursor: null as string | null, has_more: false })
+const pageState = reactive({ cursors: [null] as Array<string | null>, index: 0 })
 const form = reactive({
   target_user_type: 'customer',
   target_user_id: '',
@@ -141,28 +148,56 @@ const columns = [
 const fieldError = (field: string) => validation.value[field]?.[0] || ''
 const invalidClass = (field: string) => fieldError(field) ? 'is-invalid' : ''
 
-const load = async (cursor?: string | null) => {
+const load = async (cursor?: string | null, pageMode: 'reset' | 'next' | 'previous' = 'reset') => {
   if (!tenantId.value) return
   loading.value = true
   error.value = null
   try {
+    const pageCursor = cursor || null
     const response: any = await api.apiFetch('/admin/tenant/support-access', {
       scope: 'tenant',
       tenantId: tenantId.value,
       query: {
         status: filters.status || undefined,
-        cursor: cursor || undefined,
+        cursor: pageCursor || undefined,
         limit: filters.limit,
       },
     })
-    requests.value = cursor ? [...requests.value, ...(response.data || [])] : (response.data || [])
+    requests.value = response.data || []
     meta.next_cursor = response.meta?.next_cursor || null
     meta.has_more = Boolean(response.meta?.has_more)
+    updatePageState(pageCursor, pageMode)
   } catch (err) {
     error.value = err
   } finally {
     loading.value = false
   }
+}
+
+const loadNextPage = () => {
+  if (!meta.next_cursor) return
+  load(meta.next_cursor, 'next')
+}
+
+const loadPreviousPage = () => {
+  if (pageState.index <= 0) return
+  load(pageState.cursors[pageState.index - 1] || null, 'previous')
+}
+
+const updatePageState = (cursor: string | null, mode: 'reset' | 'next' | 'previous') => {
+  if (mode === 'reset') {
+    pageState.cursors = [cursor]
+    pageState.index = 0
+    return
+  }
+
+  if (mode === 'next') {
+    pageState.cursors = [...pageState.cursors.slice(0, pageState.index + 1), cursor]
+    pageState.index += 1
+    return
+  }
+
+  pageState.index = Math.max(0, pageState.index - 1)
 }
 
 const createRequest = async () => {

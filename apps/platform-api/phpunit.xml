@@ -13,6 +13,8 @@
     </testsuites>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <env name="DB_DATABASE" value="newpaotang_test" force="true"/>
+        <server name="DB_DATABASE" value="newpaotang_test" force="true"/>
         <env name="CACHE_STORE" value="redis"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

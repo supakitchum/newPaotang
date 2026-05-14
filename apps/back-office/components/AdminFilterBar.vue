@@ -6,7 +6,9 @@
           <label class="form-label">{{ filter.label }}</label>
           <select v-if="filter.type === 'select'" v-model="draft[filter.key]" class="form-select">
             <option value="">All</option>
-            <option v-for="option in filter.options || []" :key="option" :value="option">{{ titleize(option) }}</option>
+            <option v-for="option in filter.options || []" :key="optionValue(option)" :value="optionValue(option)">
+              {{ optionLabel(option) }}
+            </option>
           </select>
           <input
             v-else
@@ -57,4 +59,7 @@ const cleanDraft = () => {
   }
   return next
 }
+
+const optionValue = (option: any) => typeof option === 'object' && option !== null ? option.value : option
+const optionLabel = (option: any) => typeof option === 'object' && option !== null ? option.label : titleize(String(option))
 </script>

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\PartnerStoreFixtures;
 use Tests\TestCase;
 
@@ -124,5 +125,154 @@ class PublicStockSearchTest extends TestCase
         $this->getJson('http://filter-b.newpaotang.test/api/v1/public/stock/search?game_id=gam_store_filter&store_id=sto_filter_foreign&front3=123')
             ->assertOk()
             ->assertJsonCount(1, 'data');
+    }
+
+    public function test_PublicStockSearch_returns_multiple_available_tickets_with_same_number(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_dup_number', 'ten_dup_number', 'dup-number.newpaotang.test');
+        $this->insertGame('gam_dup_number', 'open');
+
+        $now = now();
+        DB::table('stock_items')->insert([
+            [
+                'id' => 'stk_dup_number_a',
+                'game_id' => 'gam_dup_number',
+                'batch_id' => null,
+                'full_number' => '444444',
+                'front3' => '444',
+                'back3' => '444',
+                'back2' => '44',
+                'status' => 'allocated',
+                'partner_id' => 'par_dup_number',
+                'tenant_id' => 'ten_dup_number',
+                'allocation_id' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'id' => 'stk_dup_number_b',
+                'game_id' => 'gam_dup_number',
+                'batch_id' => null,
+                'full_number' => '444444',
+                'front3' => '444',
+                'back3' => '444',
+                'back2' => '44',
+                'status' => 'allocated',
+                'partner_id' => 'par_dup_number',
+                'tenant_id' => 'ten_dup_number',
+                'allocation_id' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        ]);
+
+        DB::table('local_stock_items')->insert([
+            [
+                'id' => 'lsi_dup_number_a',
+                'tenant_id' => 'ten_dup_number',
+                'partner_id' => 'par_dup_number',
+                'store_id' => 'ten_dup_number',
+                'game_id' => 'gam_dup_number',
+                'stock_item_id' => 'stk_dup_number_a',
+                'allocation_id' => null,
+                'full_number' => '444444',
+                'front3' => '444',
+                'back3' => '444',
+                'back2' => '44',
+                'status' => 'available',
+                'synced_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'id' => 'lsi_dup_number_b',
+                'tenant_id' => 'ten_dup_number',
+                'partner_id' => 'par_dup_number',
+                'store_id' => 'ten_dup_number',
+                'game_id' => 'gam_dup_number',
+                'stock_item_id' => 'stk_dup_number_b',
+                'allocation_id' => null,
+                'full_number' => '444444',
+                'front3' => '444',
+                'back3' => '444',
+                'back2' => '44',
+                'status' => 'available',
+                'synced_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        ]);
+
+        $this->getJson('http://dup-number.newpaotang.test/api/v1/public/stock/search?game_id=gam_dup_number&number=444444')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.full_number', '444444')
+            ->assertJsonPath('data.1.full_number', '444444');
+    }
+
+    public function test_PublicStockSearch_and_reservations_respect_partner_sale_window_overrides(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_window', 'ten_window', 'window.newpaotang.test');
+        $this->insertGame('gam_window', 'open');
+        $localIds = $this->syncAllocatedStockToLocal('par_window', 'ten_window', 'gam_window', 1, 'alloc-window', 777770);
+        $customerToken = $this->issueCustomerToken('ten_window', 'cus_window');
+
+        DB::table('partner_quotas')
+            ->where('partner_id', 'par_window')
+            ->where('game_id', 'gam_window')
+            ->update([
+                'sale_start_at' => now()->addHour(),
+                'sale_close_at' => null,
+                'updated_at' => now(),
+            ]);
+
+        $this->getJson('http://window.newpaotang.test/api/v1/public/games/current')
+            ->assertNotFound();
+
+        $this->getJson('http://window.newpaotang.test/api/v1/public/stock/search?game_id=gam_window&number=777770')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->withToken($customerToken)
+            ->postJson('http://window.newpaotang.test/api/v1/customer/reservations', [
+                'game_id' => 'gam_window',
+                'local_stock_item_ids' => [$localIds[0]],
+            ], [
+                'Idempotency-Key' => 'reserve-window-before-start',
+            ])
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'reservation_unavailable');
+
+        DB::table('partner_quotas')
+            ->where('partner_id', 'par_window')
+            ->where('game_id', 'gam_window')
+            ->update([
+                'sale_start_at' => null,
+                'sale_close_at' => now()->addHour(),
+                'updated_at' => now(),
+            ]);
+
+        $this->getJson('http://window.newpaotang.test/api/v1/public/games/current')
+            ->assertOk()
+            ->assertJsonPath('id', 'gam_window');
+
+        $this->getJson('http://window.newpaotang.test/api/v1/public/stock/search?game_id=gam_window&number=777770')
+            ->assertOk()
+            ->assertJsonPath('data.0.full_number', '777770');
+
+        DB::table('partner_quotas')
+            ->where('partner_id', 'par_window')
+            ->where('game_id', 'gam_window')
+            ->update([
+                'sale_start_at' => null,
+                'sale_close_at' => now()->subMinute(),
+                'updated_at' => now(),
+            ]);
+
+        $this->getJson('http://window.newpaotang.test/api/v1/public/stock/search?game_id=gam_window&number=777770')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
     }
 }

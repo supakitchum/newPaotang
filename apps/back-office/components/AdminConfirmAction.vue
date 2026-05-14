@@ -13,7 +13,7 @@
     </div>
 
     <div v-if="formFields.length" class="row g-3 mb-3">
-      <div v-for="field in formFields" :key="field.key" :class="field.type === 'textarea' || field.type === 'json' || field.type === 'lines' || field.type === 'prize-lines' ? 'col-12' : 'col-md-6'">
+      <div v-for="field in formFields" :key="field.key" :class="fieldColumnClass(field)">
         <div v-if="field.type === 'checkbox'" class="form-check form-switch mt-4">
           <input :id="fieldId(field.key)" v-model="formState[field.key]" class="form-check-input" type="checkbox">
           <label class="form-check-label" :for="fieldId(field.key)">{{ field.label }}</label>
@@ -31,8 +31,81 @@
             class="form-select"
           >
             <option value="">Select</option>
-            <option v-for="option in field.options || []" :key="option" :value="option">{{ option }}</option>
+            <option v-for="option in field.options || []" :key="optionValue(option)" :value="optionValue(option)">
+              {{ optionLabel(option) }}
+            </option>
           </select>
+          <div v-else-if="field.type === 'datetime-range'" class="np-admin-datetime-range">
+            <div class="row g-2">
+              <div class="col-md-6">
+                <label class="form-label text-muted small" :for="fieldId(`${field.key}-start`)">{{ field.rangeStartLabel || 'Start' }}</label>
+                <input
+                  :id="fieldId(`${field.key}-start`)"
+                  v-model="formState[rangeStartFormKey(field)]"
+                  class="form-control"
+                  type="datetime-local"
+                >
+              </div>
+              <div class="col-md-6">
+                <label class="form-label text-muted small" :for="fieldId(`${field.key}-end`)">{{ field.rangeEndLabel || 'End' }}</label>
+                <input
+                  :id="fieldId(`${field.key}-end`)"
+                  v-model="formState[rangeEndFormKey(field)]"
+                  class="form-control"
+                  type="datetime-local"
+                >
+              </div>
+            </div>
+          </div>
+          <div v-else-if="isRewardPrizeField(field)" class="np-reward-prize-editor">
+            <section v-for="group in formState[field.key]" :key="group.type" class="np-reward-prize-editor__group">
+              <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-3">
+                <div>
+                  <h6 class="mb-1">{{ group.label }}</h6>
+                  <div class="text-muted small">{{ group.count }} rows · {{ group.digits }} digits</div>
+                </div>
+                <span v-if="field.type === 'reward-prize-number-grid'" class="badge bg-primary-transparent text-primary">
+                  {{ formatRewardPrizeAmount(group.amount, group.currency) }}
+                </span>
+                <div v-else class="np-reward-prize-editor__amount">
+                  <label class="form-label text-muted small" :for="fieldId(`${field.key}-${group.type}-amount`)">Amount per prize</label>
+                  <div class="input-group">
+                    <input
+                      :id="fieldId(`${field.key}-${group.type}-amount`)"
+                      v-model.number="group.amount"
+                      class="form-control"
+                      type="number"
+                      min="0"
+                      step="1"
+                    >
+                    <span class="input-group-text">{{ group.currency }}</span>
+                  </div>
+                </div>
+              </div>
+              <div v-if="field.type !== 'reward-prize-amount-grid'" class="np-reward-prize-editor__numbers">
+                <div v-for="(_, index) in group.numbers" :key="`${group.type}-${index}`">
+                  <label class="form-label text-muted small" :for="fieldId(`${field.key}-${group.type}-${index}`)">#{{ index + 1 }}</label>
+                  <input
+                    :id="fieldId(`${field.key}-${group.type}-${index}`)"
+                    v-model="group.numbers[index]"
+                    class="form-control"
+                    :maxlength="Math.max(group.digits, 32)"
+                    inputmode="numeric"
+                  >
+                </div>
+              </div>
+              <div v-else class="np-reward-prize-editor__numbers np-reward-prize-editor__numbers--readonly">
+                <span
+                  v-for="(number, index) in group.numbers"
+                  :key="`${group.type}-${index}`"
+                  class="np-reward-prize-editor__number-pill"
+                  :class="{ 'text-muted': isBlank(number) }"
+                >
+                  {{ displayRewardNumber(number) }}
+                </span>
+              </div>
+            </section>
+          </div>
           <textarea
             v-else-if="field.type === 'textarea' || field.type === 'json' || field.type === 'lines' || field.type === 'prize-lines'"
             :id="fieldId(field.key)"
@@ -114,8 +187,22 @@ const missingRequired = computed(() => {
 
   return formFields.value.some((field) => {
     if (!field.required) return false
+    if (field.type === 'datetime-range') {
+      return isBlank(formState[rangeStartFormKey(field)]) || isBlank(formState[rangeEndFormKey(field)])
+    }
+    if (field.type === 'reward-prize-number-grid') {
+      return field.partial
+        ? !hasAnyRewardPrizeNumberUpdate(formState[field.key] || [])
+        : !hasCompleteRewardPrizeGroups(formState[field.key] || [])
+    }
+    if (field.type === 'reward-prize-grid') {
+      return !hasCompleteRewardPrizeGroups(formState[field.key] || [])
+    }
+    if (field.type === 'reward-prize-amount-grid') {
+      return !hasCompleteRewardPrizeAmounts(formState[field.key] || [])
+    }
     const value = formState[field.key]
-    return value === undefined || value === null || String(value).trim() === ''
+    return isBlank(value)
   })
 })
 
@@ -127,6 +214,18 @@ const resetFormState = () => {
   }
 
   for (const field of formFields.value) {
+    if (field.type === 'datetime-range') {
+      const startValue = getPath(sourceRecord.value, field.rangeStartSourceKey || field.rangeStartKey || `${field.key}.start`)
+      const endValue = getPath(sourceRecord.value, field.rangeEndSourceKey || field.rangeEndKey || `${field.key}.end`)
+      formState[rangeStartFormKey(field)] = startValue !== undefined && startValue !== null
+        ? formatDateTimeLocalValue(startValue)
+        : ''
+      formState[rangeEndFormKey(field)] = endValue !== undefined && endValue !== null
+        ? formatDateTimeLocalValue(endValue)
+        : ''
+      continue
+    }
+
     const recordValue = getPath(sourceRecord.value, field.sourceKey || field.key)
     formState[field.key] = recordValue !== undefined && recordValue !== null
       ? normalizeInitialValue(field, recordValue)
@@ -155,6 +254,10 @@ const normalizeInitialValue = (field: OperationFormField, value: any) => {
     return formatPrizeLines(value)
   }
 
+  if (isRewardPrizeField(field)) {
+    return normalizeRewardPrizeGroups(value)
+  }
+
   if (value === undefined || value === null || typeof value === 'object') {
     return ''
   }
@@ -167,6 +270,23 @@ const confirm = () => {
 }
 
 const fieldId = (key: string) => `admin-confirm-${key.replace(/[^a-z0-9_-]/gi, '-')}`
+const rangeStartFormKey = (field: OperationFormField) => `${field.key}.__start`
+const rangeEndFormKey = (field: OperationFormField) => `${field.key}.__end`
+const isBlank = (value: any) => value === undefined || value === null || String(value).trim() === ''
+
+const displayRewardNumber = (value: any) => {
+  const normalized = String(value || '').trim()
+  return normalized && !normalized.startsWith('pending_') ? normalized : '-'
+}
+
+const fieldColumnClass = (field: OperationFormField) => (
+  field.type === 'textarea'
+  || field.type === 'json'
+  || field.type === 'lines'
+  || field.type === 'prize-lines'
+  || isRewardPrizeField(field)
+  || field.type === 'datetime-range'
+) ? 'col-12' : 'col-md-6'
 
 const inputType = (field: OperationFormField) => {
   if (field.type === 'number') return 'number'
@@ -177,11 +297,20 @@ const inputType = (field: OperationFormField) => {
   return 'text'
 }
 
+const isRewardPrizeField = (field: OperationFormField) => (
+  field.type === 'reward-prize-grid'
+  || field.type === 'reward-prize-number-grid'
+  || field.type === 'reward-prize-amount-grid'
+)
+
 const getPath = (value: any, path: string) => path.split('.').reduce((current, key) => current?.[key], value)
 
 const labelize = (key: string) => key
   .replace(/[._-]/g, ' ')
   .replace(/\b\w/g, (char) => char.toUpperCase()) || key
+
+const optionValue = (option: any) => typeof option === 'object' && option !== null ? option.value : option
+const optionLabel = (option: any) => typeof option === 'object' && option !== null ? option.label : String(option)
 
 const formatContextValue = (value: any) => {
   if (value === undefined || value === null || value === '') return '-'
@@ -261,3 +390,42 @@ watch(() => [props.modelValue, props.payloadTemplate, props.formFields, props.re
   }
 }, { immediate: true })
 </script>
+
+<style scoped>
+.np-reward-prize-editor {
+  display: grid;
+  gap: 1rem;
+}
+
+.np-reward-prize-editor__group {
+  border: 1px solid var(--default-border);
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+.np-reward-prize-editor__amount {
+  min-width: min(100%, 16rem);
+}
+
+.np-reward-prize-editor__numbers {
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+}
+
+.np-reward-prize-editor__numbers--readonly {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+.np-reward-prize-editor__number-pill {
+  border: 1px solid var(--default-border);
+  border-radius: 4px;
+  font-size: .875rem;
+  line-height: 1.2;
+  min-width: 4.75rem;
+  padding: .35rem .5rem;
+  text-align: center;
+}
+</style>

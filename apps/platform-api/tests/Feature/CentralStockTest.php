@@ -69,13 +69,30 @@ class CentralStockTest extends TestCase
                 'count' => 3,
             ], [
                 'X-Admin-Scope' => 'central',
-                'Idempotency-Key' => 'stock-generate-repeat',
+                'Idempotency-Key' => 'stock-generate-main',
             ])
             ->assertAccepted()
             ->json();
 
         $this->assertSame($batch['id'], $repeatBatch['id']);
         $this->assertSame(3, DB::table('stock_items')->where('game_id', 'gam_stock_main')->count());
+
+        $duplicateRangeBatch = $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/stock/generate', [
+                'game_id' => 'gam_stock_main',
+                'start_number' => 1,
+                'count' => 3,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'stock-generate-duplicate-range',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('generated_count', 3)
+            ->json();
+
+        $this->assertNotSame($batch['id'], $duplicateRangeBatch['id']);
+        $this->assertSame(6, DB::table('stock_items')->where('game_id', 'gam_stock_main')->count());
+        $this->assertSame(2, DB::table('stock_items')->where('game_id', 'gam_stock_main')->where('full_number', '000001')->count());
 
         $import = $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/stock/imports', [
@@ -91,16 +108,84 @@ class CentralStockTest extends TestCase
             ])
             ->assertAccepted()
             ->assertJsonPath('type', 'import')
-            ->assertJsonPath('generated_count', 2)
+            ->assertJsonPath('generated_count', 3)
             ->json();
 
-        $this->assertSame(5, DB::table('stock_items')->where('game_id', 'gam_stock_main')->count());
+        $this->assertSame(9, DB::table('stock_items')->where('game_id', 'gam_stock_main')->count());
+        $this->assertSame(2, DB::table('stock_items')->where('game_id', 'gam_stock_main')->where('full_number', '000011')->count());
+
+        $grouped = $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/stock?game_id=gam_stock_main&grouped=true&number=000011', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.full_number', '000011')
+            ->assertJsonPath('data.0.total_count', 2)
+            ->assertJsonPath('data.0.available_count', 2)
+            ->json();
+
+        $this->assertNotEmpty($grouped['data'][0]['sample_stock_item_id']);
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/stock?game_id=gam_stock_main&grouped=true&front3=000&limit=2', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.has_more', true);
+
+        $sortedGroups = $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/stock?'.http_build_query([
+                'game_id' => 'gam_stock_main',
+                'grouped' => true,
+                'sort_by' => 'full_number',
+                'sort_dir' => 'desc',
+                'limit' => 2,
+            ]), ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('data.0.full_number', '000011')
+            ->assertJsonPath('data.1.full_number', '000010')
+            ->assertJsonPath('meta.has_more', true)
+            ->json();
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/stock?'.http_build_query([
+                'game_id' => 'gam_stock_main',
+                'grouped' => true,
+                'sort_by' => 'full_number',
+                'sort_dir' => 'desc',
+                'cursor' => $sortedGroups['meta']['next_cursor'],
+                'limit' => 2,
+            ]), ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('data.0.full_number', '000003');
 
         $this->withToken($login['access_token'])
             ->getJson('/api/v1/admin/central/stock?game_id=gam_stock_main&status=available&limit=2', ['X-Admin-Scope' => 'central'])
             ->assertOk()
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('meta.has_more', true);
+
+        $sortedTickets = $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/stock?'.http_build_query([
+                'game_id' => 'gam_stock_main',
+                'sort_by' => 'full_number',
+                'sort_dir' => 'desc',
+                'limit' => 2,
+            ]), ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('data.0.full_number', '000011')
+            ->assertJsonPath('data.1.full_number', '000011')
+            ->assertJsonPath('meta.has_more', true)
+            ->json();
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/stock?'.http_build_query([
+                'game_id' => 'gam_stock_main',
+                'sort_by' => 'full_number',
+                'sort_dir' => 'desc',
+                'cursor' => $sortedTickets['meta']['next_cursor'],
+                'limit' => 2,
+            ]), ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('data.0.full_number', '000010');
 
         $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/stock/exports', [

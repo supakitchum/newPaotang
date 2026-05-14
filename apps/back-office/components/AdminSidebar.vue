@@ -17,20 +17,19 @@
           <li v-else-if="loading" class="slide px-3 py-2 text-muted">Loading menu...</li>
           <li v-else-if="!visibleMenus.length" class="slide px-3 py-2 text-muted">No menu returned by backend</li>
           <template v-else>
-            <li v-for="item in visibleMenus" :key="item.key" :class="['slide', { 'has-sub': item.children?.length }]">
-              <a v-if="item.children?.length" href="#" class="side-menu__item" @click.prevent="toggle(item.key)">
+            <li v-for="item in visibleMenus" :key="item.key" :class="['slide', { 'has-sub': item.children?.length, open: isOpen(item.key), active: isActive(item) }]">
+              <a v-if="item.children?.length" href="#" :class="['side-menu__item', { active: isActive(item) }]" @click.prevent="toggle(item.key)">
                 <i :class="[iconFor(item), 'side-menu__icon']" />
                 <span class="side-menu__label">{{ item.label }}</span>
                 <i class="ri-arrow-right-s-line side-menu__angle" />
               </a>
-              <NuxtLink v-else :to="mapRoute(item)" class="side-menu__item" @click="closeMobile">
+              <NuxtLink v-else :to="mapRoute(item)" :class="['side-menu__item', { active: isActive(item) }]" @click="closeMobile">
                 <i :class="[iconFor(item), 'side-menu__icon']" />
                 <span class="side-menu__label">{{ item.label }}</span>
               </NuxtLink>
-              <ul v-if="item.children?.length" :class="['slide-menu', { open: openKeys.includes(item.key) }]">
-                <li v-for="child in item.children" :key="child.key" class="slide">
-                  <NuxtLink :to="mapRoute(child)" class="side-menu__item" @click="closeMobile">
-                    <i :class="[iconFor(child), 'side-menu__icon']" />
+              <ul v-if="item.children?.length" class="slide-menu child1">
+                <li v-for="child in item.children" :key="child.key" :class="['slide', { active: isActive(child) }]">
+                  <NuxtLink :to="mapRoute(child)" :class="['side-menu__item', { active: isActive(child) }]" @click="closeMobile">
                     <span class="side-menu__label">{{ child.label }}</span>
                   </NuxtLink>
                 </li>
@@ -56,6 +55,7 @@ const props = withDefaults(defineProps<{
 
 const { currentScope } = useAdminSession()
 const { mapRoute, iconFor } = useAdminNavigation()
+const route = useRoute()
 const openKeys = ref<string[]>([])
 const scopeTitle = computed(() => currentScope.value === 'tenant' ? 'Tenant Menu' : 'Central Menu')
 const displayScopeTitle = computed(() => props.clientReady ? scopeTitle.value : 'Admin Menu')
@@ -67,7 +67,38 @@ const toggle = (key: string) => {
     : [...openKeys.value, key]
 }
 
-const closeMobile = () => {
-  document.documentElement.setAttribute('data-toggled', 'close')
+const isOpen = (key: string) => openKeys.value.includes(key)
+
+const normalizePath = (path: string) => {
+  const normalized = path.split('?')[0]?.replace(/\/+$/, '')
+  return normalized || '/'
 }
+
+const isRouteActive = (targetPath: string) => {
+  const currentPath = normalizePath(route.path)
+  const mappedPath = normalizePath(targetPath)
+  return currentPath === mappedPath || currentPath.startsWith(`${mappedPath}/`)
+}
+
+const isActive = (item: any): boolean => {
+  if (item.children?.length) {
+    return item.children.some((child: any) => isActive(child))
+  }
+
+  return isRouteActive(mapRoute(item))
+}
+
+const closeMobile = () => {
+  if (window.matchMedia('(max-width: 991.98px)').matches) {
+    document.documentElement.setAttribute('data-toggled', 'close')
+  }
+}
+
+watch([visibleMenus, () => route.path], ([items]) => {
+  const activeParents = items
+    .filter((item: any) => item.children?.length && isActive(item))
+    .map((item: any) => item.key)
+
+  openKeys.value = [...new Set([...openKeys.value, ...activeParents])]
+}, { immediate: true })
 </script>

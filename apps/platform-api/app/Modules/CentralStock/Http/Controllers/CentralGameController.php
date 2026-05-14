@@ -45,8 +45,11 @@ class CentralGameController extends Controller
             return ApiErrorResponse::validationFailed($request, $headerErrors);
         }
 
-        $payload = $request->all();
-        $errors = $this->centralStock->validateGamePayload($payload, true);
+        $payload = $this->centralStock->withGeneratedGameCode($request->all());
+        $errors = array_merge(
+            $this->centralStock->validateGamePayload($payload, true),
+            $this->centralStock->gameOpeningErrors(null, $payload),
+        );
 
         if ($errors !== []) {
             return ApiErrorResponse::validationFailed($request, $errors);
@@ -92,9 +95,9 @@ class CentralGameController extends Controller
             return ApiErrorResponse::notFound($request);
         }
 
-        $payload = $request->all();
+        $payload = $this->centralStock->withGeneratedGameCode($request->all());
         $errors = array_merge(
-            $this->centralStock->validateGamePayload($payload, false),
+            $this->centralStock->validateGamePayload($payload, false, $game_id),
             $this->centralStock->gameTransitionErrors($game_id, $payload),
         );
 

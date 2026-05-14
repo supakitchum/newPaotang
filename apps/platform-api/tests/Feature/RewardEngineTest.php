@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Modules\Reward\Services\ThaiGovernmentLotteryRewardTemplate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -25,15 +26,13 @@ class RewardEngineTest extends TestCase
             'reward.correct',
             'reward.audit',
         ], 'reward-engine');
+        $prizes = $this->thaiGovernmentLotteryPrizes($world['ticket_number']);
+        $prizes[0]['amount']['amount'] = 7000000;
 
         $this->withToken($denied['access_token'])
             ->postJson('/api/v1/admin/central/rewards', [
                 'game_id' => $world['game_id'],
-                'prizes' => [[
-                    'prize_type' => 'first_prize',
-                    'prize_number' => $world['ticket_number'],
-                    'amount' => ['amount' => 1000000, 'currency' => 'THB'],
-                ]],
+                'prizes' => $prizes,
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'reward-create-denied',
@@ -43,11 +42,7 @@ class RewardEngineTest extends TestCase
         $reward = $this->withToken($admin['access_token'])
             ->postJson('/api/v1/admin/central/rewards', [
                 'game_id' => $world['game_id'],
-                'prizes' => [[
-                    'prize_type' => 'first_prize',
-                    'prize_number' => $world['ticket_number'],
-                    'amount' => ['amount' => 1000000, 'currency' => 'THB'],
-                ]],
+                'prizes' => $prizes,
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'reward-create-engine',
@@ -60,11 +55,7 @@ class RewardEngineTest extends TestCase
         $replay = $this->withToken($admin['access_token'])
             ->postJson('/api/v1/admin/central/rewards', [
                 'game_id' => $world['game_id'],
-                'prizes' => [[
-                    'prize_type' => 'first_prize',
-                    'prize_number' => $world['ticket_number'],
-                    'amount' => ['amount' => 1000000, 'currency' => 'THB'],
-                ]],
+                'prizes' => $prizes,
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'reward-create-engine',
@@ -73,8 +64,10 @@ class RewardEngineTest extends TestCase
             ->json();
 
         $this->assertSame($reward['id'], $replay['id']);
+        $this->assertSame(7000000, $reward['prizes'][0]['amount']['amount']);
         $this->assertSame(1, DB::table('reward_results')->where('game_id', $world['game_id'])->count());
         $this->assertSame(1, DB::table('winning_tickets')->where('ticket_id', $world['ticket_id'])->count());
+        $this->assertSame(7000000, DB::table('winning_tickets')->where('ticket_id', $world['ticket_id'])->value('amount'));
 
         DB::table('reward_results')->where('id', $reward['id'])->update(['status' => 'recorded', 'updated_at' => now()]);
         Artisan::call('reward:check', ['reward_result_id' => $reward['id'], '--chunk' => 1]);
@@ -138,4 +131,178 @@ class RewardEngineTest extends TestCase
             ->assertAccepted()
             ->assertJsonPath('status', 'corrected');
     }
+
+    public function test_RewardEngine_partial_reward_number_and_payout_updates_do_not_require_complete_prizes(): void
+    {
+        $world = $this->prepareRewardWorld('par_reward_partial', 'ten_reward_partial', 'reward-partial.m7.test', 'gam_reward_partial', '0807100001', 790501);
+        $admin = $this->centralRewardAdmin([
+            'reward.view',
+            'reward.create',
+            'reward.audit',
+        ], 'reward-partial');
+        $rewardResultId = 'rew_partial_updates';
+        $now = now();
+
+        DB::table('reward_results')->insert([
+            'id' => $rewardResultId,
+            'game_id' => $world['game_id'],
+            'status' => 'draft',
+            'version' => 1,
+            'summary_json' => null,
+            'created_by_admin_id' => null,
+            'verified_by_admin_id' => null,
+            'published_by_admin_id' => null,
+            'corrected_by_admin_id' => null,
+            'correction_note' => null,
+            'checked_at' => null,
+            'verified_at' => null,
+            'published_at' => null,
+            'corrected_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        foreach (ThaiGovernmentLotteryRewardTemplate::draftPrizes() as $index => $prize) {
+            DB::table('reward_prizes')->insert([
+                'id' => 'rpr_partial_'.$index,
+                'reward_result_id' => $rewardResultId,
+                'game_id' => $world['game_id'],
+                'prize_type' => $prize['prize_type'],
+                'prize_number' => $prize['prize_number'],
+                'amount' => $prize['amount']['amount'],
+                'currency' => $prize['amount']['currency'],
+                'sort_order' => $index,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
+        $this->withToken($admin['access_token'])
+            ->patchJson('/api/v1/admin/central/rewards/'.$rewardResultId, [
+                'prize_number_updates' => [[
+                    'prize_type' => 'first_prize',
+                    'prize_numbers' => [$world['ticket_number']],
+                ]],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-number-partial',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'draft')
+            ->assertJsonPath('prizes.0.prize_number', $world['ticket_number']);
+
+        $this->assertSame(0, DB::table('winning_tickets')->where('reward_result_id', $rewardResultId)->count());
+
+        $this->withToken($admin['access_token'])
+            ->patchJson('/api/v1/admin/central/rewards/'.$rewardResultId, [
+                'payout_amount_updates' => [[
+                    'prize_type' => 'fifth_prize',
+                    'amount' => ['amount' => 25000, 'currency' => 'THB'],
+                ]],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-payout-partial',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'draft');
+
+        $this->assertSame(
+            [25000],
+            DB::table('reward_prizes')
+                ->where('reward_result_id', $rewardResultId)
+                ->where('prize_type', 'fifth_prize')
+                ->distinct()
+                ->pluck('amount')
+                ->all(),
+        );
+    }
+
+    public function test_RewardEngine_payout_amount_updates_are_allowed_while_game_is_open(): void
+    {
+        $this->seedDefaultRbac();
+        $admin = $this->centralRewardAdmin([
+            'reward.view',
+            'reward.create',
+        ], 'reward-open-payout');
+        $gameId = 'gam_reward_open_payout';
+        $rewardResultId = 'rew_open_payout';
+        $now = now();
+
+        DB::table('games')->insert([
+            'id' => $gameId,
+            'code' => 'open_payout',
+            'name' => 'Open Payout Game',
+            'sale_start_at' => $now->copy()->subHour(),
+            'draw_at' => $now->copy()->addDay(),
+            'close_at' => $now->copy()->addHours(20),
+            'closed_at' => null,
+            'archived_at' => null,
+            'status' => 'open',
+            'metadata_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('reward_results')->insert([
+            'id' => $rewardResultId,
+            'game_id' => $gameId,
+            'status' => 'draft',
+            'version' => 1,
+            'summary_json' => null,
+            'created_by_admin_id' => null,
+            'verified_by_admin_id' => null,
+            'published_by_admin_id' => null,
+            'corrected_by_admin_id' => null,
+            'correction_note' => null,
+            'checked_at' => null,
+            'verified_at' => null,
+            'published_at' => null,
+            'corrected_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        foreach (ThaiGovernmentLotteryRewardTemplate::draftPrizes() as $index => $prize) {
+            DB::table('reward_prizes')->insert([
+                'id' => 'rpr_open_payout_'.$index,
+                'reward_result_id' => $rewardResultId,
+                'game_id' => $gameId,
+                'prize_type' => $prize['prize_type'],
+                'prize_number' => $prize['prize_number'],
+                'amount' => $prize['amount']['amount'],
+                'currency' => $prize['amount']['currency'],
+                'sort_order' => $index,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
+        $this->withToken($admin['access_token'])
+            ->patchJson('/api/v1/admin/central/rewards/'.$rewardResultId, [
+                'payout_amount_updates' => [[
+                    'prize_type' => 'first_prize',
+                    'amount' => ['amount' => 6500000, 'currency' => 'THB'],
+                ]],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-open-payout',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'draft')
+            ->assertJsonPath('prizes.0.amount.amount', 6500000);
+
+        $this->withToken($admin['access_token'])
+            ->patchJson('/api/v1/admin/central/rewards/'.$rewardResultId, [
+                'prize_number_updates' => [[
+                    'prize_type' => 'first_prize',
+                    'prize_numbers' => ['123456'],
+                ]],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-open-number-blocked',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.game_id.0', 'The game must be closed before reward results can be recorded.');
+    }
+
 }

@@ -52,6 +52,11 @@ class PartnerQuotaTest extends TestCase
             ->assertJsonPath('remaining_count', 5)
             ->json();
 
+        $this->assertNotNull($quota['sale_start_at']);
+        $this->assertNotNull($quota['sale_close_at']);
+        $this->assertNull($quota['sale_start_override_at']);
+        $this->assertNull($quota['sale_close_override_at']);
+
         $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/partner-quotas', [
                 'partner_id' => 'par_quota',
@@ -69,9 +74,11 @@ class PartnerQuotaTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.id', $quota['id']);
 
-        $this->withToken($login['access_token'])
+        $updatedQuota = $this->withToken($login['access_token'])
             ->patchJson('/api/v1/admin/central/partner-quotas/'.$quota['id'], [
                 'quota_count' => 8,
+                'sale_start_at' => now()->addHour()->toISOString(),
+                'sale_close_at' => now()->addHours(10)->toISOString(),
                 'status' => 'active',
             ], [
                 'X-Admin-Scope' => 'central',
@@ -79,7 +86,31 @@ class PartnerQuotaTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('quota_count', 8)
-            ->assertJsonPath('remaining_count', 8);
+            ->assertJsonPath('remaining_count', 8)
+            ->json();
+
+        $this->assertNotNull($updatedQuota['sale_start_override_at']);
+        $this->assertNotNull($updatedQuota['sale_close_override_at']);
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/partner-quotas/'.$quota['id'], [
+                'sale_start_at' => now()->subDay()->toISOString(),
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'quota-update-before-central',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.sale_start_at.0', 'Partner sale_start_at cannot be before the central sale_start_at.');
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/partner-quotas/'.$quota['id'], [
+                'sale_close_at' => now()->addDays(2)->toISOString(),
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'quota-update-after-central',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.sale_close_at.0', 'Partner sale_close_at cannot be after the central close_at.');
 
         DB::table('partners')->where('id', 'par_quota')->update(['status' => 'suspended', 'updated_at' => now()]);
 

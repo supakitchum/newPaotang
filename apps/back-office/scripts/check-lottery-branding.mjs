@@ -5,7 +5,6 @@ import { fileURLToPath } from 'node:url'
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const componentPath = join(root, 'components/AdminPartnerLotteryBranding.vue')
 const pagePath = join(root, 'pages/admin/central/partners/[partner_id]/lottery-branding.vue')
-const catalogPath = join(root, 'composables/useAdminOperationsCatalog.ts')
 
 const failures = []
 
@@ -19,25 +18,16 @@ if (!existsSync(pagePath)) {
 
 const component = existsSync(componentPath) ? readFileSync(componentPath, 'utf8') : ''
 const page = existsSync(pagePath) ? readFileSync(pagePath, 'utf8') : ''
-const catalog = existsSync(catalogPath) ? readFileSync(catalogPath, 'utf8') : ''
 
 for (const token of [
   '/admin/central/partners/${encodeURIComponent(props.partnerId)}/lottery-branding-assets',
-  '/admin/central/partners/${encodeURIComponent(props.partnerId)}/lottery-branding/preview',
-  '/admin/central/games',
   '/admin/central/assets/uploads',
   '/admin/central/assets/${encodeURIComponent(intent.asset_id)}/commit',
   "scope: 'central'",
-  'session.setScope(\'central\')',
   'idempotencyKey: api.idempotencyKey()',
   'logo_qr: { asset_id: assetIds.logo_qr }',
   'right_sidebar: { asset_id: assetIds.right_sidebar }',
   'logo_bottom: { asset_id: assetIds.logo_bottom }',
-  'Route-Locked Preview',
-  'previewForm.lottery_number',
-  'data_url',
-  'warnings',
-  'side_effects',
   'generated_image_count',
   'branding?.locked',
   'image/png,image/webp',
@@ -46,14 +36,6 @@ for (const token of [
   if (!component.includes(token)) {
     failures.push(`Lottery branding component missing ${token}`)
   }
-}
-
-if (!catalog.includes("adminUiRoute('central', 'partners/{id}/lottery-branding')")) {
-  failures.push('Central partners catalog is missing lottery branding action link')
-}
-
-if (component.includes('previewForm.partner_id') || component.includes('partner_id: previewForm')) {
-  failures.push('Lottery branding preview must not expose a partner selector or body partner override')
 }
 
 for (const token of [

@@ -1,4 +1,4 @@
-@import "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap";
+@import "https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;1,200;1,300;1,400;1,500;1,600;1,700&display=swap";
 
 /* src/assets/scss/styles.scss */
 :root {
@@ -55,7 +55,7 @@
   --primary08: rgba(var(--primary-rgb), 0.8);
   --primary09: rgba(var(--primary-rgb), 0.9);
   --primary005: rgba(var(--primary-rgb), 0.05);
-  --default-font-family: "Plus Jakarta Sans", sans-serif;
+  --default-font-family: "Kanit", sans-serif;
   --default-font-weight: 400;
   --default-text-color: #010101;
   --default-border: #eeeeee;

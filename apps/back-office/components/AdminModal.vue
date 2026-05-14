@@ -1,6 +1,6 @@
 <template>
   <div v-if="modelValue" class="modal fade show d-block" tabindex="-1" role="dialog">
-    <div class="modal-dialog" :class="size ? `modal-${size}` : ''">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" :class="size ? `modal-${size}` : ''">
       <div class="modal-content">
         <div class="modal-header">
           <h6 class="modal-title">{{ title }}</h6>

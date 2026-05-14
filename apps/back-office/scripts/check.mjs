@@ -17,6 +17,7 @@ const requiredFiles = [
   'pages/admin/tenant/[...slug].vue',
   'pages/admin/central/[...slug].vue',
   'composables/useAdminApi.ts',
+  'composables/useAdminSuccessAlert.ts',
   'composables/useAdminClientReady.ts',
   'composables/useAdminSession.ts',
   'composables/useAdminNavigation.ts',
@@ -116,8 +117,21 @@ const operationsPage = existsSync(join(root, 'components/AdminOperationsPage.vue
 const adminClientReady = existsSync(join(root, 'composables/useAdminClientReady.ts'))
   ? readFileSync(join(root, 'composables/useAdminClientReady.ts'), 'utf8')
   : ''
+const adminSuccessAlert = existsSync(join(root, 'composables/useAdminSuccessAlert.ts'))
+  ? readFileSync(join(root, 'composables/useAdminSuccessAlert.ts'), 'utf8')
+  : ''
 const adminProtectedContent = existsSync(join(root, 'components/AdminProtectedContent.vue'))
   ? readFileSync(join(root, 'components/AdminProtectedContent.vue'), 'utf8')
+  : ''
+const packageJson = existsSync(join(root, 'package.json'))
+  ? readFileSync(join(root, 'package.json'), 'utf8')
+  : ''
+const nuxtConfig = existsSync(join(root, 'nuxt.config.ts'))
+  ? readFileSync(join(root, 'nuxt.config.ts'), 'utf8')
+  : ''
+const adminFoundationDocPath = join(root, '..', '..', 'docs', 'back-office-admin-foundation.md')
+const adminFoundationDoc = existsSync(adminFoundationDocPath)
+  ? readFileSync(adminFoundationDocPath, 'utf8')
   : ''
 const templateNotice = existsSync(join(root, 'public/admin-template/NOTICE.md'))
   ? readFileSync(join(root, 'public/admin-template/NOTICE.md'), 'utf8')
@@ -151,10 +165,10 @@ for (const evidence of [
   ['SSR no-marker login redirect', serverAdminGuard.includes('adminSessionCookieName') && serverAdminGuard.includes("marker.value !== '1'") && serverAdminGuard.includes('loginRedirect(to.fullPath)')],
   ['SSR exact-marker shell bridge', serverAdminGuard.includes('useCookie<string | null>') && serverAdminGuard.includes('decode: (value) => value') && serverAdminGuard.includes('non-sensitive SSR restore shell') && !serverAdminGuard.includes('session.isAuthenticated')],
   ['login redirect preservation', adminMiddleware.includes('loginRedirect(to.fullPath)')],
-  ['legacy admin login redirect cleanup', adminMiddleware.includes("to.path === '/admin/login'") && adminMiddleware.includes('legacyLoginRedirect') && loginPage.includes("target !== '/admin/login'") && loginPage.includes('isRoutableAdminPath')],
   ['client auth restore', adminMiddleware.includes('session.restore()') && adminMiddleware.includes('session.alignScopeForPath(to.path)')],
   ['login safe redirect target', loginPage.includes('safeRedirectTarget') && loginPage.includes('route.query.redirect') && loginPage.includes('isAdminPath') && loginPage.includes('isScopePath')],
   ['operations client-only load', operationsPage.includes('if (!import.meta.client)') && operationsPage.includes('onMounted(() =>') && operationsPage.includes('!session.isAuthenticated.value')],
+  ['successful write alert rule', (!adminFoundationDoc || (adminFoundationDoc.includes('Successful admin API write calls') && adminFoundationDoc.includes('SweetAlert2'))) && apiClient.includes('useAdminSuccessAlert') && apiClient.includes('isWriteMethod(method)') && apiClient.includes('options.successMessage !== false') && adminSuccessAlert.includes("import('sweetalert2')") && adminSuccessAlert.includes('Swal.fire') && packageJson.includes('"sweetalert2"') && nuxtConfig.includes('sweetalert2/dist/sweetalert2.min.css') && !adminLayout.includes('AdminAlert v-if="successAlert"')],
 ]) {
   if (!evidence[1]) {
     failures.push(`Authenticated navigation guardrail missing: ${evidence[0]}`)
@@ -237,7 +251,9 @@ for (const routeSlug of [
 
 for (const [routeKey, route] of [
   ['central:rewards', '/admin/central/rewards'],
-  ['central:prize_checking', '/admin/central/rewards'],
+  ['central:master_stock', '/admin/central/master-stock'],
+  ['central:stock_generation', '/admin/central/stock-generation'],
+  ['central:stock_recall', '/admin/central/stock-recall'],
   ['central:reports', '/admin/central/reports'],
   ['central:settlement', '/admin/central/settlements'],
   ['central:partner_provisioning', '/admin/central/partner-provisioning'],
@@ -307,7 +323,10 @@ for (const evidence of [
   ['P1 tenant topup nested customer context', operationsCatalog.includes('const topupActionContext') && operationsCatalog.includes("'member_id'") && operationsCatalog.includes("'amount.currency'") && operationsCatalog.includes("'channel'") && operationsCatalog.includes("contextFields: topupActionContext")],
   ['P2 partner typed workflows', operationsCatalog.includes('const partnerCreateFields') && operationsCatalog.includes('const partnerProvisionFields') && operationsCatalog.includes('const partnerQuotaCreateFields') && operationsCatalog.includes("endpoint: '/admin/central/partners/{partner_id}/suspend'") && operationsCatalog.includes("formFields: partnerProvisionFields")],
   ['P2 billing alert typed workflows', operationsCatalog.includes('sourceKey?: string') && operationsCatalog.includes('const billingPlanFields') && operationsCatalog.includes('const billingPlanUpdateFields') && operationsCatalog.includes('const alertPolicyFields') && operationsCatalog.includes('const alertEventActionContext') && operationsCatalog.includes("formFields: billingPlanFields") && operationsCatalog.includes("formFields: alertPolicyFields")],
-  ['P3 reward report log workflows', operationsCatalog.includes("'prize-lines'") && operationsCatalog.includes('const rewardCreateFields') && operationsCatalog.includes('const rewardUpdateFields') && operationsCatalog.includes('Prize Check Batches') && operationsCatalog.includes('const settlementActionContext') && operationsCatalog.includes('const reportExportContext') && operationsCatalog.includes('function reportExportFields') && operationsPage.includes('buildCollectionContext') && operationsPage.includes('normalizePrizeLines') && existsSync(join(root, 'components/AdminReportPanel.vue')) && readFileSync(join(root, 'components/AdminReportPanel.vue'), 'utf8').includes('Report rows')],
+  ['P3 central stock game selector workflows', operationsCatalog.includes("export type OperationOptionSource = 'central-games'") && operationsCatalog.includes('const gameSelectField') && operationsCatalog.includes('const gameSelectFilter') && operationsPage.includes("api.apiFetch('/admin/central/games'") && operationsPage.includes('hydrateFields') && operationsPage.includes('hydratedCollectionActions')],
+  ['P3 central stock grouped duplicate workflow', operationsCatalog.includes('stockGrouped?: boolean') && operationsCatalog.includes('defaultQuery: { grouped: true }') && operationsCatalog.includes("key: 'number'") && operationsPage.includes('openStockTickets') && operationsPage.includes('stockTicketColumns') && operationsPage.includes('full_number: stockTickets.fullNumber') && readFileSync(join(root, 'components/AdminPagination.vue'), 'utf8').includes('Page {{ currentPage }}')],
+  ['P3 API sortable data table', readFileSync(join(root, 'components/AdminDataTable.vue'), 'utf8').includes('sortChange') && readFileSync(join(root, 'components/AdminDataTable.vue'), 'utf8').includes('aria-sort') && readFileSync(join(root, 'components/AdminDataTable.vue'), 'utf8').includes('sortable') && operationsCatalog.includes('apiSort?: boolean') && operationsPage.includes('sort_by') && operationsPage.includes('applySort')],
+  ['P3 reward report log workflows', operationsCatalog.includes("'reward-prize-number-grid'") && operationsCatalog.includes("'reward-prize-amount-grid'") && operationsCatalog.includes('detailRenderer?:') && operationsCatalog.includes("detailRenderer: 'reward'") && operationsCatalog.includes('const rewardCreateFields') && operationsCatalog.includes('const rewardNumberUpdateFields') && operationsCatalog.includes('const rewardPayoutUpdateFields') && operationsCatalog.includes('Update winning numbers') && operationsCatalog.includes('Update payout amounts') && operationsPage.includes('AdminRewardPrizes') && operationsPage.includes('rewardPrizeGroupsToPayload') && readFileSync(join(root, 'components/AdminConfirmAction.vue'), 'utf8').includes('np-reward-prize-editor') && existsSync(join(root, 'components/AdminRewardPrizes.vue')) && operationsCatalog.includes('const settlementActionContext') && operationsCatalog.includes('const reportExportContext') && operationsCatalog.includes('function reportExportFields') && operationsPage.includes('buildCollectionContext') && existsSync(join(root, 'components/AdminReportPanel.vue')) && readFileSync(join(root, 'components/AdminReportPanel.vue'), 'utf8').includes('Report rows')],
   ['P3 tenant sync processed filter', operationsCatalog.includes("slug: 'sync-logs'") && operationsCatalog.includes("statusFilter(['pending', 'running', 'completed', 'processed', 'failed'])")],
   ['P4 administration security settings workflows', operationsCatalog.includes('function adminUserResource') && operationsCatalog.includes('function roleManagementResource') && operationsCatalog.includes('const adminUserCreateFields') && operationsCatalog.includes('const roleCreateFields') && operationsCatalog.includes('const tenantSettingsFields') && operationsCatalog.includes('const tenantThemeFields') && operationsCatalog.includes('const tenantDomainCreateFields') && operationsCatalog.includes("secondarySettings") && operationsPage.includes('isMenuManagement') && operationsPage.includes('saveMenuTree') && operationsPage.includes('loadSecondarySettings') && existsSync(join(root, 'components/AdminMenuTreeEditor.vue')) && readFileSync(join(root, 'components/AdminMenuTreeEditor.vue'), 'utf8').includes('Save menu')],
   ['settings update method support', operationsPage.includes('resource.value.updateMethod') && operationsCatalog.includes("updateMethod?: 'PATCH' | 'PUT' | 'POST'")],
@@ -404,10 +423,6 @@ if (menuCompletionDoc) {
     }
   }
 }
-
-const nuxtConfig = existsSync(join(root, 'nuxt.config.ts'))
-  ? readFileSync(join(root, 'nuxt.config.ts'), 'utf8')
-  : ''
 
 const bootstrapCssIndex = nuxtConfig.indexOf('/admin-template/assets/libs/bootstrap/css/bootstrap.min.css')
 const stylesCssIndex = nuxtConfig.indexOf('/admin-template/assets/css/styles.css')

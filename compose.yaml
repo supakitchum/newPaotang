@@ -163,6 +163,7 @@ services:
     volumes:
       - ./apps/back-office:/app
       - back-office-node-modules:/app/node_modules
+      - back-office-nuxt:/app/.nuxt
 
   postgres:
     image: postgres:17-alpine
@@ -173,6 +174,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U newpaotang -d newpaotang"]
@@ -197,5 +199,6 @@ volumes:
   customer-node-modules:
   customer-nuxt:
   back-office-node-modules:
+  back-office-nuxt:
   postgres-data:
   valkey-data:

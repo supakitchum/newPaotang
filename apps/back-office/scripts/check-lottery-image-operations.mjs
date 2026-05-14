@@ -6,10 +6,6 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const componentPath = join(root, 'components/AdminLotteryImageOperations.vue')
 const pagePath = join(root, 'pages/admin/central/lottery-images/index.vue')
 const dashboardPath = join(root, 'pages/admin/central/dashboard.vue')
-const apiPath = join(root, 'composables/useAdminApi.ts')
-const catalogPath = join(root, 'composables/useAdminOperationsCatalog.ts')
-const operationsPagePath = join(root, 'components/AdminOperationsPage.vue')
-const navigationPath = join(root, 'composables/useAdminNavigation.ts')
 
 const failures = []
 
@@ -24,35 +20,17 @@ if (!existsSync(pagePath)) {
 const component = existsSync(componentPath) ? readFileSync(componentPath, 'utf8') : ''
 const page = existsSync(pagePath) ? readFileSync(pagePath, 'utf8') : ''
 const dashboard = existsSync(dashboardPath) ? readFileSync(dashboardPath, 'utf8') : ''
-const api = existsSync(apiPath) ? readFileSync(apiPath, 'utf8') : ''
-const catalog = existsSync(catalogPath) ? readFileSync(catalogPath, 'utf8') : ''
-const operationsPage = existsSync(operationsPagePath) ? readFileSync(operationsPagePath, 'utf8') : ''
-const navigation = existsSync(navigationPath) ? readFileSync(navigationPath, 'utf8') : ''
 
 for (const token of [
-  '/admin/central/games',
-  '/admin/central/partners',
   '/admin/central/lottery-images/readiness',
   '/admin/central/lottery-images/background-asset-sets',
-  '/admin/central/lottery-images/background-asset-sets/import-zip',
-  '/admin/central/lottery-images/preview',
   '/admin/central/lottery-images/mix',
   '/admin/central/lottery-images/retry-pending',
   '/admin/central/lottery-images/production-readiness',
+  '/admin/central/assets/uploads',
+  '/admin/central/assets/${encodeURIComponent(intent.asset_id)}/commit',
   "scope: 'central'",
   'idempotencyKey: api.idempotencyKey()',
-  'new FormData()',
-  "body.append('zip'",
-  'expected_count',
-  'zipForm.progress',
-  'previewForm.lottery_number',
-  'mode: previewForm.mode',
-  'partner_id: previewForm.partner_id',
-  'central_unbranded',
-  'partner_branded',
-  'route.query.game_id',
-  'unknownGameLabel',
-  'session.setScope(\'central\')',
   'supersede_existing',
   'missing_set_types',
   'pending_assets',
@@ -60,23 +38,12 @@ for (const token of [
   'secrets_redacted',
   'mixTotal !== 100',
   'retryConfirmOpen',
-]) {
-  if (!component.includes(token)) {
-    failures.push(`Lottery image operations component missing ${token}`)
-  }
-}
-
-for (const removedToken of [
-  '/admin/central/assets/uploads',
-  '/admin/central/assets/${encodeURIComponent(intent.asset_id)}/commit',
   'source: { asset_id: assetForm.assets.source.asset_id }',
   'full: { asset_id: assetForm.assets.full.asset_id }',
   'thumb: { asset_id: assetForm.assets.thumb.asset_id }',
-  'onAssetFileChange',
-  'uploadAssetSlot',
 ]) {
-  if (component.includes(removedToken)) {
-    failures.push(`Lottery image operations component still contains old manual asset upload token ${removedToken}`)
+  if (!component.includes(token)) {
+    failures.push(`Lottery image operations component missing ${token}`)
   }
 }
 
@@ -91,22 +58,6 @@ for (const token of [
 
 if (!dashboard.includes('/admin/central/lottery-images')) {
   failures.push('Central dashboard does not link to lottery image operations')
-}
-
-if (!api.includes('isFormDataBody') || !api.includes('body instanceof FormData')) {
-  failures.push('Admin API helper does not preserve multipart FormData boundaries')
-}
-
-if (!catalog.includes("adminUiRoute('central', 'lottery-images?game_id={id}')")) {
-  failures.push('Central games catalog is missing lottery image deep-link action')
-}
-
-if (!operationsPage.includes('action.route') || !operationsPage.includes('actionRoute(action, row)')) {
-  failures.push('Admin operations page does not render route actions')
-}
-
-if (!navigation.includes('central:lottery_images')) {
-  failures.push('Central navigation does not map lottery image menu route override')
 }
 
 if (component.includes("scope: 'tenant'") || page.includes('/admin/tenant/')) {

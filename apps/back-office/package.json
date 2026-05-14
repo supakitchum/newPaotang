@@ -15,9 +15,9 @@
     "node-waves": "^0.7.6",
     "nuxt": "3.11.2",
     "simplebar": "^6.3.0",
+    "sweetalert2": "^11.26.24",
     "vue": "3.4.21"
   },
-  "devDependencies": {},
   "overrides": {
     "@nuxt/devtools": "1.1.5",
     "@nuxt/telemetry": "2.5.3",

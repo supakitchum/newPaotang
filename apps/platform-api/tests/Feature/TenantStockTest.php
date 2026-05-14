@@ -48,6 +48,36 @@ class TenantStockTest extends TestCase
             ->assertJsonPath('data.0.tenant_id', 'ten_stock_tenant')
             ->assertJsonPath('meta.has_more', false);
 
+        $sortedStock = $this->withToken($stockAdmin['access_token'])
+            ->getJson('/api/v1/admin/tenant/stock?'.http_build_query([
+                'game_id' => 'gam_tenant_stock',
+                'sort_by' => 'full_number',
+                'sort_dir' => 'desc',
+                'limit' => 1,
+            ]), [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_stock_tenant',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.0.full_number', '111111')
+            ->assertJsonPath('meta.has_more', true)
+            ->json();
+
+        $this->withToken($stockAdmin['access_token'])
+            ->getJson('/api/v1/admin/tenant/stock?'.http_build_query([
+                'game_id' => 'gam_tenant_stock',
+                'sort_by' => 'full_number',
+                'sort_dir' => 'desc',
+                'cursor' => $sortedStock['meta']['next_cursor'],
+                'limit' => 1,
+            ]), [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_stock_tenant',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.0.full_number', '111110')
+            ->assertJsonPath('meta.has_more', false);
+
         $this->withToken($stockAdmin['access_token'])
             ->getJson('/api/v1/admin/tenant/stock/'.$stockIds[0], [
                 'X-Admin-Scope' => 'tenant',

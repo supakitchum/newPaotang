@@ -13,6 +13,7 @@ class Game extends BaseModel
         'id',
         'code',
         'name',
+        'sale_start_at',
         'draw_at',
         'close_at',
         'closed_at',
@@ -24,6 +25,7 @@ class Game extends BaseModel
     ];
 
     protected $casts = [
+        'sale_start_at' => 'datetime',
         'draw_at' => 'datetime',
         'close_at' => 'datetime',
         'closed_at' => 'datetime',

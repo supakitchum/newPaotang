@@ -41,7 +41,7 @@ return new class extends Migration
 
             $table->foreign('game_id')->references('id')->on('games')->cascadeOnDelete();
             $table->foreign('created_by_admin_id')->references('id')->on('admin_users')->nullOnDelete();
-            $table->unique(['game_id', 'type', 'payload_hash']);
+            $table->index(['game_id', 'type', 'payload_hash']);
             $table->index(['game_id', 'status']);
         });
 
@@ -108,7 +108,7 @@ return new class extends Migration
             $table->foreign('partner_id')->references('id')->on('partners')->nullOnDelete();
             $table->foreign('tenant_id')->references('id')->on('partner_tenants')->nullOnDelete();
             $table->foreign('allocation_id')->references('id')->on('partner_stock_allocations')->nullOnDelete();
-            $table->unique(['game_id', 'full_number']);
+            $table->index(['game_id', 'full_number']);
             $table->index(['game_id', 'status', 'id']);
             $table->index(['allocation_id', 'status']);
             $table->index(['tenant_id', 'status']);
