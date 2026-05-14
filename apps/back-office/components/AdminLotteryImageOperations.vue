@@ -457,7 +457,45 @@
             </button>
           </div>
         </div>
-
+        <div v-if="previewResult" class="row g-3 mt-1">
+          <div class="col-lg-6">
+            <div class="border rounded d-flex align-items-center justify-content-center bg-light overflow-hidden p-2" style="min-height: 260px;">
+              <img v-if="previewResult.data_url" :src="previewResult.data_url" alt="Lottery image preview" class="img-fluid" style="max-height: 360px; object-fit: contain;">
+              <AdminEmptyState v-else title="No image returned" message="The preview response did not include a data URL." icon="ri-image-line" />
+            </div>
+          </div>
+          <div class="col-lg-6">
+            <div class="border rounded p-3 h-100">
+              <div class="d-flex flex-wrap gap-2 mb-3">
+                <AdminStatusBadge :status="previewResult.mode" :label="titleize(previewResult.mode || '-')" />
+                <AdminStatusBadge v-if="previewResult.fallback_mode" status="warning" :label="`Fallback: ${titleize(previewResult.fallback_mode)}`" />
+              </div>
+              <div class="row g-2 small">
+                <div v-for="item in previewDetails" :key="item.key" class="col-md-6">
+                  <div class="border rounded p-2 h-100">
+                    <div class="text-muted fs-12">{{ item.label }}</div>
+                    <div class="text-break">{{ item.value }}</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-3">
+                <div class="fw-semibold mb-2">Warnings</div>
+                <AdminEmptyState v-if="!previewWarnings.length" title="No warnings" message="Backend returned no fallback warnings for this preview." icon="ri-checkbox-circle-line" />
+                <div v-else class="d-flex flex-wrap gap-2">
+                  <span v-for="warning in previewWarnings" :key="warning" class="badge bg-warning-transparent text-warning">{{ warning }}</span>
+                </div>
+              </div>
+              <div class="mt-3">
+                <div class="fw-semibold mb-2">Side effects</div>
+                <div class="d-flex flex-wrap gap-2">
+                  <span class="badge bg-success-transparent text-success">Stock rows {{ previewResult.side_effects?.stock_rows_created ?? 0 }}</span>
+                  <span class="badge bg-success-transparent text-success">Permanent images {{ previewResult.side_effects?.permanent_image_rows_created ?? 0 }}</span>
+                  <span class="badge bg-success-transparent text-success">Branding locked {{ yesNo(Boolean(previewResult.side_effects?.branding_locked)) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="border rounded mt-3">
           <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 p-3 border-bottom">
             <div>
@@ -505,48 +543,7 @@
             </table>
           </div>
         </div>
-
         <AdminAlert v-if="previewModeWarning" class="mt-3" type="warning" :message="previewModeWarning" />
-
-        <div v-if="previewResult" class="row g-3 mt-1">
-          <div class="col-lg-5">
-            <div class="border rounded d-flex align-items-center justify-content-center bg-light overflow-hidden p-2" style="min-height: 260px;">
-              <img v-if="previewResult.data_url" :src="previewResult.data_url" alt="Lottery image preview" class="img-fluid" style="max-height: 360px; object-fit: contain;">
-              <AdminEmptyState v-else title="No image returned" message="The preview response did not include a data URL." icon="ri-image-line" />
-            </div>
-          </div>
-          <div class="col-lg-7">
-            <div class="border rounded p-3 h-100">
-              <div class="d-flex flex-wrap gap-2 mb-3">
-                <AdminStatusBadge :status="previewResult.mode" :label="titleize(previewResult.mode || '-')" />
-                <AdminStatusBadge v-if="previewResult.fallback_mode" status="warning" :label="`Fallback: ${titleize(previewResult.fallback_mode)}`" />
-              </div>
-              <div class="row g-2 small">
-                <div v-for="item in previewDetails" :key="item.key" class="col-md-6">
-                  <div class="border rounded p-2 h-100">
-                    <div class="text-muted fs-12">{{ item.label }}</div>
-                    <div class="text-break">{{ item.value }}</div>
-                  </div>
-                </div>
-              </div>
-              <div class="mt-3">
-                <div class="fw-semibold mb-2">Warnings</div>
-                <AdminEmptyState v-if="!previewWarnings.length" title="No warnings" message="Backend returned no fallback warnings for this preview." icon="ri-checkbox-circle-line" />
-                <div v-else class="d-flex flex-wrap gap-2">
-                  <span v-for="warning in previewWarnings" :key="warning" class="badge bg-warning-transparent text-warning">{{ warning }}</span>
-                </div>
-              </div>
-              <div class="mt-3">
-                <div class="fw-semibold mb-2">Side effects</div>
-                <div class="d-flex flex-wrap gap-2">
-                  <span class="badge bg-success-transparent text-success">Stock rows {{ previewResult.side_effects?.stock_rows_created ?? 0 }}</span>
-                  <span class="badge bg-success-transparent text-success">Permanent images {{ previewResult.side_effects?.permanent_image_rows_created ?? 0 }}</span>
-                  <span class="badge bg-success-transparent text-success">Branding locked {{ yesNo(Boolean(previewResult.side_effects?.branding_locked)) }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 

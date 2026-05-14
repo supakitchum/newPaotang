@@ -473,7 +473,7 @@ num_set_bottom_left, num_set_bottom_right
 logo_qr, right_sidebar, logo_bottom
 ```
 
-The background remains the fixed base layer and must not expose x/y/size controls. Numeric slots support `x`, `y`, `width`, `height`, `gap`, `size`, `angle`, and `rotate` only where relevant. Blank nullable heights preserve the source image aspect ratio.
+The background remains the fixed base layer and must not expose x/y/size controls. Background source images are resampled into the configured full/thumb dimensions without cover-cropping, so the full background artwork stays visible. Numeric slots support `x`, `y`, `width`, `height`, `gap`, `size`, `angle`, and `rotate` only where relevant. Blank nullable heights preserve the source image aspect ratio.
 
 ## Background Mix Assignment
 

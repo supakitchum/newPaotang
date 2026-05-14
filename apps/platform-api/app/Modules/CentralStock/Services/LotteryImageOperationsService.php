@@ -1179,13 +1179,8 @@ class LotteryImageOperationsService
         try {
             $sourceWidth = imagesx($source);
             $sourceHeight = imagesy($source);
-            $scale = max($spec['width'] / $sourceWidth, $spec['height'] / $sourceHeight);
-            $cropWidth = max(1, (int) floor($spec['width'] / $scale));
-            $cropHeight = max(1, (int) floor($spec['height'] / $scale));
-            $sourceX = max(0, (int) floor(($sourceWidth - $cropWidth) / 2));
-            $sourceY = max(0, (int) floor(($sourceHeight - $cropHeight) / 2));
 
-            imagecopyresampled($canvas, $source, 0, 0, $sourceX, $sourceY, $spec['width'], $spec['height'], $cropWidth, $cropHeight);
+            imagecopyresampled($canvas, $source, 0, 0, 0, 0, $spec['width'], $spec['height'], $sourceWidth, $sourceHeight);
             ob_start();
             $encoded = imagewebp($canvas, null, (int) config('lottery_images.dimensions.'.$variant.'.quality', 70));
             $bytes = ob_get_clean();

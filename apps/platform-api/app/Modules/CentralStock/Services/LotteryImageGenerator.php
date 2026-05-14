@@ -260,7 +260,7 @@ class LotteryImageGenerator
         }
 
         try {
-            $this->copyCover($source, $canvas, 0, 0, $width, $height);
+            $this->copyStretch($source, $canvas, 0, 0, $width, $height);
         } finally {
             imagedestroy($source);
         }
@@ -593,24 +593,6 @@ class LotteryImageGenerator
         }
 
         return $image === false ? null : $image;
-    }
-
-    private function copyCover(mixed $source, mixed $target, int $x, int $y, int $width, int $height): void
-    {
-        $sourceWidth = imagesx($source);
-        $sourceHeight = imagesy($source);
-
-        if ($sourceWidth <= 0 || $sourceHeight <= 0) {
-            return;
-        }
-
-        $scale = max($width / $sourceWidth, $height / $sourceHeight);
-        $cropWidth = max(1, (int) floor($width / $scale));
-        $cropHeight = max(1, (int) floor($height / $scale));
-        $sourceX = max(0, (int) floor(($sourceWidth - $cropWidth) / 2));
-        $sourceY = max(0, (int) floor(($sourceHeight - $cropHeight) / 2));
-
-        imagecopyresampled($target, $source, $x, $y, $sourceX, $sourceY, $width, $height, $cropWidth, $cropHeight);
     }
 
     private function copyStretch(mixed $source, mixed $target, int $x, int $y, int $width, int $height): void

@@ -499,6 +499,35 @@ class LotteryImageOperationsTest extends TestCase
             ->assertJsonPath('error.details.fields.zip.0', fn (string $message): bool => str_contains($message, 'PHP upload limit'));
     }
 
+    public function test_LotteryImageZipImport_preserves_full_background_frame_without_cover_crop(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertGame('gam_lottery_full_bg', 'open');
+        $central = $this->createCentralSession(['asset.manage'], 'adm_lottery_full_bg', 'lottery-full-bg@example.test');
+
+        $response = $this->withToken($central['access_token'])
+            ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
+                'game_id' => 'gam_lottery_full_bg',
+                'version' => 'v1',
+                'set_type' => 'odd',
+                'zip' => $this->edgeMarkerZipUpload(),
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'central-full-bg-import',
+            ])
+            ->assertOk()
+            ->json();
+
+        $bytes = Storage::disk('lottery_images')->get($response['data'][0]['assets']['full']['storage_path']);
+        $left = $this->pixelRgbFromBytes($bytes, 1, 140);
+        $right = $this->pixelRgbFromBytes($bytes, 498, 140);
+
+        $this->assertGreaterThan(180, $left[0]);
+        $this->assertLessThan(100, $left[2]);
+        $this->assertGreaterThan(180, $right[2]);
+        $this->assertLessThan(100, $right[0]);
+    }
+
     public function test_LotteryImagePreview_supports_manual_number_modes_and_creates_no_rows(): void
     {
         $this->seedDefaultRbac();
@@ -873,6 +902,40 @@ class LotteryImageOperationsTest extends TestCase
         return new UploadedFile($path, 'too-large.zip', 'application/zip', UPLOAD_ERR_INI_SIZE, true);
     }
 
+    private function edgeMarkerZipUpload(): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'lottery-edge-marker-zip-');
+        $this->assertIsString($path);
+
+        $zip = new ZipArchive();
+        $this->assertTrue($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE));
+        $zip->addFromString('edge.png', $this->edgeMarkerPng());
+        $zip->close();
+
+        return new UploadedFile($path, 'edge-marker.zip', 'application/zip', null, true);
+    }
+
+    private function edgeMarkerPng(): string
+    {
+        $image = imagecreatetruecolor(700, 280);
+        $middle = imagecolorallocate($image, 240, 240, 240);
+        $left = imagecolorallocate($image, 240, 20, 20);
+        $right = imagecolorallocate($image, 20, 30, 240);
+
+        imagefilledrectangle($image, 0, 0, 699, 279, $middle);
+        imagefilledrectangle($image, 0, 0, 79, 279, $left);
+        imagefilledrectangle($image, 620, 0, 699, 279, $right);
+
+        ob_start();
+        imagepng($image);
+        $bytes = ob_get_clean();
+        imagedestroy($image);
+
+        $this->assertIsString($bytes);
+
+        return $bytes;
+    }
+
     private function fixturePng(int $seed, int $width = 500, int $height = 280): string
     {
         $image = imagecreatetruecolor($width, $height);
@@ -995,5 +1058,27 @@ class LotteryImageOperationsTest extends TestCase
         $this->assertIsString($bytes);
         $this->assertStringStartsWith('RIFF', $bytes);
         $this->assertSame('WEBP', substr($bytes, 8, 4));
+    }
+
+    /**
+     * @return array{0: int, 1: int, 2: int}
+     */
+    private function pixelRgbFromBytes(string $bytes, int $x, int $y): array
+    {
+        $image = imagecreatefromstring($bytes);
+        $this->assertNotFalse($image);
+
+        if ($image === false) {
+            return [0, 0, 0];
+        }
+
+        $rgb = imagecolorat($image, $x, $y);
+        imagedestroy($image);
+
+        return [
+            ($rgb >> 16) & 0xFF,
+            ($rgb >> 8) & 0xFF,
+            $rgb & 0xFF,
+        ];
     }
 }
