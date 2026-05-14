@@ -238,15 +238,23 @@
             >
               Detail
             </NuxtLink>
-            <button
-              v-for="action in resource.actions || []"
-              :key="action.key"
-              type="button"
-              :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
-              @click="openRowAction(action, row)"
-            >
-              {{ action.label }}
-            </button>
+            <template v-for="action in resource.actions || []" :key="action.key">
+              <NuxtLink
+                v-if="action.route"
+                :to="actionRoute(action, row)"
+                :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
+              >
+                {{ action.label }}
+              </NuxtLink>
+              <button
+                v-else
+                type="button"
+                :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
+                @click="openRowAction(action, row)"
+              >
+                {{ action.label }}
+              </button>
+            </template>
           </div>
         </template>
       </AdminDataTable>
@@ -285,15 +293,23 @@
               >
                 Detail
               </button>
-              <button
-                v-for="action in related.actions || []"
-                :key="action.key"
-                type="button"
-                :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
-                @click="openRelatedRowAction(related, action, row)"
-              >
-                {{ action.label }}
-              </button>
+              <template v-for="action in related.actions || []" :key="action.key">
+                <NuxtLink
+                  v-if="action.route"
+                  :to="actionRoute(action, row)"
+                  :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
+                >
+                  {{ action.label }}
+                </NuxtLink>
+                <button
+                  v-else
+                  type="button"
+                  :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
+                  @click="openRelatedRowAction(related, action, row)"
+                >
+                  {{ action.label }}
+                </button>
+              </template>
             </div>
           </template>
         </AdminDataTable>
@@ -662,6 +678,8 @@ const resetDetailDraft = () => {
 }
 
 const openRowAction = (action: OperationAction, row: any) => {
+  if (action.route) return
+
   confirm.open = true
   confirm.action = action
   confirm.row = row
@@ -676,6 +694,8 @@ const openDetailAction = (action: OperationAction) => {
 }
 
 const openCollectionAction = (action: OperationAction) => {
+  if (action.route) return
+
   confirm.open = true
   confirm.action = action
   confirm.row = buildCollectionContext()
@@ -686,6 +706,8 @@ const openCollectionAction = (action: OperationAction) => {
 }
 
 const openRelatedCollectionAction = (related: OperationRelatedList, action: OperationAction) => {
+  if (action.route) return
+
   confirm.open = true
   confirm.action = action
   confirm.row = null
@@ -696,6 +718,8 @@ const openRelatedCollectionAction = (related: OperationRelatedList, action: Oper
 }
 
 const openRelatedRowAction = (related: OperationRelatedList, action: OperationAction, row: any) => {
+  if (action.route) return
+
   confirm.open = true
   confirm.action = action
   confirm.row = row
@@ -723,7 +747,7 @@ const openRelatedDetail = async (related: OperationRelatedList, row: any) => {
 }
 
 const runConfirmedAction = async (reason: string, payloadJson = '', formValues: Record<string, any> = {}) => {
-  if (!confirm.action || !resource.value) return
+  if (!confirm.action?.endpoint || !resource.value) return
   saving.value = true
   actionError.value = null
   try {
@@ -807,6 +831,8 @@ const buildActionBody = (action: OperationAction, reason: string, payloadJson: s
   const compacted = compactPayload(payload)
   return Object.keys(compacted).length ? compacted : undefined
 }
+
+const actionRoute = (action: OperationAction, row: any) => interpolateRecord(action.route || '', row)
 
 const buildPayloadFromFields = (fields: OperationFormField[], values: Record<string, any>) => {
   const payload: Record<string, any> = {}
@@ -983,6 +1009,10 @@ const buildCollectionContext = () => {
 }
 
 const interpolate = (endpoint: string, id?: string | null) => endpoint.replace(/\{[^}]+\}/g, encodeURIComponent(id || ''))
+const interpolateRecord = (template: string, row: any = {}) => template.replace(/\{([^}]+)\}/g, (_, key) => {
+  const value = getPath(row, key) ?? row.__id ?? ''
+  return encodeURIComponent(String(value))
+})
 
 const normalizeSlug = (value: unknown): string[] => {
   if (Array.isArray(value)) return value.map(String)

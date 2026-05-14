@@ -36,7 +36,8 @@ export type OperationAction = {
   key: string
   label: string
   method?: 'POST' | 'PATCH' | 'DELETE'
-  endpoint: string
+  endpoint?: string
+  route?: string
   variant?: 'primary' | 'success' | 'warning' | 'danger'
   reason?: boolean
   payloadTemplate?: Record<string, any>
@@ -106,6 +107,7 @@ const cursorFilters = (extra: OperationFilter[] = []): OperationFilter[] => [
   { key: 'cursor', label: 'Cursor' },
   { key: 'limit', label: 'Limit', type: 'number' },
 ]
+const adminUiRoute = (scope: AdminScope, path: string) => `/admin/${scope}/${path}`
 
 const auditColumns: OperationColumn[] = [
   { key: 'id', label: 'Log' },
@@ -1555,6 +1557,7 @@ const central: OperationResource[] = [
     filters: cursorFilters([{ key: 'q', label: 'Search' }, statusFilter(partnerStatusOptions)]),
     confirmContextFields: partnerActionContext,
     actions: [
+      { key: 'lottery-branding', label: 'Lottery branding', route: adminUiRoute('central', 'partners/{id}/lottery-branding'), variant: 'success', contextFields: partnerActionContext },
       { key: 'update', label: 'Update', method: 'PATCH', endpoint: '/admin/central/partners/{partner_id}', variant: 'primary', contextFields: partnerActionContext, formFields: partnerUpdateFields },
       { key: 'suspend', label: 'Suspend', endpoint: '/admin/central/partners/{partner_id}/suspend', variant: 'warning', reason: true, contextFields: partnerActionContext },
     ],
@@ -1819,6 +1822,7 @@ const central: OperationResource[] = [
     filters: cursorFilters([statusFilter(['draft', 'open', 'closed', 'reward_recorded', 'reward_checking', 'reward_verified', 'reward_published', 'archived'])]),
     confirmContextFields: gameActionContext,
     actions: [
+      { key: 'lottery-images', label: 'Lottery images', route: adminUiRoute('central', 'lottery-images?game_id={id}'), variant: 'success', contextFields: gameActionContext },
       {
         key: 'update',
         label: 'Update',

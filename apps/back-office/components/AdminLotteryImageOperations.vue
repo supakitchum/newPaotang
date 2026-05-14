@@ -2,6 +2,10 @@
   <div>
     <AdminPageHeader title="Lottery Image Operations" :breadcrumbs="['Admin', 'Central', 'Lottery Images']">
       <template #actions>
+        <NuxtLink to="/admin/central/games" class="btn btn-light btn-wave">
+          <i class="ri-gamepad-line me-1" />
+          Games
+        </NuxtLink>
         <button class="btn btn-outline-primary btn-wave" type="button" :disabled="loadingAny" @click="loadAll">
           <span v-if="loadingAny" class="spinner-border spinner-border-sm me-1" />
           <i v-else class="ri-refresh-line me-1" />
@@ -11,6 +15,7 @@
     </AdminPageHeader>
 
     <AdminAlert v-if="pageError" :type="alertType(pageError)" :message="errorMessage(pageError)" :details="pageError.details" dismissible @dismiss="pageError = null" />
+    <AdminAlert v-if="gamesError" :type="alertType(gamesError)" :message="errorMessage(gamesError)" :details="gamesError.details" dismissible @dismiss="gamesError = null" />
     <AdminAlert v-if="successMessage" type="success" :message="successMessage" dismissible @dismiss="successMessage = ''" />
     <AdminAlert v-if="contextError" type="warning" :message="contextError" dismissible @dismiss="contextError = ''" />
 
@@ -18,9 +23,14 @@
       <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-3">
         <div>
           <div class="card-title mb-1">Game Context</div>
-          <p class="text-muted mb-0 fs-12">Central scope only. Writes include idempotency keys.</p>
+          <p class="text-muted mb-0 fs-12">Central scope only. Deep links can preselect a game by query string.</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-light btn-wave" type="button" :disabled="gamesLoading || loadingAny" @click="loadGames">
+            <span v-if="gamesLoading" class="spinner-border spinner-border-sm me-1" />
+            <i v-else class="ri-list-check-2 me-1" />
+            Reload games
+          </button>
           <button class="btn btn-light btn-wave" type="button" :disabled="loadingAny" @click="resetContext">
             Reset
           </button>
@@ -33,8 +43,13 @@
       <div class="card-body">
         <div class="row g-3">
           <div class="col-lg-4">
-            <label class="form-label" for="lottery-images-game-id">Game ID <span class="text-danger">*</span></label>
-            <input id="lottery-images-game-id" v-model.trim="context.game_id" class="form-control" placeholder="gam_lottery">
+            <label class="form-label" for="lottery-images-game-id">Game <span class="text-danger">*</span></label>
+            <select id="lottery-images-game-id" v-model="context.game_id" class="form-select" :disabled="gamesLoading">
+              <option value="">{{ gamesLoading ? 'Loading games...' : 'Select game' }}</option>
+              <option v-if="unknownContextGame" :value="context.game_id">{{ unknownGameLabel(context.game_id) }}</option>
+              <option v-for="game in gameOptions" :key="game.id" :value="game.id">{{ game.label }}</option>
+            </select>
+            <div class="form-text">{{ selectedGameText }}</div>
           </div>
           <div class="col-lg-4">
             <label class="form-label" for="lottery-images-batch-id">Batch ID</label>
@@ -45,6 +60,7 @@
             <input id="lottery-images-version" v-model.trim="context.version" class="form-control" placeholder="v1">
           </div>
         </div>
+        <AdminAlert v-if="selectedGameWarning" class="mt-3" type="warning" :message="selectedGameWarning" />
       </div>
     </div>
 
@@ -66,12 +82,13 @@
           </div>
           <div class="card-body">
             <AdminLoader v-if="readinessLoading" />
-            <AdminEmptyState v-else-if="!readiness" title="No readiness loaded" message="Enter a game ID and load operations." icon="ri-image-2-line" />
+            <AdminEmptyState v-else-if="!readiness" title="No readiness loaded" message="Select a game and load operations." icon="ri-image-2-line" />
             <template v-else>
               <div class="row g-3 mb-3">
                 <div class="col-md-4">
                   <div class="border rounded p-3 h-100">
                     <div class="text-muted fs-12 mb-1">Game</div>
+                    <div class="fw-semibold text-break">{{ gameName(readiness.game_id) }}</div>
                     <code class="np-admin-code text-break">{{ readiness.game_id || '-' }}</code>
                   </div>
                 </div>
@@ -107,8 +124,11 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="item in readinessBackgrounds" :key="`${item.id || item.set_type}-${item.version}`">
-                      <td>{{ titleize(item.set_type || '-') }}</td>
+                    <tr v-for="item in readinessBackgrounds" :key="`${item.id || item.set_type}-${item.version}-${item.position || 1}`">
+                      <td>
+                        <div>{{ titleize(item.set_type || '-') }}</div>
+                        <span v-if="item.position" class="text-muted fs-12">Position {{ item.position }}</span>
+                      </td>
                       <td><AdminStatusBadge :status="item.status || (item.ready ? 'ready' : 'missing')" /></td>
                       <td>
                         <AdminStatusBadge :status="item.generation_ready ? 'ready' : 'pending_assets'" :label="item.generation_ready ? 'Ready' : 'Blocked'" />
@@ -188,7 +208,7 @@
           <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
             <div>
               <div class="card-title mb-1">Background Asset Sets</div>
-              <p class="text-muted mb-0 fs-12">Grouped by game, version, and set type.</p>
+              <p class="text-muted mb-0 fs-12">Generated source/full/thumb rows from the PNG zip import.</p>
             </div>
             <button class="btn btn-outline-primary btn-wave" type="button" :disabled="assetSetsLoading || !canLoadContext" @click="loadBackgroundSets">
               <span v-if="assetSetsLoading" class="spinner-border spinner-border-sm me-1" />
@@ -198,7 +218,7 @@
           </div>
           <div class="card-body">
             <AdminLoader v-if="assetSetsLoading" />
-            <AdminEmptyState v-else-if="!assetSets.length" title="No background asset sets" message="Create a source/full/thumb set for odd, even, or charity." icon="ri-folder-image-line" />
+            <AdminEmptyState v-else-if="!assetSets.length" title="No background asset sets" message="Import a PNG zip for odd, even, or charity backgrounds." icon="ri-folder-image-line" />
             <div v-else class="table-responsive">
               <table class="table table-hover text-nowrap mb-0">
                 <thead>
@@ -214,10 +234,14 @@
                 <tbody>
                   <tr v-for="set in assetSets" :key="set.id">
                     <td>
-                      <div class="fw-semibold">{{ set.game_id }}</div>
-                      <code class="np-admin-code">{{ set.version }}</code>
+                      <div class="fw-semibold">{{ gameName(set.game_id) }}</div>
+                      <code class="np-admin-code">{{ set.game_id }}</code>
+                      <div><code class="np-admin-code">{{ set.version }}</code></div>
                     </td>
-                    <td>{{ titleize(set.set_type || '-') }}</td>
+                    <td>
+                      <div>{{ titleize(set.set_type || '-') }}</div>
+                      <span v-if="set.position" class="text-muted fs-12">Position {{ set.position }}</span>
+                    </td>
                     <td>
                       <div class="d-flex flex-column gap-1">
                         <AdminStatusBadge :status="set.status" />
@@ -226,7 +250,7 @@
                     </td>
                     <td>
                       <div class="d-flex flex-column gap-1 small">
-                        <span v-for="slot in slots" :key="slot.key">
+                        <span v-for="slot in assetSlots" :key="slot.key">
                           {{ slot.label }}:
                           <code class="np-admin-code">{{ assetId(set, slot.key) || '-' }}</code>
                         </span>
@@ -235,7 +259,7 @@
                     <td>{{ formatDateTime(set.updated_at) }}</td>
                     <td>
                       <div class="d-flex flex-wrap justify-content-end gap-1">
-                        <button class="btn btn-sm btn-light btn-wave" type="button" @click="fillAssetForm(set)">
+                        <button class="btn btn-sm btn-light btn-wave" type="button" @click="fillZipForm(set)">
                           Use
                         </button>
                         <button class="btn btn-sm btn-outline-success btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'ready')">
@@ -263,102 +287,219 @@
       <div class="col-xl-5">
         <div class="card custom-card h-100">
           <div class="card-header">
-            <div class="card-title">Create / Update Background Set</div>
+            <div class="card-title">PNG Zip Import</div>
           </div>
           <div class="card-body">
-            <AdminAlert v-if="assetFormError" :type="alertType(assetFormError)" :message="errorMessage(assetFormError)" :details="assetFormError.details" dismissible @dismiss="assetFormError = null" />
+            <AdminAlert v-if="zipFormError" :type="alertType(zipFormError)" :message="errorMessage(zipFormError)" :details="zipFormError.details" dismissible @dismiss="zipFormError = null" />
             <div class="row g-3">
               <div class="col-md-6">
-                <label class="form-label" for="asset-set-game-id">Game ID</label>
-                <input id="asset-set-game-id" v-model.trim="assetForm.game_id" class="form-control" placeholder="gam_lottery">
+                <label class="form-label" for="zip-game-id">Game</label>
+                <select id="zip-game-id" v-model="zipForm.game_id" class="form-select" :disabled="gamesLoading">
+                  <option value="">{{ gamesLoading ? 'Loading games...' : 'Select game' }}</option>
+                  <option v-if="unknownZipGame" :value="zipForm.game_id">{{ unknownGameLabel(zipForm.game_id) }}</option>
+                  <option v-for="game in gameOptions" :key="game.id" :value="game.id">{{ game.label }}</option>
+                </select>
               </div>
               <div class="col-md-6">
-                <label class="form-label" for="asset-set-version">Version</label>
-                <input id="asset-set-version" v-model.trim="assetForm.version" class="form-control" placeholder="v1">
+                <label class="form-label" for="zip-version">Version</label>
+                <input id="zip-version" v-model.trim="zipForm.version" class="form-control" placeholder="v1">
               </div>
               <div class="col-md-6">
-                <label class="form-label" for="asset-set-type">Set Type</label>
-                <select id="asset-set-type" v-model="assetForm.set_type" class="form-select">
+                <label class="form-label" for="zip-set-type">Set Type</label>
+                <select id="zip-set-type" v-model="zipForm.set_type" class="form-select">
                   <option v-for="setType in setTypes" :key="setType" :value="setType">{{ titleize(setType) }}</option>
                 </select>
               </div>
               <div class="col-md-6">
-                <label class="form-label" for="asset-set-status">Status</label>
-                <select id="asset-set-status" v-model="assetForm.status" class="form-select">
+                <label class="form-label" for="zip-expected-count">Expected PNG Count</label>
+                <input id="zip-expected-count" v-model.number="zipForm.expected_count" class="form-control" type="number" min="1" max="100" step="1">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="zip-status">Status</label>
+                <select id="zip-status" v-model="zipForm.status" class="form-select">
                   <option value="ready">Ready</option>
                   <option value="inactive">Inactive</option>
                   <option value="retired">Retired</option>
                 </select>
               </div>
-              <div class="col-12">
-                <div class="form-check form-switch">
-                  <input id="asset-set-supersede" v-model="assetForm.supersede_existing" class="form-check-input" type="checkbox">
-                  <label class="form-check-label" for="asset-set-supersede">Supersede existing active set for this game/version/type</label>
+              <div class="col-md-6 d-flex align-items-end">
+                <div class="form-check form-switch mb-2">
+                  <input id="zip-supersede" v-model="zipForm.supersede_existing" class="form-check-input" type="checkbox">
+                  <label class="form-check-label" for="zip-supersede">Supersede existing ready rows</label>
                 </div>
+              </div>
+              <div class="col-12">
+                <label class="form-label" for="zip-file">Background PNG Zip</label>
+                <input
+                  :key="zipInputKey"
+                  id="zip-file"
+                  class="form-control"
+                  type="file"
+                  accept=".zip,application/zip,application/x-zip-compressed"
+                  :disabled="zipImporting"
+                  @change="onZipFileChange"
+                >
+                <div class="form-text">Root-level PNG files only. Names must be sequential, for example 001.png through 100.png.</div>
               </div>
             </div>
 
-            <div class="row g-3 mt-1">
-              <div v-for="slot in slots" :key="slot.key" class="col-12">
-                <div class="border rounded p-3">
-                  <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
-                    <div>
-                      <div class="fw-semibold">
-                        <i :class="[slot.icon, 'me-1']" />
-                        {{ slot.label }}
-                      </div>
-                      <div class="text-muted fs-12">{{ slot.help }}</div>
-                    </div>
-                    <AdminStatusBadge :status="assetSlotReady(slot.key) ? 'ready' : 'missing'" :label="assetSlotReady(slot.key) ? 'Asset ready' : 'Missing'" />
-                  </div>
-                  <div class="row g-2">
-                    <div class="col-md-7">
-                      <label class="form-label" :for="`asset-id-${slot.key}`">Asset ID</label>
-                      <input :id="`asset-id-${slot.key}`" v-model.trim="assetForm.assets[slot.key].asset_id" class="form-control" placeholder="ast_...">
-                    </div>
-                    <div class="col-md-5">
-                      <label class="form-label" :for="`asset-file-${slot.key}`">Upload</label>
-                      <input
-                        :id="`asset-file-${slot.key}`"
-                        class="form-control"
-                        type="file"
-                        :accept="slot.accept"
-                        :disabled="assetForm.assets[slot.key].uploading || assetSubmitting"
-                        @change="onAssetFileChange(slot.key, $event)"
-                      >
-                    </div>
-                  </div>
-                  <AdminAlert v-if="assetForm.assets[slot.key].error" type="danger" :message="assetForm.assets[slot.key].error" />
-                  <div v-if="assetForm.assets[slot.key].previewUrl" class="border rounded bg-light d-flex align-items-center justify-content-center mt-3 overflow-hidden" style="min-height: 144px;">
-                    <img :src="assetForm.assets[slot.key].previewUrl" :alt="`${slot.label} preview`" class="img-fluid" style="max-height: 140px; object-fit: contain;">
-                  </div>
-                  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-                    <div class="small text-muted">
-                      <span v-if="assetForm.assets[slot.key].file">{{ assetForm.assets[slot.key].file?.name }} · {{ formatBytes(assetForm.assets[slot.key].file?.size || 0) }}</span>
-                      <span v-else>No new file selected</span>
-                    </div>
-                    <div class="d-flex gap-2">
-                      <button class="btn btn-sm btn-light btn-wave" type="button" :disabled="assetForm.assets[slot.key].uploading || assetSubmitting" @click="clearAssetSlot(slot.key)">
-                        Clear
-                      </button>
-                      <button class="btn btn-sm btn-outline-primary btn-wave" type="button" :disabled="!canUploadAssetSlot(slot.key)" @click="uploadAssetSlot(slot.key)">
-                        <span v-if="assetForm.assets[slot.key].uploading" class="spinner-border spinner-border-sm me-1" />
-                        Upload & commit
-                      </button>
-                    </div>
-                  </div>
+            <AdminAlert v-if="zipForm.error" class="mt-3" type="danger" :message="zipForm.error" />
+
+            <div v-if="zipForm.file" class="border rounded p-3 mt-3">
+              <div class="fw-semibold mb-2">Selected zip</div>
+              <div class="d-flex flex-column gap-1 small">
+                <div class="d-flex justify-content-between gap-2">
+                  <span class="text-muted">Name</span>
+                  <span class="text-end text-break">{{ zipForm.file.name }}</span>
+                </div>
+                <div class="d-flex justify-content-between gap-2">
+                  <span class="text-muted">Size</span>
+                  <span>{{ formatBytes(zipForm.file.size) }}</span>
+                </div>
+              </div>
+              <div v-if="zipForm.progress > 0" class="progress progress-xs mt-3" role="progressbar" :aria-valuenow="zipForm.progress" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar" :style="{ width: `${zipForm.progress}%` }" />
+              </div>
+            </div>
+
+            <div v-if="zipResult" class="border rounded p-3 mt-3">
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                <div class="fw-semibold">Import result</div>
+                <AdminStatusBadge status="ready" :label="`${zipResult.meta?.imported_count || 0} imported`" />
+              </div>
+              <div class="d-flex flex-column gap-1 small">
+                <div class="d-flex justify-content-between gap-2">
+                  <span class="text-muted">Game</span>
+                  <span class="text-end text-break">{{ gameName(zipResult.meta?.game_id) }}</span>
+                </div>
+                <div class="d-flex justify-content-between gap-2">
+                  <span class="text-muted">Set</span>
+                  <span>{{ titleize(zipResult.meta?.set_type || '-') }}</span>
+                </div>
+                <div class="d-flex justify-content-between gap-2">
+                  <span class="text-muted">Expected</span>
+                  <span>{{ zipResult.meta?.expected_count ?? '-' }}</span>
                 </div>
               </div>
             </div>
           </div>
           <div class="card-footer d-flex flex-wrap justify-content-end gap-2">
-            <button class="btn btn-light btn-wave" type="button" :disabled="assetSubmitting" @click="resetAssetForm">
+            <button class="btn btn-light btn-wave" type="button" :disabled="zipImporting" @click="resetZipForm">
               Reset form
             </button>
-            <button class="btn btn-primary btn-wave" type="button" :disabled="!canSubmitAssetSet" @click="saveBackgroundSet">
-              <span v-if="assetSubmitting" class="spinner-border spinner-border-sm me-2" />
-              Register set
+            <button class="btn btn-primary btn-wave" type="button" :disabled="!canImportZip" @click="importZip">
+              <span v-if="zipImporting" class="spinner-border spinner-border-sm me-2" />
+              Import PNG zip
             </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card custom-card mt-3">
+      <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
+          <div class="card-title mb-1">Manual Number Preview</div>
+          <p class="text-muted mb-0 fs-12">Default preview is central unbranded. Partner branding renders only when partner mode is selected.</p>
+        </div>
+        <AdminStatusBadge :status="previewForm.mode === 'partner_branded' ? 'partner_branded' : 'central_unbranded'" :label="previewForm.mode === 'partner_branded' ? 'Partner branded' : 'Central unbranded'" />
+      </div>
+      <div class="card-body">
+        <AdminAlert v-if="previewError" :type="alertType(previewError)" :message="errorMessage(previewError)" :details="previewError.details" dismissible @dismiss="previewError = null" />
+        <AdminAlert v-if="partnersError" type="warning" :message="errorMessage(partnersError)" :details="partnersError.details" dismissible @dismiss="partnersError = null" />
+
+        <div class="row g-3">
+          <div class="col-md-4 col-xl-3">
+            <label class="form-label" for="preview-game-id">Game</label>
+            <select id="preview-game-id" v-model="previewForm.game_id" class="form-select" :disabled="gamesLoading">
+              <option value="">{{ gamesLoading ? 'Loading games...' : 'Select game' }}</option>
+              <option v-if="unknownPreviewGame" :value="previewForm.game_id">{{ unknownGameLabel(previewForm.game_id) }}</option>
+              <option v-for="game in gameOptions" :key="game.id" :value="game.id">{{ game.label }}</option>
+            </select>
+          </div>
+          <div class="col-md-4 col-xl-2">
+            <label class="form-label" for="preview-version">Version</label>
+            <input id="preview-version" v-model.trim="previewForm.version" class="form-control" placeholder="v1">
+          </div>
+          <div class="col-md-4 col-xl-2">
+            <label class="form-label" for="preview-set-type">Set Type</label>
+            <select id="preview-set-type" v-model="previewForm.set_type" class="form-select">
+              <option v-for="setType in setTypes" :key="setType" :value="setType">{{ titleize(setType) }}</option>
+            </select>
+          </div>
+          <div class="col-md-4 col-xl-2">
+            <label class="form-label" for="preview-lottery-number">Lottery Number</label>
+            <input id="preview-lottery-number" v-model.trim="previewForm.lottery_number" class="form-control" inputmode="numeric" maxlength="6" placeholder="123456">
+          </div>
+          <div class="col-md-4 col-xl-3">
+            <label class="form-label" for="preview-partner-id">Partner</label>
+            <select id="preview-partner-id" v-model="previewForm.partner_id" class="form-select" :disabled="partnersLoading">
+              <option value="">{{ partnersLoading ? 'Loading partners...' : 'No partner' }}</option>
+              <option v-for="partner in partnerOptions" :key="partner.id" :value="partner.id">{{ partner.label }}</option>
+            </select>
+            <div class="form-text">Selecting a partner does not brand the image unless partner mode is active.</div>
+          </div>
+          <div class="col-md-4 col-xl-3">
+            <label class="form-label" for="preview-mode">Mode</label>
+            <select id="preview-mode" v-model="previewForm.mode" class="form-select">
+              <option value="central_unbranded">Central unbranded</option>
+              <option value="partner_branded">Partner branded</option>
+            </select>
+          </div>
+          <div class="col-md-4 col-xl-2">
+            <label class="form-label" for="preview-variant">Variant</label>
+            <select id="preview-variant" v-model="previewForm.variant" class="form-select">
+              <option value="full">Full</option>
+              <option value="thumb">Thumb</option>
+            </select>
+          </div>
+          <div class="col-md-4 col-xl-2 d-flex align-items-end">
+            <button class="btn btn-primary btn-wave w-100" type="button" :disabled="!canPreview" @click="renderPreview">
+              <span v-if="previewLoading" class="spinner-border spinner-border-sm me-2" />
+              Preview
+            </button>
+          </div>
+        </div>
+
+        <AdminAlert v-if="previewModeWarning" class="mt-3" type="warning" :message="previewModeWarning" />
+
+        <div v-if="previewResult" class="row g-3 mt-1">
+          <div class="col-lg-5">
+            <div class="border rounded d-flex align-items-center justify-content-center bg-light overflow-hidden p-2" style="min-height: 260px;">
+              <img v-if="previewResult.data_url" :src="previewResult.data_url" alt="Lottery image preview" class="img-fluid" style="max-height: 360px; object-fit: contain;">
+              <AdminEmptyState v-else title="No image returned" message="The preview response did not include a data URL." icon="ri-image-line" />
+            </div>
+          </div>
+          <div class="col-lg-7">
+            <div class="border rounded p-3 h-100">
+              <div class="d-flex flex-wrap gap-2 mb-3">
+                <AdminStatusBadge :status="previewResult.mode" :label="titleize(previewResult.mode || '-')" />
+                <AdminStatusBadge v-if="previewResult.fallback_mode" status="warning" :label="`Fallback: ${titleize(previewResult.fallback_mode)}`" />
+              </div>
+              <div class="row g-2 small">
+                <div v-for="item in previewDetails" :key="item.key" class="col-md-6">
+                  <div class="border rounded p-2 h-100">
+                    <div class="text-muted fs-12">{{ item.label }}</div>
+                    <div class="text-break">{{ item.value }}</div>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-3">
+                <div class="fw-semibold mb-2">Warnings</div>
+                <AdminEmptyState v-if="!previewWarnings.length" title="No warnings" message="Backend returned no fallback warnings for this preview." icon="ri-checkbox-circle-line" />
+                <div v-else class="d-flex flex-wrap gap-2">
+                  <span v-for="warning in previewWarnings" :key="warning" class="badge bg-warning-transparent text-warning">{{ warning }}</span>
+                </div>
+              </div>
+              <div class="mt-3">
+                <div class="fw-semibold mb-2">Side effects</div>
+                <div class="d-flex flex-wrap gap-2">
+                  <span class="badge bg-success-transparent text-success">Stock rows {{ previewResult.side_effects?.stock_rows_created ?? 0 }}</span>
+                  <span class="badge bg-success-transparent text-success">Permanent images {{ previewResult.side_effects?.permanent_image_rows_created ?? 0 }}</span>
+                  <span class="badge bg-success-transparent text-success">Branding locked {{ yesNo(Boolean(previewResult.side_effects?.branding_locked)) }}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -413,8 +554,12 @@
             <AdminAlert v-if="retryError" :type="alertType(retryError)" :message="errorMessage(retryError)" :details="retryError.details" dismissible @dismiss="retryError = null" />
             <div class="row g-3">
               <div class="col-md-6">
-                <label class="form-label" for="retry-game-id">Game ID</label>
-                <input id="retry-game-id" v-model.trim="retryForm.game_id" class="form-control" placeholder="Optional">
+                <label class="form-label" for="retry-game-id">Game</label>
+                <select id="retry-game-id" v-model="retryForm.game_id" class="form-select" :disabled="gamesLoading">
+                  <option value="">All games</option>
+                  <option v-if="unknownRetryGame" :value="retryForm.game_id">{{ unknownGameLabel(retryForm.game_id) }}</option>
+                  <option v-for="game in gameOptions" :key="game.id" :value="game.id">{{ game.label }}</option>
+                </select>
               </div>
               <div class="col-md-6">
                 <label class="form-label" for="retry-batch-id">Batch ID</label>
@@ -521,6 +666,24 @@ import { formatDateTime, titleize } from '~/utils/format'
 type SetType = 'odd' | 'even' | 'charity'
 type AssetSlot = 'source' | 'full' | 'thumb'
 type BackgroundStatus = 'ready' | 'inactive' | 'retired'
+type PreviewMode = 'central_unbranded' | 'partner_branded'
+type PreviewVariant = 'full' | 'thumb'
+
+type GameOption = {
+  id: string
+  code?: string | null
+  name: string
+  status?: string | null
+  label: string
+}
+
+type PartnerOption = {
+  id: string
+  code?: string | null
+  name: string
+  status?: string | null
+  label: string
+}
 
 type BackgroundAsset = {
   asset_id?: string | null
@@ -542,6 +705,7 @@ type BackgroundSet = {
   version: string
   set_type: SetType
   status: BackgroundStatus
+  position?: number | null
   ready?: boolean
   generation_ready?: boolean
   missing_assets?: AssetSlot[]
@@ -598,47 +762,48 @@ type ReadinessResponse = {
   queue_readiness?: ProductionReadiness['queues']
 }
 
-type AssetSlotState = {
-  asset_id: string
-  file: File | null
-  previewUrl: string
-  error: string
-  uploading: boolean
-  committedAsset: BackgroundAsset | null
+type ZipImportResponse = {
+  data?: BackgroundSet[]
+  meta?: {
+    game_id?: string
+    version?: string
+    set_type?: SetType
+    imported_count?: number
+    expected_count?: number
+  }
 }
 
+type LotteryPreviewResponse = {
+  mode?: PreviewMode
+  requested_mode?: PreviewMode
+  fallback_mode?: PreviewMode | null
+  warnings?: string[]
+  game_id?: string
+  version?: string
+  set_type?: SetType
+  partner_id?: string | null
+  lottery_number?: string
+  variant?: PreviewVariant
+  content_type?: string
+  width?: number
+  height?: number
+  data_url?: string
+  side_effects?: {
+    stock_rows_created?: number
+    permanent_image_rows_created?: number
+    branding_locked?: boolean
+  }
+}
+
+const route = useRoute()
 const api = useAdminApi()
 const session = useAdminSession()
 
 const setTypes: SetType[] = ['odd', 'even', 'charity']
-const slots: Array<{ key: AssetSlot, label: string, icon: string, accept: string, help: string, maxSize: number, allowedTypes: string[] }> = [
-  {
-    key: 'source',
-    label: 'Source',
-    icon: 'ri-image-line',
-    accept: 'image/png,image/jpeg,image/webp',
-    help: 'PNG, JPEG, or WebP. Maximum 10 MB.',
-    maxSize: 10 * 1024 * 1024,
-    allowedTypes: ['image/png', 'image/jpeg', 'image/webp'],
-  },
-  {
-    key: 'full',
-    label: 'Full',
-    icon: 'ri-image-2-line',
-    accept: 'image/webp',
-    help: 'WebP variant, expected 500 x 280. Maximum 5 MB.',
-    maxSize: 5 * 1024 * 1024,
-    allowedTypes: ['image/webp'],
-  },
-  {
-    key: 'thumb',
-    label: 'Thumb',
-    icon: 'ri-gallery-line',
-    accept: 'image/webp',
-    help: 'WebP thumbnail, expected 280 x 157. Maximum 1 MB.',
-    maxSize: 1024 * 1024,
-    allowedTypes: ['image/webp'],
-  },
+const assetSlots: Array<{ key: AssetSlot, label: string }> = [
+  { key: 'source', label: 'Source PNG' },
+  { key: 'full', label: 'Full WebP' },
+  { key: 'thumb', label: 'Thumb WebP' },
 ]
 
 const context = reactive({
@@ -646,6 +811,14 @@ const context = reactive({
   batch_id: '',
   version: 'v1',
 })
+
+const games = ref<GameOption[]>([])
+const gamesLoading = ref(false)
+const gamesLoaded = ref(false)
+const gamesError = ref<any>(null)
+const partners = ref<PartnerOption[]>([])
+const partnersLoading = ref(false)
+const partnersError = ref<any>(null)
 
 const pageError = ref<any>(null)
 const contextError = ref('')
@@ -659,6 +832,35 @@ const assetSets = ref<BackgroundSet[]>([])
 const productionReadiness = ref<ProductionReadiness | null>(null)
 const mix = ref<MixResponse | null>(null)
 
+const zipForm = reactive({
+  game_id: '',
+  version: 'v1',
+  set_type: 'odd' as SetType,
+  expected_count: 100,
+  status: 'ready' as BackgroundStatus,
+  supersede_existing: true,
+  file: null as File | null,
+  error: '',
+  progress: 0,
+})
+const zipFormError = ref<any>(null)
+const zipImporting = ref(false)
+const zipResult = ref<ZipImportResponse | null>(null)
+const zipInputKey = ref(0)
+
+const previewForm = reactive({
+  game_id: '',
+  version: 'v1',
+  set_type: 'odd' as SetType,
+  lottery_number: '123456',
+  partner_id: '',
+  mode: 'central_unbranded' as PreviewMode,
+  variant: 'full' as PreviewVariant,
+})
+const previewLoading = ref(false)
+const previewError = ref<any>(null)
+const previewResult = ref<LotteryPreviewResponse | null>(null)
+
 const mixForm = reactive<Record<SetType, number>>({
   odd: 45,
   even: 45,
@@ -666,17 +868,6 @@ const mixForm = reactive<Record<SetType, number>>({
 })
 const mixError = ref<any>(null)
 const mixSubmitting = ref(false)
-
-const assetForm = reactive({
-  game_id: '',
-  version: 'v1',
-  set_type: 'odd' as SetType,
-  status: 'ready' as BackgroundStatus,
-  supersede_existing: true,
-  assets: emptyAssetSlots(),
-})
-const assetFormError = ref<any>(null)
-const assetSubmitting = ref(false)
 
 const statusConfirm = reactive<{
   open: boolean
@@ -705,18 +896,69 @@ const retryMode = ref<'dry-run' | 'execute'>('dry-run')
 const retryResult = ref<any>(null)
 const retryConfirmOpen = ref(false)
 
+const gameOptions = computed(() => games.value)
+const partnerOptions = computed(() => partners.value)
+const selectedGame = computed(() => gameById(context.game_id))
+const unknownContextGame = computed(() => isUnknownGame(context.game_id))
+const unknownZipGame = computed(() => isUnknownGame(zipForm.game_id))
+const unknownPreviewGame = computed(() => isUnknownGame(previewForm.game_id))
+const unknownRetryGame = computed(() => isUnknownGame(retryForm.game_id))
+const selectedGameText = computed(() => selectedGame.value ? `${selectedGame.value.name} (${selectedGame.value.status || 'unknown'})` : 'Select a central game to load readiness, import backgrounds, and preview images.')
+const selectedGameWarning = computed(() => {
+  if (!context.game_id || gamesLoading.value || !gamesLoaded.value) return ''
+  if (!selectedGame.value) return `Game ${context.game_id} was not returned by the central games API. It may be missing or archived; existing filters can still be loaded by ID.`
+  if (selectedGame.value.status === 'archived') return `${selectedGame.value.name} is archived. Review before importing or retrying assets.`
+  return ''
+})
+
 const canLoadContext = computed(() => context.game_id.trim() !== '')
-const loadingAny = computed(() => readinessLoading.value || assetSetsLoading.value || productionLoading.value || mixLoading.value)
+const loadingAny = computed(() => readinessLoading.value || assetSetsLoading.value || productionLoading.value || mixLoading.value || gamesLoading.value)
 const missingSetTypes = computed(() => readiness.value?.missing_set_types || [])
 const readinessBackgrounds = computed(() => readiness.value?.backgrounds || [])
 const lastErrors = computed(() => readiness.value?.last_error_samples || [])
 const blockingReasons = computed(() => productionReadiness.value?.blocking_reasons || [])
 const mixTotal = computed(() => setTypes.reduce((sum, key) => sum + normalizedPercent(mixForm[key]), 0))
 const canSaveMix = computed(() => Boolean(canLoadContext.value && mixTotal.value === 100 && !mixSubmitting.value && !mixLoading.value))
-const canSubmitAssetSet = computed(() => {
-  if (assetSubmitting.value) return false
-  if (!assetForm.game_id.trim() || !assetForm.version.trim() || !assetForm.set_type) return false
-  return slots.every((slot) => assetSlotReady(slot.key))
+const expectedCountValid = computed(() => Number(zipForm.expected_count) >= 1 && Number(zipForm.expected_count) <= 100)
+const canImportZip = computed(() => Boolean(
+  zipForm.game_id.trim()
+  && zipForm.version.trim()
+  && zipForm.set_type
+  && expectedCountValid.value
+  && zipForm.file
+  && !zipForm.error
+  && !zipImporting.value,
+))
+const canPreview = computed(() => Boolean(
+  previewForm.game_id.trim()
+  && previewForm.version.trim()
+  && previewForm.set_type
+  && /^[0-9]{1,6}$/.test(previewForm.lottery_number)
+  && (previewForm.mode !== 'partner_branded' || previewForm.partner_id)
+  && !previewLoading.value,
+))
+const previewModeWarning = computed(() => {
+  if (previewForm.mode === 'central_unbranded' && previewForm.partner_id) {
+    return 'A partner is selected, but the preview will remain central unbranded until partner branded mode is selected.'
+  }
+  if (previewForm.mode === 'partner_branded' && !previewForm.partner_id) {
+    return 'Select a partner before rendering partner branded preview.'
+  }
+  return ''
+})
+const previewWarnings = computed(() => previewResult.value?.warnings || [])
+const previewDetails = computed(() => {
+  const result = previewResult.value
+  if (!result) return []
+
+  return [
+    { key: 'game', label: 'Game', value: `${gameName(result.game_id)} (${result.game_id || '-'})` },
+    { key: 'number', label: 'Lottery number', value: result.lottery_number || '-' },
+    { key: 'set', label: 'Set / version', value: `${titleize(result.set_type || '-')} / ${result.version || '-'}` },
+    { key: 'partner', label: 'Partner', value: result.partner_id ? partnerName(result.partner_id) : 'Central unbranded' },
+    { key: 'variant', label: 'Variant', value: titleize(result.variant || '-') },
+    { key: 'size', label: 'Image size', value: result.width && result.height ? `${result.width} x ${result.height}` : '-' },
+  ]
 })
 
 const readinessCards = computed(() => [
@@ -786,29 +1028,61 @@ const statusConfirmMessage = computed(() => {
   return `Confirm ${action} for this background asset set.`
 })
 
-watch(() => context.game_id, (value) => {
-  if (!assetForm.game_id) {
-    assetForm.game_id = value
-  }
-  if (!retryForm.game_id) {
-    retryForm.game_id = value
-  }
+watch(() => context.game_id, (value, oldValue) => {
+  syncGameToForms(value, oldValue)
 })
 
-watch(() => context.version, (value) => {
-  if (!assetForm.version || assetForm.version === 'v1') {
-    assetForm.version = value || 'v1'
-  }
-  if (!retryForm.version) {
-    retryForm.version = value
-  }
+watch(() => context.version, (value, oldValue) => {
+  syncVersionToForms(value || 'v1', oldValue)
 })
+
+watch(() => route.query.game_id, (value) => {
+  const next = normalizeQueryValue(value)
+  if (!next || next === context.game_id) return
+  context.game_id = next
+  void loadAll()
+})
+
+const loadGames = async () => {
+  gamesLoading.value = true
+  gamesError.value = null
+
+  try {
+    const response = await api.apiFetch('/admin/central/games', { scope: 'central' })
+    games.value = extractItems(response).map(normalizeGame).filter((game) => game.id)
+    gamesLoaded.value = true
+  } catch (err) {
+    gamesError.value = err
+    games.value = []
+    gamesLoaded.value = true
+  } finally {
+    gamesLoading.value = false
+  }
+}
+
+const loadPartners = async () => {
+  partnersLoading.value = true
+  partnersError.value = null
+
+  try {
+    const response = await api.apiFetch('/admin/central/partners', {
+      scope: 'central',
+      query: { limit: 100 },
+    })
+    partners.value = extractItems(response).map(normalizePartner).filter((partner) => partner.id)
+  } catch (err) {
+    partnersError.value = err
+    partners.value = []
+  } finally {
+    partnersLoading.value = false
+  }
+}
 
 const loadAll = async () => {
   contextError.value = ''
 
   if (!canLoadContext.value) {
-    contextError.value = 'Game ID is required before loading lottery image operations.'
+    contextError.value = 'Game selection is required before loading lottery image operations.'
     return
   }
 
@@ -903,6 +1177,77 @@ const loadProductionReadiness = async () => {
   }
 }
 
+const importZip = async () => {
+  if (!canImportZip.value || !zipForm.file) return
+
+  zipImporting.value = true
+  zipFormError.value = null
+  successMessage.value = ''
+  zipResult.value = null
+  zipForm.progress = 15
+
+  try {
+    const body = new FormData()
+    body.append('game_id', zipForm.game_id)
+    body.append('version', zipForm.version || 'v1')
+    body.append('set_type', zipForm.set_type)
+    body.append('expected_count', String(Number(zipForm.expected_count) || 100))
+    body.append('status', zipForm.status)
+    body.append('supersede_existing', zipForm.supersede_existing ? '1' : '0')
+    body.append('zip', zipForm.file)
+
+    zipForm.progress = 45
+    const response = await api.apiFetch<ZipImportResponse>('/admin/central/lottery-images/background-asset-sets/import-zip', {
+      method: 'POST',
+      scope: 'central',
+      idempotencyKey: api.idempotencyKey(),
+      body,
+    })
+
+    zipForm.progress = 100
+    zipResult.value = response
+    context.game_id = response.meta?.game_id || zipForm.game_id
+    context.version = response.meta?.version || zipForm.version || context.version
+    successMessage.value = `${response.meta?.imported_count || response.data?.length || 0} background rows imported from PNG zip.`
+    zipForm.file = null
+    zipInputKey.value += 1
+    await Promise.all([loadBackgroundSets(), loadReadiness()])
+  } catch (err) {
+    zipForm.progress = 0
+    zipFormError.value = err
+  } finally {
+    zipImporting.value = false
+  }
+}
+
+const renderPreview = async () => {
+  if (!canPreview.value) return
+
+  previewLoading.value = true
+  previewError.value = null
+  previewResult.value = null
+
+  try {
+    previewResult.value = await api.apiFetch<LotteryPreviewResponse>('/admin/central/lottery-images/preview', {
+      method: 'POST',
+      scope: 'central',
+      body: {
+        game_id: previewForm.game_id,
+        version: previewForm.version || 'v1',
+        set_type: previewForm.set_type,
+        lottery_number: previewForm.lottery_number,
+        mode: previewForm.mode,
+        variant: previewForm.variant,
+        ...(previewForm.partner_id ? { partner_id: previewForm.partner_id } : {}),
+      },
+    })
+  } catch (err) {
+    previewError.value = err
+  } finally {
+    previewLoading.value = false
+  }
+}
+
 const saveMix = async () => {
   if (!canSaveMix.value) return
 
@@ -935,154 +1280,30 @@ const saveMix = async () => {
   }
 }
 
-const saveBackgroundSet = async () => {
-  if (!canSubmitAssetSet.value) return
-
-  assetSubmitting.value = true
-  assetFormError.value = null
-  successMessage.value = ''
-
-  try {
-    for (const slot of slots) {
-      if (assetForm.assets[slot.key].file && !assetForm.assets[slot.key].asset_id) {
-        await uploadAssetSlot(slot.key)
-      }
-    }
-
-    const response = await api.apiFetch<BackgroundSet>('/admin/central/lottery-images/background-asset-sets', {
-      method: 'PUT',
-      scope: 'central',
-      idempotencyKey: api.idempotencyKey(),
-      body: {
-        game_id: assetForm.game_id,
-        version: assetForm.version,
-        set_type: assetForm.set_type,
-        status: assetForm.status,
-        supersede_existing: Boolean(assetForm.supersede_existing),
-        assets: {
-          source: { asset_id: assetForm.assets.source.asset_id },
-          full: { asset_id: assetForm.assets.full.asset_id },
-          thumb: { asset_id: assetForm.assets.thumb.asset_id },
-        },
-      },
-    })
-
-    successMessage.value = `${titleize(response.set_type)} background set registered.`
-    context.game_id = response.game_id || context.game_id
-    context.version = response.version || context.version
-    await Promise.all([loadBackgroundSets(), loadReadiness()])
-  } catch (err) {
-    assetFormError.value = err
-  } finally {
-    assetSubmitting.value = false
-  }
-}
-
-const onAssetFileChange = (slot: AssetSlot, event: Event) => {
+const onZipFileChange = (event: Event) => {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0] || null
-  clearAssetSlot(slot)
+  zipForm.file = file
+  zipForm.error = ''
+  zipForm.progress = file ? 5 : 0
+  zipResult.value = null
 
-  if (!file) {
-    return
-  }
+  if (!file) return
 
-  const state = assetForm.assets[slot]
-  const validationError = validateAssetFile(slot, file)
-  state.file = file
-
-  if (validationError) {
-    state.error = validationError
+  zipForm.error = validateZipFile(file)
+  if (zipForm.error) {
     input.value = ''
-    return
-  }
-
-  state.previewUrl = URL.createObjectURL(file)
-}
-
-const uploadAssetSlot = async (slot: AssetSlot) => {
-  const state = assetForm.assets[slot]
-
-  if (state.asset_id && !state.file) {
-    return state.asset_id
-  }
-
-  if (!state.file || state.error) {
-    return state.asset_id
-  }
-
-  state.uploading = true
-  state.error = ''
-
-  try {
-    const file = state.file
-    const checksum = await sha256Hex(file)
-    const intent: any = await api.apiFetch('/admin/central/assets/uploads', {
-      method: 'POST',
-      scope: 'central',
-      idempotencyKey: api.idempotencyKey(),
-      body: {
-        purpose: 'ticket_image',
-        file_name: file.name,
-        content_type: file.type || (slot === 'source' ? 'image/png' : 'image/webp'),
-        size_bytes: file.size,
-        checksum_sha256: checksum,
-        metadata: {
-          lottery_image_operation: 'background_asset_set',
-          game_id: assetForm.game_id || context.game_id,
-          version: assetForm.version || context.version || 'v1',
-          set_type: assetForm.set_type,
-          slot,
-        },
-      },
-    })
-
-    await uploadToStorage(intent, file)
-
-    const committed: any = await api.apiFetch(`/admin/central/assets/${encodeURIComponent(intent.asset_id)}/commit`, {
-      method: 'POST',
-      scope: 'central',
-      idempotencyKey: api.idempotencyKey(),
-      body: {
-        checksum_sha256: checksum,
-        metadata: {
-          lottery_image_operation: 'background_asset_set',
-          game_id: assetForm.game_id || context.game_id,
-          version: assetForm.version || context.version || 'v1',
-          set_type: assetForm.set_type,
-          slot,
-          file_name: file.name,
-        },
-      },
-    })
-
-    const normalized = normalizeAsset(committed)
-    state.committedAsset = normalized
-    state.asset_id = String(normalized.asset_id || normalized.id || intent.asset_id || '')
-    successMessage.value = `${slotLabel(slot)} uploaded and committed.`
-    return state.asset_id
-  } catch (err: any) {
-    state.error = errorMessage(err)
-    throw err
-  } finally {
-    state.uploading = false
   }
 }
 
-const fillAssetForm = (set: BackgroundSet) => {
-  assetForm.game_id = set.game_id
-  assetForm.version = set.version
-  assetForm.set_type = set.set_type
-  assetForm.status = set.status || 'ready'
-  assetForm.supersede_existing = false
-
-  for (const slot of slots) {
-    clearAssetSlot(slot.key)
-    const asset = set.assets?.[slot.key] || null
-    assetForm.assets[slot.key].asset_id = String(asset?.asset_id || asset?.id || '')
-    assetForm.assets[slot.key].committedAsset = asset
-    assetForm.assets[slot.key].previewUrl = asset?.url || asset?.public_url || ''
-  }
+const fillZipForm = (set: BackgroundSet) => {
+  context.game_id = set.game_id
+  context.version = set.version
+  zipForm.game_id = set.game_id
+  zipForm.version = set.version
+  zipForm.set_type = set.set_type
+  zipForm.status = set.status || 'ready'
+  zipForm.supersede_existing = false
 }
 
 const openStatusConfirm = (set: BackgroundSet, status: BackgroundStatus, supersede = false) => {
@@ -1160,18 +1381,21 @@ const resetContext = () => {
   mix.value = null
   productionReadiness.value = null
   contextError.value = ''
+  previewResult.value = null
 }
 
-const resetAssetForm = () => {
-  assetForm.game_id = context.game_id
-  assetForm.version = context.version || 'v1'
-  assetForm.set_type = 'odd'
-  assetForm.status = 'ready'
-  assetForm.supersede_existing = true
-
-  for (const slot of slots) {
-    clearAssetSlot(slot.key)
-  }
+const resetZipForm = () => {
+  zipForm.game_id = context.game_id
+  zipForm.version = context.version || 'v1'
+  zipForm.set_type = 'odd'
+  zipForm.expected_count = 100
+  zipForm.status = 'ready'
+  zipForm.supersede_existing = true
+  zipForm.file = null
+  zipForm.error = ''
+  zipForm.progress = 0
+  zipResult.value = null
+  zipInputKey.value += 1
 }
 
 const resetMixForm = () => {
@@ -1185,27 +1409,17 @@ const resetMixForm = () => {
   mixForm.charity = 10
 }
 
-const clearAssetSlot = (slot: AssetSlot) => {
-  const state = assetForm.assets[slot]
-
-  if (state.previewUrl && import.meta.client && state.file) {
-    URL.revokeObjectURL(state.previewUrl)
-  }
-
-  state.asset_id = ''
-  state.file = null
-  state.previewUrl = ''
-  state.error = ''
-  state.uploading = false
-  state.committedAsset = null
+const syncGameToForms = (value: string, oldValue?: string) => {
+  if (!zipForm.game_id || zipForm.game_id === oldValue) zipForm.game_id = value
+  if (!previewForm.game_id || previewForm.game_id === oldValue) previewForm.game_id = value
+  if (!retryForm.game_id || retryForm.game_id === oldValue) retryForm.game_id = value
 }
 
-const canUploadAssetSlot = (slot: AssetSlot) => {
-  const state = assetForm.assets[slot]
-  return Boolean(state.file && !state.error && !state.uploading && !assetSubmitting.value)
+const syncVersionToForms = (value: string, oldValue?: string) => {
+  if (!zipForm.version || zipForm.version === oldValue || zipForm.version === 'v1') zipForm.version = value
+  if (!previewForm.version || previewForm.version === oldValue || previewForm.version === 'v1') previewForm.version = value
+  if (!retryForm.version || retryForm.version === oldValue) retryForm.version = value
 }
-
-const assetSlotReady = (slot: AssetSlot) => Boolean(assetForm.assets[slot].asset_id || assetForm.assets[slot].file)
 
 const assetId = (set: BackgroundSet, slot: AssetSlot) => String(set.assets?.[slot]?.asset_id || set.assets?.[slot]?.id || '')
 
@@ -1230,65 +1444,68 @@ const applyMix = (response: MixResponse) => {
   mixForm.charity = normalizedPercent(response.mix?.charity)
 }
 
-const validateAssetFile = (slot: AssetSlot, file: File) => {
-  const config = slots.find((item) => item.key === slot)
-  if (!config) return 'Unknown asset slot.'
+const validateZipFile = (file: File) => {
+  const name = file.name.toLowerCase()
+  const acceptedTypes = ['', 'application/zip', 'application/x-zip-compressed', 'multipart/x-zip']
 
-  if (!config.allowedTypes.includes(file.type)) {
-    return `${config.label} must be ${config.allowedTypes.join(', ')}.`
+  if (!name.endsWith('.zip') || !acceptedTypes.includes(file.type || '')) {
+    return 'Upload must be a .zip file containing PNG files only.'
   }
 
-  if (file.size < 1 || file.size > config.maxSize) {
-    return `${config.label} must be between 1 byte and ${formatBytes(config.maxSize)}.`
+  if (file.size < 1 || file.size > 52_428_800) {
+    return 'Zip size must be between 1 byte and 50 MB.'
   }
 
   return ''
 }
 
-const uploadToStorage = async (intent: any, file: File) => {
-  if (!intent?.upload_url || intent.production_storage_ready === false || intent.storage_mode === 'local_dev_metadata_only') {
-    return
+const isUnknownGame = (gameId: string) => Boolean(gameId && gamesLoaded.value && !gameById(gameId))
+const gameById = (gameId?: string | null) => games.value.find((game) => game.id === gameId) || null
+const partnerById = (partnerId?: string | null) => partners.value.find((partner) => partner.id === partnerId) || null
+const gameName = (gameId?: string | null) => gameById(gameId)?.name || gameId || '-'
+const partnerName = (partnerId?: string | null) => {
+  const partner = partnerById(partnerId)
+  return partner ? `${partner.name} (${partner.id})` : partnerId || '-'
+}
+const unknownGameLabel = (gameId: string) => `Unknown or archived game (${gameId})`
+
+const normalizeGame = (game: any): GameOption => {
+  const id = String(game?.id || game?.game_id || game?.uuid || game?.code || '')
+  const name = String(game?.name || game?.game_name || game?.title || game?.code || id)
+  const code = game?.code && game.code !== name ? ` (${game.code})` : ''
+  const status = game?.status || null
+  return {
+    id,
+    name,
+    code: game?.code || null,
+    status,
+    label: `${name}${code}${status ? ` - ${titleize(status)}` : ''}`,
   }
-
-  const method = String(intent.method || 'PUT').toUpperCase()
-
-  if (method === 'POST' && intent.form_fields && typeof intent.form_fields === 'object') {
-    const formData = new FormData()
-    Object.entries(intent.form_fields).forEach(([key, value]) => formData.append(key, String(value)))
-    formData.append('file', file)
-    await $fetch(intent.upload_url, { method: 'POST', body: formData })
-    return
-  }
-
-  await $fetch(intent.upload_url, {
-    method,
-    headers: intent.headers || {},
-    body: file,
-  })
 }
 
-const sha256Hex = async (file: File) => {
-  if (!import.meta.client || !window.crypto?.subtle) {
-    return null
+const normalizePartner = (partner: any): PartnerOption => {
+  const id = String(partner?.id || partner?.partner_id || partner?.uuid || partner?.code || '')
+  const name = String(partner?.name || partner?.display_name || partner?.code || id)
+  const code = partner?.code && partner.code !== name ? ` (${partner.code})` : ''
+  const status = partner?.status || null
+  return {
+    id,
+    name,
+    code: partner?.code || null,
+    status,
+    label: `${name}${code}${status ? ` - ${titleize(status)}` : ''}`,
   }
-
-  const hash = await window.crypto.subtle.digest('SHA-256', await file.arrayBuffer())
-  return Array.from(new Uint8Array(hash)).map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
-const normalizeAsset = (asset: any): BackgroundAsset => ({
-  asset_id: asset?.asset_id || asset?.id,
-  id: asset?.id || asset?.asset_id,
-  storage_path: asset?.storage_path || asset?.storage_key || null,
-  storage_key: asset?.storage_key || asset?.storage_path || null,
-  content_type: asset?.content_type || null,
-  width: asset?.width ?? null,
-  height: asset?.height ?? null,
-  size_bytes: asset?.size_bytes ?? null,
-  storage_available: asset?.storage_available ?? true,
-  url: asset?.url || asset?.public_url || null,
-  public_url: asset?.public_url || asset?.url || null,
-})
+const extractItems = (response: any) => {
+  if (Array.isArray(response?.data)) return response.data
+  if (Array.isArray(response?.data?.data)) return response.data.data
+  if (Array.isArray(response?.items)) return response.items
+  if (Array.isArray(response)) return response
+  return []
+}
+
+const normalizeQueryValue = (value: any) => Array.isArray(value) ? String(value[0] || '') : String(value || '')
 
 const alertType = (err: any) => {
   if ([403, 409, 422].includes(Number(err?.status)) || ['resource_conflict', 'idempotency_conflict', 'validation_failed'].includes(String(err?.code))) {
@@ -1308,7 +1525,7 @@ const errorMessage = (err: any) => {
   }
 
   if (Number(err?.status) === 422 || err?.code === 'validation_failed') {
-    return 'The backend rejected the request payload.'
+    return err?.message || 'The backend rejected the request payload.'
   }
 
   return err?.message || 'The lottery image operation failed.'
@@ -1317,7 +1534,6 @@ const errorMessage = (err: any) => {
 const arrayText = (value?: any[] | null) => Array.isArray(value) && value.length ? value.join(', ') : '-'
 const yesNo = (value: boolean) => value ? 'Yes' : 'No'
 const normalizedPercent = (value: any) => Math.max(0, Math.min(100, Number.isFinite(Number(value)) ? Number(value) : 0))
-const slotLabel = (slot: AssetSlot) => slots.find((item) => item.key === slot)?.label || titleize(slot)
 
 const formatBytes = (bytes: number) => {
   if (!bytes) return '0 B'
@@ -1326,40 +1542,23 @@ const formatBytes = (bytes: number) => {
   return `${(bytes / (1024 ** index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`
 }
 
-function emptyAssetSlots(): Record<AssetSlot, AssetSlotState> {
-  return {
-    source: emptyAssetSlot(),
-    full: emptyAssetSlot(),
-    thumb: emptyAssetSlot(),
-  }
-}
-
-function emptyAssetSlot(): AssetSlotState {
-  return {
-    asset_id: '',
-    file: null,
-    previewUrl: '',
-    error: '',
-    uploading: false,
-    committedAsset: null,
-  }
-}
-
-onMounted(() => {
+onMounted(async () => {
   session.setScope('central')
-  assetForm.game_id = context.game_id
-  assetForm.version = context.version
-  retryForm.game_id = context.game_id
+  const initialGameId = normalizeQueryValue(route.query.game_id)
+  if (initialGameId) {
+    context.game_id = initialGameId
+    syncGameToForms(initialGameId)
+  }
+  zipForm.version = context.version
+  previewForm.version = context.version
   retryForm.version = context.version
-  void loadProductionReadiness()
-})
 
-onBeforeUnmount(() => {
-  for (const slot of slots) {
-    const state = assetForm.assets[slot.key]
-    if (state.previewUrl && state.file) {
-      URL.revokeObjectURL(state.previewUrl)
-    }
+  await Promise.all([loadGames(), loadPartners()])
+
+  if (initialGameId) {
+    await loadAll()
+  } else {
+    await loadProductionReadiness()
   }
 })
 </script>

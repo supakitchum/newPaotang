@@ -22,7 +22,7 @@ export const useAdminApi = () => {
       'X-Request-Id': requestId(),
     }
 
-    if (options.body !== undefined) {
+    if (options.body !== undefined && !isFormDataBody(options.body)) {
       headers['Content-Type'] = 'application/json'
     }
 
@@ -128,6 +128,8 @@ const readableError = (status: number) => {
 
   return map[status] || 'The request failed.'
 }
+
+const isFormDataBody = (body: any) => typeof FormData !== 'undefined' && body instanceof FormData
 
 const cryptoSafeRandom = () => {
   if (import.meta.client && window.crypto?.getRandomValues) {
