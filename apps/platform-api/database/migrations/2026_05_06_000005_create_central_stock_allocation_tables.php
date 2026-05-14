@@ -12,6 +12,7 @@ return new class extends Migration
             $table->string('id', 30)->primary();
             $table->string('code')->unique();
             $table->string('name');
+            $table->timestampTz('sale_start_at')->nullable();
             $table->timestampTz('draw_at');
             $table->timestampTz('close_at')->nullable();
             $table->timestampTz('closed_at')->nullable();
@@ -20,6 +21,7 @@ return new class extends Migration
             $table->json('metadata_json')->nullable();
             $table->timestampsTz();
             $table->index(['status', 'draw_at']);
+            $table->index(['status', 'sale_start_at', 'close_at'], 'games_sale_window_index');
         });
 
         Schema::create('stock_generation_batches', function (Blueprint $table): void {
@@ -51,6 +53,8 @@ return new class extends Migration
             $table->string('game_id', 30);
             $table->unsignedInteger('quota_count');
             $table->unsignedInteger('allocated_count')->default(0);
+            $table->timestampTz('sale_start_at')->nullable();
+            $table->timestampTz('sale_close_at')->nullable();
             $table->string('status')->default('active');
             $table->string('created_by_admin_id', 30)->nullable();
             $table->timestampsTz();
@@ -60,6 +64,7 @@ return new class extends Migration
             $table->foreign('created_by_admin_id')->references('id')->on('admin_users')->nullOnDelete();
             $table->unique(['partner_id', 'game_id']);
             $table->index(['game_id', 'status']);
+            $table->index(['partner_id', 'game_id', 'sale_start_at', 'sale_close_at'], 'partner_quotas_sale_window_index');
         });
 
         Schema::create('partner_stock_allocations', function (Blueprint $table): void {
