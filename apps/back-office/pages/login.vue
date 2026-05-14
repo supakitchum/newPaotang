@@ -108,7 +108,7 @@ const afterLoginPath = (scope: 'central' | 'tenant') => {
 
 const safeRedirectTarget = (value: unknown, scope: 'central' | 'tenant') => {
   const target = Array.isArray(value) ? value[0] : value
-  if (typeof target !== 'string' || target.startsWith('//') || !isAdminPath(target)) {
+  if (typeof target !== 'string' || target.startsWith('//') || !isRoutableAdminPath(target)) {
     return ''
   }
 
@@ -124,6 +124,11 @@ const safeRedirectTarget = (value: unknown, scope: 'central' | 'tenant') => {
 }
 
 const isAdminPath = (target: string) => target === '/admin' || target.startsWith('/admin/')
+
+const isRoutableAdminPath = (target: string) => (
+  isAdminPath(target)
+  && target !== '/admin/login'
+)
 
 const isScopePath = (target: string, scope: 'central' | 'tenant') => (
   target === `/admin/${scope}` || target.startsWith(`/admin/${scope}/`)

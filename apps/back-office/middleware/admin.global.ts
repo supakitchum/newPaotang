@@ -1,12 +1,17 @@
 import { adminSessionCookieName } from '~/composables/useAdminSession'
 
 const loginRedirect = (redirect: string) => ({ path: '/login', query: { redirect } })
+const legacyLoginRedirect = () => ({ path: '/login' })
 
 export default defineNuxtRouteMiddleware((to) => {
   const session = useAdminSession()
 
   if (!to.path.startsWith('/admin')) {
     return
+  }
+
+  if (to.path === '/admin/login') {
+    return navigateTo(legacyLoginRedirect())
   }
 
   if (['/admin/403', '/admin/404', '/admin/500'].includes(to.path)) {

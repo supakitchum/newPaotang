@@ -151,6 +151,7 @@ for (const evidence of [
   ['SSR no-marker login redirect', serverAdminGuard.includes('adminSessionCookieName') && serverAdminGuard.includes("marker.value !== '1'") && serverAdminGuard.includes('loginRedirect(to.fullPath)')],
   ['SSR exact-marker shell bridge', serverAdminGuard.includes('useCookie<string | null>') && serverAdminGuard.includes('decode: (value) => value') && serverAdminGuard.includes('non-sensitive SSR restore shell') && !serverAdminGuard.includes('session.isAuthenticated')],
   ['login redirect preservation', adminMiddleware.includes('loginRedirect(to.fullPath)')],
+  ['legacy admin login redirect cleanup', adminMiddleware.includes("to.path === '/admin/login'") && adminMiddleware.includes('legacyLoginRedirect') && loginPage.includes("target !== '/admin/login'") && loginPage.includes('isRoutableAdminPath')],
   ['client auth restore', adminMiddleware.includes('session.restore()') && adminMiddleware.includes('session.alignScopeForPath(to.path)')],
   ['login safe redirect target', loginPage.includes('safeRedirectTarget') && loginPage.includes('route.query.redirect') && loginPage.includes('isAdminPath') && loginPage.includes('isScopePath')],
   ['operations client-only load', operationsPage.includes('if (!import.meta.client)') && operationsPage.includes('onMounted(() =>') && operationsPage.includes('!session.isAuthenticated.value')],
