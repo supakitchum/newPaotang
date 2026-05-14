@@ -192,6 +192,8 @@ Route::get('/admin/central/partners/{partner_id}/lottery-branding-assets', [Part
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::put('/admin/central/partners/{partner_id}/lottery-branding-assets', [PartnerLotteryBrandingAssetController::class, 'update'])
     ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/partners/{partner_id}/lottery-branding/preview', [PartnerLotteryBrandingAssetController::class, 'preview'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/partners/{partner_id}/provision', [PartnerProvisioningController::class, 'provision'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/partners/{partner_id}/suspend', [PartnerProvisioningController::class, 'suspend'])
@@ -230,9 +232,13 @@ Route::get('/admin/central/lottery-images/readiness', [LotteryImageOperationsCon
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/lottery-images/background-asset-sets', [LotteryImageOperationsController::class, 'backgroundSets'])
     ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/lottery-images/background-asset-sets/import-zip', [LotteryImageOperationsController::class, 'importBackgroundZip'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
 Route::put('/admin/central/lottery-images/background-asset-sets', [LotteryImageOperationsController::class, 'upsertBackgroundSet'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::patch('/admin/central/lottery-images/background-asset-sets/{asset_set_id}', [LotteryImageOperationsController::class, 'updateBackgroundSetStatus'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/lottery-images/preview', [LotteryImageOperationsController::class, 'preview'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/lottery-images/mix', [LotteryImageOperationsController::class, 'mix'])
     ->middleware(['admin.auth', 'admin.scope:central']);

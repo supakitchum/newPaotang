@@ -52,6 +52,80 @@ class LotteryImageOperationsController extends Controller
         );
     }
 
+    public function importBackgroundZip(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'asset.manage');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        $file = $request->file('zip') ?? $request->file('file');
+        $payload = $request->except(['zip', 'file']);
+        $idempotencyPayload = $payload;
+
+        if ($file instanceof \Illuminate\Http\UploadedFile && $file->isValid()) {
+            $realPath = $file->getRealPath();
+            $idempotencyPayload['zip'] = [
+                'name' => $file->getClientOriginalName(),
+                'size' => $file->getSize(),
+                'sha256' => is_string($realPath) ? hash_file('sha256', $realPath) : null,
+            ];
+        }
+
+        $idempotencyKey = (string) $request->header('Idempotency-Key');
+        $routeKey = 'admin.central.lottery-images.background-asset-sets.import-zip';
+        $replay = $this->idempotency->replayOrConflict(
+            null,
+            'central_admin',
+            (string) $context->adminUser['id'],
+            $routeKey,
+            $idempotencyKey,
+            $idempotencyPayload,
+            'asset.manage',
+            true,
+        );
+
+        if (is_array($replay)) {
+            return response()->json($replay['body'] ?? [], $replay['status']);
+        }
+
+        if ($replay === 'idempotency_conflict') {
+            return ApiErrorResponse::idempotencyConflict($request);
+        }
+
+        if ($replay === 'resource_conflict') {
+            return ApiErrorResponse::resourceConflict($request);
+        }
+
+        $result = $this->operations->importBackgroundZip($payload, $file instanceof \Illuminate\Http\UploadedFile ? $file : null, $context, $request);
+
+        if (($result['error'] ?? null) === 'validation_failed') {
+            return ApiErrorResponse::validationFailed($request, $result['errors'] ?? ['payload' => ['The request payload is invalid.']]);
+        }
+
+        $resource = $result['resource'] ?? $result;
+        $this->idempotency->storeResponse(
+            null,
+            'central_admin',
+            (string) $context->adminUser['id'],
+            $routeKey,
+            $idempotencyKey,
+            $idempotencyPayload,
+            200,
+            $resource,
+            'asset.manage',
+        );
+
+        return response()->json($resource);
+    }
+
     public function mix(Request $request): JsonResponse
     {
         return $this->read($request, 'stock.view', fn (): array => $this->operations->mix($request->query()));
@@ -81,6 +155,11 @@ class LotteryImageOperationsController extends Controller
     public function productionReadiness(Request $request): JsonResponse
     {
         return $this->read($request, 'stock.view', fn (): array => $this->operations->productionReadiness());
+    }
+
+    public function preview(Request $request): JsonResponse
+    {
+        return $this->read($request, 'stock.view', fn (): array => $this->operations->preview($request->all()));
     }
 
     private function read(Request $request, string $permissionCode, callable $callback): JsonResponse

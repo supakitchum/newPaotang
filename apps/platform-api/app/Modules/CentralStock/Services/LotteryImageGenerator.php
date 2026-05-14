@@ -748,6 +748,7 @@ class LotteryImageGenerator
                 ->where('version', $version)
                 ->where('set_type', $setType)
                 ->where('status', 'ready')
+                ->orderBy('position')
                 ->orderByDesc('activated_at')
                 ->orderByDesc('updated_at')
                 ->get();

@@ -1598,6 +1598,41 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminResource"
+  /admin/central/partners/{partner_id}/lottery-branding/preview:
+    post:
+      tags: [Central Admin]
+      summary: Preview partner-branded lottery image composition for a route-locked partner
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: partner_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LotteryImagePartnerBrandingPreviewRequest"
+      responses:
+        "200":
+          description: Partner branding preview rendered without creating stock rows or locking branding
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LotteryImagePreviewResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "422":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /admin/central/partner-quotas:
     get:
       tags: [Central Admin]
@@ -1966,6 +2001,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /admin/central/lottery-images/background-asset-sets/import-zip:
+    post:
+      tags: [Central Admin]
+      summary: Import ordered PNG background zip and generate full/thumb WebP variants
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/LotteryImageBackgroundZipImportRequest"
+      responses:
+        "200":
+          description: Background PNG zip imported and registered after variants are generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LotteryImageBackgroundZipImportResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+        "422":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /admin/central/lottery-images/background-asset-sets/{asset_set_id}:
     patch:
       tags: [Central Admin]
@@ -1992,6 +2060,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LotteryImageBackgroundAssetSet"
+  /admin/central/lottery-images/preview:
+    post:
+      tags: [Central Admin]
+      summary: Preview a lottery image composition from a manual lottery number
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LotteryImagePreviewRequest"
+      responses:
+        "200":
+          description: Lottery image preview rendered without creating stock or permanent image rows
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LotteryImagePreviewResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "422":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /admin/central/lottery-images/mix:
     get:
       tags: [Central Admin]
@@ -7498,7 +7596,7 @@ components:
                 enum: [odd, even, charity]
     LotteryImageBackgroundAssetSet:
       type: object
-      required: [id, game_id, version, set_type, status, ready, generation_ready, missing_assets, assets]
+      required: [id, game_id, version, set_type, position, status, ready, generation_ready, missing_assets, assets]
       properties:
         id:
           type: string
@@ -7509,6 +7607,10 @@ components:
         set_type:
           type: string
           enum: [odd, even, charity]
+        position:
+          type: integer
+          minimum: 1
+          description: Ordered background position derived from zip names such as 001.png.
         status:
           type: string
           enum: [ready, inactive, retired]
@@ -7611,6 +7713,57 @@ components:
               properties:
                 asset_id:
                   type: string
+    LotteryImageBackgroundZipImportRequest:
+      type: object
+      required: [game_id, version, set_type, expected_count, zip]
+      properties:
+        game_id:
+          type: string
+        version:
+          type: string
+          example: v1
+        set_type:
+          type: string
+          enum: [odd, even, charity]
+        expected_count:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Exact number of ordered root-level PNG files expected in the zip.
+        status:
+          type: string
+          enum: [ready, inactive, retired]
+          default: ready
+        supersede_existing:
+          type: boolean
+          default: false
+        zip:
+          type: string
+          format: binary
+          description: Root-level PNG-only zip containing 001.png, 002.png, and so on.
+    LotteryImageBackgroundZipImportResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/LotteryImageBackgroundAssetSet"
+        meta:
+          type: object
+          required: [game_id, version, set_type, imported_count, expected_count]
+          properties:
+            game_id:
+              type: string
+            version:
+              type: string
+            set_type:
+              type: string
+              enum: [odd, even, charity]
+            imported_count:
+              type: integer
+            expected_count:
+              type: integer
     LotteryImageBackgroundAssetSetStatusRequest:
       type: object
       required: [status]
@@ -7621,6 +7774,116 @@ components:
         supersede_existing:
           type: boolean
           default: false
+    LotteryImagePreviewRequest:
+      type: object
+      required: [game_id, version, set_type, lottery_number]
+      properties:
+        game_id:
+          type: string
+        version:
+          type: string
+          example: v1
+        set_type:
+          type: string
+          enum: [odd, even, charity]
+        lottery_number:
+          type: string
+          pattern: "^[0-9]{1,6}$"
+        partner_id:
+          type: string
+          nullable: true
+          description: Optional partner to use only when mode is explicitly partner_branded.
+        mode:
+          type: string
+          enum: [central_unbranded, partner_branded]
+          default: central_unbranded
+        variant:
+          type: string
+          enum: [full, thumb]
+          default: full
+    LotteryImagePartnerBrandingPreviewRequest:
+      type: object
+      required: [game_id, version, set_type, lottery_number]
+      properties:
+        game_id:
+          type: string
+        version:
+          type: string
+          example: v1
+        set_type:
+          type: string
+          enum: [odd, even, charity]
+        lottery_number:
+          type: string
+          pattern: "^[0-9]{1,6}$"
+        partner_id:
+          type: string
+          nullable: true
+          description: If supplied, it must match the route partner_id; otherwise the route partner_id is used.
+        variant:
+          type: string
+          enum: [full, thumb]
+          default: full
+    LotteryImagePreviewResponse:
+      type: object
+      required: [mode, requested_mode, warnings, game_id, version, set_type, lottery_number, variant, content_type, width, height, image_base64, data_url, side_effects]
+      properties:
+        mode:
+          type: string
+          enum: [central_unbranded, partner_branded]
+        requested_mode:
+          type: string
+          enum: [central_unbranded, partner_branded]
+        fallback_mode:
+          type: string
+          enum: [central_unbranded, partner_branded]
+          nullable: true
+        warnings:
+          type: array
+          items:
+            type: string
+          description: Includes partner_branding_assets_not_ready when branded preview falls back to central_unbranded.
+        game_id:
+          type: string
+        version:
+          type: string
+        set_type:
+          type: string
+          enum: [odd, even, charity]
+        partner_id:
+          type: string
+          nullable: true
+        lottery_number:
+          type: string
+          description: Six-digit normalized preview number.
+        variant:
+          type: string
+          enum: [full, thumb]
+        content_type:
+          type: string
+          enum: [image/webp]
+        width:
+          type: integer
+        height:
+          type: integer
+        image_base64:
+          type: string
+          format: byte
+        data_url:
+          type: string
+        side_effects:
+          type: object
+          required: [stock_rows_created, permanent_image_rows_created, branding_locked]
+          properties:
+            stock_rows_created:
+              type: integer
+              enum: [0]
+            permanent_image_rows_created:
+              type: integer
+              enum: [0]
+            branding_locked:
+              type: boolean
+              enum: [false]
     LotteryImageMix:
       type: object
       required: [game_id, source, mix]

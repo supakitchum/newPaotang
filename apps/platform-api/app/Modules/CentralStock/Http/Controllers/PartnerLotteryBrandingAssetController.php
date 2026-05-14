@@ -2,6 +2,7 @@
 
 namespace App\Modules\CentralStock\Http\Controllers;
 
+use App\Modules\CentralStock\Services\LotteryImageOperationsService;
 use App\Modules\CentralStock\Services\PartnerLotteryBrandingAssetService;
 use App\Modules\Rbac\Services\PermissionService;
 use App\Shared\Auth\AdminSessionContext;
@@ -17,6 +18,7 @@ class PartnerLotteryBrandingAssetController extends Controller
     public function __construct(
         private readonly PermissionService $permissions,
         private readonly PartnerLotteryBrandingAssetService $brandingAssets,
+        private readonly LotteryImageOperationsService $lotteryImages,
         private readonly RequestHeaderValidator $headers,
         private readonly IdempotencyService $idempotency,
     ) {
@@ -105,6 +107,29 @@ class PartnerLotteryBrandingAssetController extends Controller
         );
 
         return response()->json($resource);
+    }
+
+    public function preview(Request $request, string $partner_id): JsonResponse
+    {
+        $context = $this->authorizedContext($request);
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $payload = $request->all();
+        $payload['mode'] = 'partner_branded';
+        $result = $this->lotteryImages->preview($payload, $partner_id);
+
+        if (($result['error'] ?? null) === 'not_found') {
+            return ApiErrorResponse::notFound($request);
+        }
+
+        if (($result['error'] ?? null) === 'validation_failed') {
+            return ApiErrorResponse::validationFailed($request, $result['errors'] ?? ['payload' => ['The request payload is invalid.']]);
+        }
+
+        return response()->json($result);
     }
 
     private function authorizedContext(Request $request): AdminSessionContext|JsonResponse

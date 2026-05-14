@@ -5,12 +5,14 @@ namespace Tests\Feature;
 use App\Jobs\GenerateLotteryImageJob;
 use App\Modules\CentralStock\Services\LotteryImageGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\Support\PartnerStoreFixtures;
 use Tests\TestCase;
+use ZipArchive;
 
 class LotteryImageOperationsTest extends TestCase
 {
@@ -341,6 +343,204 @@ class LotteryImageOperationsTest extends TestCase
         $this->assertSame('public, max-age=31536000, immutable', config('lottery_images.cache_control'));
     }
 
+    public function test_LotteryImageZipImport_central_admin_imports_png_zip_and_tenant_is_rejected(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenant('par_zip_ops', 'ten_zip_ops');
+        $this->insertGame('gam_lottery_zip_ops', 'open');
+        $central = $this->createCentralSession(['asset.manage', 'stock.view'], 'adm_lottery_zip_ops', 'lottery-zip@example.test');
+        $tenant = $this->createTenantSession('ten_zip_ops', 'par_zip_ops', ['asset.manage'], 'adm_lottery_zip_tenant', 'lottery-zip-tenant@example.test');
+
+        $this->withToken($tenant['access_token'])
+            ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
+                'game_id' => 'gam_lottery_zip_ops',
+                'version' => 'v2',
+                'set_type' => 'charity',
+                'expected_count' => 2,
+                'zip' => $this->pngZipUpload([1, 2]),
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_zip_ops',
+                'Idempotency-Key' => 'tenant-zip-import',
+            ])
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'permission_denied');
+
+        $response = $this->withToken($central['access_token'])
+            ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
+                'game_id' => 'gam_lottery_zip_ops',
+                'version' => 'v2',
+                'set_type' => 'charity',
+                'expected_count' => 2,
+                'zip' => $this->pngZipUpload([1, 2]),
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'central-zip-import',
+            ])
+            ->assertOk()
+            ->assertJsonPath('meta.game_id', 'gam_lottery_zip_ops')
+            ->assertJsonPath('meta.set_type', 'charity')
+            ->assertJsonPath('meta.imported_count', 2)
+            ->assertJsonPath('data.0.position', 1)
+            ->assertJsonPath('data.1.position', 2)
+            ->assertJsonPath('data.0.assets.source.content_type', 'image/png')
+            ->assertJsonPath('data.0.assets.full.content_type', 'image/webp')
+            ->assertJsonPath('data.0.assets.thumb.content_type', 'image/webp')
+            ->json();
+
+        $this->assertSame(2, DB::table('lottery_image_background_asset_sets')
+            ->where('game_id', 'gam_lottery_zip_ops')
+            ->where('version', 'v2')
+            ->where('set_type', 'charity')
+            ->where('status', 'ready')
+            ->count());
+        $this->assertSame(6, DB::table('platform_assets')
+            ->where('purpose', 'ticket_image')
+            ->where('storage_key', 'like', 'lottery-image-assets/games/gam_lottery_zip_ops/backgrounds/v2/charity/%')
+            ->count());
+        $this->assertTrue(Storage::disk('lottery_images')->exists($response['data'][0]['assets']['full']['storage_path']));
+        $this->assertTrue(Storage::disk('lottery_images')->exists($response['data'][0]['assets']['thumb']['storage_path']));
+
+        $this->withToken($central['access_token'])
+            ->getJson('/api/v1/admin/central/lottery-images/readiness?game_id=gam_lottery_zip_ops&version=v2', [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('backgrounds.2.set_type', 'charity')
+            ->assertJsonPath('backgrounds.2.available_count', 2)
+            ->assertJsonPath('backgrounds.2.ready', true);
+    }
+
+    public function test_LotteryImageZipImport_rejects_non_png_or_wrong_count_zip(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertGame('gam_lottery_zip_invalid', 'open');
+        $central = $this->createCentralSession(['asset.manage'], 'adm_lottery_zip_invalid', 'lottery-zip-invalid@example.test');
+
+        $this->withToken($central['access_token'])
+            ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
+                'game_id' => 'gam_lottery_zip_invalid',
+                'version' => 'v1',
+                'set_type' => 'odd',
+                'expected_count' => 2,
+                'zip' => $this->pngZipUpload([1]),
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'zip-wrong-count',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed');
+
+        $this->withToken($central['access_token'])
+            ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
+                'game_id' => 'gam_lottery_zip_invalid',
+                'version' => 'v1',
+                'set_type' => 'odd',
+                'expected_count' => 1,
+                'zip' => $this->mixedZipUpload(),
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'zip-non-png',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed');
+    }
+
+    public function test_LotteryImagePreview_supports_manual_number_modes_and_creates_no_rows(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenant('par_preview_ops', 'ten_preview_ops');
+        $this->insertGame('gam_lottery_preview_ops', 'open');
+        $central = $this->createCentralSession(['asset.manage', 'stock.view'], 'adm_lottery_preview_ops', 'lottery-preview@example.test');
+        $this->registerBackgroundSet($central['access_token'], 'gam_lottery_preview_ops', 'odd', 'preview-odd-assets');
+        $this->insertPartnerBrandingAssetSet('par_preview_ops');
+        $stockBefore = DB::table('stock_items')->count();
+        $localBefore = DB::table('local_stock_items')->count();
+
+        $unbranded = $this->withToken($central['access_token'])
+            ->postJson('/api/v1/admin/central/lottery-images/preview', [
+                'game_id' => 'gam_lottery_preview_ops',
+                'version' => 'v1',
+                'set_type' => 'odd',
+                'lottery_number' => '12345',
+                'partner_id' => 'par_preview_ops',
+            ], [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('mode', 'central_unbranded')
+            ->assertJsonPath('requested_mode', 'central_unbranded')
+            ->assertJsonPath('lottery_number', '012345')
+            ->assertJsonPath('partner_id', 'par_preview_ops')
+            ->assertJsonPath('side_effects.stock_rows_created', 0)
+            ->json();
+
+        $this->assertWebpBase64($unbranded['image_base64']);
+
+        $branded = $this->withToken($central['access_token'])
+            ->postJson('/api/v1/admin/central/lottery-images/preview', [
+                'game_id' => 'gam_lottery_preview_ops',
+                'version' => 'v1',
+                'set_type' => 'odd',
+                'lottery_number' => '123456',
+                'partner_id' => 'par_preview_ops',
+                'mode' => 'partner_branded',
+            ], [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('mode', 'partner_branded')
+            ->assertJsonPath('warnings', [])
+            ->json();
+
+        $this->assertWebpBase64($branded['image_base64']);
+        $this->assertSame($stockBefore, DB::table('stock_items')->count());
+        $this->assertSame($localBefore, DB::table('local_stock_items')->count());
+        $this->assertNull(DB::table('partner_lottery_branding_asset_sets')->where('partner_id', 'par_preview_ops')->value('locked_at'));
+    }
+
+    public function test_LotteryBrandingPreview_uses_route_partner_and_rejects_body_override(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenant('par_branding_preview', 'ten_branding_preview');
+        $this->insertGame('gam_lottery_branding_preview', 'open');
+        $central = $this->createCentralSession(['asset.manage', 'stock.view'], 'adm_brand_preview', 'lottery-branding-preview@example.test');
+        $this->registerBackgroundSet($central['access_token'], 'gam_lottery_branding_preview', 'odd', 'branding-preview-odd-assets');
+        $this->insertPartnerBrandingAssetSet('par_branding_preview');
+
+        $this->withToken($central['access_token'])
+            ->postJson('/api/v1/admin/central/partners/par_branding_preview/lottery-branding/preview', [
+                'game_id' => 'gam_lottery_branding_preview',
+                'version' => 'v1',
+                'set_type' => 'odd',
+                'lottery_number' => '998877',
+                'partner_id' => 'par_other',
+            ], [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed');
+
+        $preview = $this->withToken($central['access_token'])
+            ->postJson('/api/v1/admin/central/partners/par_branding_preview/lottery-branding/preview', [
+                'game_id' => 'gam_lottery_branding_preview',
+                'version' => 'v1',
+                'set_type' => 'odd',
+                'lottery_number' => '998877',
+                'partner_id' => 'par_branding_preview',
+            ], [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('mode', 'partner_branded')
+            ->assertJsonPath('partner_id', 'par_branding_preview')
+            ->assertJsonPath('side_effects.branding_locked', false)
+            ->json();
+
+        $this->assertWebpBase64($preview['image_base64']);
+        $this->assertNull(DB::table('partner_lottery_branding_asset_sets')->where('partner_id', 'par_branding_preview')->value('locked_at'));
+    }
+
     /**
      * @return array<string, array{asset_id: string}>
      */
@@ -450,5 +650,124 @@ class LotteryImageOperationsTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    /**
+     * @param array<int, int> $ordinals
+     */
+    private function pngZipUpload(array $ordinals): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'lottery-png-zip-');
+        $this->assertIsString($path);
+
+        $zip = new ZipArchive();
+        $this->assertTrue($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE));
+
+        foreach ($ordinals as $ordinal) {
+            $zip->addFromString(str_pad((string) $ordinal, 3, '0', STR_PAD_LEFT).'.png', $this->fixturePng($ordinal));
+        }
+
+        $zip->close();
+
+        return new UploadedFile($path, 'backgrounds.zip', 'application/zip', null, true);
+    }
+
+    private function mixedZipUpload(): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'lottery-mixed-zip-');
+        $this->assertIsString($path);
+
+        $zip = new ZipArchive();
+        $this->assertTrue($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE));
+        $zip->addFromString('001.txt', 'not a png');
+        $zip->close();
+
+        return new UploadedFile($path, 'mixed.zip', 'application/zip', null, true);
+    }
+
+    private function fixturePng(int $seed, int $width = 500, int $height = 280): string
+    {
+        $image = imagecreatetruecolor($width, $height);
+        $background = imagecolorallocate($image, (70 + ($seed * 30)) % 255, (120 + ($seed * 20)) % 255, (170 + ($seed * 10)) % 255);
+        $accent = imagecolorallocate($image, 255, 255, 255);
+
+        imagefilledrectangle($image, 0, 0, $width, $height, $background);
+        imagefilledellipse($image, (int) floor($width / 2), (int) floor($height / 2), 90, 90, $accent);
+
+        ob_start();
+        imagepng($image);
+        $bytes = ob_get_clean();
+        imagedestroy($image);
+
+        $this->assertIsString($bytes);
+
+        return $bytes;
+    }
+
+    private function insertPartnerBrandingAssetSet(string $partnerId): void
+    {
+        $assetIds = [
+            'logo_qr' => $this->insertBrandingImageAsset($partnerId, 'logo_qr', 80, 80),
+            'right_sidebar' => $this->insertBrandingImageAsset($partnerId, 'right_sidebar', 80, 240),
+            'logo_bottom' => $this->insertBrandingImageAsset($partnerId, 'logo_bottom', 160, 60),
+        ];
+
+        DB::table('partner_lottery_branding_asset_sets')->insert([
+            'id' => 'pba_'.substr(sha1($partnerId.':preview'), 0, 20),
+            'partner_id' => $partnerId,
+            'version' => 'v1',
+            'status' => 'ready',
+            'logo_qr_asset_id' => $assetIds['logo_qr'],
+            'right_sidebar_asset_id' => $assetIds['right_sidebar'],
+            'logo_bottom_asset_id' => $assetIds['logo_bottom'],
+            'logo_qr_storage_path' => 'lottery-image-assets/partners/'.$partnerId.'/branding/v1/logo_qr.webp',
+            'right_sidebar_storage_path' => 'lottery-image-assets/partners/'.$partnerId.'/branding/v1/right_sidebar.webp',
+            'logo_bottom_storage_path' => 'lottery-image-assets/partners/'.$partnerId.'/branding/v1/logo_bottom.webp',
+            'uploaded_by_admin_id' => null,
+            'activated_at' => now(),
+            'locked_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function insertBrandingImageAsset(string $partnerId, string $slot, int $width, int $height): string
+    {
+        $assetId = 'ast_'.substr(sha1($partnerId.':'.$slot), 0, 20);
+        $storageKey = 'lottery-image-assets/partners/'.$partnerId.'/branding/v1/'.$slot.'.webp';
+        $bytes = $this->fixtureWebp('odd', $width, $height);
+
+        Storage::disk('lottery_images')->put($storageKey, $bytes);
+        DB::table('platform_assets')->insert([
+            'id' => $assetId,
+            'scope_type' => 'central',
+            'tenant_id' => null,
+            'created_by_admin_id' => null,
+            'purpose' => 'ticket_image',
+            'file_name' => $slot.'.webp',
+            'content_type' => 'image/webp',
+            'size_bytes' => strlen($bytes),
+            'checksum_sha256' => hash('sha256', $bytes),
+            'status' => 'committed',
+            'storage_key' => $storageKey,
+            'upload_url' => null,
+            'public_url' => 'https://cdn.lottery.test/'.$storageKey,
+            'metadata_json' => json_encode(['width' => $width, 'height' => $height], JSON_THROW_ON_ERROR),
+            'expires_at' => null,
+            'committed_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $assetId;
+    }
+
+    private function assertWebpBase64(string $base64): void
+    {
+        $bytes = base64_decode($base64, true);
+
+        $this->assertIsString($bytes);
+        $this->assertStringStartsWith('RIFF', $bytes);
+        $this->assertSame('WEBP', substr($bytes, 8, 4));
     }
 }
