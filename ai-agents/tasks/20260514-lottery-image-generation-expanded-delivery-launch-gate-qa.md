@@ -10,16 +10,28 @@ Lane D: End-to-end QA launch gate
 
 ## Status
 
-Prepared, not ready to execute until Lane A, Lane B, and Lane C handoffs exist.
+Ready to execute.
 
 ## Required Preconditions
 
-Do not start this launch-gate QA until Orchestrator or Coordinator confirms all relevant lane handoffs are present:
+Orchestrator confirmed all relevant lane handoffs are present:
 
 ```text
 ai-agents/handoffs/20260514-lottery-image-operations-management-ui-bo-handoff.md
 ai-agents/handoffs/20260514-lottery-image-customer-display-integration-customer-handoff.md
 ai-agents/handoffs/20260514-lottery-image-production-ops-readiness-backend-handoff.md
+```
+
+Lane commits under test:
+
+```text
+BO implementation: f853c82805ce9f589bc5f7e432a200d48088ba5e
+BO handoff: e5fc5f4
+Backend/Ops implementation: e5513c923dd91024238d175bb1de2a68bebb173f
+Backend/Ops handoff: e41026cb08cb5f55acf9e2a34dcb167a0a57a781
+Customer implementation: afd79933a5eb146a7880650144a91ff021430137
+Customer handoff: 1f9abb6
+QA dispatch: pending
 ```
 
 ## Objective
@@ -55,6 +67,9 @@ ai-agents/tasks/20260514-lottery-image-operations-management-ui-bo.md
 ai-agents/tasks/20260514-lottery-image-customer-display-integration-customer.md
 ai-agents/tasks/20260514-lottery-image-production-ops-readiness-backend.md
 ai-agents/handoffs/20260514-lottery-image-generation-remaining-closure-backend-handoff.md
+ai-agents/handoffs/20260514-lottery-image-operations-management-ui-bo-handoff.md
+ai-agents/handoffs/20260514-lottery-image-customer-display-integration-customer-handoff.md
+ai-agents/handoffs/20260514-lottery-image-production-ops-readiness-backend-handoff.md
 ai-agents/reports/20260514-lottery-image-generation-remaining-closure-qa-report.md
 ```
 
@@ -85,9 +100,22 @@ docker compose run --rm platform-api php artisan lottery-images:readiness --form
 docker compose run --rm back-office npm run lint
 docker compose run --rm back-office npm run test
 docker compose run --rm back-office npm run build
+docker compose run --rm customer npm run build
+```
+
+Customer package validation note:
+
+```text
+apps/customer/package.json currently has no lint or test scripts and no matching lint/test tooling dependencies.
+Customer handoff documents this as unavailable.
+Do not treat missing customer lint/test scripts alone as an implementation defect for this lane; record it as a residual tooling gap unless a separate functional issue is found.
+```
+
+If Customer lint/test scripts are added before QA starts, run them:
+
+```sh
 docker compose run --rm customer npm run lint
 docker compose run --rm customer npm run test
-docker compose run --rm customer npm run build
 ```
 
 Add route/manual workflow evidence for BO and Customer where practical.
