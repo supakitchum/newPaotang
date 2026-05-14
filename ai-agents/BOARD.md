@@ -13,16 +13,16 @@ lottery-image-central-ops-usability-zip-preview
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
 | Coordinator | completed | 20260514-lottery-image-central-ops-usability-zip-preview-open | ai-agents/handoffs/20260514-lottery-image-central-ops-usability-zip-preview-coordinator-handoff.md |
-| Orchestrator | pending | lottery-image-central-ops-usability-zip-preview | ai-agents/handoffs/20260514-lottery-image-central-ops-usability-zip-preview-coordinator-handoff.md |
-| Backend Develop | completed | lottery-image-production-ops-readiness | ai-agents/handoffs/20260514-lottery-image-production-ops-readiness-backend-handoff.md |
-| BO Develop | completed | lottery-image-operations-management-ui | ai-agents/handoffs/20260514-lottery-image-operations-management-ui-bo-handoff.md |
+| Orchestrator | completed | lottery-image-central-ops-usability-zip-preview | ai-agents/handoffs/20260514-lottery-image-central-ops-zip-preview-orchestrator-handoff.md |
+| Backend Develop | pending | lottery-image-central-ops-zip-preview-backend | ai-agents/tasks/20260514-lottery-image-central-ops-zip-preview-backend.md |
+| BO Develop | pending | lottery-image-central-ops-zip-preview-bo | ai-agents/tasks/20260514-lottery-image-central-ops-zip-preview-bo.md |
 | Customer Develop | completed | lottery-image-customer-ssr-error-serialization-remediation | ai-agents/handoffs/20260514-lottery-image-customer-ssr-error-serialization-remediation-customer-handoff.md |
-| QA Tester | completed | lottery-image-generation-expanded-delivery-launch-gate-rerun-qa | ai-agents/reports/20260514-lottery-image-generation-expanded-delivery-launch-gate-rerun-qa-report.md |
+| QA Tester | pending | lottery-image-central-ops-zip-preview-qa | ai-agents/tasks/20260514-lottery-image-central-ops-zip-preview-qa.md |
 
 ## Open Questions
 
 ```text
-New lottery-image central operations usability phase opened. Orchestrator must split Backend and BO work for PNG zip background import, backend-generated full/thumb variants, game-name selection, central-only lottery-images/lottery-branding access, Games/Partners table actions, and manual-number preview flows. Expanded delivery launch gate remains approved; production rollout still needs real S3/R2-compatible object storage, queue workers, credential redaction checks, and authenticated UAT.
+Orchestrator dispatched Backend, BO, and QA task briefs for the lottery-image central operations usability zip preview phase. Backend Develop is next and must complete the central-only PNG zip import/preview APIs before BO starts final wiring against the contract. BO and QA task files are prepared but gated on prior handoffs. Expanded delivery launch gate remains approved; production rollout still needs real S3/R2-compatible object storage, queue workers, credential redaction checks, and authenticated UAT.
 ```
 
 ## Latest Decision
