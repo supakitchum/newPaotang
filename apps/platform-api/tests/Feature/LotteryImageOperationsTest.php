@@ -347,7 +347,8 @@ class LotteryImageOperationsTest extends TestCase
     {
         $this->seedDefaultRbac();
         $this->insertActivePartnerTenant('par_zip_ops', 'ten_zip_ops');
-        $this->insertGame('gam_lottery_zip_ops', 'open');
+        $gameId = 'gam_01KRKJV10S2JSFVZE8Q998MN0J';
+        $this->insertGame($gameId, 'open');
         $central = $this->createCentralSession(['asset.manage', 'stock.view'], 'adm_lottery_zip_ops', 'lottery-zip@example.test');
         $tenant = $this->createTenantSession('ten_zip_ops', 'par_zip_ops', ['asset.manage'], 'adm_lottery_zip_tenant', 'lottery-zip-tenant@example.test');
         $longAlphaName = 'alpha-'.str_repeat('very-long-background-name-', 10).'001.png';
@@ -361,7 +362,7 @@ class LotteryImageOperationsTest extends TestCase
 
         $this->withToken($tenant['access_token'])
             ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
-                'game_id' => 'gam_lottery_zip_ops',
+                'game_id' => $gameId,
                 'version' => 'v2',
                 'set_type' => 'charity',
                 'zip' => $this->namedImageZipUpload($zipEntries, includeMacArtifacts: true),
@@ -375,7 +376,7 @@ class LotteryImageOperationsTest extends TestCase
 
         $response = $this->withToken($central['access_token'])
             ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
-                'game_id' => 'gam_lottery_zip_ops',
+                'game_id' => $gameId,
                 'version' => 'v2',
                 'set_type' => 'charity',
                 'zip' => $this->namedImageZipUpload($zipEntries),
@@ -384,7 +385,7 @@ class LotteryImageOperationsTest extends TestCase
                 'Idempotency-Key' => 'central-zip-import',
             ])
             ->assertOk()
-            ->assertJsonPath('meta.game_id', 'gam_lottery_zip_ops')
+            ->assertJsonPath('meta.game_id', $gameId)
             ->assertJsonPath('meta.set_type', 'charity')
             ->assertJsonPath('meta.imported_count', 3)
             ->assertJsonPath('meta.expected_count', 3)
@@ -394,40 +395,40 @@ class LotteryImageOperationsTest extends TestCase
             ->assertJsonPath('data.0.assets.source.content_type', 'image/png')
             ->assertJsonPath('data.1.assets.source.content_type', 'image/jpeg')
             ->assertJsonPath('data.2.assets.source.content_type', 'image/webp')
-            ->assertJsonPath('data.0.assets.source.storage_path', 'lottery-image-assets/games/gam_lottery_zip_ops/backgrounds/v2/charity/001/001.png')
-            ->assertJsonPath('data.1.assets.source.storage_path', 'lottery-image-assets/games/gam_lottery_zip_ops/backgrounds/v2/charity/002/002.jpg')
-            ->assertJsonPath('data.2.assets.source.storage_path', 'lottery-image-assets/games/gam_lottery_zip_ops/backgrounds/v2/charity/003/003.webp')
+            ->assertJsonPath('data.0.assets.source.storage_path', 'lottery-image-assets/games/'.$gameId.'/backgrounds/v2/charity/001/001.png')
+            ->assertJsonPath('data.1.assets.source.storage_path', 'lottery-image-assets/games/'.$gameId.'/backgrounds/v2/charity/002/002.jpg')
+            ->assertJsonPath('data.2.assets.source.storage_path', 'lottery-image-assets/games/'.$gameId.'/backgrounds/v2/charity/003/003.webp')
             ->assertJsonPath('data.0.assets.full.content_type', 'image/webp')
             ->assertJsonPath('data.0.assets.thumb.content_type', 'image/webp')
             ->json();
 
         $this->assertSame(3, DB::table('lottery_image_background_asset_sets')
-            ->where('game_id', 'gam_lottery_zip_ops')
+            ->where('game_id', $gameId)
             ->where('version', 'v2')
             ->where('set_type', 'charity')
             ->where('status', 'ready')
             ->count());
         $this->assertSame(9, DB::table('platform_assets')
             ->where('purpose', 'ticket_image')
-            ->where('storage_key', 'like', 'lottery-image-assets/games/gam_lottery_zip_ops/backgrounds/v2/charity/%')
+            ->where('storage_key', 'like', 'lottery-image-assets/games/'.$gameId.'/backgrounds/v2/charity/%')
             ->count());
         $this->assertSame(['001.png', '002.jpg', '003.webp'], DB::table('platform_assets')
             ->where('purpose', 'ticket_image')
-            ->where('storage_key', 'like', 'lottery-image-assets/games/gam_lottery_zip_ops/backgrounds/v2/charity/%/%.%')
+            ->where('storage_key', 'like', 'lottery-image-assets/games/'.$gameId.'/backgrounds/v2/charity/%/%.%')
             ->whereNotIn('file_name', ['full.webp', 'thumb.webp'])
             ->orderBy('storage_key')
             ->pluck('file_name')
             ->all());
         $persistedZipMetadata = json_encode([
             DB::table('lottery_image_background_asset_sets')
-                ->where('game_id', 'gam_lottery_zip_ops')
+                ->where('game_id', $gameId)
                 ->where('version', 'v2')
                 ->where('set_type', 'charity')
                 ->pluck('metadata_json')
                 ->all(),
             DB::table('platform_assets')
                 ->where('purpose', 'ticket_image')
-                ->where('storage_key', 'like', 'lottery-image-assets/games/gam_lottery_zip_ops/backgrounds/v2/charity/%')
+                ->where('storage_key', 'like', 'lottery-image-assets/games/'.$gameId.'/backgrounds/v2/charity/%')
                 ->pluck('metadata_json')
                 ->all(),
         ], JSON_THROW_ON_ERROR);
@@ -437,7 +438,7 @@ class LotteryImageOperationsTest extends TestCase
         $this->assertTrue(Storage::disk('lottery_images')->exists($response['data'][0]['assets']['thumb']['storage_path']));
 
         $this->withToken($central['access_token'])
-            ->getJson('/api/v1/admin/central/lottery-images/readiness?game_id=gam_lottery_zip_ops&version=v2', [
+            ->getJson('/api/v1/admin/central/lottery-images/readiness?game_id='.$gameId.'&version=v2', [
                 'X-Admin-Scope' => 'central',
             ])
             ->assertOk()
