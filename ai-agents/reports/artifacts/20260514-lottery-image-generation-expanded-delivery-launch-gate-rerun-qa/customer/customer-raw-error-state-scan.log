@@ -1,0 +1,2 @@
+apps/customer/composables/useSiteConfig.ts:97:  const error = useState<SerializableError | null>('site_config_error', () => null)
+apps/customer/composables/useAppInit.ts:150:  const error = useState<SerializableError | null>('app_init_error', () => null)

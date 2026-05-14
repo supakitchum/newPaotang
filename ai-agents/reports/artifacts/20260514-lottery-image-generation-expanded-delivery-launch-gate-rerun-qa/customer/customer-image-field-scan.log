@@ -1,0 +1,57 @@
+apps/customer/composables/usePlatformApi.ts:81:  const imageUrl = item.image_url || item.image || ''
+apps/customer/composables/usePlatformApi.ts:82:  const imageThumbUrl = item.image_thumb_url || item.image_thumb || item.thumb_url || imageUrl
+apps/customer/composables/usePlatformApi.ts:83:  const imageStatus = item.image_status || (imageUrl || imageThumbUrl ? 'ready' : 'missing')
+apps/customer/composables/usePlatformApi.ts:86:    image_url: imageUrl,
+apps/customer/composables/usePlatformApi.ts:87:    image_thumb_url: imageThumbUrl,
+apps/customer/composables/usePlatformApi.ts:88:    image_status: imageStatus,
+apps/customer/composables/usePlatformApi.ts:89:    image_error: item.image_error || null,
+apps/customer/pages/checkout.vue:20:          <LotteryImage
+apps/customer/pages/checkout.vue:23:            :src="ticket.image_url || ticket.image"
+apps/customer/pages/checkout.vue:24:            :thumb-src="ticket.image_thumb_url"
+apps/customer/pages/checkout.vue:25:            :status="ticket.image_status"
+apps/customer/pages/checkout.vue:26:            :error-message="ticket.image_error"
+apps/customer/composables/useSiteConfig.ts:20:    og_image_url?: string
+apps/customer/composables/useTenantSeo.ts:38:  const imageUrl = input.imageUrl || site?.brand?.og_image_url || site?.brand?.logo_url || ''
+apps/customer/pages/tickets/history.vue:49:            :image-url="ticket.image_url || ticket.image"
+apps/customer/pages/tickets/history.vue:50:            :image-thumb-url="ticket.image_thumb_url"
+apps/customer/pages/tickets/history.vue:51:            :image-status="ticket.image_status"
+apps/customer/pages/tickets/history.vue:52:            :image-error="ticket.image_error"
+apps/customer/pages/tickets/index.vue:52:            :image-url="ticket.image_url || ticket.image"
+apps/customer/pages/tickets/index.vue:53:            :image-thumb-url="ticket.image_thumb_url"
+apps/customer/pages/tickets/index.vue:54:            :image-status="ticket.image_status"
+apps/customer/pages/tickets/index.vue:55:            :image-error="ticket.image_error"
+apps/customer/composables/useUserTickets.ts:19:  image_url?: string | null
+apps/customer/composables/useUserTickets.ts:20:  image_thumb_url?: string | null
+apps/customer/composables/useUserTickets.ts:21:  image_status?: string | null
+apps/customer/composables/useUserTickets.ts:22:  image_error?: string | null
+apps/customer/composables/useUserTickets.ts:78:  const image = ticket?.image_url || ticket?.image_thumb_url || ticket?.image
+apps/customer/components/TicketStub.vue:3:    <LotteryImage
+apps/customer/composables/useCart.ts:22:  image_url?: string | null
+apps/customer/composables/useCart.ts:23:  image_thumb_url?: string | null
+apps/customer/composables/useCart.ts:24:  image_status?: string | null
+apps/customer/composables/useCart.ts:25:  image_error?: string | null
+apps/customer/pages/tickets/view.vue:25:        :image-url="selectedTicket.image_url || selectedTicket.image"
+apps/customer/pages/tickets/view.vue:26:        :image-thumb-url="selectedTicket.image_thumb_url"
+apps/customer/pages/tickets/view.vue:27:        :image-status="selectedTicket.image_status"
+apps/customer/pages/tickets/view.vue:28:        :image-error="selectedTicket.image_error"
+apps/customer/pages/tickets/view.vue:46:        <LotteryImage
+apps/customer/pages/tickets/view.vue:48:          :thumb-src="selectedTicket.image_thumb_url"
+apps/customer/pages/tickets/view.vue:49:          :status="selectedTicket.image_status"
+apps/customer/pages/tickets/view.vue:50:          :error-message="selectedTicket.image_error"
+apps/customer/pages/success.vue:35:            <LotteryImage
+apps/customer/pages/success.vue:38:              :src="getLotteryImageUrl(ticket)"
+apps/customer/pages/success.vue:40:              :status="getLotteryImageStatus(ticket)"
+apps/customer/pages/success.vue:41:              :error-message="getLotteryImageError(ticket)"
+apps/customer/pages/success.vue:202:const getLotteryImageUrl = (lottery: Record<string, unknown>) => getLotteryString(lottery, ['image_url', 'image'])
+apps/customer/pages/success.vue:203:const getLotteryThumbUrl = (lottery: Record<string, unknown>) => getLotteryString(lottery, ['image_thumb_url'])
+apps/customer/pages/success.vue:204:const getLotteryImageStatus = (lottery: Record<string, unknown>) => getLotteryString(lottery, ['image_status'])
+apps/customer/pages/success.vue:205:const getLotteryImageError = (lottery: Record<string, unknown>) => getLotteryString(lottery, ['image_error'])
+apps/customer/components/LotteryItem.vue:19:          <LotteryImage
+apps/customer/components/LotteryItem.vue:20:            :src="ticket.image_url || ticket.image"
+apps/customer/components/LotteryItem.vue:21:            :thumb-src="ticket.image_thumb_url"
+apps/customer/components/LotteryItem.vue:22:            :status="ticket.image_status"
+apps/customer/components/LotteryItem.vue:23:            :error-message="ticket.image_error"
+apps/customer/components/LotteryItem.vue:121:    image_url?: string | null
+apps/customer/components/LotteryItem.vue:122:    image_thumb_url?: string | null
+apps/customer/components/LotteryItem.vue:123:    image_status?: string | null
+apps/customer/components/LotteryItem.vue:124:    image_error?: string | null

@@ -1,0 +1,100 @@
+customer-1  | ℹ .nuxt/dist directory has been removed. Restarting Nuxt...
+customer-1  | ℹ Vite client warmed up in 2600ms
+customer-1  | ℹ Vite server warmed up in 2771ms
+customer-1  | [nitro] ✔ Nuxt Nitro server built in 986 ms
+customer-1  |
+customer-1  |  ERROR  [nitro] [uncaughtException] listen EADDRINUSE: address already in use /tmp/nitro/worker-26-2.sock
+customer-1  |
+customer-1  |     at Server.setupListenHandle [as _listen2] (node:net:1918:21)
+customer-1  |     at listenInCluster (node:net:1997:12)
+customer-1  |     at Server.listen (node:net:2119:5)
+customer-1  |     at <anonymous> (node_modules/nitropack/dist/runtime/entries/nitro-dev.mjs:39:25)
+customer-1  |     at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+customer-1  |     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+customer-1  |     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)
+customer-1  |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+customer-1  |
+customer-1  |
+customer-1  | > dev
+customer-1  | > nuxt dev --host 0.0.0.0 --port 3000
+customer-1  |
+customer-1  | Nuxt 3.11.2 with Nitro 2.9.6
+customer-1  |
+customer-1  |  ERROR  (node:18) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+customer-1  | (Use node --trace-deprecation ... to show where the warning was created)
+customer-1  |
+customer-1  |
+customer-1  |
+customer-1  |               █▀▀▀▀▀▀▀█▀██▀▀███▀█▀▀▀▀▀▀▀█
+customer-1  |               █ █▀▀▀█ █▄▄ ▀  ▀███ █▀▀▀█ █
+customer-1  |               █ █   █ █▀▀ ▀█ ██ █ █   █ █
+customer-1  |               █ ▀▀▀▀▀ █ █▀▄▀▄▀█▀█ ▀▀▀▀▀ █
+customer-1  |               █▀▀▀██▀▀█ ▀ ▄▄█ ▄ ▀▀▀▀██▀▀█
+customer-1  |               █ ▀▀ ▀▄▀▀█▄▄▀█▀  ▀  ██ ▀▄ █
+customer-1  |               ██   ▄▄▀██ █▀▀█▀▀█▀ ▄█▄██▀█
+customer-1  |               █▀     ▀▄▀▄██ ▀  ▀█▄█▀▀▀▄ █
+customer-1  |               █▀▀▀▄ ▄▀▄▀█▀▄▄█▀▄ ▀ ▀▀██▀██
+customer-1  |               █▀▀▀▀▀▀▀█▄  ▀█▀ █ █▀█ ▀▄█ █
+customer-1  |               █ █▀▀▀█ █▄▀ ▀▀█▀▀ ▀▀▀ ▀█▄ █
+customer-1  |               █ █   █ █▀█▄█ ▄█▀ ██  ▄▄ ▀█
+customer-1  |               █ ▀▀▀▀▀ █ ▀█▄ ▀   ▀█▄▄▀██▀█
+customer-1  |               ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+customer-1  |
+customer-1  |   ➜ Local:    http://0.0.0.0:3000/
+customer-1  |   ➜ Network:  http://172.22.0.6:3000/ [QR code]
+customer-1  |
+customer-1  |
+customer-1  |  ERROR  (node:26) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+customer-1  | (Use node --trace-deprecation ... to show where the warning was created)
+customer-1  |
+customer-1  | ℹ Vite client warmed up in 2946ms
+customer-1  | ℹ Vite server warmed up in 2843ms
+customer-1  | [nitro] ✔ Nuxt Nitro server built in 913 ms
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes. (repeated 3 times)
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |
+customer-1  |
+customer-1  |  WARN  [nuxt] Calling useRoute within middleware may lead to misleading results. Instead, use the (to, from) arguments passed to the middleware to access the new and old routes.
+customer-1  |

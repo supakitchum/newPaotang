@@ -5,28 +5,28 @@
 ## Active Task
 
 ```text
-lottery-image-generation-expanded-delivery-launch-gate-rerun
+lottery-image-generation-expanded-delivery-complete
 ```
 
 ## Agent Status
 
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
-| Coordinator | completed | 20260514-lottery-image-customer-ssr-error-serialization-remediation-qa-review | ai-agents/handoffs/20260514-lottery-image-customer-ssr-remediation-qa-review-coordinator-handoff.md |
-| Orchestrator | pending | lottery-image-generation-expanded-delivery-launch-gate-rerun | ai-agents/handoffs/20260514-lottery-image-customer-ssr-remediation-qa-review-coordinator-handoff.md |
+| Coordinator | completed | 20260514-lottery-image-generation-expanded-delivery-launch-gate-rerun-qa-review | ai-agents/handoffs/20260514-lottery-image-expanded-delivery-final-approval-coordinator-handoff.md |
+| Orchestrator | completed | lottery-image-generation-expanded-delivery-launch-gate-rerun | ai-agents/handoffs/20260514-lottery-image-generation-expanded-delivery-launch-gate-rerun-qa-task-orchestrator-handoff.md |
 | Backend Develop | completed | lottery-image-production-ops-readiness | ai-agents/handoffs/20260514-lottery-image-production-ops-readiness-backend-handoff.md |
 | BO Develop | completed | lottery-image-operations-management-ui | ai-agents/handoffs/20260514-lottery-image-operations-management-ui-bo-handoff.md |
 | Customer Develop | completed | lottery-image-customer-ssr-error-serialization-remediation | ai-agents/handoffs/20260514-lottery-image-customer-ssr-error-serialization-remediation-customer-handoff.md |
-| QA Tester | completed | lottery-image-customer-ssr-error-serialization-remediation-qa | ai-agents/reports/20260514-lottery-image-customer-ssr-error-serialization-remediation-qa-report.md |
+| QA Tester | completed | lottery-image-generation-expanded-delivery-launch-gate-rerun-qa | ai-agents/reports/20260514-lottery-image-generation-expanded-delivery-launch-gate-rerun-qa-report.md |
 
 ## Open Questions
 
 ```text
-Customer SSR serialization remediation passed focused QA. The previous /search, /checkout, /success, and /tickets Nuxt 500 blocker is cleared, but the expanded delivery launch gate still needs Orchestrator to dispatch a rerun before final launch approval. Authenticated customer image journeys remain a residual risk if no seeded credentials are available.
+Expanded lottery image generation delivery launch gate passed. Development scope is final-approved. Production rollout still needs real S3/R2-compatible object storage configuration, queue workers, credential redaction checks, and authenticated BO/customer UAT when seeded sessions are available.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/decisions/20260514-lottery-image-customer-ssr-error-serialization-remediation-qa-review-decision.md
+ai-agents/decisions/20260514-lottery-image-generation-expanded-delivery-launch-gate-rerun-qa-review-decision.md
 ```
