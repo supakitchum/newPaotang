@@ -24,7 +24,7 @@ export const useAdminApi = () => {
       'X-Request-Id': requestId(),
     }
 
-    if (options.body !== undefined) {
+    if (options.body !== undefined && !isFormDataBody(options.body)) {
       headers['Content-Type'] = 'application/json'
     }
 
@@ -145,6 +145,8 @@ const readableError = (status: number) => {
 const isWriteMethod = (method: string) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
 
 const successMessageFor = (method: string) => method === 'DELETE' ? 'Completed successfully.' : 'Saved successfully.'
+
+const isFormDataBody = (body: any) => typeof FormData !== 'undefined' && body instanceof FormData
 
 const cryptoSafeRandom = () => {
   if (import.meta.client && window.crypto?.getRandomValues) {

@@ -255,15 +255,23 @@
             >
               View tickets
             </button>
-            <button
-              v-for="action in isStockGrouped ? [] : hydratedActions"
-              :key="action.key"
-              type="button"
-              :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
-              @click="openRowAction(action, row)"
-            >
-              {{ action.label }}
-            </button>
+            <template v-for="action in isStockGrouped ? [] : hydratedActions" :key="action.key">
+              <NuxtLink
+                v-if="action.route"
+                :to="actionRoute(action, row)"
+                :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
+              >
+                {{ action.label }}
+              </NuxtLink>
+              <button
+                v-else
+                type="button"
+                :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
+                @click="openRowAction(action, row)"
+              >
+                {{ action.label }}
+              </button>
+            </template>
           </div>
         </template>
       </AdminDataTable>
@@ -927,6 +935,8 @@ const resetDetailDraft = () => {
 }
 
 const openRowAction = (action: OperationAction, row: any) => {
+  if (action.route) return
+
   confirm.open = true
   confirm.action = action
   confirm.row = row
@@ -935,6 +945,8 @@ const openRowAction = (action: OperationAction, row: any) => {
   confirm.message = `Confirm ${action.label.toLowerCase()} for ${row.__id || 'selected record'}.`
   actionError.value = null
 }
+
+const actionRoute = (action: OperationAction, row: any) => interpolate(action.route || '', row.__id)
 
 const openDetailAction = (action: OperationAction) => {
   openRowAction(action, { ...(detail.value || {}), __id: recordId.value })
@@ -1063,7 +1075,7 @@ const openRelatedDetail = async (related: OperationRelatedList, row: any) => {
 }
 
 const runConfirmedAction = async (reason: string, payloadJson = '', formValues: Record<string, any> = {}) => {
-  if (!confirm.action || !resource.value) return
+  if (!confirm.action?.endpoint || !resource.value) return
   saving.value = true
   actionError.value = null
   try {

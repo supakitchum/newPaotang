@@ -50,7 +50,8 @@ export type OperationAction = {
   key: string
   label: string
   method?: 'POST' | 'PATCH' | 'DELETE'
-  endpoint: string
+  endpoint?: string
+  route?: string
   variant?: 'primary' | 'success' | 'warning' | 'danger'
   reason?: boolean
   payloadTemplate?: Record<string, any>
@@ -118,6 +119,7 @@ const statusFilter = (options: string[] = ['pending', 'approved', 'rejected', 'c
   type: 'select',
   options,
 })
+const adminUiRoute = (scope: AdminScope, path: string) => `/admin/${scope}/${path}`
 
 const cursorFilters = (extra: OperationFilter[] = []): OperationFilter[] => [
   ...extra,
@@ -1628,6 +1630,7 @@ const central: OperationResource[] = [
     confirmContextFields: partnerActionContext,
     actions: [
       { key: 'update', label: 'Update', method: 'PATCH', endpoint: '/admin/central/partners/{partner_id}', variant: 'primary', contextFields: partnerActionContext, formFields: partnerUpdateFields },
+      { key: 'lottery-branding', label: 'Lottery branding', route: adminUiRoute('central', 'partners/{id}/lottery-branding'), variant: 'success', contextFields: partnerActionContext },
       { key: 'suspend', label: 'Suspend', endpoint: '/admin/central/partners/{partner_id}/suspend', variant: 'warning', reason: true, contextFields: partnerActionContext },
     ],
     collectionActions: [{
@@ -1913,6 +1916,7 @@ const central: OperationResource[] = [
         contextFields: gameActionContext,
         formFields: gameUpdateFields,
       },
+      { key: 'lottery-images', label: 'Lottery images', route: adminUiRoute('central', 'lottery-images?game_id={id}'), variant: 'success', contextFields: gameActionContext },
       { key: 'close', label: 'Close', endpoint: '/admin/central/games/{game_id}/close', variant: 'warning', reason: true, contextFields: gameActionContext },
       { key: 'archive', label: 'Archive', endpoint: '/admin/central/games/{game_id}/archive', variant: 'danger', reason: true, contextFields: gameActionContext },
     ],

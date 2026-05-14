@@ -19,6 +19,9 @@ const scopedRouteOverrides: Record<string, string> = {
   'central:master_stock': '/admin/central/master-stock',
   'central:stock_generation': '/admin/central/stock-generation',
   'central:stock_recall': '/admin/central/stock-recall',
+  'central:lottery_images': '/admin/central/lottery-images',
+  'central:lottery_image_operations': '/admin/central/lottery-images',
+  'central:lottery-images': '/admin/central/lottery-images',
   'central:reports': '/admin/central/reports',
   'central:settlement': '/admin/central/settlements',
   'central:partner_provisioning': '/admin/central/partner-provisioning',
@@ -108,6 +111,7 @@ export const useAdminNavigation = () => {
     if (key.includes('audit')) return 'ri-history-line'
     if (key.includes('role') || key.includes('permission')) return 'ri-shield-user-line'
     if (key.includes('stock')) return 'ri-archive-stack-line'
+    if (key.includes('lottery') || key.includes('image')) return 'ri-image-2-line'
     if (key.includes('partner')) return 'ri-building-4-line'
     return item.children?.length ? 'ri-folder-2-line' : 'ri-dashboard-line'
   }
