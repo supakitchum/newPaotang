@@ -1,0 +1,108 @@
+[
+  {
+    "confirmDisabled": true,
+    "gameOptions": [
+      {
+        "selected": true,
+        "text": "งวดวันที่ 16 พ.ค. 2569 (16052569) (Current)",
+        "value": "gam_01KRNMWTAHF07YGN365E00NW42"
+      }
+    ],
+    "gameValue": "gam_01KRNMWTAHF07YGN365E00NW42",
+    "label": "initial-current-game-no-quota",
+    "numberInputs": [
+      {
+        "index": 0,
+        "value": ""
+      },
+      {
+        "index": 1,
+        "value": ""
+      },
+      {
+        "index": 2,
+        "value": ""
+      },
+      {
+        "index": 3,
+        "value": ""
+      }
+    ],
+    "panelText": [
+      "*",
+      "Stock quota check2-tail = 10 x 3-tail, 3-front = 3-tail, total = 1,000 x 3-tail.2-tail-3-tail-3-front-Total-Enter total tickets or one quota value before submitting.",
+      "Enter total tickets or one quota value before submitting."
+    ],
+    "reasonValue": ""
+  },
+  {
+    "confirmDisabled": true,
+    "gameOptions": [
+      {
+        "selected": true,
+        "text": "งวดวันที่ 16 พ.ค. 2569 (16052569) (Current)",
+        "value": "gam_01KRNMWTAHF07YGN365E00NW42"
+      }
+    ],
+    "gameValue": "gam_01KRNMWTAHF07YGN365E00NW42",
+    "label": "valid after 3-tail=2 before reason",
+    "numberInputs": [
+      {
+        "index": 0,
+        "value": "2000"
+      },
+      {
+        "index": 1,
+        "value": "20"
+      },
+      {
+        "index": 2,
+        "value": "2"
+      },
+      {
+        "index": 3,
+        "value": "2"
+      }
+    ],
+    "panelText": [
+      "*",
+      "Stock quota check2-tail = 10 x 3-tail, 3-front = 3-tail, total = 1,000 x 3-tail.2-tail203-tail23-front2Total2,000"
+    ],
+    "reasonValue": ""
+  },
+  {
+    "confirmDisabled": false,
+    "gameOptions": [
+      {
+        "selected": true,
+        "text": "งวดวันที่ 16 พ.ค. 2569 (16052569) (Current)",
+        "value": "gam_01KRNMWTAHF07YGN365E00NW42"
+      }
+    ],
+    "gameValue": "gam_01KRNMWTAHF07YGN365E00NW42",
+    "label": "valid after reason, not submitted",
+    "numberInputs": [
+      {
+        "index": 0,
+        "value": "2000"
+      },
+      {
+        "index": 1,
+        "value": "20"
+      },
+      {
+        "index": 2,
+        "value": "2"
+      },
+      {
+        "index": 3,
+        "value": "2"
+      }
+    ],
+    "panelText": [
+      "*",
+      "Stock quota check2-tail = 10 x 3-tail, 3-front = 3-tail, total = 1,000 x 3-tail.2-tail203-tail23-front2Total2,000"
+    ],
+    "reasonValue": "QA controlled UI validation only - not submitted"
+  }
+]

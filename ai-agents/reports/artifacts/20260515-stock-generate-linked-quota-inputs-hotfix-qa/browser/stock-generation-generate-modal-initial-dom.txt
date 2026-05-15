@@ -1,0 +1,39 @@
+        - link " Allocations":
+          - /url: /admin/central/allocations
+          - generic: Allocations
+        - link " Stock Recall":
+          - /url: /admin/central/stock-recall
+          - generic: Stock Recall
+    - option "All" [selected]
+    - option "Allocated"
+    - option "Recalled"
+  - paragraph: Total tickets
+  - paragraph: 2-tail coverage
+  - paragraph: 3-tail coverage
+  - paragraph: 3-front coverage
+  - text: Available, allocated, sold, recalled, and voided
+  - generic: Allocated
+  - generic: Recalled
+  - button " Generate stock" [active]:
+    - text: Generate stock
+      - row "Number Tickets Available Allocated Sold Recalled Game Updated Actions":
+        - columnheader "Allocated":
+          - button "Allocated":
+            - generic: Allocated
+        - columnheader "Recalled":
+          - button "Recalled":
+            - generic: Recalled
+    - heading "Generate stock" [level=6]
+    - paragraph: Confirm generate stock for Stock Generation.
+    - generic: Current game *
+    - combobox "Current game *":
+    - generic: Generate stock only for the current open draw.
+    - generic: Stock quota check
+    - generic: 2-tail = 10 x 3-tail, 3-front = 3-tail, total = 1,000 x 3-tail.
+    - generic: 2-tail
+    - generic: 3-tail
+    - generic: 3-front
+    - generic: Enter total tickets or one quota value before submitting.
+    - generic: Reason
+    - button "Cancel"
+    - button "Confirm" [disabled]
