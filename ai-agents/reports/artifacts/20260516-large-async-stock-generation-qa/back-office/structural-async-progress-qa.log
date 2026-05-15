@@ -1,0 +1,14 @@
+ Container newpaotang-back-office-run-15359cdad07c Creating 
+ Container newpaotang-back-office-run-15359cdad07c Created 
+FAIL progress component exists and polls batch list/detail
+PASS progress displays requested/generated/round/chunk/failure fields
+PASS active queued/processing states detected
+PASS image dispatch fallback labels present
+PASS operations page mounts progress component
+FAIL duplicate submit disabled while active batch
+PASS summary refresh on progress changes
+FAIL large total cap removed from UI validation/copy
+PASS linked quota guardrails remain
+PASS current game/no all guardrails remain
+PASS snapshot includes generation batch endpoints
+

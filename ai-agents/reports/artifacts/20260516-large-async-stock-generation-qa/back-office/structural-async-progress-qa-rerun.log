@@ -1,0 +1,13 @@
+ Container newpaotang-back-office-run-8d1d80d2c4af Creating 
+ Container newpaotang-back-office-run-8d1d80d2c4af Created 
+PASS progress component polls batch list/detail
+PASS progress displays requested/generated/round/chunk/failure fields
+PASS active queued/processing states detected
+PASS image dispatch fallback labels present
+PASS operations page mounts progress component
+PASS duplicate submit disabled while active batch
+PASS summary refresh on progress changes
+PASS old synchronous 10000 cap validation removed
+PASS linked quota guardrails remain
+PASS current game/no all guardrails remain
+PASS snapshot includes generation batch endpoints

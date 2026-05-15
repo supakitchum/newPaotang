@@ -17,16 +17,16 @@ large-async-stock-generation
 | Backend Develop | completed | large-async-stock-generation-backend | ai-agents/handoffs/20260516-large-async-stock-generation-backend-handoff.md |
 | BO Develop | completed | large-async-stock-generation-bo | ai-agents/handoffs/20260516-large-async-stock-generation-bo-handoff.md |
 | Customer Develop | completed | lottery-image-customer-ssr-error-serialization-remediation | ai-agents/handoffs/20260514-lottery-image-customer-ssr-error-serialization-remediation-customer-handoff.md |
-| QA Tester | pending | large-async-stock-generation-qa | ai-agents/tasks/20260516-large-async-stock-generation-qa.md |
+| QA Tester | completed | large-async-stock-generation-qa | ai-agents/reports/20260516-large-async-stock-generation-qa-report.md |
 
 ## Open Questions
 
 ```text
-Backend and BO completed large async stock generation. Orchestrator registered both handoffs and routed the prepared QA task. QA must validate 1,000 sync path, 12,000 async completion, duplicate full_number preservation, no insertOrIgnore stock generation, idempotency, image dispatch separation, BO progress polling, and runtime restore/login smoke using isolated test DB newpaotang_test for destructive commands.
+QA passed large async stock generation with accepted risk. Coordinator accepted Backend/API behavior, duplicate full_number preservation, no insertOrIgnore evidence, async chunking, idempotency, image dispatch separation, BO structural progress wiring, isolated test DB destructive commands, and runtime restore/login smoke. Remaining risk is authenticated BO browser UAT for live large-submit progress polling, blocked by unavailable browser automation; no Backend/BO remediation is required.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/decisions/20260515-large-async-stock-generation-decision.md
+ai-agents/decisions/20260516-large-async-stock-generation-qa-review-decision.md
 ```

@@ -1,0 +1,2 @@
+NAME                       IMAGE                    COMMAND                  SERVICE       CREATED                  STATUS                  PORTS
+newpaotang-back-office-1   newpaotang-back-office   "docker-entrypoint.s…"   back-office   Less than a second ago   Up Less than a second   0.0.0.0:3100->3100/tcp, [::]:3100->3100/tcp

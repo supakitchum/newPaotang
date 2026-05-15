@@ -1,0 +1,34 @@
+GET /login
+HTTP/1.1 200 OK
+content-type: text/html;charset=utf-8
+x-powered-by: Nuxt
+date: Fri, 15 May 2026 17:59:58 GMT
+connection: close
+content-length: 4023
+
+<!DOCTYPE html><html  lang="en" dir="ltr" data-nav-layout="vertical" data-theme-mode="light" data-menu-styles="light" data-header-styles="light" data-vertical-style="closed" data-width="fullwidth" data-menu-position="fixed" data-header-position="fixed"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NewPaotang Back Office</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<script id="unhead:payload" type="application/json">{"title":"NewPaotang Back Office"}</script>
+<link rel="icon" href="/admin-template/assets/images/brand-logos/favicon.ico">
+<link id="style" rel="stylesheet" href="/admin-template/assets/libs/bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="/admin-template/assets/css/styles.css">
+<link rel="stylesheet" href="/admin-template/assets/css/icons.css">
+<link rel="stylesheet" href="/admin-template/assets/libs/node-waves/waves.min.css">
+<link rel="stylesheet" href="/admin-template/assets/libs/simplebar/simplebar.min.css">
+<link rel="stylesheet" href="/_nuxt/assets/css/admin-foundation.css">
+
+GET /admin/login
+HTTP/1.1 302 Found
+location: /login
+content-type: text/html
+date: Fri, 15 May 2026 17:59:58 GMT
+connection: close
+content-length: 92
+
+<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=/login"></head></html>
+POST /api/v1/auth/admin/login status=200
+has_access_token=true
+central_scope=true
