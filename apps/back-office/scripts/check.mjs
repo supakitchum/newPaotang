@@ -500,6 +500,7 @@ for (const requiredBackendReadyPath of [
   ['/admin/central/alert-events/{alert_event_id}/resolve', 'post'],
   ['/admin/central/system-settings', 'get'],
   ['/admin/central/system-settings', 'patch'],
+  ['/admin/central/stock/summary', 'get'],
   ['/admin/central/webhook-logs', 'get'],
   ['/admin/central/webhook-logs/{webhook_log_id}', 'get'],
   ['/admin/tenant/price-rules', 'get'],

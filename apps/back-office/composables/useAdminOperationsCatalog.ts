@@ -108,6 +108,7 @@ export type OperationResource = {
   detailRenderer?: 'reward'
   defaultQuery?: Record<string, any>
   stockGrouped?: boolean
+  stockSummaryEndpoint?: string
   apiSort?: boolean
   apiGap?: string
   detailApiGap?: string
@@ -1821,6 +1822,7 @@ const central: OperationResource[] = [
     listEndpoint: '/admin/central/stock',
     idParam: 'stock_item_id',
     stockGrouped: true,
+    stockSummaryEndpoint: '/admin/central/stock/summary',
     defaultQuery: { grouped: true },
     apiSort: true,
     columns: [

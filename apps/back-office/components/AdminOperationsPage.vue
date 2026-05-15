@@ -219,6 +219,13 @@
 
     <template v-else>
       <AdminFilterBar v-if="resource.filters?.length" :filters="hydratedFilters" :model-value="filters" @apply="applyFilters" />
+      <AdminStockSummaryWidgets
+        v-if="showStockSummaryWidgets"
+        :endpoint="stockSummaryEndpoint"
+        :game-id="stockSummaryGameId"
+        :batch-id="stockSummaryBatchId"
+        :refresh-key="stockSummaryRefreshKey"
+      />
       <AdminExportPanel :actions="hydratedCollectionActions" @run="openCollectionAction" />
       <AdminApiState :error="error" />
       <AdminDataTable
@@ -439,6 +446,7 @@ const secondarySaving = reactive<Record<string, boolean>>({})
 const secondaryErrors = reactive<Record<string, any>>({})
 const detailDraft = ref('')
 const filters = ref<Record<string, any>>({})
+const stockSummaryRefreshKey = ref(0)
 const sortState = reactive<{ key: string, direction: 'asc' | 'desc' }>({ key: '', direction: 'asc' })
 const meta = reactive({ next_cursor: null as string | null, has_more: false })
 const pageState = reactive({ cursors: [null] as Array<string | null>, index: 0 })
@@ -525,6 +533,10 @@ const canReload = computed(() => Boolean(resource.value && mode.value !== 'repor
 const hasDetailRoute = computed(() => Boolean(resource.value?.detailEndpoint || resource.value?.detailApiGap))
 const detailGap = computed(() => mode.value === 'detail' && !resource.value?.detailEndpoint ? resource.value?.detailApiGap || 'No documented detail GET endpoint is available for this route.' : '')
 const isStockGrouped = computed(() => Boolean(resource.value?.stockGrouped))
+const showStockSummaryWidgets = computed(() => Boolean(resource.value?.stockSummaryEndpoint && mode.value === 'list'))
+const stockSummaryEndpoint = computed(() => resource.value?.stockSummaryEndpoint || '')
+const stockSummaryGameId = computed(() => filters.value.game_id || '')
+const stockSummaryBatchId = computed(() => filters.value.batch_id || '')
 const hydratedFilters = computed(() => hydrateFilters(resource.value?.filters || []))
 const hydratedCollectionActions = computed(() => hydrateActions(resource.value?.collectionActions || []))
 const hydratedActions = computed(() => hydrateActions(resource.value?.actions || []))
@@ -1089,6 +1101,9 @@ const runConfirmedAction = async (reason: string, payloadJson = '', formValues: 
     }))
     confirm.open = false
     await load()
+    if (showStockSummaryWidgets.value) {
+      stockSummaryRefreshKey.value += 1
+    }
   } catch (err) {
     actionError.value = err
   } finally {
