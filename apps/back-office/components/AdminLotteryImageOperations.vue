@@ -203,120 +203,7 @@
     </div>
 
     <div class="row g-3 mt-0">
-      <div class="col-xl-7">
-        <div class="card custom-card h-100">
-          <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
-            <div>
-              <div class="card-title mb-1">Background Asset Sets</div>
-              <p class="text-muted mb-0 fs-12">Generated source/full/thumb rows from the image zip import.</p>
-            </div>
-            <button class="btn btn-outline-primary btn-wave" type="button" :disabled="assetSetsLoading || !canLoadContext" @click="loadBackgroundSets">
-              <span v-if="assetSetsLoading" class="spinner-border spinner-border-sm me-1" />
-              <i v-else class="ri-refresh-line me-1" />
-              Refresh sets
-            </button>
-          </div>
-          <div class="card-body d-flex flex-column gap-3">
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-              <div class="d-flex flex-wrap align-items-center gap-2">
-                <span class="text-muted small">{{ selectedAssetSetIds.length }} selected / {{ assetSets.length }} total</span>
-                <select v-model.number="assetSetPageSize" class="form-select form-select-sm" style="width: 96px;" aria-label="Background asset set page size">
-                  <option :value="10">10</option>
-                  <option :value="25">25</option>
-                  <option :value="50">50</option>
-                  <option :value="100">100</option>
-                </select>
-              </div>
-              <div class="d-flex flex-wrap gap-2">
-                <button class="btn btn-sm btn-outline-success btn-wave" type="button" :disabled="!canBulkAssetSets" @click="openBulkStatusConfirm('ready')">
-                  Reactivate selected
-                </button>
-                <button class="btn btn-sm btn-outline-warning btn-wave" type="button" :disabled="!canBulkAssetSets" @click="openBulkStatusConfirm('inactive')">
-                  Inactive selected
-                </button>
-                <button class="btn btn-sm btn-outline-danger btn-wave" type="button" :disabled="!canBulkAssetSets" @click="openBulkStatusConfirm('retired')">
-                  Retire selected
-                </button>
-                <button class="btn btn-sm btn-light btn-wave" type="button" :disabled="!selectedAssetSetIds.length || statusUpdating" @click="selectedAssetSetIds = []">
-                  Clear selection
-                </button>
-              </div>
-            </div>
-            <AdminDataTable
-              :columns="assetSetColumns"
-              :rows="paginatedAssetSets"
-              :loading="assetSetsLoading"
-              :sort-key="assetSetSort.key"
-              :sort-direction="assetSetSort.direction"
-              :selected-ids="selectedAssetSetIds"
-              empty-title="No background asset sets"
-              empty-message="Import an image zip for odd, even, or charity backgrounds."
-              embedded
-              selectable
-              sortable
-              @sort-change="applyAssetSetSort"
-              @update:selected-ids="selectedAssetSetIds = $event"
-            >
-              <template #cell-game="{ row: set }">
-                <div class="fw-semibold">{{ gameName(set.game_id) }}</div>
-                <code class="np-admin-code">{{ set.game_id }}</code>
-                <div><code class="np-admin-code">{{ set.version }}</code></div>
-              </template>
-              <template #cell-set_type="{ row: set }">
-                <div>{{ titleize(set.set_type || '-') }}</div>
-                <span v-if="set.position" class="text-muted fs-12">Position {{ set.position }}</span>
-              </template>
-              <template #cell-status="{ row: set }">
-                <div class="d-flex flex-column gap-1">
-                  <AdminStatusBadge :status="set.status" />
-                  <AdminStatusBadge :status="set.generation_ready ? 'ready' : 'pending_assets'" :label="set.generation_ready ? 'Generation ready' : 'Storage blocked'" />
-                </div>
-              </template>
-              <template #cell-assets="{ row: set }">
-                <div class="d-flex flex-column gap-1 small">
-                  <span v-for="slot in assetSlots" :key="slot.key">
-                    {{ slot.label }}:
-                    <code class="np-admin-code">{{ assetId(set, slot.key) || '-' }}</code>
-                  </span>
-                </div>
-              </template>
-              <template #cell-updated_at="{ row: set }">
-                {{ formatDateTime(set.updated_at) }}
-              </template>
-              <template #rowActions="{ row: set }">
-                <div class="d-flex flex-wrap justify-content-end gap-1">
-                  <button class="btn btn-sm btn-light btn-wave" type="button" @click="fillZipForm(set)">
-                    Use
-                  </button>
-                  <button class="btn btn-sm btn-outline-success btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'ready')">
-                    Reactivate
-                  </button>
-                  <button class="btn btn-sm btn-outline-warning btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'inactive')">
-                    Inactive
-                  </button>
-                  <button class="btn btn-sm btn-outline-danger btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'retired')">
-                    Retire
-                  </button>
-                  <button class="btn btn-sm btn-primary btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'ready', true)">
-                    Supersede
-                  </button>
-                </div>
-              </template>
-            </AdminDataTable>
-            <AdminPagination
-              :next-cursor="assetSetHasNextPage ? 'next' : null"
-              :has-previous="assetSetPage > 1"
-              :loading="assetSetsLoading"
-              :current-page="assetSetPage"
-              :page-size="assetSetPageSize"
-              @previous="assetSetPage = Math.max(1, assetSetPage - 1)"
-              @next="assetSetPage += 1"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div class="col-xl-5">
+      <div class="col-12">
         <div class="card custom-card h-100">
           <div class="card-header">
             <div class="card-title">Image Zip Import</div>
@@ -419,6 +306,118 @@
               <span v-if="zipImporting" class="spinner-border spinner-border-sm me-2" />
               Import image zip
             </button>
+          </div>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="card custom-card h-100">
+          <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+              <div class="card-title mb-1">Background Asset Sets</div>
+              <p class="text-muted mb-0 fs-12">Generated source/full/thumb rows from the image zip import.</p>
+            </div>
+            <button class="btn btn-outline-primary btn-wave" type="button" :disabled="assetSetsLoading || !canLoadContext" @click="loadBackgroundSets">
+              <span v-if="assetSetsLoading" class="spinner-border spinner-border-sm me-1" />
+              <i v-else class="ri-refresh-line me-1" />
+              Refresh sets
+            </button>
+          </div>
+          <div class="card-body d-flex flex-column gap-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="text-muted small">{{ selectedAssetSetIds.length }} selected / {{ assetSets.length }} total</span>
+                <select v-model.number="assetSetPageSize" class="form-select form-select-sm" style="width: 96px;" aria-label="Background asset set page size">
+                  <option :value="10">10</option>
+                  <option :value="25">25</option>
+                  <option :value="50">50</option>
+                  <option :value="100">100</option>
+                </select>
+              </div>
+              <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-sm btn-outline-success btn-wave" type="button" :disabled="!canBulkAssetSets" @click="openBulkStatusConfirm('ready')">
+                  Reactivate selected
+                </button>
+                <button class="btn btn-sm btn-outline-warning btn-wave" type="button" :disabled="!canBulkAssetSets" @click="openBulkStatusConfirm('inactive')">
+                  Inactive selected
+                </button>
+                <button class="btn btn-sm btn-outline-danger btn-wave" type="button" :disabled="!canBulkAssetSets" @click="openBulkStatusConfirm('retired')">
+                  Retire selected
+                </button>
+                <button class="btn btn-sm btn-light btn-wave" type="button" :disabled="!selectedAssetSetIds.length || statusUpdating" @click="selectedAssetSetIds = []">
+                  Clear selection
+                </button>
+              </div>
+            </div>
+            <AdminDataTable
+                :columns="assetSetColumns"
+                :rows="paginatedAssetSets"
+                :loading="assetSetsLoading"
+                :sort-key="assetSetSort.key"
+                :sort-direction="assetSetSort.direction"
+                :selected-ids="selectedAssetSetIds"
+                empty-title="No background asset sets"
+                empty-message="Import an image zip for odd, even, or charity backgrounds."
+                embedded
+                selectable
+                sortable
+                @sort-change="applyAssetSetSort"
+                @update:selected-ids="selectedAssetSetIds = $event"
+            >
+              <template #cell-game="{ row: set }">
+                <div class="fw-semibold">{{ gameName(set.game_id) }}</div>
+                <code class="np-admin-code">{{ set.game_id }}</code>
+                <div><code class="np-admin-code">{{ set.version }}</code></div>
+              </template>
+              <template #cell-set_type="{ row: set }">
+                <div>{{ titleize(set.set_type || '-') }}</div>
+                <span v-if="set.position" class="text-muted fs-12">Position {{ set.position }}</span>
+              </template>
+              <template #cell-status="{ row: set }">
+                <div class="d-flex flex-column gap-1">
+                  <AdminStatusBadge :status="set.status" />
+                  <AdminStatusBadge :status="set.generation_ready ? 'ready' : 'pending_assets'" :label="set.generation_ready ? 'Generation ready' : 'Storage blocked'" />
+                </div>
+              </template>
+              <template #cell-assets="{ row: set }">
+                <div class="d-flex flex-column gap-1 small">
+                  <span v-for="slot in assetSlots" :key="slot.key">
+                    {{ slot.label }}:
+                    <code class="np-admin-code">{{ assetId(set, slot.key) || '-' }}</code>
+                  </span>
+                </div>
+              </template>
+              <template #cell-updated_at="{ row: set }">
+                {{ formatDateTime(set.updated_at) }}
+              </template>
+              <template #rowActions="{ row: set }">
+                <div class="d-flex flex-wrap justify-content-end gap-1">
+                  <button class="btn btn-sm btn-light btn-wave" type="button" @click="fillZipForm(set)">
+                    Use
+                  </button>
+                  <button class="btn btn-sm btn-outline-success btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'ready')">
+                    Reactivate
+                  </button>
+                  <button class="btn btn-sm btn-outline-warning btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'inactive')">
+                    Inactive
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'retired')">
+                    Retire
+                  </button>
+                  <button class="btn btn-sm btn-primary btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'ready', true)">
+                    Supersede
+                  </button>
+                </div>
+              </template>
+            </AdminDataTable>
+            <AdminPagination
+                :next-cursor="assetSetHasNextPage ? 'next' : null"
+                :has-previous="assetSetPage > 1"
+                :loading="assetSetsLoading"
+                :current-page="assetSetPage"
+                :page-size="assetSetPageSize"
+                @previous="assetSetPage = Math.max(1, assetSetPage - 1)"
+                @next="assetSetPage += 1"
+            />
           </div>
         </div>
       </div>
