@@ -73,6 +73,43 @@ for (const requiredGenerateField of [
   }
 }
 
+for (const token of [
+  'defaultValueSource: \'current-game\'',
+  'currentOnly: true',
+  'hideEmptyOption: true',
+  'No current game',
+]) {
+  if (!catalog.includes(token)) {
+    failures.push(`Stock generation current-game selector is missing token: ${token}`)
+  }
+}
+
+for (const token of [
+  'isStockGenerationRoute',
+  'currentCentralGameOption',
+  'applyCurrentGameFilterDefault',
+  'stockGenerationFiltersWithCurrentGame',
+  'status: \'open\'',
+  'AdminApiState v-if="stockGenerateCurrentGameMessage"',
+]) {
+  if (!operationsPage.includes(token)) {
+    failures.push(`Stock generation current-game workflow is missing token: ${token}`)
+  }
+}
+
+for (const token of [
+  'Stock quota check',
+  'syncStockQuotaFields',
+  'back3FromQuotaSource',
+  '2-tail quota must be divisible by 10.',
+  'Total tickets must equal 1,000 x 3-tail quota.',
+  'confirmDisabled.value',
+]) {
+  if (!read('components/AdminConfirmAction.vue').includes(token)) {
+    failures.push(`Linked quota modal validation is missing token: ${token}`)
+  }
+}
+
 if (!snapshot.paths?.['/admin/central/stock/summary']?.includes('get')) {
   failures.push('OpenAPI admin snapshot is missing GET /admin/central/stock/summary')
 }

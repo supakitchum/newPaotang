@@ -219,6 +219,7 @@
 
     <template v-else>
       <AdminFilterBar v-if="resource.filters?.length" :filters="hydratedFilters" :model-value="filters" @apply="applyFilters" />
+      <AdminApiState v-if="stockGenerateCurrentGameMessage" :message="stockGenerateCurrentGameMessage" />
       <AdminStockSummaryWidgets
         v-if="showStockSummaryWidgets"
         :endpoint="stockSummaryEndpoint"
@@ -533,10 +534,20 @@ const canReload = computed(() => Boolean(resource.value && mode.value !== 'repor
 const hasDetailRoute = computed(() => Boolean(resource.value?.detailEndpoint || resource.value?.detailApiGap))
 const detailGap = computed(() => mode.value === 'detail' && !resource.value?.detailEndpoint ? resource.value?.detailApiGap || 'No documented detail GET endpoint is available for this route.' : '')
 const isStockGrouped = computed(() => Boolean(resource.value?.stockGrouped))
+const isStockGenerationRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-generation')
 const showStockSummaryWidgets = computed(() => Boolean(resource.value?.stockSummaryEndpoint && mode.value === 'list'))
 const stockSummaryEndpoint = computed(() => resource.value?.stockSummaryEndpoint || '')
 const stockSummaryGameId = computed(() => filters.value.game_id || '')
 const stockSummaryBatchId = computed(() => filters.value.batch_id || '')
+const currentCentralGameOption = computed(() => singleCurrentGameOption(optionSourceOptions['central-games'] || []))
+const shouldDefaultStockGenerationGame = computed(() => Boolean(isStockGenerationRoute.value && mode.value === 'list'))
+const stockGenerateCurrentGameMessage = computed(() => {
+  if (!shouldDefaultStockGenerationGame.value || optionSourceLoading['central-games'] || currentCentralGameOption.value) {
+    return ''
+  }
+
+  return 'No single current draw/current game is available. Open exactly one game with status open before generating stock.'
+})
 const hydratedFilters = computed(() => hydrateFilters(resource.value?.filters || []))
 const hydratedCollectionActions = computed(() => hydrateActions(resource.value?.collectionActions || []))
 const hydratedActions = computed(() => hydrateActions(resource.value?.actions || []))
@@ -580,16 +591,19 @@ watch(() => route.fullPath, () => {
   if (!import.meta.client) {
     return
   }
-  resetFilters()
-  void loadOptionSourcesForResource()
-  load()
+  void initializePage()
 })
 
 onMounted(() => {
-  resetFilters()
-  void loadOptionSourcesForResource()
-  load()
+  void initializePage()
 })
+
+const initializePage = async () => {
+  resetFilters()
+  await loadOptionSourcesForResource()
+  applyCurrentGameFilterDefault()
+  await load()
+}
 
 const resetFilters = () => {
   filters.value = defaultFilterValues(resource.value?.filters || [])
@@ -599,7 +613,7 @@ const resetFilters = () => {
 }
 
 const applyFilters = (next: Record<string, any>) => {
-  filters.value = { ...next }
+  filters.value = stockGenerationFiltersWithCurrentGame({ ...next })
   load()
 }
 
@@ -684,15 +698,39 @@ const loadPreviousPage = () => {
   load(pageState.cursors[pageState.index - 1] || null, 'previous')
 }
 
-const hydrateFilters = (items: OperationFilter[]) => items.map((item) => ({
-  ...item,
-  options: item.optionSource ? hydratedOptions(item.optionSource, item.options) : item.options,
-}))
+const hydrateFilters = (items: OperationFilter[]) => items.map((item) => {
+  const options = item.optionSource ? hydratedOptions(item.optionSource, item.options) : item.options
 
-const hydrateFields = (fields: OperationFormField[] = []) => fields.map((field) => ({
-  ...field,
-  options: field.optionSource ? hydratedOptions(field.optionSource, field.options) : field.options,
-}))
+  if (shouldDefaultStockGenerationGame.value && item.key === 'game_id' && item.optionSource === 'central-games') {
+    const currentGame = currentCentralGameOption.value
+    return {
+      ...item,
+      options: currentGame ? [currentGame] : [],
+      hideEmptyOption: Boolean(currentGame),
+      emptyOptionLabel: currentGame ? item.emptyOptionLabel : 'No current game',
+    }
+  }
+
+  return {
+    ...item,
+    options,
+  }
+})
+
+const hydrateFields = (fields: OperationFormField[] = []) => fields.map((field) => {
+  const sourceOptions = field.optionSource ? hydratedOptions(field.optionSource, field.options) : field.options
+  const currentGame = currentCentralGameOption.value
+  const options = field.currentOnly && field.optionSource === 'central-games'
+    ? currentGame ? [currentGame] : []
+    : sourceOptions
+  const currentGameValue = currentGame ? optionValue(currentGame) : ''
+
+  return {
+    ...field,
+    options,
+    defaultValue: field.defaultValueSource === 'current-game' ? currentGameValue : field.defaultValue,
+  }
+})
 
 const hydrateActions = (actions: OperationAction[] = []) => actions.map((action) => ({
   ...action,
@@ -760,7 +798,11 @@ const collectOptionSources = (item: OperationResource) => {
 }
 
 const loadOptionSource = async (source: OperationOptionSource) => {
-  if (optionSourceOptions[source]?.length || optionSourceLoading[source]) {
+  if (optionSourceLoading[source]) {
+    return
+  }
+
+  if (optionSourceOptions[source]?.length && (source !== 'central-games' || singleCurrentGameOption(optionSourceOptions[source]))) {
     return
   }
 
@@ -771,7 +813,19 @@ const loadOptionSource = async (source: OperationOptionSource) => {
         scope: 'central',
         query: { limit: 100 },
       })
-      optionSourceOptions[source] = extractItems(response).map(gameOption)
+      let options = normalizeGameOptions(extractItems(response))
+      if (!singleCurrentGameOption(options)) {
+        try {
+          const currentResponse = await api.apiFetch('/admin/central/games', {
+            scope: 'central',
+            query: { status: 'open', limit: 10 },
+          })
+          options = mergeOptions(options, normalizeGameOptions(extractItems(currentResponse)))
+        } catch {
+          // Keep the general game list if the focused current-game lookup is unavailable.
+        }
+      }
+      optionSourceOptions[source] = options
     }
   } catch {
     optionSourceOptions[source] = []
@@ -784,9 +838,66 @@ const gameOption = (game: any): OperationOption => {
   const id = game?.id || game?.game_id || game?.uuid || game?.code
   const name = game?.name || game?.game_name || game?.title || game?.code || id
   const code = game?.code && game.code !== name ? ` (${game.code})` : ''
+  const status = String(game?.status || '').toLowerCase()
+  const currentLabel = status === 'open' ? ' (Current)' : ''
   return {
     value: id,
-    label: `${name}${code}`,
+    label: `${name}${code}${currentLabel}`,
+    status,
+    isCurrent: status === 'open',
+    sale_start_at: game?.sale_start_at,
+    draw_at: game?.draw_at,
+    close_at: game?.close_at,
+    server_time: game?.server_time,
+  }
+}
+
+const normalizeGameOptions = (items: any[]) => items
+  .map(gameOption)
+  .filter((option) => !isBlank(optionValue(option)))
+
+const optionValue = (option: OperationOption) => typeof option === 'object' && option !== null ? option.value : option
+
+const mergeOptions = (base: OperationOption[], next: OperationOption[]) => {
+  const seen = new Set(base.map((option) => String(optionValue(option))))
+  const merged = [...base]
+  for (const option of next) {
+    const value = String(optionValue(option))
+    if (!seen.has(value)) {
+      seen.add(value)
+      merged.push(option)
+    }
+  }
+  return merged
+}
+
+const singleCurrentGameOption = (options: OperationOption[]) => {
+  const currentOptions = options.filter((option) => (
+    typeof option === 'object'
+    && option !== null
+    && (option.isCurrent || String(option.status || '').toLowerCase() === 'open')
+  ))
+
+  return currentOptions.length === 1 ? currentOptions[0] : null
+}
+
+const applyCurrentGameFilterDefault = () => {
+  filters.value = stockGenerationFiltersWithCurrentGame(filters.value)
+}
+
+const stockGenerationFiltersWithCurrentGame = (next: Record<string, any>) => {
+  if (!shouldDefaultStockGenerationGame.value || !isBlank(next.game_id)) {
+    return next
+  }
+
+  const currentGame = currentCentralGameOption.value
+  if (!currentGame) {
+    return next
+  }
+
+  return {
+    ...next,
+    game_id: optionValue(currentGame),
   }
 }
 
@@ -1402,6 +1513,7 @@ const ensureRelatedFilters = (related: OperationRelatedList) => {
 
 const cleanQuery = (value: Record<string, any>) => Object.fromEntries(Object.entries(value)
   .filter(([, entry]) => entry !== '' && entry !== undefined && entry !== null))
+const isBlank = (value: any) => value === undefined || value === null || String(value).trim() === ''
 
 const buildCollectionContext = () => {
   const currentFilters = cleanQuery(filters.value)

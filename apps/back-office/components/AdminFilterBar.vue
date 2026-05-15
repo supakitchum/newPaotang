@@ -5,8 +5,14 @@
         <div v-for="filter in filters" :key="filter.key" class="col-sm-6 col-lg-3">
           <label class="form-label">{{ filter.label }}</label>
           <select v-if="filter.type === 'select'" v-model="draft[filter.key]" class="form-select">
-            <option value="">All</option>
-            <option v-for="option in filter.options || []" :key="optionValue(option)" :value="optionValue(option)">
+            <option v-if="!filter.hideEmptyOption" value="">{{ filter.emptyOptionLabel || 'All' }}</option>
+            <option v-else-if="!(filter.options || []).length" value="" disabled>{{ filter.emptyOptionLabel || 'No options available' }}</option>
+            <option
+              v-for="option in filter.options || []"
+              :key="optionValue(option)"
+              :value="optionValue(option)"
+              :disabled="optionDisabled(option)"
+            >
               {{ optionLabel(option) }}
             </option>
           </select>
@@ -62,4 +68,5 @@ const cleanDraft = () => {
 
 const optionValue = (option: any) => typeof option === 'object' && option !== null ? option.value : option
 const optionLabel = (option: any) => typeof option === 'object' && option !== null ? option.label : titleize(String(option))
+const optionDisabled = (option: any) => Boolean(typeof option === 'object' && option !== null && option.disabled)
 </script>

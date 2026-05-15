@@ -3,6 +3,13 @@ export type OperationMode = 'list' | 'detail' | 'report-index' | 'report-detail'
 export type OperationOption = string | {
   value: string | number
   label: string
+  disabled?: boolean
+  status?: string
+  isCurrent?: boolean
+  sale_start_at?: string
+  draw_at?: string
+  close_at?: string
+  server_time?: string
 }
 export type OperationOptionSource = 'central-games'
 
@@ -19,6 +26,8 @@ export type OperationFilter = {
   type?: 'text' | 'number' | 'date' | 'select'
   options?: OperationOption[]
   optionSource?: OperationOptionSource
+  hideEmptyOption?: boolean
+  emptyOptionLabel?: string
 }
 
 export type OperationFormField = {
@@ -35,6 +44,10 @@ export type OperationFormField = {
   valueKey?: string
   options?: OperationOption[]
   optionSource?: OperationOptionSource
+  hideEmptyOption?: boolean
+  emptyOptionLabel?: string
+  defaultValueSource?: 'current-game'
+  currentOnly?: boolean
   required?: boolean
   placeholder?: string
   defaultValue?: string | number | boolean | null
@@ -135,12 +148,13 @@ const gameSelectFilter = (label = 'Game'): OperationFilter => ({
   optionSource: 'central-games',
 })
 
-const gameSelectField = (required = false, label = 'Game'): OperationFormField => ({
+const gameSelectField = (required = false, label = 'Game', overrides: Partial<OperationFormField> = {}): OperationFormField => ({
   key: 'game_id',
   label,
   type: 'select',
   optionSource: 'central-games',
   required,
+  ...overrides,
 })
 
 const auditColumns: OperationColumn[] = [
@@ -1870,7 +1884,13 @@ const central: OperationResource[] = [
         endpoint: '/admin/central/stock/generate',
         reason: true,
         formFields: [
-          gameSelectField(true),
+          gameSelectField(true, 'Current game', {
+            defaultValueSource: 'current-game',
+            currentOnly: true,
+            hideEmptyOption: true,
+            emptyOptionLabel: 'No current game',
+            help: 'Generate stock only for the current open draw.',
+          }),
           {
             key: 'total_count',
             label: 'จำนวนใบทั้งหมด',

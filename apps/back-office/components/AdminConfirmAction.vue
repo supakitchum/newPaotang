@@ -29,9 +29,16 @@
             :id="fieldId(field.key)"
             v-model="formState[field.key]"
             class="form-select"
+            :class="{ 'is-invalid': fieldValidationMessages(field).length }"
           >
-            <option value="">Select</option>
-            <option v-for="option in field.options || []" :key="optionValue(option)" :value="optionValue(option)">
+            <option v-if="!field.hideEmptyOption" value="">{{ field.emptyOptionLabel || 'Select' }}</option>
+            <option v-else-if="!(field.options || []).length" value="" disabled>{{ field.emptyOptionLabel || 'No options available' }}</option>
+            <option
+              v-for="option in field.options || []"
+              :key="optionValue(option)"
+              :value="optionValue(option)"
+              :disabled="optionDisabled(option)"
+            >
               {{ optionLabel(option) }}
             </option>
           </select>
@@ -119,13 +126,49 @@
             :id="fieldId(field.key)"
             v-model="formState[field.key]"
             class="form-control"
+            :class="{ 'is-invalid': fieldValidationMessages(field).length }"
             :type="inputType(field)"
             :min="field.min"
             :step="field.step"
             :placeholder="field.placeholder"
+            @input="handleFieldInput(field, $event)"
           >
           <div v-if="field.help" class="form-text">{{ field.help }}</div>
+          <div v-for="message in fieldValidationMessages(field)" :key="message" class="invalid-feedback d-block">
+            {{ message }}
+          </div>
         </template>
+      </div>
+      <div v-if="hasStockGenerateQuotaFields" class="col-12">
+        <div class="np-stock-quota-panel" :class="{ 'np-stock-quota-panel--invalid': formValidationMessages.length }">
+          <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
+            <div>
+              <div class="fw-semibold">Stock quota check</div>
+              <div class="text-muted small">2-tail = 10 x 3-tail, 3-front = 3-tail, total = 1,000 x 3-tail.</div>
+            </div>
+          </div>
+          <div class="np-stock-quota-panel__grid">
+            <div>
+              <span class="text-muted small">2-tail</span>
+              <strong>{{ stockQuotaPreview.back2 }}</strong>
+            </div>
+            <div>
+              <span class="text-muted small">3-tail</span>
+              <strong>{{ stockQuotaPreview.back3 }}</strong>
+            </div>
+            <div>
+              <span class="text-muted small">3-front</span>
+              <strong>{{ stockQuotaPreview.front3 }}</strong>
+            </div>
+            <div>
+              <span class="text-muted small">Total</span>
+              <strong>{{ stockQuotaPreview.total }}</strong>
+            </div>
+          </div>
+          <div v-if="formValidationMessages.length" class="text-danger small mt-2">
+            <div v-for="message in formValidationMessages" :key="message">{{ message }}</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -206,7 +249,117 @@ const missingRequired = computed(() => {
   })
 })
 
-const confirmDisabled = computed(() => Boolean(props.loading || missingRequired.value))
+const formValidationMessages = computed(() => [...new Set(Object.values(validationMessagesByField.value).flat())])
+const confirmDisabled = computed(() => Boolean(props.loading || missingRequired.value || formValidationMessages.value.length))
+const hasStockGenerateQuotaFields = computed(() => stockGenerateQuotaKeys.every((key) => (
+  formFields.value.some((field) => field.key === key)
+)))
+const stockQuotaPreview = computed(() => ({
+  back2: formatQuotaPreview(formState.back2_count_per_number),
+  back3: formatQuotaPreview(formState.back3_count_per_number),
+  front3: formatQuotaPreview(formState.front3_count_per_number),
+  total: formatQuotaPreview(formState.total_count),
+}))
+const validationMessagesByField = computed(() => {
+  const messages: Record<string, string[]> = {}
+  const add = (key: string, message: string) => {
+    messages[key] = [...(messages[key] || []), message]
+  }
+
+  for (const field of formFields.value) {
+    if (
+      field.defaultValueSource === 'current-game'
+      && field.required
+      && field.optionSource === 'central-games'
+      && isBlank(formState[field.key])
+    ) {
+      add(field.key, 'No single current draw/current game is available. Open exactly one current game before generating stock.')
+      add('__form', 'Select a current game before submitting.')
+    }
+  }
+
+  if (!hasStockGenerateQuotaFields.value) {
+    return messages
+  }
+
+  const total = integerValue(formState.total_count)
+  const back2 = integerValue(formState.back2_count_per_number)
+  const back3 = integerValue(formState.back3_count_per_number)
+  const front3 = integerValue(formState.front3_count_per_number)
+  const hasAnyQuotaInput = [
+    formState.total_count,
+    formState.back2_count_per_number,
+    formState.back3_count_per_number,
+    formState.front3_count_per_number,
+  ].some((value) => !isBlank(value))
+
+  if (!hasAnyQuotaInput) {
+    add('__form', 'Enter total tickets or one quota value before submitting.')
+  }
+
+  if (hasAnyQuotaInput) {
+    for (const [key, label] of [
+      ['total_count', 'Total tickets'],
+      ['back2_count_per_number', '2-tail quota'],
+      ['back3_count_per_number', '3-tail quota'],
+      ['front3_count_per_number', '3-front quota'],
+    ]) {
+      if (isBlank(formState[key])) {
+        add(key, `${label} must stay filled after quota sync.`)
+      }
+    }
+  }
+
+  if (!isBlank(formState.total_count)) {
+    if (total === null || total < 1000) {
+      add('total_count', 'Total tickets must be at least 1,000.')
+    } else if (total > 10000) {
+      add('total_count', 'Total tickets must not exceed 10,000 for synchronous generation.')
+    } else if (total % 1000 !== 0) {
+      add('total_count', 'Total tickets must be divisible by 1,000.')
+    }
+  }
+
+  if (!isBlank(formState.back2_count_per_number)) {
+    if (back2 === null || back2 < 1) {
+      add('back2_count_per_number', '2-tail quota must be a positive whole number.')
+    } else if (back2 % 10 !== 0) {
+      add('back2_count_per_number', '2-tail quota must be divisible by 10.')
+    } else if (back2 > 100) {
+      add('back2_count_per_number', '2-tail quota must not create more than 10,000 stock items.')
+    }
+  }
+
+  if (!isBlank(formState.back3_count_per_number)) {
+    if (back3 === null || back3 < 1) {
+      add('back3_count_per_number', '3-tail quota must be a positive whole number.')
+    } else if (back3 > 10) {
+      add('back3_count_per_number', '3-tail quota must not create more than 10,000 stock items.')
+    }
+  }
+
+  if (!isBlank(formState.front3_count_per_number)) {
+    if (front3 === null || front3 < 1) {
+      add('front3_count_per_number', '3-front quota must be a positive whole number.')
+    } else if (front3 > 10) {
+      add('front3_count_per_number', '3-front quota must not create more than 10,000 stock items.')
+    }
+  }
+
+  if (back2 !== null && back3 !== null && back2 !== back3 * 10) {
+    add('back2_count_per_number', '2-tail quota must equal 10 x 3-tail quota.')
+  }
+
+  if (front3 !== null && back3 !== null && front3 !== back3) {
+    add('front3_count_per_number', '3-front quota must equal 3-tail quota.')
+  }
+
+  if (total !== null && back3 !== null && total !== back3 * 1000) {
+    add('total_count', 'Total tickets must equal 1,000 x 3-tail quota.')
+  }
+
+  return messages
+})
 
 const resetFormState = () => {
   for (const key of Object.keys(formState)) {
@@ -231,6 +384,87 @@ const resetFormState = () => {
       ? normalizeInitialValue(field, recordValue)
       : field.defaultValue !== undefined ? field.defaultValue : normalizeInitialValue(field, recordValue)
   }
+}
+
+const stockGenerateQuotaKeys = [
+  'total_count',
+  'back2_count_per_number',
+  'back3_count_per_number',
+  'front3_count_per_number',
+]
+
+const fieldValidationMessages = (field: OperationFormField) => validationMessagesByField.value[field.key] || []
+
+const handleFieldInput = (field: OperationFormField, event: Event) => {
+  if (!stockGenerateQuotaKeys.includes(field.key)) {
+    return
+  }
+
+  const target = event.target as HTMLInputElement | null
+  if (target) {
+    formState[field.key] = target.value
+  }
+
+  syncStockQuotaFields(field.key)
+}
+
+const syncStockQuotaFields = (sourceKey: string) => {
+  if (!hasStockGenerateQuotaFields.value) {
+    return
+  }
+
+  const sourceValue = integerValue(formState[sourceKey])
+  if (sourceValue === null || sourceValue < 1) {
+    return
+  }
+
+  const back3 = back3FromQuotaSource(sourceKey, sourceValue)
+  if (back3 === null || back3 < 1 || back3 > 10) {
+    return
+  }
+
+  formState.back2_count_per_number = back3 * 10
+  formState.back3_count_per_number = back3
+  formState.front3_count_per_number = back3
+  formState.total_count = back3 * 1000
+}
+
+const back3FromQuotaSource = (sourceKey: string, value: number) => {
+  if (sourceKey === 'total_count') {
+    return value % 1000 === 0 ? value / 1000 : null
+  }
+
+  if (sourceKey === 'back2_count_per_number') {
+    return value % 10 === 0 ? value / 10 : null
+  }
+
+  if (sourceKey === 'back3_count_per_number' || sourceKey === 'front3_count_per_number') {
+    return value
+  }
+
+  return null
+}
+
+const integerValue = (value: any) => {
+  if (isBlank(value)) {
+    return null
+  }
+
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed)) {
+    return null
+  }
+
+  return parsed
+}
+
+const formatQuotaPreview = (value: any) => {
+  const parsed = integerValue(value)
+  if (parsed === null) {
+    return '-'
+  }
+
+  return new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 }).format(parsed)
 }
 
 const normalizeInitialValue = (field: OperationFormField, value: any) => {
@@ -266,6 +500,10 @@ const normalizeInitialValue = (field: OperationFormField, value: any) => {
 }
 
 const confirm = () => {
+  if (confirmDisabled.value) {
+    return
+  }
+
   emit('confirm', reason.value, payloadJson.value, { ...formState })
 }
 
@@ -311,6 +549,7 @@ const labelize = (key: string) => key
 
 const optionValue = (option: any) => typeof option === 'object' && option !== null ? option.value : option
 const optionLabel = (option: any) => typeof option === 'object' && option !== null ? option.label : String(option)
+const optionDisabled = (option: any) => Boolean(typeof option === 'object' && option !== null && option.disabled)
 
 const formatContextValue = (value: any) => {
   if (value === undefined || value === null || value === '') return '-'
@@ -427,5 +666,32 @@ watch(() => [props.modelValue, props.payloadTemplate, props.formFields, props.re
   min-width: 4.75rem;
   padding: .35rem .5rem;
   text-align: center;
+}
+
+.np-stock-quota-panel {
+  background: rgb(var(--light-rgb));
+  border: 1px solid var(--default-border);
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+.np-stock-quota-panel--invalid {
+  background: rgba(var(--bs-danger-rgb), .06);
+  border-color: rgba(var(--bs-danger-rgb), .35);
+}
+
+.np-stock-quota-panel__grid {
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+}
+
+.np-stock-quota-panel__grid > div {
+  background: var(--custom-white);
+  border: 1px solid var(--default-border);
+  border-radius: 4px;
+  display: grid;
+  gap: .25rem;
+  padding: .65rem .75rem;
 }
 </style>
