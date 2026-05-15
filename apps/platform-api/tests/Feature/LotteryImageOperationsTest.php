@@ -133,8 +133,9 @@ class LotteryImageOperationsTest extends TestCase
         $this->withToken($central['access_token'])
             ->postJson('/api/v1/admin/central/stock/generate', [
                 'game_id' => 'gam_lottery_mix_ops',
-                'start_number' => 410000,
-                'count' => 4,
+                'back2_count_per_number' => 10,
+                'back3_count_per_number' => 1,
+                'front3_count_per_number' => 1,
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'mix-generate-odd-only',
@@ -149,8 +150,8 @@ class LotteryImageOperationsTest extends TestCase
             ->map(fn (mixed $value): int => (int) $value)
             ->all();
 
-        $this->assertSame(['odd' => 4], $counts);
-        $this->assertSame(4, DB::table('stock_items')->where('game_id', 'gam_lottery_mix_ops')->where('image_generation_status', 'pending')->count());
+        $this->assertSame(['odd' => 1000], $counts);
+        $this->assertSame(1000, DB::table('stock_items')->where('game_id', 'gam_lottery_mix_ops')->where('image_generation_status', 'pending')->count());
     }
 
     public function test_LotteryImageReadiness_redacts_storage_queue_runtime_and_reports_missing_sets(): void
@@ -215,15 +216,16 @@ class LotteryImageOperationsTest extends TestCase
         $this->withToken($central['access_token'])
             ->postJson('/api/v1/admin/central/stock/generate', [
                 'game_id' => 'gam_lottery_retry_ops',
-                'start_number' => 630000,
-                'count' => 2,
+                'back2_count_per_number' => 10,
+                'back3_count_per_number' => 1,
+                'front3_count_per_number' => 1,
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'retry-even-generate',
             ])
             ->assertAccepted();
 
-        $this->assertSame(2, DB::table('stock_items')->where('game_id', 'gam_lottery_retry_ops')->where('image_generation_status', 'pending_assets')->count());
+        $this->assertSame(1000, DB::table('stock_items')->where('game_id', 'gam_lottery_retry_ops')->where('image_generation_status', 'pending_assets')->count());
 
         Queue::fake();
 
@@ -249,10 +251,10 @@ class LotteryImageOperationsTest extends TestCase
                 'Idempotency-Key' => 'retry-after-bg',
             ])
             ->assertAccepted()
-            ->assertJsonPath('central.ready_count', 2)
-            ->assertJsonPath('central.dispatched_count', 2);
+            ->assertJsonPath('central.ready_count', 500)
+            ->assertJsonPath('central.dispatched_count', 500);
 
-        Queue::assertPushed(GenerateLotteryImageJob::class, 2);
+        Queue::assertPushed(GenerateLotteryImageJob::class, 500);
     }
 
     public function test_LotteryImageReadiness_reports_production_ready_when_s3_queue_runtime_are_configured_and_redacts_values(): void

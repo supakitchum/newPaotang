@@ -47,14 +47,15 @@ class LotteryImageTest extends TestCase
         $batch = $this->withToken($central['access_token'])
             ->postJson('/api/v1/admin/central/stock/generate', [
                 'game_id' => 'gam_lottery_mix',
-                'start_number' => 100000,
-                'count' => 20,
+                'back2_count_per_number' => 10,
+                'back3_count_per_number' => 1,
+                'front3_count_per_number' => 1,
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'lottery-image-mix',
             ])
             ->assertAccepted()
-            ->assertJsonPath('generated_count', 20)
+            ->assertJsonPath('generated_count', 1000)
             ->json();
 
         $rows = DB::table('stock_items')
@@ -62,32 +63,22 @@ class LotteryImageTest extends TestCase
             ->orderBy('full_number')
             ->get();
 
-        foreach ($rows as $row) {
-            (new GenerateLotteryImageJob((string) $row->id))->handle(app(LotteryImageGenerator::class));
-        }
+        $first = $rows->first();
 
-        $rows = DB::table('stock_items')
-            ->where('game_id', 'gam_lottery_mix')
-            ->orderBy('full_number')
-            ->get();
+        (new GenerateLotteryImageJob((string) $first->id))->handle(app(LotteryImageGenerator::class));
+
+        $generated = DB::table('stock_items')->where('id', $first->id)->first();
 
         $counts = $rows->groupBy('background_set_type')->map->count()->all();
         ksort($counts);
 
-        $this->assertSame(['charity' => 2, 'even' => 9, 'odd' => 9], $counts);
-        $this->assertSame(20, $rows->where('image_generation_status', 'generated')->count());
+        $this->assertSame(['charity' => 100, 'even' => 450, 'odd' => 450], $counts);
+        $this->assertSame('generated', $generated->image_generation_status);
+        $this->assertStringStartsWith('lotteries/gam_lottery_mix/'.$batch['id'].'/central/', $generated->image_storage_path);
+        $this->assertStringStartsWith('https://cdn.lottery.test/lotteries/gam_lottery_mix/'.$batch['id'].'/central/', $generated->image_url);
 
-        $previous = null;
-        foreach ($rows as $row) {
-            $this->assertNotSame($previous, $row->background_set_type);
-            $this->assertStringStartsWith('lotteries/gam_lottery_mix/'.$batch['id'].'/central/', $row->image_storage_path);
-            $this->assertStringStartsWith('https://cdn.lottery.test/lotteries/gam_lottery_mix/'.$batch['id'].'/central/', $row->image_url);
-            $previous = $row->background_set_type;
-        }
-
-        $first = $rows->first();
-        $bytes = Storage::disk('lottery_images')->get((string) $first->image_storage_path);
-        $thumbBytes = Storage::disk('lottery_images')->get((string) $first->image_thumb_storage_path);
+        $bytes = Storage::disk('lottery_images')->get((string) $generated->image_storage_path);
+        $thumbBytes = Storage::disk('lottery_images')->get((string) $generated->image_thumb_storage_path);
 
         $this->assertWebpDimensions($bytes, 500, 280);
         $this->assertWebpDimensions($thumbBytes, 280, 157);
@@ -106,8 +97,9 @@ class LotteryImageTest extends TestCase
         $this->withToken($central['access_token'])
             ->postJson('/api/v1/admin/central/stock/generate', [
                 'game_id' => 'gam_lottery_pending',
-                'start_number' => 200000,
-                'count' => 4,
+                'back2_count_per_number' => 10,
+                'back3_count_per_number' => 1,
+                'front3_count_per_number' => 1,
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'lottery-image-pending',
@@ -127,10 +119,10 @@ class LotteryImageTest extends TestCase
         Queue::fake();
 
         $this->artisan('lottery-images:check-pending-backgrounds', ['--limit' => 10])
-            ->expectsOutput('Pending central ready: 2')
+            ->expectsOutput('Pending central ready: 10')
             ->assertExitCode(0);
 
-        Queue::assertPushed(GenerateLotteryImageJob::class, 2);
+        Queue::assertPushed(GenerateLotteryImageJob::class, 10);
 
         (new GenerateLotteryImageJob((string) $pending->id))->handle(app(LotteryImageGenerator::class));
 
@@ -159,8 +151,9 @@ class LotteryImageTest extends TestCase
         $this->withToken($central['access_token'])
             ->postJson('/api/v1/admin/central/stock/generate', [
                 'game_id' => 'gam_lottery_partner',
-                'start_number' => 300000,
-                'count' => 1,
+                'back2_count_per_number' => 10,
+                'back3_count_per_number' => 1,
+                'front3_count_per_number' => 1,
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'lottery-image-partner-generate',
@@ -249,7 +242,7 @@ class LotteryImageTest extends TestCase
             $this->pixelRgb($bytes, 100, 175),
         ));
 
-        $this->getJson('http://lottery-image.newpaotang.test/api/v1/public/stock/search?game_id=gam_lottery_partner&number=300000')
+        $this->getJson('http://lottery-image.newpaotang.test/api/v1/public/stock/search?game_id=gam_lottery_partner&number='.$stock->full_number)
             ->assertOk()
             ->assertJsonPath('data.0.image_url', $localStock->image_url)
             ->assertJsonPath('data.0.image_thumb_url', $localStock->image_thumb_url);

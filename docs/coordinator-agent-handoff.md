@@ -7,7 +7,35 @@ Latest pushed commits on `develop`:
 - `b9880dc` - hardened admin session restore.
 - `bf56bfd` - added lottery `logo_num_set` layout support.
 
-Current follow-up commit in this handoff records the remaining BO layout adjustment for lottery images.
+Current follow-up work changes central stock generation to quota-based 6-digit random pairing.
+
+## Stock Generate Quota Contract
+
+- `POST /admin/central/stock/generate` no longer accepts `start_number`, `count`, `requested_count`, `number_digits`, or range fields.
+- The accepted payload is now:
+  - `back2_count_per_number`
+  - `back3_count_per_number`
+  - `front3_count_per_number`
+- Validation is strict:
+  - `back2_count_per_number = back3_count_per_number * 10`
+  - `front3_count_per_number = back3_count_per_number`
+  - total generated stock rows = `1000 * back3_count_per_number`
+  - `back3_count_per_number` must stay within the synchronous 10,000-row cap.
+- Generation always uses 6-digit numbers built from `front3 + back3`.
+- Each round pairs front3 `000-999` with a deterministic shuffled back3 list seeded by game, idempotency key, and round.
+- Per round, every front3 appears once, every back3 appears once, and every back2 appears 10 times.
+- Duplicate 6-digit values remain allowed by the current stock model when produced by separate batches/rounds.
+- BO Generate Stock form now exposes the three quota fields and no longer shows start/count.
+- OpenAPI and BO CRUD coverage docs have been updated for the quota contract.
+
+Verification completed:
+
+- `docker compose run --rm platform-api composer install`
+- `docker compose run --rm platform-api php artisan test --filter=CentralStockTest` passed 2 tests, 85 assertions.
+- `docker compose run --rm platform-api php artisan test --filter=LotteryImage` passed 16 tests, 479 assertions.
+- `npm run lint`
+- `npm run build`
+- `docker compose run --rm platform-api php artisan migrate:fresh --seed`
 
 ## Admin Session Hotfix
 
@@ -65,4 +93,3 @@ docker compose -p newpaotang exec -T platform-api php artisan migrate:fresh --se
 - Do not add a separate upload field for `logo_num_set`; it must follow the partner `logo_qr` asset and only use a separate layout slot.
 - Partner branding overlays (`logo_qr`, `logo_num_set`, `right_sidebar`, `logo_bottom`) must not render on central base stock images.
 - Partner/tenant users must not access lottery image or lottery branding management.
-

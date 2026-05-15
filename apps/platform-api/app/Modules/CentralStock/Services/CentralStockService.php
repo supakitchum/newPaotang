@@ -24,6 +24,10 @@ use Illuminate\Support\Str;
 
 class CentralStockService
 {
+    private const GENERATE_NUMBER_DIGITS = 6;
+    private const GENERATE_BASE_COUNT = 1000;
+    private const GENERATE_MAX_SYNC_COUNT = 10000;
+
     private const GAME_STATUSES = [
         'draft',
         'open',
@@ -750,33 +754,39 @@ class CentralStockService
     public function validateGeneratePayload(array $payload): array
     {
         $errors = $this->validateOpenGamePayload($payload);
+        $legacyFields = [
+            'start_number',
+            'from_number',
+            'range_start',
+            'end_number',
+            'to_number',
+            'range_end',
+            'count',
+            'requested_count',
+            'number_digits',
+            'digits',
+        ];
 
-        $digits = $this->integerFrom($payload['number_digits'] ?? $payload['digits'] ?? 6);
-
-        if ($digits < 1 || $digits > 12) {
-            $errors['number_digits'][] = 'The number_digits field must be between 1 and 12.';
+        foreach ($legacyFields as $field) {
+            if (array_key_exists($field, $payload) && $payload[$field] !== null && $payload[$field] !== '') {
+                $errors[$field][] = 'This field is no longer supported for stock generation. Use quota-based generation fields instead.';
+            }
         }
 
-        $count = $this->integerFrom($payload['count'] ?? $payload['requested_count'] ?? null);
-        $rangeEnd = $payload['end_number'] ?? $payload['to_number'] ?? $payload['range_end'] ?? null;
+        $back2Count = $this->quotaCountFromPayload($payload, 'back2_count_per_number', $errors);
+        $back3Count = $this->quotaCountFromPayload($payload, 'back3_count_per_number', $errors);
+        $front3Count = $this->quotaCountFromPayload($payload, 'front3_count_per_number', $errors);
 
-        if ($count < 1 && $rangeEnd === null) {
-            $errors['count'][] = 'The count field must be at least 1.';
+        if ($back3Count !== null && ($back3Count * self::GENERATE_BASE_COUNT) > self::GENERATE_MAX_SYNC_COUNT) {
+            $errors['back3_count_per_number'][] = 'The back3_count_per_number field may not create more than 10000 stock items for synchronous generation.';
         }
 
-        if ($count > 10000) {
-            $errors['count'][] = 'The count field may not be greater than 10000 for synchronous generation.';
+        if ($back2Count !== null && $back3Count !== null && $back2Count !== ($back3Count * 10)) {
+            $errors['back2_count_per_number'][] = 'The back2_count_per_number field must equal 10 times back3_count_per_number.';
         }
 
-        $start = $this->integerFrom($payload['start_number'] ?? $payload['from_number'] ?? $payload['range_start'] ?? 0);
-        $end = $rangeEnd === null ? ($count > 0 ? $start + $count - 1 : $start) : $this->integerFrom($rangeEnd);
-
-        if ($start < 0 || $end < $start) {
-            $errors['range'][] = 'The requested number range is invalid.';
-        }
-
-        if (($end - $start + 1) > 10000) {
-            $errors['range'][] = 'The requested range may not include more than 10000 numbers.';
+        if ($front3Count !== null && $back3Count !== null && $front3Count !== $back3Count) {
+            $errors['front3_count_per_number'][] = 'The front3_count_per_number field must equal back3_count_per_number.';
         }
 
         return $errors;
@@ -789,7 +799,7 @@ class CentralStockService
     public function generateStock(array $payload, AdminSessionContext $actor, Request $request): array
     {
         return DB::transaction(function () use ($payload, $actor, $request): array {
-            $normalized = $this->normalizedGeneratePayload($payload);
+            $normalized = $this->normalizedGeneratePayload($payload, (string) $request->header('Idempotency-Key'));
             $batch = $this->ensureStockBatch('generate', $normalized, $actor, $request);
 
             if (! $batch['created']) {
@@ -1599,27 +1609,26 @@ class CentralStockService
 
     /**
      * @param array<string, mixed> $payload
-     * @return array{game_id: string, requested_count: int, range_start: string, range_end: string, number_digits: int, numbers: array<int, string>}
+     * @return array{game_id: string, requested_count: int, range_start: string, range_end: string, number_digits: int, generation_mode: string, back2_count_per_number: int, back3_count_per_number: int, front3_count_per_number: int, numbers: array<int, string>}
      */
-    private function normalizedGeneratePayload(array $payload): array
+    private function normalizedGeneratePayload(array $payload, string $idempotencyKey): array
     {
-        $digits = max(1, min(12, $this->integerFrom($payload['number_digits'] ?? $payload['digits'] ?? 6)));
-        $start = $this->integerFrom($payload['start_number'] ?? $payload['from_number'] ?? $payload['range_start'] ?? 0);
-        $count = $this->integerFrom($payload['count'] ?? $payload['requested_count'] ?? null);
-        $rangeEnd = $payload['end_number'] ?? $payload['to_number'] ?? $payload['range_end'] ?? null;
-        $end = $rangeEnd === null ? $start + $count - 1 : $this->integerFrom($rangeEnd);
-        $numbers = [];
-
-        for ($number = $start; $number <= $end; $number++) {
-            $numbers[] = $this->normalizeFullNumber((string) $number, $digits);
-        }
+        $gameId = trim((string) $payload['game_id']);
+        $back2Count = $this->integerFrom($payload['back2_count_per_number']);
+        $back3Count = $this->integerFrom($payload['back3_count_per_number']);
+        $front3Count = $this->integerFrom($payload['front3_count_per_number']);
+        $numbers = $this->quotaGeneratedNumbers($gameId, $idempotencyKey, $back3Count);
 
         return [
-            'game_id' => trim((string) $payload['game_id']),
+            'game_id' => $gameId,
             'requested_count' => count($numbers),
-            'range_start' => $this->normalizeFullNumber((string) $start, $digits),
-            'range_end' => $this->normalizeFullNumber((string) $end, $digits),
-            'number_digits' => $digits,
+            'range_start' => '000000',
+            'range_end' => '999999',
+            'number_digits' => self::GENERATE_NUMBER_DIGITS,
+            'generation_mode' => 'quota_random',
+            'back2_count_per_number' => $back2Count,
+            'back3_count_per_number' => $back3Count,
+            'front3_count_per_number' => $front3Count,
             'numbers' => $numbers,
         ];
     }
@@ -2310,6 +2319,81 @@ class CentralStockService
         }
 
         return $base;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @param array<string, array<int, string>> $errors
+     */
+    private function quotaCountFromPayload(array $payload, string $field, array &$errors): ?int
+    {
+        if (! array_key_exists($field, $payload) || $payload[$field] === null || $payload[$field] === '') {
+            $errors[$field][] = 'The '.$field.' field is required.';
+
+            return null;
+        }
+
+        $value = filter_var($payload[$field], FILTER_VALIDATE_INT);
+
+        if ($value === false) {
+            $errors[$field][] = 'The '.$field.' field must be an integer.';
+
+            return null;
+        }
+
+        $value = (int) $value;
+
+        if ($value < 1) {
+            $errors[$field][] = 'The '.$field.' field must be at least 1.';
+
+            return null;
+        }
+
+        return $value;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function quotaGeneratedNumbers(string $gameId, string $idempotencyKey, int $rounds): array
+    {
+        $numbers = [];
+
+        for ($round = 0; $round < $rounds; $round++) {
+            $back3Numbers = $this->shuffledBack3Numbers($gameId, $idempotencyKey, $round);
+
+            for ($front = 0; $front < self::GENERATE_BASE_COUNT; $front++) {
+                $front3 = str_pad((string) $front, 3, '0', STR_PAD_LEFT);
+                $numbers[] = $front3.$back3Numbers[$front];
+            }
+        }
+
+        return $numbers;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function shuffledBack3Numbers(string $gameId, string $idempotencyKey, int $round): array
+    {
+        $seed = $gameId.':'.$idempotencyKey.':'.$round;
+        $weighted = [];
+
+        for ($number = 0; $number < self::GENERATE_BASE_COUNT; $number++) {
+            $back3 = str_pad((string) $number, 3, '0', STR_PAD_LEFT);
+            $weighted[] = [
+                'number' => $back3,
+                'weight' => hash('sha256', $seed.':'.$back3),
+            ];
+        }
+
+        usort($weighted, function (array $left, array $right): int {
+            $weightCompare = strcmp($left['weight'], $right['weight']);
+
+            return $weightCompare !== 0 ? $weightCompare : strcmp($left['number'], $right['number']);
+        });
+
+        return array_column($weighted, 'number');
     }
 
     private function normalizeFullNumber(string $number, int $digits): string

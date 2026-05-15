@@ -1886,7 +1886,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AdminCreateRequest"
+              $ref: "#/components/schemas/StockGenerateRequest"
       responses:
         "202":
           description: Stock generation accepted
@@ -7618,6 +7618,39 @@ components:
     AdminCreateRequest:
       type: object
       additionalProperties: true
+    StockGenerateRequest:
+      type: object
+      required:
+        - game_id
+        - back2_count_per_number
+        - back3_count_per_number
+        - front3_count_per_number
+      properties:
+        game_id:
+          type: string
+          description: Open central game ID.
+        back2_count_per_number:
+          type: integer
+          minimum: 10
+          maximum: 100
+          description: Required count for every 2-digit suffix. Must equal 10 x back3_count_per_number.
+          example: 10
+        back3_count_per_number:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Required count for every 3-digit suffix. Total generated rows are 1000 x this value.
+          example: 1
+        front3_count_per_number:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Required count for every 3-digit prefix. Must equal back3_count_per_number.
+          example: 1
+        reason:
+          type: string
+          description: Optional audited admin action reason.
+      additionalProperties: false
     AdminPatchRequest:
       type: object
       additionalProperties: true
