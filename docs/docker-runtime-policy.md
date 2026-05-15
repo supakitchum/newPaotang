@@ -34,7 +34,7 @@ docker compose run --rm <service> <command>
 
 ```sh
 docker compose exec platform-api php artisan test
-docker compose exec platform-api php artisan migrate:fresh --env=testing
+docker compose run --rm -e APP_ENV=testing -e DB_DATABASE=newpaotang_test platform-api php artisan migrate:fresh --seed --env=testing
 docker compose exec customer npm run build
 docker compose exec back-office npm run build
 ```
@@ -92,3 +92,40 @@ docker compose exec platform-api php artisan test
 docker compose exec customer npm run build
 docker compose exec back-office npm run build
 ```
+
+## QA Database Isolation
+
+ฐานข้อมูล runtime หลักคือ:
+
+```text
+newpaotang
+```
+
+ฐานข้อมูลทดสอบสำหรับ PHPUnit/feature tests คือ:
+
+```text
+newpaotang_test
+```
+
+QA และ agent ทุกตัวห้ามรันคำสั่ง destructive เช่น `migrate:fresh`, `migrate:refresh`, `migrate:reset`, หรือ `db:wipe` กับ `newpaotang` เว้นแต่ user สั่งให้ล้าง DB หลักอย่างชัดเจนใน turn นั้น
+
+คำสั่งเตรียม test database ที่ถูกต้อง:
+
+```sh
+docker compose -p newpaotang run --rm -e APP_ENV=testing -e DB_DATABASE=newpaotang_test platform-api php artisan migrate:fresh --seed --env=testing
+```
+
+คำสั่งรัน backend tests ที่ถูกต้อง:
+
+```sh
+docker compose -p newpaotang run --rm -e APP_ENV=testing -e DB_DATABASE=newpaotang_test platform-api php artisan test --env=testing
+```
+
+คำสั่งตรวจ runtime หลักหลัง QA ต้องไม่ล้างข้อมูลหลัก ให้ใช้ smoke/seed แบบไม่ drop ตาราง:
+
+```sh
+docker compose -p newpaotang exec -T platform-api php artisan db:seed --no-interaction
+docker compose -p newpaotang exec -T platform-api php artisan platform:smoke
+```
+
+ถ้า QA ต้องทดสอบผ่าน BO browser workflow ที่เขียนข้อมูล ให้ใช้ข้อมูล fixture เฉพาะ QA หรือ test runtime database แยก ห้ามใช้ `migrate:fresh --seed` เพื่อ restore ฐานข้อมูลหลักหลังทดสอบ

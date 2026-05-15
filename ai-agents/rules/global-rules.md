@@ -113,19 +113,41 @@ QA Tester ทดสอบผ่าน Docker service ที่เกี่ยว
 
 ## QA Runtime Restore Rule
 
-QA Tester ต้องคืนสภาพ local Docker runtime ให้ login ได้ก่อนส่งรายงานทุกครั้ง โดยเฉพาะงานที่แตะ database, migration, seeder, PHPUnit/feature test, Docker volume, Nuxt `.nuxt`, `npm run build`, หรือ browser QA
+QA Tester ต้องใช้ฐานข้อมูลทดสอบแยกจากฐานข้อมูล runtime หลักเสมอ และต้องคืนสภาพ local Docker runtime ให้ login ได้ก่อนส่งรายงานทุกครั้ง โดยเฉพาะงานที่แตะ database, migration, seeder, PHPUnit/feature test, Docker volume, Nuxt `.nuxt`, `npm run build`, หรือ browser QA
+
+ฐานข้อมูล runtime หลัก `newpaotang` ไม่ใช่ disposable test database ห้ามล้างด้วยคำสั่ง destructive ระหว่าง QA เว้นแต่ผู้ใช้สั่งเป็นลายลักษณ์อักษรใน turn นั้นโดยตรง
+
+คำสั่ง destructive ต่อไปนี้ต้องใช้ได้เฉพาะ test database เท่านั้น:
+
+```text
+migrate:fresh
+migrate:refresh
+migrate:reset
+db:wipe
+คำสั่งอื่นที่ drop/truncate ตารางจำนวนมาก
+```
 
 QA Tester ห้ามส่ง `PASS` จนกว่าจะทำสิ่งนี้ครบและบันทึกผลไว้ใน QA report:
 
 ```text
-1. ถ้า QA ใช้หรืออาจเปลี่ยน local/dev database ต้องรัน seed กลับเข้าระบบ
-2. ต้องรัน platform smoke และต้องเห็น seeded-logins: ok
-3. ถ้า QA แตะ back-office dev/build/browser flow ต้อง restart หรือ recreate back-office service หลัง test/build
-4. ต้องตรวจว่า /login เปิดได้ และ /admin/login ไม่พาไป redirect path เสีย
-5. ถ้าข้อใดทำไม่ได้ ต้อง mark เป็น FAIL หรือ PASS WITH RISK พร้อมระบุ blocker ห้ามเขียนว่าไม่มี defect
+1. PHPUnit/feature test และ destructive migration ต้องรันกับ `DB_DATABASE=newpaotang_test` และ `APP_ENV=testing`
+2. ถ้า QA ต้องเตรียม DB ใหม่ ให้ใช้ `migrate:fresh --seed --env=testing` กับ test DB เท่านั้น
+3. ห้ามใช้ `migrate:fresh --seed` กับ runtime DB หลัก `newpaotang`
+4. ถ้า QA ใช้ browser/BO workflow ที่จะ mutate data ต้องใช้ QA/test DB runtime หรือขอ Coordinator decision ก่อน ห้ามล้าง DB หลักเพื่อ restore
+5. หลัง test/build ต้องรัน platform smoke บน runtime หลัก และต้องเห็น seeded-logins: ok
+6. ถ้า QA แตะ back-office dev/build/browser flow ต้อง restart หรือ recreate back-office service หลัง test/build
+7. ต้องตรวจว่า /login เปิดได้ และ /admin/login ไม่พาไป redirect path เสีย
+8. ถ้าข้อใดทำไม่ได้ ต้อง mark เป็น FAIL หรือ PASS WITH RISK พร้อมระบุ blocker ห้ามเขียนว่าไม่มี defect
 ```
 
-คำสั่ง baseline สำหรับ QA หลังจบทดสอบ local Docker:
+คำสั่ง baseline สำหรับ QA ที่ต้องเตรียม test DB หรือรัน backend feature/PHPUnit:
+
+```sh
+docker compose -p newpaotang run --rm -e APP_ENV=testing -e DB_DATABASE=newpaotang_test platform-api php artisan migrate:fresh --seed --env=testing
+docker compose -p newpaotang run --rm -e APP_ENV=testing -e DB_DATABASE=newpaotang_test platform-api php artisan test --env=testing
+```
+
+คำสั่ง baseline สำหรับ QA หลังจบทดสอบ local Docker เพื่อตรวจ runtime หลักว่ายัง login ได้:
 
 ```sh
 docker compose -p newpaotang exec -T platform-api php artisan db:seed --no-interaction
@@ -147,6 +169,8 @@ POST /api/v1/auth/admin/login ด้วย seeded central admin ต้องไ�
 ```
 
 ถ้า QA ใช้ clean worktree แยก แต่ใช้ Docker project/database เดียวกันกับ local runtime หลัก กฎนี้ยังบังคับใช้ เพราะผลข้างเคียงอยู่ที่ container/volume ไม่ใช่เฉพาะไฟล์ใน worktree
+
+QA report ต้องบันทึกชื่อ database ที่ใช้สำหรับ destructive command ทุกครั้ง ถ้าไม่มีหลักฐานว่า destructive command ใช้ `newpaotang_test` ให้ Coordinator ถือว่า QA ยังไม่ผ่าน
 
 ## Git Boundary Rule
 

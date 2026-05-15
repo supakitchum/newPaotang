@@ -43,7 +43,9 @@ QA report ทุกฉบับต้องเพิ่มหัวข้อน�
 หัวข้อนี้ต้องบันทึกว่า QA คืนสภาพ local Docker runtime แล้วหรือไม่ โดยเฉพาะ:
 
 ```text
-db:seed after destructive or DB-touching tests
+test database name used for destructive commands
+confirmation that destructive DB commands used `newpaotang_test`, not runtime DB `newpaotang`
+db:seed after DB-touching tests only for runtime smoke, never as a substitute for destructive restore on the main DB
 platform:smoke result with seeded-logins
 central admin login API status
 back-office /login status

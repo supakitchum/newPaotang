@@ -89,10 +89,18 @@ Verification already completed:
 
 ## Agent Rules
 
-- After any QA/test run that mutates the runtime DB, restore local runtime state with:
+- QA/backend feature tests must use the isolated test database, not the runtime DB:
 
 ```sh
-docker compose -p newpaotang exec -T platform-api php artisan migrate:fresh --seed
+docker compose -p newpaotang run --rm -e APP_ENV=testing -e DB_DATABASE=newpaotang_test platform-api php artisan migrate:fresh --seed --env=testing
+docker compose -p newpaotang run --rm -e APP_ENV=testing -e DB_DATABASE=newpaotang_test platform-api php artisan test --env=testing
+```
+
+- QA must not run `migrate:fresh`, `migrate:refresh`, `migrate:reset`, or `db:wipe` against runtime DB `newpaotang`. After QA, runtime smoke should use non-destructive seed/smoke only:
+
+```sh
+docker compose -p newpaotang exec -T platform-api php artisan db:seed --no-interaction
+docker compose -p newpaotang exec -T platform-api php artisan platform:smoke
 ```
 
 - Do not add a separate upload field for `logo_num_set`; it must follow the partner `logo_qr` asset and only use a separate layout slot.

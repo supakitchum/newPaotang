@@ -5,14 +5,14 @@
 ## Active Task
 
 ```text
-hotfix-quota-session-layout-qa
+qa-database-isolation-policy
 ```
 
 ## Agent Status
 
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
-| Coordinator | completed | 20260515-hotfix-quota-session-layout-handoff | docs/coordinator-agent-handoff.md |
+| Coordinator | completed | qa-database-isolation-policy | ai-agents/decisions/20260515-qa-database-isolation-policy-decision.md |
 | Orchestrator | completed | hotfix-quota-session-layout-qa-dispatch | ai-agents/handoffs/20260515-hotfix-quota-session-layout-qa-dispatch-orchestrator-handoff.md |
 | Backend Develop | completed | stock-generate-quota-and-lottery-layout-hotfixes | docs/coordinator-agent-handoff.md |
 | BO Develop | completed | stock-generate-quota-admin-session-lottery-layout-hotfixes | docs/coordinator-agent-handoff.md |
@@ -22,11 +22,11 @@ hotfix-quota-session-layout-qa
 ## Open Questions
 
 ```text
-QA passed `hotfix-quota-session-layout-qa` and Coordinator accepted the result. No remediation task is required from this QA result. Production rollout still needs real S3/R2-compatible object storage, queue workers, credential redaction checks, environment-specific readiness validation, and authenticated BO/customer UAT once credentials or a session are supplied.
+QA database isolation policy is now active. QA must run destructive DB commands only against `newpaotang_test` with `APP_ENV=testing`; runtime DB `newpaotang` must not be wiped by QA. Any QA report missing database-name evidence for destructive commands must be rejected by Coordinator.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/decisions/20260515-hotfix-quota-session-layout-qa-review-decision.md
+ai-agents/decisions/20260515-qa-database-isolation-policy-decision.md
 ```
