@@ -13,16 +13,16 @@ large-async-stock-generation
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
 | Coordinator | completed | large-async-stock-generation | ai-agents/handoffs/20260515-large-async-stock-generation-coordinator-handoff.md |
-| Orchestrator | completed | large-async-stock-generation | ai-agents/handoffs/20260516-large-async-stock-generation-orchestrator-handoff.md |
-| Backend Develop | pending | large-async-stock-generation-backend | ai-agents/tasks/20260516-large-async-stock-generation-backend.md |
-| BO Develop | pending | large-async-stock-generation-bo | ai-agents/tasks/20260516-large-async-stock-generation-bo.md |
+| Orchestrator | completed | large-async-stock-generation-qa-dispatch | ai-agents/handoffs/20260516-large-async-stock-generation-qa-dispatch-orchestrator-handoff.md |
+| Backend Develop | completed | large-async-stock-generation-backend | ai-agents/handoffs/20260516-large-async-stock-generation-backend-handoff.md |
+| BO Develop | completed | large-async-stock-generation-bo | ai-agents/handoffs/20260516-large-async-stock-generation-bo-handoff.md |
 | Customer Develop | completed | lottery-image-customer-ssr-error-serialization-remediation | ai-agents/handoffs/20260514-lottery-image-customer-ssr-error-serialization-remediation-customer-handoff.md |
 | QA Tester | pending | large-async-stock-generation-qa | ai-agents/tasks/20260516-large-async-stock-generation-qa.md |
 
 ## Open Questions
 
 ```text
-Orchestrator dispatched Backend, BO, and QA task briefs for large async stock generation. Backend Develop is next and must add async batch/chunk generation, batch APIs, OpenAPI/tests, and image-dispatch separation. Critical requirement: full_number duplicates are valid, so stock row generation must use normal bulk insert, not insertOrIgnore; retry safety must come from chunk status and transactions.
+Backend and BO completed large async stock generation. Orchestrator registered both handoffs and routed the prepared QA task. QA must validate 1,000 sync path, 12,000 async completion, duplicate full_number preservation, no insertOrIgnore stock generation, idempotency, image dispatch separation, BO progress polling, and runtime restore/login smoke using isolated test DB newpaotang_test for destructive commands.
 ```
 
 ## Latest Decision
