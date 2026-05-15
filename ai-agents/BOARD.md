@@ -17,16 +17,16 @@ stock-generation-summary-widgets
 | Backend Develop | completed | stock-generation-summary-widgets-backend | ai-agents/handoffs/20260515-stock-generation-summary-widgets-backend-handoff.md |
 | BO Develop | completed | stock-generation-summary-widgets-bo | ai-agents/handoffs/20260515-stock-generation-summary-widgets-bo-handoff.md |
 | Customer Develop | completed | lottery-image-customer-ssr-error-serialization-remediation | ai-agents/handoffs/20260514-lottery-image-customer-ssr-error-serialization-remediation-customer-handoff.md |
-| QA Tester | pending | stock-generation-summary-widgets-qa | ai-agents/tasks/20260515-stock-generation-summary-widgets-qa.md |
+| QA Tester | completed | stock-generation-summary-widgets-qa | ai-agents/reports/20260515-stock-generation-summary-widgets-qa-report.md |
 
 ## Open Questions
 
 ```text
-Backend and BO completed Stock Generation summary widgets. Orchestrator registered both handoffs and routed the prepared QA task. QA must validate API/UI using isolated test DB newpaotang_test for destructive commands, must not wipe runtime DB newpaotang, and must perform Runtime Restore / Login Smoke before reporting a clean PASS.
+QA passed Stock Generation summary widgets. Coordinator accepted the QA PASS after confirming destructive migration evidence used APP_ENV=testing, DB_DATABASE=newpaotang_test, and --env=testing. Runtime DB newpaotang was not wiped, runtime restore/login smoke passed, and no remediation is required.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/decisions/20260515-stock-generation-summary-widgets-decision.md
+ai-agents/decisions/20260515-stock-generation-summary-widgets-qa-review-decision.md
 ```
