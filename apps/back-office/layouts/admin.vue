@@ -50,9 +50,19 @@ const redirectExpiredAdminSession = async () => {
   return true
 }
 
+const redirectStalledAdminRestore = async () => {
+  if (isPublicAdminStatusPage.value) {
+    return false
+  }
+
+  session.clear()
+  await navigateTo({ path: '/login', query: { redirect: route.fullPath } })
+  return true
+}
+
 onMounted(async () => {
   sessionRedirectTimer = setTimeout(() => {
-    void redirectExpiredAdminSession()
+    void redirectStalledAdminRestore()
   }, adminSessionRedirectTimeoutMs)
 
   session.restore()
@@ -67,6 +77,11 @@ onMounted(async () => {
     await loadMenus()
   }
 
+  if (await redirectExpiredAdminSession()) {
+    clearSessionRedirectTimer()
+    return
+  }
+
   clearSessionRedirectTimer()
 })
 
@@ -79,6 +94,14 @@ watch(() => [session.currentScope.value, session.currentTenantId.value], () => {
     return
   }
   loadMenus()
+})
+
+watch(() => session.isAuthenticated.value, (authenticated) => {
+  if (!clientReady.value || authenticated || isPublicAdminStatusPage.value) {
+    return
+  }
+
+  void redirectExpiredAdminSession()
 })
 
 const closeSidebar = () => {

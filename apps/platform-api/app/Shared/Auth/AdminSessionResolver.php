@@ -5,26 +5,45 @@ namespace App\Shared\Auth;
 use App\Modules\Auth\Services\AdminAuthService;
 use App\Models\AdminAuthSession;
 use App\Models\AdminUser;
-use Illuminate\Support\Facades\DB;
 
 class AdminSessionResolver
 {
+    /**
+     * @var array{code: string, message: string}|null
+     */
+    private ?array $failure = null;
+
     public function __construct(private readonly AdminAuthService $authService)
     {
     }
 
     public function resolveAccessToken(?string $accessToken): ?AdminSessionContext
     {
+        $this->failure = null;
+
         if ($accessToken === null || $accessToken === '') {
             return null;
         }
 
-        $session = AdminAuthSession::where('access_token_hash', hash('sha256', $accessToken))
+        $accessTokenHash = hash('sha256', $accessToken);
+        $session = AdminAuthSession::where('access_token_hash', $accessTokenHash)
             ->whereNull('revoked_at')
             ->where('access_expires_at', '>', now())
             ->first();
 
         if ($session === null) {
+            $revokedSession = AdminAuthSession::query()
+                ->where('access_token_hash', $accessTokenHash)
+                ->whereNotNull('revoked_at')
+                ->first();
+
+            if ($revokedSession !== null && $revokedSession->revoked_reason === AdminAuthService::REVOKED_REASON_REPLACED_BY_NEW_LOGIN) {
+                $this->failure = [
+                    'code' => 'admin_session_replaced',
+                    'message' => 'มีการเข้าสู่ระบบจากอุปกรณ์อื่น กรุณาเข้าสู่ระบบใหม่',
+                ];
+            }
+
             return null;
         }
 
@@ -72,5 +91,13 @@ class AdminSessionResolver
             ],
             scopes: $this->authService->scopesForAdmin((string) $adminUser->id),
         );
+    }
+
+    /**
+     * @return array{code: string, message: string}|null
+     */
+    public function failure(): ?array
+    {
+        return $this->failure;
     }
 }

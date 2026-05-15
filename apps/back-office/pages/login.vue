@@ -18,6 +18,7 @@
                     <h4 class="mb-1">Admin sign in</h4>
                     <p class="text-muted mb-0">Use an approved central or tenant admin account.</p>
                   </div>
+                  <AdminAlert v-if="notice" type="warning" :message="notice" dismissible @dismiss="notice = ''" />
                   <AdminAlert v-if="error" type="danger" :message="error.message" :details="error.details" dismissible @dismiss="error = null" />
                   <form @submit.prevent="submit">
                     <div class="mb-3">
@@ -68,6 +69,7 @@ const session = useAdminSession()
 const route = useRoute()
 const loading = ref(false)
 const error = ref<any>(null)
+const notice = ref('')
 const form = reactive({
   email: '',
   password: '',
@@ -77,6 +79,7 @@ const form = reactive({
 
 onMounted(() => {
   session.restore()
+  notice.value = session.consumeAuthNotice()
   if (session.isAuthenticated.value) {
     navigateTo(afterLoginPath(session.currentScope.value))
   }

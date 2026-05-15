@@ -27,6 +27,7 @@ type AdminSessionState = {
 
 const storageKey = 'newpaotang.back-office.session.v1'
 const sessionCookieName = 'newpaotang_bo_session'
+const authNoticeStorageKey = 'newpaotang.back-office.auth-notice.v1'
 
 const emptySession = (): AdminSessionState => ({
   accessToken: null,
@@ -165,6 +166,25 @@ export const useAdminSession = () => {
     }
   }
 
+  const rememberAuthNotice = (message: string) => {
+    if (!import.meta.client || !message.trim()) {
+      return
+    }
+
+    sessionStorage.setItem(authNoticeStorageKey, message.trim())
+  }
+
+  const consumeAuthNotice = () => {
+    if (!import.meta.client) {
+      return ''
+    }
+
+    const message = sessionStorage.getItem(authNoticeStorageKey) || ''
+    sessionStorage.removeItem(authNoticeStorageKey)
+
+    return message
+  }
+
   const showToast = (message: string, type = 'primary') => {
     toast.value = { message, type }
   }
@@ -184,6 +204,8 @@ export const useAdminSession = () => {
     hasPermission,
     hasScope,
     clear,
+    rememberAuthNotice,
+    consumeAuthNotice,
     showToast,
   }
 }

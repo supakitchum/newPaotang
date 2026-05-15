@@ -22,6 +22,12 @@ class AuthenticateAdmin
         $context = $this->sessions->resolveAccessToken($request->bearerToken());
 
         if ($context === null) {
+            $failure = $this->sessions->failure();
+
+            if ($failure !== null) {
+                return ApiErrorResponse::make($request, 401, $failure['code'], $failure['message']);
+            }
+
             return ApiErrorResponse::authenticationRequired($request);
         }
 

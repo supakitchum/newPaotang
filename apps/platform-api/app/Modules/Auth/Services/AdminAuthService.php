@@ -18,8 +18,11 @@ use Illuminate\Support\Str;
 
 class AdminAuthService
 {
-    private const ACCESS_TOKEN_TTL_SECONDS = 3600;
+    private const ACCESS_TOKEN_TTL_SECONDS = 28800;
     private const REFRESH_TOKEN_TTL_SECONDS = 604800;
+    private const REVOKED_REASON_LOGOUT = 'logout';
+    private const REVOKED_REASON_REFRESHED = 'refreshed';
+    public const REVOKED_REASON_REPLACED_BY_NEW_LOGIN = 'replaced_by_new_login';
 
     public function __construct(
         private readonly AuditLogger $auditLogger,
@@ -75,6 +78,7 @@ class AdminAuthService
                 'password' => $password,
                 'access_token' => $response['access_token'],
                 'refresh_token' => $response['refresh_token'],
+                'revoked_other_sessions_count' => $response['revoked_other_sessions_count'],
             ],
             tenantId: $activeScope['tenant_id'],
             requestId: $request->header('X-Request-Id'),
@@ -134,14 +138,22 @@ class AdminAuthService
             if ($adminUser === null) {
                 AdminAuthSession::query()
                     ->where('id', $oldSession->id)
-                    ->update(['revoked_at' => now(), 'updated_at' => now()]);
+                    ->update([
+                        'revoked_at' => now(),
+                        'revoked_reason' => self::REVOKED_REASON_REFRESHED,
+                        'updated_at' => now(),
+                    ]);
 
                 return null;
             }
 
             AdminAuthSession::query()
                 ->where('id', $oldSession->id)
-                ->update(['revoked_at' => now(), 'updated_at' => now()]);
+                ->update([
+                    'revoked_at' => now(),
+                    'revoked_reason' => self::REVOKED_REASON_REFRESHED,
+                    'updated_at' => now(),
+                ]);
 
             $admin = $this->adminToArray($adminUser);
             $scopes = $this->scopesForAdmin($admin['id']);
@@ -165,6 +177,7 @@ class AdminAuthService
             ->whereNull('revoked_at')
             ->update([
                 'revoked_at' => now(),
+                'revoked_reason' => self::REVOKED_REASON_LOGOUT,
                 'updated_at' => now(),
             ]);
 
@@ -210,6 +223,7 @@ class AdminAuthService
         $accessToken = $this->newToken('npa_at');
         $refreshToken = $this->newToken('npa_rt');
         $sessionId = 'ads_'.Str::ulid()->toBase32();
+        $revokedOtherSessionsCount = $this->revokeOtherActiveSessions($admin['id']);
 
         AdminAuthSession::query()->insert([
             'id' => $sessionId,
@@ -222,6 +236,7 @@ class AdminAuthService
             'access_expires_at' => now()->addSeconds(self::ACCESS_TOKEN_TTL_SECONDS),
             'refresh_expires_at' => now()->addSeconds(self::REFRESH_TOKEN_TTL_SECONDS),
             'revoked_at' => null,
+            'revoked_reason' => null,
             'refreshed_from_id' => $refreshedFromId,
             'last_used_at' => null,
             'created_at' => now(),
@@ -233,6 +248,10 @@ class AdminAuthService
             'access_token' => $accessToken,
             'refresh_token' => $refreshToken,
             'expires_in' => self::ACCESS_TOKEN_TTL_SECONDS,
+            'revoked_other_sessions_count' => $revokedOtherSessionsCount,
+            'message' => $revokedOtherSessionsCount > 0
+                ? 'A previous admin session was signed out because this account signed in on another device.'
+                : null,
             'requires_2fa' => false,
             'challenge_token' => null,
             'user' => $this->profileFromAdmin($admin),
@@ -537,6 +556,18 @@ class AdminAuthService
     private function newToken(string $prefix): string
     {
         return $prefix.'_'.bin2hex(random_bytes(32));
+    }
+
+    private function revokeOtherActiveSessions(string $adminUserId): int
+    {
+        return AdminAuthSession::query()
+            ->where('admin_user_id', $adminUserId)
+            ->whereNull('revoked_at')
+            ->update([
+                'revoked_at' => now(),
+                'revoked_reason' => self::REVOKED_REASON_REPLACED_BY_NEW_LOGIN,
+                'updated_at' => now(),
+            ]);
     }
 
     private function tokenHash(string $token): string

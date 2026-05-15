@@ -69,6 +69,9 @@ export const useAdminApi = () => {
       const retryAfter = error?.response?.headers?.get?.('Retry-After') || null
 
       if (status === 401) {
+        if (code === 'admin_session_replaced' && message) {
+          session.rememberAuthNotice(message)
+        }
         session.clear()
       }
 

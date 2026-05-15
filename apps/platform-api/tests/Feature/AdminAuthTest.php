@@ -41,6 +41,7 @@ class AdminAuthTest extends TestCase
 
         $this->assertIsString($response['access_token']);
         $this->assertIsString($response['refresh_token']);
+        $this->assertSame(28800, $response['expires_in']);
         $this->assertArrayNotHasKey('session_id', $response);
 
         $this->assertDatabaseHas('admin_auth_sessions', [
@@ -106,8 +107,48 @@ class AdminAuthTest extends TestCase
 
         $this->assertNotNull(DB::table('admin_auth_sessions')
             ->where('refresh_token_hash', hash('sha256', $login['refresh_token']))
+            ->where('revoked_reason', 'refreshed')
             ->whereNotNull('revoked_at')
             ->first());
+    }
+
+    public function test_second_admin_login_revokes_previous_session_with_device_message(): void
+    {
+        $this->seedDefaultRbac();
+        $this->createAdmin('adm_central', 'central@example.test');
+        $this->createAdminScope('scp_central', 'central');
+        $this->assignRoleWithPermissions('adm_central', 'scp_central', 'central', null, ['dashboard.view'], 'central_dashboard');
+
+        $first = $this->loginAdmin([
+            'email' => 'central@example.test',
+            'password' => 'secret-password',
+            'scope' => 'central',
+        ]);
+
+        $second = $this->postJson('/api/v1/auth/admin/login', [
+            'email' => 'central@example.test',
+            'password' => 'secret-password',
+            'scope' => 'central',
+        ])
+            ->assertOk()
+            ->assertJsonPath('revoked_other_sessions_count', 1)
+            ->assertJsonPath('message', 'A previous admin session was signed out because this account signed in on another device.')
+            ->json();
+
+        $this->assertDatabaseHas('admin_auth_sessions', [
+            'access_token_hash' => hash('sha256', $first['access_token']),
+            'revoked_reason' => 'replaced_by_new_login',
+        ]);
+
+        $this->withToken($first['access_token'])
+            ->getJson('/api/v1/auth/admin/me')
+            ->assertUnauthorized()
+            ->assertJsonPath('error.code', 'admin_session_replaced')
+            ->assertJsonPath('error.message', 'มีการเข้าสู่ระบบจากอุปกรณ์อื่น กรุณาเข้าสู่ระบบใหม่');
+
+        $this->withToken($second['access_token'])
+            ->getJson('/api/v1/auth/admin/me')
+            ->assertOk();
     }
 
     public function test_logout_revokes_current_session_and_blocks_me(): void
