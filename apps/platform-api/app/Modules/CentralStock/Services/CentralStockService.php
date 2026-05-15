@@ -773,9 +773,34 @@ class CentralStockService
             }
         }
 
-        $back2Count = $this->quotaCountFromPayload($payload, 'back2_count_per_number', $errors);
-        $back3Count = $this->quotaCountFromPayload($payload, 'back3_count_per_number', $errors);
-        $front3Count = $this->quotaCountFromPayload($payload, 'front3_count_per_number', $errors);
+        $hasTotalCount = $this->hasPayloadValue($payload, 'total_count');
+        $hasAnyQuotaCount = $this->hasPayloadValue($payload, 'back2_count_per_number')
+            || $this->hasPayloadValue($payload, 'back3_count_per_number')
+            || $this->hasPayloadValue($payload, 'front3_count_per_number');
+        $totalCount = $this->quotaCountFromPayload($payload, 'total_count', $errors, false);
+        $back2Count = null;
+        $back3Count = null;
+        $front3Count = null;
+
+        if (! $hasTotalCount || $hasAnyQuotaCount) {
+            $back2Count = $this->quotaCountFromPayload($payload, 'back2_count_per_number', $errors);
+            $back3Count = $this->quotaCountFromPayload($payload, 'back3_count_per_number', $errors);
+            $front3Count = $this->quotaCountFromPayload($payload, 'front3_count_per_number', $errors);
+        }
+
+        if ($hasTotalCount && $totalCount !== null) {
+            if ($totalCount < self::GENERATE_BASE_COUNT) {
+                $errors['total_count'][] = 'The total_count field must be at least 1000.';
+            }
+
+            if ($totalCount > self::GENERATE_MAX_SYNC_COUNT) {
+                $errors['total_count'][] = 'The total_count field may not be greater than 10000 for synchronous generation.';
+            }
+
+            if (($totalCount % self::GENERATE_BASE_COUNT) !== 0) {
+                $errors['total_count'][] = 'The total_count field must be divisible by 1000.';
+            }
+        }
 
         if ($back3Count !== null && ($back3Count * self::GENERATE_BASE_COUNT) > self::GENERATE_MAX_SYNC_COUNT) {
             $errors['back3_count_per_number'][] = 'The back3_count_per_number field may not create more than 10000 stock items for synchronous generation.';
@@ -787,6 +812,10 @@ class CentralStockService
 
         if ($front3Count !== null && $back3Count !== null && $front3Count !== $back3Count) {
             $errors['front3_count_per_number'][] = 'The front3_count_per_number field must equal back3_count_per_number.';
+        }
+
+        if ($hasTotalCount && $hasAnyQuotaCount && $totalCount !== null && $back3Count !== null && $totalCount !== ($back3Count * self::GENERATE_BASE_COUNT)) {
+            $errors['total_count'][] = 'The total_count field must equal 1000 times back3_count_per_number.';
         }
 
         return $errors;
@@ -1609,14 +1638,15 @@ class CentralStockService
 
     /**
      * @param array<string, mixed> $payload
-     * @return array{game_id: string, requested_count: int, range_start: string, range_end: string, number_digits: int, generation_mode: string, back2_count_per_number: int, back3_count_per_number: int, front3_count_per_number: int, numbers: array<int, string>}
+     * @return array{game_id: string, requested_count: int, range_start: string, range_end: string, number_digits: int, generation_mode: string, generation_input_mode: string, total_count: int, back2_count_per_number: int, back3_count_per_number: int, front3_count_per_number: int, numbers: array<int, string>}
      */
     private function normalizedGeneratePayload(array $payload, string $idempotencyKey): array
     {
         $gameId = trim((string) $payload['game_id']);
-        $back2Count = $this->integerFrom($payload['back2_count_per_number']);
-        $back3Count = $this->integerFrom($payload['back3_count_per_number']);
-        $front3Count = $this->integerFrom($payload['front3_count_per_number']);
+        $quota = $this->normalizedGenerateQuotaCounts($payload);
+        $back2Count = $quota['back2_count_per_number'];
+        $back3Count = $quota['back3_count_per_number'];
+        $front3Count = $quota['front3_count_per_number'];
         $numbers = $this->quotaGeneratedNumbers($gameId, $idempotencyKey, $back3Count);
 
         return [
@@ -1626,6 +1656,8 @@ class CentralStockService
             'range_end' => '999999',
             'number_digits' => self::GENERATE_NUMBER_DIGITS,
             'generation_mode' => 'quota_random',
+            'generation_input_mode' => $quota['input_mode'],
+            'total_count' => $quota['total_count'],
             'back2_count_per_number' => $back2Count,
             'back3_count_per_number' => $back3Count,
             'front3_count_per_number' => $front3Count,
@@ -2325,10 +2357,12 @@ class CentralStockService
      * @param array<string, mixed> $payload
      * @param array<string, array<int, string>> $errors
      */
-    private function quotaCountFromPayload(array $payload, string $field, array &$errors): ?int
+    private function quotaCountFromPayload(array $payload, string $field, array &$errors, bool $required = true): ?int
     {
         if (! array_key_exists($field, $payload) || $payload[$field] === null || $payload[$field] === '') {
-            $errors[$field][] = 'The '.$field.' field is required.';
+            if ($required) {
+                $errors[$field][] = 'The '.$field.' field is required.';
+            }
 
             return null;
         }
@@ -2350,6 +2384,47 @@ class CentralStockService
         }
 
         return $value;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{input_mode: string, total_count: int, back2_count_per_number: int, back3_count_per_number: int, front3_count_per_number: int}
+     */
+    private function normalizedGenerateQuotaCounts(array $payload): array
+    {
+        if (! $this->hasPayloadValue($payload, 'back2_count_per_number')
+            && ! $this->hasPayloadValue($payload, 'back3_count_per_number')
+            && ! $this->hasPayloadValue($payload, 'front3_count_per_number')
+            && $this->hasPayloadValue($payload, 'total_count')) {
+            $totalCount = $this->integerFrom($payload['total_count']);
+            $back3Count = intdiv($totalCount, self::GENERATE_BASE_COUNT);
+
+            return [
+                'input_mode' => 'total_count',
+                'total_count' => $totalCount,
+                'back2_count_per_number' => $back3Count * 10,
+                'back3_count_per_number' => $back3Count,
+                'front3_count_per_number' => $back3Count,
+            ];
+        }
+
+        $back3Count = $this->integerFrom($payload['back3_count_per_number']);
+
+        return [
+            'input_mode' => $this->hasPayloadValue($payload, 'total_count') ? 'quota_with_total_check' : 'quota_fields',
+            'total_count' => $back3Count * self::GENERATE_BASE_COUNT,
+            'back2_count_per_number' => $this->integerFrom($payload['back2_count_per_number']),
+            'back3_count_per_number' => $back3Count,
+            'front3_count_per_number' => $this->integerFrom($payload['front3_count_per_number']),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function hasPayloadValue(array $payload, string $field): bool
+    {
+        return array_key_exists($field, $payload) && $payload[$field] !== null && $payload[$field] !== '';
     }
 
     /**

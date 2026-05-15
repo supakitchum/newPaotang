@@ -118,7 +118,7 @@ class LotteryImageTest extends TestCase
         $this->putBackground('gam_lottery_pending', 'even');
         Queue::fake();
 
-        $this->artisan('lottery-images:check-pending-backgrounds', ['--limit' => 10])
+        $this->artisan('lottery-images:check-pending-backgrounds', ['--limit' => 10, '--set_type' => 'even'])
             ->expectsOutput('Pending central ready: 10')
             ->assertExitCode(0);
 
@@ -242,7 +242,7 @@ class LotteryImageTest extends TestCase
             $this->pixelRgb($bytes, 100, 175),
         ));
 
-        $this->getJson('http://lottery-image.newpaotang.test/api/v1/public/stock/search?game_id=gam_lottery_partner&number='.$stock->full_number)
+        $this->getJson('http://lottery-image.newpaotang.test/api/v1/public/stock/search?game_id=gam_lottery_partner&number='.$localStock->full_number)
             ->assertOk()
             ->assertJsonPath('data.0.image_url', $localStock->image_url)
             ->assertJsonPath('data.0.image_thumb_url', $localStock->image_thumb_url);

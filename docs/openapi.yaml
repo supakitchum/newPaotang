@@ -7622,30 +7622,35 @@ components:
       type: object
       required:
         - game_id
-        - back2_count_per_number
-        - back3_count_per_number
-        - front3_count_per_number
+      description: Provide either total_count, or all three quota fields. If both modes are provided, total_count must match the quota-derived total.
       properties:
         game_id:
           type: string
           description: Open central game ID.
+        total_count:
+          type: integer
+          minimum: 1000
+          maximum: 10000
+          multipleOf: 1000
+          description: Total rows to generate. Backend derives back3_count_per_number = total_count / 1000, front3_count_per_number = back3_count_per_number, and back2_count_per_number = back3_count_per_number x 10.
+          example: 3000
         back2_count_per_number:
           type: integer
           minimum: 10
           maximum: 100
-          description: Required count for every 2-digit suffix. Must equal 10 x back3_count_per_number.
+          description: Optional manual quota for every 2-digit suffix. Must equal 10 x back3_count_per_number.
           example: 10
         back3_count_per_number:
           type: integer
           minimum: 1
           maximum: 10
-          description: Required count for every 3-digit suffix. Total generated rows are 1000 x this value.
+          description: Optional manual quota for every 3-digit suffix. Total generated rows are 1000 x this value.
           example: 1
         front3_count_per_number:
           type: integer
           minimum: 1
           maximum: 10
-          description: Required count for every 3-digit prefix. Must equal back3_count_per_number.
+          description: Optional manual quota for every 3-digit prefix. Must equal back3_count_per_number.
           example: 1
         reason:
           type: string

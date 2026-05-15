@@ -12,7 +12,12 @@ Current follow-up work changes central stock generation to quota-based 6-digit r
 ## Stock Generate Quota Contract
 
 - `POST /admin/central/stock/generate` no longer accepts `start_number`, `count`, `requested_count`, `number_digits`, or range fields.
-- The accepted payload is now:
+- The accepted payload can use either `total_count` alone, or the three manual quota fields below.
+- With `total_count`, backend derives:
+  - `back3_count_per_number = total_count / 1000`
+  - `front3_count_per_number = back3_count_per_number`
+  - `back2_count_per_number = back3_count_per_number * 10`
+- Manual quota payload fields:
   - `back2_count_per_number`
   - `back3_count_per_number`
   - `front3_count_per_number`
@@ -25,13 +30,13 @@ Current follow-up work changes central stock generation to quota-based 6-digit r
 - Each round pairs front3 `000-999` with a deterministic shuffled back3 list seeded by game, idempotency key, and round.
 - Per round, every front3 appears once, every back3 appears once, and every back2 appears 10 times.
 - Duplicate 6-digit values remain allowed by the current stock model when produced by separate batches/rounds.
-- BO Generate Stock form now exposes the three quota fields and no longer shows start/count.
+- BO Generate Stock form now exposes `total_count` plus optional manual quota fields and no longer shows start/count.
 - OpenAPI and BO CRUD coverage docs have been updated for the quota contract.
 
 Verification completed:
 
 - `docker compose run --rm platform-api composer install`
-- `docker compose run --rm platform-api php artisan test --filter=CentralStockTest` passed 2 tests, 85 assertions.
+- `docker compose run --rm platform-api php artisan test --filter=CentralStockTest` passed 2 tests, 89 assertions.
 - `docker compose run --rm platform-api php artisan test --filter=LotteryImage` passed 16 tests, 479 assertions.
 - `npm run lint`
 - `npm run build`

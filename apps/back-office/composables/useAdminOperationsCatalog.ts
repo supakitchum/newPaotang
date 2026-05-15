@@ -1870,13 +1870,20 @@ const central: OperationResource[] = [
         formFields: [
           gameSelectField(true),
           {
+            key: 'total_count',
+            label: 'จำนวนใบทั้งหมด',
+            type: 'number',
+            min: 1000,
+            step: 1000,
+            help: 'กรอกช่องนี้อย่างเดียวได้ ระบบจะคำนวณ 2ท้าย/3ท้าย/3หน้าให้อัตโนมัติ จำนวนต้องหาร 1,000 ลงตัว และไม่เกิน 10,000',
+          },
+          {
             key: 'back2_count_per_number',
             label: 'จำนวน 2 เลขท้าย',
             type: 'number',
             min: 1,
             step: 1,
-            required: true,
-            help: '2ท้าย ต้องเท่ากับ 10 x 3ท้าย และ 3หน้า ต้องเท่ากับ 3ท้าย',
+            help: 'กรอกเมื่ออยากกำหนด quota เอง: 2ท้าย ต้องเท่ากับ 10 x 3ท้าย',
           },
           {
             key: 'back3_count_per_number',
@@ -1884,8 +1891,7 @@ const central: OperationResource[] = [
             type: 'number',
             min: 1,
             step: 1,
-            required: true,
-            help: 'สูงสุด 10 เพราะ generate synchronous จำกัดไม่เกิน 10,000 ใบ',
+            help: 'กรอกเมื่ออยากกำหนด quota เอง: สูงสุด 10 เพราะ generate synchronous จำกัดไม่เกิน 10,000 ใบ',
           },
           {
             key: 'front3_count_per_number',
@@ -1893,8 +1899,7 @@ const central: OperationResource[] = [
             type: 'number',
             min: 1,
             step: 1,
-            required: true,
-            help: 'ต้องเท่ากับจำนวน 3 เลขท้าย',
+            help: 'กรอกเมื่ออยากกำหนด quota เอง: ต้องเท่ากับจำนวน 3 เลขท้าย',
           },
         ],
       },

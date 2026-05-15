@@ -23,9 +23,7 @@ class CentralStockTest extends TestCase
         $this->withToken($limitedLogin['access_token'])
             ->postJson('/api/v1/admin/central/stock/generate', [
                 'game_id' => 'gam_stock_main',
-                'back2_count_per_number' => 10,
-                'back3_count_per_number' => 1,
-                'front3_count_per_number' => 1,
+                'total_count' => 1000,
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'stock-generate-limited',
@@ -43,9 +41,7 @@ class CentralStockTest extends TestCase
         $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/stock/generate', [
                 'game_id' => 'gam_stock_main',
-                'back2_count_per_number' => 10,
-                'back3_count_per_number' => 1,
-                'front3_count_per_number' => 1,
+                'total_count' => 1000,
             ], ['X-Admin-Scope' => 'central'])
             ->assertUnprocessable()
             ->assertJsonPath('error.code', 'validation_failed');
@@ -53,9 +49,7 @@ class CentralStockTest extends TestCase
         $batch = $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/stock/generate', [
                 'game_id' => 'gam_stock_main',
-                'back2_count_per_number' => 10,
-                'back3_count_per_number' => 1,
-                'front3_count_per_number' => 1,
+                'total_count' => 1000,
                 'api_secret' => 'redact-me',
             ], [
                 'X-Admin-Scope' => 'central',
@@ -70,9 +64,7 @@ class CentralStockTest extends TestCase
         $repeatBatch = $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/stock/generate', [
                 'game_id' => 'gam_stock_main',
-                'back2_count_per_number' => 10,
-                'back3_count_per_number' => 1,
-                'front3_count_per_number' => 1,
+                'total_count' => 1000,
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'stock-generate-main',
@@ -87,9 +79,7 @@ class CentralStockTest extends TestCase
         $largeBatch = $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/stock/generate', [
                 'game_id' => 'gam_stock_main',
-                'back2_count_per_number' => 30,
-                'back3_count_per_number' => 3,
-                'front3_count_per_number' => 3,
+                'total_count' => 3000,
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'stock-generate-large',
@@ -282,12 +272,29 @@ class CentralStockTest extends TestCase
         $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/stock/generate', [
                 'game_id' => 'gam_stock_validation',
-                'back2_count_per_number' => 110,
-                'back3_count_per_number' => 11,
-                'front3_count_per_number' => 11,
+                'total_count' => 11000,
             ], ['X-Admin-Scope' => 'central', 'Idempotency-Key' => 'stock-validation-limit'])
             ->assertUnprocessable()
-            ->assertJsonPath('error.details.fields.back3_count_per_number.0', 'The back3_count_per_number field may not create more than 10000 stock items for synchronous generation.');
+            ->assertJsonPath('error.details.fields.total_count.0', 'The total_count field may not be greater than 10000 for synchronous generation.');
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/stock/generate', [
+                'game_id' => 'gam_stock_validation',
+                'total_count' => 2500,
+            ], ['X-Admin-Scope' => 'central', 'Idempotency-Key' => 'stock-validation-total-divisible'])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.total_count.0', 'The total_count field must be divisible by 1000.');
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/stock/generate', [
+                'game_id' => 'gam_stock_validation',
+                'total_count' => 3000,
+                'back2_count_per_number' => 20,
+                'back3_count_per_number' => 2,
+                'front3_count_per_number' => 2,
+            ], ['X-Admin-Scope' => 'central', 'Idempotency-Key' => 'stock-validation-total-conflict'])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.total_count.0', 'The total_count field must equal 1000 times back3_count_per_number.');
 
         $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/stock/generate', [
