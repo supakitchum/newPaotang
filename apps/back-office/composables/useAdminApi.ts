@@ -54,8 +54,9 @@ export const useAdminApi = () => {
         headers,
       })
 
-      if (import.meta.client && isWriteMethod(method) && options.successMessage !== false) {
-        void showSuccessAlert(options.successMessage || successMessageFor(method))
+      const successMessage = options.successMessage || responseSuccessMessage(response)
+      if (import.meta.client && isWriteMethod(method) && options.successMessage !== false && successMessage) {
+        void showSuccessAlert(successMessage)
       }
 
       return response
@@ -144,7 +145,11 @@ const readableError = (status: number) => {
 
 const isWriteMethod = (method: string) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
 
-const successMessageFor = (method: string) => method === 'DELETE' ? 'Completed successfully.' : 'Saved successfully.'
+const responseSuccessMessage = (response: any) => {
+  const message = response?.message
+
+  return typeof message === 'string' && message.trim() ? message.trim() : ''
+}
 
 const isFormDataBody = (body: any) => typeof FormData !== 'undefined' && body instanceof FormData
 

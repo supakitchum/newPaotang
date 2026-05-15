@@ -172,7 +172,7 @@ Idempotency-Key for write actions
 
 Errors are normalized for Meno alert/form display, including `401`, `403`, `422`, `409`, `429`, and `503` with `Retry-After` when present.
 
-Successful admin API write calls (`POST`, `PUT`, `PATCH`, and `DELETE`) must show a visible SweetAlert2 success confirmation through the shared API client, styled with Meno/Bootstrap button classes. Auth/session maintenance calls may explicitly opt out, but save/update/action flows must not silently complete with only a data refresh. Inline `AdminAlert` remains for page errors, warnings, and blocking API states.
+Successful admin API write calls (`POST`, `PUT`, `PATCH`, and `DELETE`) may show a visible SweetAlert2 success confirmation through the shared API client only when the successful response includes a top-level `message` or the caller explicitly passes a success message. Silent write flows such as preview rendering must not show a success alert. Auth/session maintenance calls may explicitly opt out. Inline `AdminAlert` remains for page errors, warnings, and blocking API states.
 
 ## Menu Mapping
 
