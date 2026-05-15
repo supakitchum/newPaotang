@@ -62,8 +62,13 @@ return [
     'runtime' => [
         'worker_queues' => array_values(array_filter(array_map(
             'trim',
-            explode(',', (string) env('PLATFORM_WORKER_QUEUES', 'partner-inbox-high,partner-inbox-normal,stock-allocation,stock-image-generation,stock-partner-image-generation,stock-sold-events,stock-recall,stock-sync,reservation-expiration,checkout-finalize,central-outbox,affiliate-commission,reward-validate,reward-check-high,reward-check-normal,reward-summary,reward-publish,reward-notification,report-build,webhook-dispatch,notification,usage-metering,partner-monitoring,default')),
+            explode(',', (string) env('PLATFORM_WORKER_QUEUES', 'partner-inbox-high,partner-inbox-normal,stock-allocation,stock-generation,stock-image-generation,stock-partner-image-generation,stock-sold-events,stock-recall,stock-sync,reservation-expiration,checkout-finalize,central-outbox,affiliate-commission,reward-validate,reward-check-high,reward-check-normal,reward-summary,reward-publish,reward-notification,report-build,webhook-dispatch,notification,usage-metering,partner-monitoring,default')),
         ))),
+    ],
+    'stock_generation' => [
+        'queue' => env('STOCK_GENERATION_QUEUE', 'stock-generation'),
+        'chunk_rounds' => max(1, (int) env('STOCK_GENERATE_CHUNK_ROUNDS', 5)),
+        'image_dispatch_chunk_size' => max(1, (int) env('STOCK_GENERATE_IMAGE_DISPATCH_CHUNK_SIZE', 500)),
     ],
     'migration_rehearsal' => [
         'source_type' => env('MIGRATION_REHEARSAL_SOURCE_TYPE', 'synthetic_seeded_only'),

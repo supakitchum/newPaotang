@@ -126,11 +126,12 @@ Cloudflare R2 or other S3-compatible providers must also show `endpoint_present=
 Required queue workers:
 
 ```sh
+docker compose exec platform-api php artisan queue:work --queue=stock-generation
 docker compose exec platform-api php artisan queue:work --queue=stock-image-generation
 docker compose exec platform-api php artisan queue:work --queue=stock-partner-image-generation
 ```
 
-Use the deployment supervisor/container runtime to keep both workers alive. The workers must run from the `platform-api` image and use the same environment as the API container so `LOTTERY_IMAGE_DISK`, CDN URL, queue connection, and object-storage credentials resolve identically.
+Use the deployment supervisor/container runtime to keep these workers alive. The `stock-generation` queue processes large stock generation chunks and dispatches image batches only after stock rows are complete. The image workers must run from the `platform-api` image and use the same environment as the API container so `LOTTERY_IMAGE_DISK`, CDN URL, queue connection, and object-storage credentials resolve identically.
 
 Pending background recovery:
 

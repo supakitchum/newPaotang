@@ -312,6 +312,8 @@ auditor
 | `GET /admin/central/stock/summary` | central | stock.view OR stock.generate |
 | `POST /admin/central/stock/imports` | central | stock.generate |
 | `POST /admin/central/stock/generate` | central | stock.generate |
+| `GET /admin/central/stock/generation-batches` | central | stock.generate |
+| `GET /admin/central/stock/generation-batches/{batch_id}` | central | stock.generate |
 | `POST /admin/central/stock/exports` | central | stock.export |
 | `POST /admin/central/stock/{stock_item_id}/recall` | central | stock.recall |
 | `GET /admin/central/games` | central | game.view |

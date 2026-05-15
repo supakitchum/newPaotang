@@ -2,8 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\DispatchStockBatchImageJobs;
+use App\Jobs\GenerateLotteryImageJob;
+use App\Jobs\GenerateStockBatchChunkJob;
+use App\Modules\CentralStock\Services\CentralStockService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Tests\Support\CentralStockFixtures;
 use Tests\TestCase;
 
@@ -370,6 +375,217 @@ class CentralStockTest extends TestCase
             ->assertJsonPath('error.code', 'permission_denied');
     }
 
+    public function test_CentralStock_large_async_generation_chunks_progress_idempotency_duplicates_and_image_dispatch(): void
+    {
+        Queue::fake();
+        config([
+            'platform.stock_generation.chunk_rounds' => 5,
+            'platform.stock_generation.image_dispatch_chunk_size' => 4000,
+        ]);
+
+        $this->seedDefaultRbac();
+        $this->insertGame('gam_stock_async', 'open');
+
+        $login = $this->createCentralSession(['stock.generate'], 'adm_stock_async', 'stock-async@example.test');
+
+        $batch = $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/stock/generate', [
+                'game_id' => 'gam_stock_async',
+                'total_count' => 12000,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'stock-async-main',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('status', 'queued')
+            ->assertJsonPath('requested_count', 12000)
+            ->assertJsonPath('generated_count', 0)
+            ->assertJsonPath('total_rounds', 12)
+            ->assertJsonPath('processed_rounds', 0)
+            ->assertJsonPath('chunk_rounds', 5)
+            ->assertJsonPath('started_at', null)
+            ->assertJsonPath('completed_at', null)
+            ->assertJsonPath('failed_at', null)
+            ->json();
+
+        $batchId = $batch['id'];
+
+        $this->assertSame(0, DB::table('stock_items')->where('batch_id', $batchId)->count());
+        $this->assertSame(3, DB::table('stock_generation_batch_chunks')->where('batch_id', $batchId)->count());
+        Queue::assertPushed(GenerateStockBatchChunkJob::class, 3);
+        Queue::assertNotPushed(GenerateLotteryImageJob::class);
+        Queue::assertNotPushed(DispatchStockBatchImageJobs::class);
+
+        $replay = $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/stock/generate', [
+                'game_id' => 'gam_stock_async',
+                'total_count' => 12000,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'stock-async-main',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('id', $batchId)
+            ->json();
+
+        $this->assertSame($batchId, $replay['id']);
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/stock/generate', [
+                'game_id' => 'gam_stock_async',
+                'total_count' => 13000,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'stock-async-main',
+            ])
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'idempotency_conflict');
+
+        $chunks = DB::table('stock_generation_batch_chunks')
+            ->where('batch_id', $batchId)
+            ->orderBy('chunk_index')
+            ->get();
+
+        (new GenerateStockBatchChunkJob((string) $chunks[0]->id))->handle(app(CentralStockService::class));
+
+        $this->assertSame(5000, DB::table('stock_items')->where('batch_id', $batchId)->count());
+        $this->assertDatabaseHas('stock_generation_batches', [
+            'id' => $batchId,
+            'status' => 'processing',
+            'generated_count' => 5000,
+            'processed_rounds' => 5,
+        ]);
+
+        (new GenerateStockBatchChunkJob((string) $chunks[0]->id))->handle(app(CentralStockService::class));
+        $this->assertSame(5000, DB::table('stock_items')->where('batch_id', $batchId)->count());
+
+        (new GenerateStockBatchChunkJob((string) $chunks[1]->id))->handle(app(CentralStockService::class));
+        (new GenerateStockBatchChunkJob((string) $chunks[2]->id))->handle(app(CentralStockService::class));
+
+        $this->assertSame(12000, DB::table('stock_items')->where('batch_id', $batchId)->count());
+        $this->assertDatabaseHas('stock_generation_batches', [
+            'id' => $batchId,
+            'status' => 'completed',
+            'generated_count' => 12000,
+            'processed_rounds' => 12,
+        ]);
+        $this->assertSame(3, DB::table('stock_generation_batch_chunks')->where('batch_id', $batchId)->where('status', 'completed')->count());
+        $this->assertNotNull(DB::table('stock_generation_batches')->where('id', $batchId)->value('completed_at'));
+
+        $duplicateFullNumber = DB::table('stock_items')
+            ->where('batch_id', $batchId)
+            ->select('full_number', DB::raw('COUNT(*) as total'))
+            ->groupBy('full_number')
+            ->havingRaw('COUNT(*) > 1')
+            ->value('full_number');
+
+        $this->assertNotNull($duplicateFullNumber);
+        $this->assertStringNotContainsString(
+            'insertOrIgnore',
+            file_get_contents(app_path('Modules/CentralStock/Services/CentralStockService.php')),
+        );
+
+        $summary = $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/stock/summary?'.http_build_query([
+                'game_id' => 'gam_stock_async',
+                'batch_id' => $batchId,
+            ]), ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('total_count', 12000)
+            ->assertJsonPath('number_coverage.back2.distinct_count', 100)
+            ->assertJsonPath('number_coverage.back2.min_count_per_number', 120)
+            ->assertJsonPath('number_coverage.back3.distinct_count', 1000)
+            ->assertJsonPath('number_coverage.back3.min_count_per_number', 12)
+            ->assertJsonPath('number_coverage.front3.distinct_count', 1000)
+            ->assertJsonPath('number_coverage.front3.min_count_per_number', 12)
+            ->json();
+
+        $this->assertSame(12000, $summary['number_coverage']['front3']['total_count']);
+
+        Queue::assertPushed(DispatchStockBatchImageJobs::class, 1);
+        Queue::assertNotPushed(GenerateLotteryImageJob::class);
+
+        (new DispatchStockBatchImageJobs($batchId, null, 4000))->handle(app(CentralStockService::class));
+
+        Queue::assertPushed(GenerateLotteryImageJob::class, 4000);
+        Queue::assertPushed(DispatchStockBatchImageJobs::class, 2);
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/stock/generation-batches?'.http_build_query([
+                'game_id' => 'gam_stock_async',
+                'status' => 'completed',
+                'limit' => 5,
+            ]), ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $batchId)
+            ->assertJsonPath('data.0.generated_count', 12000)
+            ->assertJsonPath('data.0.total_rounds', 12)
+            ->assertJsonPath('data.0.processed_rounds', 12)
+            ->assertJsonPath('data.0.failed_at', null)
+            ->assertJsonPath('data.0.failure_reason', null);
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/stock/generation-batches/'.$batchId, ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('id', $batchId)
+            ->assertJsonPath('generated_count', 12000)
+            ->assertJsonPath('chunks.0.status', 'completed')
+            ->assertJsonCount(3, 'chunks');
+    }
+
+    public function test_CentralStock_async_generation_failed_chunk_rolls_back_without_partial_rows(): void
+    {
+        Queue::fake();
+        config(['platform.stock_generation.chunk_rounds' => 5]);
+
+        $this->seedDefaultRbac();
+        $this->insertGame('gam_stock_async_fail', 'open');
+
+        $login = $this->createCentralSession(['stock.generate'], 'adm_stock_async_fail', 'stock-async-fail@example.test');
+
+        $batch = $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/stock/generate', [
+                'game_id' => 'gam_stock_async_fail',
+                'total_count' => 12000,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'stock-async-fail-main',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('status', 'queued')
+            ->json();
+
+        $payload = json_decode(
+            (string) DB::table('stock_generation_batches')->where('id', $batch['id'])->value('payload_json'),
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        );
+        $payload['game_id'] = 'gam_missing_for_fk_failure';
+
+        DB::table('stock_generation_batches')
+            ->where('id', $batch['id'])
+            ->update(['payload_json' => json_encode($payload, JSON_THROW_ON_ERROR)]);
+
+        $chunkId = (string) DB::table('stock_generation_batch_chunks')
+            ->where('batch_id', $batch['id'])
+            ->orderBy('chunk_index')
+            ->value('id');
+
+        (new GenerateStockBatchChunkJob($chunkId))->handle(app(CentralStockService::class));
+
+        $this->assertSame(0, DB::table('stock_items')->where('batch_id', $batch['id'])->count());
+        $this->assertDatabaseHas('stock_generation_batch_chunks', [
+            'id' => $chunkId,
+            'status' => 'failed',
+        ]);
+        $this->assertDatabaseHas('stock_generation_batches', [
+            'id' => $batch['id'],
+            'status' => 'failed',
+            'generated_count' => 0,
+        ]);
+        $this->assertNotNull(DB::table('stock_generation_batches')->where('id', $batch['id'])->value('failure_reason'));
+    }
+
     public function test_CentralStock_generate_quota_validation_rejects_conflicts_over_limit_and_legacy_payloads(): void
     {
         $this->seedDefaultRbac();
@@ -399,14 +615,6 @@ class CentralStockTest extends TestCase
             ], ['X-Admin-Scope' => 'central', 'Idempotency-Key' => 'stock-validation-front3'])
             ->assertUnprocessable()
             ->assertJsonPath('error.details.fields.front3_count_per_number.0', 'The front3_count_per_number field must equal back3_count_per_number.');
-
-        $this->withToken($login['access_token'])
-            ->postJson('/api/v1/admin/central/stock/generate', [
-                'game_id' => 'gam_stock_validation',
-                'total_count' => 11000,
-            ], ['X-Admin-Scope' => 'central', 'Idempotency-Key' => 'stock-validation-limit'])
-            ->assertUnprocessable()
-            ->assertJsonPath('error.details.fields.total_count.0', 'The total_count field may not be greater than 10000 for synchronous generation.');
 
         $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/stock/generate', [

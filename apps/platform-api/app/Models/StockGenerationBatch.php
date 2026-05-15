@@ -16,13 +16,20 @@ class StockGenerationBatch extends BaseModel
         'status',
         'requested_count',
         'generated_count',
+        'total_rounds',
+        'processed_rounds',
+        'chunk_rounds',
         'range_start',
         'range_end',
+        'number_digits',
         'idempotency_key',
         'payload_hash',
         'created_by_admin_id',
         'payload_json',
+        'started_at',
         'completed_at',
+        'failed_at',
+        'failure_reason',
         'created_at',
         'updated_at',
     ];
@@ -30,9 +37,14 @@ class StockGenerationBatch extends BaseModel
     protected $casts = [
         'requested_count' => 'integer',
         'generated_count' => 'integer',
+        'total_rounds' => 'integer',
+        'processed_rounds' => 'integer',
+        'chunk_rounds' => 'integer',
         'number_digits' => 'integer',
         'payload_json' => 'array',
+        'started_at' => 'datetime',
         'completed_at' => 'datetime',
+        'failed_at' => 'datetime',
     ];
 
     public function game(): BelongsTo
@@ -48,5 +60,10 @@ class StockGenerationBatch extends BaseModel
     public function stockItems(): HasMany
     {
         return $this->hasMany(StockItem::class, 'batch_id');
+    }
+
+    public function chunks(): HasMany
+    {
+        return $this->hasMany(StockGenerationBatchChunk::class, 'batch_id');
     }
 }

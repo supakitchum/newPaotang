@@ -63,7 +63,37 @@ class CentralStockController extends Controller
             return ApiErrorResponse::validationFailed($request, $errors);
         }
 
-        return response()->json($this->centralStock->generateStock($payload, $context, $request), 202);
+        $result = $this->centralStock->generateStock($payload, $context, $request);
+
+        if (($result['error'] ?? null) === 'idempotency_conflict') {
+            return ApiErrorResponse::idempotencyConflict($request);
+        }
+
+        return response()->json($result, 202);
+    }
+
+    public function generationBatches(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'stock.generate');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        return response()->json($this->centralStock->listGenerationBatches($request->query()));
+    }
+
+    public function generationBatch(Request $request, string $batch_id): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'stock.generate');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $batch = $this->centralStock->findGenerationBatch($batch_id);
+
+        return $batch === null ? ApiErrorResponse::notFound($request) : response()->json($batch);
     }
 
     public function imports(Request $request): JsonResponse
@@ -87,7 +117,13 @@ class CentralStockController extends Controller
             return ApiErrorResponse::validationFailed($request, $errors);
         }
 
-        return response()->json($this->centralStock->importStock($payload, $context, $request), 202);
+        $result = $this->centralStock->importStock($payload, $context, $request);
+
+        if (($result['error'] ?? null) === 'idempotency_conflict') {
+            return ApiErrorResponse::idempotencyConflict($request);
+        }
+
+        return response()->json($result, 202);
     }
 
     public function exports(Request $request): JsonResponse

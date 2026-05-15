@@ -127,6 +127,7 @@ unavailable
 `stock_generation_batches.status`
 
 ```text
+queued
 pending
 processing
 completed

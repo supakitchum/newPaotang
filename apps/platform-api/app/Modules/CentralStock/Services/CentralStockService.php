@@ -2,7 +2,9 @@
 
 namespace App\Modules\CentralStock\Services;
 
+use App\Jobs\DispatchStockBatchImageJobs;
 use App\Jobs\GenerateLotteryImageJob;
+use App\Jobs\GenerateStockBatchChunkJob;
 use App\Models\Game;
 use App\Models\Partner;
 use App\Models\PartnerQuota;
@@ -12,6 +14,7 @@ use App\Models\PartnerTenant;
 use App\Models\RewardPrize;
 use App\Models\RewardResult;
 use App\Models\StockGenerationBatch;
+use App\Models\StockGenerationBatchChunk;
 use App\Models\StockItem;
 use App\Models\SyncOutbox;
 use App\Modules\Reward\Services\ThaiGovernmentLotteryRewardTemplate;
@@ -21,12 +24,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Throwable;
 
 class CentralStockService
 {
     private const GENERATE_NUMBER_DIGITS = 6;
     private const GENERATE_BASE_COUNT = 1000;
-    private const GENERATE_MAX_SYNC_COUNT = 10000;
+    private const GENERATE_SYNC_THRESHOLD = 10000;
+    private const GENERATE_MAX_REQUEST_COUNT = 2147000000;
 
     private const GAME_STATUSES = [
         'draft',
@@ -518,6 +523,55 @@ class CentralStockService
     }
 
     /**
+     * @param array<string, mixed> $queryParams
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
+     */
+    public function listGenerationBatches(array $queryParams): array
+    {
+        $limit = $this->limit($queryParams['limit'] ?? null);
+        $query = StockGenerationBatch::query()
+            ->where('type', 'generate')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit($limit + 1);
+
+        foreach (['game_id', 'status'] as $filter) {
+            if (($queryParams[$filter] ?? null) !== null && trim((string) $queryParams[$filter]) !== '') {
+                $query->where($filter, trim((string) $queryParams[$filter]));
+            }
+        }
+
+        if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
+            $query->where('id', '<', trim((string) $queryParams['cursor']));
+        }
+
+        $rows = $query->get()->all();
+        $hasMore = count($rows) > $limit;
+        $rows = array_slice($rows, 0, $limit);
+
+        return [
+            'data' => array_map(fn (object $batch): array => $this->batchResource($batch), $rows),
+            'meta' => [
+                'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->id : null,
+                'has_more' => $hasMore,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function findGenerationBatch(string $batchId): ?array
+    {
+        $batch = StockGenerationBatch::query()
+            ->where('type', 'generate')
+            ->where('id', $batchId)
+            ->first();
+
+        return $batch === null ? null : $this->batchResource($batch, includeChunks: true);
+    }
+
+    /**
      * @param mixed $query
      * @return array<string, int>
      */
@@ -878,8 +932,8 @@ class CentralStockService
                 $errors['total_count'][] = 'The total_count field must be at least 1000.';
             }
 
-            if ($totalCount > self::GENERATE_MAX_SYNC_COUNT) {
-                $errors['total_count'][] = 'The total_count field may not be greater than 10000 for synchronous generation.';
+            if ($totalCount > self::GENERATE_MAX_REQUEST_COUNT) {
+                $errors['total_count'][] = 'The total_count field exceeds the technical generation limit.';
             }
 
             if (($totalCount % self::GENERATE_BASE_COUNT) !== 0) {
@@ -887,8 +941,8 @@ class CentralStockService
             }
         }
 
-        if ($back3Count !== null && ($back3Count * self::GENERATE_BASE_COUNT) > self::GENERATE_MAX_SYNC_COUNT) {
-            $errors['back3_count_per_number'][] = 'The back3_count_per_number field may not create more than 10000 stock items for synchronous generation.';
+        if ($back3Count !== null && ($back3Count * self::GENERATE_BASE_COUNT) > self::GENERATE_MAX_REQUEST_COUNT) {
+            $errors['back3_count_per_number'][] = 'The back3_count_per_number field exceeds the technical generation limit.';
         }
 
         if ($back2Count !== null && $back3Count !== null && $back2Count !== ($back3Count * 10)) {
@@ -912,56 +966,45 @@ class CentralStockService
      */
     public function generateStock(array $payload, AdminSessionContext $actor, Request $request): array
     {
-        return DB::transaction(function () use ($payload, $actor, $request): array {
+        $result = DB::transaction(function () use ($payload, $actor, $request): array {
             $normalized = $this->normalizedGeneratePayload($payload, (string) $request->header('Idempotency-Key'));
             $batch = $this->ensureStockBatch('generate', $normalized, $actor, $request);
+
+            if (($batch['error'] ?? null) === 'idempotency_conflict') {
+                return ['error' => 'idempotency_conflict'];
+            }
 
             if (! $batch['created']) {
                 return $this->batchResourceById($batch['id']);
             }
 
-            $now = now();
+            if ($normalized['requested_count'] > self::GENERATE_SYNC_THRESHOLD) {
+                $chunkIds = $this->createGenerationChunks($batch['id'], $normalized);
 
-            $rows = [];
-            $stockIds = [];
-
-            foreach ($normalized['numbers'] as $index => $number) {
-                $stockIds[$index] = $this->stableId('stk', $batch['id'].':'.$index.':'.$number);
+                return [
+                    'batch' => $this->batchResourceById($batch['id']),
+                    'chunk_ids' => $chunkIds,
+                ];
             }
 
-            $imageAssignments = $this->lotteryImages->assignmentsForStockIds(
-                $normalized['game_id'],
-                $batch['id'],
-                array_values($stockIds),
-                (string) $request->header('Idempotency-Key'),
-            );
+            $this->generateSynchronousStockBatch($batch['id'], $normalized, $payload, $actor, $request);
 
-            foreach ($normalized['numbers'] as $index => $number) {
-                $stockId = $stockIds[$index];
-                $rows[] = array_merge(
-                    $this->stockInsertPayload((string) $number, $normalized['game_id'], $batch['id'], $now, $imageAssignments[$stockId] ?? null),
-                    ['id' => $stockId],
-                );
-            }
-
-            if ($rows !== []) {
-                StockItem::query()->insert($rows);
-                $this->dispatchCentralImageJobs(array_values($stockIds));
-            }
-
-            $generatedCount = StockItem::where('batch_id', $batch['id'])->count();
-
-            StockGenerationBatch::query()->where('id', $batch['id'])->update([
-                'status' => 'completed',
-                'generated_count' => $generatedCount,
-                'completed_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            $this->auditStockChange($actor, $request, $batch['id'], 'stock.generated', $payload);
-
-            return $this->batchResourceById($batch['id']);
+            return ['batch' => $this->batchResourceById($batch['id']), 'chunk_ids' => []];
         });
+
+        if (($result['error'] ?? null) === 'idempotency_conflict') {
+            return $result;
+        }
+
+        if (! array_key_exists('batch', $result)) {
+            return $result;
+        }
+
+        foreach ($result['chunk_ids'] ?? [] as $chunkId) {
+            GenerateStockBatchChunkJob::dispatch((string) $chunkId);
+        }
+
+        return $result['batch'];
     }
 
     /**
@@ -1011,6 +1054,10 @@ class CentralStockService
             ];
             $batch = $this->ensureStockBatch('import', $normalized, $actor, $request);
 
+            if (($batch['error'] ?? null) === 'idempotency_conflict') {
+                return ['error' => 'idempotency_conflict'];
+            }
+
             if (! $batch['created']) {
                 return $this->batchResourceById($batch['id']);
             }
@@ -1039,7 +1086,7 @@ class CentralStockService
             }
 
             if ($rows !== []) {
-                StockItem::query()->insert($rows);
+                $this->insertStockRows($rows);
                 $this->dispatchCentralImageJobs(array_values($stockIds));
             }
 
@@ -1723,7 +1770,7 @@ class CentralStockService
 
     /**
      * @param array<string, mixed> $payload
-     * @return array{game_id: string, requested_count: int, range_start: string, range_end: string, number_digits: int, generation_mode: string, generation_input_mode: string, total_count: int, back2_count_per_number: int, back3_count_per_number: int, front3_count_per_number: int, numbers: array<int, string>}
+     * @return array<string, mixed>
      */
     private function normalizedGeneratePayload(array $payload, string $idempotencyKey): array
     {
@@ -1732,27 +1779,34 @@ class CentralStockService
         $back2Count = $quota['back2_count_per_number'];
         $back3Count = $quota['back3_count_per_number'];
         $front3Count = $quota['front3_count_per_number'];
-        $numbers = $this->quotaGeneratedNumbers($gameId, $idempotencyKey, $back3Count);
+        $chunkRounds = min($back3Count, $this->asyncChunkRounds());
 
         return [
             'game_id' => $gameId,
-            'requested_count' => count($numbers),
+            'requested_count' => $quota['total_count'],
             'range_start' => '000000',
             'range_end' => '999999',
             'number_digits' => self::GENERATE_NUMBER_DIGITS,
             'generation_mode' => 'quota_random',
             'generation_input_mode' => $quota['input_mode'],
             'total_count' => $quota['total_count'],
+            'total_rounds' => $back3Count,
+            'processed_rounds' => 0,
+            'chunk_rounds' => $chunkRounds,
             'back2_count_per_number' => $back2Count,
             'back3_count_per_number' => $back3Count,
             'front3_count_per_number' => $front3Count,
-            'numbers' => $numbers,
+            'seed' => $idempotencyKey,
+            'generation_config' => [
+                'base_count' => self::GENERATE_BASE_COUNT,
+                'stock_id_seed' => 'batch_id:global_index:number',
+            ],
         ];
     }
 
     /**
      * @param array<string, mixed> $normalized
-     * @return array{id: string, created: bool}
+     * @return array{id?: string, created?: bool, error?: string}
      */
     private function ensureStockBatch(string $type, array $normalized, AdminSessionContext $actor, Request $request): array
     {
@@ -1760,15 +1814,32 @@ class CentralStockService
         $idempotencyKey = (string) $request->header('Idempotency-Key');
         $batchId = $this->stableId('stb', $type.':'.$idempotencyKey.':'.$payloadHash);
         $now = now();
+        $existing = StockGenerationBatch::query()
+            ->where('type', $type)
+            ->where('created_by_admin_id', $actor->adminUser['id'])
+            ->where('idempotency_key', $idempotencyKey)
+            ->orderBy('created_at')
+            ->first();
 
-        if (! StockGenerationBatch::where('id', $batchId)->exists()) {
+        if ($existing !== null) {
+            if ((string) $existing->payload_hash !== $payloadHash) {
+                return ['error' => 'idempotency_conflict'];
+            }
+
+            return ['id' => (string) $existing->id, 'created' => false];
+        }
+
+        if (! StockGenerationBatch::query()->where('id', $batchId)->exists()) {
             StockGenerationBatch::query()->insert([
                 'id' => $batchId,
                 'game_id' => $normalized['game_id'],
                 'type' => $type,
-                'status' => 'processing',
+                'status' => $type === 'generate' && (int) $normalized['requested_count'] > self::GENERATE_SYNC_THRESHOLD ? 'queued' : 'processing',
                 'requested_count' => $normalized['requested_count'],
                 'generated_count' => 0,
+                'total_rounds' => (int) ($normalized['total_rounds'] ?? 0),
+                'processed_rounds' => 0,
+                'chunk_rounds' => (int) ($normalized['chunk_rounds'] ?? 0),
                 'range_start' => $normalized['range_start'],
                 'range_end' => $normalized['range_end'],
                 'number_digits' => $normalized['number_digits'],
@@ -1776,7 +1847,10 @@ class CentralStockService
                 'payload_hash' => $payloadHash,
                 'created_by_admin_id' => $actor->adminUser['id'],
                 'payload_json' => json_encode($normalized, JSON_THROW_ON_ERROR),
+                'started_at' => $type === 'generate' && (int) $normalized['requested_count'] > self::GENERATE_SYNC_THRESHOLD ? null : $now,
                 'completed_at' => null,
+                'failed_at' => null,
+                'failure_reason' => null,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
@@ -1785,6 +1859,295 @@ class CentralStockService
         }
 
         return ['id' => $batchId, 'created' => false];
+    }
+
+    /**
+     * @param array<string, mixed> $normalized
+     * @param array<string, mixed> $originalPayload
+     */
+    private function generateSynchronousStockBatch(
+        string $batchId,
+        array $normalized,
+        array $originalPayload,
+        AdminSessionContext $actor,
+        Request $request,
+    ): void {
+        [$rows, $stockIds] = $this->stockRowsForRounds(
+            $normalized,
+            $batchId,
+            0,
+            (int) $normalized['total_rounds'],
+            now(),
+        );
+
+        if ($rows !== []) {
+            $this->insertStockRows($rows);
+            $this->dispatchCentralImageJobs(array_values($stockIds));
+        }
+
+        $generatedCount = StockItem::where('batch_id', $batchId)->count();
+        $now = now();
+
+        StockGenerationBatch::query()->where('id', $batchId)->update([
+            'status' => 'completed',
+            'generated_count' => $generatedCount,
+            'processed_rounds' => (int) $normalized['total_rounds'],
+            'started_at' => $now,
+            'completed_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $this->auditStockChange($actor, $request, $batchId, 'stock.generated', $originalPayload);
+    }
+
+    /**
+     * @param array<string, mixed> $normalized
+     * @return array<int, string>
+     */
+    private function createGenerationChunks(string $batchId, array $normalized): array
+    {
+        $chunkRoundCount = (int) $normalized['chunk_rounds'];
+        $totalRounds = (int) $normalized['total_rounds'];
+        $now = now();
+        $rows = [];
+        $chunkIds = [];
+        $chunkIndex = 0;
+
+        for ($startRound = 0; $startRound < $totalRounds; $startRound += $chunkRoundCount) {
+            $roundCount = min($chunkRoundCount, $totalRounds - $startRound);
+            $chunkId = $this->stableId('sgc', $batchId.':'.$chunkIndex.':'.$startRound.':'.$roundCount);
+            $chunkIds[] = $chunkId;
+            $rows[] = [
+                'id' => $chunkId,
+                'batch_id' => $batchId,
+                'chunk_index' => $chunkIndex,
+                'start_round' => $startRound,
+                'round_count' => $roundCount,
+                'status' => 'queued',
+                'attempt_count' => 0,
+                'started_at' => null,
+                'completed_at' => null,
+                'failed_at' => null,
+                'failure_reason' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+            $chunkIndex++;
+        }
+
+        if ($rows !== []) {
+            StockGenerationBatchChunk::query()->insert($rows);
+        }
+
+        return $chunkIds;
+    }
+
+    public function processGenerationChunk(string $chunkId): void
+    {
+        try {
+            $completedBatchId = DB::transaction(function () use ($chunkId): ?string {
+                $chunk = StockGenerationBatchChunk::query()->whereKey($chunkId)->lockForUpdate()->first();
+
+                if ($chunk === null || $chunk->status === 'completed') {
+                    return null;
+                }
+
+                $batch = StockGenerationBatch::query()->whereKey($chunk->batch_id)->lockForUpdate()->first();
+
+                if ($batch === null || in_array((string) $batch->status, ['completed', 'failed', 'cancelled'], true)) {
+                    return null;
+                }
+
+                $now = now();
+                $normalized = $this->decodeJsonObject($batch->payload_json);
+                [$rows] = $this->stockRowsForRounds(
+                    $normalized,
+                    (string) $batch->id,
+                    (int) $chunk->start_round,
+                    (int) $chunk->round_count,
+                    $now,
+                );
+
+                StockGenerationBatchChunk::query()->whereKey($chunk->id)->update([
+                    'status' => 'processing',
+                    'attempt_count' => (int) $chunk->attempt_count + 1,
+                    'started_at' => $chunk->started_at ?? $now,
+                    'failed_at' => null,
+                    'failure_reason' => null,
+                    'updated_at' => $now,
+                ]);
+
+                StockGenerationBatch::query()->whereKey($batch->id)->update([
+                    'status' => 'processing',
+                    'started_at' => $batch->started_at ?? $now,
+                    'failed_at' => null,
+                    'failure_reason' => null,
+                    'updated_at' => $now,
+                ]);
+
+                if ($rows !== []) {
+                    $this->insertStockRows($rows);
+                }
+
+                $processedRounds = min((int) $batch->total_rounds, (int) $batch->processed_rounds + (int) $chunk->round_count);
+                $generatedCount = (int) StockItem::query()->where('batch_id', $batch->id)->count();
+                $batchUpdates = [
+                    'generated_count' => $generatedCount,
+                    'processed_rounds' => $processedRounds,
+                    'updated_at' => $now,
+                ];
+                $isComplete = $processedRounds >= (int) $batch->total_rounds;
+
+                if ($isComplete) {
+                    $batchUpdates['status'] = 'completed';
+                    $batchUpdates['completed_at'] = $now;
+                }
+
+                StockGenerationBatchChunk::query()->whereKey($chunk->id)->update([
+                    'status' => 'completed',
+                    'completed_at' => $now,
+                    'updated_at' => $now,
+                ]);
+
+                StockGenerationBatch::query()->whereKey($batch->id)->update($batchUpdates);
+
+                return $isComplete ? (string) $batch->id : null;
+            });
+        } catch (Throwable $exception) {
+            $this->markGenerationChunkFailed($chunkId, $exception);
+            return;
+        }
+
+        if ($completedBatchId !== null) {
+            $this->auditCompletedGenerationBatch($completedBatchId);
+            DispatchStockBatchImageJobs::dispatch($completedBatchId);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $normalized
+     * @return array{0: array<int, array<string, mixed>>, 1: array<int, string>}
+     */
+    private function stockRowsForRounds(array $normalized, string $batchId, int $startRound, int $roundCount, mixed $now): array
+    {
+        $gameId = (string) $normalized['game_id'];
+        $seed = (string) ($normalized['seed'] ?? '');
+        $rows = [];
+        $stockIds = [];
+
+        for ($round = $startRound; $round < $startRound + $roundCount; $round++) {
+            $back3Numbers = $this->shuffledBack3Numbers($gameId, $seed, $round);
+
+            for ($front = 0; $front < self::GENERATE_BASE_COUNT; $front++) {
+                $front3 = str_pad((string) $front, 3, '0', STR_PAD_LEFT);
+                $number = $front3.$back3Numbers[$front];
+                $globalIndex = ($round * self::GENERATE_BASE_COUNT) + $front;
+                $stockId = $this->stableId('stk', $batchId.':'.$globalIndex.':'.$number);
+                $stockIds[] = $stockId;
+                $rows[$stockId] = $this->stockInsertPayload($number, $gameId, $batchId, $now, null);
+                $rows[$stockId]['id'] = $stockId;
+            }
+        }
+
+        $imageAssignments = $this->lotteryImages->assignmentsForStockIds(
+            $gameId,
+            $batchId,
+            array_values($stockIds),
+            $seed.':'.$startRound,
+        );
+
+        foreach ($rows as $stockId => $row) {
+            $rows[$stockId] = array_merge($row, $imageAssignments[$stockId] ?? []);
+        }
+
+        return [array_values($rows), $stockIds];
+    }
+
+    public function dispatchCompletedBatchImageJobs(string $batchId, ?string $afterStockItemId = null, ?int $chunkSize = null): void
+    {
+        $limit = max(1, $chunkSize ?? (int) config('platform.stock_generation.image_dispatch_chunk_size', 500));
+        $query = StockItem::query()
+            ->where('batch_id', $batchId)
+            ->orderBy('id')
+            ->limit($limit);
+
+        if ($afterStockItemId !== null && $afterStockItemId !== '') {
+            $query->where('id', '>', $afterStockItemId);
+        }
+
+        $stockIds = $query->pluck('id')->map(fn (mixed $id): string => (string) $id)->all();
+
+        if ($stockIds === []) {
+            return;
+        }
+
+        $this->dispatchCentralImageJobs($stockIds, afterCommit: false);
+
+        if (count($stockIds) === $limit) {
+            DispatchStockBatchImageJobs::dispatch($batchId, end($stockIds), $limit);
+        }
+    }
+
+    private function markGenerationChunkFailed(string $chunkId, Throwable $exception): void
+    {
+        DB::transaction(function () use ($chunkId, $exception): void {
+            $chunk = StockGenerationBatchChunk::query()->whereKey($chunkId)->lockForUpdate()->first();
+
+            if ($chunk === null || $chunk->status === 'completed') {
+                return;
+            }
+
+            $message = substr($exception->getMessage(), 0, 1000);
+            $now = now();
+
+            StockGenerationBatchChunk::query()->whereKey($chunk->id)->update([
+                'status' => 'failed',
+                'failed_at' => $now,
+                'failure_reason' => $message,
+                'updated_at' => $now,
+            ]);
+
+            StockGenerationBatch::query()->whereKey($chunk->batch_id)->update([
+                'status' => 'failed',
+                'generated_count' => StockItem::query()->where('batch_id', $chunk->batch_id)->count(),
+                'failed_at' => $now,
+                'failure_reason' => $message,
+                'updated_at' => $now,
+            ]);
+        });
+    }
+
+    private function auditCompletedGenerationBatch(string $batchId): void
+    {
+        $batch = StockGenerationBatch::query()->whereKey($batchId)->first();
+
+        if ($batch === null || $batch->created_by_admin_id === null) {
+            return;
+        }
+
+        $payload = $this->decodeJsonObject($batch->payload_json);
+
+        $this->auditLogger->logAdminWrite(
+            actorId: (string) $batch->created_by_admin_id,
+            scopeType: 'central',
+            action: 'stock.generated',
+            targetType: 'stock_generation_batch',
+            targetId: $batchId,
+            payload: [
+                'idempotency_key' => $batch->idempotency_key,
+                'payload' => $payload,
+            ],
+            tenantId: null,
+            partnerId: null,
+            requestId: $payload['request_id'] ?? null,
+            ipAddress: null,
+            userAgent: null,
+        );
+    }
+
+    private function asyncChunkRounds(): int
+    {
+        return max(1, (int) config('platform.stock_generation.chunk_rounds', 5));
     }
 
     /**
@@ -1845,12 +2208,33 @@ class CentralStockService
     }
 
     /**
+     * @param array<int, array<string, mixed>> $rows
+     */
+    private function insertStockRows(array $rows): void
+    {
+        if ($rows === []) {
+            return;
+        }
+
+        $columnCount = max(1, count($rows[0]));
+        $maxRowsPerInsert = max(1, intdiv(60000, $columnCount));
+
+        foreach (array_chunk($rows, $maxRowsPerInsert) as $chunk) {
+            StockItem::query()->insert($chunk);
+        }
+    }
+
+    /**
      * @param array<int, string> $stockIds
      */
-    private function dispatchCentralImageJobs(array $stockIds): void
+    private function dispatchCentralImageJobs(array $stockIds, bool $afterCommit = true): void
     {
         foreach ($stockIds as $stockId) {
-            GenerateLotteryImageJob::dispatch((string) $stockId)->afterCommit();
+            $dispatch = GenerateLotteryImageJob::dispatch((string) $stockId);
+
+            if ($afterCommit) {
+                $dispatch->afterCommit();
+            }
         }
     }
 
@@ -2132,9 +2516,9 @@ class CentralStockService
     /**
      * @return array<string, mixed>
      */
-    private function batchResource(object $batch): array
+    private function batchResource(object $batch, bool $includeChunks = false): array
     {
-        return [
+        $resource = [
             'id' => (string) $batch->id,
             'tenant_id' => null,
             'status' => (string) $batch->status,
@@ -2144,11 +2528,42 @@ class CentralStockService
             'type' => (string) $batch->type,
             'requested_count' => (int) $batch->requested_count,
             'generated_count' => (int) $batch->generated_count,
+            'total_rounds' => (int) ($batch->total_rounds ?? 0),
+            'processed_rounds' => (int) ($batch->processed_rounds ?? 0),
+            'chunk_rounds' => (int) ($batch->chunk_rounds ?? 0),
             'range_start' => $batch->range_start,
             'range_end' => $batch->range_end,
             'number_digits' => (int) $batch->number_digits,
+            'started_at' => $batch->started_at ?? null,
             'completed_at' => $batch->completed_at,
+            'failed_at' => $batch->failed_at ?? null,
+            'failure_reason' => $batch->failure_reason ?? null,
         ];
+
+        if ($includeChunks) {
+            $resource['chunks'] = StockGenerationBatchChunk::query()
+                ->where('batch_id', $batch->id)
+                ->orderBy('chunk_index')
+                ->get()
+                ->map(fn (object $chunk): array => [
+                    'id' => (string) $chunk->id,
+                    'batch_id' => (string) $chunk->batch_id,
+                    'chunk_index' => (int) $chunk->chunk_index,
+                    'start_round' => (int) $chunk->start_round,
+                    'round_count' => (int) $chunk->round_count,
+                    'status' => (string) $chunk->status,
+                    'attempt_count' => (int) $chunk->attempt_count,
+                    'started_at' => $chunk->started_at,
+                    'completed_at' => $chunk->completed_at,
+                    'failed_at' => $chunk->failed_at,
+                    'failure_reason' => $chunk->failure_reason,
+                    'created_at' => $chunk->created_at,
+                    'updated_at' => $chunk->updated_at,
+                ])
+                ->all();
+        }
+
+        return $resource;
     }
 
     /**

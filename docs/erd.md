@@ -144,9 +144,30 @@ games
 stock_generation_batches
   id pk
   game_id fk -> games.id
+  type
   status
   requested_count
-  processed_count
+  generated_count
+  total_rounds
+  processed_rounds
+  chunk_rounds
+  started_at
+  completed_at
+  failed_at
+  failure_reason
+
+stock_generation_batch_chunks
+  id pk
+  batch_id fk -> stock_generation_batches.id
+  chunk_index
+  start_round
+  round_count
+  status
+  attempt_count
+  started_at
+  completed_at
+  failed_at
+  failure_reason
 
 stock_items
   id pk
