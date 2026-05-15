@@ -894,6 +894,21 @@ class LotteryImageOperationsService
                 $raw = $slot[$field] ?? $default;
                 $fieldKey = 'layout.'.$slotKey.'.'.$field;
 
+                if (is_string($default)) {
+                    $allowed = $field === 'align'
+                        ? ['left', 'center', 'right']
+                        : ['top', 'middle', 'center', 'bottom', 'baseline'];
+                    $value = is_scalar($raw) ? (string) $raw : '';
+
+                    if (! in_array($value, $allowed, true)) {
+                        $errors[$fieldKey][] = 'The '.$fieldKey.' field must be one of: '.implode(', ', $allowed).'.';
+                        continue;
+                    }
+
+                    $normalized[$slotKey][$field] = $value;
+                    continue;
+                }
+
                 if ($raw === null && $default === null) {
                     $normalized[$slotKey][$field] = null;
                     continue;

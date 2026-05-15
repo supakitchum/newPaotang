@@ -38,7 +38,7 @@ return new class extends Migration
     }
 
     /**
-     * @return array<string, array<string, int|null>>
+     * @return array<string, array<string, int|string|null>>
      */
     private function legacyLayout(): array
     {
@@ -50,7 +50,7 @@ return new class extends Migration
             'emoji_4' => ['x' => 220, 'y' => 119, 'width' => 24, 'height' => null],
             'number_digits' => ['x' => 257, 'y' => 23, 'width' => 25, 'height' => 20, 'gap' => 30],
             'text_eng' => ['x' => 258, 'y' => 50, 'width' => 12, 'height' => 7, 'gap' => 30],
-            'thai_text' => ['x' => 446, 'y' => 20, 'size' => 23, 'angle' => 90],
+            'thai_text' => ['x' => 446, 'y' => 20, 'size' => 23, 'angle' => 90, 'align' => 'right', 'valign' => 'top'],
             'num_set_center_left' => ['x' => 296, 'y' => 67, 'width' => 50, 'height' => 46],
             'num_set_center_right' => ['x' => 326, 'y' => 67, 'width' => 50, 'height' => 46],
             'num_set_right_left' => ['x' => 393, 'y' => 117, 'width' => 22, 'height' => 22],

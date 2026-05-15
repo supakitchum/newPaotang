@@ -25,7 +25,7 @@ class LotteryImageGenerator
         'emoji_4' => ['x' => 220, 'y' => 119, 'width' => 24, 'height' => null],
         'number_digits' => ['x' => 257, 'y' => 23, 'width' => 25, 'height' => 20, 'gap' => 30],
         'text_eng' => ['x' => 258, 'y' => 50, 'width' => 12, 'height' => 7, 'gap' => 30],
-        'thai_text' => ['x' => 446, 'y' => 20, 'size' => 23, 'angle' => 90],
+        'thai_text' => ['x' => 446, 'y' => 20, 'size' => 23, 'angle' => 90, 'align' => 'right', 'valign' => 'top'],
         'num_set_center_left' => ['x' => 296, 'y' => 67, 'width' => 50, 'height' => 46],
         'num_set_center_right' => ['x' => 326, 'y' => 67, 'width' => 50, 'height' => 46],
         'num_set_right_left' => ['x' => 393, 'y' => 117, 'width' => 22, 'height' => 22],
@@ -37,7 +37,7 @@ class LotteryImageGenerator
         'right_sidebar' => ['x' => 440, 'y' => 0, 'width' => 61, 'height' => null, 'rotate' => 90],
     ];
 
-    /** @var array<string, array<string, int|null>>|null */
+    /** @var array<string, array<string, int|string|null>>|null */
     private ?array $layoutCache = null;
 
     /**
@@ -153,7 +153,7 @@ class LotteryImageGenerator
     }
 
     /**
-     * @return array<string, array<string, int|null>>
+     * @return array<string, array<string, int|string|null>>
      */
     public static function defaultLayout(): array
     {
@@ -162,7 +162,7 @@ class LotteryImageGenerator
 
     /**
      * @param array<string, mixed>|null $override
-     * @return array<string, array<string, int|null>>
+     * @return array<string, array<string, int|string|null>>
      */
     public function layout(?array $override = null): array
     {
@@ -267,7 +267,7 @@ class LotteryImageGenerator
     }
 
     /**
-     * @param array<string, array<string, int|null>> $layout
+     * @param array<string, array<string, int|string|null>> $layout
      */
     private function drawBaseTicket(mixed $canvas, StockItem $stock, int $width, int $height, array $layout): void
     {
@@ -281,7 +281,7 @@ class LotteryImageGenerator
     }
 
     /**
-     * @param array<string, array<string, int|null>> $layout
+     * @param array<string, array<string, int|string|null>> $layout
      */
     private function drawPartnerBranding(mixed $canvas, LocalStockItem $localStock, PartnerLotteryBrandingAssetSet $assetSet, int $width, int $height, array $layout): void
     {
@@ -291,7 +291,7 @@ class LotteryImageGenerator
     }
 
     /**
-     * @param array<string, array<string, int|null>> $layout
+     * @param array<string, array<string, int|string|null>> $layout
      */
     private function drawBeside(mixed $canvas, string $seed, int $width, int $height, array $layout): void
     {
@@ -305,7 +305,7 @@ class LotteryImageGenerator
     }
 
     /**
-     * @param array<string, array<string, int|null>> $layout
+     * @param array<string, array<string, int|string|null>> $layout
      */
     private function drawEmojiSlots(mixed $canvas, string $seed, int $width, int $height, array $layout): void
     {
@@ -326,7 +326,7 @@ class LotteryImageGenerator
     }
 
     /**
-     * @param array<string, array<string, int|null>> $layout
+     * @param array<string, array<string, int|string|null>> $layout
      */
     private function drawLotteryDigits(mixed $canvas, string $digits, int $width, int $height, array $layout): void
     {
@@ -364,7 +364,7 @@ class LotteryImageGenerator
     }
 
     /**
-     * @param array<string, array<string, int|null>> $layout
+     * @param array<string, array<string, int|string|null>> $layout
      */
     private function drawThaiDigitText(mixed $canvas, string $digits, int $width, int $height, array $layout): void
     {
@@ -376,7 +376,20 @@ class LotteryImageGenerator
         $color = imagecolorallocate($canvas, 73, 43, 47);
 
         if ($font !== null && function_exists('imagettftext')) {
-            imagettftext($canvas, max(8, $this->sy((int) $slot['size'], $height)), (int) $slot['angle'], $x, $y, $color, $font, $text);
+            $fontSize = max(8, $this->sy((int) $slot['size'], $height));
+            $angle = (int) $slot['angle'];
+            [$x, $y] = $this->alignedTextPoint(
+                $fontSize,
+                $angle,
+                $font,
+                $text,
+                $x,
+                $y,
+                (string) ($slot['align'] ?? 'left'),
+                (string) ($slot['valign'] ?? 'baseline'),
+            );
+
+            imagettftext($canvas, $fontSize, $angle, $x, $y, $color, $font, $text);
 
             return;
         }
@@ -386,7 +399,7 @@ class LotteryImageGenerator
 
     /**
      * @param array{0: string, 1: string} $digits
-     * @param array<string, array<string, int|null>> $layout
+     * @param array<string, array<string, int|string|null>> $layout
      */
     private function drawNumSet(mixed $canvas, array $digits, int $width, int $height, array $layout): void
     {
@@ -400,7 +413,7 @@ class LotteryImageGenerator
     }
 
     /**
-     * @param array<string, array<string, int|null>> $layout
+     * @param array<string, array<string, int|string|null>> $layout
      */
     private function drawSystemSlot(mixed $canvas, string $relativePath, string $slotKey, int $width, int $height, array $layout, bool $stretch = false): void
     {
@@ -412,7 +425,7 @@ class LotteryImageGenerator
     }
 
     /**
-     * @param array<string, array<string, int|null>> $layout
+     * @param array<string, array<string, int|string|null>> $layout
      */
     private function drawLocalSlot(mixed $canvas, string $path, string $slotKey, int $width, int $height, array $layout, bool $stretch = false): void
     {
@@ -430,7 +443,7 @@ class LotteryImageGenerator
     }
 
     /**
-     * @param array<string, array<string, int|null>> $layout
+     * @param array<string, array<string, int|string|null>> $layout
      */
     private function drawBrandingSlot(mixed $canvas, ?string $storagePath, string $slotKey, int $width, int $height, array $layout): void
     {
@@ -499,7 +512,7 @@ class LotteryImageGenerator
 
     /**
      * @param array<string, mixed> $layout
-     * @return array<string, array<string, int|null>>
+     * @return array<string, array<string, int|string|null>>
      */
     private function mergeLayout(array $layout): array
     {
@@ -514,11 +527,54 @@ class LotteryImageGenerator
                 }
 
                 $value = $input[$field];
+
+                if (is_string($default)) {
+                    $merged[$slotKey][$field] = is_scalar($value) ? (string) $value : $default;
+                    continue;
+                }
+
                 $merged[$slotKey][$field] = $value === null && $default === null ? null : (int) $value;
             }
         }
 
         return $merged;
+    }
+
+    /**
+     * @return array{0: int, 1: int}
+     */
+    private function alignedTextPoint(int $fontSize, int $angle, string $font, string $text, int $anchorX, int $anchorY, string $align, string $valign): array
+    {
+        if (! function_exists('imagettfbbox')) {
+            return [$anchorX, $anchorY];
+        }
+
+        $box = imagettfbbox($fontSize, $angle, $font, $text);
+
+        if (! is_array($box)) {
+            return [$anchorX, $anchorY];
+        }
+
+        $xs = [$box[0], $box[2], $box[4], $box[6]];
+        $ys = [$box[1], $box[3], $box[5], $box[7]];
+        $minX = min($xs);
+        $maxX = max($xs);
+        $minY = min($ys);
+        $maxY = max($ys);
+
+        $x = match ($align) {
+            'right' => $anchorX - $maxX,
+            'center' => $anchorX - (int) round(($minX + $maxX) / 2),
+            default => $anchorX - $minX,
+        };
+        $y = match ($valign) {
+            'top' => $anchorY - $minY,
+            'middle', 'center' => $anchorY - (int) round(($minY + $maxY) / 2),
+            'bottom' => $anchorY - $maxY,
+            default => $anchorY,
+        };
+
+        return [$x, $y];
     }
 
     private function drawLocalAsset(mixed $canvas, string $path, int $x, int $y, int $targetWidth, ?int $targetHeight = null, bool $stretch = false): void

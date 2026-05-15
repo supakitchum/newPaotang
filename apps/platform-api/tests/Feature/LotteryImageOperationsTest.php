@@ -595,6 +595,8 @@ class LotteryImageOperationsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('scope', 'global')
             ->assertJsonPath('layout.logo_qr.x', 200)
+            ->assertJsonPath('layout.thai_text.align', 'right')
+            ->assertJsonPath('layout.thai_text.valign', 'top')
             ->assertJsonPath('layout.beside.width', 43);
 
         $saved = $this->withToken($central['access_token'])
@@ -602,6 +604,7 @@ class LotteryImageOperationsTest extends TestCase
                 'layout' => [
                     'logo_qr' => ['x' => 210, 'y' => 60, 'width' => 58, 'height' => null],
                     'number_digits' => ['x' => 260, 'y' => 25, 'width' => 26, 'height' => 21, 'gap' => 31],
+                    'thai_text' => ['align' => 'right', 'valign' => 'top'],
                 ],
             ], [
                 'X-Admin-Scope' => 'central',
@@ -611,6 +614,8 @@ class LotteryImageOperationsTest extends TestCase
             ->assertJsonPath('layout.logo_qr.x', 210)
             ->assertJsonPath('layout.logo_qr.height', null)
             ->assertJsonPath('layout.number_digits.gap', 31)
+            ->assertJsonPath('layout.thai_text.align', 'right')
+            ->assertJsonPath('layout.thai_text.valign', 'top')
             ->json();
 
         $this->assertSame(1, DB::table('platform_system_settings')->where('key', LotteryImageGenerator::LAYOUT_SETTING_KEY)->count());
