@@ -72,6 +72,20 @@ class AssetController extends Controller
         );
     }
 
+    public function centralLocalUpload(Request $request, string $asset_id): JsonResponse
+    {
+        $context = $this->centralContext($request);
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        return $this->localUploadResponse(
+            $request,
+            fn (): array => $this->assets->storeLocalUpload('central', null, $asset_id, $request->file('file'), $context, $request),
+        );
+    }
+
     public function tenantUpload(Request $request): JsonResponse
     {
         $context = $this->tenantContext($request);
@@ -123,6 +137,22 @@ class AssetController extends Controller
             'tenant_admin',
             'admin.tenant.assets.commit:'.$asset_id,
             fn (array $payload): array => $this->assets->commitAsset('tenant', $tenantId, $asset_id, $payload, $context, $request),
+        );
+    }
+
+    public function tenantLocalUpload(Request $request, string $asset_id): JsonResponse
+    {
+        $context = $this->tenantContext($request);
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $tenantId = (string) $context->activeTenantId();
+
+        return $this->localUploadResponse(
+            $request,
+            fn (): array => $this->assets->storeLocalUpload('tenant', $tenantId, $asset_id, $request->file('file'), $context, $request),
         );
     }
 
@@ -222,5 +252,24 @@ class AssetController extends Controller
         $this->idempotency->storeResponse($tenantId, $actorType, (string) $context->adminUser['id'], $routeKey, $idempotencyKey, $payload, $status, $resource, 'asset.manage');
 
         return response()->json($resource, $status);
+    }
+
+    private function localUploadResponse(Request $request, callable $callback): JsonResponse
+    {
+        $result = $callback();
+
+        if (($result['error'] ?? null) === 'blocked_external') {
+            return ApiErrorResponse::make($request, 503, 'blocked_external', 'Local upload is unavailable in production storage mode.');
+        }
+
+        if (($result['error'] ?? null) === 'validation_failed') {
+            return ApiErrorResponse::validationFailed($request, $result['errors'] ?? ['file' => ['The upload is invalid.']]);
+        }
+
+        if (($result['error'] ?? null) === 'not_found') {
+            return ApiErrorResponse::notFound($request);
+        }
+
+        return response()->json($result['resource'] ?? []);
     }
 }

@@ -683,6 +683,66 @@ class LotteryImageOperationsTest extends TestCase
         $this->assertNull(DB::table('partner_lottery_branding_asset_sets')->where('partner_id', 'par_branding_preview')->value('locked_at'));
     }
 
+    public function test_LotteryBrandingPreview_renders_assets_uploaded_through_local_dev_asset_flow(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenant('par_branding_local_upload', 'ten_branding_local_upload');
+        $this->insertGame('gam_brand_local_upload', 'open');
+        $central = $this->createCentralSession(['asset.manage', 'stock.view'], 'adm_brand_local_upload', 'lottery-branding-local-upload@example.test');
+        $this->registerBackgroundSet($central['access_token'], 'gam_brand_local_upload', 'odd', 'branding-local-upload-odd-assets');
+
+        $assetIds = [
+            'logo_qr' => $this->uploadBrandingImageAsset($central['access_token'], 'par_branding_local_upload', 'logo_qr', 80, 80),
+            'right_sidebar' => $this->uploadBrandingImageAsset($central['access_token'], 'par_branding_local_upload', 'right_sidebar', 80, 240),
+            'logo_bottom' => $this->uploadBrandingImageAsset($central['access_token'], 'par_branding_local_upload', 'logo_bottom', 160, 60),
+        ];
+
+        $this->withToken($central['access_token'])
+            ->putJson('/api/v1/admin/central/partners/par_branding_local_upload/lottery-branding-assets', [
+                'version' => 'v1',
+                'assets' => [
+                    'logo_qr' => ['asset_id' => $assetIds['logo_qr']],
+                    'right_sidebar' => ['asset_id' => $assetIds['right_sidebar']],
+                    'logo_bottom' => ['asset_id' => $assetIds['logo_bottom']],
+                ],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'branding-local-upload-save',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'ready');
+
+        $partnerPreview = $this->withToken($central['access_token'])
+            ->postJson('/api/v1/admin/central/partners/par_branding_local_upload/lottery-branding/preview', [
+                'game_id' => 'gam_brand_local_upload',
+                'version' => 'v1',
+                'set_type' => 'odd',
+                'lottery_number' => '112233',
+            ], [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('mode', 'partner_branded')
+            ->assertJsonPath('warnings', [])
+            ->json();
+
+        $centralPreview = $this->withToken($central['access_token'])
+            ->postJson('/api/v1/admin/central/lottery-images/preview', [
+                'game_id' => 'gam_brand_local_upload',
+                'version' => 'v1',
+                'set_type' => 'odd',
+                'lottery_number' => '112233',
+                'mode' => 'central_unbranded',
+            ], [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->json();
+
+        $this->assertWebpBase64($partnerPreview['image_base64']);
+        $this->assertNotSame($centralPreview['image_base64'], $partnerPreview['image_base64']);
+    }
+
     /**
      * @return array<string, array{asset_id: string}>
      */
@@ -708,6 +768,71 @@ class LotteryImageOperationsTest extends TestCase
                 'Idempotency-Key' => $idempotencyKey,
             ])
             ->assertOk();
+    }
+
+    private function uploadBrandingImageAsset(string $token, string $partnerId, string $slot, int $width, int $height): string
+    {
+        $bytes = $this->fixtureWebp('odd', $width, $height);
+        $fileName = $slot.'.webp';
+
+        $intent = $this->withToken($token)
+            ->postJson('/api/v1/admin/central/assets/uploads', [
+                'purpose' => 'ticket_image',
+                'file_name' => $fileName,
+                'content_type' => 'image/webp',
+                'size_bytes' => strlen($bytes),
+                'checksum_sha256' => hash('sha256', $bytes),
+                'metadata' => [
+                    'partner_id' => $partnerId,
+                    'branding_slot' => $slot,
+                    'width' => $width,
+                    'height' => $height,
+                ],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'branding-local-upload-intent-'.$slot,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('storage_mode', 'local_dev_metadata_only')
+            ->json();
+
+        $uploaded = $this->withToken($token)
+            ->post('/api/v1/admin/central/assets/'.$intent['asset_id'].'/local-upload', [
+                'file' => $this->uploadedFileFromBytes($bytes, $fileName, 'image/webp'),
+            ], [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('metadata.storage_boundary', 'local_dev_uploaded')
+            ->json();
+
+        $this->assertTrue(Storage::disk('lottery_images')->exists($uploaded['storage_key']));
+
+        $this->withToken($token)
+            ->postJson('/api/v1/admin/central/assets/'.$intent['asset_id'].'/commit', [
+                'checksum_sha256' => hash('sha256', $bytes),
+                'metadata' => [
+                    'partner_id' => $partnerId,
+                    'branding_slot' => $slot,
+                    'version' => 'v1',
+                ],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'branding-local-upload-commit-'.$slot,
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'committed');
+
+        return (string) $intent['asset_id'];
+    }
+
+    private function uploadedFileFromBytes(string $bytes, string $fileName, string $mimeType): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'local-upload-');
+        $this->assertIsString($path);
+        file_put_contents($path, $bytes);
+
+        return new UploadedFile($path, $fileName, $mimeType, null, true);
     }
 
     private function insertImageAsset(string $gameId, string $setType, string $slot, int $width, int $height): string

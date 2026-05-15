@@ -7,7 +7,9 @@ use App\Models\PlatformAsset;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class AssetService
@@ -94,6 +96,76 @@ class AssetService
             ->first();
 
         return $asset === null ? null : $this->assetResource($asset);
+    }
+
+    /**
+     * @return array{resource?: array<string, mixed>, error?: string, errors?: array<string, array<int, string>>}
+     */
+    public function storeLocalUpload(
+        string $scopeType,
+        ?string $tenantId,
+        string $assetId,
+        ?UploadedFile $file,
+        AdminSessionContext $actor,
+        Request $request,
+    ): array {
+        if ($this->productionStorageBlocked()) {
+            return ['error' => 'blocked_external'];
+        }
+
+        $asset = $this->assetQuery($scopeType, $tenantId)
+            ->where('id', $assetId)
+            ->first();
+
+        if ($asset === null) {
+            return ['error' => 'not_found'];
+        }
+
+        $errors = $this->localUploadErrors($asset, $file);
+
+        if ($errors !== []) {
+            return ['error' => 'validation_failed', 'errors' => $errors];
+        }
+
+        return DB::transaction(function () use ($scopeType, $tenantId, $assetId, $file, $actor, $request): array {
+            $asset = $this->assetQuery($scopeType, $tenantId)
+                ->where('id', $assetId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($asset === null) {
+                return ['error' => 'not_found'];
+            }
+
+            $errors = $this->localUploadErrors($asset, $file);
+
+            if ($errors !== []) {
+                return ['error' => 'validation_failed', 'errors' => $errors];
+            }
+
+            /** @var UploadedFile $file */
+            Storage::disk((string) config('lottery_images.disk', 'lottery_images'))->put(
+                (string) $asset->storage_key,
+                file_get_contents($file->getRealPath()) ?: '',
+            );
+
+            $metadata = is_array($asset->metadata_json) ? $asset->metadata_json : [];
+            PlatformAsset::query()
+                ->where('id', $assetId)
+                ->update([
+                    'metadata_json' => array_replace_recursive($metadata, [
+                        'storage_boundary' => 'local_dev_uploaded',
+                        'storage_disk' => (string) config('lottery_images.disk', 'lottery_images'),
+                        'production_storage_ready' => false,
+                        'local_uploaded_at' => now()->toISOString(),
+                    ]),
+                    'updated_at' => now(),
+                ]);
+
+            $this->audit($actor, $request, $scopeType, 'asset.local_upload_stored', $assetId, ['file_name' => $file->getClientOriginalName()], $tenantId);
+
+            return ['resource' => $this->findAsset($scopeType, $tenantId, $assetId)];
+        });
     }
 
     /**
@@ -235,6 +307,39 @@ class AssetService
 
         if (array_key_exists('metadata', $payload) && ! is_array($payload['metadata'])) {
             $errors['metadata'][] = 'The metadata field must be an object.';
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    private function localUploadErrors(object $asset, ?UploadedFile $file): array
+    {
+        $errors = [];
+
+        if (! $file instanceof UploadedFile || ! $file->isValid()) {
+            $errors['file'][] = 'The file field is required and must be a valid upload.';
+            return $errors;
+        }
+
+        if ((string) $asset->status !== 'pending_upload') {
+            $errors['asset'][] = 'The asset must be pending upload before a local file can be stored.';
+        }
+
+        if (trim((string) $asset->storage_key) === '') {
+            $errors['asset'][] = 'The asset storage key is missing.';
+        }
+
+        if ((int) $file->getSize() !== (int) $asset->size_bytes) {
+            $errors['file'][] = 'The uploaded file size does not match the upload intent.';
+        }
+
+        $checksum = hash_file('sha256', $file->getRealPath());
+
+        if ($asset->checksum_sha256 !== null && is_string($checksum) && strcasecmp((string) $asset->checksum_sha256, $checksum) !== 0) {
+            $errors['file'][] = 'The uploaded file checksum does not match the upload intent.';
         }
 
         return $errors;

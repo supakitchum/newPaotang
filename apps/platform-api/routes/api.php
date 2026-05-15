@@ -180,6 +180,8 @@ Route::get('/admin/central/assets/{asset_id}', [AssetController::class, 'central
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/assets/{asset_id}/commit', [AssetController::class, 'centralCommit'])
     ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/assets/{asset_id}/local-upload', [AssetController::class, 'centralLocalUpload'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/partners', [PartnerProvisioningController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/partners', [PartnerProvisioningController::class, 'store'])
@@ -368,6 +370,8 @@ Route::post('/admin/tenant/assets/uploads', [AssetController::class, 'tenantUplo
 Route::get('/admin/tenant/assets/{asset_id}', [AssetController::class, 'tenantShow'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/assets/{asset_id}/commit', [AssetController::class, 'tenantCommit'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/assets/{asset_id}/local-upload', [AssetController::class, 'tenantLocalUpload'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/payment-settings', [TenantPaymentSettingsController::class, 'settings'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);

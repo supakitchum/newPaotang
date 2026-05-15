@@ -705,6 +705,17 @@ const sha256Hex = async (file: File) => {
 
 const uploadToStorage = async (intent: any, file: File) => {
   if (!intent?.upload_url || intent.production_storage_ready === false || intent.storage_mode === 'local_dev_metadata_only') {
+    if (intent?.asset_id && intent.storage_mode === 'local_dev_metadata_only') {
+      const body = new FormData()
+      body.append('file', file)
+      await api.apiFetch(`/admin/central/assets/${encodeURIComponent(intent.asset_id)}/local-upload`, {
+        method: 'POST',
+        scope: 'central',
+        successMessage: false,
+        body,
+      })
+    }
+
     return
   }
 
