@@ -919,6 +919,7 @@ const layoutSlotLabels: Record<string, string> = {
   num_set_right_right: 'Num Set Right Right',
   num_set_bottom_left: 'Num Set Bottom Left',
   num_set_bottom_right: 'Num Set Bottom Right',
+  logo_num_set: 'Logo Num Set',
   logo_bottom: 'Logo Bottom',
   logo_qr: 'Logo QR',
   right_sidebar: 'Right Sidebar',

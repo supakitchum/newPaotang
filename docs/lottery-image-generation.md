@@ -34,6 +34,7 @@ Do not draw these legacy overlays on central base images:
 
 ```text
 logo_qr
+logo_num_set
 right_sidebar
 logo_bottom
 ```
@@ -42,6 +43,7 @@ Partner branded images are generated only when stock is distributed to a partner
 
 ```text
 logo_qr
+logo_num_set
 right_sidebar
 logo_bottom
 ```
@@ -88,7 +90,7 @@ GenerateLotteryImageJob
 
 allocation/sync to tenant
   -> dispatch partner-branded image generation for local stock items
-  -> apply partner logo_qr/right_sidebar/logo_bottom assets
+  -> apply partner logo_qr/logo_num_set/right_sidebar/logo_bottom assets
   -> update local_stock_items image fields
 
 customer/admin APIs
@@ -119,10 +121,10 @@ Composition order:
 4. draw each lottery digit from system/v1/number and system/v1/text_eng
 5. draw rotated lotto-font Thai glyph text
 6. draw num_set_center and num_set_right assets
-7. for partner-branded images only, draw logo_bottom, logo_qr, and right_sidebar
+7. for partner-branded images only, draw logo_num_set, logo_bottom, logo_qr, and right_sidebar
 ```
 
-Base coordinates are the legacy 500x280 layout. Scale them by target variant dimensions for thumbnails. Central images must never draw `logo_qr`, `right_sidebar`, or `logo_bottom`; those slots are applied only in partner image generation. Agents must preserve the global layout setting path when changing renderer composition, so BO preview, saved presets, and background jobs remain aligned.
+Base coordinates are the legacy 500x280 layout. Scale them by target variant dimensions for thumbnails. Central images must never draw `logo_qr`, `logo_num_set`, `right_sidebar`, or `logo_bottom`; those slots are applied only in partner image generation. `logo_num_set` uses the same partner asset as `logo_qr` but has independent x/y/size layout values. Agents must preserve the global layout setting path when changing renderer composition, so BO preview, saved presets, and background jobs remain aligned.
 
 ## Data Model
 
@@ -224,7 +226,7 @@ gd_loaded=true
 imagewebp=true
 ```
 
-The renderer composes a real browser-displayable WebP from the assigned game background and legacy image assets under `resources/lottery-images/system/v1`. Central stock images must not draw `logo_qr`, `right_sidebar`, or `logo_bottom`; partner/local stock images draw those overlay slots only when the ready central-managed partner branding asset binary exists in object storage. Local/dev tests must provide real fixture binaries for those slots instead of relying on placeholder overlays.
+The renderer composes a real browser-displayable WebP from the assigned game background and legacy image assets under `resources/lottery-images/system/v1`. Central stock images must not draw `logo_qr`, `logo_num_set`, `right_sidebar`, or `logo_bottom`; partner/local stock images draw those overlay slots only when the ready central-managed partner branding asset binary exists in object storage. `logo_num_set` reuses the logo_qr asset file and renders through its own layout slot. Local/dev tests must provide real fixture binaries for those slots instead of relying on placeholder overlays.
 
 ## Configuration
 
@@ -307,6 +309,7 @@ Partner admins must not be able to upload, edit, delete, or activate these asset
 
 ```text
 logo_qr
+logo_num_set
 right_sidebar
 logo_bottom
 ```
@@ -354,6 +357,7 @@ Central BO upload form requirements:
 ```text
 route: central partner detail or /admin/central/partners/{partner_id}/lottery-branding
 fields: logo_qr, right_sidebar, logo_bottom
+note: logo_num_set is not a separate upload; it reuses the logo_qr asset with its own layout slot
 accepted source files: image extensions such as png, jpg, jpeg, webp, or gif
 show current asset previews
 show lock status and generated image count
@@ -470,7 +474,7 @@ thai_text
 num_set_center_left, num_set_center_right
 num_set_right_left, num_set_right_right
 num_set_bottom_left, num_set_bottom_right
-logo_qr, right_sidebar, logo_bottom
+logo_qr, logo_num_set, right_sidebar, logo_bottom
 ```
 
 The background remains the fixed base layer and must not expose x/y/size controls. Background source images are resampled into the configured full/thumb dimensions without cover-cropping, so the full background artwork stays visible. Numeric slots support `x`, `y`, `width`, `height`, `gap`, `size`, `angle`, and `rotate` only where relevant. Blank nullable heights preserve the source image aspect ratio.
@@ -697,8 +701,8 @@ stock_items persists image URL/path/status fields
 generated object keys are separated by game and batch
 central base full and thumbnail WebP variants are uploaded to S3-compatible storage without partner branding
 partner branded full and thumbnail WebP variants are generated only after stock is allocated/synced to a partner
-partner branded variants apply partner-specific logo_qr, right_sidebar, and logo_bottom assets
-partner logo_qr, right_sidebar, and logo_bottom assets are editable only by central before that partner has produced any partner-branded lottery image
+partner branded variants apply partner-specific logo_qr, logo_num_set, right_sidebar, and logo_bottom assets
+partner logo_qr, right_sidebar, and logo_bottom assets are editable only by central before that partner has produced any partner-branded lottery image; logo_num_set follows the logo_qr asset
 partner/tenant users cannot edit those branding assets
 central BO has an upload/edit form with preview and lock status for those partner branding assets
 background mix percentages are honored and deterministically shuffled so adjacent stock numbers are not grouped by set
@@ -720,7 +724,7 @@ Where will the legacy template/font/emoji/background assets live in the new repo
 Do we allow generated objects to be overwritten, or require versioned immutable keys?
 Should the first pass generate only thumbnails until full ticket detail requires full images?
 What is the acceptable average thumbnail size target in KB after real template testing?
-Where are partner-specific logo_qr, right_sidebar, and logo_bottom assets stored and versioned?
+Where are partner-specific logo_qr, right_sidebar, and logo_bottom assets stored and versioned, with logo_num_set reusing logo_qr?
 Which exact central permission should guard partner branding asset management?
 What minimum odd background count is required before allowing a game to open for sale?
 ```

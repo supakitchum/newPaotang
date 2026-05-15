@@ -594,7 +594,10 @@ class LotteryImageOperationsTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('scope', 'global')
-            ->assertJsonPath('layout.logo_qr.x', 200)
+            ->assertJsonPath('layout.logo_qr.x', 195)
+            ->assertJsonPath('layout.logo_num_set.x', 80)
+            ->assertJsonPath('layout.logo_num_set.width', 70)
+            ->assertJsonPath('layout.emoji_1.y', 111)
             ->assertJsonPath('layout.thai_text.align', 'right')
             ->assertJsonPath('layout.thai_text.valign', 'top')
             ->assertJsonPath('layout.beside.width', 43);
@@ -603,6 +606,7 @@ class LotteryImageOperationsTest extends TestCase
             ->putJson('/api/v1/admin/central/lottery-images/layout', [
                 'layout' => [
                     'logo_qr' => ['x' => 210, 'y' => 60, 'width' => 58, 'height' => null],
+                    'logo_num_set' => ['x' => 82, 'y' => 156, 'width' => 72, 'height' => null],
                     'number_digits' => ['x' => 260, 'y' => 25, 'width' => 26, 'height' => 21, 'gap' => 31],
                     'thai_text' => ['align' => 'right', 'valign' => 'top'],
                 ],
@@ -612,6 +616,7 @@ class LotteryImageOperationsTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('layout.logo_qr.x', 210)
+            ->assertJsonPath('layout.logo_num_set.width', 72)
             ->assertJsonPath('layout.logo_qr.height', null)
             ->assertJsonPath('layout.number_digits.gap', 31)
             ->assertJsonPath('layout.thai_text.align', 'right')
@@ -629,12 +634,14 @@ class LotteryImageOperationsTest extends TestCase
                 'lottery_number' => '456789',
                 'layout' => [
                     'logo_qr' => ['x' => 230, 'y' => 64, 'width' => 61, 'height' => null],
+                    'logo_num_set' => ['x' => 84, 'y' => 158, 'width' => 74, 'height' => null],
                 ],
             ], [
                 'X-Admin-Scope' => 'central',
             ])
             ->assertOk()
             ->assertJsonPath('layout.logo_qr.x', 230)
+            ->assertJsonPath('layout.logo_num_set.x', 84)
             ->assertJsonPath('layout.number_digits.gap', 31)
             ->json();
 

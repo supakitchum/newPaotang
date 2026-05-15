@@ -25,7 +25,7 @@ games/{game_id}/backgrounds/{version}/charity
 ## Rules
 
 - Keep central base image assets unbranded.
-- Do not place partner-specific `logo_qr`, `right_sidebar`, or `logo_bottom` assets here.
+- Do not place partner-specific `logo_qr`, `right_sidebar`, or `logo_bottom` assets here. The `logo_num_set` overlay reuses the partner `logo_qr` asset.
 - Partner-specific branding assets should be stored per partner/version in private object storage, for example `lottery-image-assets/partners/{partner_id}/branding/{version}/...`.
 - Partner-specific `logo_qr`, `right_sidebar`, and `logo_bottom` assets are managed only by central BO.
 - Partner/tenant users must not be able to edit those assets.

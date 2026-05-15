@@ -9,7 +9,7 @@ return new class extends Migration
     {
         $now = now();
         $payload = [
-            'value_json' => json_encode($this->legacyLayout(), JSON_THROW_ON_ERROR),
+            'value_json' => json_encode($this->projectLayout(), JSON_THROW_ON_ERROR),
             'status' => 'active',
             'updated_at' => $now,
         ];
@@ -22,25 +22,23 @@ return new class extends Migration
             return;
         }
 
-        DB::table('platform_system_settings')->insert(
-            [
-                'id' => 'pss_'.substr(sha1('lottery_image_layout'), 0, 20),
-                'key' => 'lottery_image_layout',
-                ...$payload,
-                'created_at' => $now,
-            ],
-        );
+        DB::table('platform_system_settings')->insert([
+            'id' => 'pss_'.substr(sha1('lottery_image_layout'), 0, 20),
+            'key' => 'lottery_image_layout',
+            ...$payload,
+            'created_at' => $now,
+        ]);
     }
 
     public function down(): void
     {
-        // Keep the current layout on rollback; this migration is a one-time hotfix reset.
+        // Keep the current layout on rollback; this migration only adopts the project baseline.
     }
 
     /**
      * @return array<string, array<string, int|string|null>>
      */
-    private function legacyLayout(): array
+    private function projectLayout(): array
     {
         return [
             'beside' => ['x' => 1, 'y' => 1, 'width' => 43, 'height' => 274],

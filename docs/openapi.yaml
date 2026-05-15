@@ -7983,7 +7983,7 @@ components:
       type: object
       additionalProperties:
         $ref: "#/components/schemas/LotteryImageLayoutSlot"
-      description: Global composition slots such as beside, emoji_1..emoji_4, number_digits, text_eng, thai_text, num_set_*, logo_qr, right_sidebar, and logo_bottom.
+      description: Global composition slots such as beside, emoji_1..emoji_4, number_digits, text_eng, thai_text, num_set_*, logo_num_set, logo_qr, right_sidebar, and logo_bottom.
     LotteryImageLayoutSlot:
       type: object
       properties:

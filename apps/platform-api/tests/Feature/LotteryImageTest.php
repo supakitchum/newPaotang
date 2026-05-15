@@ -244,6 +244,10 @@ class LotteryImageTest extends TestCase
             $this->pixelRgb($centralBytes, 318, 110),
             $this->pixelRgb($bytes, 318, 110),
         ));
+        $this->assertGreaterThan(40, $this->colorDistance(
+            $this->pixelRgb($centralBytes, 100, 175),
+            $this->pixelRgb($bytes, 100, 175),
+        ));
 
         $this->getJson('http://lottery-image.newpaotang.test/api/v1/public/stock/search?game_id=gam_lottery_partner&number=300000')
             ->assertOk()
