@@ -989,6 +989,9 @@ const previewForm = reactive({
 const previewLoading = ref(false)
 const previewError = ref<any>(null)
 const previewResult = ref<LotteryPreviewResponse | null>(null)
+const previewAutoDelayMs = 500
+let previewAutoTimer: ReturnType<typeof setTimeout> | null = null
+let previewAutoPending = false
 
 const mixForm = reactive<Record<SetType, number>>({
   odd: 45,
@@ -1070,14 +1073,14 @@ const canImportZip = computed(() => Boolean(
   && !zipForm.error
   && !zipImporting.value,
 ))
-const canPreview = computed(() => Boolean(
+const canRequestPreview = computed(() => Boolean(
   previewForm.game_id.trim()
   && previewForm.version.trim()
   && previewForm.set_type
   && /^[0-9]{1,6}$/.test(previewForm.lottery_number)
-  && (previewForm.mode !== 'partner_branded' || previewForm.partner_id)
-  && !previewLoading.value,
+  && (previewForm.mode !== 'partner_branded' || previewForm.partner_id),
 ))
+const canPreview = computed(() => canRequestPreview.value && !previewLoading.value)
 const previewModeWarning = computed(() => {
   if (previewForm.mode === 'central_unbranded' && previewForm.partner_id) {
     return 'A partner is selected, but the preview will remain central unbranded until partner branded mode is selected.'
@@ -1193,6 +1196,10 @@ watch(() => route.query.game_id, (value) => {
   if (!next || next === context.game_id) return
   context.game_id = next
   void loadAll()
+})
+
+onBeforeUnmount(() => {
+  clearPreviewAutoTimer()
 })
 
 const loadGames = async () => {
@@ -1391,8 +1398,37 @@ const importZip = async () => {
   }
 }
 
+const clearPreviewAutoTimer = () => {
+  if (!previewAutoTimer) {
+    return
+  }
+
+  clearTimeout(previewAutoTimer)
+  previewAutoTimer = null
+}
+
+const schedulePreviewAutoRender = () => {
+  clearPreviewAutoTimer()
+
+  if (!canRequestPreview.value) {
+    return
+  }
+
+  previewAutoTimer = setTimeout(() => {
+    previewAutoTimer = null
+    void renderPreview()
+  }, previewAutoDelayMs)
+}
+
 const renderPreview = async () => {
-  if (!canPreview.value) return
+  if (!canRequestPreview.value) return
+
+  if (previewLoading.value) {
+    previewAutoPending = true
+    return
+  }
+
+  clearPreviewAutoTimer()
 
   previewLoading.value = true
   previewError.value = null
@@ -1417,6 +1453,11 @@ const renderPreview = async () => {
     previewError.value = err
   } finally {
     previewLoading.value = false
+
+    if (previewAutoPending) {
+      previewAutoPending = false
+      schedulePreviewAutoRender()
+    }
   }
 }
 
@@ -1719,6 +1760,19 @@ const serializeLayoutForm = (): LayoutMap => {
 const slotFields = (slot: LayoutSlot): LayoutField[] => layoutFieldOrder.filter((field) => Object.prototype.hasOwnProperty.call(slot, field))
 const layoutSlotLabel = (slotKey: string) => layoutSlotLabels[slotKey] || titleize(slotKey)
 const layoutFieldLabel = (field: LayoutField) => field === 'width' ? 'W' : field === 'height' ? 'H' : titleize(field)
+
+watch(() => [
+  previewForm.game_id,
+  previewForm.version,
+  previewForm.set_type,
+  previewForm.lottery_number,
+  previewForm.partner_id,
+  previewForm.mode,
+  previewForm.variant,
+  JSON.stringify(serializeLayoutForm()),
+], () => {
+  schedulePreviewAutoRender()
+})
 
 const validateZipFile = (file: File) => {
   const name = file.name.toLowerCase()
