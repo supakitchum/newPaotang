@@ -222,6 +222,8 @@ Route::post('/admin/central/games/{game_id}/archive', [CentralGameController::cl
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/stock', [CentralStockController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/stock/summary', [CentralStockController::class, 'summary'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/stock/generate', [CentralStockController::class, 'generate'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/stock/imports', [CentralStockController::class, 'imports'])

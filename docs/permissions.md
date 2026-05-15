@@ -309,6 +309,7 @@ auditor
 | `PATCH /admin/central/partner-api-clients/{client_id}` | central | partner.api.manage |
 | `DELETE /admin/central/partner-api-clients/{client_id}` | central | partner.api.manage |
 | `GET /admin/central/stock` | central | stock.view |
+| `GET /admin/central/stock/summary` | central | stock.view OR stock.generate |
 | `POST /admin/central/stock/imports` | central | stock.generate |
 | `POST /admin/central/stock/generate` | central | stock.generate |
 | `POST /admin/central/stock/exports` | central | stock.export |

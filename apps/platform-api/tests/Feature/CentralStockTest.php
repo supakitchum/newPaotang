@@ -239,6 +239,137 @@ class CentralStockTest extends TestCase
         $this->assertNotSame($batch['id'], $import['id']);
     }
 
+    public function test_CentralStock_summary_widgets_aggregate_coverage_filters_and_permissions(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertGame('gam_stock_summary', 'open');
+        $this->insertGame('gam_stock_empty', 'open');
+
+        $generateLogin = $this->createCentralSession(['stock.generate'], 'adm_sum_gen', 'sum-gen@example.test');
+        $viewLogin = $this->createCentralSession(['stock.view'], 'adm_sum_view', 'sum-view@example.test');
+        $deniedLogin = $this->createCentralSession([], 'adm_sum_none', 'sum-none@example.test');
+        $this->createPartner('par_sum');
+        $this->createTenant('ten_sum', 'par_sum');
+        $this->createAdmin('adm_sum_ten', 'sum-tenant@example.test');
+        $this->createAdminScope('scp_adm_sum_ten', 'tenant', 'ten_sum', 'par_sum');
+        $this->assignRoleWithPermissions('adm_sum_ten', 'scp_adm_sum_ten', 'tenant', 'ten_sum', ['stock.view'], 'tenant_sum');
+        $tenantLogin = $this->loginAdmin([
+            'email' => 'sum-tenant@example.test',
+            'password' => 'secret-password',
+            'scope' => 'tenant',
+            'tenant_id' => 'ten_sum',
+        ]);
+
+        $batch = $this->withToken($generateLogin['access_token'])
+            ->postJson('/api/v1/admin/central/stock/generate', [
+                'game_id' => 'gam_stock_summary',
+                'total_count' => 3000,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'stock-summary-main',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('generated_count', 3000)
+            ->json();
+
+        $statusStockIds = DB::table('stock_items')
+            ->where('batch_id', $batch['id'])
+            ->orderBy('id')
+            ->limit(4)
+            ->pluck('id')
+            ->values()
+            ->all();
+
+        $this->assertCount(4, $statusStockIds);
+
+        foreach (['allocated', 'sold', 'recalled', 'voided'] as $index => $status) {
+            DB::table('stock_items')
+                ->where('id', $statusStockIds[$index])
+                ->update(['status' => $status, 'updated_at' => now()]);
+        }
+
+        $this->withToken($generateLogin['access_token'])
+            ->postJson('/api/v1/admin/central/stock/generate', [
+                'game_id' => 'gam_stock_summary',
+                'total_count' => 1000,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'stock-summary-extra',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('generated_count', 1000);
+
+        $batchSummary = $this->withToken($generateLogin['access_token'])
+            ->getJson('/api/v1/admin/central/stock/summary?'.http_build_query([
+                'game_id' => 'gam_stock_summary',
+                'batch_id' => $batch['id'],
+            ]), ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('game_id', 'gam_stock_summary')
+            ->assertJsonPath('batch_id', $batch['id'])
+            ->assertJsonPath('total_count', 3000)
+            ->assertJsonPath('status_counts.available', 2996)
+            ->assertJsonPath('status_counts.allocated', 1)
+            ->assertJsonPath('status_counts.sold', 1)
+            ->assertJsonPath('status_counts.recalled', 1)
+            ->assertJsonPath('status_counts.voided', 1)
+            ->assertJsonPath('status_counts.total', 3000)
+            ->assertJsonPath('number_coverage.back2.expected_distinct', 100)
+            ->assertJsonPath('number_coverage.back2.distinct_count', 100)
+            ->assertJsonPath('number_coverage.back2.missing_distinct_count', 0)
+            ->assertJsonPath('number_coverage.back2.min_count_per_number', 30)
+            ->assertJsonPath('number_coverage.back2.max_count_per_number', 30)
+            ->assertJsonPath('number_coverage.back2.total_count', 3000)
+            ->assertJsonPath('number_coverage.back3.expected_distinct', 1000)
+            ->assertJsonPath('number_coverage.back3.distinct_count', 1000)
+            ->assertJsonPath('number_coverage.back3.min_count_per_number', 3)
+            ->assertJsonPath('number_coverage.back3.max_count_per_number', 3)
+            ->assertJsonPath('number_coverage.front3.expected_distinct', 1000)
+            ->assertJsonPath('number_coverage.front3.distinct_count', 1000)
+            ->assertJsonPath('number_coverage.front3.min_count_per_number', 3)
+            ->assertJsonPath('number_coverage.front3.max_count_per_number', 3)
+            ->assertJsonPath('empty', false)
+            ->json();
+
+        $this->assertSame(3000, $batchSummary['number_coverage']['back3']['total_count']);
+        $this->assertSame(3000, $batchSummary['number_coverage']['front3']['total_count']);
+
+        $this->withToken($viewLogin['access_token'])
+            ->getJson('/api/v1/admin/central/stock/summary?game_id=gam_stock_summary', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('batch_id', null)
+            ->assertJsonPath('total_count', 4000)
+            ->assertJsonPath('status_counts.available', 3996)
+            ->assertJsonPath('status_counts.total', 4000);
+
+        $this->withToken($viewLogin['access_token'])
+            ->getJson('/api/v1/admin/central/stock/summary?game_id=gam_stock_empty', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('game_id', 'gam_stock_empty')
+            ->assertJsonPath('total_count', 0)
+            ->assertJsonPath('empty', true)
+            ->assertJsonPath('status_counts.available', 0)
+            ->assertJsonPath('status_counts.total', 0)
+            ->assertJsonPath('number_coverage.back2.distinct_count', 0)
+            ->assertJsonPath('number_coverage.back2.missing_distinct_count', 100)
+            ->assertJsonPath('number_coverage.back2.min_count_per_number', 0)
+            ->assertJsonPath('number_coverage.back2.max_count_per_number', 0)
+            ->assertJsonPath('number_coverage.back2.total_count', 0);
+
+        $this->withToken($deniedLogin['access_token'])
+            ->getJson('/api/v1/admin/central/stock/summary?game_id=gam_stock_summary', ['X-Admin-Scope' => 'central'])
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'permission_denied');
+
+        $this->withToken($tenantLogin['access_token'])
+            ->getJson('/api/v1/admin/central/stock/summary?game_id=gam_stock_summary', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_sum',
+            ])
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'permission_denied');
+    }
+
     public function test_CentralStock_generate_quota_validation_rejects_conflicts_over_limit_and_legacy_payloads(): void
     {
         $this->seedDefaultRbac();

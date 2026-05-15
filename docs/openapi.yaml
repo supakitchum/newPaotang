@@ -1852,6 +1852,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminResourceListResponse"
+  /admin/central/stock/summary:
+    get:
+      tags: [Central Admin]
+      summary: Summarize central master stock generation coverage
+      description: Central-only aggregate for stock widgets. Requires either stock.view or stock.generate.
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: game_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional game filter. Strongly recommended for stock generation widgets.
+        - name: batch_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional stock generation batch filter.
+      responses:
+        "200":
+          description: Central stock summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockSummaryResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
   /admin/central/stock/imports:
     post:
       tags: [Central Admin]
@@ -7617,6 +7648,104 @@ components:
       additionalProperties: true
     AdminCreateRequest:
       type: object
+      additionalProperties: true
+    StockSummaryResponse:
+      type: object
+      required:
+        - game_id
+        - batch_id
+        - total_count
+        - status_counts
+        - number_coverage
+        - empty
+      properties:
+        game_id:
+          type: string
+          nullable: true
+        batch_id:
+          type: string
+          nullable: true
+        total_count:
+          type: integer
+          minimum: 0
+        status_counts:
+          $ref: "#/components/schemas/StockSummaryStatusCounts"
+        number_coverage:
+          type: object
+          required:
+            - back2
+            - back3
+            - front3
+          properties:
+            back2:
+              $ref: "#/components/schemas/StockNumberCoverage"
+            back3:
+              $ref: "#/components/schemas/StockNumberCoverage"
+            front3:
+              $ref: "#/components/schemas/StockNumberCoverage"
+        empty:
+          type: boolean
+          description: True when the filtered summary has no stock rows.
+      additionalProperties: true
+    StockSummaryStatusCounts:
+      type: object
+      required:
+        - available
+        - allocated
+        - sold
+        - recalled
+        - voided
+        - total
+      properties:
+        available:
+          type: integer
+          minimum: 0
+        allocated:
+          type: integer
+          minimum: 0
+        sold:
+          type: integer
+          minimum: 0
+        recalled:
+          type: integer
+          minimum: 0
+        voided:
+          type: integer
+          minimum: 0
+        total:
+          type: integer
+          minimum: 0
+      additionalProperties: true
+    StockNumberCoverage:
+      type: object
+      required:
+        - expected_distinct
+        - distinct_count
+        - missing_distinct_count
+        - min_count_per_number
+        - max_count_per_number
+        - total_count
+      properties:
+        expected_distinct:
+          type: integer
+          minimum: 0
+          description: Expected number of distinct lottery fragments for the dimension.
+        distinct_count:
+          type: integer
+          minimum: 0
+        missing_distinct_count:
+          type: integer
+          minimum: 0
+        min_count_per_number:
+          type: integer
+          minimum: 0
+          description: Zero when at least one expected fragment is missing.
+        max_count_per_number:
+          type: integer
+          minimum: 0
+        total_count:
+          type: integer
+          minimum: 0
       additionalProperties: true
     StockGenerateRequest:
       type: object

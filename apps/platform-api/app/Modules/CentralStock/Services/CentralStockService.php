@@ -485,6 +485,91 @@ class CentralStockService
 
     /**
      * @param array<string, mixed> $queryParams
+     * @return array<string, mixed>
+     */
+    public function stockSummary(array $queryParams): array
+    {
+        $gameId = $this->nullableQueryString($queryParams['game_id'] ?? null);
+        $batchId = $this->nullableQueryString($queryParams['batch_id'] ?? null);
+        $query = StockItem::query();
+
+        if ($gameId !== null) {
+            $query->where('game_id', $gameId);
+        }
+
+        if ($batchId !== null) {
+            $query->where('batch_id', $batchId);
+        }
+
+        $totalCount = (int) (clone $query)->count();
+
+        return [
+            'game_id' => $gameId,
+            'batch_id' => $batchId,
+            'total_count' => $totalCount,
+            'status_counts' => $this->stockSummaryStatusCounts($query, $totalCount),
+            'number_coverage' => [
+                'back2' => $this->stockNumberCoverage($query, 'back2', 100),
+                'back3' => $this->stockNumberCoverage($query, 'back3', 1000),
+                'front3' => $this->stockNumberCoverage($query, 'front3', 1000),
+            ],
+            'empty' => $totalCount === 0,
+        ];
+    }
+
+    /**
+     * @param mixed $query
+     * @return array<string, int>
+     */
+    private function stockSummaryStatusCounts(mixed $query, int $totalCount): array
+    {
+        $counts = array_fill_keys(self::STOCK_STATUSES, 0);
+        $rows = (clone $query)
+            ->select('status', DB::raw('COUNT(*) as total'))
+            ->groupBy('status')
+            ->pluck('total', 'status')
+            ->all();
+
+        foreach ($rows as $status => $count) {
+            if (array_key_exists((string) $status, $counts)) {
+                $counts[(string) $status] = (int) $count;
+            }
+        }
+
+        $counts['total'] = $totalCount;
+
+        return $counts;
+    }
+
+    /**
+     * @param mixed $query
+     * @return array<string, int>
+     */
+    private function stockNumberCoverage(mixed $query, string $column, int $expectedDistinct): array
+    {
+        $counts = (clone $query)
+            ->whereNotNull($column)
+            ->select($column, DB::raw('COUNT(*) as total'))
+            ->groupBy($column)
+            ->pluck('total', $column)
+            ->map(fn (mixed $value): int => (int) $value)
+            ->values()
+            ->all();
+        $distinctCount = count($counts);
+        $missingDistinctCount = max(0, $expectedDistinct - $distinctCount);
+
+        return [
+            'expected_distinct' => $expectedDistinct,
+            'distinct_count' => $distinctCount,
+            'missing_distinct_count' => $missingDistinctCount,
+            'min_count_per_number' => $counts === [] ? 0 : ($missingDistinctCount > 0 ? 0 : min($counts)),
+            'max_count_per_number' => $counts === [] ? 0 : max($counts),
+            'total_count' => array_sum($counts),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
      * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
      */
     private function listStockGroups(array $queryParams, int $limit): array
@@ -2481,6 +2566,17 @@ class CentralStockService
         $integer = filter_var($value, FILTER_VALIDATE_INT);
 
         return $integer === false ? 0 : (int) $integer;
+    }
+
+    private function nullableQueryString(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $normalized = trim((string) $value);
+
+        return $normalized === '' ? null : $normalized;
     }
 
     private function limit(mixed $value): int

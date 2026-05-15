@@ -31,6 +31,17 @@ class CentralStockController extends Controller
         return response()->json($this->centralStock->listStock($request->query()));
     }
 
+    public function summary(Request $request): JsonResponse
+    {
+        $context = $this->authorizedAnyContext($request, ['stock.view', 'stock.generate']);
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        return response()->json($this->centralStock->stockSummary($request->query()));
+    }
+
     public function generate(Request $request): JsonResponse
     {
         $context = $this->authorizedContext($request, 'stock.generate');
@@ -126,6 +137,33 @@ class CentralStockController extends Controller
         return $stock === null
             ? ApiErrorResponse::resourceConflict($request)
             : response()->json($stock, 202);
+    }
+
+    /**
+     * @param array<int, string> $permissionCodes
+     * @return AdminSessionContext|JsonResponse
+     */
+    private function authorizedAnyContext(Request $request, array $permissionCodes): AdminSessionContext|JsonResponse
+    {
+        $context = $request->attributes->get('admin_session');
+
+        if (! $context instanceof AdminSessionContext) {
+            return ApiErrorResponse::authenticationRequired($request);
+        }
+
+        foreach ($permissionCodes as $permissionCode) {
+            if ($this->permissions->adminHasPermission(
+                $context->adminUser['id'],
+                'central',
+                $context->activeScopeId(),
+                $permissionCode,
+                null,
+            )) {
+                return $context;
+            }
+        }
+
+        return ApiErrorResponse::permissionDenied($request);
     }
 
     /**
