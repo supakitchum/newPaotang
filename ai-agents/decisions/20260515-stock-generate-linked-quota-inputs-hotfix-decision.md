@@ -6,13 +6,19 @@ Decision: OPEN HOTFIX THROUGH ORCHESTRATOR
 
 ## User Request
 
-Hotfix the Stock Generate form so the related quota fields show their dependent values immediately.
+Hotfix the Stock Generate form so:
+
+- related quota fields show their dependent values immediately
+- Game defaults to the current draw/current game
+- the `ALL` game option is removed from Stock Generate
 
 Source request:
 
 ```text
 ช่องกรอก 2 3 ท้าย 3 หน้าที่แปรผันกัน ให้ UI แสดงให้เห็นเลย
 เช่น กรอก 2 ท้าย ช่อง 3 ท้ายกับ 3 หน้าก็แสดงขึ้นมาเลยว่าต้องกรอกเท่าไหร่
+Stock Gen Game ให้เลือก default เป็นงวดปัจจุบัน
+เอาตัวเลือก ALL ออก
 ```
 
 ## Current Business Rule
@@ -58,6 +64,20 @@ total_count hint  shows total tickets to be generated
 
 The exact UI component can follow existing Back Office form patterns. This is an operational form, so keep it compact and direct.
 
+## Game Selection Direction
+
+Stock Generate must operate against a specific current draw/current game by default.
+
+BO must:
+
+- select the current draw/current game by default when the Stock Generate page/form loads
+- remove the `ALL` option from the Stock Generate game selector
+- avoid sending an empty/all-game generation payload
+- keep Stock summary widgets consistent with the selected current game
+- show a clear empty/error state if no current draw/current game is available
+
+The exact source for "current draw/current game" should follow the existing game/list API fields and current BO game-selection pattern. If there is no reliable current marker in the available API, BO must report this to Orchestrator so Backend Develop can be added before QA.
+
 ## Scope
 
 Expected Orchestrator split:
@@ -76,6 +96,9 @@ editing any of the three quota inputs makes the required values for the other tw
 invalid dependencies are visible inline before submit
 submit remains blocked or clearly invalid when dependencies conflict
 valid submit payload still uses back2_count_per_number, back3_count_per_number, and front3_count_per_number
+Stock Generate game selector defaults to the current draw/current game
+Stock Generate game selector does not offer ALL
+Stock Generate cannot submit an all-game/empty-game payload
 existing total_count helper/input remains consistent if present
 legacy start_number/count/range/number_digits fields do not return
 Stock summary widgets from the previous task remain visible and unaffected
@@ -92,6 +115,9 @@ type 2-tail value and confirm 3-tail/3-front required values display immediately
 type 3-tail value and confirm 2-tail/3-front required values display immediately
 type 3-front value and confirm 2-tail/3-tail required values display immediately
 verify invalid 2-tail value that is not divisible by 10 shows inline validation before submit
+verify Game defaults to the current draw/current game
+verify ALL is not available as a Stock Generate game option
+verify generate cannot be submitted with an all-game/empty-game selection
 verify valid submit payload remains accepted
 verify previous stock summary widgets still render
 verify no legacy range/count fields return
@@ -118,4 +144,3 @@ destructive runtime database commands against newpaotang
 ## Next Agent
 
 Orchestrator
-

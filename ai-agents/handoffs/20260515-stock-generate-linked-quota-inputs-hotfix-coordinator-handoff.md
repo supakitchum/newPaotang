@@ -6,7 +6,7 @@ Coordinator
 
 ## Task
 
-Open hotfix work for linked quota inputs on the Back Office Stock Generate form.
+Open hotfix work for linked quota inputs and current-game selection on the Back Office Stock Generate form.
 
 ## Source Request
 
@@ -15,6 +15,8 @@ User requested:
 ```text
 ช่องกรอก 2 3 ท้าย 3 หน้าที่แปรผันกัน ให้ UI แสดงให้เห็นเลย
 เช่น กรอก 2 ท้าย ช่อง 3 ท้ายกับ 3 หน้าก็แสดงขึ้นมาเลยว่าต้องกรอกเท่าไหร่
+Stock Gen Game ให้เลือก default เป็นงวดปัจจุบัน
+เอาตัวเลือก ALL ออก
 ```
 
 ## Coordinator Decision
@@ -25,7 +27,14 @@ Decision file:
 ai-agents/decisions/20260515-stock-generate-linked-quota-inputs-hotfix-decision.md
 ```
 
-Coordinator interprets this as a BO hotfix to make quota field dependencies visible while typing.
+Coordinator interprets this as a BO hotfix to:
+
+```text
+make quota field dependencies visible while typing
+default Stock Gen Game to the current draw/current game
+remove ALL from the Stock Generate game selector
+prevent all-game/empty-game generate payloads
+```
 
 ## Required Business Rule
 
@@ -45,6 +54,22 @@ front3 = 4  => back2 = 40, back3 = 4,  total = 4000
 ```
 
 If `back2` is not divisible by 10, the UI must show an inline validation/conflict before submit.
+
+## Game Selection Requirement
+
+Stock Generate must not default to or offer `ALL`.
+
+BO must:
+
+```text
+default Game to the current draw/current game
+remove ALL from the Stock Generate game selector
+keep summary widgets aligned with the selected current game
+block or clearly invalidate generate if no concrete current game is selected
+show a clear empty/error state if there is no current draw/current game
+```
+
+If the existing API/list data does not expose a reliable current draw/current game marker, Orchestrator should add Backend Develop before QA instead of forcing a BO-only guess.
 
 ## Scope For Orchestrator
 
@@ -87,6 +112,9 @@ editing 2-tail updates required 3-tail and 3-front display
 editing 3-tail updates required 2-tail and 3-front display
 editing 3-front updates required 2-tail and 3-tail display
 invalid conflicts show inline before submit
+Stock Gen Game defaults to current draw/current game
+ALL option is removed from Stock Generate game selector
+generate cannot submit all-game/empty-game selection
 valid submit payload remains accepted
 previous stock summary widgets remain unaffected
 legacy range/count fields do not return
@@ -95,4 +123,3 @@ legacy range/count fields do not return
 ## Next Agent
 
 Orchestrator
-

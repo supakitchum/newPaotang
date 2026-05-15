@@ -22,7 +22,7 @@ stock-generate-linked-quota-inputs-hotfix
 ## Open Questions
 
 ```text
-Opened hotfix for Stock Generate linked quota inputs. BO should make 2-tail, 3-tail, and 3-front dependent values visible while typing, validate conflicts inline before submit, and preserve the current quota payload. Orchestrator must route BO Develop then QA Tester; QA must use newpaotang_test for destructive commands and must not wipe runtime DB newpaotang.
+Opened hotfix for Stock Generate linked quota inputs and game selection. BO should make 2-tail, 3-tail, and 3-front dependent values visible while typing, validate conflicts inline before submit, default Game to the current draw/current game, remove ALL from Stock Generate, and prevent all-game/empty-game generate payloads. Orchestrator must route BO Develop then QA Tester unless a backend current-game marker is missing; QA must use newpaotang_test for destructive commands and must not wipe runtime DB newpaotang.
 ```
 
 ## Latest Decision
