@@ -3,17 +3,24 @@
     <div class="card-header">
       <div class="card-title">Documented operations</div>
     </div>
-    <div class="card-body d-flex flex-wrap gap-2">
-      <button
+    <div class="card-body d-flex flex-wrap align-items-start gap-2">
+      <div
         v-for="action in actions"
         :key="action.key"
-        type="button"
-        class="btn btn-outline-primary btn-wave"
-        @click="$emit('run', action)"
+        class="d-inline-flex flex-column align-items-start"
       >
-        <i class="ri-play-line me-1" />
-        {{ action.label }}
-      </button>
+        <button
+          type="button"
+          class="btn btn-outline-primary btn-wave"
+          :disabled="action.disabled"
+          :title="action.disabledReason"
+          @click="$emit('run', action)"
+        >
+          <i class="ri-play-line me-1" />
+          {{ action.label }}
+        </button>
+        <span v-if="action.disabled && action.disabledReason" class="text-muted fs-12 mt-1">{{ action.disabledReason }}</span>
+      </div>
     </div>
   </div>
 </template>

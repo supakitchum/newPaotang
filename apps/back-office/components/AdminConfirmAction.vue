@@ -313,8 +313,6 @@ const validationMessagesByField = computed(() => {
   if (!isBlank(formState.total_count)) {
     if (total === null || total < 1000) {
       add('total_count', 'Total tickets must be at least 1,000.')
-    } else if (total > 10000) {
-      add('total_count', 'Total tickets must not exceed 10,000 for synchronous generation.')
     } else if (total % 1000 !== 0) {
       add('total_count', 'Total tickets must be divisible by 1,000.')
     }
@@ -325,24 +323,18 @@ const validationMessagesByField = computed(() => {
       add('back2_count_per_number', '2-tail quota must be a positive whole number.')
     } else if (back2 % 10 !== 0) {
       add('back2_count_per_number', '2-tail quota must be divisible by 10.')
-    } else if (back2 > 100) {
-      add('back2_count_per_number', '2-tail quota must not create more than 10,000 stock items.')
     }
   }
 
   if (!isBlank(formState.back3_count_per_number)) {
     if (back3 === null || back3 < 1) {
       add('back3_count_per_number', '3-tail quota must be a positive whole number.')
-    } else if (back3 > 10) {
-      add('back3_count_per_number', '3-tail quota must not create more than 10,000 stock items.')
     }
   }
 
   if (!isBlank(formState.front3_count_per_number)) {
     if (front3 === null || front3 < 1) {
       add('front3_count_per_number', '3-front quota must be a positive whole number.')
-    } else if (front3 > 10) {
-      add('front3_count_per_number', '3-front quota must not create more than 10,000 stock items.')
     }
   }
 
@@ -419,7 +411,7 @@ const syncStockQuotaFields = (sourceKey: string) => {
   }
 
   const back3 = back3FromQuotaSource(sourceKey, sourceValue)
-  if (back3 === null || back3 < 1 || back3 > 10) {
+  if (back3 === null || back3 < 1) {
     return
   }
 

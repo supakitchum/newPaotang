@@ -11,6 +11,12 @@ if (!existsSync(join(root, componentPath))) {
 }
 
 const component = existsSync(join(root, componentPath)) ? read(componentPath) : ''
+const progressComponentPath = 'components/AdminStockGenerationBatches.vue'
+if (!existsSync(join(root, progressComponentPath))) {
+  failures.push('AdminStockGenerationBatches.vue is missing')
+}
+
+const progressComponent = existsSync(join(root, progressComponentPath)) ? read(progressComponentPath) : ''
 const operationsPage = read('components/AdminOperationsPage.vue')
 const catalog = read('composables/useAdminOperationsCatalog.ts')
 const snapshot = JSON.parse(read('scripts/openapi-admin-paths.snapshot.json'))
@@ -110,8 +116,59 @@ for (const token of [
   }
 }
 
+for (const removedCapToken of [
+  'Total tickets must not exceed 10,000',
+  'not create more than 10,000',
+  'ไม่เกิน 10,000',
+  'สูงสุด 10',
+]) {
+  if (`${read('components/AdminConfirmAction.vue')}\n${catalog}`.includes(removedCapToken)) {
+    failures.push(`Stock generation still exposes old 10,000 UI cap: ${removedCapToken}`)
+  }
+}
+
+for (const token of [
+  'AdminStockGenerationBatches',
+  'stockGenerationHasActiveBatch',
+  'stockGenerationProgressRefreshKey',
+  'stockGenerationSubmittedBatch',
+  'isStockGenerateAction',
+  'stockGenerationBatchFromResponse',
+]) {
+  if (!operationsPage.includes(token)) {
+    failures.push(`Async stock generation page wiring is missing token: ${token}`)
+  }
+}
+
+for (const token of [
+  '/admin/central/stock/generation-batches',
+  'generated_count',
+  'requested_count',
+  'total_rounds',
+  'processed_rounds',
+  'chunk_rounds',
+  'failure_reason',
+  'active-change',
+  'Images waiting for stock',
+  'Images not reported by batch API',
+  'window.setInterval',
+]) {
+  if (!progressComponent.includes(token)) {
+    failures.push(`Async stock generation progress widget is missing token: ${token}`)
+  }
+}
+
 if (!snapshot.paths?.['/admin/central/stock/summary']?.includes('get')) {
   failures.push('OpenAPI admin snapshot is missing GET /admin/central/stock/summary')
+}
+
+for (const [path, method] of [
+  ['/admin/central/stock/generation-batches', 'get'],
+  ['/admin/central/stock/generation-batches/{batch_id}', 'get'],
+]) {
+  if (!snapshot.paths?.[path]?.includes(method)) {
+    failures.push(`OpenAPI admin snapshot is missing ${method.toUpperCase()} ${path}`)
+  }
 }
 
 if (failures.length) {

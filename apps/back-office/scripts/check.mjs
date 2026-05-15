@@ -56,6 +56,7 @@ const requiredComponents = [
   'AdminExportPanel',
   'AdminDateRangeFilter',
   'AdminOperationsPage',
+  'AdminStockGenerationBatches',
   'AdminProtectedContent',
 ]
 

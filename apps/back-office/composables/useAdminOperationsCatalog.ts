@@ -66,6 +66,8 @@ export type OperationAction = {
   endpoint?: string
   route?: string
   variant?: 'primary' | 'success' | 'warning' | 'danger'
+  disabled?: boolean
+  disabledReason?: string
   reason?: boolean
   payloadTemplate?: Record<string, any>
   formFields?: OperationFormField[]
@@ -1897,7 +1899,7 @@ const central: OperationResource[] = [
             type: 'number',
             min: 1000,
             step: 1000,
-            help: 'กรอกช่องนี้อย่างเดียวได้ ระบบจะคำนวณ 2ท้าย/3ท้าย/3หน้าให้อัตโนมัติ จำนวนต้องหาร 1,000 ลงตัว และไม่เกิน 10,000',
+            help: 'กรอกช่องนี้อย่างเดียวได้ ระบบจะคำนวณ 2ท้าย/3ท้าย/3หน้าให้อัตโนมัติ จำนวนต้องหาร 1,000 ลงตัว รายการขนาดใหญ่จะเข้าคิวประมวลผล',
           },
           {
             key: 'back2_count_per_number',
@@ -1913,7 +1915,7 @@ const central: OperationResource[] = [
             type: 'number',
             min: 1,
             step: 1,
-            help: 'กรอกเมื่ออยากกำหนด quota เอง: สูงสุด 10 เพราะ generate synchronous จำกัดไม่เกิน 10,000 ใบ',
+            help: 'กรอกเมื่ออยากกำหนด quota เอง: ระบบจะคำนวณยอดรวมเป็น 1,000 x 3ท้าย และเข้าคิวเมื่อยอดรวมเกิน synchronous threshold',
           },
           {
             key: 'front3_count_per_number',

@@ -1,6 +1,6 @@
 {
   "source": "docs/openapi.yaml",
-  "updated": "2026-05-15",
+  "updated": "2026-05-16",
   "note": "Static admin path snapshot used inside the back-office Docker mount. Refresh from docs/openapi.yaml when the approved OpenAPI contract changes.",
   "paths": {
     "/admin/central/allocations": ["get", "post"],
@@ -49,6 +49,8 @@
     "/admin/central/stock": ["get"],
     "/admin/central/stock/exports": ["post"],
     "/admin/central/stock/generate": ["post"],
+    "/admin/central/stock/generation-batches": ["get"],
+    "/admin/central/stock/generation-batches/{batch_id}": ["get"],
     "/admin/central/stock/imports": ["post"],
     "/admin/central/stock/summary": ["get"],
     "/admin/central/stock/{stock_item_id}/recall": ["post"],

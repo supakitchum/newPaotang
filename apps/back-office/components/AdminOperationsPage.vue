@@ -227,6 +227,14 @@
         :batch-id="stockSummaryBatchId"
         :refresh-key="stockSummaryRefreshKey"
       />
+      <AdminStockGenerationBatches
+        v-if="showStockGenerationProgress"
+        :game-id="stockSummaryGameId"
+        :submitted-batch="stockGenerationSubmittedBatch"
+        :refresh-key="stockGenerationProgressRefreshKey"
+        @active-change="handleStockGenerationActiveChange"
+        @progress="handleStockGenerationProgress"
+      />
       <AdminExportPanel :actions="hydratedCollectionActions" @run="openCollectionAction" />
       <AdminApiState :error="error" />
       <AdminDataTable
@@ -448,6 +456,9 @@ const secondaryErrors = reactive<Record<string, any>>({})
 const detailDraft = ref('')
 const filters = ref<Record<string, any>>({})
 const stockSummaryRefreshKey = ref(0)
+const stockGenerationProgressRefreshKey = ref(0)
+const stockGenerationSubmittedBatch = ref<any>(null)
+const stockGenerationHasActiveBatch = ref(false)
 const sortState = reactive<{ key: string, direction: 'asc' | 'desc' }>({ key: '', direction: 'asc' })
 const meta = reactive({ next_cursor: null as string | null, has_more: false })
 const pageState = reactive({ cursors: [null] as Array<string | null>, index: 0 })
@@ -536,11 +547,28 @@ const detailGap = computed(() => mode.value === 'detail' && !resource.value?.det
 const isStockGrouped = computed(() => Boolean(resource.value?.stockGrouped))
 const isStockGenerationRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-generation')
 const showStockSummaryWidgets = computed(() => Boolean(resource.value?.stockSummaryEndpoint && mode.value === 'list'))
+const showStockGenerationProgress = computed(() => Boolean(isStockGenerationRoute.value && mode.value === 'list'))
 const stockSummaryEndpoint = computed(() => resource.value?.stockSummaryEndpoint || '')
 const stockSummaryGameId = computed(() => filters.value.game_id || '')
 const stockSummaryBatchId = computed(() => filters.value.batch_id || '')
 const currentCentralGameOption = computed(() => singleCurrentGameOption(optionSourceOptions['central-games'] || []))
 const shouldDefaultStockGenerationGame = computed(() => Boolean(isStockGenerationRoute.value && mode.value === 'list'))
+const stockGenerationGenerateBlocked = computed(() => Boolean(
+  showStockGenerationProgress.value
+  && (stockGenerationHasActiveBatch.value || !currentCentralGameOption.value),
+))
+const stockGenerationGenerateDisabledReason = computed(() => {
+  if (!showStockGenerationProgress.value) {
+    return ''
+  }
+  if (stockGenerationHasActiveBatch.value) {
+    return 'A stock generation batch is already queued or processing for this game.'
+  }
+  if (!currentCentralGameOption.value) {
+    return 'No single current game is available for stock generation.'
+  }
+  return ''
+})
 const stockGenerateCurrentGameMessage = computed(() => {
   if (!shouldDefaultStockGenerationGame.value || optionSourceLoading['central-games'] || currentCentralGameOption.value) {
     return ''
@@ -614,6 +642,8 @@ const resetFilters = () => {
 
 const applyFilters = (next: Record<string, any>) => {
   filters.value = stockGenerationFiltersWithCurrentGame({ ...next })
+  stockGenerationSubmittedBatch.value = null
+  stockGenerationHasActiveBatch.value = false
   load()
 }
 
@@ -732,10 +762,22 @@ const hydrateFields = (fields: OperationFormField[] = []) => fields.map((field) 
   }
 })
 
-const hydrateActions = (actions: OperationAction[] = []) => actions.map((action) => ({
-  ...action,
-  formFields: hydrateFields(action.formFields || []),
-}))
+const hydrateActions = (actions: OperationAction[] = []) => actions.map((action) => {
+  const hydrated = {
+    ...action,
+    formFields: hydrateFields(action.formFields || []),
+  }
+
+  if (isStockGenerateAction(hydrated)) {
+    return {
+      ...hydrated,
+      disabled: stockGenerationGenerateBlocked.value,
+      disabledReason: stockGenerationGenerateDisabledReason.value,
+    }
+  }
+
+  return hydrated
+})
 
 const hydratedOptions = (source: OperationOptionSource, fallback: OperationOption[] = []) => {
   const options = optionSourceOptions[source] || []
@@ -900,6 +942,19 @@ const stockGenerationFiltersWithCurrentGame = (next: Record<string, any>) => {
     game_id: optionValue(currentGame),
   }
 }
+
+const isStockGenerateAction = (action: OperationAction | null | undefined) => (
+  Boolean(action && isStockGenerationRoute.value && action.key === 'generate' && action.endpoint === '/admin/central/stock/generate')
+)
+
+const stockGenerationBatchFromResponse = (response: any) => {
+  const data = extractData(response)
+  return data?.batch || data
+}
+
+const isActiveStockGenerationBatch = (batch: any) => (
+  ['queued', 'pending', 'processing'].includes(String(batch?.status || '').toLowerCase())
+)
 
 const saveSettings = async () => {
   if (!resource.value?.updateEndpoint) return
@@ -1076,6 +1131,10 @@ const openDetailAction = (action: OperationAction) => {
 }
 
 const openCollectionAction = (action: OperationAction) => {
+  if (action.disabled) {
+    return
+  }
+
   confirm.open = true
   confirm.action = action
   confirm.row = buildCollectionContext()
@@ -1202,14 +1261,21 @@ const runConfirmedAction = async (reason: string, payloadJson = '', formValues: 
   saving.value = true
   actionError.value = null
   try {
+    const action = confirm.action
     const id = confirm.row?.__id || recordId.value
-    const endpoint = interpolate(confirm.action.endpoint, id)
-    const body = buildActionBody(confirm.action, reason, payloadJson, formValues)
-    await api.apiFetch(endpoint, apiOptions({
-      method: confirm.action.method || 'POST',
+    const endpoint = interpolate(action.endpoint, id)
+    const body = buildActionBody(action, reason, payloadJson, formValues)
+    const response = await api.apiFetch(endpoint, apiOptions({
+      method: action.method || 'POST',
       body,
       idempotencyKey: api.idempotencyKey(),
     }))
+    if (isStockGenerateAction(action)) {
+      const batch = stockGenerationBatchFromResponse(response)
+      stockGenerationSubmittedBatch.value = batch
+      stockGenerationHasActiveBatch.value = isActiveStockGenerationBatch(batch)
+      stockGenerationProgressRefreshKey.value += 1
+    }
     confirm.open = false
     await load()
     if (showStockSummaryWidgets.value) {
@@ -1219,6 +1285,21 @@ const runConfirmedAction = async (reason: string, payloadJson = '', formValues: 
     actionError.value = err
   } finally {
     saving.value = false
+  }
+}
+
+const handleStockGenerationActiveChange = (active: boolean) => {
+  stockGenerationHasActiveBatch.value = active
+}
+
+const handleStockGenerationProgress = (batch: any) => {
+  if (!batch) {
+    return
+  }
+
+  stockGenerationHasActiveBatch.value = isActiveStockGenerationBatch(batch)
+  if (showStockSummaryWidgets.value) {
+    stockSummaryRefreshKey.value += 1
   }
 }
 
