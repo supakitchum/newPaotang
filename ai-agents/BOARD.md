@@ -13,16 +13,16 @@ stock-generate-linked-quota-inputs-hotfix
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
 | Coordinator | completed | stock-generate-linked-quota-inputs-hotfix | ai-agents/handoffs/20260515-stock-generate-linked-quota-inputs-hotfix-coordinator-handoff.md |
-| Orchestrator | completed | stock-generate-linked-quota-inputs-hotfix | ai-agents/handoffs/20260515-stock-generate-linked-quota-inputs-hotfix-orchestrator-handoff.md |
+| Orchestrator | completed | stock-generate-linked-quota-inputs-hotfix-qa-dispatch | ai-agents/handoffs/20260515-stock-generate-linked-quota-inputs-hotfix-qa-dispatch-orchestrator-handoff.md |
 | Backend Develop | completed | stock-generation-summary-widgets-backend | ai-agents/handoffs/20260515-stock-generation-summary-widgets-backend-handoff.md |
-| BO Develop | pending | stock-generate-linked-quota-inputs-hotfix-bo | ai-agents/tasks/20260515-stock-generate-linked-quota-inputs-hotfix-bo.md |
+| BO Develop | completed | stock-generate-linked-quota-inputs-hotfix-bo | ai-agents/handoffs/20260515-stock-generate-linked-quota-inputs-hotfix-bo-handoff.md |
 | Customer Develop | completed | lottery-image-customer-ssr-error-serialization-remediation | ai-agents/handoffs/20260514-lottery-image-customer-ssr-error-serialization-remediation-customer-handoff.md |
 | QA Tester | pending | stock-generate-linked-quota-inputs-hotfix-qa | ai-agents/tasks/20260515-stock-generate-linked-quota-inputs-hotfix-qa.md |
 
 ## Open Questions
 
 ```text
-Orchestrator dispatched BO and QA task briefs for Stock Generate linked quota inputs hotfix. BO Develop is next and must make 2-tail, 3-tail, and 3-front dependent values visible while typing, validate conflicts inline before submit, default Game to the current draw/current game, remove ALL from Stock Generate, and prevent all-game/empty-game generate payloads. Backend is not dispatched unless BO reports that a reliable current-game marker is missing. QA must validate real authenticated BO behavior, use newpaotang_test for destructive commands, and must not wipe runtime DB newpaotang.
+BO completed Stock Generate linked quota inputs hotfix with no Backend escalation required. Orchestrator registered the BO handoff and routed the prepared QA task. QA must validate real authenticated BO behavior, including linked quota values while typing, inline invalid back2 conflict, current/open game default, ALL removal, empty-game submit prevention, summary widget regression, and runtime restore/login smoke.
 ```
 
 ## Latest Decision
