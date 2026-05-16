@@ -115,6 +115,10 @@ Mandatory runtime restore/login smoke before clean PASS:
 ```sh
 docker compose -p newpaotang exec -T platform-api php artisan db:seed --no-interaction
 docker compose -p newpaotang exec -T platform-api php artisan platform:smoke
+docker compose -p newpaotang stop back-office
+docker compose -p newpaotang rm -f back-office
+docker compose -p newpaotang up -d back-office
+curl --max-time 5 -i -s http://localhost:3100/login
 curl --max-time 5 -i -s http://localhost:3100/admin/login
 ```
 
@@ -135,7 +139,24 @@ PASS WITH RISK
 BLOCKED
 ```
 
+Must include:
+
+```text
+worktree path
+current HEAD and origin/develop
+Backend and BO commit hashes under test
+backend channel auth evidence
+event dispatch/payload evidence
+network evidence that generation-batches is not called every 5 seconds
+websocket/realtime evidence showing progress events received
+fallback polling evidence if used
+BO unsubscribe/reconnect/manual refresh evidence
+test DB isolation evidence with DB_DATABASE=newpaotang_test
+runtime restore/login smoke including platform:smoke seeded-logins, /login, and /admin/login
+defects with owner recommendation
+next agent
+```
+
 ## Next Agent
 
 QA Tester
-

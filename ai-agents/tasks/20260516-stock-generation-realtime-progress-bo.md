@@ -123,7 +123,35 @@ docker compose -p newpaotang run --rm back-office npm run build
 
 Add structural/browser evidence that `generation-batches` request frequency drops and realtime updates work.
 
+## Handoff Requirements
+
+Write handoff to:
+
+```text
+ai-agents/handoffs/20260516-stock-generation-realtime-progress-bo-handoff.md
+```
+
+Must include:
+
+```text
+commit hash
+files changed
+backend channel/event contract used
+websocket subscription and auth/session handling
+progress update behavior from pushed events
+generation-batches polling removal evidence
+fallback polling frequency if any
+manual refresh behavior
+reconnect snapshot behavior
+unsubscribe cleanup
+summary widget refresh behavior
+validation commands and results
+manual/browser evidence if available
+known risks/blockers
+unrelated dirty files left untouched
+next recommended agent
+```
+
 ## Next Agent
 
 BO Develop
-

@@ -142,7 +142,32 @@ docker compose -p newpaotang run --rm -e APP_ENV=testing -e DB_DATABASE=newpaota
 
 Add focused tests for broadcasting/channel authorization and record exact commands.
 
+## Handoff Requirements
+
+Write handoff to:
+
+```text
+ai-agents/handoffs/20260516-stock-generation-realtime-progress-backend-handoff.md
+```
+
+Must include:
+
+```text
+commit hash
+files changed
+channel names and auth rules
+event names and payload shape
+where events are emitted in batch/chunk lifecycle
+tenant/partner rejection evidence
+stock.generate permission evidence
+runtime/config docs for local websocket support
+production websocket/Reverb blocker status if any
+validation commands and results
+known risks/blockers
+unrelated dirty files left untouched
+next recommended agent
+```
+
 ## Next Agent
 
 Backend Develop
-
