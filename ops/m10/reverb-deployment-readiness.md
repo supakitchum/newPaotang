@@ -25,7 +25,18 @@ private-admin.central.stock-generation.batch.{batch_id}
 
 These channels are authorized through `POST /api/v1/admin/central/realtime/auth` only and require authenticated central scope plus `stock.generate`. Tenant-scope admins are rejected for these channels.
 
-The backend event contract is `stock.generation.progress.updated`; local/dev broadcasting defaults to the `log` driver until Reverb runtime is approved.
+The backend event contract is `stock.generation.progress.updated`.
+
+2026-05-16 hotfix update:
+
+```text
+Laravel Reverb package is installed.
+Docker local/dev profile `realtime` provides `platform-api-reverb`.
+Back-office local/dev config points to `http://localhost:8080`.
+Stock generation progress was proven over a private central admin Reverb channel in local Docker.
+```
+
+This remains local/dev readiness only. Public websocket delivery, TLS termination, scaling/load evidence, and production secret ownership are still not approved.
 
 Run the local verifier through Docker:
 
@@ -36,8 +47,6 @@ docker compose exec platform-api php artisan platform:runtime:readiness --format
 ## Current Blockers
 
 ```text
-reverb_package_missing
-reverb_runtime_profile_not_configured
 reverb_tls_and_public_host_not_verified
 reverb_scaling_and_load_not_verified
 ```
@@ -60,8 +69,8 @@ Readiness output must use booleans or `[CONFIGURED]` / `[REDACTED]`, never raw k
 ## Production Evidence Required
 
 ```text
-Laravel Reverb package/runtime approved
-Reverb process/profile or orchestration config added
+Production Reverb public host/TLS approved
+Production Reverb scaling/load evidence approved
 TLS and public websocket host verified
 admin/customer channel auth contract load-tested
 horizontal scaling and Redis/Valkey pub-sub behavior verified

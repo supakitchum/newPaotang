@@ -37,7 +37,12 @@ class M10HorizonReverbSchedulerHardeningTest extends TestCase
         $this->assertSame('ready_local', $report['scheduler']['status']);
         $this->assertSame('ready_local', $report['helpers']['status']);
         $this->assertContains('horizon_package_missing', $report['blockers']);
-        $this->assertContains('reverb_package_missing', $report['blockers']);
+        $this->assertTrue($report['reverb']['package_installed']);
+        $this->assertTrue($report['reverb']['runtime_profile_configured']);
+        $this->assertNotContains('reverb_package_missing', $report['blockers']);
+        $this->assertNotContains('reverb_runtime_profile_not_configured', $report['blockers']);
+        $this->assertContains('reverb_tls_and_public_host_not_verified', $report['blockers']);
+        $this->assertContains('reverb_scaling_and_load_not_verified', $report['blockers']);
         $this->assertFalse($report['horizon']['dashboard_route_registered']);
         $this->assertTrue($report['reverb']['auth_endpoints']['central']);
         $this->assertTrue($report['reverb']['auth_endpoints']['tenant']);

@@ -18,6 +18,7 @@ export const useAdminRealtimeSubscription = (options: AdminRealtimeSubscriptionO
   const status = ref<AdminRealtimeStatus>('idle')
   const error = ref('')
   const lastConnectedAt = ref('')
+  const lastEventAt = ref('')
   const realtimeUrl = computed(() => String(config.public.adminRealtimeUrl || '').trim())
   const realtimeKey = computed(() => String(config.public.adminRealtimeKey || 'newpaotang-admin').trim() || 'newpaotang-admin')
   const isConfigured = computed(() => Boolean(realtimeUrl.value))
@@ -147,6 +148,7 @@ export const useAdminRealtimeSubscription = (options: AdminRealtimeSubscriptionO
     }
 
     if (normalizeEventName(message.event) === normalizeEventName(options.eventName)) {
+      lastEventAt.value = new Date().toISOString()
       options.onEvent(parseRealtimeData(message.data))
     }
   }
@@ -179,7 +181,6 @@ export const useAdminRealtimeSubscription = (options: AdminRealtimeSubscriptionO
           channel_data: authorization?.channel_data || undefined,
         },
       })
-      markConnected()
     } catch (err: any) {
       error.value = err?.message || 'Realtime channel authorization failed.'
       status.value = 'error'
@@ -255,6 +256,7 @@ export const useAdminRealtimeSubscription = (options: AdminRealtimeSubscriptionO
     error,
     isConfigured,
     lastConnectedAt,
+    lastEventAt,
     connect,
     disconnect,
   }

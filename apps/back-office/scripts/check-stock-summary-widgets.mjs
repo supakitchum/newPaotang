@@ -154,7 +154,7 @@ for (const token of [
   'useAdminRealtimeSubscription',
   'private-admin.central.stock-generation.game.',
   'stock.generation.progress.updated',
-  'fallbackPollIntervalMs: 60000',
+  'fallbackPollIntervalMs: 30000',
   'window.setTimeout',
 ]) {
   if (!progressComponent.includes(token)) {
@@ -180,6 +180,7 @@ for (const token of [
   'pusher:connection_established',
   'pusher:subscribe',
   'pusher:unsubscribe',
+  'pusher_internal:subscription_succeeded',
   'onReconnect',
   'adminRealtimeUrl',
   'adminRealtimeKey',

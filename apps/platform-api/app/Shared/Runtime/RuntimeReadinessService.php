@@ -49,7 +49,7 @@ class RuntimeReadinessService
                 'docker compose run --rm platform-api php artisan schedule:list',
                 'docker compose run --rm platform-api php artisan queue:work --once --tries=1 --timeout=30 --queue=default',
                 'docker compose run --rm platform-api php artisan list',
-                'docker compose --profile worker --profile scheduler config --quiet',
+                'docker compose --profile worker --profile scheduler --profile realtime config --quiet',
             ],
         ];
     }
@@ -190,7 +190,8 @@ class RuntimeReadinessService
      */
     private function reverbReadiness(): array
     {
-        $packageInstalled = class_exists('Laravel\\Reverb\\Servers\\Reverb\\Server');
+        $packageInstalled = class_exists('Laravel\\Reverb\\Application');
+        $runtimeProfileConfigured = $this->reverbRuntimeProfileConfigured();
         $configured = [
             'app_id' => trim((string) config('platform.realtime.app_id')) !== '',
             'app_key' => trim((string) config('platform.realtime.admin_key')) !== '',
@@ -203,10 +204,18 @@ class RuntimeReadinessService
             'central' => $this->routeUriExists('api/v1/admin/central/realtime/auth'),
             'tenant' => $this->routeUriExists('api/v1/admin/tenant/realtime/auth'),
         ];
+        $blockers = array_values(array_filter([
+            $packageInstalled ? null : 'reverb_package_missing',
+            $adminRoutes['central'] && $adminRoutes['tenant'] ? null : 'reverb_admin_auth_routes_missing',
+            $runtimeProfileConfigured ? null : 'reverb_runtime_profile_not_configured',
+            'reverb_tls_and_public_host_not_verified',
+            'reverb_scaling_and_load_not_verified',
+        ]));
 
         return [
-            'status' => $packageInstalled ? 'ready_local' : 'blocked_external',
+            'status' => $blockers === [] ? 'ready_local' : 'blocked_external',
             'package_installed' => $packageInstalled,
+            'runtime_profile_configured' => $runtimeProfileConfigured,
             'configured' => $configured,
             'redacted_config' => [
                 'app_id' => $this->configuredPlaceholder($configured['app_id']),
@@ -218,14 +227,23 @@ class RuntimeReadinessService
             ],
             'auth_endpoints' => $adminRoutes,
             'auth_boundary' => 'Existing admin realtime auth endpoints sign private/presence channels and remain API-compatible; no public websocket delivery is approved by this slice.',
-            'blockers' => array_values(array_filter([
-                $packageInstalled ? null : 'reverb_package_missing',
-                $adminRoutes['central'] && $adminRoutes['tenant'] ? null : 'reverb_admin_auth_routes_missing',
-                'reverb_runtime_profile_not_configured',
-                'reverb_tls_and_public_host_not_verified',
-                'reverb_scaling_and_load_not_verified',
-            ])),
+            'blockers' => $blockers,
         ];
+    }
+
+    private function reverbRuntimeProfileConfigured(): bool
+    {
+        $compose = $this->workspacePath('compose.yaml');
+
+        if (! is_file($compose)) {
+            return false;
+        }
+
+        $contents = (string) file_get_contents($compose);
+
+        return str_contains($contents, 'platform-api-reverb:')
+            && str_contains($contents, 'profiles: ["realtime"]')
+            && str_contains($contents, 'php artisan reverb:start');
     }
 
     /**

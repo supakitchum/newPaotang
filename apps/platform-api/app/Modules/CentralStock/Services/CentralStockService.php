@@ -24,6 +24,7 @@ use App\Shared\Auth\AdminSessionContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -2157,7 +2158,15 @@ class CentralStockService
             return;
         }
 
-        StockGenerationProgressUpdated::dispatch($this->generationProgressPayload($batch, $eventType));
+        try {
+            StockGenerationProgressUpdated::dispatch($this->generationProgressPayload($batch, $eventType));
+        } catch (Throwable $exception) {
+            Log::warning('Stock generation realtime progress broadcast failed.', [
+                'batch_id' => (string) $batch->id,
+                'event_type' => $eventType,
+                'message' => $exception->getMessage(),
+            ]);
+        }
     }
 
     /**

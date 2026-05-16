@@ -174,7 +174,7 @@ const props = withDefaults(defineProps<{
   gameId: '',
   submittedBatch: null,
   refreshKey: 0,
-  fallbackPollIntervalMs: 60000,
+  fallbackPollIntervalMs: 30000,
 })
 
 const emit = defineEmits<{
@@ -212,7 +212,7 @@ const realtime = useAdminRealtimeSubscription({
   onReconnect: handleRealtimeReconnect,
 })
 const realtimeStatus = computed(() => realtime.status.value)
-const realtimeSupportsPush = computed(() => ['connecting', 'authenticating', 'connected'].includes(realtimeStatus.value))
+const realtimeSupportsPush = computed(() => realtimeStatus.value === 'connected')
 const shouldUseFallbackPolling = computed(() => Boolean(activeBatch.value && !realtimeSupportsPush.value))
 const realtimeBadge = computed(() => realtimeConnectionBadge(realtimeStatus.value, realtime.isConfigured.value, fallbackPollIntervalMs.value))
 
