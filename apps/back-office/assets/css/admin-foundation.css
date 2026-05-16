@@ -134,6 +134,22 @@ body {
   z-index: 1030;
 }
 
+.np-admin-modal {
+  z-index: 2000;
+}
+
+.np-admin-modal-backdrop {
+  z-index: 1990;
+}
+
+.np-admin-modal .modal-dialog {
+  max-height: calc(100dvh - 2rem);
+}
+
+.np-admin-modal .modal-content {
+  max-height: inherit;
+}
+
 @media (max-width: 991.98px) {
   .app-header,
   .main-content.app-content,

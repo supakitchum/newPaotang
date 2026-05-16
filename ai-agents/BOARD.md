@@ -5,14 +5,14 @@
 ## Active Task
 
 ```text
-large-async-stock-generation
+modal-layer-runtime-migration-hotfix
 ```
 
 ## Agent Status
 
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
-| Coordinator | completed | large-async-stock-generation | ai-agents/handoffs/20260515-large-async-stock-generation-coordinator-handoff.md |
+| Coordinator | completed | modal-layer-runtime-migration-hotfix | ai-agents/handoffs/20260516-modal-layer-runtime-migration-hotfix-coordinator-handoff.md |
 | Orchestrator | completed | large-async-stock-generation-qa-dispatch | ai-agents/handoffs/20260516-large-async-stock-generation-qa-dispatch-orchestrator-handoff.md |
 | Backend Develop | completed | large-async-stock-generation-backend | ai-agents/handoffs/20260516-large-async-stock-generation-backend-handoff.md |
 | BO Develop | completed | large-async-stock-generation-bo | ai-agents/handoffs/20260516-large-async-stock-generation-bo-handoff.md |
@@ -22,11 +22,11 @@ large-async-stock-generation
 ## Open Questions
 
 ```text
-QA passed large async stock generation with accepted risk. Coordinator accepted Backend/API behavior, duplicate full_number preservation, no insertOrIgnore evidence, async chunking, idempotency, image dispatch separation, BO structural progress wiring, isolated test DB destructive commands, and runtime restore/login smoke. Remaining risk is authenticated BO browser UAT for live large-submit progress polling, blocked by unavailable browser automation; no Backend/BO remediation is required.
+Applied hotfix for BO modal layering and runtime async stock migration. Runtime DB migration 2026_05_16_000001_add_async_stock_generation_batches is now Ran, resolving missing stock_generation_batches.total_rounds. AdminModal now teleports to body, uses z-index above header/sidebar, and constrains long modal height to viewport scrolling. BO lint/build passed.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/decisions/20260516-large-async-stock-generation-qa-review-decision.md
+ai-agents/decisions/20260516-modal-layer-runtime-migration-hotfix-decision.md
 ```
