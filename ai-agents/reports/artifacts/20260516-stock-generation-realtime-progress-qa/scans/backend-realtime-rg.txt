@@ -1,0 +1,24 @@
+docs/openapi.yaml:473:        `private-admin.central.stock-generation`,
+docs/openapi.yaml:474:        `private-admin.central.stock-generation.game.{game_id}`, and
+docs/openapi.yaml:475:        `private-admin.central.stock-generation.batch.{batch_id}`. These stock generation
+docs/openapi.yaml:8620:          description: Private or presence channel name requested by the client. Central stock generation progress supports `private-admin.central.stock-generation`, `private-admin.central.stock-generation.game.{game_id}`, and `private-admin.central.stock-generation.batch.{batch_id}`.
+docs/openapi.yaml:8658:            - stock_generation.batch.queued
+docs/openapi.yaml:8659:            - stock_generation.batch.processing
+docs/openapi.yaml:8661:            - stock_generation.batch.completed
+docs/openapi.yaml:8662:            - stock_generation.batch.failed
+apps/platform-api/app/Modules/AdminOperations/Services/AdminOperationsService.php:253:        return $channelName === 'private-admin.central.stock-generation'
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:19:use App\Modules\CentralStock\Events\StockGenerationProgressUpdated;
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:1008:                ? 'stock_generation.batch.completed'
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:1009:                : 'stock_generation.batch.queued',
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:2034:                $this->broadcastGenerationProgress($failedBatchId, 'stock_generation.batch.failed');
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:2045:            $this->broadcastGenerationProgress($progress['batch_id'], 'stock_generation.batch.processing');
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:2053:            $this->broadcastGenerationProgress($progress['batch_id'], 'stock_generation.batch.completed');
+apps/platform-api/app/Modules/CentralStock/Services/CentralStockService.php:2160:        StockGenerationProgressUpdated::dispatch($this->generationProgressPayload($batch, $eventType));
+apps/platform-api/app/Modules/CentralStock/Events/StockGenerationProgressUpdated.php:11:class StockGenerationProgressUpdated implements ShouldBroadcastNow
+apps/platform-api/app/Modules/CentralStock/Events/StockGenerationProgressUpdated.php:27:    public function broadcastOn(): array
+apps/platform-api/app/Modules/CentralStock/Events/StockGenerationProgressUpdated.php:30:            new PrivateChannel('admin.central.stock-generation'),
+apps/platform-api/app/Modules/CentralStock/Events/StockGenerationProgressUpdated.php:35:            $channels[] = new PrivateChannel('admin.central.stock-generation.game.'.$gameId);
+apps/platform-api/app/Modules/CentralStock/Events/StockGenerationProgressUpdated.php:40:            $channels[] = new PrivateChannel('admin.central.stock-generation.batch.'.$batchId);
+apps/platform-api/app/Modules/CentralStock/Events/StockGenerationProgressUpdated.php:46:    public function broadcastAs(): string
+apps/platform-api/app/Modules/CentralStock/Events/StockGenerationProgressUpdated.php:48:        return 'stock.generation.progress.updated';
+apps/platform-api/app/Modules/CentralStock/Events/StockGenerationProgressUpdated.php:54:    public function broadcastWith(): array

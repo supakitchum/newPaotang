@@ -1,0 +1,7 @@
+commit 3cc1ed0f825eeed5fa591fa9e921ea65a71d99ee
+Author:     supakit <supakit_c@cmu.ac.th>
+AuthorDate: Sat May 16 13:27:31 2026 +0700
+Commit:     supakit <supakit_c@cmu.ac.th>
+CommitDate: Sat May 16 13:32:50 2026 +0700
+
+    stock-generation-realtime-progress-bo: use realtime batch updates

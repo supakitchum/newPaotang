@@ -5,28 +5,28 @@
 ## Active Task
 
 ```text
-stock-generation-realtime-progress
+stock-generation-realtime-runtime-readiness
 ```
 
 ## Agent Status
 
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
-| Coordinator | completed | stock-generation-realtime-progress | ai-agents/handoffs/20260516-stock-generation-realtime-progress-coordinator-handoff.md |
-| Orchestrator | completed | stock-generation-realtime-progress-qa-dispatch | ai-agents/handoffs/20260516-stock-generation-realtime-progress-qa-dispatch-orchestrator-handoff.md |
+| Coordinator | completed | stock-generation-realtime-runtime-readiness | ai-agents/handoffs/20260516-stock-generation-realtime-runtime-readiness-coordinator-handoff.md |
+| Orchestrator | pending | stock-generation-realtime-runtime-readiness | ai-agents/handoffs/20260516-stock-generation-realtime-runtime-readiness-coordinator-handoff.md |
 | Backend Develop | completed | stock-generation-realtime-progress-backend | ai-agents/handoffs/20260516-stock-generation-realtime-progress-backend-handoff.md |
 | BO Develop | completed | stock-generation-realtime-progress-bo | ai-agents/handoffs/20260516-stock-generation-realtime-progress-bo-handoff.md |
 | Customer Develop | completed | lottery-image-customer-ssr-error-serialization-remediation | ai-agents/handoffs/20260514-lottery-image-customer-ssr-error-serialization-remediation-customer-handoff.md |
-| QA Tester | pending | stock-generation-realtime-progress-qa | ai-agents/tasks/20260516-stock-generation-realtime-progress-qa.md |
+| QA Tester | completed | stock-generation-realtime-progress-qa | ai-agents/reports/20260516-stock-generation-realtime-progress-qa-report.md |
 
 ## Open Questions
 
 ```text
-User reported generation-batches is called too frequently. Coordinator opened stock-generation-realtime-progress so Orchestrator routes Backend -> BO -> QA. Required direction: replace active 5-second polling with authenticated central-admin websocket/realtime progress events, keeping REST endpoints only for initial snapshot/manual refresh/low-frequency fallback.
+QA returned PASS WITH RISK for stock-generation-realtime-progress. Implementation passed local Docker tests and active 5-second polling is removed, but clean realtime closure is blocked until local/dev websocket runtime is configured and BO receives real stock.generation.progress.updated events. Orchestrator should route stock-generation-realtime-runtime-readiness next.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/decisions/20260516-stock-generation-realtime-progress-decision.md
+ai-agents/decisions/20260516-stock-generation-realtime-progress-qa-review-decision.md
 ```

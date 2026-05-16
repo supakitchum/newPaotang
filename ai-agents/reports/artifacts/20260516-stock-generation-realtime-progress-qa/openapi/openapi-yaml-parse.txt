@@ -1,0 +1,16 @@
+ Container newpaotang-valkey-1 Running 
+ Container newpaotang-postgres-1 Running 
+ Container newpaotang-postgres-1 Waiting 
+ Container newpaotang-valkey-1 Waiting 
+ Container newpaotang-postgres-1 Healthy 
+ Container newpaotang-valkey-1 Healthy 
+ Container newpaotang-platform-api-run-441031131502 Creating 
+ Container newpaotang-platform-api-run-441031131502 Created 
+
+Fatal error: Uncaught Symfony\Component\Yaml\Exception\ParseException: File "/var/www/html/docs/openapi.yaml" does not exist. in /tmp/tmp.n0QouMXPFr/vendor/symfony/yaml/Parser.php:53
+Stack trace:
+#0 /tmp/tmp.n0QouMXPFr/vendor/symfony/yaml/Yaml.php(59): Symfony\Component\Yaml\Parser->parseFile('/var/www/html/d...', 0)
+#1 Command line code(1): Symfony\Component\Yaml\Yaml::parseFile('/var/www/html/d...')
+#2 {main}
+  thrown in /tmp/tmp.n0QouMXPFr/vendor/symfony/yaml/Parser.php on line 53
+

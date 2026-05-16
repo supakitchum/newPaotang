@@ -1,0 +1,5 @@
+ Container newpaotang-back-office-1 Stopping 
+ Container newpaotang-back-office-1 Stopped 
+Going to remove newpaotang-back-office-1
+ Container newpaotang-back-office-1 Removing 
+ Container newpaotang-back-office-1 Removed 

@@ -1,0 +1,2 @@
+Authenticated page opened at http://localhost:3100/admin/central/stock-generation
+Browser sandbox exposes document/location but not window.fetch, XMLHttpRequest, or performance resource timing to this automation surface, so request-frequency network entries could not be captured from the in-app browser. Structural polling evidence and runtime/browser page evidence are captured separately.

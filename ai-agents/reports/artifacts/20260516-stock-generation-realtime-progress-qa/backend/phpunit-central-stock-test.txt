@@ -1,0 +1,130 @@
+ Container newpaotang-valkey-1 Running 
+ Container newpaotang-postgres-1 Running 
+ Container newpaotang-postgres-1 Waiting 
+ Container newpaotang-valkey-1 Waiting 
+ Container newpaotang-valkey-1 Healthy 
+ Container newpaotang-postgres-1 Healthy 
+ Container newpaotang-platform-api-run-6f7db9309161 Creating 
+ Container newpaotang-platform-api-run-6f7db9309161 Created 
+
+  [39;41;1m FAIL [39;49;22m[39m Tests\Feature\CentralStockTest[39m
+  [31;1m⨯[39;22m[90m [39m[90mcentral stock generate import export list and recall are permissioned safe and audited[39m
+  [31;1m⨯[39;22m[90m [39m[90mcentral stock summary widgets aggregate coverage filters and permissions[39m
+  [31;1m⨯[39;22m[90m [39m[90mcentral stock large async generation chunks progress idempotency duplicates and image dispatch[39m
+  [31;1m⨯[39;22m[90m [39m[90mcentral stock async generation broadcasts realtime progress events[39m
+  [31;1m⨯[39;22m[90m [39m[90mcentral stock async generation failed chunk rolls back without partial rows[39m
+  [31;1m⨯[39;22m[90m [39m[90mcentral stock generate quota validation rejects conflicts over limit and legacy payloads[39m
+  [31m────────────────────────────────────────────────────────────────────────────[39m  
+  [41;1m FAILED [49;22m [1mTests\Feature\CentralStockTest[22m [90m>[39m central stock ge… [41;1m QueryException [49;22m  
+[39;1m  SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "migrations" does not exist
+LINE 1: select max("batch") as aggregate from "migrations"
+                                              ^ (Connection: pgsql, Host: postgres, Port: 5432, Database: newpaotang_test, SQL: select max("batch") as aggregate from "migrations")[39;22m
+
+  at [32mvendor/laravel/framework/src/Illuminate/Database/Connection.php[39m:[32m841[39m
+    837▕             $exceptionType = ($isUniqueConstraintError = $this->isUniqueConstraintError($e))
+    838▕                 ? UniqueConstraintViolationException::class
+    839▕                 : QueryException::class;
+    840▕ 
+  ➜ 841▕             $exception = new $exceptionType(
+    842▕                 $this->getNameWithReadWriteType(),
+    843▕                 $query,
+    844▕                 $this->prepareBindings($bindings),
+    845▕                 $e,
+
+
+  [31m────────────────────────────────────────────────────────────────────────────[39m  
+  [41;1m FAILED [49;22m [1mTests\Feature\CentralStockTes[22m… [41;1m UniqueConstraintViolationException [49;22m  
+[39;1m  SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "pg_type_typname_nsp_index"
+DETAIL:  Key (typname, typnamespace)=(partners, 2200) already exists. (Connection: pgsql, Host: postgres, Port: 5432, Database: newpaotang_test, SQL: create table "partners" ("id" varchar(30) not null, "code" varchar(255) not null, "name" varchar(255) not null, "type" varchar(255) not null default 'partner_store', "status" varchar(255) not null default 'draft', "created_at" timestamp(0) with time zone null, "updated_at" timestamp(0) with time zone null))[39;22m
+
+  at [32mvendor/laravel/framework/src/Illuminate/Database/Connection.php[39m:[32m841[39m
+    837▕             $exceptionType = ($isUniqueConstraintError = $this->isUniqueConstraintError($e))
+    838▕                 ? UniqueConstraintViolationException::class
+    839▕                 : QueryException::class;
+    840▕ 
+  ➜ 841▕             $exception = new $exceptionType(
+    842▕                 $this->getNameWithReadWriteType(),
+    843▕                 $query,
+    844▕                 $this->prepareBindings($bindings),
+    845▕                 $e,
+
+      [2m+10 vendor frames [22m
+  [33m11  [39m[39;1mdatabase/migrations/2026_05_06_000001_create_platform_core_tables.php[39;22m:[39;1m11[39;22m
+
+  [31m────────────────────────────────────────────────────────────────────────────[39m  
+  [41;1m FAILED [49;22m [1mTests\Feature\CentralStockTest[22m [90m>[39m central stock la… [41;1m QueryException [49;22m  
+[39;1m  SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "migrations" does not exist
+LINE 1: insert into "migrations" ("migration", "batch") values ($1, ...
+                    ^ (Connection: pgsql, Host: postgres, Port: 5432, Database: newpaotang_test, SQL: insert into "migrations" ("migration", "batch") values (2026_05_06_000004_create_partner_provisioning_tables, 1))[39;22m
+
+  at [32mvendor/laravel/framework/src/Illuminate/Database/Connection.php[39m:[32m841[39m
+    837▕             $exceptionType = ($isUniqueConstraintError = $this->isUniqueConstraintError($e))
+    838▕                 ? UniqueConstraintViolationException::class
+    839▕                 : QueryException::class;
+    840▕ 
+  ➜ 841▕             $exception = new $exceptionType(
+    842▕                 $this->getNameWithReadWriteType(),
+    843▕                 $query,
+    844▕                 $this->prepareBindings($bindings),
+    845▕                 $e,
+
+
+  [31m────────────────────────────────────────────────────────────────────────────[39m  
+  [41;1m FAILED [49;22m [1mTests\Feature\CentralStockTest[22m [90m>[39m central stock as… [41;1m QueryException [49;22m  
+[39;1m  SQLSTATE[42P07]: Duplicate table: 7 ERROR:  relation "partners" already exists (Connection: pgsql, Host: postgres, Port: 5432, Database: newpaotang_test, SQL: create table "partners" ("id" varchar(30) not null, "code" varchar(255) not null, "name" varchar(255) not null, "type" varchar(255) not null default 'partner_store', "status" varchar(255) not null default 'draft', "created_at" timestamp(0) with time zone null, "updated_at" timestamp(0) with time zone null))[39;22m
+
+  at [32mvendor/laravel/framework/src/Illuminate/Database/Connection.php[39m:[32m841[39m
+    837▕             $exceptionType = ($isUniqueConstraintError = $this->isUniqueConstraintError($e))
+    838▕                 ? UniqueConstraintViolationException::class
+    839▕                 : QueryException::class;
+    840▕ 
+  ➜ 841▕             $exception = new $exceptionType(
+    842▕                 $this->getNameWithReadWriteType(),
+    843▕                 $query,
+    844▕                 $this->prepareBindings($bindings),
+    845▕                 $e,
+
+      [2m+10 vendor frames [22m
+  [33m11  [39m[39;1mdatabase/migrations/2026_05_06_000001_create_platform_core_tables.php[39;22m:[39;1m11[39;22m
+
+  [31m────────────────────────────────────────────────────────────────────────────[39m  
+  [41;1m FAILED [49;22m [1mTests\Feature\CentralStockTest[22m [90m>[39m central stock as… [41;1m QueryException [49;22m  
+[39;1m  SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "migrations" does not exist
+LINE 1: insert into "migrations" ("migration", "batch") values ($1, ...
+                    ^ (Connection: pgsql, Host: postgres, Port: 5432, Database: newpaotang_test, SQL: insert into "migrations" ("migration", "batch") values (2026_05_06_000004_create_partner_provisioning_tables, 1))[39;22m
+
+  at [32mvendor/laravel/framework/src/Illuminate/Database/Connection.php[39m:[32m841[39m
+    837▕             $exceptionType = ($isUniqueConstraintError = $this->isUniqueConstraintError($e))
+    838▕                 ? UniqueConstraintViolationException::class
+    839▕                 : QueryException::class;
+    840▕ 
+  ➜ 841▕             $exception = new $exceptionType(
+    842▕                 $this->getNameWithReadWriteType(),
+    843▕                 $query,
+    844▕                 $this->prepareBindings($bindings),
+    845▕                 $e,
+
+
+  [31m────────────────────────────────────────────────────────────────────────────[39m  
+  [41;1m FAILED [49;22m [1mTests\Feature\CentralStockTest[22m [90m>[39m central stock ge… [41;1m QueryException [49;22m  
+[39;1m  SQLSTATE[42P07]: Duplicate table: 7 ERROR:  relation "partners" already exists (Connection: pgsql, Host: postgres, Port: 5432, Database: newpaotang_test, SQL: create table "partners" ("id" varchar(30) not null, "code" varchar(255) not null, "name" varchar(255) not null, "type" varchar(255) not null default 'partner_store', "status" varchar(255) not null default 'draft', "created_at" timestamp(0) with time zone null, "updated_at" timestamp(0) with time zone null))[39;22m
+
+  at [32mvendor/laravel/framework/src/Illuminate/Database/Connection.php[39m:[32m841[39m
+    837▕             $exceptionType = ($isUniqueConstraintError = $this->isUniqueConstraintError($e))
+    838▕                 ? UniqueConstraintViolationException::class
+    839▕                 : QueryException::class;
+    840▕ 
+  ➜ 841▕             $exception = new $exceptionType(
+    842▕                 $this->getNameWithReadWriteType(),
+    843▕                 $query,
+    844▕                 $this->prepareBindings($bindings),
+    845▕                 $e,
+
+      [2m+10 vendor frames [22m
+  [33m11  [39m[39;1mdatabase/migrations/2026_05_06_000001_create_platform_core_tables.php[39;22m:[39;1m11[39;22m
+
+
+  [90mTests:[39m    [31;1m6 failed[39;22m[90m (0 assertions)[39m
+  [90mDuration:[39m [39m1.41s[39m
+
+
