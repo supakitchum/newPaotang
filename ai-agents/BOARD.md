@@ -13,8 +13,8 @@ stock-generation-realtime-progress
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
 | Coordinator | completed | stock-generation-realtime-progress | ai-agents/handoffs/20260516-stock-generation-realtime-progress-coordinator-handoff.md |
-| Orchestrator | completed | stock-generation-realtime-progress | ai-agents/handoffs/20260516-stock-generation-realtime-progress-orchestrator-handoff.md |
-| Backend Develop | pending | stock-generation-realtime-progress-backend | ai-agents/tasks/20260516-stock-generation-realtime-progress-backend.md |
+| Orchestrator | completed | stock-generation-realtime-progress-bo-dispatch | ai-agents/handoffs/20260516-stock-generation-realtime-progress-bo-dispatch-orchestrator-handoff.md |
+| Backend Develop | completed | stock-generation-realtime-progress-backend | ai-agents/handoffs/20260516-stock-generation-realtime-progress-backend-handoff.md |
 | BO Develop | pending | stock-generation-realtime-progress-bo | ai-agents/tasks/20260516-stock-generation-realtime-progress-bo.md |
 | Customer Develop | completed | lottery-image-customer-ssr-error-serialization-remediation | ai-agents/handoffs/20260514-lottery-image-customer-ssr-error-serialization-remediation-customer-handoff.md |
 | QA Tester | pending | stock-generation-realtime-progress-qa | ai-agents/tasks/20260516-stock-generation-realtime-progress-qa.md |
