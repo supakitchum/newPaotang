@@ -11,13 +11,19 @@ Back-office realtime stock generation progress.
 Implementation commit:
 
 ```text
-d38abac3c1daf8e696ce828f7d2832df24162800
+3cc1ed0c22645be585353fe1ec9a506299e18d4b
 ```
 
 Branch:
 
 ```text
 codex/stock-generation-realtime-progress-bo
+```
+
+Branch baseline includes Orchestrator BO dispatch commit:
+
+```text
+5c2a30d28746d3edfa210de83888f85852b611cf
 ```
 
 ## Files Changed
