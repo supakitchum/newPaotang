@@ -35,6 +35,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       adminApiBase: process.env.VITE_ADMIN_API_BASE || process.env.NUXT_PUBLIC_ADMIN_API_BASE || 'http://localhost:8000/api/v1',
+      adminRealtimeUrl: process.env.VITE_ADMIN_REALTIME_URL || process.env.NUXT_PUBLIC_ADMIN_REALTIME_URL || '',
+      adminRealtimeKey: process.env.VITE_ADMIN_REALTIME_KEY || process.env.NUXT_PUBLIC_ADMIN_REALTIME_KEY || 'newpaotang-admin',
     },
   },
   typescript: {

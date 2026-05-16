@@ -5,11 +5,17 @@
         <div class="card-title mb-1">Generation progress</div>
         <p class="text-muted fs-12 mb-0">Queued, processing, completed, and failed stock generation batches for the selected game.</p>
       </div>
-      <button class="btn btn-sm btn-light btn-wave" type="button" :disabled="loading || !normalizedGameId" @click="loadBatches">
-        <span v-if="loading" class="spinner-border spinner-border-sm me-1" />
-        <i v-else class="ri-refresh-line me-1" />
-        Refresh
-      </button>
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <span :class="['badge', realtimeBadge.className]">
+          <i :class="[realtimeBadge.icon, 'me-1']" />
+          {{ realtimeBadge.label }}
+        </span>
+        <button class="btn btn-sm btn-light btn-wave" type="button" :disabled="loading || !normalizedGameId" @click="manualRefresh">
+          <span v-if="loading" class="spinner-border spinner-border-sm me-1" />
+          <i v-else class="ri-refresh-line me-1" />
+          Refresh
+        </button>
+      </div>
     </div>
 
     <div class="card-body">
@@ -163,12 +169,12 @@ const props = withDefaults(defineProps<{
   gameId?: string | number | null
   submittedBatch?: StockGenerationBatch | null
   refreshKey?: number
-  pollIntervalMs?: number
+  fallbackPollIntervalMs?: number
 }>(), {
   gameId: '',
   submittedBatch: null,
   refreshKey: 0,
-  pollIntervalMs: 5000,
+  fallbackPollIntervalMs: 60000,
 })
 
 const emit = defineEmits<{
@@ -186,15 +192,29 @@ const batchDetail = ref<StockGenerationBatch | null>(null)
 const selectedBatchId = ref('')
 const requestSerial = ref(0)
 const lastProgressKey = ref('')
-let pollTimer: ReturnType<typeof setInterval> | null = null
+let fallbackPollTimer: ReturnType<typeof setTimeout> | null = null
 
 const normalizedGameId = computed(() => String(props.gameId ?? '').trim())
+const realtimeChannelName = computed(() => normalizedGameId.value ? `private-admin.central.stock-generation.game.${normalizedGameId.value}` : '')
+const realtimeEnabled = computed(() => Boolean(normalizedGameId.value && session.isAuthenticated.value))
 const selectedBatch = computed(() => batchDetail.value || batches.value.find((batch) => batch.id === selectedBatchId.value) || null)
 const activeBatch = computed(() => selectedBatch.value && isActiveBatch(selectedBatch.value)
   ? selectedBatch.value
   : batches.value.find(isActiveBatch) || null)
 const detailRows = computed(() => selectedBatch.value?.chunks || [])
 const imageState = computed(() => imageDispatchState(selectedBatch.value))
+const fallbackPollIntervalMs = computed(() => Math.max(30000, Number(props.fallbackPollIntervalMs || 60000)))
+const realtime = useAdminRealtimeSubscription({
+  channelName: realtimeChannelName,
+  eventName: 'stock.generation.progress.updated',
+  enabled: realtimeEnabled,
+  onEvent: handleRealtimeProgressEvent,
+  onReconnect: handleRealtimeReconnect,
+})
+const realtimeStatus = computed(() => realtime.status.value)
+const realtimeSupportsPush = computed(() => ['connecting', 'authenticating', 'connected'].includes(realtimeStatus.value))
+const shouldUseFallbackPolling = computed(() => Boolean(activeBatch.value && !realtimeSupportsPush.value))
+const realtimeBadge = computed(() => realtimeConnectionBadge(realtimeStatus.value, realtime.isConfigured.value, fallbackPollIntervalMs.value))
 
 watch(
   () => [normalizedGameId.value, props.refreshKey, session.isAuthenticated.value],
@@ -216,9 +236,20 @@ watch(
   { deep: true },
 )
 
+watch(
+  () => [shouldUseFallbackPolling.value, fallbackPollIntervalMs.value, realtimeStatus.value],
+  () => {
+    updateFallbackPolling()
+  },
+)
+
 onBeforeUnmount(() => {
-  stopPolling()
+  stopFallbackPolling()
 })
+
+function manualRefresh() {
+  void loadBatches()
+}
 
 async function loadBatches() {
   if (!import.meta.client) {
@@ -236,7 +267,7 @@ async function loadBatches() {
     batchDetail.value = null
     selectedBatchId.value = ''
     updateActiveState()
-    stopPolling()
+    stopFallbackPolling()
     return
   }
 
@@ -316,7 +347,12 @@ function registerBatch(batch: StockGenerationBatch, select = true) {
 
   const existingIndex = batches.value.findIndex((entry) => entry.id === normalized.id)
   if (existingIndex >= 0) {
-    batches.value[existingIndex] = { ...batches.value[existingIndex], ...normalized }
+    const existing = batches.value[existingIndex]
+    batches.value[existingIndex] = {
+      ...existing,
+      ...normalized,
+      chunks: normalized.chunks ?? existing.chunks,
+    }
   } else {
     batches.value = [normalized, ...batches.value]
   }
@@ -325,7 +361,11 @@ function registerBatch(batch: StockGenerationBatch, select = true) {
     selectedBatchId.value = normalized.id
   }
   if (selectedBatchId.value === normalized.id) {
-    batchDetail.value = normalized
+    batchDetail.value = {
+      ...(batchDetail.value || {}),
+      ...normalized,
+      chunks: normalized.chunks ?? batchDetail.value?.chunks,
+    }
   }
 
   updateActiveState()
@@ -344,6 +384,7 @@ function updateActiveState() {
         progressBatch.requested_count,
         progressBatch.processed_rounds,
         progressBatch.failure_reason,
+        progressBatch.image_dispatch_status,
       ].join(':')
     : ''
 
@@ -352,34 +393,67 @@ function updateActiveState() {
     emit('progress', progressBatch || null)
   }
 
-  if (current) {
-    startPolling()
+  updateFallbackPolling()
+}
+
+function updateFallbackPolling() {
+  if (shouldUseFallbackPolling.value) {
+    startFallbackPolling()
   } else {
-    stopPolling()
+    stopFallbackPolling()
   }
 }
 
-function startPolling() {
-  if (!import.meta.client || pollTimer !== null) {
+function startFallbackPolling() {
+  if (!import.meta.client || fallbackPollTimer !== null) {
     return
   }
 
-  pollTimer = window.setInterval(() => {
-    void loadBatches()
-  }, props.pollIntervalMs)
+  fallbackPollTimer = window.setTimeout(() => {
+    fallbackPollTimer = null
+    if (!shouldUseFallbackPolling.value) {
+      return
+    }
+
+    void loadBatches().finally(() => {
+      updateFallbackPolling()
+    })
+  }, fallbackPollIntervalMs.value)
 }
 
-function stopPolling() {
-  if (pollTimer === null) {
+function stopFallbackPolling() {
+  if (fallbackPollTimer === null || !import.meta.client) {
     return
   }
 
-  window.clearInterval(pollTimer)
-  pollTimer = null
+  window.clearTimeout(fallbackPollTimer)
+  fallbackPollTimer = null
 }
 
 function isActiveBatch(batch: StockGenerationBatch | null | undefined) {
   return ['queued', 'pending', 'processing'].includes(String(batch?.status || '').toLowerCase())
+}
+
+function handleRealtimeProgressEvent(payload: any) {
+  const batch = realtimePayloadToBatch(payload)
+  if (!batch.id || String(batch.game_id || '') !== normalizedGameId.value) {
+    return
+  }
+
+  registerBatch(batch, !selectedBatchId.value || selectedBatchId.value === batch.id || isActiveBatch(batch))
+}
+
+function handleRealtimeReconnect() {
+  void loadBatches()
+}
+
+function realtimePayloadToBatch(payload: any): StockGenerationBatch {
+  const source = payload?.batch || payload?.data || payload || {}
+  return normalizeBatch({
+    ...source,
+    id: source.id || source.batch_id,
+    image_dispatch_status: source.image_dispatch_status,
+  })
 }
 
 function normalizeBatch(batch: any): StockGenerationBatch {
@@ -451,6 +525,38 @@ function statusClass(status: string) {
   if (['queued', 'pending', 'processing', 'dispatching'].includes(value)) return 'bg-warning-transparent text-warning'
   if (['failed', 'error'].includes(value)) return 'bg-danger-transparent text-danger'
   return 'bg-secondary-transparent text-secondary'
+}
+
+function realtimeConnectionBadge(status: string, configured: boolean, fallbackMs: number) {
+  if (status === 'connected') {
+    return {
+      label: 'Realtime',
+      icon: 'ri-broadcast-line',
+      className: 'bg-success-transparent text-success',
+    }
+  }
+
+  if (['connecting', 'authenticating', 'reconnecting'].includes(status)) {
+    return {
+      label: 'Connecting realtime',
+      icon: 'ri-loader-4-line',
+      className: 'bg-warning-transparent text-warning',
+    }
+  }
+
+  if (!configured || status === 'unavailable' || status === 'error') {
+    return {
+      label: `Fallback ${Math.round(fallbackMs / 1000)}s`,
+      icon: 'ri-timer-line',
+      className: 'bg-secondary-transparent text-secondary',
+    }
+  }
+
+  return {
+    label: 'Realtime idle',
+    icon: 'ri-broadcast-line',
+    className: 'bg-secondary-transparent text-secondary',
+  }
 }
 
 function progressPercent(batch: StockGenerationBatch | null | undefined) {

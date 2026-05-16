@@ -20,6 +20,7 @@ const requiredFiles = [
   'composables/useAdminSuccessAlert.ts',
   'composables/useAdminClientReady.ts',
   'composables/useAdminSession.ts',
+  'composables/useAdminRealtime.ts',
   'composables/useAdminNavigation.ts',
   'composables/useAdminOperationsCatalog.ts',
   'scripts/openapi-admin-paths.snapshot.json',

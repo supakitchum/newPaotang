@@ -151,10 +151,41 @@ for (const token of [
   'active-change',
   'Images waiting for stock',
   'Images not reported by batch API',
-  'window.setInterval',
+  'useAdminRealtimeSubscription',
+  'private-admin.central.stock-generation.game.',
+  'stock.generation.progress.updated',
+  'fallbackPollIntervalMs: 60000',
+  'window.setTimeout',
 ]) {
   if (!progressComponent.includes(token)) {
     failures.push(`Async stock generation progress widget is missing token: ${token}`)
+  }
+}
+
+for (const removedRealtimeToken of [
+  'pollIntervalMs: 5000',
+  'window.setInterval',
+]) {
+  if (progressComponent.includes(removedRealtimeToken)) {
+    failures.push(`Async stock generation progress widget still exposes chatty polling token: ${removedRealtimeToken}`)
+  }
+}
+
+const realtimeComposable = existsSync(join(root, 'composables/useAdminRealtime.ts'))
+  ? read('composables/useAdminRealtime.ts')
+  : ''
+
+for (const token of [
+  '/admin/central/realtime/auth',
+  'pusher:connection_established',
+  'pusher:subscribe',
+  'pusher:unsubscribe',
+  'onReconnect',
+  'adminRealtimeUrl',
+  'adminRealtimeKey',
+]) {
+  if (!realtimeComposable.includes(token)) {
+    failures.push(`Admin realtime composable is missing token: ${token}`)
   }
 }
 
