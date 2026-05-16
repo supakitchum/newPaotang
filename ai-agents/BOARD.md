@@ -5,28 +5,28 @@
 ## Active Task
 
 ```text
-queue-worker-runtime-hotfix
+stock-generation-realtime-progress
 ```
 
 ## Agent Status
 
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
-| Coordinator | completed | queue-worker-runtime-hotfix | ai-agents/handoffs/20260516-queue-worker-runtime-hotfix-coordinator-handoff.md |
-| Orchestrator | completed | large-async-stock-generation-qa-dispatch | ai-agents/handoffs/20260516-large-async-stock-generation-qa-dispatch-orchestrator-handoff.md |
-| Backend Develop | completed | large-async-stock-generation-backend | ai-agents/handoffs/20260516-large-async-stock-generation-backend-handoff.md |
-| BO Develop | completed | large-async-stock-generation-bo | ai-agents/handoffs/20260516-large-async-stock-generation-bo-handoff.md |
+| Coordinator | completed | stock-generation-realtime-progress | ai-agents/handoffs/20260516-stock-generation-realtime-progress-coordinator-handoff.md |
+| Orchestrator | pending | stock-generation-realtime-progress | ai-agents/handoffs/20260516-stock-generation-realtime-progress-coordinator-handoff.md |
+| Backend Develop | pending | stock-generation-realtime-progress-backend | ai-agents/tasks/20260516-stock-generation-realtime-progress-backend.md |
+| BO Develop | pending | stock-generation-realtime-progress-bo | ai-agents/tasks/20260516-stock-generation-realtime-progress-bo.md |
 | Customer Develop | completed | lottery-image-customer-ssr-error-serialization-remediation | ai-agents/handoffs/20260514-lottery-image-customer-ssr-error-serialization-remediation-customer-handoff.md |
-| QA Tester | completed | large-async-stock-generation-qa | ai-agents/reports/20260516-large-async-stock-generation-qa-report.md |
+| QA Tester | pending | stock-generation-realtime-progress-qa | ai-agents/tasks/20260516-stock-generation-realtime-progress-qa.md |
 
 ## Open Questions
 
 ```text
-Applied queue worker runtime hotfix. Docker worker defaults, .env.example, and queue profile catalog now include stock-generation, stock-image-generation, and stock-partner-image-generation. Started platform-api-worker with the worker profile, platform:smoke passed, and worker logs show GenerateStockBatchChunkJob processing the active async stock generation batch.
+User reported generation-batches is called too frequently. Coordinator opened stock-generation-realtime-progress so Orchestrator routes Backend -> BO -> QA. Required direction: replace active 5-second polling with authenticated central-admin websocket/realtime progress events, keeping REST endpoints only for initial snapshot/manual refresh/low-frequency fallback.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/decisions/20260516-queue-worker-runtime-hotfix-decision.md
+ai-agents/decisions/20260516-stock-generation-realtime-progress-decision.md
 ```
