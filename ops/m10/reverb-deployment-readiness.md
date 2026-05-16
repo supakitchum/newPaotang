@@ -15,6 +15,18 @@ POST /api/v1/admin/tenant/realtime/auth
 
 They remain permissioned through the current admin auth and tenant-scope middleware. The readiness command reports endpoint presence without exposing `REVERB_APP_KEY`, `REVERB_APP_SECRET`, hostnames, or production URLs.
 
+Stock generation realtime progress adds central-admin-only private channels:
+
+```text
+private-admin.central.stock-generation
+private-admin.central.stock-generation.game.{game_id}
+private-admin.central.stock-generation.batch.{batch_id}
+```
+
+These channels are authorized through `POST /api/v1/admin/central/realtime/auth` only and require authenticated central scope plus `stock.generate`. Tenant-scope admins are rejected for these channels.
+
+The backend event contract is `stock.generation.progress.updated`; local/dev broadcasting defaults to the `log` driver until Reverb runtime is approved.
+
 Run the local verifier through Docker:
 
 ```sh

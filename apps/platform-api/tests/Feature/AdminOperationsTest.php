@@ -100,6 +100,47 @@ class AdminOperationsTest extends TestCase
             ->assertJsonPath('error.code', 'permission_denied');
     }
 
+    public function test_AdminRealtime_stock_generation_channels_require_central_stock_generate_permission(): void
+    {
+        $this->seedDefaultRbac();
+        $stockLogin = $this->createCentralSession(['stock.generate'], 'adm_realtime_stock', 'realtime-stock@example.test', 'central_stock_realtime');
+        $deniedLogin = $this->createCentralSession(['stock.view'], 'adm_realtime_stock_denied', 'realtime-stock-denied@example.test', 'central_stock_realtime_denied');
+        $tenantLogin = $this->createTenantSession([]);
+
+        foreach ([
+            'private-admin.central.stock-generation',
+            'private-admin.central.stock-generation.game.gam_realtime',
+            'private-admin.central.stock-generation.batch.stb_realtime',
+        ] as $channelName) {
+            $this->withToken($stockLogin['access_token'])
+                ->postJson('/api/v1/admin/central/realtime/auth', [
+                    'socket_id' => '2222.3333',
+                    'channel_name' => $channelName,
+                ], ['X-Admin-Scope' => 'central'])
+                ->assertOk()
+                ->assertJsonStructure(['auth', 'channel_data', 'expires_at']);
+        }
+
+        $this->withToken($deniedLogin['access_token'])
+            ->postJson('/api/v1/admin/central/realtime/auth', [
+                'socket_id' => '2222.3333',
+                'channel_name' => 'private-admin.central.stock-generation.batch.stb_realtime',
+            ], ['X-Admin-Scope' => 'central'])
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'permission_denied');
+
+        $this->withToken($tenantLogin['access_token'])
+            ->postJson('/api/v1/admin/tenant/realtime/auth', [
+                'socket_id' => '2222.3333',
+                'channel_name' => 'private-admin.central.stock-generation',
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_auth',
+            ])
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'permission_denied');
+    }
+
     public function test_AdminMenu_management_read_and_update_validates_idempotency_and_writes_audit(): void
     {
         $this->seedDefaultRbac();
@@ -350,14 +391,21 @@ class AdminOperationsTest extends TestCase
      * @param array<int, string> $permissions
      * @return array<string, mixed>
      */
-    private function createCentralSession(array $permissions): array
+    private function createCentralSession(
+        array $permissions,
+        string $adminId = 'adm_central',
+        string $email = 'central@example.test',
+        string $roleCode = 'central_ops',
+    ): array
     {
-        $this->createAdmin('adm_central', 'central@example.test');
-        $this->createAdminScope('scp_central', 'central');
-        $this->assignRoleWithPermissions('adm_central', 'scp_central', 'central', null, $permissions, 'central_ops');
+        $scopeId = $adminId === 'adm_central' ? 'scp_central' : 'scp_'.$adminId;
+
+        $this->createAdmin($adminId, $email);
+        $this->createAdminScope($scopeId, 'central');
+        $this->assignRoleWithPermissions($adminId, $scopeId, 'central', null, $permissions, $roleCode);
 
         return $this->loginAdmin([
-            'email' => 'central@example.test',
+            'email' => $email,
             'password' => 'secret-password',
             'scope' => 'central',
         ]);

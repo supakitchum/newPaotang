@@ -153,6 +153,27 @@ Failed generation recovery:
 
 Readiness output must remain safe to paste into QA artifacts. It reports presence booleans and queue names only; it must not print access keys, secret keys, session tokens, signed URLs, bucket names, endpoint URLs, or raw CDN host values.
 
+## Stock Generation Realtime Progress
+
+Async stock generation emits Laravel broadcast events on these private central-admin channels:
+
+```text
+private-admin.central.stock-generation
+private-admin.central.stock-generation.game.{game_id}
+private-admin.central.stock-generation.batch.{batch_id}
+```
+
+Channel authorization uses:
+
+```text
+POST /api/v1/admin/central/realtime/auth
+X-Admin-Scope: central
+```
+
+The stock generation channels require `stock.generate`; tenant-admin realtime auth must not authorize them.
+
+Local/dev broadcasting defaults to the `log` broadcaster so backend event contracts and auth can be validated without claiming production websocket readiness. Production websocket delivery remains blocked until the Reverb package/runtime, public host/TLS, scaling, and secret-management evidence are approved in the M10 readiness docs.
+
 ## Controller Convention
 
 The active Platform API controller convention is module-based. This backend is a Laravel Modular Monolith, so controllers sit inside their owning domain modules:

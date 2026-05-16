@@ -115,6 +115,13 @@ class AdminOperationsService
         ];
     }
 
+    public function requiredRealtimePermission(string $scopeType, string $channelName): ?string
+    {
+        return $scopeType === 'central' && $this->isCentralStockGenerationChannel($channelName)
+            ? 'stock.generate'
+            : null;
+    }
+
     /**
      * @param array<string, mixed> $queryParams
      * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
@@ -221,7 +228,7 @@ class AdminOperationsService
                 'private-admin.central.menu',
                 'private-admin.central.admin.'.$adminUserId,
                 'presence-admin.central.admin.'.$adminUserId,
-            ], true);
+            ], true) || $this->isCentralStockGenerationChannel($channelName);
         }
 
         $tenantId = $context->activeTenantId();
@@ -239,6 +246,13 @@ class AdminOperationsService
             'private-admin.tenant.'.$tenantId.'.admin.'.$adminUserId,
             'presence-admin.tenant.'.$tenantId.'.admin.'.$adminUserId,
         ], true);
+    }
+
+    private function isCentralStockGenerationChannel(string $channelName): bool
+    {
+        return $channelName === 'private-admin.central.stock-generation'
+            || preg_match('/^private-admin\.central\.stock-generation\.game\.[A-Za-z0-9_-]+$/', $channelName) === 1
+            || preg_match('/^private-admin\.central\.stock-generation\.batch\.[A-Za-z0-9_-]+$/', $channelName) === 1;
     }
 
     private function limit(mixed $value): int

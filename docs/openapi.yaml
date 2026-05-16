@@ -468,6 +468,12 @@ paths:
     post:
       tags: [Realtime]
       summary: Authorize central admin private realtime channel subscription
+      description: >
+        Authorizes central admin realtime channels. Stock generation progress channels are
+        `private-admin.central.stock-generation`,
+        `private-admin.central.stock-generation.game.{game_id}`, and
+        `private-admin.central.stock-generation.batch.{batch_id}`. These stock generation
+        channels require central scope and `stock.generate`.
       parameters:
         - $ref: "#/components/parameters/CentralAdminScopeHeader"
         - $ref: "#/components/parameters/RequestIdHeader"
@@ -8611,7 +8617,7 @@ components:
           description: Reverb/Echo socket id from the connecting client.
         channel_name:
           type: string
-          description: Private or presence channel name requested by the client.
+          description: Private or presence channel name requested by the client. Central stock generation progress supports `private-admin.central.stock-generation`, `private-admin.central.stock-generation.game.{game_id}`, and `private-admin.central.stock-generation.batch.{batch_id}`.
         client_context:
           type: object
           nullable: true
@@ -8632,6 +8638,63 @@ components:
           type: string
           format: date-time
           nullable: true
+    StockGenerationProgressEvent:
+      type: object
+      required:
+        - event_type
+        - batch_id
+        - game_id
+        - status
+        - requested_count
+        - generated_count
+        - total_rounds
+        - processed_rounds
+        - chunk_rounds
+        - image_dispatch_status
+      properties:
+        event_type:
+          type: string
+          enum:
+            - stock_generation.batch.queued
+            - stock_generation.batch.processing
+            - stock_generation.chunk.completed
+            - stock_generation.batch.completed
+            - stock_generation.batch.failed
+        batch_id:
+          type: string
+        game_id:
+          type: string
+        status:
+          type: string
+          enum: [queued, pending, processing, completed, failed, cancelled]
+        requested_count:
+          type: integer
+        generated_count:
+          type: integer
+        total_rounds:
+          type: integer
+        processed_rounds:
+          type: integer
+        chunk_rounds:
+          type: integer
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        failed_at:
+          type: string
+          format: date-time
+          nullable: true
+        failure_reason:
+          type: string
+          nullable: true
+        image_dispatch_status:
+          type: string
+          enum: [waiting_for_stock, queued, not_started]
     CreateAssetUploadRequest:
       type: object
       required: [purpose, file_name, content_type, size_bytes]

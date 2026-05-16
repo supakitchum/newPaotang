@@ -98,6 +98,17 @@ class AdminOperationsController extends Controller
             return ApiErrorResponse::validationFailed($request, $errors);
         }
 
+        $requiredPermission = $this->operations->requiredRealtimePermission($scopeType, trim((string) $payload['channel_name']));
+        if ($requiredPermission !== null && ! $this->permissions->adminHasPermission(
+            $context->adminUser['id'],
+            $scopeType,
+            $context->activeScopeId(),
+            $requiredPermission,
+            $context->activeTenantId(),
+        )) {
+            return ApiErrorResponse::permissionDenied($request);
+        }
+
         $authorization = $this->operations->realtimeAuth($context, $scopeType, $payload);
 
         if ($authorization === null) {

@@ -5,9 +5,11 @@ namespace Tests\Feature;
 use App\Jobs\DispatchStockBatchImageJobs;
 use App\Jobs\GenerateLotteryImageJob;
 use App\Jobs\GenerateStockBatchChunkJob;
+use App\Modules\CentralStock\Events\StockGenerationProgressUpdated;
 use App\Modules\CentralStock\Services\CentralStockService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\CentralStockFixtures;
 use Tests\TestCase;
@@ -533,9 +535,85 @@ class CentralStockTest extends TestCase
             ->assertJsonCount(3, 'chunks');
     }
 
+    public function test_CentralStock_async_generation_broadcasts_realtime_progress_events(): void
+    {
+        Queue::fake();
+        Event::fake([StockGenerationProgressUpdated::class]);
+        config(['platform.stock_generation.chunk_rounds' => 5]);
+
+        $this->seedDefaultRbac();
+        $this->insertGame('gam_stock_realtime', 'open');
+
+        $login = $this->createCentralSession(['stock.generate'], 'adm_stock_realtime', 'stock-realtime@example.test');
+
+        $batch = $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/stock/generate', [
+                'game_id' => 'gam_stock_realtime',
+                'total_count' => 11000,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'stock-realtime-main',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('status', 'queued')
+            ->json();
+
+        $batchId = $batch['id'];
+
+        Event::assertDispatched(StockGenerationProgressUpdated::class, function (StockGenerationProgressUpdated $event) use ($batchId): bool {
+            $channels = array_map(fn (object $channel): string => (string) $channel->name, $event->broadcastOn());
+
+            return $event->broadcastAs() === 'stock.generation.progress.updated'
+                && ($event->payload['event_type'] ?? null) === 'stock_generation.batch.queued'
+                && ($event->payload['batch_id'] ?? null) === $batchId
+                && ($event->payload['game_id'] ?? null) === 'gam_stock_realtime'
+                && ($event->payload['status'] ?? null) === 'queued'
+                && ($event->payload['generated_count'] ?? null) === 0
+                && in_array('private-admin.central.stock-generation', $channels, true)
+                && in_array('private-admin.central.stock-generation.game.gam_stock_realtime', $channels, true)
+                && in_array('private-admin.central.stock-generation.batch.'.$batchId, $channels, true);
+        });
+
+        $chunks = DB::table('stock_generation_batch_chunks')
+            ->where('batch_id', $batchId)
+            ->orderBy('chunk_index')
+            ->get();
+
+        (new GenerateStockBatchChunkJob((string) $chunks[0]->id))->handle(app(CentralStockService::class));
+
+        Event::assertDispatched(StockGenerationProgressUpdated::class, fn (StockGenerationProgressUpdated $event): bool => (
+            ($event->payload['event_type'] ?? null) === 'stock_generation.batch.processing'
+            && ($event->payload['batch_id'] ?? null) === $batchId
+            && ($event->payload['status'] ?? null) === 'processing'
+            && ($event->payload['generated_count'] ?? null) === 5000
+            && ($event->payload['processed_rounds'] ?? null) === 5
+            && ($event->payload['image_dispatch_status'] ?? null) === 'waiting_for_stock'
+        ));
+        Event::assertDispatched(StockGenerationProgressUpdated::class, fn (StockGenerationProgressUpdated $event): bool => (
+            ($event->payload['event_type'] ?? null) === 'stock_generation.chunk.completed'
+            && ($event->payload['batch_id'] ?? null) === $batchId
+            && ($event->payload['generated_count'] ?? null) === 5000
+            && ($event->payload['processed_rounds'] ?? null) === 5
+        ));
+
+        (new GenerateStockBatchChunkJob((string) $chunks[1]->id))->handle(app(CentralStockService::class));
+        (new GenerateStockBatchChunkJob((string) $chunks[2]->id))->handle(app(CentralStockService::class));
+
+        Event::assertDispatched(StockGenerationProgressUpdated::class, fn (StockGenerationProgressUpdated $event): bool => (
+            ($event->payload['event_type'] ?? null) === 'stock_generation.batch.completed'
+            && ($event->payload['batch_id'] ?? null) === $batchId
+            && ($event->payload['status'] ?? null) === 'completed'
+            && ($event->payload['generated_count'] ?? null) === 11000
+            && ($event->payload['processed_rounds'] ?? null) === 11
+            && ($event->payload['image_dispatch_status'] ?? null) === 'queued'
+            && ($event->payload['completed_at'] ?? null) !== null
+        ));
+    }
+
     public function test_CentralStock_async_generation_failed_chunk_rolls_back_without_partial_rows(): void
     {
         Queue::fake();
+        Event::fake([StockGenerationProgressUpdated::class]);
         config(['platform.stock_generation.chunk_rounds' => 5]);
 
         $this->seedDefaultRbac();
@@ -584,6 +662,14 @@ class CentralStockTest extends TestCase
             'generated_count' => 0,
         ]);
         $this->assertNotNull(DB::table('stock_generation_batches')->where('id', $batch['id'])->value('failure_reason'));
+        Event::assertDispatched(StockGenerationProgressUpdated::class, fn (StockGenerationProgressUpdated $event): bool => (
+            ($event->payload['event_type'] ?? null) === 'stock_generation.batch.failed'
+            && ($event->payload['batch_id'] ?? null) === $batch['id']
+            && ($event->payload['status'] ?? null) === 'failed'
+            && ($event->payload['generated_count'] ?? null) === 0
+            && ($event->payload['failed_at'] ?? null) !== null
+            && ($event->payload['failure_reason'] ?? null) !== null
+        ));
     }
 
     public function test_CentralStock_generate_quota_validation_rejects_conflicts_over_limit_and_legacy_payloads(): void

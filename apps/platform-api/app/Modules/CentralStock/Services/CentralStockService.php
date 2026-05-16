@@ -16,6 +16,7 @@ use App\Models\RewardResult;
 use App\Models\StockGenerationBatch;
 use App\Models\StockGenerationBatchChunk;
 use App\Models\StockItem;
+use App\Modules\CentralStock\Events\StockGenerationProgressUpdated;
 use App\Models\SyncOutbox;
 use App\Modules\Reward\Services\ThaiGovernmentLotteryRewardTemplate;
 use App\Shared\Audit\AuditLogger;
@@ -1000,6 +1001,14 @@ class CentralStockService
             return $result;
         }
 
+        $batchId = (string) $result['batch']['id'];
+        $this->broadcastGenerationProgress(
+            $batchId,
+            ($result['batch']['status'] ?? null) === 'completed'
+                ? 'stock_generation.batch.completed'
+                : 'stock_generation.batch.queued',
+        );
+
         foreach ($result['chunk_ids'] ?? [] as $chunkId) {
             GenerateStockBatchChunkJob::dispatch((string) $chunkId);
         }
@@ -1945,7 +1954,7 @@ class CentralStockService
     public function processGenerationChunk(string $chunkId): void
     {
         try {
-            $completedBatchId = DB::transaction(function () use ($chunkId): ?string {
+            $progress = DB::transaction(function () use ($chunkId): ?array {
                 $chunk = StockGenerationBatchChunk::query()->whereKey($chunkId)->lockForUpdate()->first();
 
                 if ($chunk === null || $chunk->status === 'completed') {
@@ -1960,6 +1969,7 @@ class CentralStockService
 
                 $now = now();
                 $normalized = $this->decodeJsonObject($batch->payload_json);
+                $wasQueued = (string) $batch->status === 'queued' && $batch->started_at === null;
                 [$rows] = $this->stockRowsForRounds(
                     $normalized,
                     (string) $batch->id,
@@ -2011,16 +2021,36 @@ class CentralStockService
 
                 StockGenerationBatch::query()->whereKey($batch->id)->update($batchUpdates);
 
-                return $isComplete ? (string) $batch->id : null;
+                return [
+                    'batch_id' => (string) $batch->id,
+                    'started' => $wasQueued,
+                    'completed' => $isComplete,
+                ];
             });
         } catch (Throwable $exception) {
-            $this->markGenerationChunkFailed($chunkId, $exception);
+            $failedBatchId = $this->markGenerationChunkFailed($chunkId, $exception);
+
+            if ($failedBatchId !== null) {
+                $this->broadcastGenerationProgress($failedBatchId, 'stock_generation.batch.failed');
+            }
+
             return;
         }
 
-        if ($completedBatchId !== null) {
-            $this->auditCompletedGenerationBatch($completedBatchId);
-            DispatchStockBatchImageJobs::dispatch($completedBatchId);
+        if ($progress === null) {
+            return;
+        }
+
+        if ($progress['started']) {
+            $this->broadcastGenerationProgress($progress['batch_id'], 'stock_generation.batch.processing');
+        }
+
+        $this->broadcastGenerationProgress($progress['batch_id'], 'stock_generation.chunk.completed');
+
+        if ($progress['completed']) {
+            $this->auditCompletedGenerationBatch($progress['batch_id']);
+            DispatchStockBatchImageJobs::dispatch($progress['batch_id']);
+            $this->broadcastGenerationProgress($progress['batch_id'], 'stock_generation.batch.completed');
         }
     }
 
@@ -2088,13 +2118,13 @@ class CentralStockService
         }
     }
 
-    private function markGenerationChunkFailed(string $chunkId, Throwable $exception): void
+    private function markGenerationChunkFailed(string $chunkId, Throwable $exception): ?string
     {
-        DB::transaction(function () use ($chunkId, $exception): void {
+        return DB::transaction(function () use ($chunkId, $exception): ?string {
             $chunk = StockGenerationBatchChunk::query()->whereKey($chunkId)->lockForUpdate()->first();
 
             if ($chunk === null || $chunk->status === 'completed') {
-                return;
+                return null;
             }
 
             $message = substr($exception->getMessage(), 0, 1000);
@@ -2114,7 +2144,69 @@ class CentralStockService
                 'failure_reason' => $message,
                 'updated_at' => $now,
             ]);
+
+            return (string) $chunk->batch_id;
         });
+    }
+
+    private function broadcastGenerationProgress(string $batchId, string $eventType): void
+    {
+        $batch = StockGenerationBatch::query()->whereKey($batchId)->first();
+
+        if ($batch === null || (string) $batch->type !== 'generate') {
+            return;
+        }
+
+        StockGenerationProgressUpdated::dispatch($this->generationProgressPayload($batch, $eventType));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function generationProgressPayload(object $batch, string $eventType): array
+    {
+        return [
+            'event_type' => $eventType,
+            'batch_id' => (string) $batch->id,
+            'game_id' => (string) $batch->game_id,
+            'status' => (string) $batch->status,
+            'requested_count' => (int) $batch->requested_count,
+            'generated_count' => (int) $batch->generated_count,
+            'total_rounds' => (int) ($batch->total_rounds ?? 0),
+            'processed_rounds' => (int) ($batch->processed_rounds ?? 0),
+            'chunk_rounds' => (int) ($batch->chunk_rounds ?? 0),
+            'started_at' => $this->timestampString($batch->started_at ?? null),
+            'completed_at' => $this->timestampString($batch->completed_at ?? null),
+            'failed_at' => $this->timestampString($batch->failed_at ?? null),
+            'failure_reason' => $batch->failure_reason ?? null,
+            'image_dispatch_status' => $this->imageDispatchStatus((string) $batch->status),
+        ];
+    }
+
+    private function imageDispatchStatus(string $batchStatus): string
+    {
+        return match ($batchStatus) {
+            'completed' => 'queued',
+            'failed', 'cancelled' => 'not_started',
+            default => 'waiting_for_stock',
+        };
+    }
+
+    private function timestampString(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if ($value instanceof Carbon) {
+            return $value->toISOString();
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return Carbon::instance($value)->toISOString();
+        }
+
+        return Carbon::parse($value)->toISOString();
     }
 
     private function auditCompletedGenerationBatch(string $batchId): void
