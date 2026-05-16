@@ -6,7 +6,7 @@
     {
       "name": "partner-sync-critical",
       "priority_class": "critical",
-      "queues": ["partner-inbox-high", "stock-allocation", "stock-sold-events", "stock-recall", "stock-sync", "central-outbox"],
+      "queues": ["partner-inbox-high", "stock-allocation", "stock-generation", "stock-image-generation", "stock-partner-image-generation", "stock-sold-events", "stock-recall", "stock-sync", "central-outbox"],
       "owner": "Partner/Central Stock",
       "scale_policy": "Scale separately from reporting and monitoring workloads."
     },
@@ -57,6 +57,9 @@
     {"queue": "partner-inbox-high", "owner": "Partner", "workload": "high-priority partner event inbox", "priority_class": "critical", "profile": "partner-sync-critical"},
     {"queue": "partner-inbox-normal", "owner": "Partner", "workload": "normal partner event inbox", "priority_class": "normal", "profile": "partner-sync-normal"},
     {"queue": "stock-allocation", "owner": "Central Stock", "workload": "allocation fan-out", "priority_class": "critical", "profile": "partner-sync-critical"},
+    {"queue": "stock-generation", "owner": "Central Stock", "workload": "large stock generation chunks and image-dispatch fan-out", "priority_class": "critical", "profile": "partner-sync-critical"},
+    {"queue": "stock-image-generation", "owner": "Central Stock", "workload": "central lottery image generation", "priority_class": "critical", "profile": "partner-sync-critical"},
+    {"queue": "stock-partner-image-generation", "owner": "Central Stock", "workload": "partner lottery image generation", "priority_class": "critical", "profile": "partner-sync-critical"},
     {"queue": "stock-sold-events", "owner": "Commerce/Central Stock", "workload": "sold event reconciliation", "priority_class": "critical", "profile": "partner-sync-critical"},
     {"queue": "stock-recall", "owner": "Central Stock", "workload": "stock recall propagation", "priority_class": "critical", "profile": "partner-sync-critical"},
     {"queue": "stock-sync", "owner": "Partner Store", "workload": "tenant stock sync", "priority_class": "critical", "profile": "partner-sync-critical"},
