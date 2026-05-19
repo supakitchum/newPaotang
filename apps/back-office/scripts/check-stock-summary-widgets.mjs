@@ -17,6 +17,11 @@ if (!existsSync(join(root, progressComponentPath))) {
 }
 
 const progressComponent = existsSync(join(root, progressComponentPath)) ? read(progressComponentPath) : ''
+const stockSettingsComponentPath = 'components/AdminStockCoverageSettings.vue'
+if (!existsSync(join(root, stockSettingsComponentPath))) {
+  failures.push('AdminStockCoverageSettings.vue is missing')
+}
+const stockSettingsComponent = existsSync(join(root, stockSettingsComponentPath)) ? read(stockSettingsComponentPath) : ''
 const operationsPage = read('components/AdminOperationsPage.vue')
 const catalog = read('composables/useAdminOperationsCatalog.ts')
 const generateStart = catalog.indexOf("key: 'generate'")
@@ -117,6 +122,20 @@ for (const token of [
 ]) {
   if (!catalog.includes(token)) {
     failures.push(`Stock generation current-game selector is missing token: ${token}`)
+  }
+}
+
+for (const token of [
+  'Default set distribution',
+  'stock_set_distribution_default',
+  'stock_pattern_coverage_default',
+  'addSetDistributionRow',
+  'removeSetDistributionRow',
+  'Central coverage default',
+  'Partner coverage default',
+]) {
+  if (!stockSettingsComponent.includes(token)) {
+    failures.push(`Stock settings form is missing token: ${token}`)
   }
 }
 
