@@ -289,6 +289,7 @@
       <AdminExportPanel :actions="hydratedCollectionActions" @run="openCollectionAction" />
       <AdminApiState :error="error" />
       <AdminDataTable
+        v-if="showMainOperationsTable"
         :title="resource.title"
         :columns="resource.columns || []"
         :rows="rows"
@@ -343,6 +344,7 @@
         </template>
       </AdminDataTable>
       <AdminPagination
+        v-if="showMainOperationsTable"
         :next-cursor="meta.next_cursor"
         :has-previous="pageState.index > 0"
         :loading="loading"
@@ -659,15 +661,16 @@ const scopeLabel = computed(() => props.scope === 'tenant' ? 'Tenant' : 'Central
 const scopeBasePath = computed(() => `/admin/${props.scope}`)
 const pageTitle = computed(() => mode.value === 'detail' ? `${resource.value?.title || 'Detail'} detail` : resource.value?.title || 'Operations')
 const listPath = computed(() => resource.value ? `${scopeBasePath.value}/${resource.value.slug}` : scopeBasePath.value)
-const canReload = computed(() => Boolean(resource.value && mode.value !== 'report-index' && !resource.value.apiGap && !detailGap.value && !isStockPatternCoverageRoute.value))
+const canReload = computed(() => Boolean(resource.value && mode.value !== 'report-index' && !resource.value.apiGap && !detailGap.value && !isStockPatternCoverageRoute.value && !isStockGenerationRoute.value))
 const hasDetailRoute = computed(() => Boolean(resource.value?.detailEndpoint || resource.value?.detailApiGap))
 const detailGap = computed(() => mode.value === 'detail' && !resource.value?.detailEndpoint ? resource.value?.detailApiGap || 'No documented detail GET endpoint is available for this route.' : '')
 const isStockGrouped = computed(() => Boolean(resource.value?.stockGrouped))
 const isStockGenerationRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-generation')
 const isStockSettingsRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-settings')
 const isStockPatternCoverageRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-pattern-coverage')
-const showStockSummaryWidgets = computed(() => Boolean(resource.value?.stockSummaryEndpoint && mode.value === 'list'))
+const showStockSummaryWidgets = computed(() => Boolean(resource.value?.stockSummaryEndpoint && mode.value === 'list' && !isStockGenerationRoute.value))
 const showStockGenerationProgress = computed(() => Boolean(isStockGenerationRoute.value && mode.value === 'list'))
+const showMainOperationsTable = computed(() => Boolean(mode.value === 'list' && !isStockGenerationRoute.value))
 const stockSummaryEndpoint = computed(() => resource.value?.stockSummaryEndpoint || '')
 const stockSummaryGameId = computed(() => filters.value.game_id || '')
 const stockSummaryBatchId = computed(() => filters.value.batch_id || '')
@@ -800,6 +803,17 @@ async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previo
   }
 
   if (isStockPatternCoverageRoute.value) {
+    return
+  }
+
+  if (isStockGenerationRoute.value && mode.value === 'list') {
+    rows.value = []
+    meta.next_cursor = null
+    meta.has_more = false
+    pageState.cursors = [null]
+    pageState.index = 0
+    error.value = null
+    loading.value = false
     return
   }
 
