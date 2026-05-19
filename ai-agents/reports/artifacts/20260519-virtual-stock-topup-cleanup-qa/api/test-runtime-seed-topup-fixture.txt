@@ -1,0 +1,29 @@
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+    status     | games | tenants | base_numbers | customer_sessions
+---------------+-------+---------+--------------+-------------------
+ fixture_ready |     1 |       1 |            1 |                 1
+(1 row)
+
+UPDATE 1
+      id      |  tenant_id   | customer_id  | active
+--------------+--------------+--------------+--------
+ cas_qa_topup | ten_qa_topup | cus_qa_topup | t
+(1 row)
+
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 0
+INSERT 0 1
+INSERT 0 1
+          status          | admins | games | customer_sessions
+--------------------------+--------+-------+-------------------
+ fixture_ready_after_seed |      4 |     1 |                 1
+(1 row)

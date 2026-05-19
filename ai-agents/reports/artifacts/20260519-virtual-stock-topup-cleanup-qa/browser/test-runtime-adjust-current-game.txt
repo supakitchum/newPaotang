@@ -1,0 +1,6 @@
+UPDATE 1
+       id       | status
+----------------+--------
+ gam_qa_topup   | open
+ gam_qa_noagent | draft
+(2 rows)

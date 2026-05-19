@@ -1,0 +1,3 @@
+GET /login status=200
+GET /admin/login status=302
+GET /admin/login follow status=200

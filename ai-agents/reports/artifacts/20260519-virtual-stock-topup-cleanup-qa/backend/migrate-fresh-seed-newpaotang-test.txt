@@ -1,0 +1,58 @@
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-platform-api-run-14c2d26fce72 Creating
+ Container newpaotang-platform-api-run-14c2d26fce72 Created
+
+  Dropping all tables .......................................... 310.61ms DONE
+
+   INFO  Preparing database.
+
+  Creating migration table ....................................... 5.68ms DONE
+
+   INFO  Running migrations.
+
+  2026_05_06_000001_create_platform_core_tables ................. 66.04ms DONE
+  2026_05_06_000002_create_runtime_support_tables ................ 8.94ms DONE
+  2026_05_06_000003_create_admin_auth_sessions ................... 8.90ms DONE
+  2026_05_06_000004_create_partner_provisioning_tables .......... 33.93ms DONE
+  2026_05_06_000005_create_central_stock_allocation_tables ...... 43.62ms DONE
+  2026_05_06_000006_create_local_stock_booking_tables ........... 48.31ms DONE
+  2026_05_07_000001_create_checkout_wallet_sold_sync_tables ..... 65.66ms DONE
+  2026_05_07_000002_create_reward_result_engine_tables .......... 40.95ms DONE
+  2026_05_07_000003_create_affiliate_agent_reports_settlement_tables  72.89ms DONE
+  2026_05_07_000004_create_maintenance_support_security_tables .. 41.05ms DONE
+  2026_05_08_000001_create_observability_alerting_tables ........ 17.30ms DONE
+  2026_05_08_000002_add_cloudflare_readiness_to_partner_tenant_domains  1.43ms DONE
+  2026_05_08_000003_add_presentation_metadata_to_admin_menus ..... 0.93ms DONE
+  2026_05_09_000001_create_bo_menu_completion_gap_tables ......... 9.71ms DONE
+  2026_05_09_000002_create_remaining_openapi_route_closure_tables  21.60ms DONE
+  2026_05_09_000003_create_admin_security_line_policy_closure_tables  16.28ms DONE
+  2026_05_13_000001_add_game_sale_windows ........................ 6.49ms DONE
+  2026_05_13_000002_allow_duplicate_lottery_stock_numbers ........ 2.28ms DONE
+  2026_05_14_000001_add_lottery_image_generation_metadata ....... 23.28ms DONE
+  2026_05_14_000002_create_lottery_image_operation_tables ........ 8.52ms DONE
+  2026_05_14_000003_add_position_to_lottery_image_background_asset_sets  2.79ms DONE
+  2026_05_15_000001_expand_audit_log_target_id_length ............ 0.79ms DONE
+  2026_05_15_000002_reset_lottery_image_layout_to_legacy_source .. 1.94ms DONE
+  2026_05_15_000003_add_admin_session_revocation_reason .......... 0.70ms DONE
+  2026_05_15_000004_adopt_current_lottery_image_layout_defaults .. 0.92ms DONE
+  2026_05_16_000001_add_async_stock_generation_batches ........... 7.58ms DONE
+  2026_05_17_000001_create_virtual_stock_tables ................. 17.09ms DONE
+  2026_05_19_000001_create_stock_sale_limit_overrides ............ 3.10ms DONE
+  2026_05_19_000002_create_virtual_stock_supply_layers ........... 5.13ms DONE
+
+
+   INFO  Seeding database.
+
+  Database\Seeders\DefaultRbacMenuSeeder ............................. RUNNING
+  Database\Seeders\DefaultRbacMenuSeeder .......................... 11 ms DONE
+
+  Database\Seeders\BootstrapAdminSeeder .............................. RUNNING
+  Database\Seeders\BootstrapAdminSeeder .......................... 249 ms DONE
+
+  Database\Seeders\DemoTenantSeeder .................................. RUNNING
+  Database\Seeders\DemoTenantSeeder .............................. 851 ms DONE

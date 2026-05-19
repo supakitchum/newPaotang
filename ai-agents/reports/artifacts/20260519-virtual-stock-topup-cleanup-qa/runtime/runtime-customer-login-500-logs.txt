@@ -1,0 +1,120 @@
+customer-1  | [nitro] ✔ Nuxt Nitro server built in 1100 ms
+customer-1  |
+customer-1  |  ERROR  [nitro] [uncaughtException] listen EADDRINUSE: address already in use /tmp/nitro/worker-26-2.sock
+customer-1  |
+customer-1  |     at Server.setupListenHandle [as _listen2] (node:net:1918:21)
+customer-1  |     at listenInCluster (node:net:1997:12)
+customer-1  |     at Server.listen (node:net:2119:5)
+customer-1  |     at <anonymous> (node_modules/nitropack/dist/runtime/entries/nitro-dev.mjs:39:25)
+customer-1  |     at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+customer-1  |     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+customer-1  |     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)
+customer-1  |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+customer-1  |
+customer-1  | ℹ hmr update /components/LotteryItem.vue
+customer-1  | ℹ hmr update /assets/scss/main.css
+customer-1  | ℹ hmr update /pages/buy/index.vue
+customer-1  | ℹ hmr update /pages/buy/search.vue
+customer-1  | ℹ hmr update /pages/buy/more.vue
+customer-1  | ℹ hmr update /components/LotteryItem.vue
+customer-1  | ℹ hmr update /components/LotteryItem.vue (x2)
+customer-1  | ℹ nuxt.config.ts updated. Restarting Nuxt...
+customer-1  | ℹ Vite client warmed up in 3244ms
+customer-1  | ℹ Vite server warmed up in 3571ms
+customer-1  | [nitro] ✔ Nuxt Nitro server built in 1190 ms
+customer-1  |
+customer-1  | > dev
+customer-1  | > nuxt dev --host 0.0.0.0 --port 3000
+customer-1  |
+customer-1  | Nuxt 3.11.2 with Nitro 2.9.6
+customer-1  |
+customer-1  |  ERROR  (node:18) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+customer-1  | (Use node --trace-deprecation ... to show where the warning was created)
+customer-1  |
+customer-1  |
+customer-1  |
+customer-1  |               █▀▀▀▀▀▀▀█▀██▀▀███▀█▀▀▀▀▀▀▀█
+customer-1  |               █ █▀▀▀█ █▄▄ ▀  ▀▀██ █▀▀▀█ █
+customer-1  |               █ █   █ █▀▀ ▀█ ██ █ █   █ █
+customer-1  |               █ ▀▀▀▀▀ █ █▀▄▀▄▀█▀█ ▀▀▀▀▀ █
+customer-1  |               █▀▀▀██▀▀█ ▀ ▄▄█ ▄ ▀▀▀▀██▀▀█
+customer-1  |               ███▀ ▀▄▀ █▄▄▀█▀  ▀  ██ ▀▄ █
+customer-1  |               █▀█ ██ ▀▀  █▀▀█▀▀█▀ ▄█▄██▀█
+customer-1  |               █▀ ▀▄▀▀▀▀█▄██ ▀  ▀█▄█▀▀▀▄ █
+customer-1  |               █▀▀▀█▀ ▀  ▀▄▄▄█▀▄ ▀ ▀▀██▀██
+customer-1  |               █▀▀▀▀▀▀▀█▄▀▄▀█▀ █ █▀█ ▀▄█ █
+customer-1  |               █ █▀▀▀█ █▄▀█▀▀█▀▀ ▀▀▀ ▀█▄ █
+customer-1  |               █ █   █ █▀▄██ ▄█▀ ██  ▄▄ ▀█
+customer-1  |               █ ▀▀▀▀▀ █ ▄ ▄ ▀   ▀█▄▄▀██▀█
+customer-1  |               ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+customer-1  |
+customer-1  |   ➜ Local:    http://0.0.0.0:3000/
+customer-1  |   ➜ Network:  http://172.22.0.4:3000/ [QR code]
+customer-1  |
+customer-1  |
+customer-1  |  ERROR  (node:26) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+customer-1  | (Use node --trace-deprecation ... to show where the warning was created)
+customer-1  |
+customer-1  | ℹ Vite client warmed up in 13531ms
+customer-1  | ℹ Vite server warmed up in 5086ms
+customer-1  | [nitro] ✔ Nuxt Nitro server built in 1611 ms
+customer-1  | ℹ hmr update /assets/scss/main.css
+customer-1  | ℹ page reload composables/usePlatformApi.ts
+customer-1  | ℹ nuxt.config.ts updated. Restarting Nuxt...
+customer-1  | ℹ hmr update /components/LotteryItem.vue
+customer-1  | ℹ hmr update /pages/buy/index.vue
+customer-1  | ℹ hmr update /pages/buy/search.vue
+customer-1  | ℹ hmr update /pages/buy/more.vue
+customer-1  | ℹ Vite client warmed up in 2664ms
+customer-1  | ℹ Vite server warmed up in 2731ms
+customer-1  | [nitro] ✔ Nuxt Nitro server built in 974 ms
+customer-1  |
+customer-1  |  ERROR  [nitro] [uncaughtException] listen EADDRINUSE: address already in use /tmp/nitro/worker-26-2.sock
+customer-1  |
+customer-1  |     at Server.setupListenHandle [as _listen2] (node:net:1918:21)
+customer-1  |     at listenInCluster (node:net:1997:12)
+customer-1  |     at Server.listen (node:net:2119:5)
+customer-1  |     at <anonymous> (node_modules/nitropack/dist/runtime/entries/nitro-dev.mjs:39:25)
+customer-1  |     at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+customer-1  |     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+customer-1  |     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)
+customer-1  |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+customer-1  |
+customer-1  | ℹ hmr update /assets/scss/main.css
+customer-1  | ℹ page reload composables/usePlatformApi.ts
+customer-1  | ℹ nuxt.config.ts updated. Restarting Nuxt...
+customer-1  | ℹ hmr update /components/LotteryItem.vue
+customer-1  | ℹ hmr update /pages/buy/index.vue
+customer-1  | ℹ hmr update /pages/buy/more.vue
+customer-1  | ℹ hmr update /pages/buy/search.vue
+customer-1  | ℹ Vite client warmed up in 2382ms
+customer-1  | ℹ Vite server warmed up in 2596ms
+customer-1  | [nitro] ✔ Nuxt Nitro server built in 816 ms
+customer-1  |
+customer-1  |  ERROR  [nitro] [uncaughtException] listen EADDRINUSE: address already in use /tmp/nitro/worker-26-3.sock
+customer-1  |
+customer-1  |     at Server.setupListenHandle [as _listen2] (node:net:1918:21)
+customer-1  |     at listenInCluster (node:net:1997:12)
+customer-1  |     at Server.listen (node:net:2119:5)
+customer-1  |     at <anonymous> (node_modules/nitropack/dist/runtime/entries/nitro-dev.mjs:39:25)
+customer-1  |     at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+customer-1  |     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+customer-1  |     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)
+customer-1  |     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+customer-1  |
+customer-1  | ℹ .nuxt/dist directory has been removed. Restarting Nuxt...
+customer-1  | ℹ Vite client warmed up in 3929ms
+customer-1  | ℹ Vite server warmed up in 7999ms
+customer-1  | [nitro] ✔ Nuxt Nitro server built in 6969 ms
+customer-1  |
+customer-1  |  ERROR  [nuxt] [request error] [unhandled] [500] Package import specifier "#internal/nuxt/paths" is not defined in package /app/package.json imported from /app/.nuxt/dist/server/server.mjs
+customer-1  |   at importNotDefined (node:internal/modules/esm/resolve:301:10)
+customer-1  |   at packageImportsResolve (node:internal/modules/esm/resolve:751:9)
+customer-1  |   at moduleResolve (node:internal/modules/esm/resolve:844:16)
+customer-1  |   at defaultResolve (node:internal/modules/esm/resolve:985:11)
+customer-1  |   at #cachedDefaultResolve (node:internal/modules/esm/loader:731:20)
+customer-1  |   at ModuleLoader.resolve (node:internal/modules/esm/loader:708:38)
+customer-1  |   at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:310:38)
+customer-1  |   at ModuleJob._link (node:internal/modules/esm/module_job:182:49)
+customer-1  |   at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+customer-1  |

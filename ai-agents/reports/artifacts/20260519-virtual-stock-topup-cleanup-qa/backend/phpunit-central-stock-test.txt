@@ -1,0 +1,17 @@
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-platform-api-run-43c17086d1d8 Creating
+ Container newpaotang-platform-api-run-43c17086d1d8 Created
+
+  [30;43;1m WARN [39;49;22m[39m Tests\Feature\CentralStockTest[39m
+  [33;1m![39;22m[90m [39m[90mcentral stock generate import export list and recall are permission[39m[90m…[39m [90m4.25s[39m
+  [33;1m![39;22m[90m [39m[90mcentral stock summary widgets aggregate coverage filters and permis[39m[90m…[39m [90m2.19s[39m
+  [33;1m![39;22m[90m [39m[90mcentral stock retired physical generation does not create async chu[39m[90m…[39m [90m0.51s[39m
+  [33;1m![39;22m[90m [39m[90mcentral stock generate rejects retired quota physical and legacy ra[39m[90m…[39m [90m0.53s[39m
+
+  [90mTests:[39m    [33;1m4 warnings[39;22m[90m (144 assertions)[39m
+  [90mDuration:[39m [39m7.61s[39m

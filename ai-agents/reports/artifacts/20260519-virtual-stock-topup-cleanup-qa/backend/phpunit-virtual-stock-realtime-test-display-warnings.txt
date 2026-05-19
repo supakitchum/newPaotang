@@ -1,0 +1,132 @@
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-platform-api-run-a7a6824a0566 Creating
+ Container newpaotang-platform-api-run-a7a6824a0566 Created
+
+  [30;43;1m WARN [39;49;22m[39m Tests\Feature\VirtualStockRealtimeTest[39m
+  [33;1m![39;22m[90m [39m[90mstock settings store default set distribution[39m[90m [39m[33m→ file_get_contents(/[39m[90m…[39m [90m2.00s[39m
+  [33;1m![39;22m[90m [39m[90mvirtual profile generation does not bulk insert stock rows[39m[90m [39m[33m→ file_g[39m[90m…[39m [90m4.87s[39m
+  [33;1m![39;22m[90m [39m[90mphysical quota generation payloads are retired[39m[90m [39m[33m→ file_get_contents([39m[90m…[39m [90m0.51s[39m
+  [33;1m![39;22m[90m [39m[90mvirtual stock summary handles low pattern limits after generation[39m[90m [39m[33m→[39m[90m…[39m [90m2.71s[39m
+  [33;1m![39;22m[90m [39m[90mcentral stock grouped table and summary show virtual profile when p[39m[90m…[39m [90m3.40s[39m
+  [33;1m![39;22m[90m [39m[90mcentral stock virtual grouped total count sort and full number deta[39m[90m…[39m [90m0.54s[39m
+  [33;1m![39;22m[90m [39m[90mvirtual stock search reservation limits and realtime delta[39m[90m [39m[33m→ file_g[39m[90m…[39m [90m0.19s[39m
+  [31m────────────────────────────────────────────────────────────────────────────[39m
+  [30;43;1m WARNINGS [39;49;22m [1mTests\Feature\VirtualStockRealtimeTest[22m [90m>[39m stock settings store d…
+[39;1m  file_get_contents(/var/www/html/.env): Failed to open stream: No such file or directory[39;22m
+
+  at [32mvendor/vlucas/phpdotenv/src/Store/File/Reader.php[39m:[32m73[39m
+     69▕      */
+     70▕     private static function readFromFile(string $path, ?string $encoding = null)
+     71▕     {
+     72▕         /** @var Option<string> */
+  ➜  73▕         $content = Option::fromValue(@\file_get_contents($path), false);
+     74▕
+     75▕         return $content->flatMap(static function (string $content) use ($encoding) {
+     76▕             return Str::utf8($content, $encoding)->mapError(static function (string $error) {
+     77▕                 throw new InvalidEncodingException($error);
+
+
+  [31m────────────────────────────────────────────────────────────────────────────[39m
+  [30;43;1m WARNINGS [39;49;22m [1mTests\Feature\VirtualStockRealtimeTest[22m [90m>[39m virtual profile genera…
+[39;1m  file_get_contents(/var/www/html/.env): Failed to open stream: No such file or directory[39;22m
+
+  at [32mvendor/vlucas/phpdotenv/src/Store/File/Reader.php[39m:[32m73[39m
+     69▕      */
+     70▕     private static function readFromFile(string $path, ?string $encoding = null)
+     71▕     {
+     72▕         /** @var Option<string> */
+  ➜  73▕         $content = Option::fromValue(@\file_get_contents($path), false);
+     74▕
+     75▕         return $content->flatMap(static function (string $content) use ($encoding) {
+     76▕             return Str::utf8($content, $encoding)->mapError(static function (string $error) {
+     77▕                 throw new InvalidEncodingException($error);
+
+
+  [31m────────────────────────────────────────────────────────────────────────────[39m
+  [30;43;1m WARNINGS [39;49;22m [1mTests\Feature\VirtualStockRealtimeTest[22m [90m>[39m physical quota generat…
+[39;1m  file_get_contents(/var/www/html/.env): Failed to open stream: No such file or directory[39;22m
+
+  at [32mvendor/vlucas/phpdotenv/src/Store/File/Reader.php[39m:[32m73[39m
+     69▕      */
+     70▕     private static function readFromFile(string $path, ?string $encoding = null)
+     71▕     {
+     72▕         /** @var Option<string> */
+  ➜  73▕         $content = Option::fromValue(@\file_get_contents($path), false);
+     74▕
+     75▕         return $content->flatMap(static function (string $content) use ($encoding) {
+     76▕             return Str::utf8($content, $encoding)->mapError(static function (string $error) {
+     77▕                 throw new InvalidEncodingException($error);
+
+
+  [31m────────────────────────────────────────────────────────────────────────────[39m
+  [30;43;1m WARNINGS [39;49;22m [1mTests\Feature\VirtualStockRealtimeTest[22m [90m>[39m virtual stock summary…
+[39;1m  file_get_contents(/var/www/html/.env): Failed to open stream: No such file or directory[39;22m
+
+  at [32mvendor/vlucas/phpdotenv/src/Store/File/Reader.php[39m:[32m73[39m
+     69▕      */
+     70▕     private static function readFromFile(string $path, ?string $encoding = null)
+     71▕     {
+     72▕         /** @var Option<string> */
+  ➜  73▕         $content = Option::fromValue(@\file_get_contents($path), false);
+     74▕
+     75▕         return $content->flatMap(static function (string $content) use ($encoding) {
+     76▕             return Str::utf8($content, $encoding)->mapError(static function (string $error) {
+     77▕                 throw new InvalidEncodingException($error);
+
+
+  [31m────────────────────────────────────────────────────────────────────────────[39m
+  [30;43;1m WARNINGS [39;49;22m [1mTests\Feature\VirtualStockRealtimeTest[22m [90m>[39m central stock grouped…
+[39;1m  file_get_contents(/var/www/html/.env): Failed to open stream: No such file or directory[39;22m
+
+  at [32mvendor/vlucas/phpdotenv/src/Store/File/Reader.php[39m:[32m73[39m
+     69▕      */
+     70▕     private static function readFromFile(string $path, ?string $encoding = null)
+     71▕     {
+     72▕         /** @var Option<string> */
+  ➜  73▕         $content = Option::fromValue(@\file_get_contents($path), false);
+     74▕
+     75▕         return $content->flatMap(static function (string $content) use ($encoding) {
+     76▕             return Str::utf8($content, $encoding)->mapError(static function (string $error) {
+     77▕                 throw new InvalidEncodingException($error);
+
+
+  [31m────────────────────────────────────────────────────────────────────────────[39m
+  [30;43;1m WARNINGS [39;49;22m [1mTests\Feature\VirtualStockRealtimeTest[22m [90m>[39m central stock virtual…
+[39;1m  file_get_contents(/var/www/html/.env): Failed to open stream: No such file or directory[39;22m
+
+  at [32mvendor/vlucas/phpdotenv/src/Store/File/Reader.php[39m:[32m73[39m
+     69▕      */
+     70▕     private static function readFromFile(string $path, ?string $encoding = null)
+     71▕     {
+     72▕         /** @var Option<string> */
+  ➜  73▕         $content = Option::fromValue(@\file_get_contents($path), false);
+     74▕
+     75▕         return $content->flatMap(static function (string $content) use ($encoding) {
+     76▕             return Str::utf8($content, $encoding)->mapError(static function (string $error) {
+     77▕                 throw new InvalidEncodingException($error);
+
+
+  [31m────────────────────────────────────────────────────────────────────────────[39m
+  [30;43;1m WARNINGS [39;49;22m [1mTests\Feature\VirtualStockRealtimeTest[22m [90m>[39m virtual stock search r…
+[39;1m  file_get_contents(/var/www/html/.env): Failed to open stream: No such file or directory[39;22m
+
+  at [32mvendor/vlucas/phpdotenv/src/Store/File/Reader.php[39m:[32m73[39m
+     69▕      */
+     70▕     private static function readFromFile(string $path, ?string $encoding = null)
+     71▕     {
+     72▕         /** @var Option<string> */
+  ➜  73▕         $content = Option::fromValue(@\file_get_contents($path), false);
+     74▕
+     75▕         return $content->flatMap(static function (string $content) use ($encoding) {
+     76▕             return Str::utf8($content, $encoding)->mapError(static function (string $error) {
+     77▕                 throw new InvalidEncodingException($error);
+
+
+
+  [90mTests:[39m    [33;1m7 warnings[39;22m[90m (227 assertions)[39m
+  [90mDuration:[39m [39m14.49s[39m

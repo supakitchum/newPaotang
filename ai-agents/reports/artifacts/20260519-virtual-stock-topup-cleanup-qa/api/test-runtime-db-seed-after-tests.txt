@@ -1,0 +1,19 @@
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-platform-api-run-ae612758c811 Creating
+ Container newpaotang-platform-api-run-ae612758c811 Created
+
+   INFO  Seeding database.
+
+  Database\Seeders\DefaultRbacMenuSeeder ............................. RUNNING
+  Database\Seeders\DefaultRbacMenuSeeder .......................... 27 ms DONE
+
+  Database\Seeders\BootstrapAdminSeeder .............................. RUNNING
+  Database\Seeders\BootstrapAdminSeeder .......................... 259 ms DONE
+
+  Database\Seeders\DemoTenantSeeder .................................. RUNNING
+  Database\Seeders\DemoTenantSeeder .............................. 859 ms DONE

@@ -1,0 +1,6 @@
+newpaotang-customer-1 0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp
+newpaotang-back-office-1 0.0.0.0:3100->3100/tcp, [::]:3100->3100/tcp
+newpaotang-platform-api-1 0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp
+newpaotang-postgres-1 0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp
+newpaotang-platform-api-reverb-1 0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp
+newpaotang-valkey-1 0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp
