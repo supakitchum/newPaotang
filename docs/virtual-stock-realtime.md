@@ -103,6 +103,44 @@ Payload:
 
 Customer UI must treat HTTP reservation as the source of truth. Websocket only updates visible state; if websocket disconnects, the UI falls back to polling the active search page.
 
+Stock Pattern Coverage must also update through websocket.
+
+Recommended admin channel:
+
+- channel: `private-admin.central.stock.coverage.game.{game_id}`
+- event: `stock.coverage.updated`
+
+Payload should be a focused delta, not a full table dump:
+
+```json
+{
+  "game_id": "gam_x",
+  "scope_type": "central",
+  "scope_id": "central",
+  "dimension": "back2",
+  "number": "56",
+  "generated_count": 1200,
+  "reserved_count": 10,
+  "sold_count": 50,
+  "default_limit": 500,
+  "override_limit": null,
+  "limit": 500,
+  "remaining_limit": 440,
+  "sellable_remaining_count": 440,
+  "status": "available"
+}
+```
+
+Backend should emit coverage updates after:
+
+- virtual generate/top-up changes generated supply
+- central/partner limit settings change
+- per-pattern overrides change
+- reservation/release/expiration changes reserved counters
+- checkout conversion changes sold counters
+
+BO Stock Pattern Coverage must subscribe for the selected game/scope and update visible rows/widgets without manual refresh. HTTP remains the source-of-truth fallback on reconnect, missed events, or when a delta does not cover the current filtered page.
+
 ## Agent Notes
 
 - Do not bulk-generate `stock_items` for virtual games.
@@ -110,6 +148,7 @@ Customer UI must treat HTTP reservation as the source of truth. Websocket only u
 - Do not expose seed as a BO input.
 - Do not reintroduce physical stock generation.
 - Top-up must add virtual supply and must not archive/replace the existing active profile.
+- Stock Pattern Coverage must use websocket updates for realtime rows/widgets and fallback to HTTP reload only when needed.
 - QA must test with two browsers: browser A sees a number, browser B reserves/sells until limit is full, browser A must see the number disabled by realtime.
 - QA destructive DB commands must use testing DB only.
 
@@ -128,6 +167,7 @@ Expected behavior:
 - Stock Generation/detail must expose owner/agent assignment where available and show `no agent`/unassigned where not allocated
 - image actions must show real materialized `stock_items` / `local_stock_items` image fields only
 - unmaterialized virtual capacity must be shown as capacity, not as fake ticket image rows
+- Stock Pattern Coverage must update generated/reserved/sold/remaining/limit values through websocket without manual refresh
 
 ## Stock Generation And Coverage Follow-Up
 

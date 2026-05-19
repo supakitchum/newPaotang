@@ -53,6 +53,7 @@ Implement the following as one coordinated feature/hotfix cleanup:
 3. Add Stock Generation row actions to see which agent/partner owns each virtual ticket/copy or whether it has no agent.
 4. Add Stock Generation row/detail action to view real generated images for materialized tickets.
 5. Remove physical stock generation from BO/API/OpenAPI/tests.
+6. Make Stock Pattern Coverage realtime through websocket.
 ```
 
 ## Backend Develop Scope
@@ -68,6 +69,7 @@ combined virtual capacity calculation across initial generate + top-up layers
 customer search/reservation availability using combined virtual supply
 Stock Generation full-number/ticket detail contract with agent/partner ownership
 real image fields for materialized stock_items/local_stock_items
+Stock Pattern Coverage realtime broadcast events for generate/top-up, limit changes, overrides, reservation/release, and sold conversion
 removal/rejection of physical quota generation payloads
 OpenAPI updates
 backend tests
@@ -100,6 +102,8 @@ show initial generate vs top-up status/copy in Stock Generation
 add row action to full-number/detail view
 show agent/partner ownership or unassigned/no agent for each available virtual copy where backend exposes it
 show real image_url/image_thumb_url/generation status only for materialized tickets
+subscribe Stock Pattern Coverage to websocket updates for the selected game/scope/dimension
+update visible coverage rows/widgets/tabs from socket deltas and fallback to HTTP reload on reconnect
 do not fake image rows for unmaterialized virtual capacity
 surface backend validation errors for retired physical payloads and supply limit errors
 build validation
@@ -119,6 +123,7 @@ validate customer search availability increases after top-up where limits allow
 validate reservation still materializes real tickets lazily
 validate Stock Generation detail shows owner/no-agent and real image data only when present
 validate limits cannot exceed generated combined virtual supply
+validate Stock Pattern Coverage updates through socket without manual refresh after reserve/sold/top-up/limit changes
 validate two-browser realtime still works after top-up
 ```
 
@@ -154,6 +159,7 @@ Virtual top-up changes core stock capacity math; backend must own the source-of-
 Existing virtual_stock_ref shape may need versioning/layer identifiers to avoid collisions across top-ups.
 Removing physical generation must not break import stock or already materialized reservation/ticket image flows.
 Coverage limit validation from the latest hotfix must continue to use generated combined virtual supply.
+Stock Pattern Coverage realtime can get noisy; backend should emit focused row/dimension deltas and BO should reload on reconnect instead of polling aggressively.
 ```
 
 ## Questions For Coordinator

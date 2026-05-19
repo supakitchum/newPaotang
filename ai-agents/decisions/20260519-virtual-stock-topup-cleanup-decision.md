@@ -16,6 +16,7 @@ Coordinator is opening the next work item from the user request:
 - add Stock Generation row actions showing which agent/partner owns each ticket or no agent
 - add actions to view each ticket image
 - remove physical stock generation
+- make Stock Pattern Coverage realtime through websocket
 ```
 
 ## Decision
@@ -51,6 +52,16 @@ detail shows generated capacity, used/reserved/sold counters, effective central/
 detail shows partner/agent ownership or "unassigned/no agent" for virtual copies
 detail shows real image records only for materialized tickets/local stock items
 unmaterialized virtual capacity must not fake image rows
+```
+
+Stock Pattern Coverage must be realtime:
+
+```text
+backend must broadcast pattern coverage updates after virtual generate/top-up, limit setting changes, limit override changes, reservation/release, and sold conversion
+BO Stock Pattern Coverage must subscribe to the relevant game/scope websocket channel
+visible rows/widgets must update without manual refresh when generated supply, reserved, sold, remaining, or limits change
+socket event should send focused deltas for affected dimension/value rows plus enough summary hints for widgets/tabs
+HTTP reload remains the source-of-truth fallback when socket reconnects or event payload is incomplete
 ```
 
 ## Architecture Guidance
@@ -106,6 +117,7 @@ seed is auto-generated and not displayed in BO
 Stock Generation row/detail actions expose ownership and image visibility honestly
 coverage limits remain bounded by generated virtual supply
 customer availability uses combined virtual supply after top-up
+Stock Pattern Coverage updates through websocket without manual refresh
 OpenAPI/docs/tests are updated
 QA uses isolated test DB for destructive commands
 ```
