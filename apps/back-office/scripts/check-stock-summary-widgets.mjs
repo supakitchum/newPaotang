@@ -19,6 +19,11 @@ if (!existsSync(join(root, progressComponentPath))) {
 const progressComponent = existsSync(join(root, progressComponentPath)) ? read(progressComponentPath) : ''
 const operationsPage = read('components/AdminOperationsPage.vue')
 const catalog = read('composables/useAdminOperationsCatalog.ts')
+const generateStart = catalog.indexOf("key: 'generate'")
+const generateEnd = catalog.indexOf("key: 'export'", generateStart)
+const generateActionBlock = generateStart >= 0 && generateEnd > generateStart
+  ? catalog.slice(generateStart, generateEnd)
+  : catalog
 const snapshot = JSON.parse(read('scripts/openapi-admin-paths.snapshot.json'))
 
 for (const token of [
@@ -62,20 +67,24 @@ for (const removedGenerateField of [
   "key: 'count'",
   "key: 'range'",
   "key: 'number_digits'",
-]) {
-  if (catalog.includes(removedGenerateField)) {
-    failures.push(`Removed stock generation field returned to catalog: ${removedGenerateField}`)
-  }
-}
-
-for (const requiredGenerateField of [
   "key: 'total_count'",
   "key: 'back2_count_per_number'",
   "key: 'back3_count_per_number'",
   "key: 'front3_count_per_number'",
 ]) {
-  if (!catalog.includes(requiredGenerateField)) {
-    failures.push(`Quota stock generation field is missing: ${requiredGenerateField}`)
+  if (generateActionBlock.includes(removedGenerateField)) {
+    failures.push(`Removed stock generation field returned to catalog: ${removedGenerateField}`)
+  }
+}
+
+for (const requiredGenerateField of [
+  "key: 'generation_mode'",
+  "key: 'set_distribution'",
+  "key: 'central_limits'",
+  "key: 'partner_limits'",
+]) {
+  if (!generateActionBlock.includes(requiredGenerateField)) {
+    failures.push(`Virtual stock generation field is missing: ${requiredGenerateField}`)
   }
 }
 
@@ -104,15 +113,13 @@ for (const token of [
 }
 
 for (const token of [
-  'Stock quota check',
-  'syncStockQuotaFields',
-  'back3FromQuotaSource',
-  '2-tail quota must be divisible by 10.',
-  'Total tickets must equal 1,000 x 3-tail quota.',
+  'Payload JSON',
+  'formFields',
   'confirmDisabled.value',
+  'fieldValidationMessages',
 ]) {
   if (!read('components/AdminConfirmAction.vue').includes(token)) {
-    failures.push(`Linked quota modal validation is missing token: ${token}`)
+    failures.push(`Stock generation modal support is missing token: ${token}`)
   }
 }
 
@@ -148,6 +155,8 @@ for (const token of [
   'processed_rounds',
   'chunk_rounds',
   'failure_reason',
+  'range_start',
+  'formatDateTime(selectedBatch.started_at)',
   'active-change',
   'Images waiting for stock',
   'Images not reported by batch API',
@@ -197,6 +206,13 @@ if (!snapshot.paths?.['/admin/central/stock/summary']?.includes('get')) {
 for (const [path, method] of [
   ['/admin/central/stock/generation-batches', 'get'],
   ['/admin/central/stock/generation-batches/{batch_id}', 'get'],
+  ['/admin/central/stock/settings', 'get'],
+  ['/admin/central/stock/settings', 'patch'],
+  ['/admin/central/stock/patterns', 'get'],
+  ['/admin/central/stock/limit-settings', 'put'],
+  ['/admin/central/stock/limit-overrides', 'get'],
+  ['/admin/central/stock/limit-overrides', 'put'],
+  ['/admin/central/stock/{game_id}/numbers/{full_number}', 'get'],
 ]) {
   if (!snapshot.paths?.[path]?.includes(method)) {
     failures.push(`OpenAPI admin snapshot is missing ${method.toUpperCase()} ${path}`)

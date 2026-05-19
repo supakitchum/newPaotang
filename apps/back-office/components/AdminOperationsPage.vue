@@ -53,6 +53,10 @@
         :error="error"
         @save="saveMenuTree"
       />
+      <AdminStockCoverageSettings
+        v-else-if="isStockSettingsRoute"
+        @saved="handleStockCoverageSettingsSaved"
+      />
       <div v-else-if="hasSettingsForm" class="card custom-card">
         <div class="card-header">
           <div class="card-title">Configuration</div>
@@ -184,6 +188,10 @@
       <AdminReportPanel :data="detail" :loading="loading" />
     </template>
 
+    <template v-else-if="isStockPatternCoverageRoute">
+      <AdminStockPatternCoverage />
+    </template>
+
     <template v-else-if="mode === 'summary'">
       <AdminFilterBar v-if="resource.filters?.length" :filters="hydratedFilters" :model-value="filters" @apply="applyFilters" />
       <AdminApiState :error="error" />
@@ -267,9 +275,9 @@
               v-if="isStockGrouped"
               type="button"
               class="btn btn-sm btn-primary btn-wave"
-              @click="openStockTickets(row)"
+              @click="openStockNumberDetail(row)"
             >
-              View tickets
+              View number
             </button>
             <template v-for="action in isStockGrouped ? [] : hydratedActions" :key="action.key">
               <NuxtLink
@@ -358,6 +366,48 @@
         />
       </div>
     </template>
+
+    <AdminModal v-model="stockNumberDetail.open" :title="stockNumberDetail.title" size="xl">
+      <div class="row g-2 mb-3">
+        <div class="col-md-3">
+          <label class="form-label" for="stock-number-scope-type">Scope</label>
+          <select id="stock-number-scope-type" v-model="stockNumberDetail.scopeType" class="form-select" @change="handleStockNumberScopeChange">
+            <option value="central">Central</option>
+            <option value="partner">Partner</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="stock-number-scope-id">Scope ID</label>
+          <input
+            id="stock-number-scope-id"
+            v-model="stockNumberDetail.scopeId"
+            class="form-control"
+            :disabled="stockNumberDetail.scopeType === 'central'"
+            placeholder="Partner ID"
+            @keyup.enter="loadStockNumberDetail()"
+          >
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+          <button
+            class="btn btn-primary btn-wave w-100"
+            type="button"
+            :disabled="stockNumberDetail.loading || !stockNumberDetail.gameId || !stockNumberDetail.fullNumber || (stockNumberDetail.scopeType === 'partner' && !stockNumberDetail.scopeId)"
+            @click="loadStockNumberDetail()"
+          >
+            <span v-if="stockNumberDetail.loading" class="spinner-border spinner-border-sm me-2" />
+            Apply scope
+          </button>
+        </div>
+      </div>
+      <AdminStockNumberDetail
+        :record="stockNumberDetail.record"
+        :loading="stockNumberDetail.loading"
+        :error="stockNumberDetail.error"
+      />
+      <template #footer>
+        <button class="btn btn-light btn-wave" type="button" @click="stockNumberDetail.open = false">Close</button>
+      </template>
+    </AdminModal>
 
     <AdminModal v-model="stockTickets.open" :title="stockTickets.title">
       <AdminApiState :error="stockTickets.error" />
@@ -496,6 +546,27 @@ const relatedDetail = reactive<{
   error: null,
   record: null,
 })
+const stockNumberDetail = reactive<{
+  open: boolean
+  title: string
+  loading: boolean
+  error: any
+  record: any
+  gameId: string
+  fullNumber: string
+  scopeType: 'central' | 'partner'
+  scopeId: string
+}>({
+  open: false,
+  title: '',
+  loading: false,
+  error: null,
+  record: null,
+  gameId: '',
+  fullNumber: '',
+  scopeType: 'central',
+  scopeId: 'central',
+})
 const stockTickets = reactive<{
   open: boolean
   title: string
@@ -541,11 +612,13 @@ const scopeLabel = computed(() => props.scope === 'tenant' ? 'Tenant' : 'Central
 const scopeBasePath = computed(() => `/admin/${props.scope}`)
 const pageTitle = computed(() => mode.value === 'detail' ? `${resource.value?.title || 'Detail'} detail` : resource.value?.title || 'Operations')
 const listPath = computed(() => resource.value ? `${scopeBasePath.value}/${resource.value.slug}` : scopeBasePath.value)
-const canReload = computed(() => Boolean(resource.value && mode.value !== 'report-index' && !resource.value.apiGap && !detailGap.value))
+const canReload = computed(() => Boolean(resource.value && mode.value !== 'report-index' && !resource.value.apiGap && !detailGap.value && !isStockPatternCoverageRoute.value))
 const hasDetailRoute = computed(() => Boolean(resource.value?.detailEndpoint || resource.value?.detailApiGap))
 const detailGap = computed(() => mode.value === 'detail' && !resource.value?.detailEndpoint ? resource.value?.detailApiGap || 'No documented detail GET endpoint is available for this route.' : '')
 const isStockGrouped = computed(() => Boolean(resource.value?.stockGrouped))
 const isStockGenerationRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-generation')
+const isStockSettingsRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-settings')
+const isStockPatternCoverageRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-pattern-coverage')
 const showStockSummaryWidgets = computed(() => Boolean(resource.value?.stockSummaryEndpoint && mode.value === 'list'))
 const showStockGenerationProgress = computed(() => Boolean(isStockGenerationRoute.value && mode.value === 'list'))
 const stockSummaryEndpoint = computed(() => resource.value?.stockSummaryEndpoint || '')
@@ -668,6 +741,10 @@ async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previo
   }
 
   if (!resource.value || resource.value.apiGap || mode.value === 'report-index' || detailGap.value) {
+    return
+  }
+
+  if (isStockPatternCoverageRoute.value) {
     return
   }
 
@@ -1164,22 +1241,67 @@ const openRelatedRowAction = (related: OperationRelatedList, action: OperationAc
   actionError.value = null
 }
 
-const openStockTickets = (row: any) => {
+const openStockNumberDetail = (row: any) => {
   const source = row.__raw || row
-  stockTickets.open = true
-  stockTickets.title = `Tickets for ${source.full_number || row.full_number || '-'}`
-  stockTickets.error = null
-  stockTickets.rows = []
-  stockTickets.gameId = String(source.game_id || row.game_id || '')
-  stockTickets.fullNumber = String(source.full_number || row.full_number || '')
-  stockTickets.status = String(filters.value.status || '')
-  stockTickets.limit = Number(filters.value.limit || 20)
-  stockTickets.sortKey = ''
-  stockTickets.sortDirection = 'asc'
-  stockTickets.meta.next_cursor = null
-  stockTickets.meta.has_more = false
-  stockTickets.pageState = { cursors: [null], index: 0 }
-  void loadStockTickets()
+  stockNumberDetail.open = true
+  stockNumberDetail.title = `Number ${source.full_number || row.full_number || '-'}`
+  stockNumberDetail.error = null
+  stockNumberDetail.record = null
+  stockNumberDetail.gameId = String(source.game_id || row.game_id || '')
+  stockNumberDetail.fullNumber = String(source.full_number || row.full_number || source.number || row.number || '')
+  stockNumberDetail.scopeType = 'central'
+  stockNumberDetail.scopeId = 'central'
+  void loadStockNumberDetail()
+}
+
+const openStockTickets = (row: any) => {
+  openStockNumberDetail(row)
+}
+
+const handleStockNumberScopeChange = () => {
+  stockNumberDetail.scopeId = stockNumberDetail.scopeType === 'partner' ? '' : 'central'
+  stockNumberDetail.record = null
+  stockNumberDetail.error = null
+  if (stockNumberDetail.scopeType === 'central') {
+    void loadStockNumberDetail()
+  }
+}
+
+const loadStockNumberDetail = async () => {
+  if (!stockNumberDetail.gameId || !stockNumberDetail.fullNumber) {
+    return
+  }
+
+  if (stockNumberDetail.scopeType === 'partner' && !stockNumberDetail.scopeId) {
+    stockNumberDetail.error = {
+      status: 422,
+      message: 'The request payload is invalid.',
+      details: { fields: { scope_id: ['Enter a partner ID to load partner effective limits.'] } },
+    }
+    return
+  }
+
+  stockNumberDetail.loading = true
+  stockNumberDetail.error = null
+  try {
+    const endpoint = `/admin/central/stock/${encodeURIComponent(stockNumberDetail.gameId)}/numbers/${encodeURIComponent(stockNumberDetail.fullNumber)}`
+    const response = await api.apiFetch(endpoint, apiOptions({
+      query: cleanQuery({
+        scope_type: stockNumberDetail.scopeType,
+        scope_id: stockNumberDetail.scopeType === 'partner' ? stockNumberDetail.scopeId : undefined,
+      }),
+    }))
+    stockNumberDetail.record = extractData(response)
+  } catch (err) {
+    stockNumberDetail.error = err
+  } finally {
+    stockNumberDetail.loading = false
+  }
+}
+
+const handleStockCoverageSettingsSaved = (record: Record<string, any>) => {
+  detail.value = record
+  settingsDraft.value = JSON.stringify(record || {}, null, 2)
 }
 
 const openStockTicketAction = (action: OperationAction, row: any) => {

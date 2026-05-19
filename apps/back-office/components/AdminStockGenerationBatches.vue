@@ -93,6 +93,19 @@
                 </div>
               </div>
 
+              <dl class="row small mb-0 mt-3">
+                <dt class="col-sm-4 text-muted">Type</dt>
+                <dd class="col-sm-8 mb-2">{{ titleize(String(selectedBatch.type || 'generation')) }}</dd>
+                <dt class="col-sm-4 text-muted">Range</dt>
+                <dd class="col-sm-8 mb-2 font-monospace">{{ selectedBatch.range_start || '-' }} - {{ selectedBatch.range_end || '-' }}</dd>
+                <dt class="col-sm-4 text-muted">Started</dt>
+                <dd class="col-sm-8 mb-2">{{ formatDateTime(selectedBatch.started_at) }}</dd>
+                <dt class="col-sm-4 text-muted">Completed</dt>
+                <dd class="col-sm-8 mb-2">{{ formatDateTime(selectedBatch.completed_at) }}</dd>
+                <dt class="col-sm-4 text-muted">Updated</dt>
+                <dd class="col-sm-8 mb-0">{{ formatDateTime(selectedBatch.updated_at) }}</dd>
+              </dl>
+
               <div class="mt-3">
                 <div class="d-flex align-items-center justify-content-between gap-2 fs-12 mb-1">
                   <span class="text-muted">Stock row progress</span>
@@ -140,7 +153,7 @@
 </template>
 
 <script setup lang="ts">
-import { titleize } from '~/utils/format'
+import { formatDateTime, titleize } from '~/utils/format'
 
 type StockGenerationBatchChunk = {
   id: string

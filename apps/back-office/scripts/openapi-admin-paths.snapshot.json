@@ -1,6 +1,6 @@
 {
   "source": "docs/openapi.yaml",
-  "updated": "2026-05-16",
+  "updated": "2026-05-19",
   "note": "Static admin path snapshot used inside the back-office Docker mount. Refresh from docs/openapi.yaml when the approved OpenAPI contract changes.",
   "paths": {
     "/admin/central/allocations": ["get", "post"],
@@ -52,7 +52,12 @@
     "/admin/central/stock/generation-batches": ["get"],
     "/admin/central/stock/generation-batches/{batch_id}": ["get"],
     "/admin/central/stock/imports": ["post"],
+    "/admin/central/stock/limit-overrides": ["get", "put"],
+    "/admin/central/stock/limit-settings": ["put"],
+    "/admin/central/stock/patterns": ["get"],
+    "/admin/central/stock/settings": ["get", "patch"],
     "/admin/central/stock/summary": ["get"],
+    "/admin/central/stock/{game_id}/numbers/{full_number}": ["get"],
     "/admin/central/stock/{stock_item_id}/recall": ["post"],
     "/admin/central/sync-logs": ["get"],
     "/admin/central/webhook-logs": ["get"],
