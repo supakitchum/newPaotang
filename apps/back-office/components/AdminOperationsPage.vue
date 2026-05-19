@@ -271,6 +271,23 @@
     <template v-else>
       <AdminFilterBar v-if="resource.filters?.length" :filters="hydratedFilters" :model-value="filters" @apply="applyFilters" />
       <AdminApiState v-if="stockGenerateCurrentGameMessage" :message="stockGenerateCurrentGameMessage" />
+      <div v-if="showStockGenerationProgress" class="card custom-card">
+        <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <div>
+            <div class="fw-semibold">Stock overview</div>
+            <div class="text-muted fs-12">Load summary widgets and the stock number table for the selected game.</div>
+          </div>
+          <button
+            class="btn btn-sm btn-outline-primary btn-wave"
+            type="button"
+            :disabled="loading"
+            @click="toggleStockGenerationOverview"
+          >
+            <span v-if="loading && stockGenerationShowOverview" class="spinner-border spinner-border-sm me-1" />
+            {{ stockGenerationShowOverview ? 'Hide overview' : 'Load overview' }}
+          </button>
+        </div>
+      </div>
       <AdminStockSummaryWidgets
         v-if="showStockSummaryWidgets"
         :endpoint="stockSummaryEndpoint"
@@ -554,6 +571,7 @@ const stockSummaryRefreshKey = ref(0)
 const stockGenerationProgressRefreshKey = ref(0)
 const stockGenerationSubmittedBatch = ref<any>(null)
 const stockGenerationHasActiveBatch = ref(false)
+const stockGenerationShowOverview = ref(false)
 const sortState = reactive<{ key: string, direction: 'asc' | 'desc' }>({ key: '', direction: 'asc' })
 const meta = reactive({ next_cursor: null as string | null, has_more: false })
 const pageState = reactive({ cursors: [null] as Array<string | null>, index: 0 })
@@ -661,16 +679,16 @@ const scopeLabel = computed(() => props.scope === 'tenant' ? 'Tenant' : 'Central
 const scopeBasePath = computed(() => `/admin/${props.scope}`)
 const pageTitle = computed(() => mode.value === 'detail' ? `${resource.value?.title || 'Detail'} detail` : resource.value?.title || 'Operations')
 const listPath = computed(() => resource.value ? `${scopeBasePath.value}/${resource.value.slug}` : scopeBasePath.value)
-const canReload = computed(() => Boolean(resource.value && mode.value !== 'report-index' && !resource.value.apiGap && !detailGap.value && !isStockPatternCoverageRoute.value && !isStockGenerationRoute.value))
+const canReload = computed(() => Boolean(resource.value && mode.value !== 'report-index' && !resource.value.apiGap && !detailGap.value && !isStockPatternCoverageRoute.value && (!isStockGenerationRoute.value || stockGenerationShowOverview.value)))
 const hasDetailRoute = computed(() => Boolean(resource.value?.detailEndpoint || resource.value?.detailApiGap))
 const detailGap = computed(() => mode.value === 'detail' && !resource.value?.detailEndpoint ? resource.value?.detailApiGap || 'No documented detail GET endpoint is available for this route.' : '')
 const isStockGrouped = computed(() => Boolean(resource.value?.stockGrouped))
 const isStockGenerationRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-generation')
 const isStockSettingsRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-settings')
 const isStockPatternCoverageRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-pattern-coverage')
-const showStockSummaryWidgets = computed(() => Boolean(resource.value?.stockSummaryEndpoint && mode.value === 'list' && !isStockGenerationRoute.value))
+const showStockSummaryWidgets = computed(() => Boolean(resource.value?.stockSummaryEndpoint && mode.value === 'list' && (!isStockGenerationRoute.value || stockGenerationShowOverview.value)))
 const showStockGenerationProgress = computed(() => Boolean(isStockGenerationRoute.value && mode.value === 'list'))
-const showMainOperationsTable = computed(() => Boolean(mode.value === 'list' && !isStockGenerationRoute.value))
+const showMainOperationsTable = computed(() => Boolean(mode.value === 'list' && (!isStockGenerationRoute.value || stockGenerationShowOverview.value)))
 const stockSummaryEndpoint = computed(() => resource.value?.stockSummaryEndpoint || '')
 const stockSummaryGameId = computed(() => filters.value.game_id || '')
 const stockSummaryBatchId = computed(() => filters.value.batch_id || '')
@@ -759,6 +777,7 @@ onMounted(() => {
 
 const initializePage = async () => {
   resetFilters()
+  stockGenerationShowOverview.value = false
   await loadOptionSourcesForResource()
   applyCurrentGameFilterDefault()
   await load()
@@ -806,7 +825,7 @@ async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previo
     return
   }
 
-  if (isStockGenerationRoute.value && mode.value === 'list') {
+  if (isStockGenerationRoute.value && mode.value === 'list' && !stockGenerationShowOverview.value) {
     rows.value = []
     meta.next_cursor = null
     meta.has_more = false
@@ -862,6 +881,23 @@ async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previo
   } finally {
     loading.value = false
   }
+}
+
+const toggleStockGenerationOverview = () => {
+  stockGenerationShowOverview.value = !stockGenerationShowOverview.value
+
+  if (stockGenerationShowOverview.value) {
+    void load(null, 'reset')
+    stockSummaryRefreshKey.value += 1
+    return
+  }
+
+  rows.value = []
+  meta.next_cursor = null
+  meta.has_more = false
+  pageState.cursors = [null]
+  pageState.index = 0
+  error.value = null
 }
 
 const loadNextPage = () => {
