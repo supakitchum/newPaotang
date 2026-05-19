@@ -6,9 +6,9 @@
           <label class="form-label">{{ filter.label }}</label>
           <select v-if="filter.type === 'select'" v-model="draft[filter.key]" class="form-select">
             <option v-if="!filter.hideEmptyOption" value="">{{ filter.emptyOptionLabel || 'All' }}</option>
-            <option v-else-if="!(filter.options || []).length" value="" disabled>{{ filter.emptyOptionLabel || 'No options available' }}</option>
+            <option v-else-if="!visibleOptions(filter).length" value="" disabled>{{ filter.emptyOptionLabel || 'No options available' }}</option>
             <option
-              v-for="option in filter.options || []"
+              v-for="option in visibleOptions(filter)"
               :key="optionValue(option)"
               :value="optionValue(option)"
               :disabled="optionDisabled(option)"
@@ -57,6 +57,18 @@ watch(() => props.modelValue, (value) => {
   }
 }, { immediate: true, deep: true })
 
+watch(draft, () => {
+  for (const filter of props.filters) {
+    if (!filter.dependsOn || !draft[filter.key]) {
+      continue
+    }
+    const allowed = new Set(visibleOptions(filter).map((option) => String(optionValue(option))))
+    if (!allowed.has(String(draft[filter.key]))) {
+      draft[filter.key] = ''
+    }
+  }
+}, { deep: true })
+
 const cleanDraft = () => {
   const next: Record<string, any> = {}
   for (const filter of props.filters) {
@@ -66,7 +78,22 @@ const cleanDraft = () => {
   return next
 }
 
+const visibleOptions = (filter: OperationFilter) => {
+  const options = filter.options || []
+  if (!filter.dependsOn) {
+    return options
+  }
+
+  const dependencyValue = draft[filter.dependsOn]
+  if (!dependencyValue) {
+    return []
+  }
+
+  return options.filter((option) => optionPartnerId(option) === String(dependencyValue))
+}
+
 const optionValue = (option: any) => typeof option === 'object' && option !== null ? option.value : option
 const optionLabel = (option: any) => typeof option === 'object' && option !== null ? option.label : titleize(String(option))
 const optionDisabled = (option: any) => Boolean(typeof option === 'object' && option !== null && option.disabled)
+const optionPartnerId = (option: any) => String(typeof option === 'object' && option !== null ? option.partnerId || option.partner_id || '' : '')
 </script>

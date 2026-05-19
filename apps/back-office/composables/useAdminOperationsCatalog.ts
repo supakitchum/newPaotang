@@ -5,13 +5,23 @@ export type OperationOption = string | {
   label: string
   disabled?: boolean
   status?: string
+  code?: string
+  name?: string
+  partnerId?: string
+  tenantId?: string
+  activeTenantCount?: number
+  singleTenantId?: string
+  singleTenantLabel?: string
+  allocationPercent?: number | null
+  allocationPercentBasisPoints?: number | null
+  generatedSupplyCount?: number | null
   isCurrent?: boolean
   sale_start_at?: string
   draw_at?: string
   close_at?: string
   server_time?: string
 }
-export type OperationOptionSource = 'central-games' | 'central-partners'
+export type OperationOptionSource = 'central-games' | 'central-partners' | 'allocation-partners' | 'allocation-tenants' | 'allocation-games'
 
 export type OperationColumn = {
   key: string
@@ -26,6 +36,7 @@ export type OperationFilter = {
   type?: 'text' | 'number' | 'date' | 'select'
   options?: OperationOption[]
   optionSource?: OperationOptionSource
+  dependsOn?: string
   hideEmptyOption?: boolean
   emptyOptionLabel?: string
 }
@@ -44,15 +55,18 @@ export type OperationFormField = {
   valueKey?: string
   options?: OperationOption[]
   optionSource?: OperationOptionSource
+  dependsOn?: string
   hideEmptyOption?: boolean
   emptyOptionLabel?: string
   defaultValueSource?: 'current-game' | 'stock-set-distribution-default'
   currentOnly?: boolean
   required?: boolean
+  readonly?: boolean
   placeholder?: string
   defaultValue?: any
   help?: string
   min?: number
+  max?: number
   step?: number
   itemKey?: string
   emptyValue?: 'array'
@@ -63,12 +77,13 @@ export type OperationFormField = {
 export type OperationAction = {
   key: string
   label: string
-  method?: 'POST' | 'PATCH' | 'DELETE'
+  method?: 'POST' | 'PATCH' | 'PUT' | 'DELETE'
   endpoint?: string
   route?: string
-  variant?: 'primary' | 'success' | 'warning' | 'danger'
+  variant?: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'light'
   disabled?: boolean
   disabledReason?: string
+  enabledStatuses?: string[]
   reason?: boolean
   payloadTemplate?: Record<string, any>
   formFields?: OperationFormField[]
@@ -157,6 +172,71 @@ const gameSelectField = (required = false, label = 'Game', overrides: Partial<Op
   type: 'select',
   optionSource: 'central-games',
   required,
+  ...overrides,
+})
+
+const allocationPartnerFilter = (label = 'Partner'): OperationFilter => ({
+  key: 'partner_id',
+  label,
+  type: 'select',
+  optionSource: 'allocation-partners',
+})
+
+const allocationTenantFilter = (label = 'Tenant'): OperationFilter => ({
+  key: 'tenant_id',
+  label,
+  type: 'select',
+  optionSource: 'allocation-tenants',
+  dependsOn: 'partner_id',
+  emptyOptionLabel: 'Select partner first',
+})
+
+const allocationGameFilter = (label = 'Game'): OperationFilter => ({
+  key: 'game_id',
+  label,
+  type: 'select',
+  optionSource: 'allocation-games',
+})
+
+const allocationPartnerField = (overrides: Partial<OperationFormField> = {}): OperationFormField => ({
+  key: 'partner_id',
+  label: 'Partner',
+  type: 'select',
+  optionSource: 'allocation-partners',
+  required: true,
+  hideEmptyOption: false,
+  ...overrides,
+})
+
+const allocationTenantField = (overrides: Partial<OperationFormField> = {}): OperationFormField => ({
+  key: 'tenant_id',
+  label: 'Tenant',
+  type: 'select',
+  optionSource: 'allocation-tenants',
+  dependsOn: 'partner_id',
+  emptyOptionLabel: 'Select partner first',
+  help: 'Auto-filled when the selected active partner has exactly one active tenant.',
+  ...overrides,
+})
+
+const allocationGameField = (overrides: Partial<OperationFormField> = {}): OperationFormField => ({
+  key: 'game_id',
+  label: 'Game',
+  type: 'select',
+  optionSource: 'allocation-games',
+  required: true,
+  ...overrides,
+})
+
+const allocationPercentField = (overrides: Partial<OperationFormField> = {}): OperationFormField => ({
+  key: 'allocation_percent',
+  label: 'Allocation percent',
+  type: 'number',
+  min: 0.01,
+  max: 100,
+  step: 0.01,
+  required: true,
+  help: 'Backend enforces total active partner percent per game <= 100% and rejects values below already reserved or sold usage.',
   ...overrides,
 })
 
@@ -307,9 +387,10 @@ const maintenanceModeOptions = ['full_site', 'customer_web_only', 'admin_only', 
 const tenantDomainStatusOptions = ['pending_verification', 'dns_verified', 'ssl_pending', 'active', 'failed', 'suspended', 'archived']
 const gameCreateStatusOptions = ['draft', 'open']
 const gameLifecycleTransitionOptions = ['open', 'reward_recorded', 'reward_checking', 'reward_verified', 'reward_published']
-const partnerActionContext = ['id', 'code', 'name', 'type', 'status', 'tenants.0.id', 'tenants.0.code', 'domains.0.host', 'runtime.billing_status', 'runtime.monitoring_status']
+const partnerActionContext = ['id', 'code', 'name', 'type', 'status', 'tenants.0.id', 'tenants.0.code', 'domains.0.host', 'runtime.billing_status', 'runtime.monitoring_status', 'allocation_percent', 'active_partner_percent']
 const partnerQuotaActionContext = ['id', 'partner_id', 'game_id', 'quota_count', 'allocated_count', 'remaining_count', 'status', 'central_sale_start_at', 'central_sale_close_at', 'sale_start_at', 'sale_close_at']
 const gameActionContext = ['id', 'code', 'name', 'status', 'sale_start_at', 'draw_at', 'close_at', 'closed_at', 'archived_at']
+const allocationActionContext = ['id', 'partner_name', 'partner_code', 'partner_id', 'tenant_name', 'tenant_code', 'tenant_id', 'game_name', 'game_code', 'game_id', 'allocation_percent', 'allocated_count', 'remaining_count', 'recalled_count', 'status']
 const billingPlanActionContext = ['id', 'code', 'name', 'monthly_fee.amount', 'monthly_fee.currency', 'status']
 const alertPolicyActionContext = ['id', 'partner_id', 'partner.name', 'policy_key', 'severity', 'status']
 const alertEventActionContext = ['id', 'partner_id', 'partner.name', 'policy_key', 'severity', 'status', 'channel', 'title', 'triggered_at']
@@ -1641,6 +1722,7 @@ const central: OperationResource[] = [
       { key: 'code', label: 'Code' },
       { key: 'name', label: 'Name' },
       { key: 'type', label: 'Type' },
+      { key: 'allocation_percent', label: 'Stock %', type: 'number', fallbackKeys: ['active_partner_percent', 'stock_percent'] },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
     ],
@@ -1648,6 +1730,24 @@ const central: OperationResource[] = [
     confirmContextFields: partnerActionContext,
     actions: [
       { key: 'update', label: 'Update', method: 'PATCH', endpoint: '/admin/central/partners/{partner_id}', variant: 'primary', contextFields: partnerActionContext, formFields: partnerUpdateFields },
+      {
+        key: 'stock-percent',
+        label: 'Edit stock percent',
+        method: 'PUT',
+        endpoint: '/admin/central/allocations/partner-percent',
+        variant: 'info',
+        contextFields: partnerActionContext,
+        formFields: [
+          allocationPartnerField({
+            sourceKey: 'id',
+            readonly: true,
+            help: 'Partner is locked to the selected row. Backend validates the active game total.',
+          }),
+          allocationTenantField(),
+          allocationGameField(),
+          allocationPercentField(),
+        ],
+      },
       { key: 'lottery-branding', label: 'Lottery branding', route: adminUiRoute('central', 'partners/{id}/lottery-branding'), variant: 'success', contextFields: partnerActionContext },
       { key: 'suspend', label: 'Suspend', endpoint: '/admin/central/partners/{partner_id}/suspend', variant: 'warning', reason: true, contextFields: partnerActionContext },
     ],
@@ -1854,6 +1954,9 @@ const central: OperationResource[] = [
     ],
     filters: cursorFilters([
       gameSelectFilter(),
+      allocationPartnerFilter(),
+      allocationTenantFilter(),
+      { key: 'allocation_id', label: 'Allocation ID' },
       { key: 'number', label: 'Number search' },
       { key: 'front3', label: 'Front 3' },
       { key: 'back3', label: 'Back 3' },
@@ -2014,23 +2117,58 @@ const central: OperationResource[] = [
     idKey: 'id',
     columns: [
       { key: 'id', label: 'Allocation' },
-      { key: 'partner_id', label: 'Partner' },
-      { key: 'tenant_id', label: 'Tenant' },
-      { key: 'game_id', label: 'Game' },
-      { key: 'requested_count', label: 'Requested' },
-      { key: 'allocated_count', label: 'Allocated' },
+      { key: 'partner_name', label: 'Partner', fallbackKeys: ['partner_code', 'partner_id'] },
+      { key: 'tenant_name', label: 'Tenant', fallbackKeys: ['tenant_code', 'tenant_id'] },
+      { key: 'game_name', label: 'Game', fallbackKeys: ['game_code', 'game_id'] },
+      { key: 'allocation_percent', label: 'Percent', type: 'number' },
+      { key: 'active_partner_percent', label: 'Active %', type: 'number' },
+      { key: 'allocated_count', label: 'Allocated', type: 'number' },
+      { key: 'remaining_count', label: 'Remaining', type: 'number' },
+      { key: 'recalled_count', label: 'Recalled', type: 'number' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'created_at', label: 'Created', type: 'datetime' },
     ],
     filters: cursorFilters([
-      { key: 'partner_id', label: 'Partner ID' },
-      { key: 'tenant_id', label: 'Tenant ID' },
-      { key: 'game_id', label: 'Game ID' },
+      allocationPartnerFilter(),
+      allocationTenantFilter(),
+      allocationGameFilter(),
       statusFilter(['draft', 'pending', 'processing', 'allocated', 'partially_allocated', 'failed', 'recalled', 'cancelled']),
     ]),
-    confirmContextFields: ['id', 'partner_id', 'tenant_id', 'game_id', 'requested_count', 'allocated_count', 'status'],
+    confirmContextFields: allocationActionContext,
     actions: [
-      { key: 'cancel', label: 'Cancel', endpoint: '/admin/central/allocations/{allocation_id}/cancel', variant: 'warning', reason: true, contextFields: ['id', 'partner_id', 'tenant_id', 'game_id', 'requested_count', 'allocated_count', 'status'] },
+      {
+        key: 'stock-coverage',
+        label: 'Stock coverage',
+        route: adminUiRoute('central', 'stock-pattern-coverage?game_id={game_id}&scope_type=partner&scope_id={partner_id}'),
+        variant: 'info',
+        contextFields: allocationActionContext,
+      },
+      {
+        key: 'remaining-stock',
+        label: 'Remaining stock',
+        route: adminUiRoute('central', 'stock-generation?game_id={game_id}&partner_id={partner_id}&tenant_id={tenant_id}&allocation_id={id}&status=allocated'),
+        variant: 'success',
+        contextFields: allocationActionContext,
+      },
+      {
+        key: 'recall-all',
+        label: 'Recall all',
+        endpoint: '/admin/central/allocations/{allocation_id}/recall-all',
+        variant: 'danger',
+        reason: true,
+        contextFields: allocationActionContext,
+      },
+      {
+        key: 'redistribute',
+        label: 'Redistribute',
+        endpoint: '/admin/central/allocations/{allocation_id}/redistribute',
+        variant: 'primary',
+        reason: true,
+        enabledStatuses: ['recalled'],
+        disabledReason: 'Redistribute is available after recall-all reaches recalled status.',
+        contextFields: allocationActionContext,
+      },
+      { key: 'cancel', label: 'Cancel', endpoint: '/admin/central/allocations/{allocation_id}/cancel', variant: 'warning', reason: true, contextFields: allocationActionContext },
     ],
     collectionActions: [{
       key: 'create',
@@ -2038,10 +2176,10 @@ const central: OperationResource[] = [
       endpoint: '/admin/central/allocations',
       reason: true,
       formFields: [
-        { key: 'partner_id', label: 'Partner ID', required: true },
-        { key: 'tenant_id', label: 'Tenant ID', required: true },
-        { key: 'game_id', label: 'Game ID', required: true },
-        { key: 'requested_count', label: 'Requested count', type: 'number', min: 1, step: 1, required: true },
+        allocationPartnerField(),
+        allocationTenantField(),
+        allocationGameField(),
+        allocationPercentField(),
       ],
     }],
   },

@@ -229,6 +229,7 @@
 <script setup lang="ts">
 import { formatDateTime } from '~/utils/format'
 
+const route = useRoute()
 const api = useAdminApi()
 const session = useAdminSession()
 const loading = ref(false)
@@ -408,11 +409,26 @@ onBeforeUnmount(() => {
 
 async function initialize() {
   await Promise.all([loadGames(), loadSettings()])
+  applyRouteDefaults()
   applyCurrentGameDefault()
   resetLimitForm()
   if (filters.game_id) {
     await loadPatterns()
   }
+}
+
+function applyRouteDefaults() {
+  const gameId = queryString(route.query.game_id)
+  const scopeType = queryString(route.query.scope_type)
+  const scopeId = queryString(route.query.scope_id)
+  const dimension = queryString(route.query.dimension)
+  const q = queryString(route.query.q)
+
+  if (gameId) filters.game_id = gameId
+  if (['central', 'partner'].includes(scopeType)) filters.scope_type = scopeType as 'central' | 'partner'
+  if (scopeId) filters.scope_id = scopeId
+  if (['back2', 'back3', 'front3'].includes(dimension)) filters.dimension = dimension
+  if (q) filters.q = q
 }
 
 async function loadGames() {
@@ -982,6 +998,13 @@ function formatNumber(value: any) {
 function formatLimit(value: any) {
   const parsed = numberOrNull(value)
   return parsed === null ? 'Unlimited' : formatNumber(parsed)
+}
+
+function queryString(value: unknown) {
+  if (Array.isArray(value)) {
+    return String(value[0] || '').trim()
+  }
+  return String(value || '').trim()
 }
 
 function cleanQuery(value: Record<string, any>) {

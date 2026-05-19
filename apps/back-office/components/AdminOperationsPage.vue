@@ -334,6 +334,8 @@
                 v-else
                 type="button"
                 :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
+                :disabled="isActionDisabled(action, row)"
+                :title="actionDisabledReason(action, row)"
                 @click="openRowAction(action, row)"
               >
                 {{ action.label }}
@@ -642,10 +644,16 @@ const stockTickets = reactive<{
 const optionSourceOptions = reactive<Record<OperationOptionSource, OperationOption[]>>({
   'central-games': [],
   'central-partners': [],
+  'allocation-partners': [],
+  'allocation-tenants': [],
+  'allocation-games': [],
 })
 const optionSourceLoading = reactive<Record<OperationOptionSource, boolean>>({
   'central-games': false,
   'central-partners': false,
+  'allocation-partners': false,
+  'allocation-tenants': false,
+  'allocation-games': false,
 })
 const stockSettingsDefaults = ref<any[]>([])
 const stockSettingsLoading = ref(false)
@@ -762,7 +770,10 @@ const initializePage = async () => {
 }
 
 const resetFilters = () => {
-  filters.value = defaultFilterValues(resource.value?.filters || [])
+  filters.value = {
+    ...defaultFilterValues(resource.value?.filters || []),
+    ...routeFilterValues(resource.value?.filters || []),
+  }
   sortState.key = ''
   sortState.direction = 'asc'
   resetRelatedFilters()
@@ -922,7 +933,7 @@ const hydratedOptions = (source: OperationOptionSource, fallback: OperationOptio
   }
 
   if (optionSourceLoading[source]) {
-    return [{ value: '', label: 'Loading games...' }]
+    return [{ value: '', label: 'Loading options...' }]
   }
 
   return fallback
@@ -1036,6 +1047,24 @@ const loadOptionSource = async (source: OperationOptionSource) => {
         query: { limit: 100 },
       })
       optionSourceOptions[source] = normalizePartnerOptions(extractItems(response))
+    } else if (source === 'allocation-partners') {
+      const response = await api.apiFetch('/admin/central/allocation-options/partners', {
+        scope: 'central',
+        query: { limit: 500 },
+      })
+      optionSourceOptions[source] = normalizeAllocationPartnerOptions(extractItems(response))
+    } else if (source === 'allocation-tenants') {
+      const response = await api.apiFetch('/admin/central/allocation-options/tenants', {
+        scope: 'central',
+        query: { limit: 500 },
+      })
+      optionSourceOptions[source] = normalizeAllocationTenantOptions(extractItems(response))
+    } else if (source === 'allocation-games') {
+      const response = await api.apiFetch('/admin/central/allocation-options/games', {
+        scope: 'central',
+        query: { limit: 500 },
+      })
+      optionSourceOptions[source] = normalizeAllocationGameOptions(extractItems(response))
     }
   } catch {
     optionSourceOptions[source] = []
@@ -1079,6 +1108,78 @@ const partnerOption = (partner: any): OperationOption => {
 
 const normalizePartnerOptions = (items: any[]) => items
   .map(partnerOption)
+  .filter((option) => !isBlank(optionValue(option)))
+
+const allocationPartnerOption = (partner: any): OperationOption => {
+  const id = partner?.partner_id || partner?.id || partner?.uuid || partner?.code
+  const code = partner?.code || partner?.partner_code || ''
+  const name = partner?.name || partner?.partner_name || partner?.display_name || id
+  const singleTenantId = partner?.single_tenant_id || ''
+  const singleTenantLabel = [partner?.single_tenant_code, partner?.single_tenant_name]
+    .filter(Boolean)
+    .join(' - ')
+  return {
+    value: id,
+    label: partner?.label || [code, name].filter(Boolean).join(' - ') || String(id || ''),
+    code,
+    name,
+    partnerId: id,
+    activeTenantCount: Number(partner?.active_tenant_count || 0),
+    singleTenantId,
+    singleTenantLabel: singleTenantLabel || singleTenantId,
+    allocationPercent: numberOrNull(partner?.allocation_percent),
+    allocationPercentBasisPoints: numberOrNull(partner?.allocation_percent_basis_points),
+    status: String(partner?.status || '').toLowerCase(),
+  }
+}
+
+const allocationTenantOption = (tenant: any): OperationOption => {
+  const id = tenant?.tenant_id || tenant?.id || tenant?.uuid || tenant?.code
+  const code = tenant?.code || tenant?.tenant_code || ''
+  const name = tenant?.name || tenant?.tenant_name || id
+  const partnerCode = tenant?.partner_code || ''
+  return {
+    value: id,
+    label: tenant?.label || [code, name].filter(Boolean).join(' - ') || String(id || ''),
+    code,
+    name,
+    tenantId: id,
+    partnerId: tenant?.partner_id || '',
+    status: String(tenant?.status || '').toLowerCase(),
+    disabled: String(tenant?.status || '').toLowerCase() !== 'active',
+    singleTenantLabel: partnerCode ? `${partnerCode} / ${name}` : name,
+  }
+}
+
+const allocationGameOption = (game: any): OperationOption => {
+  const id = game?.game_id || game?.id || game?.uuid || game?.code
+  const code = game?.code || game?.game_code || ''
+  const name = game?.name || game?.game_name || game?.title || id
+  const status = String(game?.status || '').toLowerCase()
+  return {
+    value: id,
+    label: game?.label || [code, name].filter(Boolean).join(' - ') || String(id || ''),
+    code,
+    name,
+    status,
+    isCurrent: status === 'open',
+    generatedSupplyCount: numberOrNull(game?.generated_supply_count),
+    sale_start_at: game?.sale_start_at,
+    draw_at: game?.draw_at,
+    close_at: game?.close_at,
+  }
+}
+
+const normalizeAllocationPartnerOptions = (items: any[]) => items
+  .map(allocationPartnerOption)
+  .filter((option) => !isBlank(optionValue(option)))
+
+const normalizeAllocationTenantOptions = (items: any[]) => items
+  .map(allocationTenantOption)
+  .filter((option) => !isBlank(optionValue(option)))
+
+const normalizeAllocationGameOptions = (items: any[]) => items
+  .map(allocationGameOption)
   .filter((option) => !isBlank(optionValue(option)))
 
 const optionValue = (option: OperationOption) => typeof option === 'object' && option !== null ? option.value : option
@@ -1297,6 +1398,7 @@ const resetDetailDraft = () => {
 
 const openRowAction = (action: OperationAction, row: any) => {
   if (action.route) return
+  if (isActionDisabled(action, row)) return
 
   confirm.open = true
   confirm.action = action
@@ -1307,7 +1409,7 @@ const openRowAction = (action: OperationAction, row: any) => {
   actionError.value = null
 }
 
-const actionRoute = (action: OperationAction, row: any) => interpolate(action.route || '', row.__id)
+const actionRoute = (action: OperationAction, row: any) => interpolate(action.route || '', row)
 
 const openDetailAction = (action: OperationAction) => {
   openRowAction(action, { ...(detail.value || {}), __id: recordId.value })
@@ -1932,6 +2034,20 @@ const defaultFilterValues = (filterList: OperationFilter[] = []) => {
   return next
 }
 
+const routeFilterValues = (filterList: OperationFilter[] = []) => {
+  const filterKeys = new Set(filterList.map((filter) => filter.key))
+  const next: Record<string, any> = {}
+  for (const key of filterKeys) {
+    const value = route.query[key]
+    if (Array.isArray(value)) {
+      next[key] = value[0] ?? ''
+    } else if (value !== undefined && value !== null) {
+      next[key] = String(value)
+    }
+  }
+  return next
+}
+
 const resetRelatedFilters = () => {
   for (const key of Object.keys(relatedFilters)) {
     delete relatedFilters[key]
@@ -1973,7 +2089,15 @@ const buildCollectionContext = () => {
   }
 }
 
-const interpolate = (endpoint: string, id?: string | null) => endpoint.replace(/\{[^}]+\}/g, encodeURIComponent(id || ''))
+const interpolate = (endpoint: string, idOrRecord?: string | null | Record<string, any>) => endpoint.replace(/\{([^}]+)\}/g, (_match, key) => {
+  if (typeof idOrRecord === 'object' && idOrRecord !== null) {
+    const source = idOrRecord.__raw || idOrRecord
+    const value = key === 'id' ? (idOrRecord.__id || source.id) : getPath(source, key) ?? idOrRecord[key]
+    return encodeURIComponent(value === undefined || value === null ? '' : String(value))
+  }
+
+  return encodeURIComponent(idOrRecord || '')
+})
 
 const normalizeSlug = (value: unknown): string[] => {
   if (Array.isArray(value)) return value.map(String)
@@ -2062,6 +2186,32 @@ const formatValue = (value: any, type?: string) => {
   }
   if (type === 'json' || typeof value === 'object') return JSON.stringify(value)
   return value
+}
+
+const isActionDisabled = (action: OperationAction, row: any) => {
+  if (action.disabled) {
+    return true
+  }
+
+  if (!action.enabledStatuses?.length) {
+    return false
+  }
+
+  const status = String((row?.__raw || row)?.status || row?.status || '').toLowerCase()
+  return !action.enabledStatuses.map((entry) => entry.toLowerCase()).includes(status)
+}
+
+const actionDisabledReason = (action: OperationAction, row: any) => (
+  isActionDisabled(action, row) ? action.disabledReason || 'This action is not available for the current row state.' : undefined
+)
+
+const numberOrNull = (value: any) => {
+  if (value === undefined || value === null || value === '') {
+    return null
+  }
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 const formatCustomerValue = (value: any) => {

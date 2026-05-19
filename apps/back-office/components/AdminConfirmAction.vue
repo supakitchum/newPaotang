@@ -30,11 +30,12 @@
             v-model="formState[field.key]"
             class="form-select"
             :class="{ 'is-invalid': fieldValidationMessages(field).length }"
+            :disabled="fieldDisabled(field)"
           >
             <option v-if="!field.hideEmptyOption" value="">{{ field.emptyOptionLabel || 'Select' }}</option>
-            <option v-else-if="!(field.options || []).length" value="" disabled>{{ field.emptyOptionLabel || 'No options available' }}</option>
+            <option v-else-if="!visibleOptions(field).length" value="" disabled>{{ field.emptyOptionLabel || 'No options available' }}</option>
             <option
-              v-for="option in field.options || []"
+              v-for="option in visibleOptions(field)"
               :key="optionValue(option)"
               :value="optionValue(option)"
               :disabled="optionDisabled(option)"
@@ -213,8 +214,10 @@
             :class="{ 'is-invalid': fieldValidationMessages(field).length }"
             :type="inputType(field)"
             :min="field.min"
+            :max="field.max"
             :step="field.step"
             :placeholder="field.placeholder"
+            :disabled="fieldDisabled(field)"
             @input="handleFieldInput(field, $event)"
           >
           <div v-if="field.help" class="form-text">{{ field.help }}</div>
@@ -222,6 +225,19 @@
             {{ message }}
           </div>
         </template>
+      </div>
+    </div>
+
+    <div v-if="allocationPreviewMetrics.length" class="alert alert-primary bg-primary-transparent border-primary-subtle mb-3">
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <i class="ri-pie-chart-2-line" />
+        <span class="fw-semibold">Allocation preview</span>
+      </div>
+      <div class="np-allocation-preview">
+        <div v-for="metric in allocationPreviewMetrics" :key="metric.key">
+          <span class="text-muted fs-12">{{ metric.label }}</span>
+          <strong>{{ metric.value }}</strong>
+        </div>
       </div>
     </div>
 
@@ -276,6 +292,32 @@ const contextItems = computed(() => (props.contextFields || [])
   }))
   .filter((item) => item.value !== '-')
   .slice(0, 13))
+const partnerField = computed(() => formFields.value.find((field) => field.key === 'partner_id'))
+const tenantField = computed(() => formFields.value.find((field) => field.key === 'tenant_id'))
+const gameField = computed(() => formFields.value.find((field) => field.key === 'game_id'))
+const allocationPercentField = computed(() => formFields.value.find((field) => field.key === 'allocation_percent'))
+const selectedPartnerOption = computed(() => partnerField.value ? findOption(partnerField.value, formState.partner_id) : null)
+const selectedGameOption = computed(() => gameField.value ? findOption(gameField.value, formState.game_id) : null)
+const allocationPreviewMetrics = computed(() => {
+  if (!allocationPercentField.value) {
+    return []
+  }
+
+  const percent = numberOrNull(formState.allocation_percent)
+  const generatedSupply = optionNumber(selectedGameOption.value, 'generatedSupplyCount')
+  const estimatedAllocation = generatedSupply !== null && percent !== null
+    ? Math.floor((generatedSupply * percent) / 100)
+    : null
+  const partnerExistingPercent = optionNumber(selectedPartnerOption.value, 'allocationPercent')
+
+  return [
+    { key: 'supply', label: 'Estimated supply', value: formatNumberOrDash(generatedSupply) },
+    { key: 'percent', label: 'Percent', value: percent === null ? '-' : `${formatNumber(percent)}%` },
+    { key: 'estimate', label: 'Estimated allocation', value: formatNumberOrDash(estimatedAllocation) },
+    { key: 'active', label: 'Existing partner %', value: partnerExistingPercent === null ? '-' : `${formatNumber(partnerExistingPercent)}%` },
+    { key: 'remaining', label: 'Existing remaining', value: formatContextValue(getPath(sourceRecord.value, 'remaining_count')) },
+  ]
+})
 
 const missingRequired = computed(() => {
   if (props.requiresReason && reason.value.trim() === '') {
@@ -316,6 +358,16 @@ const validationMessagesByField = computed(() => {
       continue
     }
 
+    if (field.type === 'number') {
+      const value = numberOrNull(formState[field.key])
+      if (value !== null && field.min !== undefined && value < Number(field.min)) {
+        add(field.key, `${field.label} must be at least ${field.min}.`)
+      }
+      if (value !== null && field.max !== undefined && value > Number(field.max)) {
+        add(field.key, `${field.label} must be at most ${field.max}.`)
+      }
+    }
+
     if (
       field.defaultValueSource === 'current-game'
       && field.required
@@ -324,6 +376,18 @@ const validationMessagesByField = computed(() => {
     ) {
       add(field.key, 'No single current draw/current game is available. Open exactly one current game before generating stock.')
       add('__form', 'Select a current game before submitting.')
+    }
+  }
+
+  const tenant = tenantField.value
+  if (tenant && isFieldVisible(tenant)) {
+    const partner = selectedPartnerOption.value
+    const activeTenantCount = optionNumber(partner, 'activeTenantCount')
+    if (partner && activeTenantCount === 0) {
+      add(tenant.key, 'The selected partner has no active tenant.')
+      add('__form', 'Select a partner with at least one active tenant before submitting.')
+    } else if (partner && activeTenantCount !== null && activeTenantCount > 1 && isBlank(formState[tenant.key])) {
+      add(tenant.key, 'Select a tenant for this multi-tenant partner.')
     }
   }
 
@@ -353,6 +417,8 @@ const resetFormState = () => {
       ? normalizeInitialValue(field, recordValue)
       : field.defaultValue !== undefined ? field.defaultValue : normalizeInitialValue(field, recordValue)
   }
+
+  syncDependentTenant()
 }
 
 const fieldValidationMessages = (field: OperationFormField) => validationMessagesByField.value[field.key] || []
@@ -363,6 +429,63 @@ const isFieldVisible = (field: OperationFormField) => {
   }
 
   return field.visibleForGenerationModes.includes(String(formState.generation_mode || ''))
+}
+
+const fieldDisabled = (field: OperationFormField) => {
+  if (field.readonly) {
+    return true
+  }
+
+  if (field.dependsOn && isBlank(formState[field.dependsOn])) {
+    return true
+  }
+
+  if (field.key === 'tenant_id') {
+    const activeTenantCount = optionNumber(selectedPartnerOption.value, 'activeTenantCount')
+    return activeTenantCount === 0 || activeTenantCount === 1
+  }
+
+  return false
+}
+
+const visibleOptions = (field: OperationFormField) => {
+  if (field.key === 'tenant_id') {
+    const partner = selectedPartnerOption.value
+    const singleTenantId = optionString(partner, 'singleTenantId')
+    if (partner && optionNumber(partner, 'activeTenantCount') === 1 && singleTenantId) {
+      return [{
+        value: singleTenantId,
+        label: optionString(partner, 'singleTenantLabel') || singleTenantId,
+        partnerId: optionValue(partner),
+      }]
+    }
+  }
+
+  const options = field.options || []
+  const withCurrentReadonlyOption = (nextOptions: any[]) => {
+    const value = formState[field.key]
+    if (!field.readonly || isBlank(value) || nextOptions.some((option) => String(optionValue(option)) === String(value))) {
+      return nextOptions
+    }
+
+    const label = [
+      getPath(sourceRecord.value, 'code'),
+      getPath(sourceRecord.value, 'name'),
+      value,
+    ].filter(Boolean).join(' - ')
+    return [{ value, label }, ...nextOptions]
+  }
+
+  if (!field.dependsOn) {
+    return withCurrentReadonlyOption(options)
+  }
+
+  const dependencyValue = formState[field.dependsOn]
+  if (!dependencyValue) {
+    return withCurrentReadonlyOption([])
+  }
+
+  return withCurrentReadonlyOption(options.filter((option) => optionPartnerId(option) === String(dependencyValue)))
 }
 
 const addStockSetDistributionRow = (field: OperationFormField) => {
@@ -392,6 +515,32 @@ const removeStockSetDistributionRow = (field: OperationFormField, index: number)
 }
 
 const handleFieldInput = (_field: OperationFormField, _event: Event) => {}
+
+const syncDependentTenant = () => {
+  const field = tenantField.value
+  if (!field) {
+    return
+  }
+
+  const partner = selectedPartnerOption.value
+  const activeTenantCount = optionNumber(partner, 'activeTenantCount')
+  const singleTenantId = optionString(partner, 'singleTenantId')
+
+  if (!partner || activeTenantCount === 0) {
+    formState[field.key] = ''
+    return
+  }
+
+  if (activeTenantCount === 1 && singleTenantId) {
+    formState[field.key] = singleTenantId
+    return
+  }
+
+  const allowed = new Set(visibleOptions(field).map((option) => String(optionValue(option))))
+  if (formState[field.key] && !allowed.has(String(formState[field.key]))) {
+    formState[field.key] = ''
+  }
+}
 
 const normalizeInitialValue = (field: OperationFormField, value: any) => {
   if (field.type === 'checkbox') {
@@ -496,6 +645,30 @@ const labelize = (key: string) => key
 const optionValue = (option: any) => typeof option === 'object' && option !== null ? option.value : option
 const optionLabel = (option: any) => typeof option === 'object' && option !== null ? option.label : String(option)
 const optionDisabled = (option: any) => Boolean(typeof option === 'object' && option !== null && option.disabled)
+const optionPartnerId = (option: any) => String(typeof option === 'object' && option !== null ? option.partnerId || option.partner_id || '' : '')
+const optionString = (option: any, key: string) => {
+  const value = typeof option === 'object' && option !== null ? option[key] : undefined
+  return value === undefined || value === null ? '' : String(value)
+}
+const optionNumber = (option: any, key: string) => {
+  const value = typeof option === 'object' && option !== null ? option[key] : null
+  return numberOrNull(value)
+}
+const findOption = (field: OperationFormField, value: any) => {
+  if (isBlank(value)) {
+    return null
+  }
+  return (field.options || []).find((option) => String(optionValue(option)) === String(value)) || null
+}
+const numberOrNull = (value: any) => {
+  if (value === undefined || value === null || value === '') {
+    return null
+  }
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+const formatNumber = (value: number) => new Intl.NumberFormat('th-TH', { maximumFractionDigits: 2 }).format(value)
+const formatNumberOrDash = (value: number | null) => value === null ? '-' : formatNumber(value)
 
 const formatContextValue = (value: any) => {
   if (value === undefined || value === null || value === '') return '-'
@@ -650,6 +823,12 @@ watch(() => [props.modelValue, props.payloadTemplate, props.formFields, props.re
     resetFormState()
   }
 }, { immediate: true })
+
+watch(() => [formState.partner_id, props.modelValue, props.formFields] as const, () => {
+  if (props.modelValue) {
+    syncDependentTenant()
+  }
+}, { deep: true })
 </script>
 
 <style scoped>
@@ -694,6 +873,17 @@ watch(() => [props.modelValue, props.payloadTemplate, props.formFields, props.re
   border: 1px solid var(--default-border);
   border-radius: 6px;
   padding: 1rem;
+}
+
+.np-allocation-preview {
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+}
+
+.np-allocation-preview > div {
+  display: grid;
+  gap: .15rem;
 }
 
 .np-stock-config-grid {
