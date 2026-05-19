@@ -105,6 +105,13 @@ QA result:
 - Passed: Backend/API workflow evidence, partner percent validation, recall-all/redistribute, Docker backend tests, BO lint/test/build, route/source wiring, runtime restore, and login smoke.
 - Residual risk: authenticated BO browser workflow was not executed in QA. BO evidence is source wiring plus unauthenticated route smoke. If strict visual BO approval is required, dispatch a browser-enabled QA rerun specifically for authenticated BO allocation UI workflows.
 
+QA rerun opened:
+
+- Task: `ai-agents/tasks/20260519-allocation-partner-percent-workflow-authenticated-bo-qa.md`
+- Scope: authenticated BO browser workflow only.
+- QA Tester must verify real UI login, allocation select UX, `allocation_percent` create payload without `requested_count`, partner percent `<= 100%` validation, recall-all, redistribute, scoped stock/coverage actions, BO build checks, and runtime restore/login smoke.
+- Destructive DB setup remains test DB only: `APP_ENV=testing`, `DB_DATABASE=newpaotang_test`, `--env=testing`.
+
 Coordinator board:
 
 - This entry is the board instruction for the user to send in the Orchestrator chat.
