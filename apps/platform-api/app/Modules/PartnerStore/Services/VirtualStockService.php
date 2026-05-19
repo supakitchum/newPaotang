@@ -23,6 +23,7 @@ class VirtualStockService
 {
     private const MAX_BP = 10000;
     private const UNLIMITED = 2147483647;
+    private const STOCK_PATTERN_COVERAGE_SETTING_KEY = 'stock_pattern_coverage_default';
 
     public function isGeneratePayload(array $payload): bool
     {
@@ -121,7 +122,11 @@ class VirtualStockService
             $seed = trim((string) ($payload['seed'] ?? ($idempotencyKey !== '' ? $idempotencyKey : Str::ulid()->toBase32())));
             $distribution = $this->normalizeSetDistribution($payload['set_distribution'] ?? []);
             $partnerDistribution = $this->normalizePartnerDistribution($payload['partner_distribution'] ?? []);
-            $centralLimits = $this->normalizeLimitRow($payload['central_limits'] ?? []);
+            $coverageDefaults = $this->stockPatternCoverageDefaults();
+            $centralLimits = $this->normalizeLimitRow($payload['central_limits'] ?? $coverageDefaults['central']);
+            if (! $this->hasAnyLimit($centralLimits)) {
+                $centralLimits = $this->normalizeLimitRow($coverageDefaults['central']);
+            }
             $partnerLimits = $this->normalizePartnerLimits($payload['partner_limits'] ?? []);
             $profileId = $this->stableId('vsp', $gameId.':'.$seed.':'.json_encode($distribution, JSON_THROW_ON_ERROR));
             $payloadForHash = [
@@ -746,6 +751,7 @@ class VirtualStockService
      */
     private function limitSettings(string $gameId, string $scopeType, string $scopeId): array
     {
+        $fallback = $this->stockPatternCoverageDefaults()[$scopeType === 'partner' ? 'partner' : 'central'];
         $row = DB::table('stock_sale_limit_settings')
             ->where('game_id', $gameId)
             ->where('scope_type', $scopeType)
@@ -753,10 +759,43 @@ class VirtualStockService
             ->first();
 
         return [
-            'back2_limit' => $row?->back2_limit === null ? self::UNLIMITED : (int) $row->back2_limit,
-            'back3_limit' => $row?->back3_limit === null ? self::UNLIMITED : (int) $row->back3_limit,
-            'front3_limit' => $row?->front3_limit === null ? self::UNLIMITED : (int) $row->front3_limit,
+            'back2_limit' => $row?->back2_limit === null ? $fallback['back2_limit'] : (int) $row->back2_limit,
+            'back3_limit' => $row?->back3_limit === null ? $fallback['back3_limit'] : (int) $row->back3_limit,
+            'front3_limit' => $row?->front3_limit === null ? $fallback['front3_limit'] : (int) $row->front3_limit,
         ];
+    }
+
+    /**
+     * @return array{central: array{back2_limit: int, back3_limit: int, front3_limit: int}, partner: array{back2_limit: int, back3_limit: int, front3_limit: int}}
+     */
+    private function stockPatternCoverageDefaults(): array
+    {
+        $defaults = [
+            'central' => ['back2_limit' => 500, 'back3_limit' => 300, 'front3_limit' => 200],
+            'partner' => ['back2_limit' => 200, 'back3_limit' => 100, 'front3_limit' => 80],
+        ];
+        $value = DB::table('platform_system_settings')
+            ->where('key', self::STOCK_PATTERN_COVERAGE_SETTING_KEY)
+            ->value('value_json');
+        $decoded = is_string($value) ? json_decode($value, true) : null;
+
+        if (! is_array($decoded)) {
+            return $defaults;
+        }
+
+        foreach (['central', 'partner'] as $scope) {
+            if (! is_array($decoded[$scope] ?? null)) {
+                continue;
+            }
+
+            foreach (['back2_limit', 'back3_limit', 'front3_limit'] as $field) {
+                if (array_key_exists($field, $decoded[$scope]) && $decoded[$scope][$field] !== null && $decoded[$scope][$field] !== '') {
+                    $defaults[$scope][$field] = max(0, (int) $decoded[$scope][$field]);
+                }
+            }
+        }
+
+        return $defaults;
     }
 
     /**

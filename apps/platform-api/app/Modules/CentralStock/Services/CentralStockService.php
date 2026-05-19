@@ -557,11 +557,7 @@ class CentralStockService
                 'scope_id' => $scopeId,
                 'stock_mode' => 'virtual',
                 'empty' => true,
-                'limits' => $this->publicVirtualLimits([
-                    'back2_limit' => self::VIRTUAL_UNLIMITED,
-                    'back3_limit' => self::VIRTUAL_UNLIMITED,
-                    'front3_limit' => self::VIRTUAL_UNLIMITED,
-                ]),
+                'limits' => $this->publicVirtualLimits($this->defaultStockPatternCoverageForScope($scopeType)),
                 'totals' => $this->emptyVirtualPatternTotals(),
                 'data' => [],
                 'meta' => [
@@ -735,7 +731,8 @@ class CentralStockService
 
         foreach (['back2_limit', 'back3_limit', 'front3_limit'] as $field) {
             $value = $payload[$field] ?? null;
-            if ($value === null || $value === '') {
+            if (! array_key_exists($field, $payload) || $value === null || $value === '') {
+                $errors[$field][] = 'The '.$field.' field is required and cannot be unlimited.';
                 continue;
             }
 
@@ -747,6 +744,14 @@ class CentralStockService
 
         if ($gameId !== null && $scopeType === 'partner') {
             foreach ($this->partnerLimitSettingCeilingErrors($gameId, $payload) as $field => $messages) {
+                foreach ($messages as $message) {
+                    $errors[$field][] = $message;
+                }
+            }
+        }
+
+        if ($gameId !== null) {
+            foreach ($this->limitSettingSupplyErrors($gameId, $scopeType, $scopeId, $payload) as $field => $messages) {
                 foreach ($messages as $message) {
                     $errors[$field][] = $message;
                 }
@@ -871,6 +876,14 @@ class CentralStockService
 
         if ($gameId !== null && $dimension !== null && $scopeType === 'partner') {
             foreach ($this->partnerLimitOverrideCeilingErrors($gameId, $dimension, $overrides) as $field => $messages) {
+                foreach ($messages as $message) {
+                    $errors[$field][] = $message;
+                }
+            }
+        }
+
+        if ($gameId !== null && $dimension !== null) {
+            foreach ($this->limitOverrideSupplyErrors($gameId, $dimension, $scopeType, $scopeId, $overrides) as $field => $messages) {
                 foreach ($messages as $message) {
                     $errors[$field][] = $message;
                 }
@@ -1260,13 +1273,23 @@ class CentralStockService
 
     private function virtualPartnerBasisPoints(string $gameId, string $partnerId): int
     {
-        $basisPoints = (int) DB::table('stock_partner_distributions')
+        $basisPoints = DB::table('stock_partner_distributions')
             ->where('game_id', $gameId)
             ->where('partner_id', $partnerId)
             ->where('status', 'active')
             ->value('percent_basis_points');
 
-        return max(0, min(self::VIRTUAL_MAX_BP, $basisPoints));
+        if ($basisPoints !== null) {
+            return max(0, min(self::VIRTUAL_MAX_BP, (int) $basisPoints));
+        }
+
+        $hasDistribution = DB::table('stock_partner_distributions')
+            ->where('game_id', $gameId)
+            ->where('status', 'active')
+            ->where('percent_basis_points', '>', 0)
+            ->exists();
+
+        return $hasDistribution ? 0 : self::VIRTUAL_MAX_BP;
     }
 
     /**
@@ -1326,6 +1349,16 @@ class CentralStockService
             'central' => ['back2_limit' => 500, 'back3_limit' => 300, 'front3_limit' => 200],
             'partner' => ['back2_limit' => 200, 'back3_limit' => 100, 'front3_limit' => 80],
         ];
+    }
+
+    /**
+     * @return array{back2_limit: int, back3_limit: int, front3_limit: int}
+     */
+    private function defaultStockPatternCoverageForScope(string $scopeType): array
+    {
+        $coverage = $this->currentStockPatternCoverage();
+
+        return $coverage[$scopeType === 'partner' ? 'partner' : 'central'];
     }
 
     /**
@@ -4593,6 +4626,7 @@ class CentralStockService
      */
     private function virtualLimits(string $gameId, string $scopeType, string $scopeId): array
     {
+        $fallback = $this->defaultStockPatternCoverageForScope($scopeType);
         $row = DB::table('stock_sale_limit_settings')
             ->where('game_id', $gameId)
             ->where('scope_type', $scopeType)
@@ -4600,9 +4634,9 @@ class CentralStockService
             ->first();
 
         return [
-            'back2_limit' => $row?->back2_limit === null ? self::VIRTUAL_UNLIMITED : (int) $row->back2_limit,
-            'back3_limit' => $row?->back3_limit === null ? self::VIRTUAL_UNLIMITED : (int) $row->back3_limit,
-            'front3_limit' => $row?->front3_limit === null ? self::VIRTUAL_UNLIMITED : (int) $row->front3_limit,
+            'back2_limit' => $row?->back2_limit === null ? $fallback['back2_limit'] : (int) $row->back2_limit,
+            'back3_limit' => $row?->back3_limit === null ? $fallback['back3_limit'] : (int) $row->back3_limit,
+            'front3_limit' => $row?->front3_limit === null ? $fallback['front3_limit'] : (int) $row->front3_limit,
         ];
     }
 
@@ -4798,6 +4832,34 @@ class CentralStockService
     }
 
     /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    private function limitSettingSupplyErrors(string $gameId, string $scopeType, string $scopeId, array $payload): array
+    {
+        $errors = [];
+        $fields = [
+            'back2_limit' => 'back2',
+            'back3_limit' => 'back3',
+            'front3_limit' => 'front3',
+        ];
+
+        foreach ($fields as $field => $dimension) {
+            $limit = filter_var($payload[$field] ?? null, FILTER_VALIDATE_INT);
+            if ($limit === false || (int) $limit < 0) {
+                continue;
+            }
+
+            $supplyCeiling = $this->virtualDefaultLimitSupplyCeiling($gameId, $dimension, $scopeType, $scopeId);
+            if ((int) $limit > $supplyCeiling) {
+                $errors[$field][] = 'The '.$field.' field may not exceed generated stock of '.$supplyCeiling.'. Generate or top up stock before increasing this limit.';
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
      * @param mixed $overrides
      * @return array<string, array<int, string>>
      */
@@ -4831,6 +4893,68 @@ class CentralStockService
         }
 
         return $errors;
+    }
+
+    /**
+     * @param mixed $overrides
+     * @return array<string, array<int, string>>
+     */
+    private function limitOverrideSupplyErrors(string $gameId, string $dimension, string $scopeType, string $scopeId, mixed $overrides): array
+    {
+        if (! is_array($overrides)) {
+            return [];
+        }
+
+        $errors = [];
+        $pad = $dimension === 'back2' ? 2 : 3;
+
+        foreach ($overrides as $index => $row) {
+            if (! is_array($row) || ($row['limit'] ?? null) === null || $row['limit'] === '') {
+                continue;
+            }
+
+            $limit = filter_var($row['limit'], FILTER_VALIDATE_INT);
+            if ($limit === false || (int) $limit < 0) {
+                continue;
+            }
+
+            $value = preg_replace('/\D+/', '', (string) ($row['value'] ?? '')) ?? '';
+            if (strlen($value) !== $pad) {
+                continue;
+            }
+
+            $generatedCount = $this->virtualGeneratedSupplyForPattern($gameId, $dimension, $value, $scopeType, $scopeId);
+            if ((int) $limit > $generatedCount) {
+                $errors['overrides.'.$index.'.limit'][] = 'The override limit may not exceed generated stock of '.$generatedCount.'. Generate or top up stock before increasing this limit.';
+            }
+        }
+
+        return $errors;
+    }
+
+    private function virtualDefaultLimitSupplyCeiling(string $gameId, string $dimension, string $scopeType, string $scopeId): int
+    {
+        $profile = $this->activeVirtualStockProfile($gameId);
+        if ($profile === null) {
+            return 0;
+        }
+
+        $counts = $this->virtualGeneratedCountsForDimension($gameId, $dimension, $scopeType, $scopeId, $profile);
+        $positiveCounts = array_values(array_filter($counts, fn (int $count): bool => $count > 0));
+
+        return $positiveCounts === [] ? 0 : min($positiveCounts);
+    }
+
+    private function virtualGeneratedSupplyForPattern(string $gameId, string $dimension, string $value, string $scopeType, string $scopeId): int
+    {
+        $profile = $this->activeVirtualStockProfile($gameId);
+        if ($profile === null) {
+            return 0;
+        }
+
+        $counts = $this->virtualGeneratedCountsForDimension($gameId, $dimension, $scopeType, $scopeId, $profile);
+
+        return (int) ($counts[$value] ?? 0);
     }
 
     /**

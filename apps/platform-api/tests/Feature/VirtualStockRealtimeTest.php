@@ -343,12 +343,13 @@ class VirtualStockRealtimeTest extends TestCase
             ->assertOk()
             ->assertJsonPath('stock_mode', 'virtual')
             ->assertJsonPath('total_count', 1000000)
-            ->assertJsonPath('status_counts.available', 999998)
+            ->assertJsonPath('status_counts.available', 49997)
             ->assertJsonPath('status_counts.allocated', 1)
             ->assertJsonPath('status_counts.sold', 1)
             ->assertJsonPath('pattern_totals.back2.sold_count', 2)
             ->assertJsonPath('pattern_totals.front3.sold_count', 1)
             ->assertJsonPath('pattern_totals.back2.generated_count', 3)
+            ->assertJsonPath('pattern_totals.back2.limit_total', 50000)
             ->assertJsonPath('pattern_totals.back2.sellable_remaining_count', 2)
             ->assertJsonPath('number_coverage.back2.total_count', 3)
             ->assertJsonPath('empty', false);
@@ -406,17 +407,49 @@ class VirtualStockRealtimeTest extends TestCase
                 'scope_type' => 'central',
                 'scope_id' => 'central',
                 'back2_limit' => 2,
-                'back3_limit' => 5,
+                'back3_limit' => 1,
+                'front3_limit' => 1,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'virtual-limit-settings-central-over-supply',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.fields.back2_limit.0', 'The back2_limit field may not exceed generated stock of 1. Generate or top up stock before increasing this limit.');
+
+        $this->withToken($generateLogin['access_token'])
+            ->putJson('/api/v1/admin/central/stock/limit-settings', [
+                'game_id' => 'gam_virtual_table',
+                'scope_type' => 'central',
+                'scope_id' => 'central',
+                'back2_limit' => 1,
+                'back3_limit' => 1,
                 'front3_limit' => null,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'virtual-limit-settings-central-unlimited',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.fields.front3_limit.0', 'The front3_limit field is required and cannot be unlimited.');
+
+        $this->withToken($generateLogin['access_token'])
+            ->putJson('/api/v1/admin/central/stock/limit-settings', [
+                'game_id' => 'gam_virtual_table',
+                'scope_type' => 'central',
+                'scope_id' => 'central',
+                'back2_limit' => 1,
+                'back3_limit' => 1,
+                'front3_limit' => 1,
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'virtual-limit-settings-central',
             ])
             ->assertOk()
-            ->assertJsonPath('limits.back2_limit', 2)
-            ->assertJsonPath('limits.back3_limit', 5)
-            ->assertJsonPath('limits.front3_limit', null)
-            ->assertJsonPath('data.0.default_limit', 2)
+            ->assertJsonPath('limits.back2_limit', 1)
+            ->assertJsonPath('limits.back3_limit', 1)
+            ->assertJsonPath('limits.front3_limit', 1)
+            ->assertJsonPath('data.0.default_limit', 1)
             ->assertJsonPath('data.0.remaining_limit', 0);
 
         $this->withToken($generateLogin['access_token'])
@@ -433,16 +466,16 @@ class VirtualStockRealtimeTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonPath('error.code', 'validation_failed')
-            ->assertJsonPath('error.details.fields.back2_limit.0', 'The back2_limit field may not exceed the central effective limit of 2.');
+            ->assertJsonPath('error.details.fields.back2_limit.0', 'The back2_limit field may not exceed the central effective limit of 1.');
 
         $this->withToken($generateLogin['access_token'])
             ->putJson('/api/v1/admin/central/stock/limit-settings', [
                 'game_id' => 'gam_virtual_table',
                 'scope_type' => 'partner',
                 'scope_id' => 'par_virtual_table',
-                'back2_limit' => 2,
-                'back3_limit' => 5,
-                'front3_limit' => 9,
+                'back2_limit' => 1,
+                'back3_limit' => 1,
+                'front3_limit' => 1,
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'virtual-limit-settings-partner-valid',
@@ -450,10 +483,10 @@ class VirtualStockRealtimeTest extends TestCase
             ->assertOk()
             ->assertJsonPath('scope_type', 'partner')
             ->assertJsonPath('scope_id', 'par_virtual_table')
-            ->assertJsonPath('limits.back2_limit', 2)
-            ->assertJsonPath('data.0.default_limit', 2);
+            ->assertJsonPath('limits.back2_limit', 1)
+            ->assertJsonPath('data.0.default_limit', 1);
 
-        $this->withToken($generateLogin['access_token'])
+        $invalidCentralOverride = $this->withToken($generateLogin['access_token'])
             ->putJson('/api/v1/admin/central/stock/limit-overrides', [
                 'game_id' => 'gam_virtual_table',
                 'scope_type' => 'central',
@@ -464,12 +497,33 @@ class VirtualStockRealtimeTest extends TestCase
                 ],
             ], [
                 'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'virtual-limit-override-central-over-supply',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->json();
+        $this->assertSame(
+            'The override limit may not exceed generated stock of 1. Generate or top up stock before increasing this limit.',
+            $invalidCentralOverride['error']['details']['fields']['overrides.0.limit'][0] ?? null,
+        );
+
+        $this->withToken($generateLogin['access_token'])
+            ->putJson('/api/v1/admin/central/stock/limit-overrides', [
+                'game_id' => 'gam_virtual_table',
+                'scope_type' => 'central',
+                'scope_id' => 'central',
+                'dimension' => 'back2',
+                'overrides' => [
+                    ['value' => '00', 'limit' => 1],
+                ],
+            ], [
+                'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'virtual-limit-override-central',
             ])
             ->assertOk()
             ->assertJsonPath('data.0.number', '00')
-            ->assertJsonPath('data.0.override_limit', 2)
-            ->assertJsonPath('data.0.limit', 2)
+            ->assertJsonPath('data.0.override_limit', 1)
+            ->assertJsonPath('data.0.limit', 1)
             ->assertJsonPath('data.0.remaining_limit', 0);
 
         $this->withToken($generateLogin['access_token'])
