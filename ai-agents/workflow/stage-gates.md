@@ -31,6 +31,7 @@ Owner: Orchestrator
 กำหนดไฟล์ที่เป็น ownership
 กำหนด input/output และ validation command แบบ Docker เท่านั้น
 กำหนด handoff target
+กำหนด canonical worktree start gate และห้าม agent ใช้ stale worktree
 ```
 
 Output goes to:
@@ -44,6 +45,7 @@ ai-agents/tasks/YYYYMMDD-<task-key>-<agent>.md
 Owner: Backend Develop, BO Develop, Customer Develop
 
 ```text
+เริ่มจาก canonical worktree /Users/supakit/WorkSpace/www/newPaotang เท่านั้น เว้นแต่ task อนุญาตแยก worktree
 ทำเฉพาะงานที่ได้รับ
 ห้ามแก้ไฟล์นอก ownership โดยไม่แจ้ง
 ถ้าเจอ blocker ให้ทำ handoff กลับ Orchestrator/Coordinator
@@ -60,6 +62,7 @@ ai-agents/handoffs/YYYYMMDD-<task-key>-<agent>-handoff.md
 Implementation handoff ต้องระบุ:
 
 ```text
+worktree path และ HEAD ที่ใช้
 commit hash
 ไฟล์ที่ commit
 validation ที่รันผ่าน Docker
@@ -71,6 +74,7 @@ unrelated dirty files ที่ยังไม่ได้แตะ ถ้าม
 Owner: QA Tester
 
 ```text
+เริ่มจาก canonical worktree /Users/supakit/WorkSpace/www/newPaotang เท่านั้น เว้นแต่ task อนุญาตแยก worktree
 อ่าน task + handoff
 เขียน/รันทดสอบตาม acceptance criteria
 บันทึกผลผ่าน/ไม่ผ่าน

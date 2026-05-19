@@ -117,6 +117,57 @@ Customer Develop ใช้ service customer
 QA Tester ทดสอบผ่าน Docker service ที่เกี่ยวข้องเท่านั้น
 ```
 
+## Canonical Worktree Rule
+
+ทุก agent ต้องใช้ worktree หลักเดียวกันเป็น source of truth เว้นแต่ Coordinator สั่งแยก worktree เป็นลายลักษณ์อักษรใน task นั้นโดยตรง
+
+Canonical worktree:
+
+```text
+/Users/supakit/WorkSpace/www/newPaotang
+```
+
+ก่อนเริ่มอ่าน/แก้/ทดสอบงานทุกครั้ง agent ต้องตรวจ:
+
+```sh
+pwd
+git rev-parse --show-toplevel
+git status --short --branch
+git rev-parse HEAD
+git rev-parse origin/develop
+```
+
+เงื่อนไขผ่าน:
+
+```text
+1. git top-level ต้องเป็น /Users/supakit/WorkSpace/www/newPaotang
+2. branch ต้องตาม origin/develop ล่าสุด หรือเป็น branch ที่ Coordinator ระบุให้ใช้ใน task นั้น
+3. ถ้าอยู่ .codex/worktrees/*, newPaotang-bo-*, newPaotang-qa-*, newPaotang-orch-* หรือ detached HEAD ให้ถือว่าเป็น worktree ผิดทันที เว้นแต่ task ระบุ path นั้นชัดเจน
+4. ถ้า HEAD ไม่ตรงกับ origin/develop และไม่ได้รับอนุญาตเป็น branch เฉพาะงาน ให้หยุด ไม่แก้ไฟล์ และส่ง blocker กลับ Coordinator
+5. ห้ามรัน Docker build/test/browser QA จาก worktree เก่าหรือ detached เพราะ container อาจ mount source ผิด
+```
+
+ถ้า agent พบว่าตัวเองอยู่ worktree ผิด ให้ทำตามนี้:
+
+```text
+1. หยุดแก้ไฟล์ทันที
+2. ถ้ามีงานที่ยังไม่ได้ commit ให้รายงาน path, branch, git status, และรายการไฟล์ให้ Coordinator ก่อน ห้ามย้าย/ลบเอง
+3. ถ้าไม่มีงานค้าง ให้ย้ายการทำงานไปที่ /Users/supakit/WorkSpace/www/newPaotang
+4. ที่ canonical worktree ให้ run git fetch origin และ fast-forward ให้ตรง origin/develop ก่อนเริ่มงาน
+5. handoff/report ต้องบันทึก worktree path และ HEAD ที่ใช้ทดสอบเสมอ
+```
+
+Coordinator/Orchestrator ต้องเขียน task prompt ทุกฉบับให้มี worktree start gate:
+
+```sh
+cd /Users/supakit/WorkSpace/www/newPaotang
+git fetch origin
+git status --short --branch
+git merge --ff-only origin/develop
+```
+
+ถ้า command ใด fail ต้องหยุดและส่งกลับ Coordinator ห้ามเดินงานต่อบนฐานที่ไม่ตรงกัน
+
 ## QA Runtime Restore Rule
 
 QA Tester ต้องใช้ฐานข้อมูลทดสอบแยกจากฐานข้อมูล runtime หลักเสมอ และต้องคืนสภาพ local Docker runtime ให้ login ได้ก่อนส่งรายงานทุกครั้ง โดยเฉพาะงานที่แตะ database, migration, seeder, PHPUnit/feature test, Docker volume, Nuxt `.nuxt`, `npm run build`, หรือ browser QA

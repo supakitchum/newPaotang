@@ -19,6 +19,8 @@ ai-agents/decisions/YYYYMMDD-<task-key>-decision.md
 
 ## Task
 
+## Worktree / HEAD
+
 ## What Was Done
 
 ## Files Changed
@@ -43,6 +45,7 @@ QA report ทุกฉบับต้องเพิ่มหัวข้อน�
 หัวข้อนี้ต้องบันทึกว่า QA คืนสภาพ local Docker runtime แล้วหรือไม่ โดยเฉพาะ:
 
 ```text
+worktree path และ HEAD ที่ใช้ทดสอบ
 test database name used for destructive commands
 confirmation that destructive DB commands used `newpaotang_test`, not runtime DB `newpaotang`
 db:seed after DB-touching tests only for runtime smoke, never as a substitute for destructive restore on the main DB

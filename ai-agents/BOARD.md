@@ -22,11 +22,11 @@ virtual-stock-topup-cleanup
 ## Open Questions
 
 ```text
-Orchestrator must split virtual-stock-topup-cleanup into Backend Develop, BO Develop, and QA Tester tasks. Backend must go first because virtual top-up changes stock capacity source-of-truth.
+All agents must use canonical worktree /Users/supakit/WorkSpace/www/newPaotang unless a task explicitly authorizes a separate worktree. Agents on stale codex/newPaotang-* worktrees must stop, report dirty files if any, and restart from the canonical worktree synced to origin/develop.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/decisions/20260519-virtual-stock-topup-cleanup-decision.md
+ai-agents/decisions/20260519-agent-canonical-worktree-policy-decision.md
 ```
