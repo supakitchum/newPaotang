@@ -67,6 +67,14 @@ ai-agents/tasks/20260519-virtual-stock-topup-cleanup-qa.md
 
 QA must read both implementation handoffs before testing.
 
+QA must use only the canonical worktree unless Coordinator explicitly authorizes another path:
+
+```text
+/Users/supakit/WorkSpace/www/newPaotang
+```
+
+QA must run the canonical start gate from the task before testing and must record worktree path and HEAD in the QA report.
+
 ## Required QA Focus
 
 Validate the integrated Backend + BO behavior:
@@ -127,13 +135,7 @@ back-office restart/recreate after build/browser QA
 
 No app implementation files were edited by Orchestrator. This dispatch only updates Board state and creates this QA handoff.
 
-At dispatch time, the only local dirty file observed in this worktree was:
-
-```text
-apps/platform-api/.phpunit.result.cache
-```
-
-It was not staged or committed by Orchestrator.
+After the canonical worktree policy update, Orchestrator rechecked from `/Users/supakit/WorkSpace/www/newPaotang` and amended the QA task with the required canonical worktree start gate. At that time `HEAD` matched `origin/develop`.
 
 ## Next Agent
 

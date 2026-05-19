@@ -14,6 +14,33 @@ virtual-stock-topup-cleanup
 
 ## QA Start Gate
 
+QA Tester must start from the canonical worktree only:
+
+```text
+/Users/supakit/WorkSpace/www/newPaotang
+```
+
+Before reading or testing anything, run:
+
+```sh
+cd /Users/supakit/WorkSpace/www/newPaotang
+git fetch origin
+git status --short --branch
+git merge --ff-only origin/develop
+git rev-parse HEAD
+```
+
+Stop and report a blocker to Coordinator if:
+
+```text
+git top-level is not /Users/supakit/WorkSpace/www/newPaotang
+the worktree is under .codex/worktrees/*, newPaotang-qa-*, newPaotang-orch-*, newPaotang-bo-*, or detached HEAD
+git merge --ff-only origin/develop fails
+there are uncommitted changes that QA did not create and they overlap this task
+```
+
+The QA report must include the worktree path and HEAD used for testing.
+
 Do not start until both implementation handoffs exist, include commit hashes, and are pushed:
 
 ```text
