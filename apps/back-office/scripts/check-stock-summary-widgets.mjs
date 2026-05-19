@@ -74,33 +74,26 @@ for (const removedGenerateField of [
   "key: 'count'",
   "key: 'range'",
   "key: 'number_digits'",
-  "key: 'total_count'",
-  "key: 'back2_count_per_number'",
-  "key: 'back3_count_per_number'",
-  "key: 'front3_count_per_number'",
 ]) {
   if (generateActionBlock.includes(removedGenerateField)) {
     failures.push(`Removed stock generation field returned to catalog: ${removedGenerateField}`)
   }
 }
 
-for (const removedGenerateField of [
+for (const requiredGenerateField of [
+  "key: 'generation_mode'",
+  "value: 'quota_random'",
+  "value: 'virtual_profile'",
+  "key: 'total_count'",
   "key: 'back2_count_per_number'",
   "key: 'back3_count_per_number'",
   "key: 'front3_count_per_number'",
-  "value: 'quota_random'",
-  'Physical quota random',
-]) {
-  if (catalog.includes(removedGenerateField)) {
-    failures.push(`Retired physical stock generation field returned to catalog: ${removedGenerateField}`)
-  }
-}
-
-for (const requiredGenerateField of [
+  "visibleForGenerationModes: ['quota_random']",
   "key: 'set_distribution'",
+  "visibleForGenerationModes: ['virtual_profile']",
 ]) {
   if (!generateActionBlock.includes(requiredGenerateField)) {
-    failures.push(`Virtual stock generation field is missing: ${requiredGenerateField}`)
+    failures.push(`Restored stock generation field is missing: ${requiredGenerateField}`)
   }
 }
 

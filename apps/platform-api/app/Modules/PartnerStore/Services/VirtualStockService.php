@@ -26,7 +26,13 @@ class VirtualStockService
 
     public function isGeneratePayload(array $payload): bool
     {
-        return ($payload['generation_mode'] ?? null) === 'virtual_profile'
+        $mode = (string) ($payload['generation_mode'] ?? '');
+
+        if (in_array($mode, ['quota_random', 'quota', 'physical'], true)) {
+            return false;
+        }
+
+        return $mode === 'virtual_profile'
             || ($payload['stock_mode'] ?? null) === 'virtual'
             || array_key_exists('set_distribution', $payload);
     }

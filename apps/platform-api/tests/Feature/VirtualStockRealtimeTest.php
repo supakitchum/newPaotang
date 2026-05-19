@@ -196,7 +196,7 @@ class VirtualStockRealtimeTest extends TestCase
             ->assertJsonPath('meta.sort_dir', 'desc');
     }
 
-    public function test_physical_quota_generation_payload_is_retired(): void
+    public function test_physical_quota_generation_payload_still_coexists_with_virtual_profile(): void
     {
         $this->seedDefaultRbac();
         $this->insertGame('gam_virtual_only', 'open');
@@ -210,13 +210,14 @@ class VirtualStockRealtimeTest extends TestCase
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'retired-physical-generate',
             ])
-            ->assertUnprocessable()
-            ->assertJsonPath('error.code', 'validation_failed')
-            ->assertJsonPath('error.details.fields.generation_mode.0', 'Stock generation supports virtual_profile only. Physical stock generation has been retired.')
-            ->assertJsonPath('error.details.fields.total_count.0', 'This field is no longer supported for stock generation. Use virtual stock profile settings instead.');
+            ->assertAccepted()
+            ->assertJsonPath('type', 'generate')
+            ->assertJsonPath('status', 'completed')
+            ->assertJsonPath('generated_count', 1000);
 
-        $this->assertSame(0, DB::table('stock_items')->where('game_id', 'gam_virtual_only')->count());
-        $this->assertSame(0, DB::table('stock_generation_batches')->where('game_id', 'gam_virtual_only')->count());
+        $this->assertSame(1000, DB::table('stock_items')->where('game_id', 'gam_virtual_only')->count());
+        $this->assertSame(1, DB::table('stock_generation_batches')->where('game_id', 'gam_virtual_only')->where('type', 'generate')->count());
+        $this->assertSame(0, DB::table('stock_supply_profiles')->where('game_id', 'gam_virtual_only')->count());
     }
 
     public function test_virtual_stock_summary_handles_low_pattern_limits_after_generation(): void

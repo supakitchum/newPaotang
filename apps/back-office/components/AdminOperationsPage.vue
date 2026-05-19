@@ -1645,12 +1645,21 @@ const buildPayloadFromFields = (fields: OperationFormField[], values: Record<str
 }
 
 const normalizeStockGenerationPayload = (payload: Record<string, any>) => {
-  const next = { ...payload, generation_mode: 'virtual_profile' }
+  const mode = String(payload.generation_mode || (payload.set_distribution ? 'virtual_profile' : 'quota_random'))
+  const next = { ...payload, generation_mode: mode }
 
-  delete next.total_count
-  delete next.back2_count_per_number
-  delete next.back3_count_per_number
-  delete next.front3_count_per_number
+  if (mode === 'virtual_profile') {
+    delete next.total_count
+    delete next.back2_count_per_number
+    delete next.back3_count_per_number
+    delete next.front3_count_per_number
+    return next
+  }
+
+  delete next.seed
+  delete next.set_distribution
+  delete next.central_limits
+  delete next.partner_limits
 
   return next
 }
