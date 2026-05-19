@@ -24,6 +24,8 @@ class StockItem extends BaseModel
         'partner_id',
         'tenant_id',
         'allocation_id',
+        'virtual_stock_ref',
+        'virtual_copy_index',
         'image_url',
         'image_thumb_url',
         'image_storage_path',
@@ -44,6 +46,7 @@ class StockItem extends BaseModel
         'recalled_at' => 'datetime',
         'image_generated_at' => 'datetime',
         'background_asset_index' => 'integer',
+        'virtual_copy_index' => 'integer',
     ];
 
     public function game(): BelongsTo

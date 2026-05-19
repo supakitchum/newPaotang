@@ -21,6 +21,7 @@ App\Console\Commands\PlatformCloudflareReadinessCommand
 App\Console\Commands\PlatformMigrationRehearsalCommand
 App\Console\Commands\PlatformRuntimeReadinessCommand
 App\Console\Commands\ExpireStockReservationsCommand
+App\Console\Commands\SeedBaseLotteryNumbersCommand
 App\Console\Commands\ProcessSoldSyncCommand
 App\Console\Commands\ProcessRewardCheckCommand
 App\Console\Commands\CalculateCommissionsCommand
@@ -51,6 +52,7 @@ withCommands([...])
 | `platform:migration:rehearsal` | `platform:migration:rehearsal {--dry-run} {--format=table}` | `App\Shared\Migration\MigrationRehearsalReadinessService::report()` |
 | `platform:runtime:readiness` | `platform:runtime:readiness {--format=table}` | `App\Shared\Runtime\RuntimeReadinessService::report()` |
 | `stock:reservations:expire` | `stock:reservations:expire {--limit=100}` | `App\Modules\PartnerStore\Services\PartnerStoreService::expireReservations()` |
+| `stock:base-lottery:seed` | `stock:base-lottery:seed {--chunk=5000} {--source=} {--truncate}` | seeds `base_lottery_numbers` for virtual stock from the approved JSON number list |
 | `stock:sold:sync` | `stock:sold:sync {--limit=100}` | `App\Modules\Commerce\Services\CommerceService::processSoldSync()` |
 | `reward:check` | `reward:check {reward_result_id?} {--chunk=100}` | `App\Modules\Reward\Services\RewardService::processRewardCheck()` |
 | `commission:calculate` | `commission:calculate {order_id?} {--tenant_id=} {--limit=100}` | `App\Modules\Growth\Services\GrowthService::calculateCommissions()` |
@@ -73,6 +75,7 @@ platform:cloudflare:readiness --format=json -> safe local/dev Cloudflare/HTTPS/W
 platform:migration:rehearsal --dry-run --format=json -> safe local/dev migration rehearsal, cutover, rollback, snapshot, and secret-boundary readiness report with production_approved=false
 platform:runtime:readiness --format=json -> safe local/dev queue/Horizon/Reverb/scheduler readiness report with production_approved=false
 stock:reservations:expire -> Expired reservations: <count>
+stock:base-lottery:seed -> Base lottery seed completed. Checked <rows> rows, accepted <count> unique numbers, skipped <count> invalid rows, stored <count> numbers.
 stock:sold:sync -> Processed sold events: <count>
 reward:check -> Processed reward tickets: <count>
 commission:calculate -> Calculated commission transactions: <count>
@@ -94,6 +97,7 @@ docker compose run --rm platform-api php artisan platform:cloudflare:readiness -
 docker compose run --rm platform-api php artisan platform:migration:rehearsal --dry-run --format=json
 docker compose run --rm platform-api php artisan platform:runtime:readiness --format=json
 docker compose run --rm platform-api php artisan stock:reservations:expire --limit=100
+docker compose run --rm -v /absolute/path/number.json:/tmp/base-lottery-numbers.json:ro platform-api php artisan stock:base-lottery:seed --source=/tmp/base-lottery-numbers.json --truncate
 docker compose run --rm platform-api php artisan stock:sold:sync --limit=100
 docker compose run --rm platform-api php artisan reward:check --chunk=100
 docker compose run --rm platform-api php artisan commission:calculate --limit=100

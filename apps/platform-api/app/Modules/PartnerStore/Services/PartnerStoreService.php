@@ -35,6 +35,7 @@ class PartnerStoreService
     public function __construct(
         private readonly AuditLogger $auditLogger,
         private readonly MaintenanceService $maintenance,
+        private readonly VirtualStockService $virtualStock,
     ) {
     }
 
@@ -207,6 +208,12 @@ class PartnerStoreService
                     'has_more' => false,
                 ],
             ];
+        }
+
+        $virtualResult = $this->virtualStock->searchLocalStock($tenantId, $partnerId, $queryParams, $limit);
+
+        if ($virtualResult !== null) {
+            return $virtualResult;
         }
 
         $query = LocalStockItem::query()
@@ -639,6 +646,12 @@ class PartnerStoreService
      */
     public function createReservation(string $tenantId, string $partnerId, CustomerSessionContext $customer, array $payload, Request $request): array
     {
+        $virtualReservation = $this->virtualStock->createReservation($tenantId, $partnerId, $customer, $payload, $request);
+
+        if ($virtualReservation !== null) {
+            return $virtualReservation;
+        }
+
         $itemIds = array_values(array_map('strval', $payload['local_stock_item_ids']));
         sort($itemIds);
         $normalizedPayload = [
@@ -1154,6 +1167,13 @@ class PartnerStoreService
             ->all();
 
         if ($itemIds !== []) {
+            $this->virtualStock->releaseReservationCounters(
+                reservation: $reservation,
+                tenantId: $tenantId,
+                partnerId: $partnerId,
+                customerId: (string) $reservation->customer_id,
+            );
+
             LocalStockItem::query()
                 ->where('tenant_id', $tenantId)
                 ->whereIn('id', $itemIds)
@@ -1283,6 +1303,11 @@ class PartnerStoreService
             'back3' => $stock->back3,
             'back2' => $stock->back2,
             'status' => (string) $stock->status,
+            'stock_ref' => $stock->virtual_stock_ref,
+            'stock_mode' => $stock->virtual_stock_ref === null ? 'physical' : 'virtual',
+            'virtual_copy_index' => $stock->virtual_copy_index,
+            'remaining_count' => null,
+            'availability_status' => (string) $stock->status,
             'price' => ['amount' => 0, 'currency' => 'THB'],
             'price_rule_summary' => null,
             'image_thumb_url' => $stock->image_thumb_url,

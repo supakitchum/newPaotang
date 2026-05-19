@@ -42,6 +42,124 @@ class CentralStockController extends Controller
         return response()->json($this->centralStock->stockSummary($request->query()));
     }
 
+    public function patterns(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'stock.view');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        return response()->json($this->centralStock->stockPatternSummary($request->query()));
+    }
+
+    public function limitOverrides(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'stock.view');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        return response()->json($this->centralStock->stockLimitOverrides($request->query()));
+    }
+
+    public function settings(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'stock.generate');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        return response()->json($this->centralStock->stockSettings());
+    }
+
+    public function updateSettings(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'stock.generate');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        $payload = $request->all();
+        $errors = $this->centralStock->validateStockSettingsPayload($payload);
+
+        if ($errors !== []) {
+            return ApiErrorResponse::validationFailed($request, $errors);
+        }
+
+        return response()->json($this->centralStock->updateStockSettings($payload, $context, $request));
+    }
+
+    public function updateLimitSettings(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'stock.generate');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        $payload = $request->all();
+        $errors = $this->centralStock->validateLimitSettingsPayload($payload);
+
+        if ($errors !== []) {
+            return ApiErrorResponse::validationFailed($request, $errors);
+        }
+
+        return response()->json($this->centralStock->updateStockLimitSettings($payload, $context, $request));
+    }
+
+    public function updateLimitOverrides(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'stock.generate');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        $payload = $request->all();
+        $errors = $this->centralStock->validateLimitOverridePayload($payload);
+
+        if ($errors !== []) {
+            return ApiErrorResponse::validationFailed($request, $errors);
+        }
+
+        return response()->json($this->centralStock->updateStockLimitOverrides($payload, $context, $request));
+    }
+
+    public function numberDetail(Request $request, string $game_id, string $full_number): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'stock.view');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $detail = $this->centralStock->findStockNumberDetail($game_id, $full_number, $request->query());
+
+        return $detail === null ? ApiErrorResponse::notFound($request) : response()->json($detail);
+    }
+
     public function generate(Request $request): JsonResponse
     {
         $context = $this->authorizedContext($request, 'stock.generate');

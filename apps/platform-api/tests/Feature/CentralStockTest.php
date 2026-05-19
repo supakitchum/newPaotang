@@ -21,6 +21,8 @@ class CentralStockTest extends TestCase
 
     public function test_CentralStock_generate_import_export_list_and_recall_are_permissioned_safe_and_audited(): void
     {
+        $this->markTestSkipped('Physical stock generation is retired; this legacy stock row workflow needs a virtual-stock-specific rewrite.');
+
         $this->seedDefaultRbac();
         $this->insertGame('gam_stock_main', 'open');
         $this->insertGame('gam_stock_import', 'open');
@@ -248,6 +250,8 @@ class CentralStockTest extends TestCase
 
     public function test_CentralStock_summary_widgets_aggregate_coverage_filters_and_permissions(): void
     {
+        $this->markTestSkipped('Physical stock generation is retired; summary widget coverage needs a virtual-stock-specific rewrite.');
+
         $this->seedDefaultRbac();
         $this->insertGame('gam_stock_summary', 'open');
         $this->insertGame('gam_stock_empty', 'open');
@@ -379,6 +383,8 @@ class CentralStockTest extends TestCase
 
     public function test_CentralStock_large_async_generation_chunks_progress_idempotency_duplicates_and_image_dispatch(): void
     {
+        $this->markTestSkipped('Physical async stock generation is retired.');
+
         Queue::fake();
         config([
             'platform.stock_generation.chunk_rounds' => 5,
@@ -537,6 +543,8 @@ class CentralStockTest extends TestCase
 
     public function test_CentralStock_async_generation_broadcasts_realtime_progress_events(): void
     {
+        $this->markTestSkipped('Physical async stock generation is retired.');
+
         Queue::fake();
         Event::fake([StockGenerationProgressUpdated::class]);
         config(['platform.stock_generation.chunk_rounds' => 5]);
@@ -612,6 +620,8 @@ class CentralStockTest extends TestCase
 
     public function test_CentralStock_async_generation_failed_chunk_rolls_back_without_partial_rows(): void
     {
+        $this->markTestSkipped('Physical async stock generation is retired.');
+
         Queue::fake();
         Event::fake([StockGenerationProgressUpdated::class]);
         config(['platform.stock_generation.chunk_rounds' => 5]);
@@ -672,54 +682,35 @@ class CentralStockTest extends TestCase
         ));
     }
 
-    public function test_CentralStock_generate_quota_validation_rejects_conflicts_over_limit_and_legacy_payloads(): void
+    public function test_CentralStock_generate_rejects_retired_physical_payloads(): void
     {
         $this->seedDefaultRbac();
         $this->insertGame('gam_stock_validation', 'open');
 
         $login = $this->createCentralSession(['stock.generate'], 'adm_stock_validation', 'stock-validation@example.test');
 
-        $baseHeaders = ['X-Admin-Scope' => 'central', 'Idempotency-Key' => 'stock-validation'];
-
-        $this->withToken($login['access_token'])
-            ->postJson('/api/v1/admin/central/stock/generate', [
-                'game_id' => 'gam_stock_validation',
-                'back2_count_per_number' => 9,
-                'back3_count_per_number' => 1,
-                'front3_count_per_number' => 1,
-            ], $baseHeaders)
-            ->assertUnprocessable()
-            ->assertJsonPath('error.code', 'validation_failed')
-            ->assertJsonPath('error.details.fields.back2_count_per_number.0', 'The back2_count_per_number field must equal 10 times back3_count_per_number.');
-
         $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/stock/generate', [
                 'game_id' => 'gam_stock_validation',
                 'back2_count_per_number' => 10,
                 'back3_count_per_number' => 1,
-                'front3_count_per_number' => 2,
-            ], ['X-Admin-Scope' => 'central', 'Idempotency-Key' => 'stock-validation-front3'])
+                'front3_count_per_number' => 1,
+            ], ['X-Admin-Scope' => 'central', 'Idempotency-Key' => 'stock-validation-quota-retired'])
             ->assertUnprocessable()
-            ->assertJsonPath('error.details.fields.front3_count_per_number.0', 'The front3_count_per_number field must equal back3_count_per_number.');
-
-        $this->withToken($login['access_token'])
-            ->postJson('/api/v1/admin/central/stock/generate', [
-                'game_id' => 'gam_stock_validation',
-                'total_count' => 2500,
-            ], ['X-Admin-Scope' => 'central', 'Idempotency-Key' => 'stock-validation-total-divisible'])
-            ->assertUnprocessable()
-            ->assertJsonPath('error.details.fields.total_count.0', 'The total_count field must be divisible by 1000.');
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.fields.generation_mode.0', 'Stock generation supports virtual_profile only. Physical stock generation has been retired.')
+            ->assertJsonPath('error.details.fields.back2_count_per_number.0', 'This field is no longer supported for stock generation. Use virtual stock profile settings instead.')
+            ->assertJsonPath('error.details.fields.back3_count_per_number.0', 'This field is no longer supported for stock generation. Use virtual stock profile settings instead.')
+            ->assertJsonPath('error.details.fields.front3_count_per_number.0', 'This field is no longer supported for stock generation. Use virtual stock profile settings instead.');
 
         $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/stock/generate', [
                 'game_id' => 'gam_stock_validation',
                 'total_count' => 3000,
-                'back2_count_per_number' => 20,
-                'back3_count_per_number' => 2,
-                'front3_count_per_number' => 2,
-            ], ['X-Admin-Scope' => 'central', 'Idempotency-Key' => 'stock-validation-total-conflict'])
+            ], ['X-Admin-Scope' => 'central', 'Idempotency-Key' => 'stock-validation-total-retired'])
             ->assertUnprocessable()
-            ->assertJsonPath('error.details.fields.total_count.0', 'The total_count field must equal 1000 times back3_count_per_number.');
+            ->assertJsonPath('error.details.fields.generation_mode.0', 'Stock generation supports virtual_profile only. Physical stock generation has been retired.')
+            ->assertJsonPath('error.details.fields.total_count.0', 'This field is no longer supported for stock generation. Use virtual stock profile settings instead.');
 
         $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/stock/generate', [
@@ -728,8 +719,11 @@ class CentralStockTest extends TestCase
                 'count' => 10,
             ], ['X-Admin-Scope' => 'central', 'Idempotency-Key' => 'stock-validation-legacy'])
             ->assertUnprocessable()
-            ->assertJsonPath('error.details.fields.start_number.0', 'This field is no longer supported for stock generation. Use quota-based generation fields instead.')
-            ->assertJsonPath('error.details.fields.count.0', 'This field is no longer supported for stock generation. Use quota-based generation fields instead.');
+            ->assertJsonPath('error.details.fields.generation_mode.0', 'Stock generation supports virtual_profile only. Physical stock generation has been retired.')
+            ->assertJsonPath('error.details.fields.start_number.0', 'This field is no longer supported for stock generation. Use virtual stock profile settings instead.')
+            ->assertJsonPath('error.details.fields.count.0', 'This field is no longer supported for stock generation. Use virtual stock profile settings instead.');
+
+        $this->assertSame(0, DB::table('stock_items')->where('game_id', 'gam_stock_validation')->count());
     }
 
     private function assertGeneratedQuotaCounts(string $batchId, int $countPerFrontAndBack3): void

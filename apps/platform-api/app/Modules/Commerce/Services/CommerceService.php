@@ -21,6 +21,7 @@ use App\Models\WebhookCallback;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Modules\Auth\Services\CustomerAuthService;
+use App\Modules\PartnerStore\Services\VirtualStockService;
 use App\Shared\Auth\CustomerSessionContext;
 use App\Shared\Idempotency\IdempotencyService;
 use Illuminate\Http\Request;
@@ -36,6 +37,7 @@ class CommerceService
         private readonly AuditLogger $auditLogger,
         private readonly CustomerAuthService $customerAuth,
         private readonly IdempotencyService $idempotency,
+        private readonly VirtualStockService $virtualStock,
     ) {
     }
 
@@ -1109,6 +1111,13 @@ class CommerceService
                 'sold_at' => $now,
                 'updated_at' => $now,
             ]);
+        $this->virtualStock->convertReservedRowsToSold(
+            stockRows: $stockRows,
+            tenantId: (string) $tenant['tenant_id'],
+            partnerId: (string) $tenant['partner_id'],
+            gameId: (string) $reservation->game_id,
+            customerId: $customer->customerId(),
+        );
 
         $this->insertPaidOrderEvents($tenant, $customer, $orderId, (string) $reservation->game_id, $stockRows, $tickets, $totalAmount, $ledger, $idempotencyKey, $request);
 
@@ -1410,6 +1419,13 @@ class CommerceService
         ]);
         StockReservationItem::query()->where('reservation_id', $reservation->id)->update(['status' => 'converted', 'updated_at' => now()]);
         LocalStockItem::query()->whereIn('id', array_map(fn (object $stock): string => (string) $stock->id, $stockRows))->update(['status' => 'sold', 'sold_at' => now(), 'updated_at' => now()]);
+        $this->virtualStock->convertReservedRowsToSold(
+            stockRows: $stockRows,
+            tenantId: (string) $order->tenant_id,
+            partnerId: (string) $tenant->partner_id,
+            gameId: (string) $order->game_id,
+            customerId: (string) $order->customer_id,
+        );
 
         $this->insertPaidOrderEvents(
             ['tenant_id' => (string) $order->tenant_id, 'partner_id' => (string) $tenant->partner_id],

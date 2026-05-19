@@ -21,6 +21,8 @@ class LocalStockItem extends BaseModel
         'game_id',
         'stock_item_id',
         'allocation_id',
+        'virtual_stock_ref',
+        'virtual_copy_index',
         'full_number',
         'front3',
         'back3',
@@ -45,6 +47,7 @@ class LocalStockItem extends BaseModel
         'reserved_at' => 'datetime',
         'sold_at' => 'datetime',
         'image_generated_at' => 'datetime',
+        'virtual_copy_index' => 'integer',
     ];
 
     public function partner(): BelongsTo

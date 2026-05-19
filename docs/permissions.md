@@ -310,6 +310,13 @@ auditor
 | `DELETE /admin/central/partner-api-clients/{client_id}` | central | partner.api.manage |
 | `GET /admin/central/stock` | central | stock.view |
 | `GET /admin/central/stock/summary` | central | stock.view OR stock.generate |
+| `GET /admin/central/stock/{game_id}/numbers/{full_number}` | central | stock.view |
+| `GET /admin/central/stock/patterns` | central | stock.view |
+| `GET /admin/central/stock/limit-overrides` | central | stock.view |
+| `GET /admin/central/stock/settings` | central | stock.generate |
+| `PATCH /admin/central/stock/settings` | central | stock.generate |
+| `PUT /admin/central/stock/limit-settings` | central | stock.generate |
+| `PUT /admin/central/stock/limit-overrides` | central | stock.generate |
 | `POST /admin/central/stock/imports` | central | stock.generate |
 | `POST /admin/central/stock/generate` | central | stock.generate |
 | `GET /admin/central/stock/generation-batches` | central | stock.generate |

@@ -1845,6 +1845,19 @@ paths:
           required: false
           schema:
             type: string
+        - name: sort_by
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [game_id, full_number, total_count, available_count, allocated_count, sold_count, recalled_count, first_created_at, last_updated_at]
+          description: For grouped virtual stock, `total_count` sorts by generated capacity for each full number.
+        - name: sort_dir
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
         - name: cursor
           in: query
           required: false
@@ -1913,8 +1926,8 @@ paths:
   /admin/central/stock/generate:
     post:
       tags: [Central Admin]
-      summary: Generate central master stock
-      description: Totals up to 10,000 may complete synchronously. Larger totals create queued generation batches processed by stock-generation queue chunks.
+      summary: Create central virtual stock profile
+      description: Creates a virtual stock profile for the current stock engine. Physical quota/range stock generation has been retired and is no longer accepted by this endpoint.
       parameters:
         - $ref: "#/components/parameters/CentralAdminScopeHeader"
         - $ref: "#/components/parameters/RequestIdHeader"
@@ -1927,13 +1940,212 @@ paths:
               $ref: "#/components/schemas/StockGenerateRequest"
       responses:
         "202":
-          description: Stock generation accepted
+          description: Virtual stock profile accepted
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/StockGenerationBatchResponse"
         "409":
           $ref: "#/components/responses/IdempotencyConflict"
+  /admin/central/stock/settings:
+    get:
+      tags: [Central Admin]
+      summary: Get central stock settings
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: Central stock settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockSettingsResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+    patch:
+      tags: [Central Admin]
+      summary: Update central stock settings
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StockSettingsRequest"
+      responses:
+        "200":
+          description: Central stock settings updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockSettingsResponse"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /admin/central/stock/patterns:
+    get:
+      tags: [Central Admin]
+      summary: List virtual stock pattern coverage rows
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: game_id
+          in: query
+          required: false
+          schema: { type: string }
+        - name: dimension
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [back2, back3, front3]
+        - name: scope_type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [central, partner]
+        - name: scope_id
+          in: query
+          required: false
+          schema: { type: string }
+        - name: q
+          in: query
+          required: false
+          schema: { type: string }
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Virtual stock pattern coverage rows
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /admin/central/stock/limit-overrides:
+    get:
+      tags: [Central Admin]
+      summary: List virtual stock pattern limit overrides
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: game_id
+          in: query
+          required: false
+          schema: { type: string }
+        - name: dimension
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [back2, back3, front3]
+        - name: scope_type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [central, partner]
+        - name: scope_id
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Virtual stock pattern limit overrides
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    put:
+      tags: [Central Admin]
+      summary: Update virtual stock per-pattern limit overrides
+      description: Partner-scope overrides must be less than or equal to central effective limits for the same pattern value.
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StockLimitOverridesRequest"
+      responses:
+        "200":
+          description: Updated virtual stock pattern summary
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /admin/central/stock/limit-settings:
+    put:
+      tags: [Central Admin]
+      summary: Update virtual stock default pattern limits
+      description: Partner-scope limits must be less than or equal to central effective limits.
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StockLimitSettingsRequest"
+      responses:
+        "200":
+          description: Updated virtual stock pattern summary
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /admin/central/stock/{game_id}/numbers/{full_number}:
+    get:
+      tags: [Central Admin]
+      summary: Show stock full-number detail
+      description: Returns generated virtual capacity, counters, central and optional partner effective limits, and real materialized central/local ticket image fields for one game and full number. Unmaterialized virtual capacity is reported as capacity without fake ticket rows.
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: game_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: full_number
+          in: path
+          required: true
+          schema: { type: string }
+        - name: scope_type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [central, partner]
+        - name: scope_id
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Stock full-number detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockNumberDetailResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /admin/central/stock/generation-batches:
     get:
       tags: [Central Admin]
@@ -7959,40 +8171,290 @@ components:
       type: object
       required:
         - game_id
-      description: Provide either total_count, or all three quota fields. If both modes are provided, total_count must match the quota-derived total.
+        - generation_mode
+      description: Virtual stock profile settings. Legacy physical fields such as total_count, back2_count_per_number, start_number, count, and number_digits are rejected.
       properties:
         game_id:
           type: string
           description: Open central game ID.
-        total_count:
-          type: integer
-          minimum: 1000
-          maximum: 2147000000
-          multipleOf: 1000
-          description: Total rows to generate. Totals above 10,000 are processed asynchronously in stock-generation chunks. Backend derives back3_count_per_number = total_count / 1000, front3_count_per_number = back3_count_per_number, and back2_count_per_number = back3_count_per_number x 10.
-          example: 12000
-        back2_count_per_number:
-          type: integer
-          minimum: 10
-          maximum: 21470000
-          description: Optional manual quota for every 2-digit suffix. Must equal 10 x back3_count_per_number.
-          example: 120
-        back3_count_per_number:
-          type: integer
-          minimum: 1
-          maximum: 2147000
-          description: Optional manual quota for every 3-digit suffix. Total generated rows are 1000 x this value.
-          example: 12
-        front3_count_per_number:
-          type: integer
-          minimum: 1
-          maximum: 2147000
-          description: Optional manual quota for every 3-digit prefix. Must equal back3_count_per_number.
-          example: 12
+        generation_mode:
+          type: string
+          enum: [virtual_profile]
+          description: Must be virtual_profile.
+        seed:
+          type: string
+          description: Optional deterministic profile seed. Defaults to the idempotency key when omitted.
+        set_distribution:
+          type: array
+          description: Capacity distribution over the seeded base lottery numbers. Remaining percent defaults to single-ticket capacity.
+          items:
+            $ref: "#/components/schemas/StockSetDistributionRow"
+        partner_distribution:
+          type: array
+          description: Optional partner allocation percent. Empty uses partner quota weights.
+          items:
+            type: object
+            required: [partner_id, percent]
+            properties:
+              partner_id:
+                type: string
+              percent:
+                type: number
+                minimum: 0
+                maximum: 100
+        central_limits:
+          type: object
+          additionalProperties: false
+          properties:
+            back2_limit: { type: integer, minimum: 0 }
+            back3_limit: { type: integer, minimum: 0 }
+            front3_limit: { type: integer, minimum: 0 }
+        partner_limits:
+          type: array
+          items:
+            type: object
+            required: [partner_id]
+            properties:
+              partner_id: { type: string }
+              back2_limit: { type: integer, minimum: 0 }
+              back3_limit: { type: integer, minimum: 0 }
+              front3_limit: { type: integer, minimum: 0 }
         reason:
           type: string
+    StockSettingsRequest:
+      type: object
+      properties:
+        settings:
+          type: object
+          properties:
+            stock_set_distribution_default:
+              type: array
+              items:
+                $ref: "#/components/schemas/StockSetDistributionRow"
+            stock_pattern_coverage_default:
+              $ref: "#/components/schemas/StockPatternCoverageDefault"
+    StockSettingsResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: stock_settings
+        status:
+          type: string
+          example: active
+        settings:
+          type: object
+          properties:
+            stock_set_distribution_default:
+              type: array
+              items:
+                $ref: "#/components/schemas/StockSetDistributionRow"
+            stock_pattern_coverage_default:
+              $ref: "#/components/schemas/StockPatternCoverageDefault"
+        stock_set_distribution_default:
+          type: array
+          items:
+            $ref: "#/components/schemas/StockSetDistributionRow"
+        stock_pattern_coverage_default:
+          $ref: "#/components/schemas/StockPatternCoverageDefault"
+    StockSetDistributionRow:
+      type: object
+      required: [set_size, percent]
+      properties:
+        set_size:
+          type: integer
+          minimum: 1
+          maximum: 99
+        percent:
+          type: number
+          minimum: 0
+          maximum: 100
           description: Optional audited admin action reason.
       additionalProperties: false
+    StockPatternCoverageDefault:
+      type: object
+      required: [central, partner]
+      properties:
+        central:
+          $ref: "#/components/schemas/StockPatternCoverageLimitRow"
+        partner:
+          $ref: "#/components/schemas/StockPatternCoverageLimitRow"
+      additionalProperties: false
+    StockPatternCoverageLimitRow:
+      type: object
+      required: [back2_limit, back3_limit, front3_limit]
+      properties:
+        back2_limit:
+          type: integer
+          minimum: 0
+        back3_limit:
+          type: integer
+          minimum: 0
+        front3_limit:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+    StockLimitSettingsRequest:
+      type: object
+      required: [game_id, scope_type, scope_id]
+      properties:
+        game_id:
+          type: string
+        scope_type:
+          type: string
+          enum: [central, partner]
+        scope_id:
+          type: string
+        back2_limit:
+          type: integer
+          minimum: 0
+          nullable: true
+        back3_limit:
+          type: integer
+          minimum: 0
+          nullable: true
+        front3_limit:
+          type: integer
+          minimum: 0
+          nullable: true
+      additionalProperties: false
+    StockLimitOverridesRequest:
+      type: object
+      required: [game_id, scope_type, scope_id, dimension, overrides]
+      properties:
+        game_id:
+          type: string
+        scope_type:
+          type: string
+          enum: [central, partner]
+        scope_id:
+          type: string
+        dimension:
+          type: string
+          enum: [back2, back3, front3]
+        overrides:
+          type: array
+          items:
+            type: object
+            required: [value]
+            properties:
+              value:
+                type: string
+              limit:
+                type: integer
+                minimum: 0
+                nullable: true
+      additionalProperties: false
+    StockNumberDetailResponse:
+      type: object
+      required:
+        - id
+        - stock_mode
+        - game_id
+        - full_number
+        - total_count
+        - generated_capacity
+        - available_count
+        - materialized_stock_count
+        - materialized_local_stock_count
+        - unmaterialized_capacity_count
+        - stock_items
+        - local_stock_items
+      properties:
+        id:
+          type: string
+        stock_mode:
+          type: string
+          enum: [virtual, materialized]
+        profile_id:
+          type: string
+          nullable: true
+        batch_id:
+          type: string
+          nullable: true
+        game_id:
+          type: string
+        full_number:
+          type: string
+        front3:
+          type: string
+        back3:
+          type: string
+        back2:
+          type: string
+        generated_capacity:
+          type: integer
+          minimum: 0
+        total_count:
+          type: integer
+          minimum: 0
+        available_count:
+          type: integer
+          minimum: 0
+        reserved_count:
+          type: integer
+          minimum: 0
+        allocated_count:
+          type: integer
+          minimum: 0
+        sold_count:
+          type: integer
+          minimum: 0
+        materialized_stock_count:
+          type: integer
+          minimum: 0
+        materialized_local_stock_count:
+          type: integer
+          minimum: 0
+        unmaterialized_capacity_count:
+          type: integer
+          minimum: 0
+        central_limits:
+          type: object
+          nullable: true
+          additionalProperties: true
+        partner_limits:
+          type: object
+          nullable: true
+          additionalProperties: true
+        stock_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StockTicketDetail"
+        local_stock_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LocalStockTicketDetail"
+      additionalProperties: true
+    StockTicketDetail:
+      type: object
+      properties:
+        id: { type: string }
+        status: { type: string }
+        partner_id: { type: string, nullable: true }
+        tenant_id: { type: string, nullable: true }
+        virtual_stock_ref: { type: string, nullable: true }
+        virtual_copy_index: { type: integer, nullable: true }
+        image_url: { type: string, nullable: true }
+        image_thumb_url: { type: string, nullable: true }
+        image_generation_status: { type: string, nullable: true }
+        image_generation_error: { type: string, nullable: true }
+      additionalProperties: true
+    LocalStockTicketDetail:
+      type: object
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        partner_id: { type: string }
+        stock_item_id: { type: string }
+        status: { type: string }
+        virtual_stock_ref: { type: string, nullable: true }
+        virtual_copy_index: { type: integer, nullable: true }
+        image_url: { type: string, nullable: true }
+        image_thumb_url: { type: string, nullable: true }
+        image_generation_status: { type: string, nullable: true }
+        image_generation_error: { type: string, nullable: true }
+      additionalProperties: true
     AdminPatchRequest:
       type: object
       additionalProperties: true

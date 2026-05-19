@@ -14,6 +14,7 @@ use App\Console\Commands\PlatformSmokeCommand;
 use App\Console\Commands\PrepareK6BaselineCommand;
 use App\Console\Commands\ProcessRewardCheckCommand;
 use App\Console\Commands\ProcessSoldSyncCommand;
+use App\Console\Commands\SeedBaseLotteryNumbersCommand;
 use App\Modules\SupportAccess\Http\Middleware\BlockSensitiveSupportImpersonation;
 use App\Shared\Auth\Http\Middleware\AuthenticateAdmin;
 use App\Shared\Auth\Http\Middleware\AuthenticateCustomer;
@@ -41,6 +42,7 @@ return Application::configure(basePath: dirname(__DIR__))
         PlatformMigrationRehearsalCommand::class,
         PlatformRuntimeReadinessCommand::class,
         ExpireStockReservationsCommand::class,
+        SeedBaseLotteryNumbersCommand::class,
         ProcessSoldSyncCommand::class,
         ProcessRewardCheckCommand::class,
         CalculateCommissionsCommand::class,

@@ -224,6 +224,20 @@ Route::get('/admin/central/stock', [CentralStockController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/stock/summary', [CentralStockController::class, 'summary'])
     ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/stock/patterns', [CentralStockController::class, 'patterns'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/stock/limit-overrides', [CentralStockController::class, 'limitOverrides'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/stock/settings', [CentralStockController::class, 'settings'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::patch('/admin/central/stock/settings', [CentralStockController::class, 'updateSettings'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::put('/admin/central/stock/limit-settings', [CentralStockController::class, 'updateLimitSettings'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::put('/admin/central/stock/limit-overrides', [CentralStockController::class, 'updateLimitOverrides'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/stock/{game_id}/numbers/{full_number}', [CentralStockController::class, 'numberDetail'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/stock/generation-batches', [CentralStockController::class, 'generationBatches'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/stock/generation-batches/{batch_id}', [CentralStockController::class, 'generationBatch'])
