@@ -98,11 +98,39 @@ docker compose -p newpaotang exec -T platform-api php artisan platform:smoke
 
 Coordinator task `allocation-partner-percent-workflow` is open. See `docs/virtual-stock-realtime.md#allocation-and-partner-percent-rework`.
 
-Active orchestration:
+Coordinator board:
 
-- Backend Develop agent is assigned and in progress: Kuhn (`019e40dd-2ff7-7541-8c21-263ebc80a61b`).
-- Orchestrator must track Kuhn until Backend Develop reports completion, verifies commit/push on `develop`, then dispatch the next real BO Develop agent.
+- This entry is the board instruction for the user to send in the Orchestrator chat.
+- Do not treat this board entry as an already-running background task.
+- Orchestrator must open the next agent from its own chat/context, starting with Backend Develop.
+- Orchestrator must track each handoff through Backend Develop -> BO Develop -> QA Tester -> Coordinator.
 - Do not skip QA Tester. After BO Develop completes and pushes, dispatch QA Tester before returning the workflow to Coordinator.
+
+Orchestrator prompt:
+
+```text
+รับงาน `allocation-partner-percent-workflow` จาก Coordinator board.
+
+อ่าน:
+- docs/virtual-stock-realtime.md section Allocation And Partner Percent Rework
+- docs/coordinator-agent-handoff.md section Allocation Partner Percent Workflow
+
+ให้เปิด Backend Develop เป็น next agent ตัวแรก และสั่งงานตาม backend scope:
+- Allocation API percent workflow
+- option/source API สำหรับ partner/tenant/game selects
+- partner/agent stock percent contract รวม active partners ต่อ game <= 100%
+- recall-all allocation endpoint
+- redistribute allocation endpoint
+- OpenAPI/docs/tests
+
+หลัง Backend Develop commit/push แล้ว ให้ส่ง BO Develop จริง.
+หลัง BO Develop commit/push แล้ว ให้ส่ง QA Tester จริง.
+หลัง QA Tester ส่งผลตรวจแล้วค่อยกลับ Coordinator.
+
+ทุก agent ต้อง sync branch develop ล่าสุดก่อนเริ่ม.
+QA destructive commands ต้องใช้ APP_ENV=testing, DB_DATABASE=newpaotang_test, --env=testing เท่านั้น.
+ห้ามล้าง runtime DB newpaotang.
+```
 
 Decision summary:
 
