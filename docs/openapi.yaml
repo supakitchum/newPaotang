@@ -2691,7 +2691,7 @@ paths:
   /admin/central/allocations:
     get:
       tags: [Central Admin]
-      summary: List central stock allocations
+      summary: List central stock allocations with partner percent metadata
       parameters:
         - $ref: "#/components/parameters/CentralAdminScopeHeader"
         - $ref: "#/components/parameters/RequestIdHeader"
@@ -2727,16 +2727,18 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminResourceListResponse"
+                $ref: "#/components/schemas/AllocationListResponse"
         "401":
           $ref: "#/components/responses/AuthenticationRequired"
         "403":
           $ref: "#/components/responses/PermissionDenied"
     post:
       tags: [Central Admin]
-      summary: Allocate stock to partner tenant
+      summary: Create a percent-based virtual stock allocation for a partner tenant
+      description: Uses allocation_percent to configure partner stock distribution for the selected game. tenant_id may be omitted only when the selected active partner has exactly one active tenant. requested_count is retired from the BO-facing contract.
       parameters:
         - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
         - $ref: "#/components/parameters/IdempotencyKeyHeader"
       requestBody:
         required: true
@@ -2751,6 +2753,122 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Allocation"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+  /admin/central/allocation-options/partners:
+    get:
+      tags: [Central Admin]
+      summary: Partner options for central allocation selects
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: game_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Partner allocation options
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AllocationPartnerOptionListResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+  /admin/central/allocation-options/tenants:
+    get:
+      tags: [Central Admin]
+      summary: Tenant options constrained by partner for allocation selects
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: partner_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Tenant allocation options
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AllocationTenantOptionListResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+  /admin/central/allocation-options/games:
+    get:
+      tags: [Central Admin]
+      summary: Current/open game options for allocation selects
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            default: open
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Game allocation options
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AllocationGameOptionListResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+  /admin/central/allocations/partner-percent:
+    put:
+      tags: [Central Admin]
+      summary: Update partner stock percent for a game
+      description: Stores the per-game partner/agent stock percent in stock_partner_distributions and enforces active partner percent total <= 100%.
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PartnerStockPercentUpdateRequest"
+      responses:
+        "200":
+          description: Partner stock percent updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerStockPercent"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
         "403":
           $ref: "#/components/responses/PermissionDenied"
   /admin/central/allocations/{allocation_id}:
@@ -2800,6 +2918,71 @@ paths:
       responses:
         "200":
           description: Central stock allocation cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Allocation"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+  /admin/central/allocations/{allocation_id}/recall-all:
+    post:
+      tags: [Central Admin]
+      summary: Recall all remaining stock for an allocation
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: allocation_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminActionRequest"
+      responses:
+        "200":
+          description: Allocation fully recalled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Allocation"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+  /admin/central/allocations/{allocation_id}/redistribute:
+    post:
+      tags: [Central Admin]
+      summary: Redistribute stock after recall-all completion
+      description: Re-activates the allocation percent only when the allocation is fully recalled.
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: allocation_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminActionRequest"
+      responses:
+        "200":
+          description: Allocation redistributed
           content:
             application/json:
               schema:
@@ -10369,36 +10552,240 @@ components:
           format: date-time
     CreateAllocationRequest:
       type: object
-      required: [partner_id, tenant_id, game_id, requested_count]
+      required: [partner_id, game_id, allocation_percent]
+      description: Percent-based virtual stock allocation. requested_count is retired from the BO-facing contract.
       properties:
         partner_id:
           type: string
         tenant_id:
           type: string
+          nullable: true
+          description: Required only when the selected partner has multiple active tenants. Auto-fill is allowed when exactly one active tenant exists.
         game_id:
           type: string
-        requested_count:
-          type: integer
-          minimum: 1
+        allocation_percent:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 100
+        reason:
+          type: string
+          nullable: true
+    AllocationListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Allocation"
+        meta:
+          $ref: "#/components/schemas/CursorMeta"
     Allocation:
       type: object
-      required: [id, partner_id, tenant_id, game_id, status, requested_count]
+      required:
+        - id
+        - partner_id
+        - tenant_id
+        - game_id
+        - status
+        - allocation_percent
+        - allocated_count
+        - remaining_count
+        - recalled_count
       properties:
         id:
           type: string
         partner_id:
           type: string
+        partner_code:
+          type: string
+          nullable: true
+        partner_name:
+          type: string
+          nullable: true
         tenant_id:
           type: string
+        tenant_code:
+          type: string
+          nullable: true
+        tenant_name:
+          type: string
+          nullable: true
         game_id:
           type: string
+        game_code:
+          type: string
+          nullable: true
+        game_name:
+          type: string
+          nullable: true
         status:
           type: string
           enum: [draft, pending, processing, allocated, partially_allocated, failed, recalled, cancelled]
         requested_count:
           type: integer
+          description: Legacy stored target count. New BO create uses allocation_percent.
+        allocation_percent:
+          type: number
+          nullable: true
+        allocation_percent_basis_points:
+          type: integer
+          nullable: true
+        active_partner_percent:
+          type: number
+          nullable: true
+        active_partner_percent_basis_points:
+          type: integer
+          nullable: true
         allocated_count:
           type: integer
+        remaining_count:
+          type: integer
+        recalled_count:
+          type: integer
+        quota_id:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        cancelled_at:
+          type: string
+          format: date-time
+          nullable: true
+    PartnerStockPercentUpdateRequest:
+      type: object
+      required: [partner_id, game_id, allocation_percent]
+      properties:
+        partner_id:
+          type: string
+        tenant_id:
+          type: string
+          nullable: true
+        game_id:
+          type: string
+        allocation_percent:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 100
+    PartnerStockPercent:
+      type: object
+      required: [id, game_id, partner_id, allocation_percent, allocation_percent_basis_points, status]
+      properties:
+        id:
+          type: string
+        game_id:
+          type: string
+        game_code:
+          type: string
+          nullable: true
+        game_name:
+          type: string
+          nullable: true
+        partner_id:
+          type: string
+        partner_code:
+          type: string
+          nullable: true
+        partner_name:
+          type: string
+          nullable: true
+        tenant_id:
+          type: string
+          nullable: true
+        tenant_code:
+          type: string
+          nullable: true
+        tenant_name:
+          type: string
+          nullable: true
+        allocation_percent:
+          type: number
+        allocation_percent_basis_points:
+          type: integer
+        generated_supply_count:
+          type: integer
+        target_allocation_count:
+          type: integer
+        used_count:
+          type: integer
+        status:
+          type: string
+    AllocationPartnerOptionListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AllocationPartnerOption"
+        meta:
+          $ref: "#/components/schemas/CursorMeta"
+    AllocationPartnerOption:
+      type: object
+      properties:
+        id: { type: string }
+        partner_id: { type: string }
+        code: { type: string }
+        name: { type: string }
+        label: { type: string }
+        status: { type: string }
+        active_tenant_count: { type: integer }
+        single_tenant_id: { type: string, nullable: true }
+        single_tenant_code: { type: string, nullable: true }
+        single_tenant_name: { type: string, nullable: true }
+        allocation_percent: { type: number, nullable: true }
+        allocation_percent_basis_points: { type: integer, nullable: true }
+    AllocationTenantOptionListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AllocationTenantOption"
+        meta:
+          $ref: "#/components/schemas/CursorMeta"
+    AllocationTenantOption:
+      type: object
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        partner_id: { type: string }
+        code: { type: string }
+        name: { type: string }
+        label: { type: string }
+        status: { type: string }
+        partner_code: { type: string }
+        partner_name: { type: string }
+    AllocationGameOptionListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AllocationGameOption"
+        meta:
+          $ref: "#/components/schemas/CursorMeta"
+    AllocationGameOption:
+      type: object
+      properties:
+        id: { type: string }
+        game_id: { type: string }
+        code: { type: string }
+        name: { type: string }
+        label: { type: string }
+        status: { type: string }
+        generated_supply_count: { type: integer }
+        sale_start_at: { type: string, format: date-time, nullable: true }
+        draw_at: { type: string, format: date-time, nullable: true }
+        close_at: { type: string, format: date-time, nullable: true }
     CreateRewardResultRequest:
       type: object
       required: [game_id, prizes]

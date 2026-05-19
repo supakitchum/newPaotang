@@ -148,6 +148,15 @@ recalled
 cancelled
 ```
 
+`stock_partner_distributions.status`
+
+```text
+active
+recalled
+inactive
+archived
+```
+
 ## Sync
 
 `sync_outbox.status`, `sync_inbox.status`

@@ -971,6 +971,10 @@ class VirtualStockService
             return $rows;
         }
 
+        if (DB::table('stock_partner_distributions')->where('game_id', $gameId)->exists()) {
+            return [];
+        }
+
         $quotaRows = PartnerQuota::query()
             ->where('game_id', $gameId)
             ->where('status', 'active')

@@ -330,8 +330,14 @@ auditor
 | `POST /admin/central/games/{game_id}/close` | central | game.close |
 | `POST /admin/central/games/{game_id}/archive` | central | game.update |
 | `GET /admin/central/allocations` | central | stock.allocate |
+| `GET /admin/central/allocation-options/partners` | central | stock.allocate |
+| `GET /admin/central/allocation-options/tenants` | central | stock.allocate |
+| `GET /admin/central/allocation-options/games` | central | stock.allocate |
 | `POST /admin/central/allocations` | central | stock.allocate |
+| `PUT /admin/central/allocations/partner-percent` | central | stock.allocate |
 | `GET /admin/central/allocations/{allocation_id}` | central | stock.allocate |
+| `POST /admin/central/allocations/{allocation_id}/recall-all` | central | stock.allocate |
+| `POST /admin/central/allocations/{allocation_id}/redistribute` | central | stock.allocate |
 | `POST /admin/central/allocations/{allocation_id}/cancel` | central | stock.allocate |
 | `GET /admin/central/rewards` | central | reward.view |
 | `POST /admin/central/rewards` | central | reward.create |

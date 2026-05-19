@@ -293,6 +293,27 @@ Expected API additions/changes:
   - `POST /admin/central/allocations/{allocation_id}/redistribute`
 - Add partner stock percent update endpoint or extend existing partner/stock settings endpoint.
 
+Backend implementation contract:
+
+- Partner/agent stock percent is stored per game in `stock_partner_distributions`.
+- `partner_stock_allocations.allocation_percent_basis_points` records the percent snapshot used for the allocation.
+- `partner_stock_allocations.requested_count` remains as the stored calculated target count for compatibility; BO must send `allocation_percent`, not `requested_count`.
+- `partner_stock_allocations.recalled_count` records full recall progress for percent allocations.
+- `partner_stock_allocations.payload_hash` is used with `created_by_admin_id + idempotency_key` so same-key replay returns the same allocation and changed payload returns `idempotency_conflict`.
+- Option source endpoints:
+  - `GET /admin/central/allocation-options/partners`
+  - `GET /admin/central/allocation-options/tenants`
+  - `GET /admin/central/allocation-options/games`
+- Partner stock percent endpoint:
+  - `PUT /admin/central/allocations/partner-percent`
+- Recall/redistribute endpoints:
+  - `POST /admin/central/allocations/{allocation_id}/recall-all`
+  - `POST /admin/central/allocations/{allocation_id}/redistribute`
+- Percent allocation target count is calculated from active virtual generated supply for the game.
+- Active partner percentages for the same game must sum to `<= 100%`.
+- Percent updates below already reserved/sold partner usage are rejected.
+- Recall-all sets the partner distribution to `status=recalled` and `percent_basis_points=0`; redistribute reactivates the saved allocation percent only after full recall.
+
 Agent flow:
 
 1. Backend Develop:

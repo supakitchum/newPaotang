@@ -31,6 +31,39 @@ class CentralAllocationController extends Controller
         return response()->json($this->centralStock->listAllocations($request->query()));
     }
 
+    public function partnerOptions(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request);
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        return response()->json($this->centralStock->allocationPartnerOptions($request->query()));
+    }
+
+    public function tenantOptions(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request);
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        return response()->json($this->centralStock->allocationTenantOptions($request->query()));
+    }
+
+    public function gameOptions(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request);
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        return response()->json($this->centralStock->allocationGameOptions($request->query()));
+    }
+
     public function store(Request $request): JsonResponse
     {
         $context = $this->authorizedContext($request);
@@ -45,13 +78,17 @@ class CentralAllocationController extends Controller
             return ApiErrorResponse::validationFailed($request, $headerErrors);
         }
 
-        $replay = $this->centralStock->findAllocationReplay($context, $request);
+        $payload = $request->all();
+        $replay = $this->centralStock->findAllocationReplay($context, $request, $payload);
+
+        if (($replay['error'] ?? null) === 'idempotency_conflict') {
+            return ApiErrorResponse::idempotencyConflict($request);
+        }
 
         if ($replay !== null) {
             return response()->json($replay, 202);
         }
 
-        $payload = $request->all();
         $errors = $this->centralStock->validateAllocationPayload($payload);
 
         if ($errors !== []) {
@@ -63,6 +100,34 @@ class CentralAllocationController extends Controller
         return $allocation === null
             ? ApiErrorResponse::resourceConflict($request)
             : response()->json($allocation, 202);
+    }
+
+    public function updatePartnerPercent(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request);
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        $payload = $request->all();
+        $errors = $this->centralStock->validatePartnerPercentPayload($payload);
+
+        if ($errors !== []) {
+            return ApiErrorResponse::validationFailed($request, $errors);
+        }
+
+        $resource = $this->centralStock->updatePartnerPercent($payload, $context, $request);
+
+        return $resource === null
+            ? ApiErrorResponse::resourceConflict($request)
+            : response()->json($resource);
     }
 
     public function show(Request $request, string $allocation_id): JsonResponse
@@ -99,6 +164,56 @@ class CentralAllocationController extends Controller
         }
 
         $allocation = $this->centralStock->cancelAllocation($allocation_id, $request->all(), $context, $request);
+
+        return $allocation === null
+            ? ApiErrorResponse::resourceConflict($request)
+            : response()->json($allocation);
+    }
+
+    public function recallAll(Request $request, string $allocation_id): JsonResponse
+    {
+        $context = $this->authorizedContext($request);
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        if ($this->centralStock->findAllocation($allocation_id) === null) {
+            return ApiErrorResponse::notFound($request);
+        }
+
+        $allocation = $this->centralStock->recallAllAllocation($allocation_id, $request->all(), $context, $request);
+
+        return $allocation === null
+            ? ApiErrorResponse::resourceConflict($request)
+            : response()->json($allocation);
+    }
+
+    public function redistribute(Request $request, string $allocation_id): JsonResponse
+    {
+        $context = $this->authorizedContext($request);
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        if ($this->centralStock->findAllocation($allocation_id) === null) {
+            return ApiErrorResponse::notFound($request);
+        }
+
+        $allocation = $this->centralStock->redistributeAllocation($allocation_id, $request->all(), $context, $request);
 
         return $allocation === null
             ? ApiErrorResponse::resourceConflict($request)

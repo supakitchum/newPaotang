@@ -282,9 +282,21 @@ Route::patch('/admin/central/partner-quotas/{quota_id}', [PartnerQuotaController
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/allocations', [CentralAllocationController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/allocation-options/partners', [CentralAllocationController::class, 'partnerOptions'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/allocation-options/tenants', [CentralAllocationController::class, 'tenantOptions'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/allocation-options/games', [CentralAllocationController::class, 'gameOptions'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/allocations', [CentralAllocationController::class, 'store'])
     ->middleware(['admin.auth', 'admin.scope:central']);
+Route::put('/admin/central/allocations/partner-percent', [CentralAllocationController::class, 'updatePartnerPercent'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/allocations/{allocation_id}', [CentralAllocationController::class, 'show'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/allocations/{allocation_id}/recall-all', [CentralAllocationController::class, 'recallAll'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/allocations/{allocation_id}/redistribute', [CentralAllocationController::class, 'redistribute'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/allocations/{allocation_id}/cancel', [CentralAllocationController::class, 'cancel'])
     ->middleware(['admin.auth', 'admin.scope:central']);

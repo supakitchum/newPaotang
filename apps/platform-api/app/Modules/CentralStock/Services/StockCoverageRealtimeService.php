@@ -275,7 +275,13 @@ class StockCoverageRealtimeService
             ->map(fn (object $row): array => ['partner_id' => (string) $row->partner_id, 'bp' => (int) $row->percent_basis_points])
             ->all();
 
-        return $rows === [] ? [['partner_id' => $fallbackPartnerId, 'bp' => self::MAX_BP]] : $rows;
+        if ($rows !== []) {
+            return $rows;
+        }
+
+        return DB::table('stock_partner_distributions')->where('game_id', $gameId)->exists()
+            ? []
+            : [['partner_id' => $fallbackPartnerId, 'bp' => self::MAX_BP]];
     }
 
     /**

@@ -218,8 +218,11 @@ partner_stock_allocations
   tenant_id fk -> partner_tenants.id
   game_id fk -> games.id
   status
-  requested_count
+  requested_count calculated target count for legacy compatibility
+  allocation_percent_basis_points nullable percent workflow snapshot
   allocated_count
+  recalled_count
+  payload_hash
   cursor
 ```
 

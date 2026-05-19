@@ -20,8 +20,11 @@ class PartnerStockAllocation extends BaseModel
         'quota_id',
         'status',
         'requested_count',
+        'allocation_percent_basis_points',
         'allocated_count',
+        'recalled_count',
         'idempotency_key',
+        'payload_hash',
         'created_by_admin_id',
         'reason',
         'cancelled_at',
@@ -31,7 +34,9 @@ class PartnerStockAllocation extends BaseModel
 
     protected $casts = [
         'requested_count' => 'integer',
+        'allocation_percent_basis_points' => 'integer',
         'allocated_count' => 'integer',
+        'recalled_count' => 'integer',
         'cancelled_at' => 'datetime',
     ];
 
