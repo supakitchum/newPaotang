@@ -98,6 +98,12 @@ docker compose -p newpaotang exec -T platform-api php artisan platform:smoke
 
 Coordinator task `allocation-partner-percent-workflow` is open. See `docs/virtual-stock-realtime.md#allocation-and-partner-percent-rework`.
 
+Active orchestration:
+
+- Backend Develop agent is assigned and in progress: Kuhn (`019e40dd-2ff7-7541-8c21-263ebc80a61b`).
+- Orchestrator must track Kuhn until Backend Develop reports completion, verifies commit/push on `develop`, then dispatch the next real BO Develop agent.
+- Do not skip QA Tester. After BO Develop completes and pushes, dispatch QA Tester before returning the workflow to Coordinator.
+
 Decision summary:
 
 - Agent means the existing `partners` entity for this scope.
