@@ -257,6 +257,15 @@ class VirtualStockService
                 'updated_at' => $now,
             ]);
 
+            $this->storeCentralGeneratedPatternCounts(
+                profileId: $profileId,
+                sourceId: $layerId,
+                gameId: $gameId,
+                seed: $layerSeed,
+                distribution: $distribution,
+                now: $now,
+            );
+
             $combinedCapacity = (int) DB::table('virtual_stock_supply_layers')
                 ->where('profile_id', $profileId)
                 ->where('status', 'active')
@@ -1209,6 +1218,97 @@ class VirtualStockService
                 ],
             );
         }
+    }
+
+    /**
+     * @param array<int, array{set_size: int, percent_basis_points: int}> $distribution
+     */
+    private function storeCentralGeneratedPatternCounts(
+        string $profileId,
+        string $sourceId,
+        string $gameId,
+        string $seed,
+        array $distribution,
+        mixed $now,
+    ): void {
+        $caseSql = $this->capacityCaseSql($distribution);
+
+        DB::statement(
+            <<<SQL
+            WITH scored AS (
+                SELECT
+                    full_number,
+                    back2,
+                    back3,
+                    front3,
+                    {$caseSql} AS capacity
+                FROM (
+                    SELECT
+                        full_number,
+                        back2,
+                        back3,
+                        front3,
+                        ((('x' || substr(encode(sha256((? || ':' || full_number || ':set')::bytea), 'hex'), 1, 8))::bit(32)::bigint) % 10000) AS score
+                    FROM base_lottery_numbers
+                ) base_scores
+            )
+            INSERT INTO virtual_stock_pattern_generated_counts (
+                id,
+                profile_id,
+                source_id,
+                game_id,
+                scope_type,
+                scope_id,
+                dimension,
+                value,
+                generated_count,
+                created_at,
+                updated_at
+            )
+            SELECT
+                substr(md5(? || ':central:central:' || dimension || ':' || value), 1, 40),
+                ?,
+                ?,
+                ?,
+                'central',
+                'central',
+                dimension,
+                value,
+                SUM(capacity)::bigint,
+                ?::timestamptz,
+                ?::timestamptz
+            FROM scored
+            CROSS JOIN LATERAL (VALUES ('back2', back2), ('back3', back3), ('front3', front3)) AS pattern(dimension, value)
+            GROUP BY dimension, value
+            ON CONFLICT (source_id, scope_type, scope_id, dimension, value)
+            DO UPDATE SET
+                generated_count = EXCLUDED.generated_count,
+                updated_at = EXCLUDED.updated_at
+            SQL,
+            [$seed, $sourceId, $profileId, $sourceId, $gameId, $now, $now],
+        );
+    }
+
+    /**
+     * @param array<int, array{set_size: int, percent_basis_points: int}> $distribution
+     */
+    private function capacityCaseSql(array $distribution): string
+    {
+        $cursor = 0;
+        $clauses = [];
+
+        foreach ($distribution as $row) {
+            $basisPoints = max(0, (int) ($row['percent_basis_points'] ?? 0));
+            if ($basisPoints < 1) {
+                continue;
+            }
+
+            $cursor = min(self::MAX_BP, $cursor + $basisPoints);
+            $setSize = max(1, (int) ($row['set_size'] ?? 1));
+            $clauses[] = 'WHEN score < '.$cursor.' THEN '.$setSize;
+        }
+
+        return $clauses === [] ? '1' : 'CASE '.implode(' ', $clauses).' ELSE 1 END';
     }
 
     private function percentBasisPoints(mixed $percent): int

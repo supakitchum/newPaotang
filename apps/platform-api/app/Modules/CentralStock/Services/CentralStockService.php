@@ -24,6 +24,7 @@ use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -1239,30 +1240,230 @@ class CentralStockService
             return [];
         }
 
-        $counts = [];
         $layers = $this->virtualSupplyLayers($profile);
+        $precomputedCounts = $this->precomputedVirtualGeneratedCountsForDimensions($gameId, $scopeType, $scopeId, $profile, $layers);
+        if ($precomputedCounts !== null) {
+            return is_array($precomputedCounts[$dimension] ?? null) ? $precomputedCounts[$dimension] : [];
+        }
+
         $partnerRows = $scopeType === 'partner' ? $this->virtualPartnerDistributionRows($gameId, $scopeId) : [];
+        $cacheKey = $this->virtualGeneratedCountsCacheKey($gameId, $scopeType, $scopeId, $profile, $layers, $partnerRows);
+        $allCounts = Cache::remember(
+            $cacheKey,
+            now()->addMinutes(30),
+            fn (): array => $this->computeVirtualGeneratedCountsForDimensions($gameId, $scopeType, $scopeId, $layers, $partnerRows),
+        );
 
-        foreach (DB::table('base_lottery_numbers')->get(['full_number', $dimension.' as value']) as $row) {
-            $capacity = $this->virtualCapacityForNumberWithLayers((string) $row->full_number, $layers);
+        return is_array($allCounts[$dimension] ?? null) ? $allCounts[$dimension] : [];
+    }
 
-            if ($scopeType === 'partner') {
-                $assigned = 0;
+    /**
+     * @param array<int, array{id: string, seed: string, set_distribution: array<int|string, mixed>, total_capacity: int}> $layers
+     * @return array{back2: array<string, int>, back3: array<string, int>, front3: array<string, int>}|null
+     */
+    private function precomputedVirtualGeneratedCountsForDimensions(string $gameId, string $scopeType, string $scopeId, object $profile, array $layers): ?array
+    {
+        $sourceIds = array_values(array_filter(array_map(
+            fn (array $layer): string => (string) ($layer['id'] ?? ''),
+            $layers,
+        )));
 
-                for ($copyIndex = 0; $copyIndex < $capacity; $copyIndex++) {
-                    if ($this->virtualOwnerPartnerForCopy($partnerRows, (string) $row->full_number, $copyIndex) === $scopeId) {
-                        $assigned++;
-                    }
-                }
+        if ($sourceIds === []) {
+            return null;
+        }
 
-                $capacity = $assigned;
+        $existingSourceIds = DB::table('virtual_stock_pattern_generated_counts')
+            ->where('game_id', $gameId)
+            ->where('profile_id', (string) $profile->id)
+            ->where('scope_type', $scopeType)
+            ->where('scope_id', $scopeId)
+            ->whereIn('source_id', $sourceIds)
+            ->distinct()
+            ->pluck('source_id')
+            ->map(fn (mixed $value): string => (string) $value)
+            ->all();
+
+        if (array_diff($sourceIds, $existingSourceIds) !== []) {
+            return null;
+        }
+
+        $counts = [
+            'back2' => [],
+            'back3' => [],
+            'front3' => [],
+        ];
+
+        $rows = DB::table('virtual_stock_pattern_generated_counts')
+            ->select(['dimension', 'value'])
+            ->selectRaw('SUM(generated_count)::bigint as generated_count')
+            ->where('game_id', $gameId)
+            ->where('profile_id', (string) $profile->id)
+            ->where('scope_type', $scopeType)
+            ->where('scope_id', $scopeId)
+            ->whereIn('source_id', $sourceIds)
+            ->groupBy('dimension', 'value')
+            ->get();
+
+        foreach ($rows as $row) {
+            $dimension = (string) $row->dimension;
+            if (! array_key_exists($dimension, $counts)) {
+                continue;
             }
 
-            $value = (string) $row->value;
-            $counts[$value] = ($counts[$value] ?? 0) + $capacity;
+            $counts[$dimension][(string) $row->value] = (int) $row->generated_count;
         }
 
         return $counts;
+    }
+
+    /**
+     * @param array<int, array{id: string, seed: string, set_distribution: array<int|string, mixed>, total_capacity: int}> $layers
+     * @param array<int, array{partner_id: string, bp: int}> $partnerRows
+     * @return array{back2: array<string, int>, back3: array<string, int>, front3: array<string, int>}
+     */
+    private function computeVirtualGeneratedCountsForDimensions(string $gameId, string $scopeType, string $scopeId, array $layers, array $partnerRows): array
+    {
+        if ($scopeType === 'central' && $scopeId === 'central') {
+            return $this->computeCentralVirtualGeneratedCountsForDimensions($layers);
+        }
+
+        $counts = [
+            'back2' => [],
+            'back3' => [],
+            'front3' => [],
+        ];
+
+        DB::table('base_lottery_numbers')
+            ->select(['full_number', 'back2', 'back3', 'front3'])
+            ->orderBy('full_number')
+            ->chunk(5000, function ($numbers) use (&$counts, $scopeType, $scopeId, $layers, $partnerRows): void {
+                foreach ($numbers as $row) {
+                    $capacity = $this->virtualCapacityForNumberWithLayers((string) $row->full_number, $layers);
+
+                    if ($scopeType === 'partner') {
+                        $assigned = 0;
+
+                        for ($copyIndex = 0; $copyIndex < $capacity; $copyIndex++) {
+                            if ($this->virtualOwnerPartnerForCopy($partnerRows, (string) $row->full_number, $copyIndex) === $scopeId) {
+                                $assigned++;
+                            }
+                        }
+
+                        $capacity = $assigned;
+                    }
+
+                    $back2 = (string) $row->back2;
+                    $back3 = (string) $row->back3;
+                    $front3 = (string) $row->front3;
+                    $counts['back2'][$back2] = ($counts['back2'][$back2] ?? 0) + $capacity;
+                    $counts['back3'][$back3] = ($counts['back3'][$back3] ?? 0) + $capacity;
+                    $counts['front3'][$front3] = ($counts['front3'][$front3] ?? 0) + $capacity;
+                }
+            });
+
+        return $counts;
+    }
+
+    /**
+     * @param array<int, array{id: string, seed: string, set_distribution: array<int|string, mixed>, total_capacity: int}> $layers
+     * @return array{back2: array<string, int>, back3: array<string, int>, front3: array<string, int>}
+     */
+    private function computeCentralVirtualGeneratedCountsForDimensions(array $layers): array
+    {
+        $counts = [
+            'back2' => [],
+            'back3' => [],
+            'front3' => [],
+        ];
+
+        foreach ($layers as $layer) {
+            $caseSql = $this->virtualCapacityCaseSql($layer['set_distribution']);
+            $rows = DB::select(
+                <<<SQL
+                WITH scored AS (
+                    SELECT
+                        full_number,
+                        back2,
+                        back3,
+                        front3,
+                        {$caseSql} AS capacity
+                    FROM (
+                        SELECT
+                            full_number,
+                            back2,
+                            back3,
+                            front3,
+                            ((('x' || substr(encode(sha256((? || ':' || full_number || ':set')::bytea), 'hex'), 1, 8))::bit(32)::bigint) % 10000) AS score
+                        FROM base_lottery_numbers
+                    ) base_scores
+                )
+                SELECT
+                    dimension,
+                    value,
+                    SUM(capacity)::bigint AS generated_count
+                FROM scored
+                CROSS JOIN LATERAL (VALUES ('back2', back2), ('back3', back3), ('front3', front3)) AS pattern(dimension, value)
+                GROUP BY dimension, value
+                SQL,
+                [(string) $layer['seed']],
+            );
+
+            foreach ($rows as $row) {
+                $dimension = (string) $row->dimension;
+                if (! array_key_exists($dimension, $counts)) {
+                    continue;
+                }
+
+                $value = (string) $row->value;
+                $counts[$dimension][$value] = ($counts[$dimension][$value] ?? 0) + (int) $row->generated_count;
+            }
+        }
+
+        return $counts;
+    }
+
+    /**
+     * @param array<int|string, mixed> $distribution
+     */
+    private function virtualCapacityCaseSql(array $distribution): string
+    {
+        $cursor = 0;
+        $clauses = [];
+
+        foreach ($distribution as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $basisPoints = max(0, (int) ($row['percent_basis_points'] ?? 0));
+            if ($basisPoints < 1) {
+                continue;
+            }
+
+            $cursor = min(self::VIRTUAL_MAX_BP, $cursor + $basisPoints);
+            $setSize = max(1, (int) ($row['set_size'] ?? 1));
+            $clauses[] = 'WHEN score < '.$cursor.' THEN '.$setSize;
+        }
+
+        return $clauses === [] ? '1' : 'CASE '.implode(' ', $clauses).' ELSE 1 END';
+    }
+
+    /**
+     * @param array<int, array{id: string, seed: string, set_distribution: array<int|string, mixed>, total_capacity: int}> $layers
+     * @param array<int, array{partner_id: string, bp: int}> $partnerRows
+     */
+    private function virtualGeneratedCountsCacheKey(string $gameId, string $scopeType, string $scopeId, object $profile, array $layers, array $partnerRows): string
+    {
+        return 'central_stock:virtual_generated_counts:v3:'.sha1(json_encode([
+            'game_id' => $gameId,
+            'scope_type' => $scopeType,
+            'scope_id' => $scopeId,
+            'profile_id' => (string) $profile->id,
+            'profile_updated_at' => (string) $profile->updated_at,
+            'profile_total_capacity' => (int) $profile->total_capacity,
+            'layers' => $layers,
+            'partner_rows' => $partnerRows,
+        ], JSON_THROW_ON_ERROR));
     }
 
     private function virtualProfileHasVariableCapacity(object $profile): bool
