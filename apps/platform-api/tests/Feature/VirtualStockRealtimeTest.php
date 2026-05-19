@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Modules\CentralStock\Events\StockCoverageUpdated;
 use App\Modules\PartnerStore\Events\StockAvailabilityUpdated;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -112,7 +113,6 @@ class VirtualStockRealtimeTest extends TestCase
             ->postJson('/api/v1/admin/central/stock/generate', [
                 'game_id' => 'gam_virtual_generate',
                 'generation_mode' => 'virtual_profile',
-                'seed' => 'virtual-generate-seed',
                 'set_distribution' => [
                     ['set_size' => 2, 'percent' => 10],
                     ['set_size' => 3, 'percent' => 15],
@@ -147,6 +147,8 @@ class VirtualStockRealtimeTest extends TestCase
             ->assertJsonPath('generated_count', 13);
 
         $this->assertSame(1, DB::table('stock_supply_profiles')->where('game_id', 'gam_virtual_generate')->where('status', 'active')->count());
+        $this->assertSame(1, DB::table('virtual_stock_supply_layers')->where('game_id', 'gam_virtual_generate')->where('status', 'active')->count());
+        $this->assertNotNull(DB::table('virtual_stock_supply_layers')->where('game_id', 'gam_virtual_generate')->value('layer_seed'));
         $this->assertSame(1, DB::table('stock_partner_distributions')->where('game_id', 'gam_virtual_generate')->where('partner_id', 'par_virtual_generate')->count());
         $this->assertSame(10000, (int) DB::table('stock_partner_distributions')->where('game_id', 'gam_virtual_generate')->value('percent_basis_points'));
         $this->assertSame(2, DB::table('stock_sale_limit_settings')->where('game_id', 'gam_virtual_generate')->count());
@@ -154,11 +156,49 @@ class VirtualStockRealtimeTest extends TestCase
         $this->assertSame(200, (int) DB::table('stock_sale_limit_settings')->where('game_id', 'gam_virtual_generate')->where('scope_type', 'partner')->value('back2_limit'));
         $this->assertSame(0, DB::table('stock_items')->where('game_id', 'gam_virtual_generate')->count());
 
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/stock/generate', [
+                'game_id' => 'gam_virtual_generate',
+                'generation_mode' => 'virtual_profile',
+                'set_distribution' => [
+                    ['set_size' => 2, 'percent' => 10],
+                    ['set_size' => 3, 'percent' => 15],
+                ],
+                'partner_distribution' => [
+                    ['partner_id' => 'par_virtual_generate', 'percent' => 100],
+                ],
+                'central_limits' => ['back2_limit' => 500, 'back3_limit' => 300, 'front3_limit' => 200],
+                'partner_limits' => [
+                    ['partner_id' => 'par_virtual_generate', 'back2_limit' => 200, 'back3_limit' => 100, 'front3_limit' => 80],
+                ],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'virtual-profile-generate',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('id', $batch['id'])
+            ->assertJsonPath('layer_id', $batch['layer_id']);
+        $this->assertSame(1, DB::table('virtual_stock_supply_layers')->where('game_id', 'gam_virtual_generate')->count());
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/stock/generate', [
+                'game_id' => 'gam_virtual_generate',
+                'generation_mode' => 'virtual_profile',
+                'set_distribution' => [
+                    ['set_size' => 4, 'percent' => 100],
+                ],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'virtual-profile-generate',
+            ])
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'idempotency_conflict');
+        $this->assertSame(1, DB::table('virtual_stock_supply_layers')->where('game_id', 'gam_virtual_generate')->count());
+
         $secondBatch = $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/stock/generate', [
                 'game_id' => 'gam_virtual_generate',
                 'generation_mode' => 'virtual_profile',
-                'seed' => 'virtual-generate-seed-second',
                 'set_distribution' => [],
                 'partner_distribution' => [
                     ['partner_id' => 'par_virtual_generate', 'percent' => 100],
@@ -169,7 +209,12 @@ class VirtualStockRealtimeTest extends TestCase
             ])
             ->assertAccepted()
             ->assertJsonPath('requested_count', 10)
+            ->assertJsonPath('top_up', true)
+            ->assertJsonPath('total_capacity', 23)
             ->json();
+        $this->assertSame(1, DB::table('stock_supply_profiles')->where('game_id', 'gam_virtual_generate')->where('status', 'active')->count());
+        $this->assertSame(2, DB::table('virtual_stock_supply_layers')->where('game_id', 'gam_virtual_generate')->where('status', 'active')->count());
+        $this->assertSame(23, (int) DB::table('stock_supply_profiles')->where('game_id', 'gam_virtual_generate')->value('total_capacity'));
 
         $this->withToken($login['access_token'])
             ->getJson('/api/v1/admin/central/stock/generation-batches?'.http_build_query([
@@ -196,7 +241,7 @@ class VirtualStockRealtimeTest extends TestCase
             ->assertJsonPath('meta.sort_dir', 'desc');
     }
 
-    public function test_physical_quota_generation_payload_still_coexists_with_virtual_profile(): void
+    public function test_physical_quota_generation_payloads_are_retired(): void
     {
         $this->seedDefaultRbac();
         $this->insertGame('gam_virtual_only', 'open');
@@ -210,13 +255,29 @@ class VirtualStockRealtimeTest extends TestCase
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'retired-physical-generate',
             ])
-            ->assertAccepted()
-            ->assertJsonPath('type', 'generate')
-            ->assertJsonPath('status', 'completed')
-            ->assertJsonPath('generated_count', 1000);
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.fields.generation_mode.0', 'The generation_mode field must be virtual_profile.')
+            ->assertJsonPath('error.details.fields.total_count.0', 'This field is retired for stock generation. Use generation_mode=virtual_profile and set_distribution.');
 
-        $this->assertSame(1000, DB::table('stock_items')->where('game_id', 'gam_virtual_only')->count());
-        $this->assertSame(1, DB::table('stock_generation_batches')->where('game_id', 'gam_virtual_only')->where('type', 'generate')->count());
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/stock/generate', [
+                'game_id' => 'gam_virtual_only',
+                'generation_mode' => 'quota_random',
+                'back2_count_per_number' => 10,
+                'back3_count_per_number' => 1,
+                'front3_count_per_number' => 1,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'retired-quota-generate',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.fields.generation_mode.0', 'The generation_mode field must be virtual_profile.')
+            ->assertJsonPath('error.details.fields.back2_count_per_number.0', 'This field is retired for stock generation. Use generation_mode=virtual_profile and set_distribution.');
+
+        $this->assertSame(0, DB::table('stock_items')->where('game_id', 'gam_virtual_only')->count());
+        $this->assertSame(0, DB::table('stock_generation_batches')->where('game_id', 'gam_virtual_only')->where('type', 'generate')->count());
         $this->assertSame(0, DB::table('stock_supply_profiles')->where('game_id', 'gam_virtual_only')->count());
     }
 
@@ -243,7 +304,6 @@ class VirtualStockRealtimeTest extends TestCase
             ->postJson('/api/v1/admin/central/stock/generate', [
                 'game_id' => 'gam_virtual_low_limits',
                 'generation_mode' => 'virtual_profile',
-                'seed' => 'virtual-low-limits-seed',
                 'set_distribution' => [
                     ['set_size' => 2, 'percent' => 10],
                     ['set_size' => 3, 'percent' => 15],
@@ -665,7 +725,12 @@ class VirtualStockRealtimeTest extends TestCase
             ->assertJsonPath('generated_capacity', $this->capacityForNumber('123456', 'virtual-test-seed', $distribution))
             ->assertJsonPath('materialized_stock_count', 1)
             ->assertJsonPath('stock_items.0.image_url', 'https://cdn.example.test/central/123456.png')
+            ->assertJsonPath('stock_items.0.owner.type', 'partner')
             ->assertJsonPath('local_stock_items.0.image_url', 'https://cdn.example.test/local/123456.png')
+            ->assertJsonPath('local_stock_items.0.owner.type', 'partner')
+            ->assertJsonPath('virtual_copies.0.owner.type', 'partner')
+            ->assertJsonPath('virtual_copies.0.materialized', true)
+            ->assertJsonPath('virtual_copies.0.image_url', 'https://cdn.example.test/local/123456.png')
             ->assertJsonPath('central_limits.limits.back2.value', '56')
             ->assertJsonPath('partner_limits.scope_id', 'par_virtual_detail');
     }
@@ -679,7 +744,7 @@ class VirtualStockRealtimeTest extends TestCase
         $this->insertVirtualProfile('gam_virtual');
         $this->insertSaleLimit('gam_virtual', 'central', 'central', back2: 1, back3: 10, front3: 10);
 
-        Event::fake([StockAvailabilityUpdated::class]);
+        Event::fake([StockAvailabilityUpdated::class, StockCoverageUpdated::class]);
 
         $search = $this->getJson('http://virtual.newpaotang.test/api/v1/public/stock/search?game_id=gam_virtual&number=123456&limit=5')
             ->assertOk()
@@ -711,6 +776,18 @@ class VirtualStockRealtimeTest extends TestCase
             && ($event->payload['remaining_count'] ?? null) === 0
             && ($event->payload['status'] ?? null) === 'sold_out'
         ));
+        Event::assertDispatched(StockCoverageUpdated::class, function (StockCoverageUpdated $event): bool {
+            $channels = array_map(fn (object $channel): string => (string) $channel->name, $event->broadcastOn());
+
+            return $event->broadcastAs() === 'stock.coverage.updated'
+                && ($event->payload['game_id'] ?? null) === 'gam_virtual'
+                && ($event->payload['scope_type'] ?? null) === 'central'
+                && ($event->payload['dimension'] ?? null) === 'back2'
+                && ($event->payload['number'] ?? null) === '56'
+                && ($event->payload['reserved_count'] ?? null) === 1
+                && ($event->payload['sellable_remaining_count'] ?? null) === 0
+                && in_array('private-admin.central.stock.coverage.game.gam_virtual', $channels, true);
+        });
 
         $this->withToken($customerToken)
             ->postJson('http://virtual.newpaotang.test/api/v1/customer/reservations/'.$reservation['id'].'/release', [], [

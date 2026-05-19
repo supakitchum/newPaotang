@@ -187,6 +187,10 @@ class CentralStockController extends Controller
             return ApiErrorResponse::idempotencyConflict($request);
         }
 
+        if (($result['error'] ?? null) === 'resource_conflict') {
+            return ApiErrorResponse::resourceConflict($request);
+        }
+
         return response()->json($result, 202);
     }
 

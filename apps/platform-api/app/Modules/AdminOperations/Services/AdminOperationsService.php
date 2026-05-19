@@ -228,7 +228,8 @@ class AdminOperationsService
                 'private-admin.central.menu',
                 'private-admin.central.admin.'.$adminUserId,
                 'presence-admin.central.admin.'.$adminUserId,
-            ], true) || $this->isCentralStockGenerationChannel($channelName);
+            ], true) || $this->isCentralStockGenerationChannel($channelName)
+                || $this->isCentralStockCoverageChannel($channelName);
         }
 
         $tenantId = $context->activeTenantId();
@@ -253,6 +254,11 @@ class AdminOperationsService
         return $channelName === 'private-admin.central.stock-generation'
             || preg_match('/^private-admin\.central\.stock-generation\.game\.[A-Za-z0-9_-]+$/', $channelName) === 1
             || preg_match('/^private-admin\.central\.stock-generation\.batch\.[A-Za-z0-9_-]+$/', $channelName) === 1;
+    }
+
+    private function isCentralStockCoverageChannel(string $channelName): bool
+    {
+        return preg_match('/^private-admin\.central\.stock\.coverage\.game\.[A-Za-z0-9_-]+$/', $channelName) === 1;
     }
 
     private function limit(mixed $value): int

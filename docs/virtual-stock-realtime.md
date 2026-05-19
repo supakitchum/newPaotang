@@ -13,6 +13,8 @@ When a game has an active virtual profile:
 - reserved and sold tickets are counted in `virtual_stock_counters`
 - availability is broadcast after reserve, release, expiration, and sold conversion
 
+Backend storage keeps `stock_supply_profiles` as the active game container and stores every initial generate/top-up as an active `virtual_stock_supply_layers` row. Each layer stores an internal layer seed, base-number count snapshot, set-distribution snapshot, batch id, and layer capacity. Full-number capacity is the sum of every active layer.
+
 Games without an active virtual profile have no generated virtual availability. The old physical quota/range generation flow is retired and the generate endpoint rejects it.
 
 ## Generation Payload
@@ -32,7 +34,7 @@ Example:
 
 The set distribution controls added capacity per full number for the initial generation or top-up. Tickets are still sold one by one.
 
-`seed` is internal and system-managed. BO must not show a seed input and API callers should not need to send one. Backend must store enough internal seed/layer metadata to make generated capacity deterministic and idempotent.
+`seed` is internal and system-managed. BO must not show a seed input and API callers should not send one. Backend stores profile/layer seed metadata internally to make generated capacity deterministic and idempotent.
 
 Partner distribution and sale limits are configured outside the generate form. If partner distribution is empty, the engine falls back to existing partner quota weights or the current safe default behavior.
 
@@ -148,6 +150,7 @@ BO Stock Pattern Coverage must subscribe for the selected game/scope and update 
 - Do not expose seed as a BO input.
 - Do not reintroduce physical stock generation.
 - Top-up must add virtual supply and must not archive/replace the existing active profile.
+- Stable virtual stock refs use a monotonically expanding full-number copy index; layer records make the capacity additive while keeping already issued refs stable.
 - Stock Pattern Coverage must use websocket updates for realtime rows/widgets and fallback to HTTP reload only when needed.
 - QA must test with two browsers: browser A sees a number, browser B reserves/sells until limit is full, browser A must see the number disabled by realtime.
 - QA destructive DB commands must use testing DB only.

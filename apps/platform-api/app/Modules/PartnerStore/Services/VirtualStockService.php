@@ -11,7 +11,9 @@ use App\Models\StockGenerationBatch;
 use App\Models\StockItem;
 use App\Models\StockReservation;
 use App\Models\StockReservationItem;
+use App\Modules\CentralStock\Services\StockCoverageRealtimeService;
 use App\Modules\PartnerStore\Events\StockAvailabilityUpdated;
+use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Auth\CustomerSessionContext;
 use Illuminate\Http\Request;
@@ -24,6 +26,12 @@ class VirtualStockService
     private const MAX_BP = 10000;
     private const UNLIMITED = 2147483647;
     private const STOCK_PATTERN_COVERAGE_SETTING_KEY = 'stock_pattern_coverage_default';
+
+    public function __construct(
+        private readonly StockCoverageRealtimeService $coverageRealtime,
+        private readonly AuditLogger $auditLogger,
+    ) {
+    }
 
     public function isGeneratePayload(array $payload): bool
     {
@@ -51,8 +59,13 @@ class VirtualStockService
      */
     public function validateGeneratePayload(array $payload): array
     {
-        $errors = [];
+        $errors = $this->retiredGenerationFieldErrors($payload);
         $gameId = trim((string) ($payload['game_id'] ?? ''));
+        $mode = trim((string) ($payload['generation_mode'] ?? ''));
+
+        if ($mode !== 'virtual_profile') {
+            $errors['generation_mode'][] = 'The generation_mode field must be virtual_profile.';
+        }
 
         if ($gameId === '' || ! Game::where('id', $gameId)->where('status', 'open')->exists()) {
             $errors['game_id'][] = 'The game_id field must reference an open game.';
@@ -119,27 +132,27 @@ class VirtualStockService
         return DB::transaction(function () use ($payload, $actor, $request): array {
             $gameId = trim((string) $payload['game_id']);
             $idempotencyKey = (string) $request->header('Idempotency-Key');
-            $seed = trim((string) ($payload['seed'] ?? ($idempotencyKey !== '' ? $idempotencyKey : Str::ulid()->toBase32())));
             $distribution = $this->normalizeSetDistribution($payload['set_distribution'] ?? []);
             $partnerDistribution = $this->normalizePartnerDistribution($payload['partner_distribution'] ?? []);
             $coverageDefaults = $this->stockPatternCoverageDefaults();
-            $centralLimits = $this->normalizeLimitRow($payload['central_limits'] ?? $coverageDefaults['central']);
-            if (! $this->hasAnyLimit($centralLimits)) {
+            $hasCentralLimits = array_key_exists('central_limits', $payload);
+            $centralLimits = $hasCentralLimits
+                ? $this->normalizeLimitRow($payload['central_limits'] ?? $coverageDefaults['central'])
+                : ['back2_limit' => null, 'back3_limit' => null, 'front3_limit' => null];
+            if ($hasCentralLimits && ! $this->hasAnyLimit($centralLimits)) {
                 $centralLimits = $this->normalizeLimitRow($coverageDefaults['central']);
             }
             $partnerLimits = $this->normalizePartnerLimits($payload['partner_limits'] ?? []);
-            $profileId = $this->stableId('vsp', $gameId.':'.$seed.':'.json_encode($distribution, JSON_THROW_ON_ERROR));
             $payloadForHash = [
                 'game_id' => $gameId,
                 'generation_mode' => 'virtual_profile',
-                'seed' => $seed,
                 'set_distribution' => $distribution,
                 'partner_distribution' => $partnerDistribution,
                 'central_limits' => $centralLimits,
                 'partner_limits' => $partnerLimits,
             ];
             $payloadHash = $this->payloadHash($payloadForHash);
-            $batchId = $this->stableId('stb', 'virtual-profile:'.($idempotencyKey !== '' ? $idempotencyKey : $seed).':'.$payloadHash);
+            $batchId = $this->stableId('stb', 'virtual-profile:'.$actor->adminUser['id'].':'.$idempotencyKey.':'.$payloadHash);
             $existing = $idempotencyKey !== ''
                 ? StockGenerationBatch::query()
                     ->where('type', 'virtual_profile')
@@ -159,25 +172,42 @@ class VirtualStockService
             $now = now();
             $baseCount = $this->currentBaseCount();
             $baseRange = $this->baseLotteryRange();
-            $totalCapacity = $this->profileTotalCapacity($distribution, $baseCount);
+            $layerCapacity = $this->profileTotalCapacity($distribution, $baseCount);
+            $game = Game::query()->where('id', $gameId)->where('status', 'open')->lockForUpdate()->first();
 
-            DB::table('stock_supply_profiles')
+            if ($game === null) {
+                return ['error' => 'resource_conflict'];
+            }
+
+            $profile = DB::table('stock_supply_profiles')
                 ->where('game_id', $gameId)
                 ->where('status', 'active')
-                ->update(['status' => 'archived', 'updated_at' => $now]);
+                ->lockForUpdate()
+                ->first();
+            $isTopUp = $profile !== null;
+            $profileId = $profile === null
+                ? $this->stableId('vsp', 'virtual-profile:'.$gameId.':'.$batchId)
+                : (string) $profile->id;
+            $profileSeed = $profile === null
+                ? $this->internalSeed('profile', $gameId.':'.$batchId)
+                : (string) $profile->seed;
+            $layerId = $this->stableId('vsl', 'virtual-layer:'.$batchId);
+            $layerSeed = $this->internalSeed('layer', $batchId.':'.$payloadHash);
 
-            DB::table('stock_supply_profiles')->insert([
-                'id' => $profileId,
-                'game_id' => $gameId,
-                'status' => 'active',
-                'seed' => $seed,
-                'base_count' => $baseCount,
-                'total_capacity' => $totalCapacity,
-                'set_distribution_json' => json_encode($distribution, JSON_THROW_ON_ERROR),
-                'created_by_admin_id' => $actor->adminUser['id'],
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
+            if ($profile === null) {
+                DB::table('stock_supply_profiles')->insert([
+                    'id' => $profileId,
+                    'game_id' => $gameId,
+                    'status' => 'active',
+                    'seed' => $profileSeed,
+                    'base_count' => $baseCount,
+                    'total_capacity' => 0,
+                    'set_distribution_json' => json_encode($distribution, JSON_THROW_ON_ERROR),
+                    'created_by_admin_id' => $actor->adminUser['id'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
 
             $this->replaceVirtualStockSettings($gameId, $partnerDistribution, $centralLimits, $partnerLimits, $now);
 
@@ -186,8 +216,8 @@ class VirtualStockService
                 'game_id' => $gameId,
                 'type' => 'virtual_profile',
                 'status' => 'completed',
-                'requested_count' => $totalCapacity,
-                'generated_count' => $totalCapacity,
+                'requested_count' => $layerCapacity,
+                'generated_count' => $layerCapacity,
                 'total_rounds' => 0,
                 'processed_rounds' => 0,
                 'chunk_rounds' => 0,
@@ -199,8 +229,10 @@ class VirtualStockService
                 'created_by_admin_id' => $actor->adminUser['id'],
                 'payload_json' => json_encode($payloadForHash + [
                     'profile_id' => $profileId,
+                    'layer_id' => $layerId,
                     'base_count' => $baseCount,
-                    'total_capacity' => $totalCapacity,
+                    'layer_capacity' => $layerCapacity,
+                    'top_up' => $isTopUp,
                 ], JSON_THROW_ON_ERROR),
                 'started_at' => $now,
                 'completed_at' => $now,
@@ -209,6 +241,67 @@ class VirtualStockService
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
+
+            DB::table('virtual_stock_supply_layers')->insert([
+                'id' => $layerId,
+                'profile_id' => $profileId,
+                'batch_id' => $batchId,
+                'game_id' => $gameId,
+                'status' => 'active',
+                'layer_seed' => $layerSeed,
+                'base_count' => $baseCount,
+                'total_capacity' => $layerCapacity,
+                'set_distribution_json' => json_encode($distribution, JSON_THROW_ON_ERROR),
+                'created_by_admin_id' => $actor->adminUser['id'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            $combinedCapacity = (int) DB::table('virtual_stock_supply_layers')
+                ->where('profile_id', $profileId)
+                ->where('status', 'active')
+                ->sum('total_capacity');
+
+            DB::table('stock_supply_profiles')->where('id', $profileId)->update([
+                'base_count' => $baseCount,
+                'total_capacity' => $combinedCapacity,
+                'set_distribution_json' => json_encode($distribution, JSON_THROW_ON_ERROR),
+                'updated_at' => $now,
+            ]);
+
+            StockGenerationBatch::query()->where('id', $batchId)->update([
+                'payload_json' => json_encode($payloadForHash + [
+                    'profile_id' => $profileId,
+                    'layer_id' => $layerId,
+                    'base_count' => $baseCount,
+                    'layer_capacity' => $layerCapacity,
+                    'total_capacity' => $combinedCapacity,
+                    'top_up' => $isTopUp,
+                ], JSON_THROW_ON_ERROR),
+                'updated_at' => $now,
+            ]);
+
+            $this->auditLogger->logAdminWrite(
+                actorId: $actor->adminUser['id'],
+                scopeType: 'central',
+                action: 'stock.generated',
+                targetType: 'stock_generation_batch',
+                targetId: $batchId,
+                payload: [
+                    'idempotency_key' => $idempotencyKey,
+                    'payload' => $payload,
+                    'profile_id' => $profileId,
+                    'layer_id' => $layerId,
+                    'layer_capacity' => $layerCapacity,
+                    'total_capacity' => $combinedCapacity,
+                    'top_up' => $isTopUp,
+                ],
+                requestId: (string) ($request->header('X-Request-Id') ?: ''),
+                ipAddress: $request->ip(),
+                userAgent: $request->userAgent(),
+            );
+
+            $this->coverageRealtime->broadcastGameSupplyChangedAfterCommit($gameId);
 
             return $this->batchResource(StockGenerationBatch::where('id', $batchId)->first());
         });
@@ -351,6 +444,7 @@ class VirtualStockService
                 );
 
                 $this->incrementVirtualCounters($gameId, $tenantId, $partnerId, $ref['full_number'], reservedDelta: 1, soldDelta: 0);
+                $this->coverageRealtime->broadcastNumberChangedAfterCommit($gameId, $partnerId, $ref['full_number']);
                 $events[] = $this->availabilityPayload($tenantId, $partnerId, $gameId, $ref['full_number'], $customer->customerId());
             }
 
@@ -403,6 +497,7 @@ class VirtualStockService
 
         foreach ($rows as $row) {
             $this->incrementVirtualCounters((string) $reservation->game_id, $tenantId, $partnerId, (string) $row->full_number, reservedDelta: -1, soldDelta: 0);
+            $this->coverageRealtime->broadcastNumberChangedAfterCommit((string) $reservation->game_id, $partnerId, (string) $row->full_number);
             $events[] = $this->availabilityPayload($tenantId, $partnerId, (string) $reservation->game_id, (string) $row->full_number, $customerId);
         }
 
@@ -422,6 +517,7 @@ class VirtualStockService
             }
 
             $this->incrementVirtualCounters($gameId, $tenantId, $partnerId, (string) $row->full_number, reservedDelta: -1, soldDelta: 1);
+            $this->coverageRealtime->broadcastNumberChangedAfterCommit($gameId, $partnerId, (string) $row->full_number);
             $events[] = $this->availabilityPayload($tenantId, $partnerId, $gameId, (string) $row->full_number, $customerId);
         }
 
@@ -467,7 +563,37 @@ class VirtualStockService
             'set_distribution' => $this->decodeJsonArray($profile->set_distribution_json),
             'base_count' => (int) $profile->base_count,
             'total_capacity' => (int) $profile->total_capacity,
+            'layers' => $this->activeLayersForProfile($profile),
         ];
+    }
+
+    /**
+     * @return array<int, array{id: string, seed: string, set_distribution: array<int|string, mixed>, total_capacity: int}>
+     */
+    private function activeLayersForProfile(object $profile): array
+    {
+        $rows = DB::table('virtual_stock_supply_layers')
+            ->where('profile_id', (string) $profile->id)
+            ->where('status', 'active')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return [[
+                'id' => (string) $profile->id,
+                'seed' => (string) $profile->seed,
+                'set_distribution' => $this->decodeJsonArray($profile->set_distribution_json),
+                'total_capacity' => (int) $profile->total_capacity,
+            ]];
+        }
+
+        return $rows->map(fn (object $row): array => [
+            'id' => (string) $row->id,
+            'seed' => (string) $row->layer_seed,
+            'set_distribution' => $this->decodeJsonArray($row->set_distribution_json),
+            'total_capacity' => (int) $row->total_capacity,
+        ])->all();
     }
 
     /**
@@ -877,14 +1003,41 @@ class VirtualStockService
 
     private function capacityForNumber(string $fullNumber, array $profile): int
     {
-        $score = $this->hashScore($profile['seed'].':'.$fullNumber.':set') % self::MAX_BP;
+        $layers = $profile['layers'] ?? [];
+        $capacity = 0;
+
+        foreach ($layers as $layer) {
+            if (! is_array($layer)) {
+                continue;
+            }
+
+            $capacity += $this->capacityForLayer(
+                $fullNumber,
+                (string) ($layer['seed'] ?? $profile['seed']),
+                is_array($layer['set_distribution'] ?? null) ? $layer['set_distribution'] : [],
+            );
+        }
+
+        return max(0, $capacity);
+    }
+
+    /**
+     * @param array<int|string, mixed> $distribution
+     */
+    private function capacityForLayer(string $fullNumber, string $seed, array $distribution): int
+    {
+        $score = $this->hashScore($seed.':'.$fullNumber.':set') % self::MAX_BP;
         $cursor = 0;
 
-        foreach ($profile['set_distribution'] as $row) {
-            $cursor += (int) $row['percent_basis_points'];
+        foreach ($distribution as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $cursor += (int) ($row['percent_basis_points'] ?? 0);
 
             if ($score < $cursor) {
-                return max(1, (int) $row['set_size']);
+                return max(1, (int) ($row['set_size'] ?? 1));
             }
         }
 
@@ -1008,48 +1161,53 @@ class VirtualStockService
      */
     private function replaceVirtualStockSettings(string $gameId, array $partnerDistribution, array $centralLimits, array $partnerLimits, mixed $now): void
     {
-        DB::table('stock_partner_distributions')->where('game_id', $gameId)->delete();
-        DB::table('stock_sale_limit_settings')->where('game_id', $gameId)->delete();
+        if ($partnerDistribution !== []) {
+            DB::table('stock_partner_distributions')->where('game_id', $gameId)->delete();
 
-        foreach ($partnerDistribution as $row) {
-            DB::table('stock_partner_distributions')->insert([
-                'id' => $this->stableId('spd', $gameId.':'.$row['partner_id']),
-                'game_id' => $gameId,
-                'partner_id' => $row['partner_id'],
-                'tenant_id' => $this->tenantIdForPartner($row['partner_id']),
-                'percent_basis_points' => $row['percent_basis_points'],
-                'status' => 'active',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
+            foreach ($partnerDistribution as $row) {
+                DB::table('stock_partner_distributions')->insert([
+                    'id' => $this->stableId('spd', $gameId.':'.$row['partner_id']),
+                    'game_id' => $gameId,
+                    'partner_id' => $row['partner_id'],
+                    'tenant_id' => $this->tenantIdForPartner($row['partner_id']),
+                    'percent_basis_points' => $row['percent_basis_points'],
+                    'status' => 'active',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
         }
 
         if ($this->hasAnyLimit($centralLimits)) {
-            DB::table('stock_sale_limit_settings')->insert([
-                'id' => $this->stableId('ssl', $gameId.':central:central'),
-                'game_id' => $gameId,
-                'scope_type' => 'central',
-                'scope_id' => 'central',
-                'back2_limit' => $centralLimits['back2_limit'],
-                'back3_limit' => $centralLimits['back3_limit'],
-                'front3_limit' => $centralLimits['front3_limit'],
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
+            DB::table('stock_sale_limit_settings')->updateOrInsert(
+                ['id' => $this->stableId('ssl', $gameId.':central:central')],
+                [
+                    'game_id' => $gameId,
+                    'scope_type' => 'central',
+                    'scope_id' => 'central',
+                    'back2_limit' => $centralLimits['back2_limit'],
+                    'back3_limit' => $centralLimits['back3_limit'],
+                    'front3_limit' => $centralLimits['front3_limit'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ],
+            );
         }
 
         foreach ($partnerLimits as $row) {
-            DB::table('stock_sale_limit_settings')->insert([
-                'id' => $this->stableId('ssl', $gameId.':partner:'.$row['partner_id']),
-                'game_id' => $gameId,
-                'scope_type' => 'partner',
-                'scope_id' => $row['partner_id'],
-                'back2_limit' => $row['back2_limit'],
-                'back3_limit' => $row['back3_limit'],
-                'front3_limit' => $row['front3_limit'],
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
+            DB::table('stock_sale_limit_settings')->updateOrInsert(
+                ['id' => $this->stableId('ssl', $gameId.':partner:'.$row['partner_id'])],
+                [
+                    'game_id' => $gameId,
+                    'scope_type' => 'partner',
+                    'scope_id' => $row['partner_id'],
+                    'back2_limit' => $row['back2_limit'],
+                    'back3_limit' => $row['back3_limit'],
+                    'front3_limit' => $row['front3_limit'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ],
+            );
         }
     }
 
@@ -1077,6 +1235,38 @@ class VirtualStockService
         return $limits['back2_limit'] !== null
             || $limits['back3_limit'] !== null
             || $limits['front3_limit'] !== null;
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    private function retiredGenerationFieldErrors(array $payload): array
+    {
+        $errors = [];
+        $retiredFields = [
+            'total_count',
+            'back2_count_per_number',
+            'back3_count_per_number',
+            'front3_count_per_number',
+            'start_number',
+            'from_number',
+            'range_start',
+            'end_number',
+            'to_number',
+            'range_end',
+            'count',
+            'requested_count',
+            'number_digits',
+            'digits',
+        ];
+
+        foreach ($retiredFields as $field) {
+            if (array_key_exists($field, $payload) && $payload[$field] !== null && $payload[$field] !== '') {
+                $errors[$field][] = 'This field is retired for stock generation. Use generation_mode=virtual_profile and set_distribution.';
+            }
+        }
+
+        return $errors;
     }
 
     private function tenantIdForPartner(string $partnerId): ?string
@@ -1315,7 +1505,10 @@ class VirtualStockService
             'number_digits' => (int) $batch->number_digits,
             'stock_mode' => 'virtual',
             'profile_id' => $payload['profile_id'] ?? null,
-            'total_capacity' => (int) ($payload['total_capacity'] ?? $batch->requested_count),
+            'layer_id' => $payload['layer_id'] ?? null,
+            'layer_capacity' => (int) ($payload['layer_capacity'] ?? $batch->requested_count),
+            'top_up' => (bool) ($payload['top_up'] ?? false),
+            'total_capacity' => (int) ($payload['total_capacity'] ?? $payload['layer_capacity'] ?? $batch->requested_count),
             'created_at' => $batch->created_at,
             'updated_at' => $batch->updated_at,
             'completed_at' => $batch->completed_at,
@@ -1350,6 +1543,11 @@ class VirtualStockService
         ksort($payload);
 
         return hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
+    private function internalSeed(string $scope, string $value): string
+    {
+        return hash('sha256', 'virtual-stock:'.$scope.':'.$value);
     }
 
     private function stableId(string $prefix, string $seed): string

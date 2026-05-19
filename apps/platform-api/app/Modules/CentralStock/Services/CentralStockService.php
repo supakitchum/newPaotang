@@ -71,6 +71,7 @@ class CentralStockService
         private readonly AuditLogger $auditLogger,
         private readonly LotteryImageGenerator $lotteryImages,
         private readonly VirtualStockService $virtualStock,
+        private readonly StockCoverageRealtimeService $coverageRealtime,
     ) {
     }
 
@@ -818,6 +819,8 @@ class CentralStockService
             userAgent: $request->userAgent(),
         );
 
+        $this->coverageRealtime->broadcastLimitSettingsChangedAfterCommit($gameId, $scopeType, $scopeId);
+
         return $this->stockPatternSummary([
             'game_id' => $gameId,
             'scope_type' => $scopeType,
@@ -903,11 +906,13 @@ class CentralStockService
         $dimension = $this->normalizedLimitDimension($payload['dimension'] ?? null) ?? 'back2';
         [$scopeType, $scopeId] = $this->virtualScopeFromQuery($payload);
         $now = now();
+        $changedValues = [];
 
         foreach ($payload['overrides'] as $row) {
             $value = preg_replace('/\D+/', '', (string) ($row['value'] ?? '')) ?? '';
             $limit = $row['limit'] ?? null;
             $id = $this->stableId('vso', implode(':', [$gameId, $scopeType, $scopeId, $dimension, $value]));
+            $changedValues[] = $value;
 
             if ($limit === null || $limit === '') {
                 DB::table('stock_sale_limit_overrides')->where('id', $id)->delete();
@@ -948,6 +953,8 @@ class CentralStockService
             ipAddress: $request->ip(),
             userAgent: $request->userAgent(),
         );
+
+        $this->coverageRealtime->broadcastLimitOverridesChangedAfterCommit($gameId, $scopeType, $scopeId, $dimension, $changedValues);
 
         return $this->stockPatternSummary([
             'game_id' => $gameId,
@@ -1233,22 +1240,26 @@ class CentralStockService
         }
 
         $counts = [];
+        $layers = $this->virtualSupplyLayers($profile);
+        $partnerRows = $scopeType === 'partner' ? $this->virtualPartnerDistributionRows($gameId, $scopeId) : [];
 
-        $baseCount = max(1, (int) ($profile->base_count ?? 0));
-        $capacityRatio = max(0, (int) ($profile->total_capacity ?? 0)) / $baseCount;
+        foreach (DB::table('base_lottery_numbers')->get(['full_number', $dimension.' as value']) as $row) {
+            $capacity = $this->virtualCapacityForNumberWithLayers((string) $row->full_number, $layers);
 
-        foreach (DB::table('base_lottery_numbers')
-            ->selectRaw($dimension.' as value, count(*) as base_count')
-            ->groupBy($dimension)
-            ->get() as $row) {
-            $counts[(string) $row->value] = (int) floor(((int) $row->base_count) * $capacityRatio);
-        }
+            if ($scopeType === 'partner') {
+                $assigned = 0;
 
-        if ($scopeType === 'partner') {
-            $basisPoints = $this->virtualPartnerBasisPoints($gameId, $scopeId);
-            foreach ($counts as $value => $count) {
-                $counts[$value] = (int) floor($count * ($basisPoints / self::VIRTUAL_MAX_BP));
+                for ($copyIndex = 0; $copyIndex < $capacity; $copyIndex++) {
+                    if ($this->virtualOwnerPartnerForCopy($partnerRows, (string) $row->full_number, $copyIndex) === $scopeId) {
+                        $assigned++;
+                    }
+                }
+
+                $capacity = $assigned;
             }
+
+            $value = (string) $row->value;
+            $counts[$value] = ($counts[$value] ?? 0) + $capacity;
         }
 
         return $counts;
@@ -2534,7 +2545,12 @@ class CentralStockService
         }
 
         $errors = $this->validateOpenGamePayload($payload);
-        $legacyFields = [
+        $errors['generation_mode'][] = 'The generation_mode field must be virtual_profile.';
+        $retiredFields = [
+            'total_count',
+            'back2_count_per_number',
+            'back3_count_per_number',
+            'front3_count_per_number',
             'start_number',
             'from_number',
             'range_start',
@@ -2547,55 +2563,10 @@ class CentralStockService
             'digits',
         ];
 
-        foreach ($legacyFields as $field) {
+        foreach ($retiredFields as $field) {
             if (array_key_exists($field, $payload) && $payload[$field] !== null && $payload[$field] !== '') {
-                $errors[$field][] = 'This field is no longer supported for stock generation. Use quota-based generation fields instead.';
+                $errors[$field][] = 'This field is retired for stock generation. Use generation_mode=virtual_profile and set_distribution.';
             }
-        }
-
-        $hasTotalCount = $this->hasPayloadValue($payload, 'total_count');
-        $hasAnyQuotaCount = $this->hasPayloadValue($payload, 'back2_count_per_number')
-            || $this->hasPayloadValue($payload, 'back3_count_per_number')
-            || $this->hasPayloadValue($payload, 'front3_count_per_number');
-        $totalCount = $this->quotaCountFromPayload($payload, 'total_count', $errors, false);
-        $back2Count = null;
-        $back3Count = null;
-        $front3Count = null;
-
-        if (! $hasTotalCount || $hasAnyQuotaCount) {
-            $back2Count = $this->quotaCountFromPayload($payload, 'back2_count_per_number', $errors);
-            $back3Count = $this->quotaCountFromPayload($payload, 'back3_count_per_number', $errors);
-            $front3Count = $this->quotaCountFromPayload($payload, 'front3_count_per_number', $errors);
-        }
-
-        if ($hasTotalCount && $totalCount !== null) {
-            if ($totalCount < self::GENERATE_BASE_COUNT) {
-                $errors['total_count'][] = 'The total_count field must be at least 1000.';
-            }
-
-            if ($totalCount > self::GENERATE_MAX_REQUEST_COUNT) {
-                $errors['total_count'][] = 'The total_count field exceeds the technical generation limit.';
-            }
-
-            if (($totalCount % self::GENERATE_BASE_COUNT) !== 0) {
-                $errors['total_count'][] = 'The total_count field must be divisible by 1000.';
-            }
-        }
-
-        if ($back3Count !== null && ($back3Count * self::GENERATE_BASE_COUNT) > self::GENERATE_MAX_REQUEST_COUNT) {
-            $errors['back3_count_per_number'][] = 'The back3_count_per_number field exceeds the technical generation limit.';
-        }
-
-        if ($back2Count !== null && $back3Count !== null && $back2Count !== ($back3Count * 10)) {
-            $errors['back2_count_per_number'][] = 'The back2_count_per_number field must equal 10 times back3_count_per_number.';
-        }
-
-        if ($front3Count !== null && $back3Count !== null && $front3Count !== $back3Count) {
-            $errors['front3_count_per_number'][] = 'The front3_count_per_number field must equal back3_count_per_number.';
-        }
-
-        if ($hasTotalCount && $hasAnyQuotaCount && $totalCount !== null && $back3Count !== null && $totalCount !== ($back3Count * self::GENERATE_BASE_COUNT)) {
-            $errors['total_count'][] = 'The total_count field must equal 1000 times back3_count_per_number.';
         }
 
         return $errors;
@@ -2610,6 +2581,8 @@ class CentralStockService
         if ($this->virtualStock->isGeneratePayload($payload)) {
             return $this->virtualStock->generateProfile($payload, $actor, $request);
         }
+
+        return ['error' => 'resource_conflict'];
 
         $result = DB::transaction(function () use ($payload, $actor, $request): array {
             $normalized = $this->normalizedGeneratePayload($payload, (string) $request->header('Idempotency-Key'));
@@ -4187,6 +4160,7 @@ class CentralStockService
         [$scopeType, $scopeId] = $this->virtualScopeFromQuery($queryParams);
         $stockItems = $this->stockTicketDetailRows($gameId, $fullNumber);
         $localItems = $this->localStockTicketDetailRows($gameId, $fullNumber, $scopeType === 'partner' ? $scopeId : null);
+        $virtualCopies = $this->virtualCopyDetailRows($gameId, $fullNumber, $capacity, $stockItems, $localItems);
         $partnerLimits = null;
 
         if ($scopeType === 'partner') {
@@ -4243,6 +4217,7 @@ class CentralStockService
                 'limits' => $centralLimitDetails,
             ],
             'partner_limits' => $partnerLimits,
+            'virtual_copies' => $virtualCopies,
             'stock_items' => $stockItems,
             'local_stock_items' => $localItems,
         ];
@@ -4314,6 +4289,7 @@ class CentralStockService
                 'status' => (string) $stock->status,
                 'partner_id' => $stock->partner_id,
                 'tenant_id' => $stock->tenant_id,
+                'owner' => $this->ownershipResource($stock->partner_id, $stock->tenant_id, null),
                 'allocation_id' => $stock->allocation_id,
                 'virtual_stock_ref' => $stock->virtual_stock_ref,
                 'virtual_copy_index' => $stock->virtual_copy_index === null ? null : (int) $stock->virtual_copy_index,
@@ -4349,6 +4325,7 @@ class CentralStockService
                 'id' => (string) $stock->id,
                 'tenant_id' => (string) $stock->tenant_id,
                 'partner_id' => (string) $stock->partner_id,
+                'owner' => $this->ownershipResource($stock->partner_id, $stock->tenant_id, null),
                 'store_id' => $stock->store_id,
                 'game_id' => (string) $stock->game_id,
                 'stock_item_id' => (string) $stock->stock_item_id,
@@ -4372,6 +4349,175 @@ class CentralStockService
                 'updated_at' => $stock->updated_at,
             ])
             ->all();
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $stockItems
+     * @param array<int, array<string, mixed>> $localItems
+     * @return array<int, array<string, mixed>>
+     */
+    private function virtualCopyDetailRows(string $gameId, string $fullNumber, int $capacity, array $stockItems, array $localItems): array
+    {
+        $stockByCopy = [];
+        $localByCopy = [];
+
+        foreach ($stockItems as $stock) {
+            if (($stock['virtual_copy_index'] ?? null) !== null) {
+                $stockByCopy[(int) $stock['virtual_copy_index']] = $stock;
+            }
+        }
+
+        foreach ($localItems as $stock) {
+            if (($stock['virtual_copy_index'] ?? null) !== null) {
+                $localByCopy[(int) $stock['virtual_copy_index']] = $stock;
+            }
+        }
+
+        $ownerRows = $this->virtualCentralOwnerRows($gameId);
+        $copies = [];
+
+        for ($copyIndex = 0; $copyIndex < $capacity; $copyIndex++) {
+            $stock = $stockByCopy[$copyIndex] ?? null;
+            $local = $localByCopy[$copyIndex] ?? null;
+            $owner = $stock !== null || $local !== null
+                ? $this->ownershipResource($stock['partner_id'] ?? $local['partner_id'] ?? null, $stock['tenant_id'] ?? $local['tenant_id'] ?? null, null)
+                : $this->virtualOwnerForCopyResource($ownerRows, $fullNumber, $copyIndex);
+            $materialized = $stock !== null || $local !== null;
+
+            $copies[] = [
+                'virtual_copy_index' => $copyIndex,
+                'virtual_stock_ref' => $stock['virtual_stock_ref'] ?? $local['virtual_stock_ref'] ?? (
+                    ($owner['tenant_id'] ?? null) === null ? null : 'vstock:'.$owner['tenant_id'].':'.$gameId.':'.$fullNumber.':'.$copyIndex
+                ),
+                'owner' => $owner,
+                'owner_type' => $owner['type'],
+                'owner_label' => $owner['label'],
+                'stock_item_id' => $stock['id'] ?? null,
+                'local_stock_item_id' => $local['id'] ?? null,
+                'status' => $local['status'] ?? $stock['status'] ?? 'available',
+                'materialized' => $materialized,
+                'image_url' => $local['image_url'] ?? $stock['image_url'] ?? null,
+                'image_thumb_url' => $local['image_thumb_url'] ?? $stock['image_thumb_url'] ?? null,
+                'image_generation_status' => $local['image_generation_status'] ?? $stock['image_generation_status'] ?? null,
+                'image_generation_error' => $local['image_generation_error'] ?? $stock['image_generation_error'] ?? null,
+            ];
+        }
+
+        return $copies;
+    }
+
+    /**
+     * @return array<int, array{partner_id: string, tenant_id: ?string, bp: int}>
+     */
+    private function virtualCentralOwnerRows(string $gameId): array
+    {
+        $distributionRows = DB::table('stock_partner_distributions')
+            ->where('game_id', $gameId)
+            ->where('status', 'active')
+            ->where('percent_basis_points', '>', 0)
+            ->orderBy('partner_id')
+            ->get(['partner_id', 'tenant_id', 'percent_basis_points'])
+            ->map(fn (object $row): array => [
+                'partner_id' => (string) $row->partner_id,
+                'tenant_id' => $row->tenant_id === null ? null : (string) $row->tenant_id,
+                'bp' => (int) $row->percent_basis_points,
+            ])
+            ->all();
+
+        if ($distributionRows !== []) {
+            return $distributionRows;
+        }
+
+        $quotaRows = PartnerQuota::query()
+            ->where('game_id', $gameId)
+            ->where('status', 'active')
+            ->where('quota_count', '>', 0)
+            ->orderBy('partner_id')
+            ->get(['partner_id', 'quota_count']);
+        $total = $quotaRows->sum(fn (object $row): int => (int) $row->quota_count);
+
+        if ($total < 1) {
+            return [];
+        }
+
+        return $quotaRows->map(fn (object $row): array => [
+            'partner_id' => (string) $row->partner_id,
+            'tenant_id' => $this->tenantIdForPartner((string) $row->partner_id),
+            'bp' => max(1, (int) floor(((int) $row->quota_count / $total) * self::VIRTUAL_MAX_BP)),
+        ])->all();
+    }
+
+    /**
+     * @param array<int, array{partner_id: string, tenant_id: ?string, bp: int}> $rows
+     * @return array{type: string, label: string, partner_id: ?string, tenant_id: ?string, agent_id: ?string}
+     */
+    private function virtualOwnerForCopyResource(array $rows, string $fullNumber, int $copyIndex): array
+    {
+        if ($rows === []) {
+            return $this->ownershipResource(null, null, null);
+        }
+
+        $ownerPartnerId = $this->virtualOwnerPartnerForCopy(
+            array_map(fn (array $row): array => ['partner_id' => $row['partner_id'], 'bp' => $row['bp']], $rows),
+            $fullNumber,
+            $copyIndex,
+        );
+
+        foreach ($rows as $row) {
+            if ($row['partner_id'] === $ownerPartnerId) {
+                return $this->ownershipResource($row['partner_id'], $row['tenant_id'], null);
+            }
+        }
+
+        return $this->ownershipResource(null, null, null);
+    }
+
+    /**
+     * @return array{type: string, label: string, partner_id: ?string, tenant_id: ?string, agent_id: ?string}
+     */
+    private function ownershipResource(mixed $partnerId, mixed $tenantId, mixed $agentId): array
+    {
+        $partnerId = $partnerId === null || $partnerId === '' ? null : (string) $partnerId;
+        $tenantId = $tenantId === null || $tenantId === '' ? null : (string) $tenantId;
+        $agentId = $agentId === null || $agentId === '' ? null : (string) $agentId;
+
+        if ($agentId !== null) {
+            return [
+                'type' => 'agent',
+                'label' => 'agent',
+                'partner_id' => $partnerId,
+                'tenant_id' => $tenantId,
+                'agent_id' => $agentId,
+            ];
+        }
+
+        if ($partnerId !== null || $tenantId !== null) {
+            return [
+                'type' => 'partner',
+                'label' => 'partner',
+                'partner_id' => $partnerId,
+                'tenant_id' => $tenantId,
+                'agent_id' => null,
+            ];
+        }
+
+        return [
+            'type' => 'unassigned',
+            'label' => 'no_agent',
+            'partner_id' => null,
+            'tenant_id' => null,
+            'agent_id' => null,
+        ];
+    }
+
+    private function tenantIdForPartner(string $partnerId): ?string
+    {
+        $tenantId = DB::table('partner_tenants')
+            ->where('partner_id', $partnerId)
+            ->orderBy('id')
+            ->value('id');
+
+        return $tenantId === null ? null : (string) $tenantId;
     }
 
     /**
@@ -4973,8 +5119,58 @@ class CentralStockService
 
     private function virtualCapacityForNumber(string $fullNumber, object $profile): int
     {
-        $distribution = json_decode((string) ($profile->set_distribution_json ?? '[]'), true);
-        $score = (int) hexdec(substr(hash('sha256', (string) $profile->seed.':'.$fullNumber.':set'), 0, 8)) % self::VIRTUAL_MAX_BP;
+        return $this->virtualCapacityForNumberWithLayers($fullNumber, $this->virtualSupplyLayers($profile));
+    }
+
+    /**
+     * @param array<int, array{id: string, seed: string, set_distribution: array<int|string, mixed>, total_capacity: int}> $layers
+     */
+    private function virtualCapacityForNumberWithLayers(string $fullNumber, array $layers): int
+    {
+        $capacity = 0;
+
+        foreach ($layers as $layer) {
+            $capacity += $this->virtualCapacityForLayer($fullNumber, $layer['seed'], $layer['set_distribution']);
+        }
+
+        return max(0, $capacity);
+    }
+
+    /**
+     * @return array<int, array{id: string, seed: string, set_distribution: array<int|string, mixed>, total_capacity: int}>
+     */
+    private function virtualSupplyLayers(object $profile): array
+    {
+        $rows = DB::table('virtual_stock_supply_layers')
+            ->where('profile_id', (string) $profile->id)
+            ->where('status', 'active')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return [[
+                'id' => (string) $profile->id,
+                'seed' => (string) $profile->seed,
+                'set_distribution' => $this->decodeJsonObject($profile->set_distribution_json),
+                'total_capacity' => (int) $profile->total_capacity,
+            ]];
+        }
+
+        return $rows->map(fn (object $row): array => [
+            'id' => (string) $row->id,
+            'seed' => (string) $row->layer_seed,
+            'set_distribution' => $this->decodeJsonObject($row->set_distribution_json),
+            'total_capacity' => (int) $row->total_capacity,
+        ])->all();
+    }
+
+    /**
+     * @param array<int|string, mixed> $distribution
+     */
+    private function virtualCapacityForLayer(string $fullNumber, string $seed, array $distribution): int
+    {
+        $score = (int) hexdec(substr(hash('sha256', $seed.':'.$fullNumber.':set'), 0, 8)) % self::VIRTUAL_MAX_BP;
         $cursor = 0;
 
         if (is_array($distribution)) {

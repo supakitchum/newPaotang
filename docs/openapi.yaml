@@ -1926,8 +1926,8 @@ paths:
   /admin/central/stock/generate:
     post:
       tags: [Central Admin]
-      summary: Create central virtual stock profile
-      description: Creates a virtual stock profile for the current stock engine. Physical quota/range stock generation has been retired and is no longer accepted by this endpoint.
+      summary: Create or top up central virtual stock
+      description: Creates the active virtual stock profile for the game, or adds a virtual supply layer when the profile already exists. Physical quota/range stock generation has been retired and is no longer accepted by this endpoint. Seed/layer seed values are generated internally.
       parameters:
         - $ref: "#/components/parameters/CentralAdminScopeHeader"
         - $ref: "#/components/parameters/RequestIdHeader"
@@ -7978,7 +7978,7 @@ components:
           type: string
         type:
           type: string
-          enum: [generate, import, export]
+          enum: [virtual_profile, import, export]
         requested_count:
           type: integer
           minimum: 0
@@ -8002,6 +8002,27 @@ components:
           nullable: true
         number_digits:
           type: integer
+          nullable: true
+        stock_mode:
+          type: string
+          enum: [virtual]
+          nullable: true
+        profile_id:
+          type: string
+          nullable: true
+        layer_id:
+          type: string
+          nullable: true
+        layer_capacity:
+          type: integer
+          minimum: 0
+          nullable: true
+        total_capacity:
+          type: integer
+          minimum: 0
+          nullable: true
+        top_up:
+          type: boolean
           nullable: true
         started_at:
           type: string
@@ -8172,7 +8193,7 @@ components:
       required:
         - game_id
         - generation_mode
-      description: Virtual stock profile settings. Legacy physical fields such as total_count, back2_count_per_number, start_number, count, and number_digits are rejected.
+      description: Virtual stock generate/top-up settings. The first request creates the active profile/container; later requests add supply layers. Seed and layer seed are generated internally. Legacy physical fields such as total_count, back2_count_per_number, start_number, count, and number_digits are rejected.
       properties:
         game_id:
           type: string
@@ -8181,9 +8202,6 @@ components:
           type: string
           enum: [virtual_profile]
           description: Must be virtual_profile.
-        seed:
-          type: string
-          description: Optional deterministic profile seed. Defaults to the idempotency key when omitted.
         set_distribution:
           type: array
           description: Capacity distribution over the seeded base lottery numbers. Remaining percent defaults to single-ticket capacity.
@@ -8358,6 +8376,7 @@ components:
         - materialized_stock_count
         - materialized_local_stock_count
         - unmaterialized_capacity_count
+        - virtual_copies
         - stock_items
         - local_stock_items
       properties:
@@ -8417,6 +8436,11 @@ components:
           type: object
           nullable: true
           additionalProperties: true
+        virtual_copies:
+          type: array
+          description: Per-copy ownership/status for generated capacity. Image fields are populated only when a real stock/local stock row has been materialized.
+          items:
+            $ref: "#/components/schemas/VirtualStockCopyDetail"
         stock_items:
           type: array
           items:
@@ -8433,6 +8457,8 @@ components:
         status: { type: string }
         partner_id: { type: string, nullable: true }
         tenant_id: { type: string, nullable: true }
+        owner:
+          $ref: "#/components/schemas/StockOwnerDetail"
         virtual_stock_ref: { type: string, nullable: true }
         virtual_copy_index: { type: integer, nullable: true }
         image_url: { type: string, nullable: true }
@@ -8448,6 +8474,8 @@ components:
         partner_id: { type: string }
         stock_item_id: { type: string }
         status: { type: string }
+        owner:
+          $ref: "#/components/schemas/StockOwnerDetail"
         virtual_stock_ref: { type: string, nullable: true }
         virtual_copy_index: { type: integer, nullable: true }
         image_url: { type: string, nullable: true }
@@ -8455,6 +8483,41 @@ components:
         image_generation_status: { type: string, nullable: true }
         image_generation_error: { type: string, nullable: true }
       additionalProperties: true
+    VirtualStockCopyDetail:
+      type: object
+      properties:
+        virtual_copy_index: { type: integer, minimum: 0 }
+        virtual_stock_ref: { type: string, nullable: true }
+        owner:
+          $ref: "#/components/schemas/StockOwnerDetail"
+        owner_type:
+          type: string
+          enum: [partner, agent, unassigned]
+        owner_label:
+          type: string
+          enum: [partner, agent, no_agent]
+        stock_item_id: { type: string, nullable: true }
+        local_stock_item_id: { type: string, nullable: true }
+        status: { type: string }
+        materialized: { type: boolean }
+        image_url: { type: string, nullable: true }
+        image_thumb_url: { type: string, nullable: true }
+        image_generation_status: { type: string, nullable: true }
+        image_generation_error: { type: string, nullable: true }
+      additionalProperties: true
+    StockOwnerDetail:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [partner, agent, unassigned]
+        label:
+          type: string
+          enum: [partner, agent, no_agent]
+        partner_id: { type: string, nullable: true }
+        tenant_id: { type: string, nullable: true }
+        agent_id: { type: string, nullable: true }
+      additionalProperties: false
     AdminPatchRequest:
       type: object
       additionalProperties: true
