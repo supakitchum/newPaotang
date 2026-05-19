@@ -1272,6 +1272,28 @@ class CentralStockService
             return null;
         }
 
+        if ($scopeType === 'partner') {
+            $activePartnerIds = DB::table('stock_partner_distributions')
+                ->where('game_id', $gameId)
+                ->where('status', 'active')
+                ->where('percent_basis_points', '>', 0)
+                ->pluck('partner_id')
+                ->map(fn (mixed $value): string => (string) $value)
+                ->all();
+
+            if ($activePartnerIds === []) {
+                return $this->precomputedVirtualGeneratedCountsForDimensions($gameId, 'central', 'central', $profile, $layers);
+            }
+
+            if (! in_array($scopeId, $activePartnerIds, true)) {
+                return [
+                    'back2' => [],
+                    'back3' => [],
+                    'front3' => [],
+                ];
+            }
+        }
+
         $existingSourceIds = DB::table('virtual_stock_pattern_generated_counts')
             ->where('game_id', $gameId)
             ->where('profile_id', (string) $profile->id)

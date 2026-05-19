@@ -387,6 +387,59 @@ class CentralStockTest extends TestCase
             ->assertJsonPath('error.code', 'permission_denied');
     }
 
+    public function test_CentralStock_partner_pattern_coverage_uses_precomputed_virtual_generated_counts(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertGame('gam_stock_partner_patterns', 'open');
+        $this->insertActivePartnerTenant('par_patterns', 'ten_patterns');
+        $this->insertBaseLotteryNumbers(['000000', '000001', '000002', '000003']);
+
+        $login = $this->createCentralSession([
+            'stock.view',
+            'stock.generate',
+        ], 'adm_stock_patterns', 'stock-patterns@example.test');
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/stock/generate', [
+                'game_id' => 'gam_stock_partner_patterns',
+                'generation_mode' => 'virtual_profile',
+                'set_distribution' => [],
+                'partner_distribution' => [
+                    ['partner_id' => 'par_patterns', 'percent' => 100],
+                ],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'stock-generate-partner-patterns',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('generated_count', 4);
+
+        $this->assertSame(
+            4,
+            (int) DB::table('virtual_stock_pattern_generated_counts')
+                ->where('game_id', 'gam_stock_partner_patterns')
+                ->where('scope_type', 'partner')
+                ->where('scope_id', 'par_patterns')
+                ->where('dimension', 'back2')
+                ->sum('generated_count'),
+        );
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/stock/patterns?'.http_build_query([
+                'game_id' => 'gam_stock_partner_patterns',
+                'scope_type' => 'partner',
+                'partner_id' => 'par_patterns',
+                'dimension' => 'back2',
+                'limit' => 5,
+            ]), ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('scope_type', 'partner')
+            ->assertJsonPath('scope_id', 'par_patterns')
+            ->assertJsonPath('totals.back2.generated_count', 4)
+            ->assertJsonPath('data.0.number', '00')
+            ->assertJsonPath('data.0.generated_count', 1);
+    }
+
     public function test_CentralStock_retired_physical_generation_does_not_create_async_chunks_or_image_jobs(): void
     {
         Queue::fake();
