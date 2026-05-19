@@ -1,0 +1,7 @@
+NAME                               IMAGE                            COMMAND                  SERVICE               CREATED       STATUS                 PORTS
+newpaotang-back-office-1           newpaotang-back-office           "docker-entrypoint.s…"   back-office           2 hours ago   Up 2 hours             0.0.0.0:3100->3100/tcp, [::]:3100->3100/tcp
+newpaotang-customer-1              newpaotang-customer              "docker-entrypoint.s…"   customer              3 hours ago   Up 3 hours             0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp
+newpaotang-platform-api-1          newpaotang-platform-api          "docker-php-entrypoi…"   platform-api          2 hours ago   Up 2 hours             0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp
+newpaotang-platform-api-reverb-1   newpaotang-platform-api-reverb   "docker-php-entrypoi…"   platform-api-reverb   3 days ago    Up 3 days              0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp
+newpaotang-postgres-1              postgres:17-alpine               "docker-entrypoint.s…"   postgres              3 hours ago   Up 3 hours (healthy)   0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp
+newpaotang-valkey-1                valkey/valkey:8-alpine           "docker-entrypoint.s…"   valkey                13 days ago   Up 12 days (healthy)   0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp

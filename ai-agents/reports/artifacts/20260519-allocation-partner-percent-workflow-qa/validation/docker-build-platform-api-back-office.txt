@@ -1,0 +1,103 @@
+ Image newpaotang-back-office Building
+ Image newpaotang-platform-api Building
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.15kB done
+#1 DONE 0.0s
+
+#2 [platform-api internal] load build definition from Dockerfile
+#2 transferring dockerfile: 1.37kB done
+#2 DONE 0.0s
+
+#3 [back-office internal] load build definition from Dockerfile
+#3 transferring dockerfile: 650B done
+#3 DONE 0.0s
+
+#4 [auth] library/node:pull token for registry-1.docker.io
+#4 DONE 0.0s
+
+#5 [platform-api internal] load metadata for docker.io/library/composer:2
+#5 ...
+
+#6 [auth] library/composer:pull token for registry-1.docker.io
+#6 DONE 0.0s
+
+#7 [auth] library/php:pull token for registry-1.docker.io
+#7 DONE 0.0s
+
+#8 [platform-api internal] load metadata for docker.io/library/php:8.4-cli
+#8 ...
+
+#9 [back-office internal] load metadata for docker.io/library/node:22-alpine
+#9 DONE 1.4s
+
+#10 [back-office internal] load .dockerignore
+#10 transferring context: 2B done
+#10 DONE 0.0s
+
+#11 [back-office deps 1/4] FROM docker.io/library/node:22-alpine@sha256:968df39aedcea65eeb078fb336ed7191baf48f972b4479711397108be0966920
+#11 DONE 0.0s
+
+#8 [platform-api internal] load metadata for docker.io/library/php:8.4-cli
+#8 DONE 1.5s
+
+#12 [back-office internal] load build context
+#12 ...
+
+#5 [platform-api internal] load metadata for docker.io/library/composer:2
+#5 DONE 1.8s
+
+#13 [platform-api internal] load .dockerignore
+#13 transferring context: 106B done
+#13 DONE 0.0s
+
+#14 [platform-api base 1/5] FROM docker.io/library/php:8.4-cli@sha256:026ca9f219631274dc8ad045935485c9b9f3d4f44b2ec96649b64a07dba3bf1c
+#14 DONE 0.0s
+
+#15 [platform-api] FROM docker.io/library/composer:2@sha256:b09bccd91a78fe8a9ab4b33d707b862e8fe54fec17782e32683ad2a69c46867d
+#15 resolve docker.io/library/composer:2@sha256:b09bccd91a78fe8a9ab4b33d707b862e8fe54fec17782e32683ad2a69c46867d done
+#15 DONE 0.0s
+
+#16 [platform-api base 2/5] RUN apt-get update     && apt-get install -y --no-install-recommends         git         unzip         libfreetype6-dev         libjpeg62-turbo-dev         libpng-dev         libwebp-dev         libpq-dev         libzip-dev         libonig-dev         libxml2-dev     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp     && docker-php-ext-install bcmath dom gd mbstring pcntl pdo_pgsql zip     && apt-get clean     && rm -rf /var/lib/apt/lists/*
+#16 CACHED
+
+#17 [platform-api base 3/5] COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+#17 CACHED
+
+#18 [platform-api base 4/5] RUN {         echo "upload_max_filesize=500M";         echo "post_max_size=520M";         echo "memory_limit=768M";     } > /usr/local/etc/php/conf.d/newpaotang-uploads.ini
+#18 CACHED
+
+#19 [platform-api base 5/5] WORKDIR /var/www/html
+#19 CACHED
+
+#20 [platform-api] exporting to image
+#20 exporting layers done
+#20 writing image sha256:004ad2b2148e89bd14d52f895ac5b0f31725ab1939f487663b662d9e6816c3d5 done
+#20 naming to docker.io/library/newpaotang-platform-api done
+#20 DONE 0.0s
+
+#21 [platform-api] resolving provenance for metadata file
+#21 DONE 0.0s
+
+#12 [back-office internal] load build context
+#12 transferring context: 72B 0.7s done
+#12 DONE 0.7s
+
+#22 [back-office deps 2/4] WORKDIR /app
+#22 CACHED
+
+#23 [back-office deps 3/4] COPY package*.json ./
+#23 CACHED
+
+#24 [back-office deps 4/4] RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+#24 CACHED
+
+#25 [back-office] exporting to image
+#25 exporting layers done
+#25 writing image sha256:607cb7a5cb57ffafffc8a261a4473ca8440c3f9054e0969398a62a7d719546b2 done
+#25 naming to docker.io/library/newpaotang-back-office done
+#25 DONE 0.0s
+
+#26 [back-office] resolving provenance for metadata file
+#26 DONE 0.0s
+ Image newpaotang-platform-api Built
+ Image newpaotang-back-office Built

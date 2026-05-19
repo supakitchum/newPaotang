@@ -1,0 +1,4 @@
+GET /login status=200
+GET /admin/central/allocations status=302
+GET /admin/central/stock-pattern-coverage scoped status=302
+GET /admin/central/stock-generation scoped status=302

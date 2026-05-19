@@ -96,7 +96,14 @@ docker compose -p newpaotang exec -T platform-api php artisan platform:smoke
 
 ## Allocation Partner Percent Workflow
 
-Coordinator task `allocation-partner-percent-workflow` is open. See `docs/virtual-stock-realtime.md#allocation-and-partner-percent-rework`.
+Coordinator task `allocation-partner-percent-workflow` reached QA review. See `docs/virtual-stock-realtime.md#allocation-and-partner-percent-rework`.
+
+QA result:
+
+- Report: `ai-agents/reports/20260519-allocation-partner-percent-workflow-qa-report.md`
+- Result: PASS WITH RISK.
+- Passed: Backend/API workflow evidence, partner percent validation, recall-all/redistribute, Docker backend tests, BO lint/test/build, route/source wiring, runtime restore, and login smoke.
+- Residual risk: authenticated BO browser workflow was not executed in QA. BO evidence is source wiring plus unauthenticated route smoke. If strict visual BO approval is required, dispatch a browser-enabled QA rerun specifically for authenticated BO allocation UI workflows.
 
 Coordinator board:
 

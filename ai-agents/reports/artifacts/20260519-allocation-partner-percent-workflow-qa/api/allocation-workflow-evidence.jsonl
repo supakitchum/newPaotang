@@ -1,0 +1,17 @@
+{"step":"login","status":200,"has_access_token":true}
+{"step":"partner_options","status":200,"rows":[{"partner_id":"par_qa_multi","name":"QA Multi Partner","active_tenant_count":2,"single_tenant_id":null},{"partner_id":"par_qa_no_tenant","name":"QA No Tenant Partner","active_tenant_count":0,"single_tenant_id":null},{"partner_id":"par_qa_other","name":"QA Other Partner","active_tenant_count":1,"single_tenant_id":"ten_qa_other"},{"partner_id":"par_qa_single","name":"QA Single Partner","active_tenant_count":1,"single_tenant_id":"ten_qa_single"}]}
+{"step":"tenant_options_filtered_by_partner","status":200,"rows":[{"tenant_id":"ten_qa_multi_a","partner_id":"par_qa_multi","name":"QA Multi Tenant A"},{"tenant_id":"ten_qa_multi_b","partner_id":"par_qa_multi","name":"QA Multi Tenant B"}]}
+{"step":"game_options","status":200,"rows":[{"game_id":"gam_qa_alloc_percent","name":"QA Allocation Percent Draw","generated_supply_count":10}]}
+{"step":"create_allocation_single_tenant_auto_fill","status":202,"payload_keys":["partner_id","game_id","allocation_percent","reason"],"sent_requested_count":false,"allocation":{"id_present":true,"partner_id":"par_qa_single","tenant_id":"ten_qa_single","game_id":"gam_qa_alloc_percent","partner_name":"QA Single Partner","tenant_name":"QA Single Tenant","game_name":"QA Allocation Percent Draw","status":"allocated","allocation_percent":30,"allocated_count":3,"remaining_count":3,"recalled_count":0}}
+{"step":"idempotency_replay_same_payload","status":202,"same_allocation_id":true,"allocation_count_for_game_partner":1}
+{"step":"idempotency_conflict_changed_payload","status":409,"error_code":"idempotency_conflict"}
+{"step":"multi_tenant_requires_explicit_tenant","status":422,"field_error":"The tenant_id field is required when the selected partner has multiple active tenants."}
+{"step":"no_active_tenant_blocked","status":422,"field_error":"The selected partner has no active tenant."}
+{"step":"partner_percent_over_100_rejected","status":422,"field_error":"The total active partner allocation percent for this game may not exceed 100."}
+{"step":"partner_percent_set_to_total_100","status":200,"partner_id":"par_qa_multi","tenant_id":"ten_qa_multi_a","allocation_percent":70,"target_allocation_count":7}
+{"step":"usage_protection_rejects_lower_percent","status":422,"field_error":"The allocation_percent cannot be below already reserved or sold virtual stock for this partner."}
+{"step":"allocation_detail_metadata","status":200,"allocation":{"id_matches":true,"partner_name":"QA Single Partner","tenant_name":"QA Single Tenant","game_name":"QA Allocation Percent Draw","allocation_percent":30,"allocated_count":3,"remaining_count":3,"recalled_count":0}}
+{"step":"allocation_list_metadata","status":200,"first_row":{"id_matches":true,"partner_name":"QA Single Partner","tenant_name":"QA Single Tenant","game_name":"QA Allocation Percent Draw","allocation_percent":30,"allocated_count":3,"remaining_count":3,"recalled_count":0}}
+{"step":"recall_all","status":200,"allocation_status":"recalled","remaining_count":0,"recalled_count":3,"distribution":{"status":"recalled","percent_basis_points":0}}
+{"step":"redistribute_after_recall","status":200,"allocation_status":"allocated","allocation_percent":30,"allocated_count":3,"remaining_count":3,"recalled_count":0}
+{"step":"redistribute_disabled_by_state_api_conflict","status":409,"error_code":"resource_conflict"}

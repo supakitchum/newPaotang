@@ -1,0 +1,20 @@
+ Container newpaotang-postgres-1 Running
+ Container newpaotang-valkey-1 Running
+ Container newpaotang-valkey-1 Waiting
+ Container newpaotang-postgres-1 Waiting
+ Container newpaotang-valkey-1 Healthy
+ Container newpaotang-postgres-1 Healthy
+ Container newpaotang-platform-api-run-4f6dd9423d03 Creating
+ Container newpaotang-platform-api-run-4f6dd9423d03 Created
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\VirtualStockRealtimeTest[39m
+  [32;1m✓[39;22m[90m [39m[90mstock settings store default set distribution[39m[90m                       [39m [90m1.50s[39m
+  [32;1m✓[39;22m[90m [39m[90mvirtual profile generation does not bulk insert stock rows[39m[90m          [39m [90m4.47s[39m
+  [32;1m✓[39;22m[90m [39m[90mphysical quota generation payloads are retired[39m[90m                      [39m [90m0.51s[39m
+  [32;1m✓[39;22m[90m [39m[90mvirtual stock summary handles low pattern limits after generation[39m[90m   [39m [90m2.91s[39m
+  [32;1m✓[39;22m[90m [39m[90mcentral stock grouped table and summary show virtual profile when p[39m[90m…[39m [90m3.11s[39m
+  [32;1m✓[39;22m[90m [39m[90mcentral stock virtual grouped total count sort and full number deta[39m[90m…[39m [90m0.53s[39m
+  [32;1m✓[39;22m[90m [39m[90mvirtual stock search reservation limits and realtime delta[39m[90m          [39m [90m0.19s[39m
+
+  [90mTests:[39m    [32;1m7 passed[39;22m[90m (227 assertions)[39m
+  [90mDuration:[39m [39m13.31s[39m
