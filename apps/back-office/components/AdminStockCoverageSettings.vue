@@ -20,67 +20,68 @@
           <div>Saved stock settings at {{ savedAt }}.</div>
         </div>
 
-        <section class="np-stock-coverage-settings__panel mb-3">
-          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-            <div>
-              <h6 class="mb-1">Default set distribution</h6>
-              <p class="text-muted fs-12 mb-0">Default value loaded into the Generate Stock form.</p>
-            </div>
-            <button class="btn btn-sm btn-outline-primary btn-wave" type="button" @click="addSetDistributionRow">
-              <i class="ri-add-line me-1" /> Add set
-            </button>
-          </div>
-
-          <div class="np-stock-set-table">
-            <div class="np-stock-set-table__head">
-              <span>Set size</span>
-              <span>Percent</span>
-              <span />
-            </div>
-            <div v-for="(row, index) in setDistribution" :key="row.__key || index" class="np-stock-set-table__row">
-              <input
-                v-model.number="row.set_size"
-                class="form-control"
-                :class="{ 'is-invalid': setDistributionMessages(index, 'set_size').length }"
-                type="number"
-                min="1"
-                max="99"
-                step="1"
-                placeholder="2"
-              >
-              <div class="input-group">
-                <input
-                  v-model.number="row.percent"
-                  class="form-control"
-                  :class="{ 'is-invalid': setDistributionMessages(index, 'percent').length }"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  placeholder="10"
-                >
-                <span class="input-group-text">%</span>
-              </div>
-              <button class="btn btn-light btn-icon" type="button" title="Remove set" @click="removeSetDistributionRow(index)">
-                <i class="ri-delete-bin-line" />
-              </button>
-              <div class="np-stock-set-table__messages">
-                <div v-for="message in setDistributionMessages(index, 'set_size')" :key="`size-${message}`" class="invalid-feedback d-block">
-                  {{ message }}
-                </div>
-                <div v-for="message in setDistributionMessages(index, 'percent')" :key="`percent-${message}`" class="invalid-feedback d-block">
-                  {{ message }}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div v-for="message in setDistributionSummaryMessages" :key="message" class="text-danger fs-12 mt-2">
-            {{ message }}
-          </div>
-        </section>
-
         <div class="row g-3">
-          <div class="col-12 col-xl-6">
+          <div class="col-12">
+            <section class="np-stock-coverage-settings__panel">
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <div>
+                  <h6 class="mb-1">Default set distribution</h6>
+                  <p class="text-muted fs-12 mb-0">Default value loaded into the Generate Stock form.</p>
+                </div>
+                <button class="btn btn-sm btn-outline-primary btn-wave" type="button" @click="addSetDistributionRow">
+                  <i class="ri-add-line me-1" /> Add set
+                </button>
+              </div>
+
+              <div class="np-stock-set-table">
+                <div class="np-stock-set-table__head">
+                  <span>Set size</span>
+                  <span>Percent</span>
+                  <span />
+                </div>
+                <div v-for="(row, index) in setDistribution" :key="row.__key || index" class="np-stock-set-table__row">
+                  <input
+                      v-model.number="row.set_size"
+                      class="form-control"
+                      :class="{ 'is-invalid': setDistributionMessages(index, 'set_size').length }"
+                      type="number"
+                      min="1"
+                      max="99"
+                      step="1"
+                      placeholder="2"
+                  >
+                  <div class="input-group">
+                    <input
+                        v-model.number="row.percent"
+                        class="form-control"
+                        :class="{ 'is-invalid': setDistributionMessages(index, 'percent').length }"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        placeholder="10"
+                    >
+                    <span class="input-group-text">%</span>
+                  </div>
+                  <button class="btn btn-light btn-icon" type="button" title="Remove set" @click="removeSetDistributionRow(index)">
+                    <i class="ri-delete-bin-line" />
+                  </button>
+                  <div class="np-stock-set-table__messages">
+                    <div v-for="message in setDistributionMessages(index, 'set_size')" :key="`size-${message}`" class="invalid-feedback d-block">
+                      {{ message }}
+                    </div>
+                    <div v-for="message in setDistributionMessages(index, 'percent')" :key="`percent-${message}`" class="invalid-feedback d-block">
+                      {{ message }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div v-for="message in setDistributionSummaryMessages" :key="message" class="text-danger fs-12 mt-2">
+                {{ message }}
+              </div>
+            </section>
+          </div>
+          <div class="col-12">
             <section class="np-stock-coverage-settings__panel">
               <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                 <h6 class="mb-0">Central coverage default</h6>
@@ -106,7 +107,7 @@
             </section>
           </div>
 
-          <div class="col-12 col-xl-6">
+          <div class="col-12">
             <section class="np-stock-coverage-settings__panel">
               <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                 <h6 class="mb-0">Partner coverage default</h6>
@@ -492,7 +493,14 @@ function setDistributionRowKey(setSize: any, percent: any) {
   align-items: start;
   display: grid;
   gap: .75rem;
-  grid-template-columns: minmax(7rem, 10rem) minmax(9rem, 14rem) 2.5rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 2.5rem;
+  width: 100%;
+}
+
+.np-stock-set-table__row > .form-control,
+.np-stock-set-table__row > .input-group {
+  min-width: 0;
+  width: 100%;
 }
 
 .np-stock-set-table__head {
@@ -512,6 +520,10 @@ function setDistributionRowKey(setSize: any, percent: any) {
 
   .np-stock-set-table__row {
     grid-template-columns: 1fr;
+  }
+
+  .np-stock-set-table__row > .btn-icon {
+    justify-self: end;
   }
 }
 </style>
