@@ -210,3 +210,120 @@ Partner coverage limit rule:
 - Partner limits must never exceed the central effective limit.
 - Backend must enforce `partner effective limit <= central effective limit` for total/default settings and per-number overrides.
 - BO should show the central ceiling, but backend validation is the source of truth.
+
+## Allocation And Partner Percent Rework
+
+Coordinator task `allocation-partner-percent-workflow` replaces the old allocation UX/API assumptions with the virtual stock partner percent model.
+
+Terminology:
+
+- "Agent" in business wording maps to the current `partners` table unless a later Coordinator decision introduces a separate agent entity.
+- Partner tenant selection must be derived from the selected partner whenever possible.
+
+Current gap:
+
+- `central:allocations` still exposes raw id text filters and create fields.
+- Allocation creation still accepts `requested_count`, which is not aligned with the newer partner percentage distribution model.
+- Allocation rows do not display partner names, tenant names, game names, or partner percent clearly.
+- Allocation actions do not yet link to partner stock coverage, partner stock remaining, full recall, or re-distribution after recall.
+- Partners list does not expose or validate each partner/agent stock percent.
+
+Expected backend contract:
+
+- Allocation list/detail must include display metadata:
+  - `partner_id`, `partner_code`, `partner_name`
+  - `tenant_id`, `tenant_code`, `tenant_name`
+  - `game_id`, `game_code`, `game_name`
+  - `allocation_percent`
+  - `allocated_count`, `remaining_count`, `recalled_count`, `status`
+- Allocation filters using ids must support BO option sources:
+  - partner selector by partner name/code
+  - tenant selector constrained by selected partner
+  - game selector by game name/code/current status
+- If a selected partner has exactly one active tenant, BO should auto-fill `tenant_id`.
+- If a selected partner has multiple active tenants, BO must show a tenant select filtered by partner and require one explicit tenant.
+- If a selected partner has no active tenant, create allocation must be blocked with a clear validation error.
+- `requested_count` must be retired from the BO create allocation workflow. New allocation creation should accept an allocation percent:
+  - proposed request field: `allocation_percent`
+  - valid range: greater than `0` and up to `100`
+  - backend calculates target allocation count from available generated supply for the selected game and partner/agent percent contract
+  - idempotency replay must return the same allocation and must not allocate twice
+- Partner/agent stock percent must be centrally configurable:
+  - store per partner per game if the game-specific model is required by existing `stock_partner_distributions`
+  - expose default/global partner percent only if backend can clearly define how it applies to future games
+  - all active partner percents for a game must sum to at most `100%`
+  - backend validation is source of truth; BO validation is only a convenience layer
+- Percent changes must not corrupt already sold/reserved stock. If a percent update would put a partner below already allocated/reserved/sold usage, backend must reject or require a separate recall/rebalance workflow.
+
+Expected BO changes:
+
+- Allocations filters:
+  - replace `Partner ID`, `Tenant ID`, and `Game ID` text inputs with selects
+  - show partner/game/tenant display names, not raw ids
+  - tenant select auto-populates or filters after partner selection
+- Create allocation modal:
+  - use partner select, tenant select/auto-fill, game select
+  - remove `Requested count`
+  - add `Allocation percent`
+  - show calculated preview: estimated supply, percent, estimated allocation count, existing allocated/remaining
+- Allocation table:
+  - show partner/agent display name
+  - show tenant name where relevant
+  - show game name
+  - show allocation percent
+  - show allocated/remaining/recalled counts
+- Allocation row actions:
+  1. Edit stock coverage for that partner/agent. Route should open Stock Pattern Coverage with `game_id`, `scope_type=partner`, and `partner_id`.
+  2. View remaining stock like Stock Generation full-number table. Open a new page/tab scoped by `game_id` and `partner_id`.
+  3. Recall all stock for that allocation/partner/game in one action with reason + idempotency key.
+  4. Re-distribute stock after full recall. This should be disabled unless the prior recall-all state is complete.
+- Partners table:
+  - add stock percent column for each partner/agent
+  - add central-only edit action/form for stock percent
+  - validate sum of active partner percents does not exceed `100%`
+
+Expected API additions/changes:
+
+- Option endpoints or catalog option sources for partners, tenants-by-partner, and current/open games.
+- `GET /admin/central/allocations` should support sortable/filterable partner/game/tenant metadata.
+- `POST /admin/central/allocations` should accept percent-based payload and stop requiring `requested_count` from BO.
+- Add recall-all endpoint, proposed:
+  - `POST /admin/central/allocations/{allocation_id}/recall-all`
+- Add re-distribute endpoint, proposed:
+  - `POST /admin/central/allocations/{allocation_id}/redistribute`
+- Add partner stock percent update endpoint or extend existing partner/stock settings endpoint.
+
+Agent flow:
+
+1. Backend Develop:
+   - update allocation resource/list/filter contracts
+   - implement percent-based allocation validation/calculation
+   - implement partner percent validation sum <= 100
+   - implement recall-all and redistribute endpoints
+   - update OpenAPI, permissions/docs where needed
+2. BO Develop:
+   - replace id text fields with selects
+   - implement dependent partner -> tenant behavior
+   - update create modal to percent workflow
+   - add allocation table columns/actions
+   - add Partners stock percent UI
+3. QA Tester:
+   - test central allocation list filters with display names
+   - test create allocation by percent with single-tenant auto-fill and multi-tenant manual select
+   - test partner percent sum validation API/UI
+   - test recall-all then redistribute flow
+   - verify runtime smoke/login after tests
+4. Coordinator:
+   - review QA evidence
+   - update BO percentage/completion status only from working API/UI evidence
+
+Acceptance:
+
+- Raw id entry is removed from allocation filters and create modal.
+- Partner selection auto-fills tenant when there is exactly one active tenant.
+- Create allocation no longer asks for `requested_count`; percent drives allocation.
+- Allocation table shows partner/tenant/game display names and allocation percent.
+- Allocation row actions cover stock coverage, remaining stock view, recall-all, and redistribute-after-recall.
+- Partners table shows and edits partner/agent stock percent.
+- Backend and BO both enforce total active partner stock percent <= 100%.
+- QA confirms no destructive DB commands ran against runtime DB.

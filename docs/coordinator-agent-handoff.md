@@ -93,3 +93,25 @@ docker compose -p newpaotang exec -T platform-api php artisan platform:smoke
 - Partner branding overlays (`logo_qr`, `logo_num_set`, `right_sidebar`, `logo_bottom`) must not render on central base stock images.
 - Partner/tenant users must not access lottery image or lottery branding management.
 - Coordinator must fetch/merge, commit, and push approved/hotfix work before dispatching any new task. New work must not start from a dirty or behind worktree unless the user explicitly instructs a bypass in that same turn.
+
+## Allocation Partner Percent Workflow
+
+Coordinator task `allocation-partner-percent-workflow` is open. See `docs/virtual-stock-realtime.md#allocation-and-partner-percent-rework`.
+
+Decision summary:
+
+- Agent means the existing `partners` entity for this scope.
+- Allocation filters and create fields must use selects, not raw id inputs.
+- Partner select should auto-fill tenant only when that partner has exactly one active tenant; otherwise tenant remains a filtered required select.
+- `requested_count` must be removed from the BO create allocation flow and replaced by allocation percent.
+- Allocation table must show partner/tenant/game display names plus allocation percent and remaining/recalled counts.
+- Partners table must show/edit partner stock percent.
+- Total active partner/agent stock percent per game must be validated at `<= 100%` in backend and UI.
+- Required row actions: edit partner stock coverage, view remaining stock in a new stock view, recall all, and redistribute after recall-all.
+
+Dispatch order:
+
+1. Backend Develop: API contracts, percent validation/calculation, recall-all, redistribute, OpenAPI/docs.
+2. BO Develop: selects/dependent tenant UX, percent modal, allocation row actions, Partners percent UI.
+3. QA Tester: real menu/API workflow, partner percent validation, recall-all/redistribute, runtime smoke.
+4. Coordinator: review evidence and adjust completion status.
