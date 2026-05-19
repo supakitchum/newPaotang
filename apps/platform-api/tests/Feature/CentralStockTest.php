@@ -108,6 +108,25 @@ class CentralStockTest extends TestCase
         $this->assertSame(0, DB::table('stock_items')->where('game_id', 'gam_stock_main')->count());
         $this->assertSame(2, DB::table('virtual_stock_supply_layers')->where('game_id', 'gam_stock_main')->count());
 
+        $virtualTicketSort = $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/stock?'.http_build_query([
+                'game_id' => 'gam_stock_main',
+                'grouped' => true,
+                'sort_by' => 'tickets',
+                'sort_dir' => 'desc',
+                'limit' => 2,
+            ]), ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('meta.sort_by', 'total_count')
+            ->assertJsonPath('meta.sort_dir', 'desc')
+            ->assertJsonCount(2, 'data')
+            ->json();
+
+        $this->assertGreaterThanOrEqual(
+            (int) $virtualTicketSort['data'][1]['total_count'],
+            (int) $virtualTicketSort['data'][0]['total_count'],
+        );
+
         $import = $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/stock/imports', [
                 'game_id' => 'gam_stock_import',

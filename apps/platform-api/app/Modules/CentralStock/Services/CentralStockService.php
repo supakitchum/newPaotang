@@ -1968,46 +1968,75 @@ class CentralStockService
 
         $this->applyVirtualNumberFilters($numberQuery, $queryParams);
 
-        $numbers = $numberQuery->get()->map(function (object $number) use ($profile): object {
-            $number->game_id = (string) $profile->game_id;
-            $number->total_count = $this->virtualCapacityForNumber((string) $number->full_number, $profile);
+        $layers = $this->virtualSupplyLayers($profile);
+        $cursor = $this->decodeStockGroupCursor($queryParams['cursor'] ?? null);
+        $status = $this->nullableQueryString($queryParams['status'] ?? null);
+        $centralLimits = $status === null ? [] : $this->virtualCentralLimits((string) $profile->game_id);
+        $batchId = $status === null ? null : $this->latestVirtualBatchId((string) $profile->game_id);
+        $pageNumbers = [];
 
-            return $number;
-        })->all();
-
-        if ($numbers === [] && ! DB::table('base_lottery_numbers')->exists()) {
+        if (! (clone $numberQuery)->exists()) {
             return $this->listVirtualStockProfileFallback($profile);
         }
 
-        usort($numbers, function (object $left, object $right) use ($sort): int {
-            $compare = ((int) $left->total_count) <=> ((int) $right->total_count);
-
-            if ($sort['direction'] === 'desc') {
-                $compare *= -1;
+        foreach ($this->virtualPossibleCapacityTotals($layers, $sort['direction']) as $targetCapacity) {
+            $cursorNumber = null;
+            if ($cursor !== null && ($cursor['sort_by'] ?? null) === $sort['key'] && ($cursor['sort_dir'] ?? null) === $sort['direction']) {
+                $cursorValue = (int) ($cursor['value'] ?? 0);
+                if ($sort['direction'] === 'desc' && $targetCapacity > $cursorValue) {
+                    continue;
+                }
+                if ($sort['direction'] === 'asc' && $targetCapacity < $cursorValue) {
+                    continue;
+                }
+                if ($targetCapacity === $cursorValue) {
+                    $cursorNumber = (string) ($cursor['full_number'] ?? '');
+                }
             }
 
-            return $compare !== 0 ? $compare : strcmp((string) $left->full_number, (string) $right->full_number);
-        });
+            $targetQuery = clone $numberQuery;
+            if ($cursorNumber !== null && $cursorNumber !== '') {
+                $targetQuery->where('base_lottery_numbers.full_number', '>', $cursorNumber);
+            }
 
-        $cursor = $this->decodeStockGroupCursor($queryParams['cursor'] ?? null);
-        $numbers = $this->filterVirtualCapacityRowsAfterCursor($numbers, $cursor, $sort);
-        $status = $this->nullableQueryString($queryParams['status'] ?? null);
+            $targetQuery
+                ->orderBy('base_lottery_numbers.full_number')
+                ->chunk(5000, function ($chunk) use (&$pageNumbers, $profile, $layers, $targetCapacity, $queryParams, $status, $centralLimits, $batchId, $limit): bool {
+                    $numbers = [];
 
-        if ($status !== null) {
-            $counterMap = $this->virtualCounterMap((string) $profile->game_id, $numbers);
-            $centralLimits = $this->virtualCentralLimits((string) $profile->game_id);
-            $limitOverrides = $this->virtualLimitOverrideMapForNumbers((string) $profile->game_id, 'central', 'central', $numbers);
-            $batchId = $this->latestVirtualBatchId((string) $profile->game_id);
-            $numbers = array_values(array_filter(
-                $numbers,
-                fn (object $number): bool => $this->virtualStockGroupMatchesStatus(
-                    $this->virtualStockNumberGroupResource($profile, $number, $counterMap, $centralLimits, $limitOverrides, $batchId),
-                    $queryParams,
-                ),
-            ));
+                    foreach ($chunk as $number) {
+                        $capacity = $this->virtualCapacityForNumberWithLayers((string) $number->full_number, $layers);
+                        if ($capacity !== $targetCapacity) {
+                            continue;
+                        }
+
+                        $number->game_id = (string) $profile->game_id;
+                        $number->total_count = $capacity;
+                        $numbers[] = $number;
+                    }
+
+                    if ($status !== null && $numbers !== []) {
+                        $counterMap = $this->virtualCounterMap((string) $profile->game_id, $numbers);
+                        $limitOverrides = $this->virtualLimitOverrideMapForNumbers((string) $profile->game_id, 'central', 'central', $numbers);
+                        $numbers = array_values(array_filter(
+                            $numbers,
+                            fn (object $number): bool => $this->virtualStockGroupMatchesStatus(
+                                $this->virtualStockNumberGroupResource($profile, $number, $counterMap, $centralLimits, $limitOverrides, $batchId),
+                                $queryParams,
+                            ),
+                        ));
+                    }
+
+                    array_push($pageNumbers, ...$numbers);
+
+                    return count($pageNumbers) < $limit + 1;
+                });
+
+            if (count($pageNumbers) >= $limit + 1) {
+                break;
+            }
         }
 
-        $pageNumbers = array_slice($numbers, 0, $limit + 1);
         $hasMore = count($pageNumbers) > $limit;
         $pageNumbers = array_slice($pageNumbers, 0, $limit);
 
@@ -2040,6 +2069,54 @@ class CentralStockService
                 'sort_dir' => $sort['direction'],
             ],
         ];
+    }
+
+    /**
+     * @param array<int, array{id: string, seed: string, set_distribution: array<int|string, mixed>, total_capacity: int}> $layers
+     * @return array<int, int>
+     */
+    private function virtualPossibleCapacityTotals(array $layers, string $direction): array
+    {
+        $totals = [0];
+
+        foreach ($layers as $layer) {
+            $nextTotals = [];
+            foreach ($totals as $total) {
+                foreach ($this->virtualLayerCapacityValues($layer['set_distribution']) as $capacity) {
+                    $nextTotals[] = $total + $capacity;
+                }
+            }
+
+            $totals = array_values(array_unique($nextTotals));
+        }
+
+        sort($totals, SORT_NUMERIC);
+        if ($direction === 'desc') {
+            $totals = array_reverse($totals);
+        }
+
+        return $totals;
+    }
+
+    /**
+     * @param array<int|string, mixed> $distribution
+     * @return array<int, int>
+     */
+    private function virtualLayerCapacityValues(array $distribution): array
+    {
+        $values = [1];
+
+        foreach ($distribution as $row) {
+            if (! is_array($row) || (int) ($row['percent_basis_points'] ?? 0) <= 0) {
+                continue;
+            }
+
+            $values[] = max(1, (int) ($row['set_size'] ?? 1));
+        }
+
+        sort($values, SORT_NUMERIC);
+
+        return array_values(array_unique($values));
     }
 
     /**
@@ -2118,6 +2195,12 @@ class CentralStockService
         if ($key === '') {
             return null;
         }
+
+        $key = match ($key) {
+            'tickets' => 'total_count',
+            'updated_at' => 'last_updated_at',
+            default => $key,
+        };
 
         $allowed = [
             'game_id' => ['order' => 'game_id', 'expression' => 'game_id'],
@@ -4604,7 +4687,9 @@ class CentralStockService
         $front3 = (string) $number->front3;
         $back3 = (string) $number->back3;
         $back2 = (string) $number->back2;
-        $totalCount = $this->virtualCapacityForNumber($fullNumber, $profile);
+        $totalCount = property_exists($number, 'total_count')
+            ? (int) $number->total_count
+            : $this->virtualCapacityForNumber($fullNumber, $profile);
         $fullCounter = $counterMap['full_number:'.$fullNumber] ?? ['reserved' => 0, 'sold' => 0];
         $reservedCount = min($totalCount, (int) $fullCounter['reserved']);
         $soldCount = min($totalCount, (int) $fullCounter['sold']);
