@@ -5,28 +5,28 @@
 ## Active Task
 
 ```text
-stock-generation-coverage-usability
+virtual-stock-topup-cleanup
 ```
 
 ## Agent Status
 
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
-| Coordinator | dispatched | stock-generation-coverage-usability | ai-agents/handoffs/20260519-stock-generation-coverage-usability-coordinator-handoff.md |
-| Orchestrator | completed | stock-generation-coverage-usability-qa-dispatch | ai-agents/handoffs/20260519-stock-generation-coverage-usability-qa-dispatch-orchestrator-handoff.md |
+| Coordinator | dispatched | virtual-stock-topup-cleanup | ai-agents/handoffs/20260519-virtual-stock-topup-cleanup-coordinator-handoff.md |
+| Orchestrator | pending | virtual-stock-topup-cleanup | ai-agents/handoffs/20260519-virtual-stock-topup-cleanup-coordinator-handoff.md |
 | Backend Develop | completed | stock-generation-coverage-usability-backend | ai-agents/handoffs/20260519-stock-generation-coverage-usability-backend-handoff.md |
 | BO Develop | completed | stock-generation-coverage-usability-bo | ai-agents/handoffs/20260519-stock-generation-coverage-usability-bo-handoff.md |
 | Customer Develop | completed | lottery-image-customer-ssr-error-serialization-remediation | ai-agents/handoffs/20260514-lottery-image-customer-ssr-error-serialization-remediation-customer-handoff.md |
-| QA Tester | pending | stock-generation-coverage-usability-qa | ai-agents/tasks/20260519-stock-generation-coverage-usability-qa.md |
+| QA Tester | pending | virtual-stock-topup-cleanup-qa | pending Orchestrator task |
 
 ## Open Questions
 
 ```text
-stock-generation-coverage-usability has Backend/BO handoffs and QA dispatch. QA Tester should validate the merged branch after this hotfix push.
+Orchestrator must split virtual-stock-topup-cleanup into Backend Develop, BO Develop, and QA Tester tasks. Backend must go first because virtual top-up changes stock capacity source-of-truth.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/handoffs/20260519-stock-generation-coverage-usability-coordinator-handoff.md
+ai-agents/decisions/20260519-virtual-stock-topup-cleanup-decision.md
 ```

@@ -2,11 +2,13 @@
 
 ## Current Contract
 
-Virtual stock is enabled per game by creating a `stock_supply_profiles` row through `POST /admin/central/stock/generate` with `generation_mode=virtual_profile`.
+Virtual stock is enabled per game through `POST /admin/central/stock/generate` with a virtual-only generation mode.
+
+The first generation for a game creates the active virtual stock profile/container. Later generation requests for the same game are top-ups: they add virtual supply to the existing active profile instead of replacing it.
 
 When a game has an active virtual profile:
 
-- customer search uses virtual capacity instead of prebuilt `stock_items`
+- customer search uses combined virtual capacity instead of prebuilt `stock_items`
 - reservation creates `stock_items` and `local_stock_items` lazily only for selected tickets
 - reserved and sold tickets are counted in `virtual_stock_counters`
 - availability is broadcast after reserve, release, expiration, and sold conversion
@@ -21,31 +23,41 @@ Example:
 {
   "game_id": "gam_current",
   "generation_mode": "virtual_profile",
-  "seed": "draw-2026-05-16",
   "set_distribution": [
     { "set_size": 2, "percent": 10 },
     { "set_size": 3, "percent": 15 }
-  ],
-  "partner_distribution": [
-    { "partner_id": "par_x", "percent": 50 },
-    { "partner_id": "par_y", "percent": 50 }
-  ],
-  "central_limits": { "back2_limit": 500, "back3_limit": 300, "front3_limit": 200 },
-  "partner_limits": [
-    { "partner_id": "par_x", "back2_limit": 200, "back3_limit": 100, "front3_limit": 80 }
   ]
 }
 ```
 
-The set distribution controls capacity per full number. Tickets are still sold one by one.
-Partner distribution and sale limits are optional. If partner distribution is empty, the engine falls back to existing partner quota weights.
+The set distribution controls added capacity per full number for the initial generation or top-up. Tickets are still sold one by one.
+
+`seed` is internal and system-managed. BO must not show a seed input and API callers should not need to send one. Backend must store enough internal seed/layer metadata to make generated capacity deterministic and idempotent.
+
+Partner distribution and sale limits are configured outside the generate form. If partner distribution is empty, the engine falls back to existing partner quota weights or the current safe default behavior.
 
 Back-office entry point:
 
 - Central -> Stock Generation -> Generate stock
 - Set distribution defines set capacity percentages, for example 10% of base numbers get 2-ticket capacity and 15% get 3-ticket capacity
-- Partner distribution, central sale limits, and partner sale limits are optional config blocks saved when the profile is generated
+- Re-running Generate stock for the same game is a virtual top-up and must increase generated virtual supply without replacing existing counters/reservations
+- Partner distribution, central sale limits, and partner sale limits belong in Stock Settings / Stock Pattern Coverage, not in the generate modal
 - Legacy physical fields such as `total_count`, `back2_count_per_number`, `start_number`, and `count` are not available in BO and are rejected by API
+
+Physical/quota generation modes are retired from the normal contract:
+
+```text
+generation_mode=quota_random
+generation_mode=quota
+generation_mode=physical
+total_count
+back2_count_per_number
+back3_count_per_number
+front3_count_per_number
+start_number
+count
+number_digits
+```
 
 ## Limits And Counters
 
@@ -62,6 +74,8 @@ Counters live in `virtual_stock_counters`.
 - checkout conversion moves reserved to sold
 
 The visible remaining count is the minimum of full-number partner capacity, central pattern limits, and partner pattern limits.
+
+Coverage limits must be bounded by generated virtual supply. If a user wants to raise a central/partner limit above current supply, they must top up stock first.
 
 ## Realtime
 
@@ -93,8 +107,27 @@ Customer UI must treat HTTP reservation as the source of truth. Websocket only u
 
 - Do not bulk-generate `stock_items` for virtual games.
 - Do not use `insertOrIgnore` for virtual reservation materialization in a way that hides sold/reserved conflicts.
+- Do not expose seed as a BO input.
+- Do not reintroduce physical stock generation.
+- Top-up must add virtual supply and must not archive/replace the existing active profile.
 - QA must test with two browsers: browser A sees a number, browser B reserves/sells until limit is full, browser A must see the number disabled by realtime.
 - QA destructive DB commands must use testing DB only.
+
+## Virtual Top-Up Follow-Up
+
+Coordinator task `virtual-stock-topup-cleanup` supersedes the earlier replace-profile behavior.
+
+Expected behavior:
+
+- first generate creates active virtual profile/container for the game
+- later generate/top-up adds an additional virtual supply layer/batch
+- generated capacity for a full number is the sum of all active virtual supply layers
+- counters remain stable across top-ups
+- idempotency replay must not add supply twice
+- changing set distribution for a top-up affects only that top-up layer
+- Stock Generation/detail must expose owner/agent assignment where available and show `no agent`/unassigned where not allocated
+- image actions must show real materialized `stock_items` / `local_stock_items` image fields only
+- unmaterialized virtual capacity must be shown as capacity, not as fake ticket image rows
 
 ## Stock Generation And Coverage Follow-Up
 
