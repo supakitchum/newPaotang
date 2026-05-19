@@ -110,7 +110,7 @@ Former API-gap decisions:
 
 | menu key | missing workflow | Coordinator decision needed |
 | --- | --- | --- |
-| central:master_stock | Central physical `stock_item_id` detail API remains absent, but grouped stock now has `GET /admin/central/stock/{game_id}/numbers/{full_number}` for full-number detail. | Coordinator accepted the old list/export-only scope; 2026-05-19 BO update adds grouped full-number detail for the new virtual-stock contract. |
+| central:master_stock | Central `stock_item_id` detail API remains absent, but grouped stock now has `GET /admin/central/stock/{game_id}/numbers/{full_number}` for full-number detail. | Coordinator accepted the old list/export-only scope; 2026-05-19 BO update adds grouped full-number detail for the virtual stock contract. |
 | tenant:commission_transactions | Commission transaction detail API. Current contract has list and approve only. | Coordinator accepted list/action-only scope; remediation QA passed and row is complete. |
 
 Other contract/scope questions that are not counted as `api_gap` yet:

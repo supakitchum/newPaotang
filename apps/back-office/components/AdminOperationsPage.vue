@@ -315,7 +315,7 @@
               Detail
             </NuxtLink>
             <button
-              v-if="isStockGrouped && row.stock_mode !== 'virtual'"
+              v-if="isStockGrouped"
               type="button"
               class="btn btn-sm btn-primary btn-wave"
               @click="openStockNumberDetail(row)"
@@ -1645,19 +1645,15 @@ const buildPayloadFromFields = (fields: OperationFormField[], values: Record<str
 }
 
 const normalizeStockGenerationPayload = (payload: Record<string, any>) => {
-  const mode = String(payload.generation_mode || (payload.set_distribution ? 'virtual_profile' : 'quota_random'))
-  const next = { ...payload, generation_mode: mode }
-
-  if (mode === 'virtual_profile') {
-    delete next.total_count
-    delete next.back2_count_per_number
-    delete next.back3_count_per_number
-    delete next.front3_count_per_number
-    return next
-  }
-
+  const next = { ...payload, generation_mode: 'virtual_profile' }
   delete next.seed
-  delete next.set_distribution
+  delete next.total_count
+  delete next.back2_count_per_number
+  delete next.back3_count_per_number
+  delete next.front3_count_per_number
+  delete next.start_number
+  delete next.count
+  delete next.number_digits
   delete next.central_limits
   delete next.partner_limits
 

@@ -74,6 +74,14 @@ for (const removedGenerateField of [
   "key: 'count'",
   "key: 'range'",
   "key: 'number_digits'",
+  "key: 'generation_mode'",
+  "value: 'quota_random'",
+  "key: 'total_count'",
+  "key: 'back2_count_per_number'",
+  "key: 'back3_count_per_number'",
+  "key: 'front3_count_per_number'",
+  "key: 'seed'",
+  "visibleForGenerationModes: ['quota_random']",
 ]) {
   if (generateActionBlock.includes(removedGenerateField)) {
     failures.push(`Removed stock generation field returned to catalog: ${removedGenerateField}`)
@@ -81,19 +89,24 @@ for (const removedGenerateField of [
 }
 
 for (const requiredGenerateField of [
-  "key: 'generation_mode'",
-  "value: 'quota_random'",
-  "value: 'virtual_profile'",
-  "key: 'total_count'",
-  "key: 'back2_count_per_number'",
-  "key: 'back3_count_per_number'",
-  "key: 'front3_count_per_number'",
-  "visibleForGenerationModes: ['quota_random']",
   "key: 'set_distribution'",
-  "visibleForGenerationModes: ['virtual_profile']",
+  "defaultValueSource: 'stock-set-distribution-default'",
 ]) {
   if (!generateActionBlock.includes(requiredGenerateField)) {
-    failures.push(`Restored stock generation field is missing: ${requiredGenerateField}`)
+    failures.push(`Virtual-only stock generation field is missing: ${requiredGenerateField}`)
+  }
+}
+
+for (const requiredVirtualPayloadToken of [
+  "generation_mode: 'virtual_profile'",
+  'delete next.seed',
+  'delete next.total_count',
+  'delete next.back2_count_per_number',
+  'delete next.back3_count_per_number',
+  'delete next.front3_count_per_number',
+]) {
+  if (!operationsPage.includes(requiredVirtualPayloadToken)) {
+    failures.push(`Virtual-only stock generation payload guard is missing: ${requiredVirtualPayloadToken}`)
   }
 }
 
@@ -129,6 +142,44 @@ for (const token of [
 ]) {
   if (!stockSettingsComponent.includes(token)) {
     failures.push(`Stock settings form is missing token: ${token}`)
+  }
+}
+
+for (const token of [
+  'useAdminRealtimeSubscription',
+  'private-admin.central.stock.coverage.game',
+  'stock.coverage.updated',
+  'applyCoverageDelta',
+  'scheduleCoverageFallbackReload',
+  'coverageDeltaIncomplete',
+]) {
+  if (!read('components/AdminStockPatternCoverage.vue').includes(token)) {
+    failures.push(`Stock pattern coverage realtime workflow is missing token: ${token}`)
+  }
+}
+
+for (const token of [
+  'virtual_copies',
+  'Virtual copy ownership',
+  'owner_label',
+  'no_agent',
+  'image_url',
+  'image_thumb_url',
+]) {
+  if (!read('components/AdminStockNumberDetail.vue').includes(token)) {
+    failures.push(`Stock number owner/image detail is missing token: ${token}`)
+  }
+}
+
+for (const token of [
+  'layer_capacity',
+  'total_capacity',
+  'top_up',
+  'Virtual top-up',
+  'Initial virtual generate',
+]) {
+  if (!progressComponent.includes(token)) {
+    failures.push(`Stock generation batch top-up metadata is missing token: ${token}`)
   }
 }
 

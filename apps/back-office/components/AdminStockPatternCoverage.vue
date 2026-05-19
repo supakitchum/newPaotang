@@ -6,11 +6,17 @@
           <div class="card-title mb-1">Stock Pattern Coverage</div>
           <p class="text-muted fs-12 mb-0">Central and partner limits for back/front number patterns.</p>
         </div>
-        <button class="btn btn-sm btn-light btn-wave" type="button" :disabled="loading" @click="reloadAll">
-          <span v-if="loading" class="spinner-border spinner-border-sm me-1" />
-          <i v-else class="ri-refresh-line me-1" />
-          Refresh
-        </button>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <span :class="['badge', realtimeBadge.className]" :title="realtimeBadge.title">
+            <i :class="[realtimeBadge.icon, 'me-1']" />
+            {{ realtimeBadge.label }}
+          </span>
+          <button class="btn btn-sm btn-light btn-wave" type="button" :disabled="loading" @click="reloadAll">
+            <span v-if="loading" class="spinner-border spinner-border-sm me-1" />
+            <i v-else class="ri-refresh-line me-1" />
+            Refresh
+          </button>
+        </div>
       </div>
       <div class="card-body">
         <AdminApiState :error="error" />
@@ -257,6 +263,7 @@ const overrideForm = reactive({
 const sortState = reactive<{ key: string, direction: 'asc' | 'desc' }>({ key: 'number', direction: 'asc' })
 const meta = reactive({ next_cursor: null as string | null, has_more: false })
 const pageState = reactive({ cursors: [null] as Array<string | null>, index: 0 })
+let realtimeFallbackTimer: ReturnType<typeof setTimeout> | null = null
 const columns = [
   { key: 'number', label: 'Pattern' },
   { key: 'scope_type', label: 'Scope', type: 'status' as const },
@@ -275,6 +282,17 @@ const limitFields = [
   { key: 'back3_limit', label: 'Back 3' },
   { key: 'front3_limit', label: 'Front 3' },
 ] as const
+const coverageDeltaFields = [
+  'generated_count',
+  'reserved_count',
+  'sold_count',
+  'default_limit',
+  'override_limit',
+  'limit',
+  'remaining_limit',
+  'sellable_remaining_count',
+  'status',
+]
 const defaultCoverage = () => ({
   central: { back2_limit: 500, back3_limit: 300, front3_limit: 200 },
   partner: { back2_limit: 200, back3_limit: 100, front3_limit: 80 },
@@ -358,6 +376,16 @@ const overrideSaveDisabled = computed(() => Boolean(
   || overrideClientMessages.value.length,
 ))
 const normalizedScopeId = computed(() => filters.scope_type === 'partner' ? String(filters.scope_id || '').trim() : 'central')
+const realtimeChannelName = computed(() => filters.game_id ? `private-admin.central.stock.coverage.game.${filters.game_id}` : '')
+const realtimeEnabled = computed(() => Boolean(filters.game_id && session.isAuthenticated.value))
+const realtime = useAdminRealtimeSubscription({
+  channelName: realtimeChannelName,
+  eventName: 'stock.coverage.updated',
+  enabled: realtimeEnabled,
+  onEvent: handleRealtimeCoverageEvent,
+  onReconnect: () => scheduleCoverageFallbackReload(),
+})
+const realtimeBadge = computed(() => coverageRealtimeBadge(realtime.status.value, realtime.isConfigured.value))
 const summaryMetrics = computed(() => {
   const totals = patternSummary.value?.totals?.[filters.dimension] || {}
   return [
@@ -372,6 +400,10 @@ const summaryMetrics = computed(() => {
 
 onMounted(() => {
   void initialize()
+})
+
+onBeforeUnmount(() => {
+  stopCoverageFallbackReload()
 })
 
 async function initialize() {
@@ -458,7 +490,7 @@ function reloadAll() {
   void loadSettings().then(() => loadPatterns())
 }
 
-async function loadPatterns(cursor?: string | null, pageMode: 'reset' | 'next' | 'previous' = 'reset') {
+async function loadPatterns(cursor?: string | null, pageMode: 'reset' | 'next' | 'previous' | 'current' = 'reset') {
   if (!session.isAuthenticated.value || !filters.game_id) {
     rows.value = []
     patternSummary.value = null
@@ -639,6 +671,200 @@ async function saveLimitOverride() {
   }
 }
 
+function handleRealtimeCoverageEvent(payload: any) {
+  const delta = normalizeCoverageDelta(payload)
+  if (!delta.game_id || String(delta.game_id) !== String(filters.game_id || '')) {
+    return
+  }
+
+  if (coverageDeltaIncomplete(delta)) {
+    scheduleCoverageFallbackReload()
+    return
+  }
+
+  if (!deltaMatchesActiveFilters(delta)) {
+    return
+  }
+
+  if (!applyCoverageDelta(delta)) {
+    scheduleCoverageFallbackReload()
+  }
+}
+
+function normalizeCoverageDelta(payload: any) {
+  const source = parseRealtimeData(payload?.coverage || payload?.delta || payload?.data || payload || {})
+  const scopeType = String(source?.scope_type || filters.scope_type || 'central').toLowerCase()
+  return {
+    ...source,
+    game_id: String(source?.game_id || ''),
+    scope_type: scopeType,
+    scope_id: String(source?.scope_id || (scopeType === 'central' ? 'central' : '')),
+    dimension: String(source?.dimension || ''),
+    number: String(source?.number ?? source?.value ?? source?.pattern ?? ''),
+  }
+}
+
+function coverageDeltaIncomplete(delta: Record<string, any>) {
+  return !delta.game_id
+    || !delta.dimension
+    || !delta.number
+    || !delta.scope_type
+    || !delta.scope_id
+    || coverageDeltaFields.some((field) => !hasOwn(delta, field))
+}
+
+function deltaMatchesActiveFilters(delta: Record<string, any>) {
+  if (String(delta.dimension) !== String(filters.dimension)) {
+    return false
+  }
+  if (String(delta.scope_type) !== String(filters.scope_type)) {
+    return false
+  }
+  if (String(delta.scope_id || '') !== String(normalizedScopeId.value || '')) {
+    return false
+  }
+
+  const query = String(filters.q || '').replace(/\D+/g, '')
+  return !query || String(delta.number).includes(query)
+}
+
+function applyCoverageDelta(delta: Record<string, any>) {
+  const index = rows.value.findIndex((row) => String(row?.number) === String(delta.number))
+  if (index < 0) {
+    return false
+  }
+
+  const previous = rows.value[index]
+  const nextRow = {
+    ...previous,
+    ...Object.fromEntries(coverageDeltaFields.map((field) => [field, delta[field]])),
+    game_id: delta.game_id,
+    scope_type: delta.scope_type,
+    scope_id: delta.scope_id,
+    dimension: delta.dimension,
+    number: delta.number,
+  }
+  rows.value = [
+    ...rows.value.slice(0, index),
+    nextRow,
+    ...rows.value.slice(index + 1),
+  ]
+  applyCoverageTotalsDelta(previous, nextRow)
+  updateLimitSummaryFromDelta(nextRow)
+  updateOverrideRowsFromDelta(nextRow)
+  return true
+}
+
+function applyCoverageTotalsDelta(previous: Record<string, any>, nextRow: Record<string, any>) {
+  const summary = patternSummary.value
+  const totals = summary?.totals?.[filters.dimension]
+  if (!totals || typeof totals !== 'object') {
+    return
+  }
+
+  const mappings = [
+    ['generated_count', 'generated_count'],
+    ['reserved_count', 'reserved_count'],
+    ['sold_count', 'sold_count'],
+    ['limit', 'limit_total'],
+    ['sellable_remaining_count', 'sellable_remaining_count'],
+  ] as const
+  const nextTotals = { ...totals }
+  let changed = false
+
+  for (const [rowField, totalField] of mappings) {
+    const before = numberOrNull(previous?.[rowField])
+    const after = numberOrNull(nextRow?.[rowField])
+    const total = numberOrNull(nextTotals?.[totalField])
+    if (before === null || after === null || total === null) {
+      continue
+    }
+    nextTotals[totalField] = Math.max(0, total + after - before)
+    changed = true
+  }
+
+  if (changed) {
+    patternSummary.value = {
+      ...summary,
+      totals: {
+        ...(summary?.totals || {}),
+        [filters.dimension]: nextTotals,
+      },
+    }
+  }
+}
+
+function updateLimitSummaryFromDelta(row: Record<string, any>) {
+  const field = `${row.dimension}_limit`
+  if (!hasOwn(limitForm, field) || !hasOwn(row, 'default_limit')) {
+    return
+  }
+
+  const defaultLimit = numberOrNull(row.default_limit)
+  if (defaultLimit === null) {
+    return
+  }
+
+  const summary = patternSummary.value || {}
+  patternSummary.value = {
+    ...summary,
+    limits: {
+      ...(summary.limits || {}),
+      [field]: defaultLimit,
+    },
+  }
+  if (!limitSaving.value) {
+    limitForm[field] = defaultLimit
+  }
+}
+
+function updateOverrideRowsFromDelta(row: Record<string, any>) {
+  if (!hasOwn(row, 'override_limit') || !overridesDetail.value) {
+    return
+  }
+
+  const value = String(row.number)
+  const limit = row.override_limit
+  if (Array.isArray(overridesDetail.value?.data)) {
+    const nextRows = overridesDetail.value.data.filter((entry: any) => String(entry?.value) !== value)
+    if (limit !== null && limit !== undefined && limit !== '') {
+      nextRows.unshift({ value, limit, updated_at: new Date().toISOString() })
+    }
+    overridesDetail.value = { ...overridesDetail.value, data: nextRows }
+    return
+  }
+
+  if (overridesDetail.value?.data && typeof overridesDetail.value.data === 'object') {
+    const nextData = { ...overridesDetail.value.data }
+    if (limit === null || limit === undefined || limit === '') {
+      delete nextData[value]
+    } else {
+      nextData[value] = { ...(nextData[value] || {}), value, limit, updated_at: new Date().toISOString() }
+    }
+    overridesDetail.value = { ...overridesDetail.value, data: nextData }
+  }
+}
+
+function scheduleCoverageFallbackReload() {
+  if (!import.meta.client || realtimeFallbackTimer !== null || !filters.game_id) {
+    return
+  }
+
+  realtimeFallbackTimer = window.setTimeout(() => {
+    realtimeFallbackTimer = null
+    void loadPatterns(pageState.cursors[pageState.index] || null, 'current')
+  }, 1200)
+}
+
+function stopCoverageFallbackReload() {
+  if (!import.meta.client || realtimeFallbackTimer === null) {
+    return
+  }
+
+  window.clearTimeout(realtimeFallbackTimer)
+  realtimeFallbackTimer = null
+}
+
 function applySort(next: { key: string, direction: 'asc' | 'desc' }) {
   sortState.key = next.key
   sortState.direction = next.direction
@@ -663,7 +889,11 @@ function resetPageState() {
   meta.has_more = false
 }
 
-function updatePageState(cursor: string | null, mode: 'reset' | 'next' | 'previous') {
+function updatePageState(cursor: string | null, mode: 'reset' | 'next' | 'previous' | 'current') {
+  if (mode === 'current') {
+    pageState.cursors[pageState.index] = cursor
+    return
+  }
   if (mode === 'reset') {
     pageState.cursors = [cursor]
     pageState.index = 0
@@ -696,6 +926,23 @@ function backendFieldMessages(source: any, key: string) {
   const value = fields[key]
   if (Array.isArray(value)) return value.map(String)
   return value ? [String(value)] : []
+}
+
+function parseRealtimeData(source: any) {
+  if (typeof source !== 'string') {
+    return source && typeof source === 'object' ? source : {}
+  }
+
+  try {
+    const parsed = JSON.parse(source)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function hasOwn(source: Record<string, any>, key: string) {
+  return Object.prototype.hasOwnProperty.call(source, key)
 }
 
 function cleanedPatternValue(value: any) {
@@ -755,6 +1002,42 @@ function extractItems(response: any) {
 
 function extractMeta(response: any) {
   return response?.meta || response?.data?.meta || {}
+}
+
+function coverageRealtimeBadge(status: string, configured: boolean) {
+  if (status === 'connected') {
+    return {
+      label: 'Realtime',
+      icon: 'ri-broadcast-line',
+      className: 'bg-success-transparent text-success',
+      title: 'Stock coverage websocket is connected.',
+    }
+  }
+
+  if (['connecting', 'authenticating', 'reconnecting'].includes(status)) {
+    return {
+      label: 'Connecting realtime',
+      icon: 'ri-loader-4-line',
+      className: 'bg-warning-transparent text-warning',
+      title: 'Stock coverage websocket is connecting.',
+    }
+  }
+
+  if (!configured || status === 'unavailable' || status === 'error') {
+    return {
+      label: 'HTTP fallback',
+      icon: 'ri-refresh-line',
+      className: 'bg-secondary-transparent text-secondary',
+      title: 'Coverage reloads from HTTP when realtime is unavailable.',
+    }
+  }
+
+  return {
+    label: 'Realtime idle',
+    icon: 'ri-broadcast-line',
+    className: 'bg-secondary-transparent text-secondary',
+    title: 'Select a game to subscribe to stock coverage updates.',
+  }
 }
 
 function fieldId(key: string) {

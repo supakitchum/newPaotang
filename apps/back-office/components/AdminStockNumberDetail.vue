@@ -45,6 +45,20 @@
         </div>
       </div>
 
+      <section class="np-stock-number-detail__panel mb-3">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+          <h6 class="mb-0">Virtual copy ownership</h6>
+          <span class="badge bg-info-transparent text-info">{{ formatNumber(virtualCopies.length) }} copies</span>
+        </div>
+        <div v-if="virtualOwnerMetrics.length" class="np-stock-number-detail__owner-grid mb-3">
+          <div v-for="metric in virtualOwnerMetrics" :key="metric.key">
+            <span class="text-muted fs-12">{{ metric.label }}</span>
+            <strong>{{ metric.value }}</strong>
+          </div>
+        </div>
+        <VirtualCopyTable :rows="virtualCopies" />
+      </section>
+
       <div class="row g-3">
         <div class="col-12 col-xl-6">
           <section class="np-stock-number-detail__panel">
@@ -123,6 +137,7 @@ const props = defineProps<{
 }>()
 
 const record = computed(() => props.record || null)
+const virtualCopies = computed(() => Array.isArray(record.value?.virtual_copies) ? record.value.virtual_copies : [])
 const stockItems = computed(() => Array.isArray(record.value?.stock_items) ? record.value.stock_items : [])
 const localStockItems = computed(() => Array.isArray(record.value?.local_stock_items) ? record.value.local_stock_items : [])
 const unmaterializedCapacity = computed(() => numberValue(record.value?.unmaterialized_capacity_count))
@@ -141,6 +156,19 @@ const metrics = computed(() => [
   { key: 'materialized_local_stock_count', label: 'Local rows', value: formatNumber(record.value?.materialized_local_stock_count) },
   { key: 'unmaterialized_capacity_count', label: 'Virtual only', value: formatNumber(record.value?.unmaterialized_capacity_count) },
 ])
+const virtualOwnerMetrics = computed(() => {
+  if (!virtualCopies.value.length) {
+    return []
+  }
+
+  const materialized = virtualCopies.value.filter((row: any) => Boolean(row?.materialized)).length
+  const unassigned = virtualCopies.value.filter((row: any) => ownerType(row) === 'unassigned').length
+  return [
+    { key: 'materialized', label: 'Materialized', value: formatNumber(materialized) },
+    { key: 'unassigned', label: 'No agent', value: formatNumber(unassigned) },
+    { key: 'assigned', label: 'Assigned owner', value: formatNumber(Math.max(0, virtualCopies.value.length - unassigned)) },
+  ]
+})
 
 function limitRows(source: any) {
   const limits = source?.limits || {}
@@ -238,6 +266,7 @@ const TicketTable = defineComponent({
                 h('th', 'Ticket'),
                 h('th', 'Status'),
                 h('th', 'Copy'),
+                h('th', 'Owner'),
                 h('th', 'Partner'),
                 h('th', 'Tenant'),
                 h('th', 'Image status'),
@@ -249,6 +278,7 @@ const TicketTable = defineComponent({
               h('td', { class: 'font-monospace text-break' }, row.id || '-'),
               h('td', [h(resolveComponent('AdminStatusBadge'), { status: row.status || 'unknown' })]),
               h('td', formatNumber(row.virtual_copy_index)),
+              h('td', ownerNodes(row)),
               h('td', { class: 'font-monospace text-break' }, row.partner_id || '-'),
               h('td', { class: 'font-monospace text-break' }, row.tenant_id || '-'),
               h('td', [
@@ -273,8 +303,90 @@ const TicketTable = defineComponent({
   },
 })
 
+const VirtualCopyTable = defineComponent({
+  props: {
+    rows: {
+      type: Array as PropType<Array<Record<string, any>>>,
+      required: true,
+    },
+  },
+  setup(componentProps) {
+    return () => componentProps.rows.length
+      ? h('div', { class: 'table-responsive' }, [
+          h('table', { class: 'table table-bordered text-nowrap w-100 mb-0' }, [
+            h('thead', [
+              h('tr', [
+                h('th', 'Copy'),
+                h('th', 'Status'),
+                h('th', 'Owner'),
+                h('th', 'Materialized'),
+                h('th', 'Stock item'),
+                h('th', 'Local item'),
+                h('th', 'Image status'),
+                h('th', 'Image URLs'),
+              ]),
+            ]),
+            h('tbody', componentProps.rows.map((row) => h('tr', { key: ticketKey(row) }, [
+              h('td', { class: 'font-monospace' }, formatNumber(row.virtual_copy_index)),
+              h('td', [h(resolveComponent('AdminStatusBadge'), { status: row.status || 'unknown' })]),
+              h('td', ownerNodes(row)),
+              h('td', [
+                h(resolveComponent('AdminStatusBadge'), {
+                  status: row.materialized ? 'materialized' : 'virtual_only',
+                  label: row.materialized ? 'Materialized' : 'Virtual only',
+                }),
+              ]),
+              h('td', { class: 'font-monospace text-break' }, row.stock_item_id || '-'),
+              h('td', { class: 'font-monospace text-break' }, row.local_stock_item_id || '-'),
+              h('td', [
+                h(resolveComponent('AdminStatusBadge'), {
+                  status: row.image_generation_status || (row.image_url ? 'available' : 'not_materialized'),
+                  label: row.image_generation_status || (row.image_url ? 'Image ready' : 'No image'),
+                }),
+                row.image_generation_error
+                  ? h('div', { class: 'text-danger small text-break mt-1' }, row.image_generation_error)
+                  : null,
+              ]),
+              h('td', imageUrlNodes(row)),
+            ]))),
+          ]),
+        ])
+      : h(resolveComponent('AdminEmptyState'), {
+          title: 'No virtual copy details',
+          message: 'The backend did not return per-copy ownership rows for this number.',
+          icon: 'ri-user-search-line',
+        })
+  },
+})
+
 function ticketKey(row: any) {
-  return String(row?.id || row?.stock_item_id || row?.virtual_stock_ref || JSON.stringify(row))
+  return String(row?.id || row?.stock_item_id || row?.local_stock_item_id || row?.virtual_stock_ref || row?.virtual_copy_index || JSON.stringify(row))
+}
+
+function ownerType(row: any) {
+  return String(row?.owner?.type || row?.owner_type || '').toLowerCase() || 'unassigned'
+}
+
+function ownerLabel(row: any) {
+  const label = String(row?.owner?.label || row?.owner_label || (ownerType(row) === 'unassigned' ? 'no_agent' : ownerType(row)) || 'no_agent')
+  return label === 'no_agent' ? 'no agent' : label
+}
+
+function ownerNodes(row: any) {
+  const type = ownerType(row)
+  const label = ownerLabel(row)
+  const badgeClass = type === 'unassigned'
+    ? 'bg-secondary-transparent text-secondary'
+    : type === 'agent'
+      ? 'bg-primary-transparent text-primary'
+      : 'bg-info-transparent text-info'
+
+  return h('div', { class: 'd-flex flex-column gap-1' }, [
+    h('span', { class: ['badge', badgeClass] }, label),
+    row?.owner?.id
+      ? h('span', { class: 'font-monospace text-muted fs-12 text-break' }, row.owner.id)
+      : null,
+  ])
 }
 
 function imageUrlNodes(row: any) {
@@ -299,14 +411,16 @@ function imageUrlNodes(row: any) {
 
 <style scoped>
 .np-stock-number-detail__metric-grid,
-.np-stock-number-detail__partner-grid {
+.np-stock-number-detail__partner-grid,
+.np-stock-number-detail__owner-grid {
   display: grid;
   gap: .75rem;
   grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
 }
 
 .np-stock-number-detail__metric-grid > div,
-.np-stock-number-detail__partner-grid > div {
+.np-stock-number-detail__partner-grid > div,
+.np-stock-number-detail__owner-grid > div {
   background: rgb(var(--light-rgb));
   border: 1px solid var(--default-border);
   border-radius: 4px;

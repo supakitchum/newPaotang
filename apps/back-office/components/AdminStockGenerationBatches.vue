@@ -49,6 +49,11 @@
               <template #cell-status="{ row }">
                 <AdminStatusBadge :status="row.status" />
               </template>
+              <template #cell-top_up="{ row }">
+                <span :class="['badge', row.top_up ? 'bg-info-transparent text-info' : 'bg-primary-transparent text-primary']">
+                  {{ row.top_up ? 'Top-up' : 'Initial' }}
+                </span>
+              </template>
               <template #cell-generated_count="{ row }">
                 {{ formatNumber(row.generated_count) }}
               </template>
@@ -89,6 +94,9 @@
                 </div>
                 <div class="d-flex flex-wrap gap-2">
                   <AdminStatusBadge :status="selectedBatch.status" />
+                  <span :class="['badge', selectedBatch.top_up ? 'bg-info-transparent text-info' : 'bg-primary-transparent text-primary']">
+                    {{ selectedBatch.top_up ? 'Virtual top-up' : 'Initial virtual generate' }}
+                  </span>
                   <span :class="['badge', imageState.className]">{{ imageState.label }}</span>
                 </div>
               </div>
@@ -110,11 +118,25 @@
                   <span class="text-muted fs-12">Chunk rounds</span>
                   <strong>{{ formatNumber(selectedBatch.chunk_rounds) }}</strong>
                 </div>
+                <div>
+                  <span class="text-muted fs-12">Added capacity</span>
+                  <strong>{{ formatNumber(selectedBatch.layer_capacity) }}</strong>
+                </div>
+                <div>
+                  <span class="text-muted fs-12">Total capacity</span>
+                  <strong>{{ formatNumber(selectedBatch.total_capacity) }}</strong>
+                </div>
               </div>
 
               <dl class="row small mb-0 mt-3">
                 <dt class="col-sm-4 text-muted">Type</dt>
                 <dd class="col-sm-8 mb-2">{{ titleize(String(selectedBatch.type || 'generation')) }}</dd>
+                <dt class="col-sm-4 text-muted">Stock mode</dt>
+                <dd class="col-sm-8 mb-2">{{ titleize(String(selectedBatch.stock_mode || 'virtual')) }}</dd>
+                <dt class="col-sm-4 text-muted">Profile</dt>
+                <dd class="col-sm-8 mb-2 font-monospace text-break">{{ selectedBatch.profile_id || '-' }}</dd>
+                <dt class="col-sm-4 text-muted">Layer</dt>
+                <dd class="col-sm-8 mb-2 font-monospace text-break">{{ selectedBatch.layer_id || '-' }}</dd>
                 <dt class="col-sm-4 text-muted">Range</dt>
                 <dd class="col-sm-8 mb-2 font-monospace">{{ selectedBatch.range_start || '-' }} - {{ selectedBatch.range_end || '-' }}</dd>
                 <dt class="col-sm-4 text-muted">Started</dt>
@@ -242,6 +264,7 @@ let fallbackPollTimer: ReturnType<typeof setTimeout> | null = null
 const batchColumns = [
   { key: 'id', label: 'Batch' },
   { key: 'status', label: 'Status' },
+  { key: 'top_up', label: 'Run' },
   { key: 'generated_count', label: 'Generated' },
   { key: 'requested_count', label: 'Requested' },
 ]
@@ -564,6 +587,12 @@ function normalizeBatch(batch: any): StockGenerationBatch {
     total_rounds: numberValue(batch?.total_rounds),
     processed_rounds: numberValue(batch?.processed_rounds),
     chunk_rounds: numberValue(batch?.chunk_rounds),
+    layer_capacity: numberValue(batch?.layer_capacity),
+    total_capacity: numberValue(batch?.total_capacity),
+    top_up: booleanValue(batch?.top_up),
+    stock_mode: batch?.stock_mode ?? null,
+    profile_id: batch?.profile_id ?? null,
+    layer_id: batch?.layer_id ?? null,
     failure_reason: batch?.failure_reason ?? null,
     chunks: Array.isArray(batch?.chunks) ? batch.chunks.map(normalizeChunk) : undefined,
   }
@@ -669,6 +698,16 @@ function progressPercent(batch: StockGenerationBatch | null | undefined) {
 function numberValue(value: any) {
   const parsed = Number(value || 0)
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+function booleanValue(value: any) {
+  if (typeof value === 'boolean') {
+    return value
+  }
+  if (typeof value === 'number') {
+    return value === 1
+  }
+  return ['true', '1', 'yes'].includes(String(value || '').toLowerCase())
 }
 
 function formatNumber(value: any) {
