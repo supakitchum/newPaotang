@@ -76,6 +76,49 @@
                   <option value="">Select</option>
                   <option v-for="option in field.options || []" :key="option" :value="option">{{ option }}</option>
                 </select>
+                <div v-else-if="field.type === 'stock-set-distribution'" class="border rounded p-3">
+                  <div class="d-grid gap-2">
+                    <div class="d-none d-md-grid text-muted fw-semibold fs-12" style="grid-template-columns: minmax(7rem, 10rem) minmax(9rem, 14rem) 2.5rem; gap: .75rem;">
+                      <span>Set size</span>
+                      <span>Percent</span>
+                      <span />
+                    </div>
+                    <div
+                      v-for="(row, index) in settingsForm[field.key] || []"
+                      :key="row.__key || index"
+                      class="d-grid align-items-center"
+                      style="grid-template-columns: minmax(7rem, 10rem) minmax(9rem, 14rem) 2.5rem; gap: .75rem;"
+                    >
+                      <input
+                        v-model.number="row.set_size"
+                        class="form-control"
+                        type="number"
+                        min="1"
+                        max="99"
+                        step="1"
+                        placeholder="2"
+                      >
+                      <div class="input-group">
+                        <input
+                          v-model.number="row.percent"
+                          class="form-control"
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          placeholder="10"
+                        >
+                        <span class="input-group-text">%</span>
+                      </div>
+                      <button class="btn btn-light btn-icon" type="button" title="Remove set" @click="removeStockSetDistributionRow(field, index)">
+                        <i class="ri-delete-bin-line" />
+                      </button>
+                    </div>
+                  </div>
+                  <button class="btn btn-outline-primary btn-sm btn-wave mt-3" type="button" @click="addStockSetDistributionRow(field)">
+                    <i class="ri-add-line me-1" /> Add set
+                  </button>
+                </div>
                 <textarea
                   v-else-if="field.type === 'textarea' || field.type === 'json' || field.type === 'lines'"
                   :id="fieldId(`settings-${field.key}`)"
@@ -272,7 +315,7 @@
               Detail
             </NuxtLink>
             <button
-              v-if="isStockGrouped"
+              v-if="isStockGrouped && row.stock_mode !== 'virtual'"
               type="button"
               class="btn btn-sm btn-primary btn-wave"
               @click="openStockNumberDetail(row)"
@@ -598,10 +641,14 @@ const stockTickets = reactive<{
 })
 const optionSourceOptions = reactive<Record<OperationOptionSource, OperationOption[]>>({
   'central-games': [],
+  'central-partners': [],
 })
 const optionSourceLoading = reactive<Record<OperationOptionSource, boolean>>({
   'central-games': false,
+  'central-partners': false,
 })
+const stockSettingsDefaults = ref<any[]>([])
+const stockSettingsLoading = ref(false)
 
 const slugParts = computed(() => normalizeSlug(route.params.slug))
 const resolved = computed(() => catalog.resolve(props.scope, slugParts.value))
@@ -625,6 +672,14 @@ const stockSummaryEndpoint = computed(() => resource.value?.stockSummaryEndpoint
 const stockSummaryGameId = computed(() => filters.value.game_id || '')
 const stockSummaryBatchId = computed(() => filters.value.batch_id || '')
 const currentCentralGameOption = computed(() => singleCurrentGameOption(optionSourceOptions['central-games'] || []))
+const stockSetDistributionDefault = computed(() => (
+  stockSettingsDefaults.value.length
+    ? stockSettingsDefaults.value
+    : [
+        { set_size: 2, percent: 10 },
+        { set_size: 3, percent: 15 },
+      ]
+))
 const shouldDefaultStockGenerationGame = computed(() => Boolean(isStockGenerationRoute.value && mode.value === 'list'))
 const stockGenerationGenerateBlocked = computed(() => Boolean(
   showStockGenerationProgress.value
@@ -835,7 +890,11 @@ const hydrateFields = (fields: OperationFormField[] = []) => fields.map((field) 
   return {
     ...field,
     options,
-    defaultValue: field.defaultValueSource === 'current-game' ? currentGameValue : field.defaultValue,
+    defaultValue: field.defaultValueSource === 'current-game'
+      ? currentGameValue
+      : field.defaultValueSource === 'stock-set-distribution-default'
+        ? stockSetDistributionDefault.value
+        : field.defaultValue,
   }
 })
 
@@ -875,7 +934,33 @@ const loadOptionSourcesForResource = async () => {
   }
 
   const sources = collectOptionSources(resource.value)
-  await Promise.all([...sources].map((source) => loadOptionSource(source)))
+  await Promise.all([
+    ...[...sources].map((source) => loadOptionSource(source)),
+    isStockGenerationRoute.value ? loadStockSettingsDefaults() : Promise.resolve(),
+  ])
+}
+
+const loadStockSettingsDefaults = async () => {
+  if (stockSettingsLoading.value) {
+    return
+  }
+
+  stockSettingsLoading.value = true
+  try {
+    const response = await api.apiFetch('/admin/central/stock/settings', apiOptions())
+    const data = extractData(response)
+    const distribution = data?.settings?.stock_set_distribution_default || data?.stock_set_distribution_default || []
+    stockSettingsDefaults.value = normalizeStockSetDistribution(distribution, {
+      key: 'stock_set_distribution_default',
+      label: 'Default set distribution',
+      type: 'stock-set-distribution',
+    } as OperationFormField)
+      .map((row: any) => ({ set_size: row.set_size, percent: row.percent }))
+  } catch {
+    stockSettingsDefaults.value = []
+  } finally {
+    stockSettingsLoading.value = false
+  }
 }
 
 const collectOptionSources = (item: OperationResource) => {
@@ -945,6 +1030,12 @@ const loadOptionSource = async (source: OperationOptionSource) => {
         }
       }
       optionSourceOptions[source] = options
+    } else if (source === 'central-partners') {
+      const response = await api.apiFetch('/admin/central/partners', {
+        scope: 'central',
+        query: { limit: 100 },
+      })
+      optionSourceOptions[source] = normalizePartnerOptions(extractItems(response))
     }
   } catch {
     optionSourceOptions[source] = []
@@ -973,6 +1064,21 @@ const gameOption = (game: any): OperationOption => {
 
 const normalizeGameOptions = (items: any[]) => items
   .map(gameOption)
+  .filter((option) => !isBlank(optionValue(option)))
+
+const partnerOption = (partner: any): OperationOption => {
+  const id = partner?.id || partner?.partner_id || partner?.uuid || partner?.code
+  const name = partner?.name || partner?.display_name || partner?.code || id
+  const code = partner?.code && partner.code !== name ? ` (${partner.code})` : ''
+  return {
+    value: id,
+    label: `${name}${code}`,
+    status: String(partner?.status || '').toLowerCase(),
+  }
+}
+
+const normalizePartnerOptions = (items: any[]) => items
+  .map(partnerOption)
   .filter((option) => !isBlank(optionValue(option)))
 
 const optionValue = (option: OperationOption) => typeof option === 'object' && option !== null ? option.value : option
@@ -1490,6 +1596,9 @@ const buildActionBody = (action: OperationAction, reason: string, payloadJson: s
 
   if (action.formFields?.length) {
     payload = buildPayloadFromFields(action.formFields, formValues)
+    if (isStockGenerateAction(action)) {
+      payload = normalizeStockGenerationPayload(payload)
+    }
   } else if (action.payloadTemplate) {
     const payload = JSON.parse(payloadJson || '{}')
     return action.reason ? compactPayload({ ...payload, reason }) : compactPayload(payload)
@@ -1535,6 +1644,17 @@ const buildPayloadFromFields = (fields: OperationFormField[], values: Record<str
   return compactPayload(payload)
 }
 
+const normalizeStockGenerationPayload = (payload: Record<string, any>) => {
+  const next = { ...payload, generation_mode: 'virtual_profile' }
+
+  delete next.total_count
+  delete next.back2_count_per_number
+  delete next.back3_count_per_number
+  delete next.front3_count_per_number
+
+  return next
+}
+
 const normalizePayloadField = (field: OperationFormField, value: any) => {
   if (field.type === 'checkbox') {
     return Boolean(value)
@@ -1554,6 +1674,50 @@ const normalizePayloadField = (field: OperationFormField, value: any) => {
     }
 
     throw new Error(`${field.label} must be a JSON object or array.`)
+  }
+
+  if (field.type === 'stock-set-distribution') {
+    const rows = Array.isArray(value) ? value : []
+    return rows
+      .map((row) => ({
+        set_size: Number(row?.set_size),
+        percent: Number(row?.percent),
+      }))
+      .filter((row) => Number.isFinite(row.set_size) && Number.isFinite(row.percent) && row.percent > 0)
+  }
+
+  if (field.type === 'stock-sale-limits') {
+    return compactPayload({
+      back2_limit: normalizeOptionalNumber(value?.back2_limit),
+      back3_limit: normalizeOptionalNumber(value?.back3_limit),
+      front3_limit: normalizeOptionalNumber(value?.front3_limit),
+    })
+  }
+
+  if (field.type === 'stock-partner-distribution') {
+    const rows = Array.isArray(value) ? value : []
+    return rows
+      .map((row) => ({
+        partner_id: String(row?.partner_id || '').trim(),
+        percent: Number(row?.percent),
+      }))
+      .filter((row) => row.partner_id && Number.isFinite(row.percent) && row.percent > 0)
+  }
+
+  if (field.type === 'stock-partner-limits') {
+    const rows = Array.isArray(value) ? value : []
+    return rows
+      .map((row) => compactPayload({
+        partner_id: String(row?.partner_id || '').trim(),
+        back2_limit: normalizeOptionalNumber(row?.back2_limit),
+        back3_limit: normalizeOptionalNumber(row?.back3_limit),
+        front3_limit: normalizeOptionalNumber(row?.front3_limit),
+      }))
+      .filter((row) => row.partner_id && (
+        row.back2_limit !== undefined
+        || row.back3_limit !== undefined
+        || row.front3_limit !== undefined
+      ))
   }
 
   if (field.type === 'lines') {
@@ -1597,6 +1761,71 @@ const normalizePayloadField = (field: OperationFormField, value: any) => {
   return value
 }
 
+const normalizeOptionalNumber = (value: any) => {
+  if (value === '' || value === undefined || value === null) {
+    return undefined
+  }
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+const addStockSetDistributionRow = (field: OperationFormField) => {
+  const rows = Array.isArray(settingsForm[field.key]) ? settingsForm[field.key] : []
+  rows.push({
+    __key: stockSetRowKey(1, rows.length),
+    set_size: 1,
+    percent: '',
+  })
+  settingsForm[field.key] = rows
+}
+
+const removeStockSetDistributionRow = (field: OperationFormField, index: number) => {
+  const rows = Array.isArray(settingsForm[field.key]) ? settingsForm[field.key] : []
+  rows.splice(index, 1)
+  settingsForm[field.key] = rows.length ? rows : [{
+    __key: stockSetRowKey(2, 0),
+    set_size: 2,
+    percent: '',
+  }]
+}
+
+const normalizeStockSetDistribution = (value: any, field: OperationFormField) => {
+  const source = Array.isArray(value) && value.length ? value : Array.isArray(field.defaultValue) ? field.defaultValue : []
+  const rows = source
+    .map((row: any, index: number) => ({
+      __key: row?.__key || stockSetRowKey(row?.set_size ?? row?.size ?? 1, index),
+      set_size: Number(row?.set_size ?? row?.size ?? 1),
+      percent: numberOrBlank(row?.percent ?? basisPointsToPercent(row?.percent_basis_points)),
+    }))
+    .filter((row: any) => Number.isFinite(row.set_size))
+
+  return rows.length ? rows : [
+    { __key: stockSetRowKey(2, 0), set_size: 2, percent: 10 },
+    { __key: stockSetRowKey(3, 1), set_size: 3, percent: 15 },
+  ]
+}
+
+const stockSetRowKey = (setSize: any, index: number) => `set-${Number(setSize) || 1}-${index}-${Date.now()}`
+
+const basisPointsToPercent = (value: any) => {
+  if (value === undefined || value === null || value === '') {
+    return ''
+  }
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed / 100 : ''
+}
+
+const numberOrBlank = (value: any) => {
+  if (value === undefined || value === null || value === '') {
+    return ''
+  }
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : ''
+}
+
 const normalizeInitialFieldValue = (field: OperationFormField, value: any) => {
   if (field.type === 'checkbox') {
     return Boolean(value)
@@ -1608,6 +1837,10 @@ const normalizeInitialFieldValue = (field: OperationFormField, value: any) => {
 
   if (field.type === 'json') {
     return formatJsonFieldValue(value)
+  }
+
+  if (field.type === 'stock-set-distribution') {
+    return normalizeStockSetDistribution(value, field)
   }
 
   if (field.type === 'lines') {

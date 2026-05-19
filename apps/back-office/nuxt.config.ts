@@ -1,5 +1,6 @@
 export default defineNuxtConfig({
   devtools: { enabled: false },
+  buildDir: process.env.NUXT_BUILD_DIR || '.nuxt',
   ssr: true,
   css: [
     '~/assets/css/admin-foundation.css',

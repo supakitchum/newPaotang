@@ -31,27 +31,46 @@
         />
         <div v-else class="row g-3">
           <div class="col-12 col-xl-5">
-            <div class="np-stock-generation-batches__list">
-              <button
-                v-for="batch in batches"
-                :key="batch.id"
-                type="button"
-                :class="['np-stock-generation-batches__item', { active: batch.id === selectedBatchId }]"
-                @click="selectBatch(batch.id)"
-              >
-                <span class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-                  <span class="fw-semibold text-break">{{ batch.id }}</span>
-                  <AdminStatusBadge :status="batch.status" />
-                </span>
-                <span class="d-flex flex-wrap align-items-center justify-content-between gap-2 text-muted fs-12 mt-2">
-                  <span>{{ formatNumber(batch.generated_count) }} / {{ formatNumber(batch.requested_count) }} tickets</span>
-                  <span>{{ progressPercent(batch) }}%</span>
-                </span>
-                <span class="progress np-stock-generation-batches__bar mt-2" aria-hidden="true">
-                  <span class="progress-bar" :style="{ width: `${progressPercent(batch)}%` }" />
-                </span>
-              </button>
-            </div>
+            <AdminDataTable
+              embedded
+              :columns="batchColumns"
+              :rows="batches"
+              :loading="loading"
+              :sort-key="sortState.key"
+              :sort-direction="sortState.direction"
+              sortable
+              empty-title="No generation batches"
+              empty-message="Submitted stock generation batches for this game will appear here."
+              @sort-change="applySort"
+            >
+              <template #cell-id="{ row }">
+                <span :class="['fw-semibold text-break', { 'text-primary': row.id === selectedBatchId }]">{{ row.id }}</span>
+              </template>
+              <template #cell-status="{ row }">
+                <AdminStatusBadge :status="row.status" />
+              </template>
+              <template #cell-generated_count="{ row }">
+                {{ formatNumber(row.generated_count) }}
+              </template>
+              <template #cell-requested_count="{ row }">
+                {{ formatNumber(row.requested_count) }}
+              </template>
+              <template #rowActions="{ row }">
+                <button class="btn btn-sm btn-primary btn-wave" type="button" @click="selectBatch(row.id)">
+                  View
+                </button>
+              </template>
+            </AdminDataTable>
+            <AdminPagination
+              class="mt-3"
+              :next-cursor="meta.next_cursor"
+              :has-previous="pageState.index > 0"
+              :loading="loading"
+              :current-page="pageState.index + 1"
+              :page-size="pageSize"
+              @previous="loadPreviousPage"
+              @next="loadNextPage"
+            />
           </div>
 
           <div class="col-12 col-xl-7">
@@ -205,8 +224,27 @@ const batchDetail = ref<StockGenerationBatch | null>(null)
 const selectedBatchId = ref('')
 const requestSerial = ref(0)
 const lastProgressKey = ref('')
+const pageSize = ref(10)
+const sortState = reactive<{ key: string, direction: 'asc' | 'desc' }>({
+  key: 'created_at',
+  direction: 'desc',
+})
+const meta = reactive<{ next_cursor: string | null, has_more: boolean }>({
+  next_cursor: null,
+  has_more: false,
+})
+const pageState = reactive<{ cursors: Array<string | null>, index: number }>({
+  cursors: [null],
+  index: 0,
+})
 let fallbackPollTimer: ReturnType<typeof setTimeout> | null = null
 
+const batchColumns = [
+  { key: 'id', label: 'Batch' },
+  { key: 'status', label: 'Status' },
+  { key: 'generated_count', label: 'Generated' },
+  { key: 'requested_count', label: 'Requested' },
+]
 const normalizedGameId = computed(() => String(props.gameId ?? '').trim())
 const realtimeChannelName = computed(() => normalizedGameId.value ? `private-admin.central.stock-generation.game.${normalizedGameId.value}` : '')
 const realtimeEnabled = computed(() => Boolean(normalizedGameId.value && session.isAuthenticated.value))
@@ -261,10 +299,17 @@ onBeforeUnmount(() => {
 })
 
 function manualRefresh() {
-  void loadBatches()
+  void loadBatches(pageState.cursors[pageState.index] || null, 'current')
 }
 
-async function loadBatches() {
+function applySort(next: { key: string, direction: 'asc' | 'desc' }) {
+  sortState.key = next.key
+  sortState.direction = next.direction
+  resetPaging()
+  void loadBatches(null, 'reset')
+}
+
+async function loadBatches(cursor: string | null = null, pageMode: 'reset' | 'next' | 'previous' | 'current' = 'reset') {
   if (!import.meta.client) {
     return
   }
@@ -279,6 +324,7 @@ async function loadBatches() {
     batches.value = []
     batchDetail.value = null
     selectedBatchId.value = ''
+    resetPaging()
     updateActiveState()
     stopFallbackPolling()
     return
@@ -292,7 +338,10 @@ async function loadBatches() {
       scope: 'central',
       query: {
         game_id: normalizedGameId.value,
-        limit: 10,
+        limit: pageSize.value,
+        cursor: cursor || undefined,
+        sort_by: sortState.key,
+        sort_dir: sortState.direction,
       },
     })
     if (requestSerial.value !== serial) {
@@ -300,6 +349,18 @@ async function loadBatches() {
     }
 
     batches.value = extractItems(response).map(normalizeBatch).filter((batch) => batch.id)
+    const responseMeta = extractMeta(response)
+    meta.next_cursor = responseMeta.next_cursor || null
+    meta.has_more = Boolean(responseMeta.has_more || responseMeta.next_cursor)
+    if (pageMode === 'reset') {
+      pageState.cursors = [null]
+      pageState.index = 0
+    } else if (pageMode === 'next') {
+      pageState.index += 1
+      pageState.cursors[pageState.index] = cursor
+    } else if (pageMode === 'previous') {
+      pageState.index = Math.max(0, pageState.index - 1)
+    }
     const nextSelected = activeBatch.value?.id
       || (selectedBatchId.value && batches.value.some((batch) => batch.id === selectedBatchId.value) ? selectedBatchId.value : '')
       || batches.value[0]?.id
@@ -322,6 +383,29 @@ async function loadBatches() {
       loading.value = false
     }
   }
+}
+
+function loadNextPage() {
+  if (!meta.next_cursor) {
+    return
+  }
+
+  void loadBatches(meta.next_cursor, 'next')
+}
+
+function loadPreviousPage() {
+  if (pageState.index <= 0) {
+    return
+  }
+
+  void loadBatches(pageState.cursors[pageState.index - 1] || null, 'previous')
+}
+
+function resetPaging() {
+  pageState.cursors = [null]
+  pageState.index = 0
+  meta.next_cursor = null
+  meta.has_more = false
 }
 
 async function loadBatchDetail(batchId: string, serial = requestSerial.value) {
@@ -602,6 +686,10 @@ function extractItems(response: any) {
   if (Array.isArray(response?.data?.items)) return response.data.items
   if (Array.isArray(response?.items)) return response.items
   return []
+}
+
+function extractMeta(response: any) {
+  return response?.meta || response?.data?.meta || {}
 }
 
 function extractData(response: any) {

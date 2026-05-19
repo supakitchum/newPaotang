@@ -939,6 +939,17 @@ a {
   min-height: 132px;
 }
 
+.lottery-row.is-unavailable {
+  opacity: .58;
+  filter: grayscale(.55);
+}
+
+.lottery-row.is-unavailable .outline-pill {
+  border-color: #b8c0cc;
+  color: #6c7685;
+  background: #eef1f5;
+}
+
 .lottery-row-placeholder {
   min-height: 100px;
   display: grid;

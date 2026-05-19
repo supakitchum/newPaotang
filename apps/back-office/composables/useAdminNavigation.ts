@@ -18,6 +18,7 @@ const scopedRouteOverrides: Record<string, string> = {
   'central:rewards': '/admin/central/rewards',
   'central:master_stock': '/admin/central/master-stock',
   'central:stock_generation': '/admin/central/stock-generation',
+  'central:stock_settings': '/admin/central/stock-settings',
   'central:stock_recall': '/admin/central/stock-recall',
   'central:stock_settings': '/admin/central/stock-settings',
   'central:stock_pattern_coverage': '/admin/central/stock-pattern-coverage',

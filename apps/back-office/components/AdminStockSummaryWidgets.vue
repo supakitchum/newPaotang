@@ -14,7 +14,7 @@
             <div class="card-body">
               <div class="d-flex align-items-start justify-content-between gap-3">
                 <div>
-                  <p class="text-muted mb-1">Total tickets</p>
+                  <p class="text-muted mb-1">Generated supply</p>
                   <h4 class="mb-1">{{ totalTicketsValue }}</h4>
                   <span class="text-muted fs-12">{{ totalTicketsHint }}</span>
                 </div>
@@ -40,10 +40,10 @@
                 </span>
               </div>
               <div class="d-flex flex-wrap gap-2 mt-3 fs-12">
-                <span class="badge bg-light text-default">Missing {{ card.missing }}</span>
-                <span class="badge bg-light text-default">Min {{ card.min }}</span>
-                <span class="badge bg-light text-default">Max {{ card.max }}</span>
-                <span class="badge bg-light text-default">Tickets {{ card.total }}</span>
+                <span class="badge bg-light text-default">{{ card.badgeOneLabel }} {{ card.missing }}</span>
+                <span class="badge bg-light text-default">{{ card.badgeTwoLabel }} {{ card.min }}</span>
+                <span class="badge bg-light text-default">{{ card.badgeThreeLabel }} {{ card.max }}</span>
+                <span class="badge bg-light text-default">{{ card.badgeFourLabel }} {{ card.total }}</span>
               </div>
             </div>
           </div>
@@ -92,6 +92,18 @@ type StockSummary = {
   total_count?: number
   empty?: boolean
   status_counts?: Record<string, number | undefined>
+  pattern_totals?: Record<string, {
+    pattern_count?: number
+    reserved_count?: number
+    sold_count?: number
+    used_count?: number
+    generated_count?: number
+    generated_remaining_count?: number
+    limit_total?: number | null
+    remaining_limit?: number | null
+    sellable_remaining_count?: number
+    limit_exceeds_supply_count?: number
+  }>
   number_coverage?: {
     back2?: StockCoverage
     back3?: StockCoverage
@@ -139,9 +151,9 @@ const statusTotalValue = computed(() => {
 })
 const statusHint = computed(() => loading.value ? 'Fetching status counts' : 'Available, allocated, sold, recalled, and voided')
 const coverageCards = computed(() => [
-  coverageCard('back2', '2-tail coverage', 'ri-stack-line', 'bg-success-transparent text-success'),
-  coverageCard('back3', '3-tail coverage', 'ri-grid-line', 'bg-info-transparent text-info'),
-  coverageCard('front3', '3-front coverage', 'ri-layout-grid-line', 'bg-secondary-transparent text-secondary'),
+  coverageCard('back2', '2-tail max limit', 'ri-stack-line', 'bg-success-transparent text-success'),
+  coverageCard('back3', '3-tail max limit', 'ri-grid-line', 'bg-info-transparent text-info'),
+  coverageCard('front3', '3-front max limit', 'ri-layout-grid-line', 'bg-secondary-transparent text-secondary'),
 ])
 const statusRows = computed(() => {
   const counts = summary.value?.status_counts || {}
@@ -202,17 +214,22 @@ async function loadSummary() {
 
 function coverageCard(key: 'back2' | 'back3' | 'front3', label: string, icon: string, colorClass: string) {
   const coverage = summary.value?.number_coverage?.[key]
+  const patternTotal = summary.value?.pattern_totals?.[key]
   return {
     key,
     label,
     icon,
     colorClass,
-    value: loading.value ? 'Loading' : coverage ? `${formatNumber(coverage.distinct_count)} / ${formatNumber(coverage.expected_distinct)}` : '-',
-    hint: loading.value ? 'Fetching coverage' : coverage ? 'Distinct values covered' : 'No coverage loaded',
-    missing: formatSummaryNumber(coverage?.missing_distinct_count),
-    min: formatSummaryNumber(coverage?.min_count_per_number),
-    max: formatSummaryNumber(coverage?.max_count_per_number),
-    total: formatSummaryNumber(coverage?.total_count),
+    value: loading.value ? 'Loading' : patternTotal ? formatNullableNumber(patternTotal.limit_total) : coverage ? `${formatNumber(coverage.distinct_count)} / ${formatNumber(coverage.expected_distinct)}` : '-',
+    hint: loading.value ? 'Fetching limits' : patternTotal ? `Configured across ${formatNumber(patternTotal.pattern_count)} patterns` : coverage ? 'Distinct values covered' : 'No coverage loaded',
+    missing: patternTotal ? formatSummaryNumber(patternTotal.generated_count) : formatSummaryNumber(coverage?.missing_distinct_count),
+    min: patternTotal ? formatNullableNumber(patternTotal.remaining_limit) : formatSummaryNumber(coverage?.min_count_per_number),
+    max: patternTotal ? formatSummaryNumber(patternTotal.sellable_remaining_count) : formatSummaryNumber(coverage?.max_count_per_number),
+    total: patternTotal ? formatSummaryNumber(patternTotal.used_count) : formatSummaryNumber(coverage?.total_count),
+    badgeOneLabel: patternTotal ? 'Generated' : 'Missing',
+    badgeTwoLabel: patternTotal ? 'Limit left' : 'Min',
+    badgeThreeLabel: patternTotal ? 'Sellable' : 'Max',
+    badgeFourLabel: patternTotal ? 'Used' : 'Tickets',
   }
 }
 
@@ -230,6 +247,12 @@ function cleanQuery(value: Record<string, string>) {
 
 function formatSummaryNumber(value: number | undefined) {
   if (loading.value || value === undefined || value === null) return '-'
+  return formatNumber(value)
+}
+
+function formatNullableNumber(value: number | null | undefined) {
+  if (loading.value) return '-'
+  if (value === null || value === undefined) return 'Unlimited'
   return formatNumber(value)
 }
 

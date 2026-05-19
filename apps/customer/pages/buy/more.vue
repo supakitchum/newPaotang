@@ -60,6 +60,9 @@ interface MoreNumberTicket {
   selected?: boolean
   highlight?: string
   highlightDigits?: Array<string | null>
+  remaining_count?: number | null
+  availability_status?: string | null
+  status?: string | null
 }
 
 interface MorePagination {
@@ -78,9 +81,11 @@ const router = useRouter()
 const platformApi = usePlatformApi()
 const tickets = ref<MoreNumberTicket[]>([])
 const pagination = ref<MorePagination | null>(null)
+const currentGameId = ref('')
 const isLoadingInitial = ref(false)
 const isLoadingMore = ref(false)
 let scrollContainer: HTMLElement | null = null
+let availabilityPollTimer: ReturnType<typeof setInterval> | null = null
 
 const skeletonItems = [1, 2, 3, 4, 5]
 const skeletonTicket: MoreNumberTicket = {
@@ -97,6 +102,12 @@ const totalPage = computed(() => pagination.value?.total_page ?? 1)
 const hasNextPage = computed(() => Boolean(pagination.value?.seed) && currentPage.value < totalPage.value)
 const showSkeletonItems = computed(() => isLoadingInitial.value && tickets.value.length === 0)
 const showEmptyState = computed(() => !isLoadingInitial.value && !isLoadingMore.value && tickets.value.length === 0)
+const realtime = useCustomerStockRealtime({
+  gameId: currentGameId,
+  enabled: computed(() => Boolean(currentGameId.value)),
+  onAvailability: (payload) => applyAvailabilityUpdate(payload),
+  onReconnect: () => { void search(false) }
+})
 
 const goBack = () => {
   if (process.client && window.history.length > 1) {
@@ -141,6 +152,40 @@ const updateSearchResult = (responseData: any, append = false) => {
 
   tickets.value = append ? [...tickets.value, ...nextTickets] : nextTickets
   pagination.value = result.pagination || null
+  currentGameId.value = String(result.game_id || currentGameId.value || '')
+}
+
+const applyAvailabilityUpdate = (payload: any) => {
+  const fullNumber = String(payload?.full_number || '').replace(/\D/g, '').slice(0, 6)
+
+  if (!fullNumber) {
+    return
+  }
+
+  tickets.value = tickets.value.map((ticket) => (
+    getTicketNumber(ticket) === fullNumber
+      ? {
+          ...ticket,
+          remaining_count: Number(payload.remaining_count || 0),
+          availability_status: payload.status || (Number(payload.remaining_count || 0) > 0 ? 'available' : 'sold_out'),
+          status: payload.status || ticket.status
+        }
+      : ticket
+  ))
+}
+
+const startAvailabilityPolling = () => {
+  if (availabilityPollTimer) {
+    clearInterval(availabilityPollTimer)
+  }
+
+  availabilityPollTimer = setInterval(() => {
+    if (realtime.status.value === 'connected' || isLoadingInitial.value || isLoadingMore.value || !selectedNumber.value) {
+      return
+    }
+
+    void search(false)
+  }, 30000)
 }
 
 const search = async (append = false) => {
@@ -210,11 +255,15 @@ onMounted(async () => {
     isLoadingInitial.value = false
   }
 
+  startAvailabilityPolling()
   scrollContainer = document.querySelector('.app-scroll')
   scrollContainer?.addEventListener('scroll', handleScroll, { passive: true })
 })
 
 onBeforeUnmount(() => {
   scrollContainer?.removeEventListener('scroll', handleScroll)
+  if (availabilityPollTimer) {
+    clearInterval(availabilityPollTimer)
+  }
 })
 </script>

@@ -11,6 +11,12 @@ User -> Coordinator -> Orchestrator -> Worker Agent -> QA Tester -> Coordinator
 - Backend Develop, BO Develop, Customer Develop และ QA Tester รับงานผ่าน Orchestrator prompt เท่านั้น
 - Agent ทุกตัวห้ามข้ามขั้นตอนหรือทำงานนอกบทบาทจนกว่า Coordinator จะสั่งชัดเจน
 
+## Coordinator Hotfix Direct Execution Rule
+
+Coordinator ห้ามทำ implementation, operation, migration, DB reset, deploy/runtime command, หรือแก้ code เองในงานปกติ ต้องทำหน้าที่สรุป requirement, แยก scope, ส่ง Orchestrator, รอ QA และตัดสินใจ gate เท่านั้น
+
+Coordinator ทำเกินหน้าที่และลงมือแก้/รันเองได้เฉพาะเมื่อคำสั่งผู้ใช้ใน turn นั้นระบุชัดว่า `Hotfix` เท่านั้น ถ้าไม่มีคำว่า `Hotfix` ให้ถือว่าเป็นงาน coordinator flow ปกติและห้าม direct execution
+
 ## Clarification Rule
 
 Coordinator ต้องถามผู้ใช้หรือขอความเห็นเมื่อเจอข้อมูลไม่ชัดเจนในส่วนที่มีผลต่อ architecture, scope, security, tenant isolation, payment, wallet, reward, permission, หรือ customer flow
@@ -181,3 +187,20 @@ QA report ต้องบันทึกชื่อ database ที่ใช้
 3. ต้อง stage/commit/push งานที่ผ่าน approval แล้วก่อนเริ่ม M ใหม่
 4. ห้าม Orchestrator เปิด task ใหม่ของ M ถัดไปจนกว่า push สำเร็จ หรือผู้ใช้สั่งข้ามเป็นลายลักษณ์อักษร
 ```
+
+## Coordinator Pre-Dispatch Sync Rule
+
+Coordinator ต้องเคลียร์ git ก่อนเริ่มหรือส่งงานใหม่ทุกครั้ง เพื่อป้องกัน agent ตัวอื่นอ่านไฟล์เก่า หรืองานที่ทำแล้วหายจาก worktree
+
+ก่อน dispatch งานให้ Orchestrator หรือ agent ใด ๆ Coordinator ต้องทำและบันทึกผล:
+
+```text
+1. git fetch origin
+2. git status --short --branch
+3. ถ้า local branch ตามหลัง origin ต้อง merge/fast-forward origin เข้ามาก่อน
+4. ถ้ามีงานที่ผ่าน QA/Coordinator approval หรือ hotfix ที่ทำเสร็จแล้ว ต้อง stage/commit/push ก่อนเปิดงานใหม่
+5. ถ้ายังมี dirty/untracked files ที่ยังไม่ควร commit ต้องระบุใน handoff ว่าเป็น unrelated/local artifact และห้ามให้ agent อื่นอิงไฟล์นั้น
+6. หลัง push ต้องระบุ branch และ commit hash ล่าสุดใน handoff/BOARD
+```
+
+ห้าม Coordinator เปิด task ใหม่บน worktree ที่ยังมี implementation/docs changes ค้างโดยไม่ commit/push เว้นแต่ผู้ใช้สั่งข้ามเป็นลายลักษณ์อักษรใน turn นั้นโดยตรง

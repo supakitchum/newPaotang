@@ -69,6 +69,9 @@ interface LotteryTicket {
   sort_order?: number | string
   selected?: boolean
   highlight?: string
+  remaining_count?: number | null
+  availability_status?: string | null
+  status?: string | null
 }
 
 const platformApi = usePlatformApi()
@@ -77,12 +80,14 @@ const { currentDrawDate: drawDate } = useAppInit()
 const lotteries = ref<LotteryTicket[]>([])
 const seed = ref<string | null>(null)
 const nextCursor = ref<string | null>(null)
+const currentGameId = ref('')
 const isLoadingInitial = ref(false)
 const isRefreshing = ref(false)
 const isLoadingMore = ref(false)
 const cooldownSeconds = ref(0)
 const canBuyLottery = ref(true)
 let cooldownTimer: ReturnType<typeof setInterval> | null = null
+let availabilityPollTimer: ReturnType<typeof setInterval> | null = null
 let scrollContainer: HTMLElement | null = null
 
 definePageMeta({
@@ -112,6 +117,12 @@ const refreshButtonText = computed(() => {
 
   return 'แสดงเลขใหม่'
 })
+const realtime = useCustomerStockRealtime({
+  gameId: currentGameId,
+  enabled: computed(() => Boolean(currentGameId.value)),
+  onAvailability: (payload) => applyAvailabilityUpdate(payload),
+  onReconnect: () => { void getData() }
+})
 
 const startCooldown = () => {
   cooldownSeconds.value = 10
@@ -140,6 +151,7 @@ async function getData(options: { append?: boolean, cursor?: string | null } = {
       const result = response.data.result || {}
       const pagination = response.data.result.pagination || {}
       const nextLotteries = response.data.result.lotteries || []
+      currentGameId.value = String(result.game_id || currentGameId.value || '')
       canBuyLottery.value = result.bet_status !== 0
       lotteries.value = options.append ? [...lotteries.value, ...nextLotteries] : nextLotteries
       seed.value = pagination.seed || seed.value
@@ -156,6 +168,41 @@ async function getData(options: { append?: boolean, cursor?: string | null } = {
 
     console.log(e)
   }
+}
+
+const ticketFullNumber = (ticket: Partial<LotteryTicket>) => String(ticket.full_number || ticket.number || '').replace(/\D/g, '').slice(0, 6)
+
+const applyAvailabilityUpdate = (payload: any) => {
+  const fullNumber = String(payload?.full_number || '').replace(/\D/g, '').slice(0, 6)
+
+  if (!fullNumber) {
+    return
+  }
+
+  lotteries.value = lotteries.value.map((ticket) => (
+    ticketFullNumber(ticket) === fullNumber
+      ? {
+          ...ticket,
+          remaining_count: Number(payload.remaining_count || 0),
+          availability_status: payload.status || (Number(payload.remaining_count || 0) > 0 ? 'available' : 'sold_out'),
+          status: payload.status || ticket.status
+        }
+      : ticket
+  ))
+}
+
+const startAvailabilityPolling = () => {
+  if (availabilityPollTimer) {
+    clearInterval(availabilityPollTimer)
+  }
+
+  availabilityPollTimer = setInterval(() => {
+    if (realtime.status.value === 'connected' || isLoadingInitial.value || isRefreshing.value || isLoadingMore.value) {
+      return
+    }
+
+    void getData()
+  }, 30000)
 }
 
 const loadNextPage = async () => {
@@ -208,6 +255,7 @@ onMounted(async () => {
   isLoadingInitial.value = true
   await getData()
   isLoadingInitial.value = false
+  startAvailabilityPolling()
   scrollContainer = document.querySelector('.app-scroll')
   scrollContainer?.addEventListener('scroll', handleScroll, { passive: true })
 })
@@ -215,6 +263,10 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   if (cooldownTimer) {
     clearInterval(cooldownTimer)
+  }
+
+  if (availabilityPollTimer) {
+    clearInterval(availabilityPollTimer)
   }
 
   scrollContainer?.removeEventListener('scroll', handleScroll)

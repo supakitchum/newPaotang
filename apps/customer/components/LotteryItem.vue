@@ -1,5 +1,5 @@
 <template>
-  <article class="lottery-row" :class="{ 'is-lazy': loading }">
+  <article class="lottery-row" :class="{ 'is-lazy': loading, 'is-unavailable': isUnavailable }">
     <template v-if="!loading">
       <div class="d-flex justify-content-between align-items-start gap-3">
         <div class="ticket-brand">
@@ -61,7 +61,7 @@
           v-else
           class="outline-pill px-4 py-2"
           type="button"
-          :disabled="isBooking || bookingDisabled"
+          :disabled="isBooking || bookingDisabled || isUnavailable"
           @click="handleBooking"
         >
           {{ selectButtonText }}
@@ -122,6 +122,9 @@ const props = defineProps<{
     image_thumb_url?: string | null
     image_status?: string | null
     image_error?: string | null
+    remaining_count?: number | null
+    availability_status?: string | null
+    status?: string | null
   }
   confirmRemove?: boolean
   loading?: boolean
@@ -151,8 +154,18 @@ const getTicketNumber = (ticket: typeof props.ticket) => {
 }
 const ticketNumber = computed(() => getTicketNumber(props.ticket))
 const showMoreLink = computed(() => route.path !== '/buy/more')
+const isUnavailable = computed(() => {
+  const status = String(props.ticket.availability_status || props.ticket.status || '').toLowerCase()
+  const hasRemainingCount = props.ticket.remaining_count !== null && props.ticket.remaining_count !== undefined
+
+  return (hasRemainingCount && Number(props.ticket.remaining_count) <= 0) || ['sold_out', 'sold', 'reserved', 'unavailable'].includes(status)
+})
 const bookingDisabled = computed(() => Boolean(props.bookingDisabled))
 const selectButtonText = computed(() => {
+  if (isUnavailable.value) {
+    return 'ขายหมดแล้ว'
+  }
+
   if (bookingDisabled.value) {
     return 'ปิดรับซื้อ'
   }
@@ -234,7 +247,7 @@ const handleCancelBooking = async () => {
 }
 
 const handleBooking = async () => {
-  if (isBooking.value || bookingDisabled.value) {
+  if (isBooking.value || bookingDisabled.value || isUnavailable.value) {
     return
   }
 

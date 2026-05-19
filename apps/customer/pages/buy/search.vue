@@ -68,6 +68,9 @@ interface LotteryTicket {
   selected?: boolean
   highlight?: string
   highlightDigits?: Array<string | null>
+  remaining_count?: number | null
+  availability_status?: string | null
+  status?: string | null
 }
 
 interface SearchPagination {
@@ -88,10 +91,12 @@ const { currentDrawDate: displayDrawDate } = useAppInit()
 const searchDigits = ref<string[]>(['', '', '', '', '', ''])
 const lotteries = ref<LotteryTicket[]>([])
 const pagination = ref<SearchPagination | null>(null)
+const currentGameId = ref('')
 const isSearching = ref(false)
 const isLoadingMore = ref(false)
 const hasSearched = ref(false)
 let scrollContainer: HTMLElement | null = null
+let availabilityPollTimer: ReturnType<typeof setInterval> | null = null
 
 const skeletonItems = [1, 2, 3, 4, 5]
 const skeletonTicket: LotteryTicket = {
@@ -110,6 +115,16 @@ const totalPage = computed(() => pagination.value?.total_page ?? 1)
 const hasNextPage = computed(() => Boolean(pagination.value?.seed) && currentPage.value < totalPage.value)
 const showSkeletonItems = computed(() => isSearching.value && lotteries.value.length === 0)
 const showEmptyState = computed(() => hasSearched.value && !isSearching.value && !isLoadingMore.value && lotteries.value.length === 0)
+const realtime = useCustomerStockRealtime({
+  gameId: currentGameId,
+  enabled: computed(() => Boolean(currentGameId.value)),
+  onAvailability: (payload) => applyAvailabilityUpdate(payload),
+  onReconnect: () => {
+    if (hasSearched.value) {
+      void search()
+    }
+  }
+})
 
 const handleDigitsUpdate = (digits: string[]) => {
   searchDigits.value = digits.slice(0, 6)
@@ -155,6 +170,40 @@ const updateSearchResult = (responseData: any, append = false) => {
 
   lotteries.value = append ? [...lotteries.value, ...nextLotteries] : nextLotteries
   pagination.value = result.pagination || null
+  currentGameId.value = String(result.game_id || currentGameId.value || '')
+}
+
+const applyAvailabilityUpdate = (payload: any) => {
+  const fullNumber = String(payload?.full_number || '').replace(/\D/g, '').slice(0, 6)
+
+  if (!fullNumber) {
+    return
+  }
+
+  lotteries.value = lotteries.value.map((ticket) => (
+    getTicketNumber(ticket) === fullNumber
+      ? {
+          ...ticket,
+          remaining_count: Number(payload.remaining_count || 0),
+          availability_status: payload.status || (Number(payload.remaining_count || 0) > 0 ? 'available' : 'sold_out'),
+          status: payload.status || ticket.status
+        }
+      : ticket
+  ))
+}
+
+const startAvailabilityPolling = () => {
+  if (availabilityPollTimer) {
+    clearInterval(availabilityPollTimer)
+  }
+
+  availabilityPollTimer = setInterval(() => {
+    if (realtime.status.value === 'connected' || isSearching.value || isLoadingMore.value || !hasSearched.value) {
+      return
+    }
+
+    void search()
+  }, 30000)
 }
 
 const search = async () => {
@@ -236,9 +285,13 @@ const removeLottery = (ticket: LotteryTicket) => {
 onMounted(() => {
   scrollContainer = document.querySelector('.app-scroll')
   scrollContainer?.addEventListener('scroll', handleScroll, {passive: true})
+  startAvailabilityPolling()
 })
 
 onBeforeUnmount(() => {
   scrollContainer?.removeEventListener('scroll', handleScroll)
+  if (availabilityPollTimer) {
+    clearInterval(availabilityPollTimer)
+  }
 })
 </script>

@@ -217,6 +217,7 @@ services:
       VITE_ADMIN_API_BASE: http://localhost:8000/api/v1
       VITE_ADMIN_REALTIME_URL: http://localhost:8080
       VITE_ADMIN_REALTIME_KEY: newpaotang-admin
+      NUXT_BUILD_DIR: /tmp/newpaotang-back-office-nuxt
     ports:
       - "3100:3100"
     volumes:

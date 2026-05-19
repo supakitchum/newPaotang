@@ -11,7 +11,7 @@ export type OperationOption = string | {
   close_at?: string
   server_time?: string
 }
-export type OperationOptionSource = 'central-games'
+export type OperationOptionSource = 'central-games' | 'central-partners'
 
 export type OperationColumn = {
   key: string
@@ -33,7 +33,7 @@ export type OperationFilter = {
 export type OperationFormField = {
   key: string
   label: string
-  type?: 'text' | 'number' | 'textarea' | 'json' | 'select' | 'checkbox' | 'date' | 'datetime-local' | 'datetime-range' | 'lines' | 'password' | 'color' | 'prize-lines' | 'reward-prize-grid' | 'reward-prize-number-grid' | 'reward-prize-amount-grid'
+  type?: 'text' | 'number' | 'textarea' | 'json' | 'select' | 'checkbox' | 'date' | 'datetime-local' | 'datetime-range' | 'lines' | 'password' | 'color' | 'prize-lines' | 'reward-prize-grid' | 'reward-prize-number-grid' | 'reward-prize-amount-grid' | 'stock-set-distribution' | 'stock-sale-limits' | 'stock-partner-distribution' | 'stock-partner-limits'
   sourceKey?: string
   rangeStartKey?: string
   rangeEndKey?: string
@@ -46,17 +46,18 @@ export type OperationFormField = {
   optionSource?: OperationOptionSource
   hideEmptyOption?: boolean
   emptyOptionLabel?: string
-  defaultValueSource?: 'current-game'
+  defaultValueSource?: 'current-game' | 'stock-set-distribution-default'
   currentOnly?: boolean
   required?: boolean
   placeholder?: string
-  defaultValue?: string | number | boolean | null
+  defaultValue?: any
   help?: string
   min?: number
   step?: number
   itemKey?: string
   emptyValue?: 'array'
   partial?: boolean
+  visibleForGenerationModes?: string[]
 }
 
 export type OperationAction = {
@@ -1894,40 +1895,20 @@ const central: OperationResource[] = [
             help: 'Generate stock only for the current open draw.',
           }),
           {
-            key: 'generation_mode',
-            label: 'Generation mode',
-            type: 'select',
-            options: ['virtual_profile'],
-            defaultValue: 'virtual_profile',
-            hideEmptyOption: true,
-            required: true,
-            help: 'Current backend accepts virtual_profile only.',
-          },
-          {
             key: 'seed',
             label: 'Seed',
             placeholder: 'Optional deterministic seed',
           },
           {
             key: 'set_distribution',
-            label: 'Set distribution JSON',
-            type: 'json',
-            defaultValue: '[{"set_size":2,"percent":10},{"set_size":3,"percent":15}]',
-            help: 'Capacity distribution across base lottery numbers. Percent total must not exceed 100.',
-          },
-          {
-            key: 'central_limits',
-            label: 'Central limits JSON',
-            type: 'json',
-            defaultValue: '{}',
-            help: 'Optional back2_limit/back3_limit/front3_limit overrides for this game.',
-          },
-          {
-            key: 'partner_limits',
-            label: 'Partner limits JSON',
-            type: 'json',
-            defaultValue: '[]',
-            help: 'Optional array of partner_id plus back2_limit/back3_limit/front3_limit.',
+            label: 'Set distribution',
+            type: 'stock-set-distribution',
+            defaultValueSource: 'stock-set-distribution-default',
+            defaultValue: [
+              { set_size: 2, percent: 10 },
+              { set_size: 3, percent: 15 },
+            ],
+            help: 'Percent is based on the seeded base lottery numbers; the remaining percent defaults to single-ticket capacity.',
           },
         ],
       },
@@ -2016,6 +1997,7 @@ const central: OperationResource[] = [
         formFields: gameUpdateFields,
       },
       { key: 'lottery-images', label: 'Lottery images', route: adminUiRoute('central', 'lottery-images?game_id={id}'), variant: 'success', contextFields: gameActionContext },
+      { key: 'stock-coverage', label: 'Stock coverage', route: adminUiRoute('central', 'games/{id}/stock-coverage'), variant: 'info', contextFields: gameActionContext },
       { key: 'close', label: 'Close', endpoint: '/admin/central/games/{game_id}/close', variant: 'warning', reason: true, contextFields: gameActionContext },
       { key: 'archive', label: 'Archive', endpoint: '/admin/central/games/{game_id}/archive', variant: 'danger', reason: true, contextFields: gameActionContext },
     ],

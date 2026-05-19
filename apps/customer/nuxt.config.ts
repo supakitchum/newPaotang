@@ -4,7 +4,9 @@ export default defineNuxtConfig({
   telemetry: false,
   runtimeConfig: {
     public: {
-      apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || '/api/v1'
+      apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || '/api/v1',
+      customerRealtimeUrl: process.env.NUXT_PUBLIC_CUSTOMER_REALTIME_URL || process.env.NUXT_PUBLIC_REALTIME_URL || '',
+      customerRealtimeKey: process.env.NUXT_PUBLIC_CUSTOMER_REALTIME_KEY || process.env.NUXT_PUBLIC_REALTIME_KEY || 'newpaotang-customer'
     }
   },
   css: [

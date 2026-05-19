@@ -7,31 +7,17 @@ Latest pushed commits on `develop`:
 - `b9880dc` - hardened admin session restore.
 - `bf56bfd` - added lottery `logo_num_set` layout support.
 
-Current follow-up work changes central stock generation to quota-based 6-digit random pairing.
+Current follow-up work adds virtual/lazy stock generation with realtime customer availability. See `docs/virtual-stock-realtime.md`.
 
-## Stock Generate Quota Contract
+Important update:
+- `POST /admin/central/stock/generate` now supports virtual stock profile generation only. The previous physical quota/range payload is retired and rejected.
+- BO Central -> Stock Settings (`/admin/central/stock-settings`) manages the default set distribution in `platform_system_settings.stock_set_distribution_default`.
+- BO Central -> Stock Generation loads the default set distribution into the Generate stock modal, then sends `generation_mode=virtual_profile` plus `set_distribution`; partner distribution and sale limits belong in Stock Settings / Stock Pattern Coverage, not in the generate modal.
+- Virtual games use `stock_supply_profiles`, partner distribution, sale limit settings, and `virtual_stock_counters`.
+- Customer search returns virtual `stock_ref` rows and reservation lazily materializes real `stock_items/local_stock_items`.
+- Customer realtime event is `stock.availability.updated` on `private-customer.tenant.{tenant_id}.stock.game.{game_id}`.
 
-- `POST /admin/central/stock/generate` no longer accepts `start_number`, `count`, `requested_count`, `number_digits`, or range fields.
-- The accepted payload can use either `total_count` alone, or the three manual quota fields below.
-- With `total_count`, backend derives:
-  - `back3_count_per_number = total_count / 1000`
-  - `front3_count_per_number = back3_count_per_number`
-  - `back2_count_per_number = back3_count_per_number * 10`
-- Manual quota payload fields:
-  - `back2_count_per_number`
-  - `back3_count_per_number`
-  - `front3_count_per_number`
-- Validation is strict:
-  - `back2_count_per_number = back3_count_per_number * 10`
-  - `front3_count_per_number = back3_count_per_number`
-  - total generated stock rows = `1000 * back3_count_per_number`
-  - `back3_count_per_number` must stay within the synchronous 10,000-row cap.
-- Generation always uses 6-digit numbers built from `front3 + back3`.
-- Each round pairs front3 `000-999` with a deterministic shuffled back3 list seeded by game, idempotency key, and round.
-- Per round, every front3 appears once, every back3 appears once, and every back2 appears 10 times.
-- Duplicate 6-digit values remain allowed by the current stock model when produced by separate batches/rounds.
-- BO Generate Stock form now exposes `total_count` plus optional manual quota fields and no longer shows start/count.
-- OpenAPI and BO CRUD coverage docs have been updated for the quota contract.
+Legacy physical quota generation notes are obsolete. Do not route new work or QA against `total_count`, `back2_count_per_number`, `back3_count_per_number`, `front3_count_per_number`, `start_number`, `count`, or async physical generation chunks.
 
 Verification completed:
 
@@ -106,3 +92,4 @@ docker compose -p newpaotang exec -T platform-api php artisan platform:smoke
 - Do not add a separate upload field for `logo_num_set`; it must follow the partner `logo_qr` asset and only use a separate layout slot.
 - Partner branding overlays (`logo_qr`, `logo_num_set`, `right_sidebar`, `logo_bottom`) must not render on central base stock images.
 - Partner/tenant users must not access lottery image or lottery branding management.
+- Coordinator must fetch/merge, commit, and push approved/hotfix work before dispatching any new task. New work must not start from a dirty or behind worktree unless the user explicitly instructs a bypass in that same turn.

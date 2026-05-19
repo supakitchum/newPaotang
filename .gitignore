@@ -40,6 +40,7 @@ ai-agents/reports/artifacts/**/after-api-evidence.php
 
 # Local archives / duplicated source bundles
 document.zip
+backups/
 
 # Admin template: keep source reference, skip generated/heavy output
 admin_dashboard_template/**/dist/

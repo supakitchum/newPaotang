@@ -22,7 +22,7 @@ stock-generation-coverage-usability
 ## Open Questions
 
 ```text
-Orchestrator must split stock-generation-coverage-usability into Backend Develop, BO Develop, and QA Tester tasks. Highest-risk backend item is correct virtual Tickets sort by generated capacity.
+stock-generation-coverage-usability has Backend/BO handoffs and QA dispatch. QA Tester should validate the merged branch after this hotfix push.
 ```
 
 ## Latest Decision

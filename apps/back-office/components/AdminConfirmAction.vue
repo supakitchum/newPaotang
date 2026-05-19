@@ -12,8 +12,8 @@
       </dl>
     </div>
 
-    <div v-if="formFields.length" class="row g-3 mb-3">
-      <div v-for="field in formFields" :key="field.key" :class="fieldColumnClass(field)">
+    <div v-if="visibleFormFields.length" class="row g-3 mb-3">
+      <div v-for="field in visibleFormFields" :key="field.key" :class="fieldColumnClass(field)">
         <div v-if="field.type === 'checkbox'" class="form-check form-switch mt-4">
           <input :id="fieldId(field.key)" v-model="formState[field.key]" class="form-check-input" type="checkbox">
           <label class="form-check-label" :for="fieldId(field.key)">{{ field.label }}</label>
@@ -113,6 +113,90 @@
               </div>
             </section>
           </div>
+          <div v-else-if="field.type === 'stock-set-distribution'" class="np-stock-config-panel">
+            <div class="np-stock-set-table">
+              <div class="np-stock-set-table__head">
+                <span>Set size</span>
+                <span>Percent</span>
+                <span></span>
+              </div>
+              <div v-for="(row, index) in formState[field.key]" :key="row.__key || index" class="np-stock-set-table__row">
+                <input
+                  v-model.number="row.set_size"
+                  class="form-control"
+                  type="number"
+                  min="1"
+                  max="99"
+                  step="1"
+                  placeholder="2"
+                >
+                <div class="input-group">
+                  <input
+                    v-model.number="row.percent"
+                    class="form-control"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    placeholder="10"
+                  >
+                  <span class="input-group-text">%</span>
+                </div>
+                <button class="btn btn-light btn-icon" type="button" title="Remove set" @click="removeStockSetDistributionRow(field, index)">
+                  <i class="ri-delete-bin-line" />
+                </button>
+              </div>
+            </div>
+            <button class="btn btn-outline-primary btn-sm btn-wave mt-3" type="button" @click="addStockSetDistributionRow(field)">
+              <i class="ri-add-line me-1" /> Add set
+            </button>
+          </div>
+          <div v-else-if="field.type === 'stock-sale-limits'" class="np-stock-config-panel">
+            <div class="np-stock-config-grid">
+              <div>
+                <label class="form-label text-muted small" :for="fieldId(`${field.key}-back2`)">2 เลขท้าย</label>
+                <input :id="fieldId(`${field.key}-back2`)" v-model.number="formState[field.key].back2_limit" class="form-control" type="number" min="0" step="1">
+              </div>
+              <div>
+                <label class="form-label text-muted small" :for="fieldId(`${field.key}-back3`)">3 เลขท้าย</label>
+                <input :id="fieldId(`${field.key}-back3`)" v-model.number="formState[field.key].back3_limit" class="form-control" type="number" min="0" step="1">
+              </div>
+              <div>
+                <label class="form-label text-muted small" :for="fieldId(`${field.key}-front3`)">3 เลขหน้า</label>
+                <input :id="fieldId(`${field.key}-front3`)" v-model.number="formState[field.key].front3_limit" class="form-control" type="number" min="0" step="1">
+              </div>
+            </div>
+          </div>
+          <div v-else-if="field.type === 'stock-partner-distribution'" class="np-stock-config-panel">
+            <AdminEmptyState v-if="!(formState[field.key] || []).length" title="No partners" message="Create or load partners before setting partner distribution." icon="ri-store-2-line" />
+            <div v-else class="np-stock-partner-table">
+              <div class="np-stock-partner-table__head">
+                <span>Partner</span>
+                <span>Distribution %</span>
+              </div>
+              <div v-for="row in formState[field.key]" :key="row.partner_id" class="np-stock-partner-table__row">
+                <div class="text-truncate">{{ row.label }}</div>
+                <input v-model.number="row.percent" class="form-control" type="number" min="0" max="100" step="0.01">
+              </div>
+            </div>
+          </div>
+          <div v-else-if="field.type === 'stock-partner-limits'" class="np-stock-config-panel">
+            <AdminEmptyState v-if="!(formState[field.key] || []).length" title="No partners" message="Create or load partners before setting partner limits." icon="ri-store-2-line" />
+            <div v-else class="np-stock-partner-table np-stock-partner-table--limits">
+              <div class="np-stock-partner-table__head">
+                <span>Partner</span>
+                <span>2 ท้าย</span>
+                <span>3 ท้าย</span>
+                <span>3 หน้า</span>
+              </div>
+              <div v-for="row in formState[field.key]" :key="row.partner_id" class="np-stock-partner-table__row">
+                <div class="text-truncate">{{ row.label }}</div>
+                <input v-model.number="row.back2_limit" class="form-control" type="number" min="0" step="1">
+                <input v-model.number="row.back3_limit" class="form-control" type="number" min="0" step="1">
+                <input v-model.number="row.front3_limit" class="form-control" type="number" min="0" step="1">
+              </div>
+            </div>
+          </div>
           <textarea
             v-else-if="field.type === 'textarea' || field.type === 'json' || field.type === 'lines' || field.type === 'prize-lines'"
             :id="fieldId(field.key)"
@@ -138,37 +222,6 @@
             {{ message }}
           </div>
         </template>
-      </div>
-      <div v-if="hasStockGenerateQuotaFields" class="col-12">
-        <div class="np-stock-quota-panel" :class="{ 'np-stock-quota-panel--invalid': formValidationMessages.length }">
-          <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
-            <div>
-              <div class="fw-semibold">Stock quota check</div>
-              <div class="text-muted small">2-tail = 10 x 3-tail, 3-front = 3-tail, total = 1,000 x 3-tail.</div>
-            </div>
-          </div>
-          <div class="np-stock-quota-panel__grid">
-            <div>
-              <span class="text-muted small">2-tail</span>
-              <strong>{{ stockQuotaPreview.back2 }}</strong>
-            </div>
-            <div>
-              <span class="text-muted small">3-tail</span>
-              <strong>{{ stockQuotaPreview.back3 }}</strong>
-            </div>
-            <div>
-              <span class="text-muted small">3-front</span>
-              <strong>{{ stockQuotaPreview.front3 }}</strong>
-            </div>
-            <div>
-              <span class="text-muted small">Total</span>
-              <strong>{{ stockQuotaPreview.total }}</strong>
-            </div>
-          </div>
-          <div v-if="formValidationMessages.length" class="text-danger small mt-2">
-            <div v-for="message in formValidationMessages" :key="message">{{ message }}</div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -213,6 +266,7 @@ const payloadJson = ref('')
 const formState = reactive<Record<string, any>>({})
 
 const formFields = computed(() => props.formFields || [])
+const visibleFormFields = computed(() => formFields.value.filter(isFieldVisible))
 const sourceRecord = computed(() => props.recordContext?.__raw || props.recordContext || {})
 const contextItems = computed(() => (props.contextFields || [])
   .map((key) => ({
@@ -228,7 +282,7 @@ const missingRequired = computed(() => {
     return true
   }
 
-  return formFields.value.some((field) => {
+  return visibleFormFields.value.some((field) => {
     if (!field.required) return false
     if (field.type === 'datetime-range') {
       return isBlank(formState[rangeStartFormKey(field)]) || isBlank(formState[rangeEndFormKey(field)])
@@ -251,15 +305,6 @@ const missingRequired = computed(() => {
 
 const formValidationMessages = computed(() => [...new Set(Object.values(validationMessagesByField.value).flat())])
 const confirmDisabled = computed(() => Boolean(props.loading || missingRequired.value || formValidationMessages.value.length))
-const hasStockGenerateQuotaFields = computed(() => stockGenerateQuotaKeys.every((key) => (
-  formFields.value.some((field) => field.key === key)
-)))
-const stockQuotaPreview = computed(() => ({
-  back2: formatQuotaPreview(formState.back2_count_per_number),
-  back3: formatQuotaPreview(formState.back3_count_per_number),
-  front3: formatQuotaPreview(formState.front3_count_per_number),
-  total: formatQuotaPreview(formState.total_count),
-}))
 const validationMessagesByField = computed(() => {
   const messages: Record<string, string[]> = {}
   const add = (key: string, message: string) => {
@@ -267,6 +312,10 @@ const validationMessagesByField = computed(() => {
   }
 
   for (const field of formFields.value) {
+    if (!isFieldVisible(field)) {
+      continue
+    }
+
     if (
       field.defaultValueSource === 'current-game'
       && field.required
@@ -276,78 +325,6 @@ const validationMessagesByField = computed(() => {
       add(field.key, 'No single current draw/current game is available. Open exactly one current game before generating stock.')
       add('__form', 'Select a current game before submitting.')
     }
-  }
-
-  if (!hasStockGenerateQuotaFields.value) {
-    return messages
-  }
-
-  const total = integerValue(formState.total_count)
-  const back2 = integerValue(formState.back2_count_per_number)
-  const back3 = integerValue(formState.back3_count_per_number)
-  const front3 = integerValue(formState.front3_count_per_number)
-  const hasAnyQuotaInput = [
-    formState.total_count,
-    formState.back2_count_per_number,
-    formState.back3_count_per_number,
-    formState.front3_count_per_number,
-  ].some((value) => !isBlank(value))
-
-  if (!hasAnyQuotaInput) {
-    add('__form', 'Enter total tickets or one quota value before submitting.')
-  }
-
-  if (hasAnyQuotaInput) {
-    for (const [key, label] of [
-      ['total_count', 'Total tickets'],
-      ['back2_count_per_number', '2-tail quota'],
-      ['back3_count_per_number', '3-tail quota'],
-      ['front3_count_per_number', '3-front quota'],
-    ]) {
-      if (isBlank(formState[key])) {
-        add(key, `${label} must stay filled after quota sync.`)
-      }
-    }
-  }
-
-  if (!isBlank(formState.total_count)) {
-    if (total === null || total < 1000) {
-      add('total_count', 'Total tickets must be at least 1,000.')
-    } else if (total % 1000 !== 0) {
-      add('total_count', 'Total tickets must be divisible by 1,000.')
-    }
-  }
-
-  if (!isBlank(formState.back2_count_per_number)) {
-    if (back2 === null || back2 < 1) {
-      add('back2_count_per_number', '2-tail quota must be a positive whole number.')
-    } else if (back2 % 10 !== 0) {
-      add('back2_count_per_number', '2-tail quota must be divisible by 10.')
-    }
-  }
-
-  if (!isBlank(formState.back3_count_per_number)) {
-    if (back3 === null || back3 < 1) {
-      add('back3_count_per_number', '3-tail quota must be a positive whole number.')
-    }
-  }
-
-  if (!isBlank(formState.front3_count_per_number)) {
-    if (front3 === null || front3 < 1) {
-      add('front3_count_per_number', '3-front quota must be a positive whole number.')
-    }
-  }
-
-  if (back2 !== null && back3 !== null && back2 !== back3 * 10) {
-    add('back2_count_per_number', '2-tail quota must equal 10 x 3-tail quota.')
-  }
-
-  if (front3 !== null && back3 !== null && front3 !== back3) {
-    add('front3_count_per_number', '3-front quota must equal 3-tail quota.')
-  }
-
-  if (total !== null && back3 !== null && total !== back3 * 1000) {
-    add('total_count', 'Total tickets must equal 1,000 x 3-tail quota.')
   }
 
   return messages
@@ -378,86 +355,43 @@ const resetFormState = () => {
   }
 }
 
-const stockGenerateQuotaKeys = [
-  'total_count',
-  'back2_count_per_number',
-  'back3_count_per_number',
-  'front3_count_per_number',
-]
-
 const fieldValidationMessages = (field: OperationFormField) => validationMessagesByField.value[field.key] || []
 
-const handleFieldInput = (field: OperationFormField, event: Event) => {
-  if (!stockGenerateQuotaKeys.includes(field.key)) {
-    return
+const isFieldVisible = (field: OperationFormField) => {
+  if (!field.visibleForGenerationModes?.length) {
+    return true
   }
 
-  const target = event.target as HTMLInputElement | null
-  if (target) {
-    formState[field.key] = target.value
-  }
-
-  syncStockQuotaFields(field.key)
+  return field.visibleForGenerationModes.includes(String(formState.generation_mode || ''))
 }
 
-const syncStockQuotaFields = (sourceKey: string) => {
-  if (!hasStockGenerateQuotaFields.value) {
-    return
+const addStockSetDistributionRow = (field: OperationFormField) => {
+  const rows = Array.isArray(formState[field.key]) ? formState[field.key] : []
+  const usedSetSizes = new Set(rows.map((row: any) => Number(row?.set_size)).filter(Number.isFinite))
+  let nextSetSize = 2
+  while (usedSetSizes.has(nextSetSize)) {
+    nextSetSize += 1
   }
 
-  const sourceValue = integerValue(formState[sourceKey])
-  if (sourceValue === null || sourceValue < 1) {
-    return
-  }
-
-  const back3 = back3FromQuotaSource(sourceKey, sourceValue)
-  if (back3 === null || back3 < 1) {
-    return
-  }
-
-  formState.back2_count_per_number = back3 * 10
-  formState.back3_count_per_number = back3
-  formState.front3_count_per_number = back3
-  formState.total_count = back3 * 1000
+  rows.push({
+    __key: stockSetRowKey(nextSetSize, rows.length),
+    set_size: nextSetSize,
+    percent: '',
+  })
+  formState[field.key] = rows
 }
 
-const back3FromQuotaSource = (sourceKey: string, value: number) => {
-  if (sourceKey === 'total_count') {
-    return value % 1000 === 0 ? value / 1000 : null
-  }
-
-  if (sourceKey === 'back2_count_per_number') {
-    return value % 10 === 0 ? value / 10 : null
-  }
-
-  if (sourceKey === 'back3_count_per_number' || sourceKey === 'front3_count_per_number') {
-    return value
-  }
-
-  return null
+const removeStockSetDistributionRow = (field: OperationFormField, index: number) => {
+  const rows = Array.isArray(formState[field.key]) ? formState[field.key] : []
+  rows.splice(index, 1)
+  formState[field.key] = rows.length ? rows : [{
+    __key: stockSetRowKey(2, 0),
+    set_size: 2,
+    percent: '',
+  }]
 }
 
-const integerValue = (value: any) => {
-  if (isBlank(value)) {
-    return null
-  }
-
-  const parsed = Number(value)
-  if (!Number.isInteger(parsed)) {
-    return null
-  }
-
-  return parsed
-}
-
-const formatQuotaPreview = (value: any) => {
-  const parsed = integerValue(value)
-  if (parsed === null) {
-    return '-'
-  }
-
-  return new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 }).format(parsed)
-}
+const handleFieldInput = (_field: OperationFormField, _event: Event) => {}
 
 const normalizeInitialValue = (field: OperationFormField, value: any) => {
   if (field.type === 'checkbox') {
@@ -470,6 +404,22 @@ const normalizeInitialValue = (field: OperationFormField, value: any) => {
 
   if (field.type === 'json') {
     return formatJsonFieldValue(value)
+  }
+
+  if (field.type === 'stock-set-distribution') {
+    return normalizeStockSetDistribution(value, field)
+  }
+
+  if (field.type === 'stock-sale-limits') {
+    return normalizeStockSaleLimits(value)
+  }
+
+  if (field.type === 'stock-partner-distribution') {
+    return normalizeStockPartnerDistribution(value, field)
+  }
+
+  if (field.type === 'stock-partner-limits') {
+    return normalizeStockPartnerLimits(value, field)
   }
 
   if (field.type === 'lines') {
@@ -514,6 +464,10 @@ const fieldColumnClass = (field: OperationFormField) => (
   || field.type === 'json'
   || field.type === 'lines'
   || field.type === 'prize-lines'
+  || field.type === 'stock-set-distribution'
+  || field.type === 'stock-sale-limits'
+  || field.type === 'stock-partner-distribution'
+  || field.type === 'stock-partner-limits'
   || isRewardPrizeField(field)
   || field.type === 'datetime-range'
 ) ? 'col-12' : 'col-md-6'
@@ -613,6 +567,82 @@ const formatLines = (value: any, valueKey?: string) => {
     .join('\n')
 }
 
+const normalizeStockSetDistribution = (value: any, field: OperationFormField) => {
+  const source = Array.isArray(value) && value.length ? value : Array.isArray(field.defaultValue) ? field.defaultValue : []
+  const rows = source
+    .map((row: any, index: number) => ({
+      __key: row?.__key || stockSetRowKey(row?.set_size ?? row?.size ?? 1, index),
+      set_size: Number(row?.set_size ?? row?.size ?? 1),
+      percent: numberOrBlank(row?.percent ?? basisPointsToPercent(row?.percent_basis_points)),
+    }))
+    .filter((row: any) => Number.isFinite(row.set_size))
+
+  return rows.length ? rows : [
+    { __key: stockSetRowKey(2, 0), set_size: 2, percent: 10 },
+    { __key: stockSetRowKey(3, 1), set_size: 3, percent: 15 },
+  ]
+}
+
+const stockSetRowKey = (setSize: any, index: number) => `set-${Number(setSize) || 1}-${index}-${Date.now()}`
+
+const normalizeStockSaleLimits = (value: any) => ({
+  back2_limit: numberOrBlank(value?.back2_limit ?? value?.back2),
+  back3_limit: numberOrBlank(value?.back3_limit ?? value?.back3),
+  front3_limit: numberOrBlank(value?.front3_limit ?? value?.front3),
+})
+
+const normalizeStockPartnerDistribution = (value: any, field: OperationFormField) => {
+  const current = new Map((Array.isArray(value) ? value : [])
+    .filter((row: any) => row?.partner_id)
+    .map((row: any) => [String(row.partner_id), row]))
+
+  return (field.options || []).map((option) => {
+    const partnerId = String(optionValue(option))
+    const existing = current.get(partnerId)
+    return {
+      partner_id: partnerId,
+      label: optionLabel(option),
+      percent: numberOrBlank(existing?.percent ?? basisPointsToPercent(existing?.percent_basis_points)),
+    }
+  }).filter((row) => !isBlank(row.partner_id))
+}
+
+const normalizeStockPartnerLimits = (value: any, field: OperationFormField) => {
+  const current = new Map((Array.isArray(value) ? value : [])
+    .filter((row: any) => row?.partner_id)
+    .map((row: any) => [String(row.partner_id), row]))
+
+  return (field.options || []).map((option) => {
+    const partnerId = String(optionValue(option))
+    const existing = current.get(partnerId)
+    return {
+      partner_id: partnerId,
+      label: optionLabel(option),
+      back2_limit: numberOrBlank(existing?.back2_limit ?? existing?.back2),
+      back3_limit: numberOrBlank(existing?.back3_limit ?? existing?.back3),
+      front3_limit: numberOrBlank(existing?.front3_limit ?? existing?.front3),
+    }
+  }).filter((row) => !isBlank(row.partner_id))
+}
+
+const numberOrBlank = (value: any) => {
+  if (value === undefined || value === null || value === '') {
+    return ''
+  }
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : ''
+}
+
+const basisPointsToPercent = (value: any) => {
+  if (value === undefined || value === null || value === '') {
+    return ''
+  }
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed / 100 : ''
+}
+
 watch(() => [props.modelValue, props.payloadTemplate, props.formFields, props.recordContext] as const, () => {
   if (props.modelValue) {
     reason.value = ''
@@ -660,30 +690,78 @@ watch(() => [props.modelValue, props.payloadTemplate, props.formFields, props.re
   text-align: center;
 }
 
-.np-stock-quota-panel {
-  background: rgb(var(--light-rgb));
+.np-stock-config-panel {
   border: 1px solid var(--default-border);
   border-radius: 6px;
   padding: 1rem;
 }
 
-.np-stock-quota-panel--invalid {
-  background: rgba(var(--bs-danger-rgb), .06);
-  border-color: rgba(var(--bs-danger-rgb), .35);
-}
-
-.np-stock-quota-panel__grid {
+.np-stock-config-grid {
   display: grid;
   gap: .75rem;
-  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
 }
 
-.np-stock-quota-panel__grid > div {
-  background: var(--custom-white);
-  border: 1px solid var(--default-border);
-  border-radius: 4px;
+.np-stock-config-grid--small {
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 12rem));
+}
+
+.np-stock-set-table {
   display: grid;
-  gap: .25rem;
-  padding: .65rem .75rem;
+  gap: .5rem;
+}
+
+.np-stock-set-table__head,
+.np-stock-set-table__row {
+  align-items: center;
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: minmax(7rem, 10rem) minmax(9rem, 14rem) 2.5rem;
+}
+
+.np-stock-set-table__head {
+  color: var(--text-muted);
+  font-size: .75rem;
+  font-weight: 600;
+}
+
+.np-stock-partner-table {
+  display: grid;
+  gap: .5rem;
+}
+
+.np-stock-partner-table__head,
+.np-stock-partner-table__row {
+  align-items: center;
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: minmax(10rem, 1fr) minmax(7rem, 10rem);
+}
+
+.np-stock-partner-table--limits .np-stock-partner-table__head,
+.np-stock-partner-table--limits .np-stock-partner-table__row {
+  grid-template-columns: minmax(10rem, 1fr) repeat(3, minmax(6rem, 8rem));
+}
+
+.np-stock-partner-table__head {
+  color: var(--text-muted);
+  font-size: .75rem;
+  font-weight: 600;
+}
+
+@media (max-width: 575.98px) {
+  .np-stock-partner-table__head {
+    display: none;
+  }
+
+  .np-stock-set-table__head {
+    display: none;
+  }
+
+  .np-stock-set-table__row,
+  .np-stock-partner-table__row,
+  .np-stock-partner-table--limits .np-stock-partner-table__row {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

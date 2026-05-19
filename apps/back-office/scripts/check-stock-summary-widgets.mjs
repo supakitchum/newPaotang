@@ -42,10 +42,10 @@ for (const token of [
   'game_id: normalizedGameId.value',
   'batch_id: normalizedBatchId.value',
   'summary?.empty',
-  'Total tickets',
-  '2-tail coverage',
-  '3-tail coverage',
-  '3-front coverage',
+  'Generated supply',
+  '2-tail max limit',
+  '3-tail max limit',
+  '3-front max limit',
   'Status totals',
   'available',
   'allocated',
@@ -56,6 +56,8 @@ for (const token of [
   'max_count_per_number',
   'distinct_count',
   'expected_distinct',
+  'generated_count',
+  'sellable_remaining_count',
 ]) {
   if (!component.includes(token)) {
     failures.push(`AdminStockSummaryWidgets is missing required summary token: ${token}`)
@@ -77,14 +79,33 @@ for (const removedGenerateField of [
   }
 }
 
+for (const removedGenerateField of [
+  "key: 'back2_count_per_number'",
+  "key: 'back3_count_per_number'",
+  "key: 'front3_count_per_number'",
+  "value: 'quota_random'",
+  'Physical quota random',
+]) {
+  if (catalog.includes(removedGenerateField)) {
+    failures.push(`Retired physical stock generation field returned to catalog: ${removedGenerateField}`)
+  }
+}
+
 for (const requiredGenerateField of [
-  "key: 'generation_mode'",
   "key: 'set_distribution'",
-  "key: 'central_limits'",
-  "key: 'partner_limits'",
 ]) {
   if (!generateActionBlock.includes(requiredGenerateField)) {
     failures.push(`Virtual stock generation field is missing: ${requiredGenerateField}`)
+  }
+}
+
+for (const movedGenerateField of [
+  "key: 'partner_distribution'",
+  "key: 'central_limits'",
+  "key: 'partner_limits'",
+]) {
+  if (generateActionBlock.includes(movedGenerateField)) {
+    failures.push(`Stock generation field should live in settings/coverage, not generate modal: ${movedGenerateField}`)
   }
 }
 
@@ -121,6 +142,22 @@ for (const token of [
   if (!read('components/AdminConfirmAction.vue').includes(token)) {
     failures.push(`Stock generation modal support is missing token: ${token}`)
   }
+}
+
+for (const token of [
+  'Stock quota check',
+  'syncStockQuotaFields',
+  'back3FromQuotaSource',
+  '2-tail quota must be divisible by 10.',
+  'Total tickets must equal 1,000 x 3-tail quota.',
+]) {
+  if (read('components/AdminConfirmAction.vue').includes(token)) {
+    failures.push(`Retired linked quota modal validation returned: ${token}`)
+  }
+}
+
+if (!read('components/AdminConfirmAction.vue').includes('confirmDisabled.value')) {
+  failures.push('Confirm disabled guard is missing from modal.')
 }
 
 for (const removedCapToken of [

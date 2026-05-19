@@ -96,11 +96,15 @@ const normalizeStockItem = (item: AnyRecord, reservationId?: string): CartLotter
   const price = moneyToDisplayNumber(item.price)
   const imageFields = normalizeImageFields(item)
 
-  return {
-    ...item,
-    token: String(item.id || item.token || ''),
-    local_stock_item_id: String(item.id || item.local_stock_item_id || item.token || ''),
-    reservation_id: reservationId || item.reservation_id,
+    return {
+      ...item,
+      token: String(item.id || item.token || ''),
+      local_stock_item_id: String(item.id || item.local_stock_item_id || item.token || ''),
+      stock_ref: item.stock_ref || item.id || item.local_stock_item_id || item.token || '',
+      stock_mode: item.stock_mode || 'physical',
+      remaining_count: Number.isFinite(Number(item.remaining_count)) ? Number(item.remaining_count) : null,
+      availability_status: item.availability_status || item.status || 'available',
+      reservation_id: reservationId || item.reservation_id,
     number,
     full_number: number,
     lottery_number: number,
@@ -432,6 +436,8 @@ export const usePlatformApi = () => {
       result: {
         lotteries,
         pagination: normalizePagination(payload.meta, input.page || 1, input.limit || 20),
+        game_id: payload.meta?.game_id || gameId,
+        stock_mode: payload.meta?.stock_mode || null,
         seller: lotteries[0]?.store_name ? { name: lotteries[0].store_name } : null,
         bet_status: 1
       }
