@@ -56,6 +56,19 @@ class RbacMenuSeederTest extends TestCase
 
         $this->assertDatabaseHas('admin_menus', [
             'scope_type' => 'central',
+            'code' => 'stock_generation',
+            'label' => 'Stock Manager',
+            'route' => '/admin/central/stock',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseMissing('admin_menus', [
+            'scope_type' => 'central',
+            'code' => 'master_stock',
+        ]);
+
+        $this->assertDatabaseHas('admin_menus', [
+            'scope_type' => 'central',
             'code' => 'partners',
             'route' => '/admin/central/partners',
         ]);

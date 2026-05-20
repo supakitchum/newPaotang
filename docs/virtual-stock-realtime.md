@@ -76,7 +76,7 @@ Partner sync allocation pulls:
 
 Back-office entry point:
 
-- Central -> Stock Generation -> Generate stock
+- Central -> Stock Manager -> Generate stock
 - Set distribution defines set capacity percentages, for example 10% of base numbers get 2-ticket capacity and 15% get 3-ticket capacity
 - Re-running Generate stock for the same game is a virtual top-up and must increase generated virtual supply without replacing existing counters/reservations
 - Allocation ownership is frozen to the supply layers that existed when the allocation was created or redistributed. A later top-up increases central generated/unassigned supply, but it must not increase an existing partner allocation or owner assignment.
@@ -207,7 +207,7 @@ Expected behavior:
 - allocation creates/redistributes snapshot the currently active supply layers; top-up layers created later remain unassigned/no_agent until a later allocation explicitly assigns them
 - partner allocation/availability and partner generated pattern counts must use allocation snapshots instead of dynamically inheriting every later top-up layer
 - partner percent assignment must use `10000` basis points as the fixed denominator so any unallocated percent remains unassigned instead of being normalized to active partners
-- Stock Generation/detail must expose owner/agent assignment where available and show `no agent`/unassigned where not allocated
+- Stock Manager/detail must expose owner/agent assignment where available and show `no agent`/unassigned where not allocated
 - image actions must show real materialized `stock_items` / `local_stock_items` image fields only
 - unmaterialized virtual capacity must be shown as capacity, not as fake ticket image rows
 - Stock Pattern Coverage must update generated/reserved/sold/remaining/limit values through websocket without manual refresh
@@ -226,7 +226,7 @@ Broad generation/top-up, allocation, recall, cancel, redistribute, and limit cha
 
 Coordinator task `stock-generation-coverage-usability` extends the virtual stock contract with BO usability and limit-default requirements.
 
-Stock Generation list:
+Stock Manager list:
 
 - Filters for `game_id`, number search, `front3`, `back3`, `back2`, and `status` must work through backend API.
 - `Tickets` sort must sort by generated supply/capacity for the full number. It must not silently fall back to full-number lexical order.
@@ -323,7 +323,7 @@ Expected BO changes:
   - show allocated/remaining/recalled counts
 - Allocation row actions:
   1. Edit stock coverage for that partner/agent. Route should open Stock Pattern Coverage with `game_id`, `scope_type=partner`, and `partner_id`.
-  2. View remaining stock like Stock Generation full-number table. Open a new page/tab scoped by `game_id` and `partner_id`.
+  2. View remaining stock like Stock Manager full-number table. Open a new page/tab scoped by `game_id` and `partner_id`.
   3. Recall all stock for that allocation/partner/game in one action with reason + idempotency key.
   4. Re-distribute stock after full recall. This should be disabled unless the prior recall-all state is complete.
 - Partners table:

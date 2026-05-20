@@ -2246,8 +2246,8 @@ const central: OperationResource[] = [
 const resources = [...tenant, ...central]
 
 const resourceAliases: Record<string, { target: string, title: string }> = {
-  'central:master-stock': { target: 'stock', title: 'Master Stock' },
-  'central:stock-generation': { target: 'stock', title: 'Stock Generation' },
+  'central:master-stock': { target: 'stock', title: 'Stock Manager' },
+  'central:stock-generation': { target: 'stock', title: 'Stock Manager' },
   'central:stock-recall': { target: 'stock', title: 'Stock Recall' },
   'central:stock-coverage': { target: 'stock-pattern-coverage', title: 'Stock Pattern Coverage' },
 }

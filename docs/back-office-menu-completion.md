@@ -18,8 +18,7 @@ Status legend:
 | central:games | /admin/central/games | /admin/central/games | Complete | Catalog uses central games list/detail/actions. |
 | central:rewards | /admin/central/rewards | /admin/central/rewards | Complete | Catalog uses central rewards list/detail/actions. |
 | central:prize_checking | /admin/central/rewards | /admin/central/rewards | Shared accepted | Prize checking shares the rewards verification workflow. |
-| central:master_stock | /admin/central/stock | /admin/central/stock | Shared accepted | Central stock page exposes master stock list and stock actions. |
-| central:stock_generation | /admin/central/stock | /admin/central/stock | Shared accepted | Central stock page exposes generation action from the documented API. |
+| central:stock_generation | /admin/central/stock | /admin/central/stock-generation | Shared accepted | Renamed to Stock Manager and consolidated as the single stock operations entry for generated supply, grouped stock counts, import/export, top-up progress, and stock actions. |
 | central:partners | /admin/central/partners | /admin/central/partners | Complete | Catalog uses central partners list/detail/provision/suspend actions. |
 | central:partner_provisioning | /admin/central/partners | /admin/central/partner-provisioning | Complete | Dedicated BO route backed by partners API and provisioning actions. |
 | central:partner_quotas | /admin/central/partners | /admin/central/partner-quotas | Complete | Dedicated BO route backed by registered partner quota API. |

@@ -98,6 +98,7 @@ Coordinator approval after remediation QA:
 - Remediation QA report: `ai-agents/reports/20260520-stock-table-realtime-socket-remediation-qa-report.md`.
 - Browser evidence: `ai-agents/reports/artifacts/20260520-stock-table-realtime-socket-remediation-qa/browser`.
 - Coordinator approved `stock-table-realtime-socket` after authenticated BO DOM evidence showed the panel visible on central Stock, Master Stock, Stock Generation, and Stock Recall routes.
+- Follow-up hotfix consolidated the duplicate menu entries: active BO navigation now removes Master Stock and renames Stock Generation to Stock Manager.
 - Residual risk: QA did not manually trigger a live browser stock mutation event; backend event tests and BO merge/reload source checks cover that contract.
 
 ## 2026-05-20 Retire Physical Stock Flow QA Review
@@ -233,7 +234,7 @@ Current follow-up work adds virtual/lazy stock generation with realtime customer
 Important update:
 - `POST /admin/central/stock/generate` now supports virtual stock profile generation only. The previous physical quota/range payload is retired and rejected.
 - BO Central -> Stock Settings (`/admin/central/stock-settings`) manages the default set distribution in `platform_system_settings.stock_set_distribution_default`.
-- BO Central -> Stock Generation loads the default set distribution into the Generate stock modal, then sends `generation_mode=virtual_profile` plus `set_distribution`; partner distribution and sale limits belong in Stock Settings / Stock Pattern Coverage, not in the generate modal.
+- BO Central -> Stock Manager loads the default set distribution into the Generate stock modal, then sends `generation_mode=virtual_profile` plus `set_distribution`; partner distribution and sale limits belong in Stock Settings / Stock Pattern Coverage, not in the generate modal.
 - Virtual games use `stock_supply_profiles`, partner distribution, sale limit settings, and `virtual_stock_counters`.
 - Customer search returns virtual `stock_ref` rows and reservation lazily materializes real `stock_items/local_stock_items`.
 - Customer realtime event is `stock.availability.updated` on `private-customer.tenant.{tenant_id}.stock.game.{game_id}`.

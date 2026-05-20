@@ -45,6 +45,11 @@ class DefaultRbacMenuSeeder extends Seeder
             ['scope_type', 'code'],
             ['parent_id', 'label', 'route', 'category', 'icon', 'required_permission_code', 'sort_order', 'status', 'updated_at'],
         );
+
+        AdminMenu::query()
+            ->where('scope_type', 'central')
+            ->where('code', 'master_stock')
+            ->delete();
     }
 
     /**
@@ -66,8 +71,8 @@ class DefaultRbacMenuSeeder extends Seeder
                 'reward.publish' => 'Publish rewards',
                 'reward.correct' => 'Correct published rewards through correction flow',
                 'reward.audit' => 'View reward audit',
-                'stock.view' => 'View master stock',
-                'stock.generate' => 'Generate/import master stock',
+                'stock.view' => 'View stock manager',
+                'stock.generate' => 'Generate/import stock manager',
                 'stock.allocate' => 'Allocate stock to partners',
                 'stock.recall' => 'Recall allocated stock',
                 'stock.export' => 'Export stock data',
@@ -183,7 +188,6 @@ class DefaultRbacMenuSeeder extends Seeder
                 'games' => 'game.view',
                 'rewards' => 'reward.view',
                 'prize_checking' => 'reward.view',
-                'master_stock' => 'stock.view',
                 'stock_generation' => 'stock.generate',
                 'stock_settings' => 'stock.generate',
                 'partners' => 'partner.view',
@@ -292,7 +296,6 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:games' => '/admin/central/games',
             'central:rewards',
             'central:prize_checking' => '/admin/central/rewards',
-            'central:master_stock',
             'central:stock_generation',
             'central:stock_recall' => '/admin/central/stock',
             'central:stock_settings' => '/admin/central/stock-settings',
@@ -356,6 +359,10 @@ class DefaultRbacMenuSeeder extends Seeder
 
     private function labelFor(string $code): string
     {
+        if ($code === 'stock_generation') {
+            return 'Stock Manager';
+        }
+
         return str($code)->replace('_', ' ')->title()->toString();
     }
 
@@ -369,7 +376,6 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:games',
             'central:rewards',
             'central:prize_checking',
-            'central:master_stock',
             'central:stock_generation',
             'central:stock_settings',
             'central:allocations',
