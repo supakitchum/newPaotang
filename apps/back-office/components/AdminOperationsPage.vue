@@ -271,6 +271,36 @@
     <template v-else>
       <AdminFilterBar v-if="resource.filters?.length" :filters="hydratedFilters" :model-value="filters" @apply="applyFilters" />
       <AdminApiState v-if="stockGenerateCurrentGameMessage" :message="stockGenerateCurrentGameMessage" />
+      <div v-if="showStockTableRealtimePanel" class="card custom-card np-stock-realtime-panel">
+        <div class="card-body">
+          <div class="d-flex flex-column flex-xl-row align-items-xl-center justify-content-between gap-3">
+            <div class="d-flex align-items-start gap-3">
+              <span class="avatar bg-info-transparent text-info">
+                <i class="ri-broadcast-line fs-4" />
+              </span>
+              <div>
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                  <h6 class="mb-0">Stock table realtime</h6>
+                  <span :class="['badge', stockTableRealtimeStatusBadgeClass]">{{ stockTableRealtimeStatusLabel }}</span>
+                </div>
+                <p class="text-muted mb-0">{{ stockTableRealtimePanelMessage }}</p>
+              </div>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <span v-if="selectedStockTableGameId" class="badge bg-light text-default">Game {{ selectedStockTableGameId }}</span>
+              <span v-if="stockTableRealtimeLastEventLabel" class="badge bg-success-transparent text-success">{{ stockTableRealtimeLastEventLabel }}</span>
+            </div>
+          </div>
+          <div v-if="!selectedStockTableGameId" class="alert alert-info d-flex align-items-start gap-2 mt-3 mb-0">
+            <i class="ri-information-line fs-18" />
+            <div>Select a game to show stock summary widgets and enable live table updates.</div>
+          </div>
+          <div v-else-if="stockTableRealtimeError" class="alert alert-warning d-flex align-items-start gap-2 mt-3 mb-0">
+            <i class="ri-alert-line fs-18" />
+            <div>{{ stockTableRealtimeError }}</div>
+          </div>
+        </div>
+      </div>
       <AdminStockSummaryWidgets
         v-if="showStockSummaryWidgets"
         :endpoint="stockSummaryEndpoint"
@@ -701,10 +731,14 @@ const stockSummaryEndpoint = computed(() => resource.value?.stockSummaryEndpoint
 const stockSummaryGameId = computed(() => filters.value.game_id || '')
 const stockSummaryBatchId = computed(() => filters.value.batch_id || '')
 const selectedStockTableGameId = computed(() => String(filters.value.game_id || '').trim())
-const isCentralGroupedStockTable = computed(() => Boolean(
+const isCentralGroupedStockRoute = computed(() => Boolean(
   props.scope === 'central'
   && mode.value === 'list'
-  && resource.value?.stockGrouped
+  && resource.value?.stockGrouped,
+))
+const showStockTableRealtimePanel = computed(() => isCentralGroupedStockRoute.value)
+const isCentralGroupedStockTable = computed(() => Boolean(
+  isCentralGroupedStockRoute.value
   && selectedStockTableGameId.value,
 ))
 const stockTableRealtimeChannelName = computed(() => (
@@ -716,6 +750,85 @@ const stockTableRealtimeEnabled = computed(() => Boolean(
   isCentralGroupedStockTable.value
   && session.isAuthenticated.value,
 ))
+const stockTableRealtime = useAdminRealtimeSubscription({
+  channelName: stockTableRealtimeChannelName,
+  eventName: 'stock.table.updated',
+  enabled: stockTableRealtimeEnabled,
+  onEvent: handleStockTableRealtimeEvent,
+  onReconnect: handleStockTableRealtimeReconnect,
+})
+const stockTableRealtimeStatus = computed(() => stockTableRealtime.status.value)
+const stockTableRealtimeError = computed(() => stockTableRealtime.error.value)
+const stockTableRealtimeConfigured = computed(() => stockTableRealtime.isConfigured.value)
+const stockTableRealtimeLastEventLabel = computed(() => (
+  stockTableRealtime.lastEventAt.value
+    ? `Last event ${formatDateTime(stockTableRealtime.lastEventAt.value)}`
+    : ''
+))
+const stockTableRealtimeStatusLabel = computed(() => {
+  if (!selectedStockTableGameId.value) {
+    return 'Game required'
+  }
+  if (!stockTableRealtimeConfigured.value) {
+    return 'Fallback HTTP'
+  }
+  if (stockTableRealtimeReloading.value) {
+    return 'Refreshing'
+  }
+
+  const labels: Record<string, string> = {
+    idle: 'Idle',
+    unavailable: 'Unavailable',
+    connecting: 'Connecting',
+    authenticating: 'Authenticating',
+    connected: 'Live',
+    reconnecting: 'Reconnecting',
+    error: 'Attention',
+  }
+  return labels[stockTableRealtimeStatus.value] || 'Realtime'
+})
+const stockTableRealtimeStatusBadgeClass = computed(() => {
+  if (!selectedStockTableGameId.value) {
+    return 'bg-info-transparent text-info'
+  }
+  if (!stockTableRealtimeConfigured.value) {
+    return 'bg-secondary-transparent text-secondary'
+  }
+  if (stockTableRealtimeReloading.value || stockTableRealtimeStatus.value === 'connecting' || stockTableRealtimeStatus.value === 'authenticating' || stockTableRealtimeStatus.value === 'reconnecting') {
+    return 'bg-warning-transparent text-warning'
+  }
+  if (stockTableRealtimeStatus.value === 'connected') {
+    return 'bg-success-transparent text-success'
+  }
+  if (stockTableRealtimeStatus.value === 'error') {
+    return 'bg-danger-transparent text-danger'
+  }
+  return 'bg-light text-default'
+})
+const stockTableRealtimePanelMessage = computed(() => {
+  if (!selectedStockTableGameId.value) {
+    return 'Choose a game filter to load the stock summary panel and subscribe this grouped table to live count updates.'
+  }
+  if (!session.isAuthenticated.value) {
+    return 'Sign in to enable live stock table updates.'
+  }
+  if (!stockTableRealtimeConfigured.value) {
+    return 'Realtime is not configured in this environment. The table and summary remain available through HTTP refresh.'
+  }
+  if (stockTableRealtimeReloading.value) {
+    return 'Applying a realtime stock update by refreshing the current table page and summary widgets.'
+  }
+  if (stockTableRealtimeStatus.value === 'connected') {
+    return 'Listening for stock.table.updated events. Safe visible rows update in place; uncertain changes refresh this table and summary.'
+  }
+  if (stockTableRealtimeStatus.value === 'reconnecting') {
+    return 'Reconnecting to stock table realtime. The table will refresh after the subscription is restored.'
+  }
+  if (stockTableRealtimeStatus.value === 'error') {
+    return 'Realtime needs attention. Manual refresh still loads the latest table and summary data.'
+  }
+  return 'Preparing stock table realtime for this game.'
+})
 const currentCentralGameOption = computed(() => singleCurrentGameOption(optionSourceOptions['central-games'] || []))
 const currentAllocationGameOption = computed(() => latestCurrentGameOption(optionSourceOptions['allocation-games'] || []))
 const allocationSummaryCards = computed(() => {
@@ -862,14 +975,6 @@ const stockTableRealtimeMergeFields = [
 ]
 
 const stockTableRealtimeFilterKeysAllowedForMerge = new Set(['game_id', 'limit', 'cursor'])
-
-useAdminRealtimeSubscription({
-  channelName: stockTableRealtimeChannelName,
-  eventName: 'stock.table.updated',
-  enabled: stockTableRealtimeEnabled,
-  onEvent: handleStockTableRealtimeEvent,
-  onReconnect: handleStockTableRealtimeReconnect,
-})
 
 watch(() => route.fullPath, () => {
   if (!import.meta.client) {
@@ -2456,7 +2561,7 @@ const interpolate = (endpoint: string, idOrRecord?: string | null | Record<strin
   return encodeURIComponent(idOrRecord || '')
 })
 
-const normalizeSlug = (value: unknown): string[] => {
+function normalizeSlug(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(String)
   if (typeof value === 'string') return [value]
   return []

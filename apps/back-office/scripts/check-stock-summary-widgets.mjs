@@ -47,6 +47,11 @@ for (const token of [
 for (const token of [
   'private-admin.central.stock.table.game',
   'stock.table.updated',
+  'showStockTableRealtimePanel',
+  'Stock table realtime',
+  'stockTableRealtimeStatusLabel',
+  'stockTableRealtimeStatusBadgeClass',
+  'Select a game to show stock summary widgets and enable live table updates.',
   'stockTableRealtimeEnabled',
   'handleStockTableRealtimeEvent',
   'handleStockTableRealtimeReconnect',
