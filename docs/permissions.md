@@ -283,7 +283,7 @@ auditor
 | --- | --- | --- |
 | `GET /admin/central/dashboard/summary` | central | dashboard.view |
 | `GET /admin/central/menu` | central | authenticated central scope |
-| `POST /admin/central/realtime/auth` | central | authenticated central scope; stock generation channels require stock.generate |
+| `POST /admin/central/realtime/auth` | central | authenticated central scope; stock generation channels require stock.generate; stock table channels require stock.view |
 | `GET /admin/central/menu-management` | central | menu.manage |
 | `PUT /admin/central/menu-management` | central | menu.manage |
 | `GET /admin/central/admin-users` | central | admin_user.manage |

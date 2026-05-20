@@ -141,6 +141,41 @@ class AdminOperationsTest extends TestCase
             ->assertJsonPath('error.code', 'permission_denied');
     }
 
+    public function test_AdminRealtime_stock_table_channel_requires_central_stock_view_permission(): void
+    {
+        $this->seedDefaultRbac();
+        $viewLogin = $this->createCentralSession(['stock.view'], 'adm_realtime_table', 'realtime-table@example.test', 'central_stock_table_realtime');
+        $deniedLogin = $this->createCentralSession(['stock.generate'], 'adm_realtime_table_denied', 'realtime-table-denied@example.test', 'central_stock_table_denied');
+        $tenantLogin = $this->createTenantSession(['stock.view']);
+
+        $this->withToken($viewLogin['access_token'])
+            ->postJson('/api/v1/admin/central/realtime/auth', [
+                'socket_id' => '3333.4444',
+                'channel_name' => 'private-admin.central.stock.table.game.gam_realtime',
+            ], ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonStructure(['auth', 'channel_data', 'expires_at']);
+
+        $this->withToken($deniedLogin['access_token'])
+            ->postJson('/api/v1/admin/central/realtime/auth', [
+                'socket_id' => '3333.4444',
+                'channel_name' => 'private-admin.central.stock.table.game.gam_realtime',
+            ], ['X-Admin-Scope' => 'central'])
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'permission_denied');
+
+        $this->withToken($tenantLogin['access_token'])
+            ->postJson('/api/v1/admin/tenant/realtime/auth', [
+                'socket_id' => '3333.4444',
+                'channel_name' => 'private-admin.central.stock.table.game.gam_realtime',
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_auth',
+            ])
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'permission_denied');
+    }
+
     public function test_AdminMenu_management_read_and_update_validates_idempotency_and_writes_audit(): void
     {
         $this->seedDefaultRbac();

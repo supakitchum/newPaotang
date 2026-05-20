@@ -25,6 +25,7 @@ class VirtualStockService
     private const MAX_BP = 10000;
     private const UNLIMITED = 2147483647;
     private const STOCK_PATTERN_COVERAGE_SETTING_KEY = 'stock_pattern_coverage_default';
+    private const ACTIVE_ALLOCATION_PAIR_STATUSES = ['pending', 'processing', 'allocated', 'partially_allocated'];
 
     public function __construct(
         private readonly StockCoverageRealtimeService $coverageRealtime,
@@ -51,6 +52,20 @@ class VirtualStockService
             ->where('game_id', $gameId)
             ->where('status', 'active')
             ->exists();
+    }
+
+    public function refreshPartnerGeneratedPatternCountsForGame(string $gameId): void
+    {
+        $profile = DB::table('stock_supply_profiles')
+            ->where('game_id', $gameId)
+            ->where('status', 'active')
+            ->first();
+
+        if ($profile === null) {
+            return;
+        }
+
+        $this->refreshPartnerGeneratedPatternCounts((string) $profile->id, $gameId, now());
     }
 
     /**
@@ -666,7 +681,7 @@ class VirtualStockService
     private function availabilityForNumber(string $tenantId, string $partnerId, string $gameId, string $fullNumber, array $profile): array
     {
         $capacity = $this->capacityForNumber($fullNumber, $profile);
-        $assignedCopyIndexes = $this->partnerCopyIndexes($partnerId, $gameId, $fullNumber, $capacity);
+        $assignedCopyIndexes = $this->partnerCopyIndexes($partnerId, $gameId, $fullNumber, $profile);
         $assigned = count($assignedCopyIndexes);
         $fullUsed = $this->counterUsed($gameId, 'partner', $partnerId, 'full_number', $fullNumber);
         $front3 = substr($fullNumber, 0, 3);
@@ -936,41 +951,82 @@ class VirtualStockService
     /**
      * @return array<int, int>
      */
-    private function partnerCopyIndexes(string $partnerId, string $gameId, string $fullNumber, int $capacity): array
+    private function partnerCopyIndexes(string $partnerId, string $gameId, string $fullNumber, array $profile): array
     {
-        $rows = $this->partnerDistributionRows($gameId, $partnerId);
+        $layers = is_array($profile['layers'] ?? null) ? $profile['layers'] : [];
+        $allocationRowsByLayer = $this->allocationRowsByLayer($gameId, $layers);
         $copyIndexes = [];
+        $offset = 0;
 
-        for ($copyIndex = 0; $copyIndex < $capacity; $copyIndex++) {
-            $owner = $this->ownerPartnerForCopy($rows, $fullNumber, $copyIndex);
-
-            if ($owner === $partnerId) {
-                $copyIndexes[] = $copyIndex;
+        foreach ($layers as $layer) {
+            if (! is_array($layer)) {
+                continue;
             }
+
+            $layerId = (string) ($layer['id'] ?? '');
+            $layerCapacity = $this->capacityForLayer(
+                $fullNumber,
+                (string) ($layer['seed'] ?? $profile['seed']),
+                is_array($layer['set_distribution'] ?? null) ? $layer['set_distribution'] : [],
+            );
+            $rows = $allocationRowsByLayer[$layerId] ?? [];
+
+            for ($localIndex = 0; $localIndex < $layerCapacity; $localIndex++) {
+                $copyIndex = $offset + $localIndex;
+                $owner = $this->ownerPartnerForCopy($rows, $fullNumber, $copyIndex);
+
+                if ($owner === $partnerId) {
+                    $copyIndexes[] = $copyIndex;
+                }
+            }
+
+            $offset += $layerCapacity;
         }
 
         return $copyIndexes;
     }
 
     /**
-     * @return array<int, array{partner_id: string, bp: int}>
+     * @param array<int, array{id: string, seed: string, set_distribution: array<int|string, mixed>, total_capacity: int}> $layers
+     * @return array<string, array<int, array{partner_id: string, bp: int}>>
      */
-    private function partnerDistributionRows(string $gameId, string $fallbackPartnerId): array
+    private function allocationRowsByLayer(string $gameId, array $layers): array
     {
-        $rows = DB::table('stock_partner_distributions')
-            ->where('game_id', $gameId)
-            ->where('status', 'active')
-            ->where('percent_basis_points', '>', 0)
-            ->orderBy('partner_id')
-            ->get()
-            ->map(fn (object $row): array => ['partner_id' => (string) $row->partner_id, 'bp' => (int) $row->percent_basis_points])
-            ->all();
+        $layerIds = array_values(array_filter(array_map(
+            fn (array $layer): string => (string) ($layer['id'] ?? ''),
+            $layers,
+        )));
 
-        if ($rows !== []) {
-            return $rows;
+        if ($layerIds === []) {
+            return [];
         }
 
-        return [];
+        $rowsByLayer = array_fill_keys($layerIds, []);
+        $rows = DB::table('partner_stock_allocations')
+            ->where('game_id', $gameId)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->whereNotNull('allocation_percent_basis_points')
+            ->where('allocation_percent_basis_points', '>', 0)
+            ->orderBy('partner_id')
+            ->orderBy('id')
+            ->get([
+                'partner_id',
+                'allocation_percent_basis_points',
+                'supply_layer_ids_json',
+            ]);
+
+        foreach ($rows as $row) {
+            $snapshotLayerIds = $this->snapshotLayerIds($row->supply_layer_ids_json ?? null, $layerIds);
+
+            foreach (array_values(array_intersect($layerIds, $snapshotLayerIds)) as $layerId) {
+                $rowsByLayer[$layerId][] = [
+                    'partner_id' => (string) $row->partner_id,
+                    'bp' => (int) $row->allocation_percent_basis_points,
+                ];
+            }
+        }
+
+        return $rowsByLayer;
     }
 
     /**
@@ -978,19 +1034,18 @@ class VirtualStockService
      */
     private function ownerPartnerForCopy(array $rows, string $fullNumber, int $copyIndex): ?string
     {
-        $total = max(1, array_sum(array_column($rows, 'bp')));
-        $score = $this->hashScore($fullNumber.':'.$copyIndex.':partner') % $total;
+        $score = $this->hashScore($fullNumber.':'.$copyIndex.':partner') % self::MAX_BP;
         $cursor = 0;
 
         foreach ($rows as $row) {
-            $cursor += $row['bp'];
+            $cursor = min(self::MAX_BP, $cursor + max(0, (int) $row['bp']));
 
             if ($score < $cursor) {
                 return $row['partner_id'];
             }
         }
 
-        return $rows[0]['partner_id'] ?? null;
+        return null;
     }
 
     private function capacityForNumber(string $fullNumber, array $profile): int
@@ -1280,13 +1335,14 @@ class VirtualStockService
             ->where('scope_type', 'partner')
             ->delete();
 
-        $hasPartnerDistribution = DB::table('stock_partner_distributions')
+        $hasPartnerAllocation = DB::table('partner_stock_allocations')
             ->where('game_id', $gameId)
-            ->where('status', 'active')
-            ->where('percent_basis_points', '>', 0)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->whereNotNull('allocation_percent_basis_points')
+            ->where('allocation_percent_basis_points', '>', 0)
             ->exists();
 
-        if (! $hasPartnerDistribution) {
+        if (! $hasPartnerAllocation) {
             return;
         }
 
@@ -1310,20 +1366,75 @@ class VirtualStockService
             ]]);
         }
 
+        $sourceIds = $sources->map(fn (object $source): string => (string) $source->id)->all();
+
         foreach ($sources as $source) {
+            $ranges = $this->partnerAllocationRangesForSource($gameId, (string) $source->id, $sourceIds);
+
+            if ($ranges === []) {
+                continue;
+            }
+
             $this->storePartnerGeneratedPatternCounts(
                 profileId: $profileId,
                 sourceId: (string) $source->id,
                 gameId: $gameId,
                 seed: (string) $source->layer_seed,
                 distribution: $this->decodeJsonArray($source->set_distribution_json),
+                partnerRanges: $ranges,
                 now: $now,
             );
         }
     }
 
     /**
+     * @param array<int, string> $activeSourceIds
+     * @return array<int, array{partner_id: string, start_bp: int, end_bp: int}>
+     */
+    private function partnerAllocationRangesForSource(string $gameId, string $sourceId, array $activeSourceIds): array
+    {
+        $rows = DB::table('partner_stock_allocations')
+            ->where('game_id', $gameId)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->whereNotNull('allocation_percent_basis_points')
+            ->where('allocation_percent_basis_points', '>', 0)
+            ->orderBy('partner_id')
+            ->orderBy('id')
+            ->get(['partner_id', 'allocation_percent_basis_points', 'supply_layer_ids_json']);
+        $ranges = [];
+        $cursor = 0;
+
+        foreach ($rows as $row) {
+            $layerIds = $this->snapshotLayerIds($row->supply_layer_ids_json ?? null, $activeSourceIds);
+
+            if (! in_array($sourceId, $layerIds, true)) {
+                continue;
+            }
+
+            $basisPoints = max(0, (int) $row->allocation_percent_basis_points);
+
+            if ($basisPoints < 1) {
+                continue;
+            }
+
+            $start = $cursor;
+            $cursor = min(self::MAX_BP, $cursor + $basisPoints);
+
+            if ($cursor > $start) {
+                $ranges[] = [
+                    'partner_id' => (string) $row->partner_id,
+                    'start_bp' => $start,
+                    'end_bp' => $cursor,
+                ];
+            }
+        }
+
+        return $ranges;
+    }
+
+    /**
      * @param array<int, array<string, mixed>> $distribution
+     * @param array<int, array{partner_id: string, start_bp: int, end_bp: int}> $partnerRanges
      */
     private function storePartnerGeneratedPatternCounts(
         string $profileId,
@@ -1331,25 +1442,23 @@ class VirtualStockService
         string $gameId,
         string $seed,
         array $distribution,
+        array $partnerRanges,
         mixed $now,
     ): void {
         $caseSql = $this->capacityCaseSql($distribution);
+        $rangeSql = implode(', ', array_fill(0, count($partnerRanges), '(?, ?, ?)'));
+        $rangeParams = [];
+
+        foreach ($partnerRanges as $range) {
+            $rangeParams[] = $range['partner_id'];
+            $rangeParams[] = $range['start_bp'];
+            $rangeParams[] = $range['end_bp'];
+        }
 
         DB::statement(
             <<<SQL
-            WITH partner_ranges AS (
-                SELECT
-                    partner_id,
-                    COALESCE(
-                        SUM(percent_basis_points) OVER (ORDER BY partner_id ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING),
-                        0
-                    )::bigint AS start_bp,
-                    SUM(percent_basis_points) OVER (ORDER BY partner_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)::bigint AS end_bp,
-                    SUM(percent_basis_points) OVER ()::bigint AS total_bp
-                FROM stock_partner_distributions
-                WHERE game_id = ?
-                  AND status = 'active'
-                  AND percent_basis_points > 0
+            WITH partner_ranges(partner_id, start_bp, end_bp) AS (
+                VALUES {$rangeSql}
             ),
             scored AS (
                 SELECT
@@ -1377,8 +1486,8 @@ class VirtualStockService
                 FROM scored
                 JOIN LATERAL generate_series(0, scored.capacity - 1) AS copy(copy_index) ON scored.capacity > 0
                 JOIN partner_ranges
-                  ON ((('x' || substr(encode(sha256((scored.full_number || ':' || copy.copy_index::text || ':partner')::bytea), 'hex'), 1, 8))::bit(32)::bigint) % partner_ranges.total_bp) >= partner_ranges.start_bp
-                 AND ((('x' || substr(encode(sha256((scored.full_number || ':' || copy.copy_index::text || ':partner')::bytea), 'hex'), 1, 8))::bit(32)::bigint) % partner_ranges.total_bp) < partner_ranges.end_bp
+                  ON ((('x' || substr(encode(sha256((scored.full_number || ':' || copy.copy_index::text || ':partner')::bytea), 'hex'), 1, 8))::bit(32)::bigint) % 10000) >= partner_ranges.start_bp::bigint
+                 AND ((('x' || substr(encode(sha256((scored.full_number || ':' || copy.copy_index::text || ':partner')::bytea), 'hex'), 1, 8))::bit(32)::bigint) % 10000) < partner_ranges.end_bp::bigint
             )
             INSERT INTO virtual_stock_pattern_generated_counts (
                 id,
@@ -1413,7 +1522,7 @@ class VirtualStockService
                 generated_count = EXCLUDED.generated_count,
                 updated_at = EXCLUDED.updated_at
             SQL,
-            [$gameId, $seed, $sourceId, $profileId, $sourceId, $gameId, $now, $now],
+            [...$rangeParams, $seed, $sourceId, $profileId, $sourceId, $gameId, $now, $now],
         );
     }
 
@@ -1759,6 +1868,21 @@ class VirtualStockService
         $decoded = json_decode((string) $json, true);
 
         return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * @param array<int, string> $fallbackLayerIds
+     * @return array<int, string>
+     */
+    private function snapshotLayerIds(mixed $json, array $fallbackLayerIds): array
+    {
+        $decoded = $this->decodeJsonArray($json);
+        $ids = array_values(array_filter(array_map(
+            fn (mixed $value): string => trim((string) $value),
+            $decoded,
+        )));
+
+        return $ids === [] ? $fallbackLayerIds : $ids;
     }
 
     private function hashScore(string $seed): int

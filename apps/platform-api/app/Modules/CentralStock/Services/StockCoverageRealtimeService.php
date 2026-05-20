@@ -3,6 +3,7 @@
 namespace App\Modules\CentralStock\Services;
 
 use App\Modules\CentralStock\Events\StockCoverageUpdated;
+use App\Modules\CentralStock\Events\StockTableUpdated;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -15,11 +16,13 @@ class StockCoverageRealtimeService
     public function broadcastGameSupplyChangedAfterCommit(string $gameId): void
     {
         $this->broadcastRefreshRequiredAfterCommit($gameId, 'stock_supply_changed');
+        $this->broadcastStockTableRefreshAfterCommit($gameId, 'stock_supply_changed');
     }
 
     public function broadcastLimitSettingsChangedAfterCommit(string $gameId, string $scopeType, string $scopeId): void
     {
         $this->broadcastRefreshRequiredAfterCommit($gameId, 'limit_settings_changed', $scopeType, $scopeId);
+        $this->broadcastStockTableRefreshAfterCommit($gameId, 'limit_settings_changed');
     }
 
     /**
@@ -33,6 +36,7 @@ class StockCoverageRealtimeService
         array $values,
     ): void {
         $this->broadcastRowsAfterCommit($gameId, $scopeType, $scopeId, $dimension, $values);
+        $this->broadcastStockTableRefreshAfterCommit($gameId, 'limit_overrides_changed');
     }
 
     public function broadcastNumberChangedAfterCommit(string $gameId, string $partnerId, string $fullNumber): void
@@ -53,6 +57,79 @@ class StockCoverageRealtimeService
             $this->broadcastRowsAfterCommit($gameId, 'central', 'central', $dimension, $dimensionValues);
             $this->broadcastRowsAfterCommit($gameId, 'partner', $partnerId, $dimension, $dimensionValues);
         }
+
+        $this->broadcastStockTableRowAfterCommit($gameId, $fullNumber, 'stock_counter_changed');
+    }
+
+    public function broadcastStockTableRefreshAfterCommit(string $gameId, string $reason): void
+    {
+        $gameId = trim($gameId);
+
+        if ($gameId === '') {
+            return;
+        }
+
+        $this->afterCommit(function () use ($gameId, $reason): void {
+            try {
+                StockTableUpdated::dispatch([
+                    'event_type' => 'stock.table.updated',
+                    'game_id' => $gameId,
+                    'refresh_required' => true,
+                    'reason' => $reason,
+                    'updated_at' => now()->toISOString(),
+                ]);
+            } catch (\Throwable $exception) {
+                Log::warning('Stock table realtime refresh broadcast failed.', [
+                    'game_id' => $gameId,
+                    'reason' => $reason,
+                    'message' => $exception->getMessage(),
+                ]);
+            }
+        });
+    }
+
+    public function broadcastStockTableRowAfterCommit(string $gameId, string $fullNumber, string $reason): void
+    {
+        $gameId = trim($gameId);
+        $fullNumber = preg_replace('/\D+/', '', $fullNumber) ?? '';
+
+        if ($gameId === '' || strlen($fullNumber) !== 6) {
+            return;
+        }
+
+        $this->afterCommit(function () use ($gameId, $fullNumber, $reason): void {
+            try {
+                $row = $this->stockTableRow($gameId, $fullNumber);
+
+                if ($row === null) {
+                    StockTableUpdated::dispatch([
+                        'event_type' => 'stock.table.updated',
+                        'game_id' => $gameId,
+                        'refresh_required' => true,
+                        'reason' => $reason,
+                        'updated_at' => now()->toISOString(),
+                    ]);
+
+                    return;
+                }
+
+                StockTableUpdated::dispatch([
+                    'event_type' => 'stock.table.updated',
+                    'game_id' => $gameId,
+                    'refresh_required' => false,
+                    'reason' => $reason,
+                    'row' => $row,
+                    'updated_at' => now()->toISOString(),
+                ]);
+            } catch (\Throwable $exception) {
+                Log::warning('Stock table realtime row broadcast failed.', [
+                    'game_id' => $gameId,
+                    'full_number' => $fullNumber,
+                    'reason' => $reason,
+                    'message' => $exception->getMessage(),
+                ]);
+            }
+        });
     }
 
     /**
@@ -164,7 +241,7 @@ class StockCoverageRealtimeService
             return $precomputed;
         }
 
-        $partnerRows = $scopeType === 'partner' ? $this->partnerDistributionRows($gameId, $scopeId) : [];
+        $allocationRowsByLayer = $scopeType === 'partner' ? $this->allocationRowsByLayer($gameId, $layers) : [];
         $counts = [];
         $query = DB::table('base_lottery_numbers');
 
@@ -176,15 +253,12 @@ class StockCoverageRealtimeService
             $capacity = $this->capacityForNumber((string) $number->full_number, $layers);
 
             if ($scopeType === 'partner') {
-                $assigned = 0;
-
-                for ($copyIndex = 0; $copyIndex < $capacity; $copyIndex++) {
-                    if ($this->ownerPartnerForCopy($partnerRows, (string) $number->full_number, $copyIndex) === $scopeId) {
-                        $assigned++;
-                    }
-                }
-
-                $capacity = $assigned;
+                $capacity = count($this->partnerCopyIndexesForLayers(
+                    $scopeId,
+                    (string) $number->full_number,
+                    $layers,
+                    $allocationRowsByLayer,
+                ));
             }
 
             $value = (string) $number->value;
@@ -218,19 +292,9 @@ class StockCoverageRealtimeService
         }
 
         if ($scopeType === 'partner') {
-            $activePartnerIds = DB::table('stock_partner_distributions')
-                ->where('game_id', $gameId)
-                ->where('status', 'active')
-                ->where('percent_basis_points', '>', 0)
-                ->pluck('partner_id')
-                ->map(fn (mixed $value): string => (string) $value)
-                ->all();
+            $sourceIds = $this->assignedLayerIdsForPartner($gameId, $scopeId, $layers);
 
-            if ($activePartnerIds === []) {
-                return [];
-            }
-
-            if (! in_array($scopeId, $activePartnerIds, true)) {
+            if ($sourceIds === []) {
                 return [];
             }
         }
@@ -345,24 +409,108 @@ class StockCoverageRealtimeService
     }
 
     /**
-     * @return array<int, array{partner_id: string, bp: int}>
+     * @param array<int, array{id: string, seed: string, set_distribution: array<int, array<string, mixed>>, total_capacity: int}> $layers
+     * @return array<string, array<int, array{partner_id: string, bp: int}>>
      */
-    private function partnerDistributionRows(string $gameId, string $fallbackPartnerId): array
+    private function allocationRowsByLayer(string $gameId, array $layers): array
     {
-        $rows = DB::table('stock_partner_distributions')
-            ->where('game_id', $gameId)
-            ->where('status', 'active')
-            ->where('percent_basis_points', '>', 0)
-            ->orderBy('partner_id')
-            ->get()
-            ->map(fn (object $row): array => ['partner_id' => (string) $row->partner_id, 'bp' => (int) $row->percent_basis_points])
-            ->all();
+        $layerIds = array_values(array_filter(array_map(
+            fn (array $layer): string => (string) ($layer['id'] ?? ''),
+            $layers,
+        )));
 
-        if ($rows !== []) {
-            return $rows;
+        if ($layerIds === []) {
+            return [];
         }
 
-        return [];
+        $rowsByLayer = array_fill_keys($layerIds, []);
+        $rows = DB::table('partner_stock_allocations')
+            ->where('game_id', $gameId)
+            ->whereIn('status', ['pending', 'processing', 'allocated', 'partially_allocated'])
+            ->whereNotNull('allocation_percent_basis_points')
+            ->where('allocation_percent_basis_points', '>', 0)
+            ->orderBy('partner_id')
+            ->orderBy('id')
+            ->get(['id', 'partner_id', 'allocation_percent_basis_points', 'supply_layer_ids_json']);
+
+        foreach ($rows as $row) {
+            $snapshotLayerIds = $this->snapshotLayerIds($row->supply_layer_ids_json ?? null, $layerIds);
+
+            foreach (array_values(array_intersect($layerIds, $snapshotLayerIds)) as $layerId) {
+                $rowsByLayer[$layerId][] = [
+                    'partner_id' => (string) $row->partner_id,
+                    'bp' => (int) $row->allocation_percent_basis_points,
+                ];
+            }
+        }
+
+        return $rowsByLayer;
+    }
+
+    /**
+     * @param array<int, array{id: string, seed: string, set_distribution: array<int, array<string, mixed>>, total_capacity: int}> $layers
+     * @return array<int, string>
+     */
+    private function assignedLayerIdsForPartner(string $gameId, string $partnerId, array $layers): array
+    {
+        $layerIds = array_values(array_filter(array_map(
+            fn (array $layer): string => (string) ($layer['id'] ?? ''),
+            $layers,
+        )));
+
+        if ($layerIds === []) {
+            return [];
+        }
+
+        $assigned = [];
+        $rows = DB::table('partner_stock_allocations')
+            ->where('game_id', $gameId)
+            ->where('partner_id', $partnerId)
+            ->whereIn('status', ['pending', 'processing', 'allocated', 'partially_allocated'])
+            ->whereNotNull('allocation_percent_basis_points')
+            ->where('allocation_percent_basis_points', '>', 0)
+            ->get(['supply_layer_ids_json']);
+
+        foreach ($rows as $row) {
+            foreach (array_intersect($layerIds, $this->snapshotLayerIds($row->supply_layer_ids_json ?? null, $layerIds)) as $layerId) {
+                $assigned[] = $layerId;
+            }
+        }
+
+        return array_values(array_unique($assigned));
+    }
+
+    /**
+     * @param array<int, array{id: string, seed: string, set_distribution: array<int, array<string, mixed>>, total_capacity: int}> $layers
+     * @param array<string, array<int, array{partner_id: string, bp: int}>> $allocationRowsByLayer
+     * @return array<int, int>
+     */
+    private function partnerCopyIndexesForLayers(string $partnerId, string $fullNumber, array $layers, array $allocationRowsByLayer): array
+    {
+        $copyIndexes = [];
+        $offset = 0;
+
+        foreach ($layers as $layer) {
+            $layerId = (string) ($layer['id'] ?? '');
+            $layerCapacity = $this->layerCapacityForNumber(
+                $fullNumber,
+                (string) ($layer['seed'] ?? ''),
+                is_array($layer['set_distribution'] ?? null) ? $layer['set_distribution'] : [],
+            );
+            $rows = $allocationRowsByLayer[$layerId] ?? [];
+
+            for ($localIndex = 0; $localIndex < $layerCapacity; $localIndex++) {
+                $copyIndex = $offset + $localIndex;
+
+                if ($this->ownerPartnerForCopy($rows, $fullNumber, $copyIndex) === $partnerId) {
+                    $copyIndexes[] = $copyIndex;
+                }
+            }
+
+            $offset += $layerCapacity;
+        }
+
+        return $copyIndexes;
     }
 
     /**
@@ -370,19 +518,33 @@ class StockCoverageRealtimeService
      */
     private function ownerPartnerForCopy(array $rows, string $fullNumber, int $copyIndex): ?string
     {
-        $total = max(1, array_sum(array_column($rows, 'bp')));
-        $score = (int) hexdec(substr(hash('sha256', $fullNumber.':'.$copyIndex.':partner'), 0, 8)) % $total;
+        $score = (int) hexdec(substr(hash('sha256', $fullNumber.':'.$copyIndex.':partner'), 0, 8)) % self::MAX_BP;
         $cursor = 0;
 
         foreach ($rows as $row) {
-            $cursor += $row['bp'];
+            $cursor = min(self::MAX_BP, $cursor + max(0, (int) $row['bp']));
 
             if ($score < $cursor) {
                 return $row['partner_id'];
             }
         }
 
-        return $rows[0]['partner_id'] ?? null;
+        return null;
+    }
+
+    /**
+     * @param array<int, string> $fallbackLayerIds
+     * @return array<int, string>
+     */
+    private function snapshotLayerIds(mixed $json, array $fallbackLayerIds): array
+    {
+        $decoded = $this->decodeJsonArray($json);
+        $ids = array_values(array_filter(array_map(
+            fn (mixed $value): string => trim((string) $value),
+            $decoded,
+        )));
+
+        return $ids === [] ? $fallbackLayerIds : $ids;
     }
 
     /**
@@ -486,6 +648,130 @@ class StockCoverageRealtimeService
         }
 
         return $defaults;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function stockTableRow(string $gameId, string $fullNumber): ?array
+    {
+        $profile = $this->activeProfile($gameId);
+        $number = DB::table('base_lottery_numbers')
+            ->where('full_number', $fullNumber)
+            ->first(['full_number', 'front3', 'back3', 'back2']);
+
+        if ($profile !== null && $number !== null) {
+            return $this->virtualStockTableRow($profile, $number);
+        }
+
+        return $this->physicalStockTableRow($gameId, $fullNumber);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function virtualStockTableRow(object $profile, object $number): array
+    {
+        $gameId = (string) $profile->game_id;
+        $fullNumber = (string) $number->full_number;
+        $front3 = (string) $number->front3;
+        $back3 = (string) $number->back3;
+        $back2 = (string) $number->back2;
+        $totalCount = $this->capacityForNumber($fullNumber, $this->activeLayers($profile));
+        $fullCounter = $this->counterRows($gameId, 'central', 'central', 'full_number', [$fullNumber])[$fullNumber]
+            ?? ['reserved' => 0, 'sold' => 0, 'updated_at' => null];
+        $reservedCount = min($totalCount, (int) $fullCounter['reserved']);
+        $soldCount = min($totalCount, (int) $fullCounter['sold']);
+        $usedCount = $reservedCount + $soldCount;
+        $limits = $this->limitSettings($gameId, 'central', 'central');
+        $availableCount = min(
+            max(0, $totalCount - $usedCount),
+            $this->remainingForPattern($gameId, 'front3', $front3, $limits['front3_limit']),
+            $this->remainingForPattern($gameId, 'back3', $back3, $limits['back3_limit']),
+            $this->remainingForPattern($gameId, 'back2', $back2, $limits['back2_limit']),
+        );
+
+        return [
+            'id' => $gameId.':'.$fullNumber,
+            'stock_mode' => 'virtual',
+            'game_id' => $gameId,
+            'full_number' => $fullNumber,
+            'front3' => $front3,
+            'back3' => $back3,
+            'back2' => $back2,
+            'sample_stock_item_id' => null,
+            'total_count' => $totalCount,
+            'available_count' => max(0, $availableCount),
+            'allocated_count' => $reservedCount,
+            'sold_count' => $soldCount,
+            'recalled_count' => 0,
+            'status' => $availableCount > 0 ? 'available' : 'sold_out',
+            'first_created_at' => $profile->created_at,
+            'last_updated_at' => $fullCounter['updated_at'] ?? $profile->updated_at,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function physicalStockTableRow(string $gameId, string $fullNumber): ?array
+    {
+        $row = DB::table('stock_items')
+            ->where('game_id', $gameId)
+            ->where('full_number', $fullNumber)
+            ->select([
+                'game_id',
+                'full_number',
+                DB::raw('MIN(id) as sample_stock_item_id'),
+                DB::raw('MIN(created_at) as first_created_at'),
+                DB::raw('MAX(updated_at) as last_updated_at'),
+                DB::raw('COUNT(*) as total_count'),
+                DB::raw("SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) as available_count"),
+                DB::raw("SUM(CASE WHEN status = 'allocated' THEN 1 ELSE 0 END) as allocated_count"),
+                DB::raw("SUM(CASE WHEN status = 'sold' THEN 1 ELSE 0 END) as sold_count"),
+                DB::raw("SUM(CASE WHEN status = 'recalled' THEN 1 ELSE 0 END) as recalled_count"),
+            ])
+            ->groupBy('game_id', 'full_number')
+            ->first();
+
+        if ($row === null) {
+            return null;
+        }
+
+        $availableCount = (int) $row->available_count;
+
+        return [
+            'id' => (string) $row->game_id.':'.(string) $row->full_number,
+            'game_id' => (string) $row->game_id,
+            'full_number' => (string) $row->full_number,
+            'front3' => substr((string) $row->full_number, 0, 3),
+            'back3' => substr((string) $row->full_number, -3),
+            'back2' => substr((string) $row->full_number, -2),
+            'sample_stock_item_id' => (string) $row->sample_stock_item_id,
+            'total_count' => (int) $row->total_count,
+            'available_count' => $availableCount,
+            'allocated_count' => (int) $row->allocated_count,
+            'sold_count' => (int) $row->sold_count,
+            'recalled_count' => (int) $row->recalled_count,
+            'status' => $availableCount > 0 ? 'available' : 'sold_out',
+            'first_created_at' => $row->first_created_at,
+            'last_updated_at' => $row->last_updated_at,
+        ];
+    }
+
+    private function remainingForPattern(string $gameId, string $dimension, string $value, int $defaultLimit): int
+    {
+        $override = $this->limitOverrideRows($gameId, 'central', 'central', $dimension, [$value])[$value]['limit'] ?? null;
+        $limit = $override ?? $defaultLimit;
+
+        if ($limit >= self::UNLIMITED) {
+            return self::UNLIMITED;
+        }
+
+        $counter = $this->counterRows($gameId, 'central', 'central', $dimension, [$value])[$value]
+            ?? ['reserved' => 0, 'sold' => 0];
+
+        return max(0, $limit - (int) $counter['reserved'] - (int) $counter['sold']);
     }
 
     private function broadcastRefreshRequiredAfterCommit(

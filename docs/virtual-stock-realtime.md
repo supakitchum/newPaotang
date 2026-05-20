@@ -212,6 +212,16 @@ Expected behavior:
 - unmaterialized virtual capacity must be shown as capacity, not as fake ticket image rows
 - Stock Pattern Coverage must update generated/reserved/sold/remaining/limit values through websocket without manual refresh
 
+## Central Stock Table Realtime
+
+Central grouped stock table subscribers use:
+
+- channel: `private-admin.central.stock.table.game.{game_id}`
+- event: `stock.table.updated`
+- auth: central admin scope with `stock.view`
+
+Broad generation/top-up, allocation, recall, cancel, redistribute, and limit changes may emit `refresh_required: true`. Single full-number counter changes from customer reservation, release, expiration, or sold conversion should emit a grouped row payload when the backend can safely compute one.
+
 ## Stock Generation And Coverage Follow-Up
 
 Coordinator task `stock-generation-coverage-usability` extends the virtual stock contract with BO usability and limit-default requirements.

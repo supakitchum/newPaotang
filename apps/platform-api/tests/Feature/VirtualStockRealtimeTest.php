@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Modules\CentralStock\Events\StockCoverageUpdated;
+use App\Modules\CentralStock\Events\StockTableUpdated;
 use App\Modules\PartnerStore\Events\StockAvailabilityUpdated;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -751,7 +752,7 @@ class VirtualStockRealtimeTest extends TestCase
         $this->insertPartnerDistribution('gam_virtual', 'par_virtual', 'ten_virtual', 10000);
         $this->insertSaleLimit('gam_virtual', 'central', 'central', back2: 1, back3: 10, front3: 10);
 
-        Event::fake([StockAvailabilityUpdated::class, StockCoverageUpdated::class]);
+        Event::fake([StockAvailabilityUpdated::class, StockCoverageUpdated::class, StockTableUpdated::class]);
 
         $search = $this->getJson('http://virtual.newpaotang.test/api/v1/public/stock/search?game_id=gam_virtual&number=123456&limit=5')
             ->assertOk()
@@ -794,6 +795,17 @@ class VirtualStockRealtimeTest extends TestCase
                 && ($event->payload['reserved_count'] ?? null) === 1
                 && ($event->payload['sellable_remaining_count'] ?? null) === 0
                 && in_array('private-admin.central.stock.coverage.game.gam_virtual', $channels, true);
+        });
+        Event::assertDispatched(StockTableUpdated::class, function (StockTableUpdated $event): bool {
+            $channels = array_map(fn (object $channel): string => (string) $channel->name, $event->broadcastOn());
+
+            return $event->broadcastAs() === 'stock.table.updated'
+                && ($event->payload['game_id'] ?? null) === 'gam_virtual'
+                && ($event->payload['refresh_required'] ?? null) === false
+                && ($event->payload['row']['full_number'] ?? null) === '123456'
+                && ($event->payload['row']['allocated_count'] ?? null) === 1
+                && ($event->payload['row']['available_count'] ?? null) === 0
+                && in_array('private-admin.central.stock.table.game.gam_virtual', $channels, true);
         });
 
         $this->withToken($customerToken)
@@ -896,6 +908,40 @@ class VirtualStockRealtimeTest extends TestCase
             'tenant_id' => $tenantId,
             'percent_basis_points' => $basisPoints,
             'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $profileId = (string) DB::table('stock_supply_profiles')->where('game_id', $gameId)->value('id');
+        $layerIds = DB::table('virtual_stock_supply_layers')
+            ->where('profile_id', $profileId)
+            ->where('status', 'active')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(fn (mixed $value): string => (string) $value)
+            ->all();
+        if ($layerIds === [] && $profileId !== '') {
+            $layerIds = [$profileId];
+        }
+
+        DB::table('partner_stock_allocations')->insert([
+            'id' => 'alc_'.substr(sha1($gameId.':'.$partnerId), 0, 20),
+            'partner_id' => $partnerId,
+            'tenant_id' => $tenantId,
+            'game_id' => $gameId,
+            'quota_id' => null,
+            'status' => 'allocated',
+            'requested_count' => (int) floor(((int) DB::table('stock_supply_profiles')->where('id', $profileId)->value('total_capacity') * $basisPoints) / 10000),
+            'allocation_percent_basis_points' => $basisPoints,
+            'supply_layer_ids_json' => json_encode($layerIds, JSON_THROW_ON_ERROR),
+            'allocated_count' => (int) floor(((int) DB::table('stock_supply_profiles')->where('id', $profileId)->value('total_capacity') * $basisPoints) / 10000),
+            'recalled_count' => 0,
+            'idempotency_key' => 'fixture-'.$gameId.'-'.$partnerId,
+            'payload_hash' => hash('sha256', $gameId.':'.$partnerId),
+            'created_by_admin_id' => null,
+            'reason' => null,
+            'cancelled_at' => null,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

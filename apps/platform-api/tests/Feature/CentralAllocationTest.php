@@ -6,6 +6,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use App\Modules\CentralStock\Events\StockCoverageUpdated;
+use App\Modules\CentralStock\Events\StockTableUpdated;
 use Tests\Support\CentralStockFixtures;
 use Tests\TestCase;
 
@@ -663,7 +664,7 @@ class CentralAllocationTest extends TestCase
         $this->insertActivePartnerTenant('par_realtime_alloc', 'ten_realtime_alloc');
         $this->insertGame('gam_realtime_alloc', 'open');
         $this->insertVirtualSupplyProfile('gam_realtime_alloc', 100);
-        Event::fake([StockCoverageUpdated::class]);
+        Event::fake([StockCoverageUpdated::class, StockTableUpdated::class]);
 
         $login = $this->createCentralSession(['stock.allocate'], 'adm_realtime_alloc', 'realtime-alloc@example.test');
 
@@ -689,6 +690,77 @@ class CentralAllocationTest extends TestCase
             && ! array_key_exists('dimension', $event->payload)
             && ! array_key_exists('number', $event->payload)
         ));
+        Event::assertDispatchedTimes(StockTableUpdated::class, 1);
+        Event::assertDispatched(StockTableUpdated::class, function (StockTableUpdated $event): bool {
+            $channels = array_map(fn (object $channel): string => (string) $channel->name, $event->broadcastOn());
+
+            return $event->broadcastAs() === 'stock.table.updated'
+                && ($event->payload['game_id'] ?? null) === 'gam_realtime_alloc'
+                && ($event->payload['refresh_required'] ?? null) === true
+                && ($event->payload['reason'] ?? null) === 'stock_supply_changed'
+                && in_array('private-admin.central.stock.table.game.gam_realtime_alloc', $channels, true);
+        });
+    }
+
+    public function test_CentralAllocation_percent_snapshots_supply_layers_and_leaves_topup_unassigned_until_new_allocation(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenant('par_snapshot_a', 'ten_snapshot_a');
+        $this->insertActivePartnerTenant('par_snapshot_b', 'ten_snapshot_b');
+        $this->insertGame('gam_snapshot', 'open');
+        $this->insertBaseLotteryNumbers(['000001', '000002', '000003', '000004']);
+        $this->insertVirtualSupplyProfile('gam_snapshot', 4);
+        $this->insertVirtualSupplyLayer('gam_snapshot', 'vsl_snapshot_initial', 'snapshot-initial-seed', 4);
+
+        $login = $this->createCentralSession(['stock.allocate', 'stock.view'], 'adm_snapshot', 'snapshot@example.test');
+
+        $allocationA = $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/allocations', [
+                'partner_id' => 'par_snapshot_a',
+                'tenant_id' => 'ten_snapshot_a',
+                'game_id' => 'gam_snapshot',
+                'allocation_percent' => 50,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'allocation-snapshot-a',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('allocated_count', 2)
+            ->json();
+
+        $this->insertVirtualSupplyLayer('gam_snapshot', 'vsl_snapshot_topup', 'snapshot-topup-seed', 4);
+        DB::table('stock_supply_profiles')->where('id', 'vsp_gam_snapshot')->update([
+            'total_capacity' => 8,
+            'updated_at' => now(),
+        ]);
+
+        $storedAllocationA = DB::table('partner_stock_allocations')->where('id', $allocationA['id'])->first();
+        $this->assertSame(2, (int) $storedAllocationA->allocated_count);
+        $this->assertSame(['vsl_snapshot_initial'], json_decode((string) $storedAllocationA->supply_layer_ids_json, true));
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/stock/gam_snapshot/numbers/000001', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('generated_capacity', 2)
+            ->assertJsonPath('virtual_copies.1.owner.type', 'unassigned')
+            ->assertJsonPath('virtual_copies.1.owner.label', 'no_agent');
+
+        $allocationB = $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/allocations', [
+                'partner_id' => 'par_snapshot_b',
+                'tenant_id' => 'ten_snapshot_b',
+                'game_id' => 'gam_snapshot',
+                'allocation_percent' => 50,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'allocation-snapshot-b',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('allocated_count', 2)
+            ->json();
+
+        $storedAllocationB = DB::table('partner_stock_allocations')->where('id', $allocationB['id'])->first();
+        $this->assertSame(['vsl_snapshot_topup'], json_decode((string) $storedAllocationB->supply_layer_ids_json, true));
     }
 
     private function insertVirtualSupplyProfile(string $gameId, int $capacity): void
@@ -698,6 +770,49 @@ class CentralAllocationTest extends TestCase
             'game_id' => $gameId,
             'status' => 'active',
             'seed' => 'allocation-percent-seed',
+            'base_count' => $capacity,
+            'total_capacity' => $capacity,
+            'set_distribution_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'created_by_admin_id' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function insertVirtualSupplyLayer(string $gameId, string $layerId, string $seed, int $capacity): void
+    {
+        DB::table('stock_generation_batches')->insert([
+            'id' => 'stb_'.$layerId,
+            'game_id' => $gameId,
+            'type' => 'virtual_profile',
+            'status' => 'completed',
+            'requested_count' => $capacity,
+            'generated_count' => $capacity,
+            'total_rounds' => 0,
+            'processed_rounds' => 0,
+            'chunk_rounds' => 0,
+            'range_start' => '000001',
+            'range_end' => '000004',
+            'number_digits' => 6,
+            'idempotency_key' => $layerId,
+            'payload_hash' => hash('sha256', $layerId),
+            'created_by_admin_id' => null,
+            'payload_json' => json_encode(['layer_id' => $layerId], JSON_THROW_ON_ERROR),
+            'started_at' => now(),
+            'completed_at' => now(),
+            'failed_at' => null,
+            'failure_reason' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('virtual_stock_supply_layers')->insert([
+            'id' => $layerId,
+            'profile_id' => 'vsp_'.$gameId,
+            'batch_id' => 'stb_'.$layerId,
+            'game_id' => $gameId,
+            'status' => 'active',
+            'layer_seed' => $seed,
             'base_count' => $capacity,
             'total_capacity' => $capacity,
             'set_distribution_json' => json_encode([], JSON_THROW_ON_ERROR),

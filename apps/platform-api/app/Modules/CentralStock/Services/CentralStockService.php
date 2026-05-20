@@ -1250,7 +1250,7 @@ class CentralStockService
             return is_array($precomputedCounts[$dimension] ?? null) ? $precomputedCounts[$dimension] : [];
         }
 
-        $partnerRows = $scopeType === 'partner' ? $this->virtualPartnerDistributionRows($gameId, $scopeId) : [];
+        $partnerRows = $scopeType === 'partner' ? $this->virtualAllocationRowsForCache($gameId) : [];
         $cacheKey = $this->virtualGeneratedCountsCacheKey($gameId, $scopeType, $scopeId, $profile, $layers, $partnerRows);
         $allCounts = Cache::remember(
             $cacheKey,
@@ -1277,23 +1277,9 @@ class CentralStockService
         }
 
         if ($scopeType === 'partner') {
-            $activePartnerIds = DB::table('stock_partner_distributions')
-                ->where('game_id', $gameId)
-                ->where('status', 'active')
-                ->where('percent_basis_points', '>', 0)
-                ->pluck('partner_id')
-                ->map(fn (mixed $value): string => (string) $value)
-                ->all();
+            $sourceIds = $this->virtualAssignedLayerIdsForPartner($gameId, $scopeId, $layers);
 
-            if ($activePartnerIds === []) {
-                return [
-                    'back2' => [],
-                    'back3' => [],
-                    'front3' => [],
-                ];
-            }
-
-            if (! in_array($scopeId, $activePartnerIds, true)) {
+            if ($sourceIds === []) {
                 return [
                     'back2' => [],
                     'back3' => [],
@@ -1357,6 +1343,7 @@ class CentralStockService
             return $this->computeCentralVirtualGeneratedCountsForDimensions($layers);
         }
 
+        $allocationRowsByLayer = $scopeType === 'partner' ? $this->virtualAllocationRowsByLayer($gameId, $layers) : [];
         $counts = [
             'back2' => [],
             'back3' => [],
@@ -1366,20 +1353,17 @@ class CentralStockService
         DB::table('base_lottery_numbers')
             ->select(['full_number', 'back2', 'back3', 'front3'])
             ->orderBy('full_number')
-            ->chunk(5000, function ($numbers) use (&$counts, $scopeType, $scopeId, $layers, $partnerRows): void {
+            ->chunk(5000, function ($numbers) use (&$counts, $scopeType, $scopeId, $layers, $allocationRowsByLayer): void {
                 foreach ($numbers as $row) {
                     $capacity = $this->virtualCapacityForNumberWithLayers((string) $row->full_number, $layers);
 
                     if ($scopeType === 'partner') {
-                        $assigned = 0;
-
-                        for ($copyIndex = 0; $copyIndex < $capacity; $copyIndex++) {
-                            if ($this->virtualOwnerPartnerForCopy($partnerRows, (string) $row->full_number, $copyIndex) === $scopeId) {
-                                $assigned++;
-                            }
-                        }
-
-                        $capacity = $assigned;
+                        $capacity = count($this->virtualPartnerCopyIndexesForLayers(
+                            $scopeId,
+                            (string) $row->full_number,
+                            $layers,
+                            $allocationRowsByLayer,
+                        ));
                     }
 
                     $back2 = (string) $row->back2;
@@ -4227,13 +4211,23 @@ class CentralStockService
             }
 
             if (! isset($errors['game_id'], $errors['partner_id'], $errors['allocation_percent'])) {
-                $targetCount = $this->allocationTargetCountForPercent($gameId, (int) $percentBasisPoints);
+                $sumErrors = $this->partnerPercentSumErrors($gameId, $partnerId, (int) $percentBasisPoints);
+                $errors = $this->mergeFieldErrors($errors, $sumErrors);
+
+                if ($sumErrors !== []) {
+                    return $errors;
+                }
+
+                $targetCount = $this->allocationTargetCountForPercent(
+                    $gameId,
+                    (int) $percentBasisPoints,
+                    $this->unassignedActiveSupplyLayerIds($gameId),
+                );
 
                 if ($targetCount < 1) {
                     $errors['allocation_percent'][] = 'The allocation_percent does not allocate any current virtual stock supply.';
                 }
 
-                $errors = $this->mergeFieldErrors($errors, $this->partnerPercentSumErrors($gameId, $partnerId, (int) $percentBasisPoints));
                 $errors = $this->mergeFieldErrors($errors, $this->partnerPercentUsageErrors($gameId, $partnerId, $targetCount));
             }
         } else {
@@ -4316,7 +4310,8 @@ class CentralStockService
             return null;
         }
 
-        $targetCount = $this->allocationTargetCountForPercent($gameId, $percentBasisPoints);
+        $supplyLayerIds = $this->unassignedActiveSupplyLayerIds($gameId);
+        $targetCount = $this->allocationTargetCountForPercent($gameId, $percentBasisPoints, $supplyLayerIds);
 
         if ($targetCount < 1 || $this->partnerUsedVirtualCount($gameId, $partnerId) > $targetCount) {
             return null;
@@ -4333,6 +4328,7 @@ class CentralStockService
             'status' => 'allocated',
             'requested_count' => $targetCount,
             'allocation_percent_basis_points' => $percentBasisPoints,
+            'supply_layer_ids_json' => json_encode($supplyLayerIds, JSON_THROW_ON_ERROR),
             'allocated_count' => $targetCount,
             'recalled_count' => 0,
             'idempotency_key' => $request->header('Idempotency-Key'),
@@ -4346,6 +4342,7 @@ class CentralStockService
 
         $this->upsertPartnerDistribution($gameId, $partnerId, $tenantId, $percentBasisPoints, 'active', $now);
         $this->invalidatePartnerDistributionGeneratedCounts($gameId);
+        $this->virtualStock->refreshPartnerGeneratedPatternCountsForGame($gameId);
 
         $this->insertOutboxEvent(
             eventType: 'stock.allocated.v1',
@@ -4450,6 +4447,7 @@ class CentralStockService
 
             $this->upsertPartnerDistribution($gameId, $partnerId, $tenantId, $percentBasisPoints, 'active', $now);
             $this->invalidatePartnerDistributionGeneratedCounts($gameId);
+            $this->virtualStock->refreshPartnerGeneratedPatternCountsForGame($gameId);
             $this->coverageRealtime->broadcastGameSupplyChangedAfterCommit($gameId);
 
             $this->auditAllocationChange(
@@ -4551,6 +4549,10 @@ class CentralStockService
                 'updated_at' => $now,
             ]);
 
+            if ($isPercentAllocation) {
+                $this->virtualStock->refreshPartnerGeneratedPatternCountsForGame((string) $allocation->game_id);
+            }
+
             $this->auditAllocationChange(
                 $actor,
                 $request,
@@ -4645,6 +4647,10 @@ class CentralStockService
                 'updated_at' => $now,
             ]);
 
+            if ($allocation->allocation_percent_basis_points !== null) {
+                $this->virtualStock->refreshPartnerGeneratedPatternCountsForGame((string) $allocation->game_id);
+            }
+
             $recallId = 'rec_'.Str::ulid()->toBase32();
             $this->insertOutboxEvent(
                 eventType: 'stock.recalled.v1',
@@ -4699,7 +4705,8 @@ class CentralStockService
             $partnerId = (string) $allocation->partner_id;
             $tenantId = (string) $allocation->tenant_id;
             $percentBasisPoints = (int) $allocation->allocation_percent_basis_points;
-            $targetCount = $this->allocationTargetCountForPercent($gameId, $percentBasisPoints);
+            $supplyLayerIds = $this->unassignedActiveSupplyLayerIds($gameId);
+            $targetCount = $this->allocationTargetCountForPercent($gameId, $percentBasisPoints, $supplyLayerIds);
 
             DB::table('stock_partner_distributions')->where('game_id', $gameId)->lockForUpdate()->get();
 
@@ -4718,11 +4725,13 @@ class CentralStockService
             PartnerStockAllocation::query()->where('id', $allocationId)->update([
                 'status' => 'allocated',
                 'requested_count' => $targetCount,
+                'supply_layer_ids_json' => json_encode($supplyLayerIds, JSON_THROW_ON_ERROR),
                 'allocated_count' => $targetCount,
                 'recalled_count' => 0,
                 'reason' => $payload['reason'] ?? $allocation->reason,
                 'updated_at' => $now,
             ]);
+            $this->virtualStock->refreshPartnerGeneratedPatternCountsForGame($gameId);
 
             $this->insertOutboxEvent(
                 eventType: 'stock.allocated.v1',
@@ -5258,15 +5267,118 @@ class CentralStockService
         ];
     }
 
-    private function allocationTargetCountForPercent(string $gameId, int $basisPoints): int
+    /**
+     * @param array<int, string>|null $supplyLayerIds
+     */
+    private function allocationTargetCountForPercent(string $gameId, int $basisPoints, ?array $supplyLayerIds = null): int
     {
-        $generatedSupply = $this->activeVirtualSupplyCount($gameId);
+        $generatedSupply = $supplyLayerIds === null
+            ? $this->activeVirtualSupplyCount($gameId)
+            : $this->virtualSupplyCountForLayerIds($gameId, $supplyLayerIds);
 
         if ($generatedSupply < 1 || $basisPoints < 1) {
             return 0;
         }
 
         return (int) floor(($generatedSupply * $basisPoints) / self::VIRTUAL_MAX_BP);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function unassignedActiveSupplyLayerIds(string $gameId): array
+    {
+        $activeLayerIds = $this->activeVirtualSupplyLayerIds($gameId);
+
+        if ($activeLayerIds === []) {
+            return [];
+        }
+
+        $assignedLayerIds = $this->activeAllocationSnapshotLayerIds($gameId);
+
+        return array_values(array_diff($activeLayerIds, $assignedLayerIds));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function activeVirtualSupplyLayerIds(string $gameId): array
+    {
+        $profile = $this->activeVirtualStockProfile($gameId);
+
+        if ($profile === null) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            fn (array $layer): string => (string) ($layer['id'] ?? ''),
+            $this->virtualSupplyLayers($profile),
+        )));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function activeAllocationSnapshotLayerIds(string $gameId): array
+    {
+        $activeLayerIds = $this->activeVirtualSupplyLayerIds($gameId);
+        $layerIds = [];
+        $rows = DB::table('partner_stock_allocations')
+            ->where('game_id', $gameId)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->whereNotNull('allocation_percent_basis_points')
+            ->get(['supply_layer_ids_json']);
+
+        foreach ($rows as $row) {
+            foreach ($this->snapshotLayerIds($row->supply_layer_ids_json ?? null, $activeLayerIds) as $layerId) {
+                $layerIds[] = $layerId;
+            }
+        }
+
+        return array_values(array_unique($layerIds));
+    }
+
+    /**
+     * @param array<int, string> $supplyLayerIds
+     */
+    private function virtualSupplyCountForLayerIds(string $gameId, array $supplyLayerIds): int
+    {
+        $supplyLayerIds = array_values(array_unique(array_filter($supplyLayerIds)));
+
+        if ($supplyLayerIds === []) {
+            return 0;
+        }
+
+        $profile = $this->activeVirtualStockProfile($gameId);
+
+        if ($profile === null) {
+            return 0;
+        }
+
+        $total = 0;
+
+        foreach ($this->virtualSupplyLayers($profile) as $layer) {
+            if (in_array((string) ($layer['id'] ?? ''), $supplyLayerIds, true)) {
+                $total += (int) ($layer['total_capacity'] ?? 0);
+            }
+        }
+
+        return $total;
+    }
+
+    /**
+     * @param array<int, string> $fallbackLayerIds
+     * @return array<int, string>
+     */
+    private function snapshotLayerIds(mixed $json, array $fallbackLayerIds): array
+    {
+        $decoded = $this->decodeJsonObject($json);
+        $ids = array_values(array_filter(array_map(
+            fn (mixed $value): string => trim((string) $value),
+            $decoded,
+        )));
+
+        return $ids === [] ? $fallbackLayerIds : $ids;
     }
 
     /**
@@ -5820,37 +5932,77 @@ class CentralStockService
             }
         }
 
-        $ownerRows = $this->virtualCentralOwnerRows($gameId);
         $copies = [];
+        $profile = $this->activeVirtualStockProfile($gameId);
+        $layers = $profile === null ? [] : $this->virtualSupplyLayers($profile);
+        $allocationRowsByLayer = $layers === [] ? [] : $this->virtualAllocationRowsByLayer($gameId, $layers);
+        $copyIndex = 0;
 
-        for ($copyIndex = 0; $copyIndex < $capacity; $copyIndex++) {
-            $stock = $stockByCopy[$copyIndex] ?? null;
-            $local = $localByCopy[$copyIndex] ?? null;
-            $owner = $stock !== null || $local !== null
-                ? $this->ownershipResource($stock['partner_id'] ?? $local['partner_id'] ?? null, $stock['tenant_id'] ?? $local['tenant_id'] ?? null, null)
-                : $this->virtualOwnerForCopyResource($ownerRows, $fullNumber, $copyIndex);
-            $materialized = $stock !== null || $local !== null;
+        foreach ($layers as $layer) {
+            $layerId = (string) ($layer['id'] ?? '');
+            $layerCapacity = $this->virtualCapacityForLayer(
+                $fullNumber,
+                (string) ($layer['seed'] ?? ''),
+                is_array($layer['set_distribution'] ?? null) ? $layer['set_distribution'] : [],
+            );
+            $ownerRows = $allocationRowsByLayer[$layerId] ?? [];
 
-            $copies[] = [
-                'virtual_copy_index' => $copyIndex,
-                'virtual_stock_ref' => $stock['virtual_stock_ref'] ?? $local['virtual_stock_ref'] ?? (
-                    ($owner['tenant_id'] ?? null) === null ? null : 'vstock:'.$owner['tenant_id'].':'.$gameId.':'.$fullNumber.':'.$copyIndex
-                ),
-                'owner' => $owner,
-                'owner_type' => $owner['type'],
-                'owner_label' => $owner['label'],
-                'stock_item_id' => $stock['id'] ?? null,
-                'local_stock_item_id' => $local['id'] ?? null,
-                'status' => $local['status'] ?? $stock['status'] ?? 'available',
-                'materialized' => $materialized,
-                'image_url' => $local['image_url'] ?? $stock['image_url'] ?? null,
-                'image_thumb_url' => $local['image_thumb_url'] ?? $stock['image_thumb_url'] ?? null,
-                'image_generation_status' => $local['image_generation_status'] ?? $stock['image_generation_status'] ?? null,
-                'image_generation_error' => $local['image_generation_error'] ?? $stock['image_generation_error'] ?? null,
-            ];
+            for ($localIndex = 0; $localIndex < $layerCapacity; $localIndex++, $copyIndex++) {
+                $copies[] = $this->virtualCopyDetailRow(
+                    $gameId,
+                    $fullNumber,
+                    $copyIndex,
+                    $stockByCopy[$copyIndex] ?? null,
+                    $localByCopy[$copyIndex] ?? null,
+                    $ownerRows,
+                );
+            }
+        }
+
+        for (; $copyIndex < $capacity; $copyIndex++) {
+            $copies[] = $this->virtualCopyDetailRow(
+                $gameId,
+                $fullNumber,
+                $copyIndex,
+                $stockByCopy[$copyIndex] ?? null,
+                $localByCopy[$copyIndex] ?? null,
+                [],
+            );
         }
 
         return $copies;
+    }
+
+    /**
+     * @param array<string, mixed>|null $stock
+     * @param array<string, mixed>|null $local
+     * @param array<int, array{partner_id: string, tenant_id: ?string, bp: int}> $ownerRows
+     * @return array<string, mixed>
+     */
+    private function virtualCopyDetailRow(string $gameId, string $fullNumber, int $copyIndex, ?array $stock, ?array $local, array $ownerRows): array
+    {
+        $owner = $stock !== null || $local !== null
+            ? $this->ownershipResource($stock['partner_id'] ?? $local['partner_id'] ?? null, $stock['tenant_id'] ?? $local['tenant_id'] ?? null, null)
+            : $this->virtualOwnerForCopyResource($ownerRows, $fullNumber, $copyIndex);
+        $materialized = $stock !== null || $local !== null;
+
+        return [
+            'virtual_copy_index' => $copyIndex,
+            'virtual_stock_ref' => $stock['virtual_stock_ref'] ?? $local['virtual_stock_ref'] ?? (
+                ($owner['tenant_id'] ?? null) === null ? null : 'vstock:'.$owner['tenant_id'].':'.$gameId.':'.$fullNumber.':'.$copyIndex
+            ),
+            'owner' => $owner,
+            'owner_type' => $owner['type'],
+            'owner_label' => $owner['label'],
+            'stock_item_id' => $stock['id'] ?? null,
+            'local_stock_item_id' => $local['id'] ?? null,
+            'status' => $local['status'] ?? $stock['status'] ?? 'available',
+            'materialized' => $materialized,
+            'image_url' => $local['image_url'] ?? $stock['image_url'] ?? null,
+            'image_thumb_url' => $local['image_thumb_url'] ?? $stock['image_thumb_url'] ?? null,
+            'image_generation_status' => $local['image_generation_status'] ?? $stock['image_generation_status'] ?? null,
+            'image_generation_error' => $local['image_generation_error'] ?? $stock['image_generation_error'] ?? null,
+        ];
     }
 
     /**
@@ -6705,57 +6857,170 @@ class CentralStockService
      */
     private function virtualPartnerCopyIndexes(string $partnerId, string $gameId, string $fullNumber, int $capacity): array
     {
-        $rows = $this->virtualPartnerDistributionRows($gameId, $partnerId);
-        $copyIndexes = [];
+        $profile = $this->activeVirtualStockProfile($gameId);
 
-        for ($copyIndex = 0; $copyIndex < $capacity; $copyIndex++) {
-            if ($this->virtualOwnerPartnerForCopy($rows, $fullNumber, $copyIndex) === $partnerId) {
-                $copyIndexes[] = $copyIndex;
+        if ($profile === null) {
+            return [];
+        }
+
+        $layers = $this->virtualSupplyLayers($profile);
+
+        return $this->virtualPartnerCopyIndexesForLayers(
+            $partnerId,
+            $fullNumber,
+            $layers,
+            $this->virtualAllocationRowsByLayer($gameId, $layers),
+        );
+    }
+
+    /**
+     * @param array<int, array{id: string, seed: string, set_distribution: array<int|string, mixed>, total_capacity: int}> $layers
+     * @param array<string, array<int, array{partner_id: string, tenant_id: ?string, bp: int}>> $allocationRowsByLayer
+     * @return array<int, int>
+     */
+    private function virtualPartnerCopyIndexesForLayers(string $partnerId, string $fullNumber, array $layers, array $allocationRowsByLayer): array
+    {
+        $copyIndexes = [];
+        $offset = 0;
+
+        foreach ($layers as $layer) {
+            $layerId = (string) ($layer['id'] ?? '');
+            $layerCapacity = $this->virtualCapacityForLayer(
+                $fullNumber,
+                (string) ($layer['seed'] ?? ''),
+                is_array($layer['set_distribution'] ?? null) ? $layer['set_distribution'] : [],
+            );
+            $rows = $allocationRowsByLayer[$layerId] ?? [];
+
+            for ($localIndex = 0; $localIndex < $layerCapacity; $localIndex++) {
+                $copyIndex = $offset + $localIndex;
+
+                if ($this->virtualOwnerPartnerForCopy($rows, $fullNumber, $copyIndex) === $partnerId) {
+                    $copyIndexes[] = $copyIndex;
+                }
             }
+
+            $offset += $layerCapacity;
         }
 
         return $copyIndexes;
     }
 
     /**
-     * @return array<int, array{partner_id: string, bp: int}>
+     * @return array<int, array{id: string, partner_id: string, tenant_id: ?string, bp: int, layer_ids: array<int, string>}>
      */
-    private function virtualPartnerDistributionRows(string $gameId, string $fallbackPartnerId): array
+    private function virtualAllocationRowsForCache(string $gameId): array
     {
-        $rows = DB::table('stock_partner_distributions')
+        $layerIds = $this->activeVirtualSupplyLayerIds($gameId);
+
+        return DB::table('partner_stock_allocations')
             ->where('game_id', $gameId)
-            ->where('status', 'active')
-            ->where('percent_basis_points', '>', 0)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->whereNotNull('allocation_percent_basis_points')
+            ->where('allocation_percent_basis_points', '>', 0)
             ->orderBy('partner_id')
-            ->get()
-            ->map(fn (object $row): array => ['partner_id' => (string) $row->partner_id, 'bp' => (int) $row->percent_basis_points])
+            ->orderBy('id')
+            ->get(['id', 'partner_id', 'tenant_id', 'allocation_percent_basis_points', 'supply_layer_ids_json'])
+            ->map(fn (object $row): array => [
+                'id' => (string) $row->id,
+                'partner_id' => (string) $row->partner_id,
+                'tenant_id' => $row->tenant_id === null ? null : (string) $row->tenant_id,
+                'bp' => (int) $row->allocation_percent_basis_points,
+                'layer_ids' => $this->snapshotLayerIds($row->supply_layer_ids_json ?? null, $layerIds),
+            ])
             ->all();
-
-        if ($rows !== []) {
-            return $rows;
-        }
-
-        return [];
     }
 
     /**
-     * @param array<int, array{partner_id: string, bp: int}> $rows
+     * @param array<int, array{id: string, seed: string, set_distribution: array<int|string, mixed>, total_capacity: int}> $layers
+     * @return array<string, array<int, array{partner_id: string, tenant_id: ?string, bp: int}>>
+     */
+    private function virtualAllocationRowsByLayer(string $gameId, array $layers): array
+    {
+        $layerIds = array_values(array_filter(array_map(
+            fn (array $layer): string => (string) ($layer['id'] ?? ''),
+            $layers,
+        )));
+
+        if ($layerIds === []) {
+            return [];
+        }
+
+        $rowsByLayer = array_fill_keys($layerIds, []);
+        $rows = DB::table('partner_stock_allocations')
+            ->where('game_id', $gameId)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->whereNotNull('allocation_percent_basis_points')
+            ->where('allocation_percent_basis_points', '>', 0)
+            ->orderBy('partner_id')
+            ->orderBy('id')
+            ->get(['id', 'partner_id', 'tenant_id', 'allocation_percent_basis_points', 'supply_layer_ids_json']);
+
+        foreach ($rows as $row) {
+            $snapshotLayerIds = $this->snapshotLayerIds($row->supply_layer_ids_json ?? null, $layerIds);
+
+            foreach (array_values(array_intersect($layerIds, $snapshotLayerIds)) as $layerId) {
+                $rowsByLayer[$layerId][] = [
+                    'partner_id' => (string) $row->partner_id,
+                    'tenant_id' => $row->tenant_id === null ? null : (string) $row->tenant_id,
+                    'bp' => (int) $row->allocation_percent_basis_points,
+                ];
+            }
+        }
+
+        return $rowsByLayer;
+    }
+
+    /**
+     * @param array<int, array{id: string, seed: string, set_distribution: array<int|string, mixed>, total_capacity: int}> $layers
+     * @return array<int, string>
+     */
+    private function virtualAssignedLayerIdsForPartner(string $gameId, string $partnerId, array $layers): array
+    {
+        $layerIds = array_values(array_filter(array_map(
+            fn (array $layer): string => (string) ($layer['id'] ?? ''),
+            $layers,
+        )));
+
+        if ($layerIds === []) {
+            return [];
+        }
+
+        $assigned = [];
+        $rows = DB::table('partner_stock_allocations')
+            ->where('game_id', $gameId)
+            ->where('partner_id', $partnerId)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->whereNotNull('allocation_percent_basis_points')
+            ->where('allocation_percent_basis_points', '>', 0)
+            ->get(['supply_layer_ids_json']);
+
+        foreach ($rows as $row) {
+            foreach (array_intersect($layerIds, $this->snapshotLayerIds($row->supply_layer_ids_json ?? null, $layerIds)) as $layerId) {
+                $assigned[] = $layerId;
+            }
+        }
+
+        return array_values(array_unique($assigned));
+    }
+
+    /**
+     * @param array<int, array{partner_id: string, bp: int}>|array<int, array{partner_id: string, tenant_id: ?string, bp: int}> $rows
      */
     private function virtualOwnerPartnerForCopy(array $rows, string $fullNumber, int $copyIndex): ?string
     {
-        $total = max(1, array_sum(array_column($rows, 'bp')));
-        $score = (int) hexdec(substr(hash('sha256', $fullNumber.':'.$copyIndex.':partner'), 0, 8)) % $total;
+        $score = (int) hexdec(substr(hash('sha256', $fullNumber.':'.$copyIndex.':partner'), 0, 8)) % self::VIRTUAL_MAX_BP;
         $cursor = 0;
 
         foreach ($rows as $row) {
-            $cursor += $row['bp'];
+            $cursor = min(self::VIRTUAL_MAX_BP, $cursor + max(0, (int) $row['bp']));
 
             if ($score < $cursor) {
                 return $row['partner_id'];
             }
         }
 
-        return $rows[0]['partner_id'] ?? null;
+        return null;
     }
 
     /**

@@ -21,6 +21,7 @@ class PartnerStockAllocation extends BaseModel
         'status',
         'requested_count',
         'allocation_percent_basis_points',
+        'supply_layer_ids_json',
         'allocated_count',
         'recalled_count',
         'idempotency_key',
@@ -35,6 +36,7 @@ class PartnerStockAllocation extends BaseModel
     protected $casts = [
         'requested_count' => 'integer',
         'allocation_percent_basis_points' => 'integer',
+        'supply_layer_ids_json' => 'array',
         'allocated_count' => 'integer',
         'recalled_count' => 'integer',
         'cancelled_at' => 'datetime',

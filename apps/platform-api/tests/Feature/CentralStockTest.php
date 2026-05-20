@@ -397,6 +397,7 @@ class CentralStockTest extends TestCase
         $login = $this->createCentralSession([
             'stock.view',
             'stock.generate',
+            'stock.allocate',
         ], 'adm_stock_patterns', 'stock-patterns@example.test');
 
         $this->withToken($login['access_token'])
@@ -413,6 +414,19 @@ class CentralStockTest extends TestCase
             ])
             ->assertAccepted()
             ->assertJsonPath('generated_count', 4);
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/allocations', [
+                'partner_id' => 'par_patterns',
+                'tenant_id' => 'ten_patterns',
+                'game_id' => 'gam_stock_partner_patterns',
+                'allocation_percent' => 100,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'stock-partner-pattern-allocation',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('allocated_count', 4);
 
         $this->assertSame(
             4,

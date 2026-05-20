@@ -473,7 +473,9 @@ paths:
         `private-admin.central.stock-generation`,
         `private-admin.central.stock-generation.game.{game_id}`, and
         `private-admin.central.stock-generation.batch.{batch_id}`. These stock generation
-        channels require central scope and `stock.generate`.
+        channels require central scope and `stock.generate`. The central grouped stock table
+        channel `private-admin.central.stock.table.game.{game_id}` requires central scope and
+        `stock.view`.
       parameters:
         - $ref: "#/components/parameters/CentralAdminScopeHeader"
         - $ref: "#/components/parameters/RequestIdHeader"
@@ -9331,7 +9333,7 @@ components:
           description: Reverb/Echo socket id from the connecting client.
         channel_name:
           type: string
-          description: Private or presence channel name requested by the client. Central stock generation progress supports `private-admin.central.stock-generation`, `private-admin.central.stock-generation.game.{game_id}`, and `private-admin.central.stock-generation.batch.{batch_id}`.
+          description: Private or presence channel name requested by the client. Central stock generation progress supports `private-admin.central.stock-generation`, `private-admin.central.stock-generation.game.{game_id}`, and `private-admin.central.stock-generation.batch.{batch_id}`. Central grouped stock table realtime supports `private-admin.central.stock.table.game.{game_id}`.
         client_context:
           type: object
           nullable: true

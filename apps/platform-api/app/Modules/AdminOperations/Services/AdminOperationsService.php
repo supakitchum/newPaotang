@@ -117,9 +117,19 @@ class AdminOperationsService
 
     public function requiredRealtimePermission(string $scopeType, string $channelName): ?string
     {
-        return $scopeType === 'central' && $this->isCentralStockGenerationChannel($channelName)
-            ? 'stock.generate'
-            : null;
+        if ($scopeType !== 'central') {
+            return null;
+        }
+
+        if ($this->isCentralStockGenerationChannel($channelName)) {
+            return 'stock.generate';
+        }
+
+        if ($this->isCentralStockTableChannel($channelName)) {
+            return 'stock.view';
+        }
+
+        return null;
     }
 
     /**
@@ -229,7 +239,8 @@ class AdminOperationsService
                 'private-admin.central.admin.'.$adminUserId,
                 'presence-admin.central.admin.'.$adminUserId,
             ], true) || $this->isCentralStockGenerationChannel($channelName)
-                || $this->isCentralStockCoverageChannel($channelName);
+                || $this->isCentralStockCoverageChannel($channelName)
+                || $this->isCentralStockTableChannel($channelName);
         }
 
         $tenantId = $context->activeTenantId();
@@ -259,6 +270,11 @@ class AdminOperationsService
     private function isCentralStockCoverageChannel(string $channelName): bool
     {
         return preg_match('/^private-admin\.central\.stock\.coverage\.game\.[A-Za-z0-9_-]+$/', $channelName) === 1;
+    }
+
+    private function isCentralStockTableChannel(string $channelName): bool
+    {
+        return preg_match('/^private-admin\.central\.stock\.table\.game\.[A-Za-z0-9_-]+$/', $channelName) === 1;
     }
 
     private function limit(mixed $value): int

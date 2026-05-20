@@ -354,5 +354,26 @@ class PublicStockSearchTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+
+        DB::table('partner_stock_allocations')->insert([
+            'id' => 'alc_'.substr(sha1($gameId.':'.$partnerId), 0, 20),
+            'partner_id' => $partnerId,
+            'tenant_id' => $tenantId,
+            'game_id' => $gameId,
+            'quota_id' => null,
+            'status' => 'allocated',
+            'requested_count' => (int) floor($basisPoints / 10000),
+            'allocation_percent_basis_points' => $basisPoints,
+            'supply_layer_ids_json' => json_encode(['vsp_'.$gameId], JSON_THROW_ON_ERROR),
+            'allocated_count' => (int) floor($basisPoints / 10000),
+            'recalled_count' => 0,
+            'idempotency_key' => 'fixture-'.$gameId.'-'.$partnerId,
+            'payload_hash' => hash('sha256', $gameId.':'.$partnerId),
+            'created_by_admin_id' => null,
+            'reason' => null,
+            'cancelled_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 }
