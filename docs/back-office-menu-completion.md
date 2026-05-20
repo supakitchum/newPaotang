@@ -25,7 +25,6 @@ Status legend:
 | central:partner_monitoring | /admin/central/partners | /admin/central/partner-monitoring | Complete | Catalog now calls registered partner monitoring list/detail APIs with `partner.monitoring.view`. |
 | central:partner_usage | /admin/central/partners | /admin/central/partner-usage | Complete | Catalog now calls registered partner usage list/detail APIs with `partner.usage.view` and date filters for recent summaries. |
 | central:allocations | /admin/central/allocations | /admin/central/allocations | Complete | Catalog uses central allocations list/detail/cancel action. |
-| central:stock_recall | /admin/central/stock | /admin/central/stock | Shared accepted | Central stock page exposes recall action. |
 | central:billing_plans | /admin/central/partners | /admin/central/billing-plans | Complete | Catalog now calls list/create/detail/update with `partner.billing.manage`; create payloads use idempotent JSON actions and detail PATCH uses the JSON editor. |
 | central:alert_policies | /admin/central/partners | /admin/central/alert-policies | Complete | Catalog now calls list/create/detail/update with `partner.alert.manage`; create payloads use idempotent JSON actions and detail PATCH uses the JSON editor. |
 | central:alert_events | /admin/central/partners | /admin/central/alert-events | Complete | Catalog now calls list/detail plus idempotent acknowledge/resolve actions with `partner.alert.view`/`partner.alert.manage`. |

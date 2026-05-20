@@ -18,7 +18,6 @@ const scopedRouteOverrides: Record<string, string> = {
   'central:rewards': '/admin/central/rewards',
   'central:stock_generation': '/admin/central/stock-generation',
   'central:stock_settings': '/admin/central/stock-settings',
-  'central:stock_recall': '/admin/central/stock-recall',
   'central:stock_pattern_coverage': '/admin/central/stock-pattern-coverage',
   'central:lottery_images': '/admin/central/lottery-images',
   'central:lottery_image_operations': '/admin/central/lottery-images',
@@ -175,7 +174,7 @@ const buildMenuTree = (items: AdminMenuItem[]) => {
   return groups
 }
 
-const retiredCentralMenuKeys = new Set(['master_stock', 'partner_quotas'])
+const retiredCentralMenuKeys = new Set(['master_stock', 'partner_quotas', 'stock_recall'])
 
 const hideCentralOnlyMenus = (items: AdminMenuItem[]): AdminMenuItem[] => items
   .filter((item) => item.key !== 'prize_checking' && !retiredCentralMenuKeys.has(item.key))

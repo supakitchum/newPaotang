@@ -48,7 +48,7 @@ class DefaultRbacMenuSeeder extends Seeder
 
         AdminMenu::query()
             ->where('scope_type', 'central')
-            ->where('code', 'master_stock')
+            ->whereIn('code', ['master_stock', 'stock_recall'])
             ->delete();
     }
 
@@ -196,7 +196,6 @@ class DefaultRbacMenuSeeder extends Seeder
                 'partner_monitoring' => 'partner.monitoring.view',
                 'partner_usage' => 'partner.usage.view',
                 'allocations' => 'stock.allocate',
-                'stock_recall' => 'stock.recall',
                 'billing_plans' => 'partner.billing.manage',
                 'alert_policies' => 'partner.alert.manage',
                 'alert_events' => 'partner.alert.view',
@@ -296,8 +295,7 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:games' => '/admin/central/games',
             'central:rewards',
             'central:prize_checking' => '/admin/central/rewards',
-            'central:stock_generation',
-            'central:stock_recall' => '/admin/central/stock',
+            'central:stock_generation' => '/admin/central/stock',
             'central:stock_settings' => '/admin/central/stock-settings',
             'central:partners',
             'central:partner_provisioning',
@@ -378,8 +376,7 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:prize_checking',
             'central:stock_generation',
             'central:stock_settings',
-            'central:allocations',
-            'central:stock_recall' => 'Lottery Operations',
+            'central:allocations' => 'Lottery Operations',
             'central:partners',
             'central:partner_provisioning',
             'central:partner_quotas',

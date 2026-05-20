@@ -37,7 +37,7 @@ class RbacMenuSeederTest extends TestCase
     {
         $this->seed(DefaultRbacMenuSeeder::class);
 
-        $this->assertSame(24, DB::table('admin_menus')->where('scope_type', 'central')->count());
+        $this->assertSame(23, DB::table('admin_menus')->where('scope_type', 'central')->count());
         $this->assertSame(32, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
 
         $this->assertDatabaseHas('admin_menus', [
@@ -65,6 +65,11 @@ class RbacMenuSeederTest extends TestCase
         $this->assertDatabaseMissing('admin_menus', [
             'scope_type' => 'central',
             'code' => 'master_stock',
+        ]);
+
+        $this->assertDatabaseMissing('admin_menus', [
+            'scope_type' => 'central',
+            'code' => 'stock_recall',
         ]);
 
         $this->assertDatabaseHas('admin_menus', [
@@ -109,5 +114,29 @@ class RbacMenuSeederTest extends TestCase
             ->where('scope_type', 'tenant')
             ->where('code', 'dashboard')
             ->count());
+    }
+
+    public function test_reseeding_removes_retired_stock_recall_menu(): void
+    {
+        DB::table('admin_menus')->insert([
+            'id' => 'men_retired_stock_recall',
+            'scope_type' => 'central',
+            'parent_id' => null,
+            'code' => 'stock_recall',
+            'label' => 'Stock Recall',
+            'route' => '/admin/central/stock',
+            'required_permission_code' => 'stock.recall',
+            'sort_order' => 999,
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->seed(DefaultRbacMenuSeeder::class);
+
+        $this->assertDatabaseMissing('admin_menus', [
+            'scope_type' => 'central',
+            'code' => 'stock_recall',
+        ]);
     }
 }

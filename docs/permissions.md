@@ -138,7 +138,6 @@ auditor
 | partner_monitoring | partner.monitoring.view |
 | partner_usage | partner.usage.view |
 | allocations | stock.allocate |
-| stock_recall | stock.recall |
 | billing_plans | partner.billing.manage |
 | alert_policies | partner.alert.manage |
 | alert_events | partner.alert.view |
