@@ -6,6 +6,7 @@ type ApiOptions = {
   tenantId?: string | null
   idempotencyKey?: string
   successMessage?: string | false
+  auth?: boolean
 }
 
 export const useAdminApi = () => {
@@ -18,7 +19,11 @@ export const useAdminApi = () => {
   const idempotencyKey = () => `idk_${Date.now().toString(36)}_${cryptoSafeRandom()}`
 
   const apiFetch = async <T = any>(path: string, options: ApiOptions = {}): Promise<T> => {
-    session.restore()
+    const useAuth = options.auth !== false
+    if (useAuth) {
+      session.restore()
+    }
+
     const headers: Record<string, string> = {
       Accept: 'application/json',
       'X-Request-Id': requestId(),
@@ -28,7 +33,7 @@ export const useAdminApi = () => {
       headers['Content-Type'] = 'application/json'
     }
 
-    if (session.session.value.accessToken) {
+    if (useAuth && session.session.value.accessToken) {
       headers.Authorization = `Bearer ${session.session.value.accessToken}`
     }
 
@@ -86,26 +91,33 @@ export const useAdminApi = () => {
   }
 
   const login = async (payload: { email: string, password: string, scope?: string, tenant_id?: string | null }) => {
+    session.clear()
+
     const response = await apiFetch('/auth/admin/login', {
       method: 'POST',
       body: payload,
       scope: payload.scope === 'tenant' ? 'tenant' : 'central',
       tenantId: payload.tenant_id,
       successMessage: false,
+      auth: false,
     })
     session.applyAuthPayload(response, payload.scope as 'central' | 'tenant', payload.tenant_id)
     return response
   }
 
   const refresh = async () => {
+    session.restore()
+
     if (!session.session.value.refreshToken) {
       return null
     }
 
+    const refreshToken = session.session.value.refreshToken
     const response = await apiFetch('/auth/admin/refresh', {
       method: 'POST',
-      body: { refresh_token: session.session.value.refreshToken },
+      body: { refresh_token: refreshToken },
       successMessage: false,
+      auth: false,
     })
     session.applyAuthPayload(response)
     return response

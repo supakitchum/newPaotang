@@ -77,11 +77,24 @@ const form = reactive({
   tenant_id: '',
 })
 
-onMounted(() => {
+onMounted(async () => {
   session.restore()
   notice.value = session.consumeAuthNotice()
-  if (session.isAuthenticated.value) {
+
+  if (!session.isAuthenticated.value) {
+    return
+  }
+
+  try {
+    await api.apiFetch('/auth/admin/me', {
+      scope: session.currentScope.value,
+      tenantId: session.currentTenantId.value,
+      successMessage: false,
+    })
     navigateTo(afterLoginPath(session.currentScope.value))
+  } catch {
+    session.clear()
+    notice.value = notice.value || 'Session expired. Please sign in again.'
   }
 })
 
