@@ -569,6 +569,7 @@ const secondaryErrors = reactive<Record<string, any>>({})
 const detailDraft = ref('')
 const filters = ref<Record<string, any>>({})
 const stockSummaryRefreshKey = ref(0)
+const stockTableRealtimeReloading = ref(false)
 const stockGenerationProgressRefreshKey = ref(0)
 const stockGenerationSubmittedBatch = ref<any>(null)
 const stockGenerationHasActiveBatch = ref(false)
@@ -699,6 +700,22 @@ const showStockGenerationProgress = computed(() => Boolean(isStockGenerationRout
 const stockSummaryEndpoint = computed(() => resource.value?.stockSummaryEndpoint || '')
 const stockSummaryGameId = computed(() => filters.value.game_id || '')
 const stockSummaryBatchId = computed(() => filters.value.batch_id || '')
+const selectedStockTableGameId = computed(() => String(filters.value.game_id || '').trim())
+const isCentralGroupedStockTable = computed(() => Boolean(
+  props.scope === 'central'
+  && mode.value === 'list'
+  && resource.value?.stockGrouped
+  && selectedStockTableGameId.value,
+))
+const stockTableRealtimeChannelName = computed(() => (
+  isCentralGroupedStockTable.value
+    ? `private-admin.central.stock.table.game.${selectedStockTableGameId.value}`
+    : ''
+))
+const stockTableRealtimeEnabled = computed(() => Boolean(
+  isCentralGroupedStockTable.value
+  && session.isAuthenticated.value,
+))
 const currentCentralGameOption = computed(() => singleCurrentGameOption(optionSourceOptions['central-games'] || []))
 const currentAllocationGameOption = computed(() => latestCurrentGameOption(optionSourceOptions['allocation-games'] || []))
 const allocationSummaryCards = computed(() => {
@@ -811,6 +828,48 @@ const stockTicketColumns = [
   { key: 'batch_id', label: 'Batch' },
   { key: 'updated_at', label: 'Updated', type: 'datetime' as const },
 ]
+
+type StockTableRealtimePayload = {
+  game_id?: string | number
+  refresh_required?: boolean
+  reason?: string
+  updated_at?: string
+  row?: Record<string, any>
+}
+
+const stockTableRealtimeCountKeys = [
+  'available_count',
+  'allocated_count',
+  'sold_count',
+  'recalled_count',
+  'total_count',
+]
+
+const stockTableRealtimeMergeFields = [
+  'game_id',
+  'full_number',
+  'front3',
+  'back3',
+  'back2',
+  'available_count',
+  'allocated_count',
+  'sold_count',
+  'recalled_count',
+  'total_count',
+  'status',
+  'updated_at',
+  'last_updated_at',
+]
+
+const stockTableRealtimeFilterKeysAllowedForMerge = new Set(['game_id', 'limit', 'cursor'])
+
+useAdminRealtimeSubscription({
+  channelName: stockTableRealtimeChannelName,
+  eventName: 'stock.table.updated',
+  enabled: stockTableRealtimeEnabled,
+  onEvent: handleStockTableRealtimeEvent,
+  onReconnect: handleStockTableRealtimeReconnect,
+})
 
 watch(() => route.fullPath, () => {
   if (!import.meta.client) {
@@ -1767,9 +1826,7 @@ const runConfirmedAction = async (reason: string, payloadJson = '', formValues: 
     if (showAllocationSummaryWidgets.value) {
       await refreshAllocationGameOptions()
     }
-    if (showStockSummaryWidgets.value) {
-      stockSummaryRefreshKey.value += 1
-    }
+    refreshStockSummaryWidgets()
   } catch (err) {
     actionError.value = err
   } finally {
@@ -1787,9 +1844,150 @@ const handleStockGenerationProgress = (batch: any) => {
   }
 
   stockGenerationHasActiveBatch.value = isActiveStockGenerationBatch(batch)
+  refreshStockSummaryWidgets()
+}
+
+function handleStockTableRealtimeEvent(payload: StockTableRealtimePayload) {
+  if (!stockTableRealtimeEnabled.value || !payload || typeof payload !== 'object') {
+    return
+  }
+
+  const payloadGameId = String(payload.game_id || payload.row?.game_id || '').trim()
+  if (payloadGameId !== selectedStockTableGameId.value) {
+    return
+  }
+
+  if (payload.refresh_required) {
+    void reloadStockTableFromRealtime()
+    return
+  }
+
+  const row = payload.row
+  if (!isSafeStockTableRealtimeRow(row) || stockTableRealtimeRowRequiresReload(row)) {
+    void reloadStockTableFromRealtime()
+    return
+  }
+
+  if (!mergeStockTableRealtimeRow(row, payload)) {
+    void reloadStockTableFromRealtime()
+    return
+  }
+
+  refreshStockSummaryWidgets()
+}
+
+function handleStockTableRealtimeReconnect() {
+  if (!stockTableRealtimeEnabled.value) {
+    return
+  }
+
+  void reloadStockTableFromRealtime()
+}
+
+async function reloadStockTableFromRealtime() {
+  if (!stockTableRealtimeEnabled.value || stockTableRealtimeReloading.value) {
+    return
+  }
+
+  stockTableRealtimeReloading.value = true
+  try {
+    await load(pageState.cursors[pageState.index] || null, 'current')
+    refreshStockSummaryWidgets()
+  } finally {
+    stockTableRealtimeReloading.value = false
+  }
+}
+
+function refreshStockSummaryWidgets() {
   if (showStockSummaryWidgets.value) {
     stockSummaryRefreshKey.value += 1
   }
+}
+
+function isSafeStockTableRealtimeRow(row: any) {
+  return Boolean(
+    row
+    && typeof row === 'object'
+    && !isBlank(row.game_id)
+    && !isBlank(row.full_number)
+    && stockTableRealtimeCountKeys.every((key) => Number.isFinite(Number(row[key]))),
+  )
+}
+
+function stockTableRealtimeRowRequiresReload(row: Record<string, any>) {
+  const rowGameId = String(row.game_id || '').trim()
+  return Boolean(
+    rowGameId !== selectedStockTableGameId.value
+    || stockTableRealtimeHasUncertainFilters()
+    || stockTableRealtimeHasUncertainSort()
+    || stockTableRealtimeHasUncertainPage(),
+  )
+}
+
+function stockTableRealtimeHasUncertainFilters() {
+  return Object.keys(cleanQuery(filters.value))
+    .some((key) => !stockTableRealtimeFilterKeysAllowedForMerge.has(key))
+}
+
+function stockTableRealtimeHasUncertainSort() {
+  return Boolean(sortState.key)
+}
+
+function stockTableRealtimeHasUncertainPage() {
+  return pageState.index > 0 || !isBlank(filters.value.cursor)
+}
+
+function mergeStockTableRealtimeRow(row: Record<string, any>, payload: StockTableRealtimePayload) {
+  if (!resource.value) {
+    return false
+  }
+
+  const fullNumber = String(row.full_number || '').trim()
+  const rowGameId = String(row.game_id || payload.game_id || '').trim()
+  const index = rows.value.findIndex((entry) => {
+    const source = entry.__raw || entry
+    const sourceFullNumber = String(source.full_number || entry.full_number || '').trim()
+    const sourceGameId = String(source.game_id || entry.game_id || '').trim()
+    return sourceFullNumber === fullNumber && sourceGameId === rowGameId
+  })
+
+  if (index < 0) {
+    return false
+  }
+
+  const currentDisplay = rows.value[index]
+  const currentRaw = currentDisplay.__raw || currentDisplay
+  const nextRaw = {
+    ...currentRaw,
+    game_id: row.game_id ?? payload.game_id ?? currentRaw.game_id,
+    full_number: row.full_number ?? currentRaw.full_number,
+  }
+
+  for (const key of stockTableRealtimeMergeFields) {
+    if (row[key] !== undefined) {
+      nextRaw[key] = row[key]
+    }
+  }
+
+  if (row.updated_at === undefined && payload.updated_at) {
+    nextRaw.updated_at = payload.updated_at
+  }
+  if (row.last_updated_at === undefined && row.updated_at !== undefined) {
+    nextRaw.last_updated_at = row.updated_at
+  }
+  if (row.last_updated_at === undefined && row.updated_at === undefined && payload.updated_at) {
+    nextRaw.last_updated_at = payload.updated_at
+  }
+
+  const normalized = normalizeRows([nextRaw], resource.value)[0] || {}
+  const nextDisplay = {
+    ...currentDisplay,
+    ...normalized,
+    __raw: nextRaw,
+    __id: currentDisplay.__id || normalized.__id,
+  }
+  rows.value = rows.value.map((entry, rowIndex) => rowIndex === index ? nextDisplay : entry)
+  return true
 }
 
 const loadRelatedLists = async () => {

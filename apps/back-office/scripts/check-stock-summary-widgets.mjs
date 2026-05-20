@@ -37,9 +37,28 @@ for (const token of [
   'AdminStockSummaryWidgets',
   'showStockSummaryWidgets',
   'stockSummaryRefreshKey',
+  'refreshStockSummaryWidgets',
 ]) {
   if (!`${component}\n${operationsPage}\n${catalog}`.includes(token)) {
     failures.push(`Stock summary widget wiring is missing token: ${token}`)
+  }
+}
+
+for (const token of [
+  'private-admin.central.stock.table.game',
+  'stock.table.updated',
+  'stockTableRealtimeEnabled',
+  'handleStockTableRealtimeEvent',
+  'handleStockTableRealtimeReconnect',
+  'reloadStockTableFromRealtime',
+  'stockTableRealtimeRowRequiresReload',
+  'mergeStockTableRealtimeRow',
+  'stockTableRealtimeHasUncertainFilters',
+  'stockTableRealtimeHasUncertainSort',
+  'stockTableRealtimeHasUncertainPage',
+]) {
+  if (!operationsPage.includes(token)) {
+    failures.push(`Central stock table realtime workflow is missing token: ${token}`)
   }
 }
 
