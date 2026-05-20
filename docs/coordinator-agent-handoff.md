@@ -85,6 +85,14 @@ Coordinator amendment after Orchestrator dispatch:
 - Keep the same active task and route through Backend Develop first to avoid conflicting edits.
 - Backend must add allocation supply layer snapshots, keep old allocation counts/owners fixed after top-up, mark later top-up copies as unassigned/no_agent until allocated, and keep top-up layer seeds independent.
 
+Coordinator review after QA:
+
+- QA report was rejected after user opened BO and reported the expected panel is not visible.
+- Active task remains `stock-table-realtime-socket`; do not close it.
+- Remediation prompt: `ai-agents/tasks/20260520-stock-table-realtime-socket-remediation-orchestrator.md`.
+- Orchestrator must dispatch BO Develop remediation, then QA Tester.
+- QA Tester must provide authenticated BO browser evidence that the panel is visible before reporting PASS.
+
 ## 2026-05-20 Retire Physical Stock Flow QA Review
 
 Coordinator reviewed QA for `retire-physical-stock-flow`.

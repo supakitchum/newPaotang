@@ -6,7 +6,7 @@
 
 ## Status
 
-Approved for Orchestrator dispatch.
+Needs BO remediation after Coordinator review.
 
 ## Decision
 
@@ -97,3 +97,32 @@ Backend implementation must cover changes that affect grouped stock table counts
 Next Agent: Orchestrator
 
 User must send the Coordinator board/task instruction to Orchestrator chat.
+
+## Coordinator Review: BO Panel Missing After QA
+
+Date: 2026-05-20
+
+Coordinator rejects the QA PASS for this task.
+
+User opened BO after QA and reported that the expected panel is not visible. This is a user-visible acceptance failure for the stock table realtime workflow.
+
+Review findings:
+
+- QA report was left uncommitted/unpushed in the worktree when Coordinator inspected the task.
+- QA report says `PASS`, but its own risks section says live browser websocket event mutation was not manually triggered end-to-end.
+- BO evidence is mostly source/static guardrails plus build/lint/test. That is not enough when the reported defect is visual panel visibility in the actual BO.
+- Existing BO handoff says no owner/allocation display logic changed and does not prove a visible stock table realtime/status panel is rendered for the operator.
+
+Decision:
+
+- Do not close `stock-table-realtime-socket`.
+- Route a remediation through Orchestrator first, then BO Develop, then QA Tester.
+- BO must ensure the stock table realtime/summary panel is visibly rendered in BO for the central grouped Stock table with a selected game.
+- If no game is selected, BO must show a visible prompt/state instead of silently hiding the panel.
+- QA must provide authenticated BO browser evidence that the panel is visible before it may report PASS.
+
+Remediation task:
+
+```text
+ai-agents/tasks/20260520-stock-table-realtime-socket-remediation-orchestrator.md
+```

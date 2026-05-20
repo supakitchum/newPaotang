@@ -12,21 +12,21 @@ stock-table-realtime-socket
 
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
-| Coordinator | dispatched | stock-table-realtime-socket | ai-agents/tasks/20260520-stock-table-realtime-socket-orchestrator.md |
-| Orchestrator | completed | stock-table-realtime-socket | ai-agents/handoffs/20260520-stock-table-realtime-socket-orchestrator-qa-dispatch-handoff.md |
+| Coordinator | review-rejected | stock-table-realtime-socket | ai-agents/decisions/20260520-stock-table-realtime-socket-decision.md |
+| Orchestrator | pending | stock-table-realtime-socket-remediation | ai-agents/tasks/20260520-stock-table-realtime-socket-remediation-orchestrator.md |
 | Backend Develop | completed | stock-table-realtime-socket-backend | ai-agents/handoffs/20260520-stock-table-realtime-socket-backend-handoff.md |
-| BO Develop | completed | stock-table-realtime-socket-bo | ai-agents/handoffs/20260520-stock-table-realtime-socket-bo-handoff.md |
+| BO Develop | needs-revision | stock-table-realtime-socket-bo | ai-agents/handoffs/20260520-stock-table-realtime-socket-bo-handoff.md |
 | Customer Develop | completed | lottery-image-customer-ssr-error-serialization-remediation | ai-agents/handoffs/20260514-lottery-image-customer-ssr-error-serialization-remediation-customer-handoff.md |
-| QA Tester | pending | stock-table-realtime-socket-qa | ai-agents/tasks/20260520-stock-table-realtime-socket-qa.md |
+| QA Tester | failed-user-review | stock-table-realtime-socket-qa | ai-agents/reports/20260520-stock-table-realtime-socket-qa-report.md |
 
 ## Open Questions
 
 ```text
-Backend Develop and BO Develop completed stock-table-realtime-socket handoffs. QA Tester must validate backend channel/events, BO subscribe/merge/reload behavior, summary refresh, Docker build rerun, no-regression realtime, and runtime restore/login smoke.
+User opened BO after QA and reported the expected panel is not visible. Coordinator rejects the QA PASS and routes remediation back through Orchestrator. BO Develop must make the stock table realtime/summary panel visibly render in BO and QA must provide authenticated browser evidence before PASS.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/handoffs/20260520-stock-table-realtime-socket-bo-handoff.md
+ai-agents/tasks/20260520-stock-table-realtime-socket-remediation-orchestrator.md
 ```
