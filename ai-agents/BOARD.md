@@ -12,7 +12,7 @@ none
 
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
-| Coordinator | completed | retire-physical-stock-flow | ai-agents/decisions/20260520-retire-physical-stock-flow-qa-review-decision.md |
+| Coordinator | completed | coordinator-new-chat-handoff | ai-agents/handoffs/20260520-coordinator-new-chat-handoff.md |
 | Orchestrator | completed | retire-physical-stock-flow | ai-agents/handoffs/20260520-retire-physical-stock-flow-orchestrator-qa-dispatch-handoff.md |
 | Backend Develop | completed | retire-physical-stock-flow-backend | ai-agents/handoffs/20260520-retire-physical-stock-flow-backend-handoff.md |
 | BO Develop | completed | retire-physical-stock-flow-bo | ai-agents/handoffs/20260520-retire-physical-stock-flow-bo-handoff.md |
@@ -22,11 +22,11 @@ none
 ## Open Questions
 
 ```text
-Retire physical stock flow is complete and QA PASS. No product defects found. Full platform suite was not run; focused Docker filters, authenticated BO evidence, and runtime restore/login smoke passed.
+Retire physical stock flow is complete and QA PASS. Coordinator new-chat handoff and continuation prompt are ready. Local dirty note: apps/platform-api/.phpunit.result.cache is a PHPUnit cache artifact and should not be staged as product evidence.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/decisions/20260520-retire-physical-stock-flow-qa-review-decision.md
+ai-agents/handoffs/20260520-coordinator-new-chat-handoff.md
 ```
