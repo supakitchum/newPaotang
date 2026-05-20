@@ -144,6 +144,9 @@ const templateNotice = existsSync(join(root, 'public/admin-template/NOTICE.md'))
 const adminNavigation = existsSync(join(root, 'composables/useAdminNavigation.ts'))
   ? readFileSync(join(root, 'composables/useAdminNavigation.ts'), 'utf8')
   : ''
+const adminApiState = existsSync(join(root, 'components/AdminApiState.vue'))
+  ? readFileSync(join(root, 'components/AdminApiState.vue'), 'utf8')
+  : ''
 const tenantMaintenancePage = existsSync(join(root, 'pages/admin/tenant/maintenance.vue'))
   ? readFileSync(join(root, 'pages/admin/tenant/maintenance.vue'), 'utf8')
   : ''
@@ -264,7 +267,6 @@ for (const [routeKey, route] of [
   ['central:reports', '/admin/central/reports'],
   ['central:settlement', '/admin/central/settlements'],
   ['central:partner_provisioning', '/admin/central/partner-provisioning'],
-  ['central:partner_quotas', '/admin/central/partner-quotas'],
   ['central:partner_monitoring', '/admin/central/partner-monitoring'],
   ['central:partner_usage', '/admin/central/partner-usage'],
   ['central:billing_plans', '/admin/central/billing-plans'],
@@ -298,7 +300,6 @@ for (const requiredResource of [
   "'roles'",
   "'menu-management'",
   "'partner-provisioning'",
-  "'partner-quotas'",
   "'partner-monitoring'",
   "'partner-usage'",
   "'billing-plans'",
@@ -330,12 +331,13 @@ for (const evidence of [
   ['P1 wallet ledger workflow', operationsCatalog.includes('/admin/tenant/wallets/{wallet_id}/ledger') && operationsCatalog.includes("title: 'Wallet Ledger'")],
   ['P1 tenant order nested customer context', operationsCatalog.includes("type?: 'text' | 'status' | 'datetime' | 'money' | 'json' | 'customer'") && operationsCatalog.includes('fallbackKeys?: string[]') && operationsCatalog.includes('const orderActionContext') && operationsCatalog.includes("'customer.id'") && operationsCatalog.includes("'customer.name'") && operationsCatalog.includes("'customer.phone'") && operationsCatalog.includes("type: 'customer'")],
   ['P1 tenant topup nested customer context', operationsCatalog.includes('const topupActionContext') && operationsCatalog.includes("'member_id'") && operationsCatalog.includes("'amount.currency'") && operationsCatalog.includes("'channel'") && operationsCatalog.includes("contextFields: topupActionContext")],
-  ['P2 partner typed workflows', operationsCatalog.includes('const partnerCreateFields') && operationsCatalog.includes('const partnerProvisionFields') && operationsCatalog.includes('const partnerQuotaCreateFields') && operationsCatalog.includes("endpoint: '/admin/central/partners/{partner_id}/suspend'") && operationsCatalog.includes("formFields: partnerProvisionFields")],
+  ['P2 partner typed workflows', operationsCatalog.includes('const partnerCreateFields') && operationsCatalog.includes('const partnerProvisionFields') && operationsCatalog.includes("endpoint: '/admin/central/partners/{partner_id}/suspend'") && operationsCatalog.includes("formFields: partnerProvisionFields")],
   ['P2 billing alert typed workflows', operationsCatalog.includes('sourceKey?: string') && operationsCatalog.includes('const billingPlanFields') && operationsCatalog.includes('const billingPlanUpdateFields') && operationsCatalog.includes('const alertPolicyFields') && operationsCatalog.includes('const alertEventActionContext') && operationsCatalog.includes("formFields: billingPlanFields") && operationsCatalog.includes("formFields: alertPolicyFields")],
   ['P3 central stock game selector workflows', operationsCatalog.includes("export type OperationOptionSource = 'central-games'") && operationsCatalog.includes('const gameSelectField') && operationsCatalog.includes('const gameSelectFilter') && operationsPage.includes("api.apiFetch('/admin/central/games'") && operationsPage.includes('hydrateFields') && operationsPage.includes('hydratedCollectionActions')],
   ['P3 central stock grouped duplicate workflow', operationsCatalog.includes('stockGrouped?: boolean') && operationsCatalog.includes('defaultQuery: { grouped: true }') && operationsCatalog.includes("key: 'number'") && operationsPage.includes('openStockNumberDetail') && operationsPage.includes('AdminStockNumberDetail') && operationsPage.includes('/numbers/') && readFileSync(join(root, 'components/AdminPagination.vue'), 'utf8').includes('Page {{ currentPage }}')],
   ['P3 stock coverage settings workflow', operationsCatalog.includes("slug: 'stock-settings'") && operationsCatalog.includes("slug: 'stock-pattern-coverage'") && operationsPage.includes('isStockSettingsRoute') && operationsPage.includes('AdminStockCoverageSettings') && operationsPage.includes('AdminStockPatternCoverage') && readFileSync(join(root, 'components/AdminStockCoverageSettings.vue'), 'utf8').includes('stock_pattern_coverage_default') && readFileSync(join(root, 'components/AdminStockPatternCoverage.vue'), 'utf8').includes('/admin/central/stock/limit-settings') && readFileSync(join(root, 'components/AdminStockPatternCoverage.vue'), 'utf8').includes('/admin/central/stock/limit-overrides')],
   ['allocation partner percent BO workflow', operationsCatalog.includes("'allocation-partners'") && operationsCatalog.includes('/admin/central/allocations/partner-percent') && operationsCatalog.includes('/admin/central/allocations/{allocation_id}/recall-all') && operationsCatalog.includes('/admin/central/allocations/{allocation_id}/redistribute') && operationsCatalog.includes("enabledStatuses: ['recalled']") && operationsCatalog.includes('allocationPercentField') && operationsPage.includes('/admin/central/allocation-options/partners') && operationsPage.includes('/admin/central/allocation-options/tenants') && operationsPage.includes('/admin/central/allocation-options/games') && operationsPage.includes('routeFilterValues') && readFileSync(join(root, 'components/AdminConfirmAction.vue'), 'utf8').includes('Allocation preview') && readFileSync(join(root, 'components/AdminFilterBar.vue'), 'utf8').includes('visibleOptions(filter)') && readFileSync(join(root, 'components/AdminStockPatternCoverage.vue'), 'utf8').includes('applyRouteDefaults')],
+  ['retired physical stock BO workflow', operationsCatalog.includes("apiGapResource('central', 'partner-quotas'") && operationsCatalog.includes('Partner Quotas is retired') && !operationsCatalog.includes("endpoint: '/admin/central/partner-quotas'") && !operationsCatalog.includes("endpoint: '/admin/central/partner-quotas/{quota_id}'") && !operationsCatalog.includes('partnerQuotaCreateFields') && !operationsCatalog.includes('partnerQuotaUpdateFields') && !operationsCatalog.includes('requested_count') && adminNavigation.includes('retiredCentralMenuKeys') && !adminNavigation.includes("'central:partner_quotas':") && apiClient.includes('retired_flow') && adminApiState.includes('retired_flow') && operationsPage.includes("generation_mode: 'virtual_profile'") && operationsPage.includes('delete next.total_count') && operationsPage.includes('delete next.number_digits') && operationsCatalog.includes("route: adminUiRoute('central', 'stock-generation?game_id={game_id}&partner_id={partner_id}&tenant_id={tenant_id}&allocation_id={id}&status=allocated')")],
   ['P3 API sortable data table', readFileSync(join(root, 'components/AdminDataTable.vue'), 'utf8').includes('sortChange') && readFileSync(join(root, 'components/AdminDataTable.vue'), 'utf8').includes('aria-sort') && readFileSync(join(root, 'components/AdminDataTable.vue'), 'utf8').includes('sortable') && operationsCatalog.includes('apiSort?: boolean') && operationsPage.includes('sort_by') && operationsPage.includes('applySort')],
   ['P3 reward report log workflows', operationsCatalog.includes("'reward-prize-number-grid'") && operationsCatalog.includes("'reward-prize-amount-grid'") && operationsCatalog.includes('detailRenderer?:') && operationsCatalog.includes("detailRenderer: 'reward'") && operationsCatalog.includes('const rewardCreateFields') && operationsCatalog.includes('const rewardNumberUpdateFields') && operationsCatalog.includes('const rewardPayoutUpdateFields') && operationsCatalog.includes('Update winning numbers') && operationsCatalog.includes('Update payout amounts') && operationsPage.includes('AdminRewardPrizes') && operationsPage.includes('rewardPrizeGroupsToPayload') && readFileSync(join(root, 'components/AdminConfirmAction.vue'), 'utf8').includes('np-reward-prize-editor') && existsSync(join(root, 'components/AdminRewardPrizes.vue')) && operationsCatalog.includes('const settlementActionContext') && operationsCatalog.includes('const reportExportContext') && operationsCatalog.includes('function reportExportFields') && operationsPage.includes('buildCollectionContext') && existsSync(join(root, 'components/AdminReportPanel.vue')) && readFileSync(join(root, 'components/AdminReportPanel.vue'), 'utf8').includes('Report rows')],
   ['P3 tenant sync processed filter', operationsCatalog.includes("slug: 'sync-logs'") && operationsCatalog.includes("statusFilter(['pending', 'running', 'completed', 'processed', 'failed'])")],
@@ -380,7 +382,6 @@ if (menuCompletionDoc) {
     'central:stock_generation',
     'central:partners',
     'central:partner_provisioning',
-    'central:partner_quotas',
     'central:partner_monitoring',
     'central:partner_usage',
     'central:allocations',
@@ -464,6 +465,14 @@ for (const endpoint of catalogEndpoints) {
   if (!documentedPaths[endpoint]) {
     failures.push(`Catalog endpoint is not in OpenAPI snapshot: ${endpoint}`)
   }
+}
+
+if (documentedPaths['/admin/central/partner-quotas']?.includes('post')) {
+  failures.push('OpenAPI admin snapshot still exposes retired active BO path POST /admin/central/partner-quotas')
+}
+
+if (documentedPaths['/admin/central/partner-quotas/{quota_id}']?.includes('patch')) {
+  failures.push('OpenAPI admin snapshot still exposes retired active BO path PATCH /admin/central/partner-quotas/{quota_id}')
 }
 
 for (const requiredAdminWorkflowPath of [
@@ -586,4 +595,4 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log(`${mode} passed: back-office foundation, operations catalog OpenAPI snapshot, Meno/Bootstrap static assets, Nuxt head order, JS replacement evidence, API headers, protected deep-link marker bridge, mobile no-overflow shell guardrails, menu completion fallback guardrails, hydration guardrails, backend metadata/bypass readiness, license notice blocker, and one-time support token checks are present.`)
+console.log(`${mode} passed: back-office foundation, operations catalog OpenAPI snapshot, Meno/Bootstrap static assets, Nuxt head order, JS replacement evidence, API headers, protected deep-link marker bridge, mobile no-overflow shell guardrails, menu completion fallback guardrails, retired physical stock guardrails, hydration guardrails, backend metadata/bypass readiness, license notice blocker, and one-time support token checks are present.`)

@@ -27,7 +27,6 @@ const scopedRouteOverrides: Record<string, string> = {
   'central:reports': '/admin/central/reports',
   'central:settlement': '/admin/central/settlements',
   'central:partner_provisioning': '/admin/central/partner-provisioning',
-  'central:partner_quotas': '/admin/central/partner-quotas',
   'central:partner_monitoring': '/admin/central/partner-monitoring',
   'central:partner_usage': '/admin/central/partner-usage',
   'central:billing_plans': '/admin/central/billing-plans',
@@ -177,8 +176,10 @@ const buildMenuTree = (items: AdminMenuItem[]) => {
   return groups
 }
 
+const retiredCentralMenuKeys = new Set(['partner_quotas'])
+
 const hideCentralOnlyMenus = (items: AdminMenuItem[]): AdminMenuItem[] => items
-  .filter((item) => item.key !== 'prize_checking')
+  .filter((item) => item.key !== 'prize_checking' && !retiredCentralMenuKeys.has(item.key))
   .map((item) => ({
     ...item,
     children: Array.isArray(item.children) ? hideCentralOnlyMenus(item.children) : [],

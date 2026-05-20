@@ -69,7 +69,7 @@ export const useAdminApi = () => {
       const status = error?.response?.status || error?.status || 500
       const body = error?.data || error?.response?._data || {}
       const code = body?.error?.code || `http_${status}`
-      const message = body?.error?.message || readableError(status)
+      const message = readableApiMessage(status, code, body?.error?.message)
       const details = body?.error?.details || {}
       const retryAfter = error?.response?.headers?.get?.('Retry-After') || null
 
@@ -145,11 +145,22 @@ export const useAdminApi = () => {
   }
 }
 
+const readableApiMessage = (status: number, code: string, message?: string) => {
+  if (code === 'retired_flow') {
+    return typeof message === 'string' && message.trim()
+      ? message.trim()
+      : 'This workflow has been retired. Use the current virtual stock percent workflow instead.'
+  }
+
+  return typeof message === 'string' && message.trim() ? message.trim() : readableError(status)
+}
+
 const readableError = (status: number) => {
   const map: Record<number, string> = {
     401: 'Authentication is required.',
     403: 'You do not have permission to perform this action.',
     409: 'The requested operation conflicts with current data.',
+    410: 'This workflow has been retired.',
     422: 'The request payload is invalid.',
     429: 'Too many requests. Please wait and retry.',
     503: 'The service is temporarily unavailable.',

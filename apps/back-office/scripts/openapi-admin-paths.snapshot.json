@@ -1,7 +1,7 @@
 {
   "source": "docs/openapi.yaml",
-  "updated": "2026-05-19",
-  "note": "Static admin path snapshot used inside the back-office Docker mount. Refresh from docs/openapi.yaml when the approved OpenAPI contract changes.",
+  "updated": "2026-05-20",
+  "note": "Static active-BO admin path snapshot used inside the back-office Docker mount. Retired legacy write paths may remain documented in docs/openapi.yaml but are excluded from active BO workflow coverage.",
   "paths": {
     "/admin/central/allocations": ["get", "post"],
     "/admin/central/allocation-options/games": ["get"],
@@ -24,8 +24,7 @@
     "/admin/central/partners/{partner_id}": ["get", "patch"],
     "/admin/central/partners/{partner_id}/provision": ["post"],
     "/admin/central/partners/{partner_id}/suspend": ["post"],
-    "/admin/central/partner-quotas": ["get", "post"],
-    "/admin/central/partner-quotas/{quota_id}": ["patch"],
+    "/admin/central/partner-quotas": ["get"],
     "/admin/central/partner-monitoring": ["get"],
     "/admin/central/partner-monitoring/{monitoring_profile_id}": ["get"],
     "/admin/central/partner-usage": ["get"],

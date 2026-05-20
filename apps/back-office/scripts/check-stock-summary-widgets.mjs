@@ -104,6 +104,11 @@ for (const requiredVirtualPayloadToken of [
   'delete next.back2_count_per_number',
   'delete next.back3_count_per_number',
   'delete next.front3_count_per_number',
+  'delete next.start_number',
+  'delete next.count',
+  'delete next.number_digits',
+  'delete next.central_limits',
+  'delete next.partner_limits',
 ]) {
   if (!operationsPage.includes(requiredVirtualPayloadToken)) {
     failures.push(`Virtual-only stock generation payload guard is missing: ${requiredVirtualPayloadToken}`)

@@ -374,7 +374,6 @@ const seoStatusOptions = ['draft', 'active', 'inactive', 'archived']
 const redirectStatusCodeOptions = ['301', '302', '307', '308']
 const domainTypeOptions = ['subdomain', 'custom_domain']
 const deploymentModeOptions = ['shared', 'dedicated_runtime', 'dedicated_resource_pool']
-const quotaStatusOptions = ['active', 'inactive', 'archived']
 const billingPlanStatusOptions = ['active', 'archived']
 const alertPolicyStatusOptions = ['active', 'paused', 'archived']
 const alertSeverityOptions = ['info', 'warning', 'critical']
@@ -388,7 +387,6 @@ const tenantDomainStatusOptions = ['pending_verification', 'dns_verified', 'ssl_
 const gameCreateStatusOptions = ['draft', 'open']
 const gameLifecycleTransitionOptions = ['open', 'reward_recorded', 'reward_checking', 'reward_verified', 'reward_published']
 const partnerActionContext = ['id', 'code', 'name', 'type', 'status', 'tenants.0.id', 'tenants.0.code', 'domains.0.host', 'runtime.billing_status', 'runtime.monitoring_status', 'allocation_percent', 'active_partner_percent']
-const partnerQuotaActionContext = ['id', 'partner_id', 'game_id', 'quota_count', 'allocated_count', 'remaining_count', 'status', 'central_sale_start_at', 'central_sale_close_at', 'sale_start_at', 'sale_close_at']
 const gameActionContext = ['id', 'code', 'name', 'status', 'sale_start_at', 'draw_at', 'close_at', 'closed_at', 'archived_at']
 const allocationActionContext = ['id', 'partner_name', 'partner_code', 'partner_id', 'tenant_name', 'tenant_code', 'tenant_id', 'game_name', 'game_code', 'game_id', 'allocation_percent', 'allocated_count', 'remaining_count', 'recalled_count', 'status']
 const billingPlanActionContext = ['id', 'code', 'name', 'monthly_fee.amount', 'monthly_fee.currency', 'status']
@@ -683,42 +681,6 @@ const partnerProvisionFields: OperationFormField[] = [
   { key: 'deployment_mode', label: 'Deployment mode', type: 'select', options: deploymentModeOptions, defaultValue: 'shared' },
   { key: 'features.affiliate', label: 'Affiliate feature', type: 'checkbox', defaultValue: false },
   { key: 'features.custom_domain', label: 'Custom domain feature', type: 'checkbox', defaultValue: false },
-]
-const partnerQuotaCreateFields: OperationFormField[] = [
-  { key: 'partner_id', label: 'Partner ID', required: true },
-  { key: 'game_id', label: 'Game ID', required: true },
-  { key: 'quota_count', label: 'Quota count', type: 'number', min: 1, step: 1, required: true },
-  {
-    key: 'partner_sale_window',
-    label: 'Partner sale window',
-    type: 'datetime-range',
-    rangeStartKey: 'sale_start_at',
-    rangeEndKey: 'sale_close_at',
-    rangeStartSourceKey: 'sale_start_at',
-    rangeEndSourceKey: 'sale_close_at',
-    rangeStartLabel: 'Sale start',
-    rangeEndLabel: 'Sale close',
-    help: 'Optional. Defaults to central sale window; start cannot be before central and close cannot be after central.',
-  },
-  { key: 'status', label: 'Status', type: 'select', options: quotaStatusOptions, defaultValue: 'active' },
-]
-const partnerQuotaUpdateFields: OperationFormField[] = [
-  { key: 'partner_id', label: 'Partner ID' },
-  { key: 'game_id', label: 'Game ID' },
-  { key: 'quota_count', label: 'Quota count', type: 'number', min: 1, step: 1 },
-  {
-    key: 'partner_sale_window',
-    label: 'Partner sale window',
-    type: 'datetime-range',
-    rangeStartKey: 'sale_start_at',
-    rangeEndKey: 'sale_close_at',
-    rangeStartSourceKey: 'sale_start_override_at',
-    rangeEndSourceKey: 'sale_close_override_at',
-    rangeStartLabel: 'Sale start',
-    rangeEndLabel: 'Sale close',
-    help: 'Optional. Leave both blank to inherit central sale window.',
-  },
-  { key: 'status', label: 'Status', type: 'select', options: quotaStatusOptions },
 ]
 const gameCreateFields: OperationFormField[] = [
   { key: 'name', label: 'Game name', required: true, placeholder: 'May 2026 Draw' },
@@ -1790,43 +1752,7 @@ const central: OperationResource[] = [
       { key: 'suspend', label: 'Suspend', endpoint: '/admin/central/partners/{partner_id}/suspend', variant: 'warning', reason: true, contextFields: partnerActionContext },
     ],
   },
-  {
-    scope: 'central',
-    slug: 'partner-quotas',
-    title: 'Partner Quotas',
-    group: 'Central Partner Operations',
-    listEndpoint: '/admin/central/partner-quotas',
-    idParam: 'quota_id',
-    idKey: 'id',
-    columns: [
-      { key: 'id', label: 'Quota' },
-      { key: 'partner_id', label: 'Partner' },
-      { key: 'game_id', label: 'Game' },
-      { key: 'quota_count', label: 'Quota' },
-      { key: 'allocated_count', label: 'Allocated' },
-      { key: 'remaining_count', label: 'Remaining' },
-      { key: 'sale_start_at', label: 'Sale start', type: 'datetime' },
-      { key: 'sale_close_at', label: 'Sale close', type: 'datetime' },
-      { key: 'status', label: 'Status', type: 'status' },
-    ],
-    filters: cursorFilters([{ key: 'partner_id', label: 'Partner ID' }, { key: 'game_id', label: 'Game ID' }]),
-    confirmContextFields: partnerQuotaActionContext,
-    actions: [{
-      key: 'update',
-      label: 'Update',
-      method: 'PATCH',
-      endpoint: '/admin/central/partner-quotas/{quota_id}',
-      variant: 'primary',
-      contextFields: partnerQuotaActionContext,
-      formFields: partnerQuotaUpdateFields,
-    }],
-    collectionActions: [{
-      key: 'create',
-      label: 'Create quota',
-      endpoint: '/admin/central/partner-quotas',
-      formFields: partnerQuotaCreateFields,
-    }],
-  },
+  apiGapResource('central', 'partner-quotas', 'Partner Quotas', 'Central Partner Operations', 'Partner Quotas is retired for active stock allocation. Use Partners > Edit stock percent and Central Stock > Allocations for virtual distribution workflows.'),
   resource('central', 'partner-monitoring', 'Partner Monitoring', 'Central Partner Operations', '/admin/central/partner-monitoring', '/admin/central/partner-monitoring/{monitoring_profile_id}', 'monitoring_profile_id', [
     { key: 'id', label: 'Profile' },
     { key: 'partner_id', label: 'Partner' },

@@ -1,6 +1,6 @@
 # Back-office CRUD/API Workflow Coverage
 
-Date: 2026-05-11
+Date: 2026-05-20
 
 This audit covers every seeded central and tenant back-office menu item from
 `DefaultRbacMenuSeeder.php`, `docs/permissions.md`, `docs/openapi.yaml`, and the
@@ -16,17 +16,18 @@ Coordinator should calculate that from the counts and row-level evidence below.
 - `complete` requires applicable UI, API connection, form/action workflow, loading/error/empty states, and real menu workflow QA.
 - `partial` means some of the workflow exists, but it is not full end-to-end or has not passed real workflow QA.
 - `api_gap` means the frozen backend contract does not expose an endpoint required to complete that menu workflow.
+- `out_of_scope` includes workflows retired by a later Coordinator decision and removed from active BO navigation.
 - N/A is used only where that CRUD facet is not expected for the seeded menu workflow.
 
 ## Status Totals
 
 | Scope | complete | partial | not_started | api_gap | out_of_scope | Total |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Central | 24 | 0 | 0 | 0 | 0 | 24 |
+| Central | 23 | 0 | 0 | 0 | 1 | 24 |
 | Tenant | 32 | 0 | 0 | 0 | 0 | 32 |
-| Total | 56 | 0 | 0 | 0 | 0 | 56 |
+| Total | 55 | 0 | 0 | 0 | 1 | 56 |
 
-Coordinator-approved BO completion from verified working CRUD/API workflow coverage is 56/56 menus, or 100.0%.
+Coordinator-approved active BO completion from verified working CRUD/API workflow coverage is 55/55 active menus, or 100.0%. The remaining historical row is retired from active navigation by the 2026-05-20 physical stock retirement decision.
 
 ## Current BO Implementation Notes
 
@@ -48,7 +49,7 @@ Coordinator-approved BO completion from verified working CRUD/API workflow cover
 | central:stock_generation | `/admin/central/stock` | `stock.generate` | `GET /admin/central/stock`; `GET /admin/central/stock/generation-batches` | `GET /admin/central/stock/generation-batches/{batch_id}`; `GET /admin/central/stock/{game_id}/numbers/{full_number}` | `POST /admin/central/stock/imports`; `POST /admin/central/stock/generate` | `PATCH /admin/central/stock/settings`; `PUT /admin/central/stock/limit-settings`; `PUT /admin/central/stock/limit-overrides` | N/A | `POST /admin/central/stock/exports` | shared operations stock page, progress detail, Stock Settings, and Stock Pattern Coverage workflow | connected for list/import/virtual-profile generate/export/progress/settings/pattern coverage | typed import lines; generate form creates/top-ups supply with set distribution only; coverage default form plus scope limit and per-pattern override forms with partner ceiling guard | P1 real menu QA pass (20260510); stock-generation-coverage-usability BO update completed 2026-05-19 pending QA | None for BO side; QA must verify real workflows and backend validation. | complete |
 | central:partners | `/admin/central/partners` | `partner.view` | `GET /admin/central/partners` | `GET /admin/central/partners/{partner_id}` | `POST /admin/central/partners` | `PATCH /admin/central/partners/{partner_id}` | `POST /admin/central/partners/{partner_id}/suspend` | N/A | operations partners page | connected for list/detail/create/update/suspend | typed create/update partner forms; suspend confirmation shows partner/tenant/domain context and requires reason | P2 write-submission QA pass (20260510); create/update/suspend persisted via real menu with API before/after evidence | None for P2. | complete |
 | central:partner_provisioning | `/admin/central/partner-provisioning` | `partner.provision` | `GET /admin/central/partners` | `GET /admin/central/partners/{partner_id}` | N/A | N/A | `POST /admin/central/partners/{partner_id}/provision`; `POST /suspend` | N/A | operations partner provisioning page | connected for list/detail/provision/suspend | typed provisioning form with owner/site/domain/runtime fields; provision/suspend confirmations show partner context and require reason | P2 write-submission QA pass (20260510); provision/suspend persisted via real menu with API before/after evidence | None for P2. | complete |
-| central:partner_quotas | `/admin/central/partner-quotas` | `partner.quota.manage` | `GET /admin/central/partner-quotas` | N/A | `POST /admin/central/partner-quotas` | `PATCH /admin/central/partner-quotas/{quota_id}` | N/A | N/A | operations partner quotas page | connected for list/create/update | typed create/update quota forms with quota context and partner sale window overrides constrained by central game dates | P2 write-submission QA pass (20260510); create/update persisted via real menu with API before/after evidence | None for P2. | complete |
+| central:partner_quotas | retired from active navigation; stale `/admin/central/partner-quotas` deep link shows retired guidance | `partner.quota.manage` | legacy `GET /admin/central/partner-quotas` remains backend read-only | N/A | retired: `POST /admin/central/partner-quotas` returns `410 retired_flow` | retired: `PATCH /admin/central/partner-quotas/{quota_id}` returns `410 retired_flow` | N/A | N/A | retired notice only; active workflow moved to partner stock percent and allocations | no active BO write calls | create/update quota forms removed from active BO | Retired by `retire-physical-stock-flow` BO pass (2026-05-20); QA should verify Partner Quotas is absent from active navigation | Physical Partner Quotas workflow intentionally retired; use virtual `stock_partner_distributions`. | out_of_scope |
 | central:partner_monitoring | `/admin/central/partner-monitoring` | `partner.monitoring.view` | `GET /admin/central/partner-monitoring` | `GET /admin/central/partner-monitoring/{monitoring_profile_id}` | N/A | `PATCH /admin/central/partner-monitoring/{monitoring_profile_id}` | N/A | N/A | view-only partner monitoring workflow | connected for list/detail; manage PATCH intentionally outside seeded menu scope | no update form; seeded menu permission is view-only | P2 real menu list/detail QA pass (20260510); Coordinator permission decision accepted view-only completion (2026-05-12) | None for seeded view-only menu. Future manage workflow requires explicit manage-menu/permission scope. | complete |
 | central:partner_usage | `/admin/central/partner-usage` | `partner.usage.view` | `GET /admin/central/partner-usage` | `GET /admin/central/partner-usage/{usage_meter_id}` | N/A | `PATCH /admin/central/partner-usage/{usage_meter_id}` | N/A | N/A | view-only partner usage workflow | connected for list/detail; manage PATCH intentionally outside seeded menu scope | no limit update form; seeded menu permission is view-only | P2 real menu list/detail QA pass (20260510); Coordinator permission decision accepted view-only completion (2026-05-12) | None for seeded view-only menu. Future manage workflow requires explicit manage-menu/permission scope. | complete |
 | central:allocations | `/admin/central/allocations` | `stock.allocate` | `GET /admin/central/allocations` | `GET /admin/central/allocations/{allocation_id}` | `POST /admin/central/allocations` | N/A | `POST /admin/central/allocations/{allocation_id}/cancel` | N/A | operations page with allocation columns/actions | connected for list/detail/create/cancel | typed create allocation modal; cancel confirmation shows allocation context and reason | P1 real menu QA pass (20260510); list/detail/create/cancel modal evidence passed | None for P1. | complete |
