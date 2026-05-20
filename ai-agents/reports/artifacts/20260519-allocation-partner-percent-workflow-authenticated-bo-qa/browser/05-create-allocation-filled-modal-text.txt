@@ -1,0 +1,37 @@
+Create allocation
+
+Confirm create allocation for Allocations.
+
+Partner *
+Select
+boqa_multi - BOQA Multi Partner
+boqa_no_tenant - BOQA No Tenant Partner
+boqa_other - BOQA Other Partner
+boqa_single - BOQA Single Partner
+demo_alpha - Demo Alpha Partner
+demo_beta - Demo Beta Partner
+demo_gamma - Demo Gamma Partner
+Tenant
+Select partner first
+boqa_single_tenant - BOQA Single Tenant
+Auto-filled when the selected active partner has exactly one active tenant.
+Game *
+Select
+boqa_alloc - BOQA Allocation Draw
+16052569 - งวดวันที่ 16 พ.ค. 2569
+Allocation percent *
+Backend enforces total active partner percent per game <= 100% and rejects values below already reserved or sold usage.
+Allocation preview
+Estimated supply
+10
+Percent
+30%
+Estimated allocation
+3
+Existing partner %
+-
+Existing remaining
+-
+Reason
+Cancel
+Confirm

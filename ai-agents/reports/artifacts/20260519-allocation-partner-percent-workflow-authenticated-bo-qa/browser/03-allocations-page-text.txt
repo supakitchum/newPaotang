@@ -1,0 +1,44 @@
+Allocations
+Admin
+Central
+Central Stock
+Allocations
+ Refresh
+Partner
+All
+boqa_multi - BOQA Multi Partner
+boqa_no_tenant - BOQA No Tenant Partner
+boqa_other - BOQA Other Partner
+boqa_single - BOQA Single Partner
+demo_alpha - Demo Alpha Partner
+demo_beta - Demo Beta Partner
+demo_gamma - Demo Gamma Partner
+Tenant
+Select partner first
+Game
+All
+boqa_alloc - BOQA Allocation Draw
+16052569 - งวดวันที่ 16 พ.ค. 2569
+Status
+All
+Draft
+Pending
+Processing
+Allocated
+Partially Allocated
+Failed
+Recalled
+Cancelled
+Cursor
+Limit
+ Apply filters
+Documented operations
+ Create allocation
+Allocations
+No allocations
+
+No records were returned from the approved back-office API.
+
+Page 1 · 20 rows per page
+Previous
+Next

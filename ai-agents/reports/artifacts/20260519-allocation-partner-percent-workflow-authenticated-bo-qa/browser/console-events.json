@@ -1,0 +1,134 @@
+[
+  {
+    "type": "debug",
+    "text": "[vite] connecting..."
+  },
+  {
+    "type": "debug",
+    "text": "[vite] connected."
+  },
+  {
+    "type": "log",
+    "text": "%cinfo%c <Suspense> is an experimental feature and its API will likely change. \n      background: #00BCD4;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n     "
+  },
+  {
+    "type": "debug",
+    "text": "[vite] connecting..."
+  },
+  {
+    "type": "debug",
+    "text": "[vite] connected."
+  },
+  {
+    "type": "log",
+    "text": "%cinfo%c <Suspense> is an experimental feature and its API will likely change. \n      background: #00BCD4;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n     "
+  },
+  {
+    "type": "warning",
+    "text": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \n  - rendered on server: class=\"header-link dropdown-toggle btn-wave border-0 bg-transparent waves-effect waves-light\"\n  - expected on client: class=\"header-link dropdown-toggle btn-wave border-0 bg-transparent\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the source of the mismatch. \n  at <AdminHeader client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>"
+  },
+  {
+    "type": "warning",
+    "text": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \n  - rendered on server: class=\"header-link btn-wave border-0 bg-transparent waves-effect waves-light\"\n  - expected on client: class=\"header-link btn-wave border-0 bg-transparent\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the source of the mismatch. \n  at <AdminHeader client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>"
+  },
+  {
+    "type": "warning",
+    "text": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \n  - rendered on server: class=\"header-link dropdown-toggle btn-wave border-0 bg-transparent waves-effect waves-light\"\n  - expected on client: class=\"header-link dropdown-toggle btn-wave border-0 bg-transparent\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the source of the mismatch. \n  at <AdminHeader client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>"
+  },
+  {
+    "type": "warning",
+    "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>"
+  },
+  {
+    "type": "warning",
+    "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>"
+  },
+  {
+    "type": "debug",
+    "text": "[vite] connecting..."
+  },
+  {
+    "type": "debug",
+    "text": "[vite] connected."
+  },
+  {
+    "type": "log",
+    "text": "%cinfo%c <Suspense> is an experimental feature and its API will likely change. \n      background: #00BCD4;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n     "
+  },
+  {
+    "type": "warning",
+    "text": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \n  - rendered on server: class=\"header-link dropdown-toggle btn-wave border-0 bg-transparent waves-effect waves-light\"\n  - expected on client: class=\"header-link dropdown-toggle btn-wave border-0 bg-transparent\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the source of the mismatch. \n  at <AdminHeader client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>"
+  },
+  {
+    "type": "warning",
+    "text": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \n  - rendered on server: class=\"header-link btn-wave border-0 bg-transparent waves-effect waves-light\"\n  - expected on client: class=\"header-link btn-wave border-0 bg-transparent\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the source of the mismatch. \n  at <AdminHeader client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>"
+  },
+  {
+    "type": "warning",
+    "text": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \n  - rendered on server: class=\"header-link dropdown-toggle btn-wave border-0 bg-transparent waves-effect waves-light\"\n  - expected on client: class=\"header-link dropdown-toggle btn-wave border-0 bg-transparent\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the source of the mismatch. \n  at <AdminHeader client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>"
+  },
+  {
+    "type": "warning",
+    "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>"
+  },
+  {
+    "type": "warning",
+    "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>"
+  },
+  {
+    "type": "error",
+    "text": "Failed to load resource: the server responded with a status of 422 (Unprocessable Content)"
+  },
+  {
+    "type": "debug",
+    "text": "[vite] connecting..."
+  },
+  {
+    "type": "debug",
+    "text": "[vite] connected."
+  },
+  {
+    "type": "log",
+    "text": "%cinfo%c <Suspense> is an experimental feature and its API will likely change. \n      background: #00BCD4;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n     "
+  },
+  {
+    "type": "warning",
+    "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>"
+  },
+  {
+    "type": "warning",
+    "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>"
+  },
+  {
+    "type": "debug",
+    "text": "[vite] connecting..."
+  },
+  {
+    "type": "debug",
+    "text": "[vite] connected."
+  },
+  {
+    "type": "log",
+    "text": "%cinfo%c <Suspense> is an experimental feature and its API will likely change. \n      background: #00BCD4;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n     "
+  },
+  {
+    "type": "warning",
+    "text": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \n  - rendered on server: class=\"header-link dropdown-toggle btn-wave border-0 bg-transparent waves-effect waves-light\"\n  - expected on client: class=\"header-link dropdown-toggle btn-wave border-0 bg-transparent\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the source of the mismatch. \n  at <AdminHeader client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>"
+  },
+  {
+    "type": "warning",
+    "text": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \n  - rendered on server: class=\"header-link btn-wave border-0 bg-transparent waves-effect waves-light\"\n  - expected on client: class=\"header-link btn-wave border-0 bg-transparent\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the source of the mismatch. \n  at <AdminHeader client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>"
+  },
+  {
+    "type": "warning",
+    "text": "%cwarn%c [Vue warn]: Hydration class mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \n  - rendered on server: class=\"header-link dropdown-toggle btn-wave border-0 bg-transparent waves-effect waves-light\"\n  - expected on client: class=\"header-link dropdown-toggle btn-wave border-0 bg-transparent\"\n  Note: this mismatch is check-only. The DOM will not be rectified in production due to performance overhead.\n  You should fix the source of the mismatch. \n  at <AdminHeader client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>"
+  },
+  {
+    "type": "warning",
+    "text": "%cwarn%c [Vue warn]: Hydration node mismatch:\n- rendered on server: \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node  \n- expected on client: nav \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>"
+  },
+  {
+    "type": "warning",
+    "text": "%cwarn%c [Vue warn]: Hydration children mismatch on \n      background: #f39c12;\n      border-radius: 0.5em;\n      color: white;\n      font-weight: bold;\n      padding: 2px 0.5em;\n      JSHandle@node \nServer rendered element contains more child nodes than client vdom. \n  at <AdminSidebar menus= [] loading=false client-ready=false > \n  at <Admin ref=Ref< undefined > > \n  at <LayoutLoader key=\"admin\" layoutProps= {ref: RefImpl} name=\"admin\" > \n  at <NuxtLayoutProvider layoutProps= {ref: RefImpl} key=\"admin\" name=\"admin\"  ... > \n  at <NuxtLayout> \n  at <App key=3 > \n  at <NuxtRoot>"
+  }
+]

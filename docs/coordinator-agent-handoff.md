@@ -112,6 +112,15 @@ QA rerun opened:
 - QA Tester must verify real UI login, allocation select UX, `allocation_percent` create payload without `requested_count`, partner percent `<= 100%` validation, recall-all, redistribute, scoped stock/coverage actions, BO build checks, and runtime restore/login smoke.
 - Destructive DB setup remains test DB only: `APP_ENV=testing`, `DB_DATABASE=newpaotang_test`, `--env=testing`.
 
+QA rerun result:
+
+- Report: `ai-agents/reports/20260519-allocation-partner-percent-workflow-authenticated-bo-qa-report.md`
+- Result: PASS.
+- Browser tool: Playwright Chromium in Docker.
+- Passed: central admin login, authenticated allocation options, partner/tenant/game select workflow, create allocation with `allocation_percent` and no `requested_count`, single-tenant auto-fill, recall-all, redistribute, partner percent over-100 validation, scoped remaining stock route, scoped stock coverage route, BO lint/test/build, runtime restore, and login smoke.
+- No product defects found.
+- Runtime DB was not wiped. QA applied a pending runtime migration with `migrate --force` because the runtime schema was behind, then restored/smoked runtime successfully.
+
 Coordinator board:
 
 - This entry is the board instruction for the user to send in the Orchestrator chat.

@@ -1,0 +1,5 @@
+customer_login_http_status=200
+back_office_login_http_status=200
+back_office_admin_login_http_status=302
+back_office_admin_login_follow_http_status=200
+back_office_admin_login_location=/login

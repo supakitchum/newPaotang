@@ -1,0 +1,11 @@
+{
+  "baseUrl": "http://localhost:3100",
+  "openedFromNavigation": false,
+  "tenantValueAfterSinglePartner": "ten_boqa_single",
+  "requestedCountVisible": false,
+  "redistributeBeforeRecallDisabled": true,
+  "currentUrl": "http://localhost:3100/admin/central/stock-pattern-coverage?game_id=gam_boqa_alloc&scope_type=partner&scope_id=par_boqa_single",
+  "notes": [
+    "networkidle timeout ignored for http://localhost:3100/admin/central/stock-pattern-coverage?game_id=gam_boqa_alloc&scope_type=partner&scope_id=par_boqa_single"
+  ]
+}

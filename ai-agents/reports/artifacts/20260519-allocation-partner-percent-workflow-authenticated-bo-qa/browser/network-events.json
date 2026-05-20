@@ -1,0 +1,209 @@
+[
+  {
+    "type": "request",
+    "method": "POST",
+    "url": "http://localhost:8000/api/v1/auth/admin/login",
+    "postData": {
+      "email": "admin@newpaotang.test",
+      "password": "[redacted]",
+      "scope": "central",
+      "tenant_id": null
+    }
+  },
+  {
+    "type": "response",
+    "status": 200,
+    "url": "http://localhost:8000/api/v1/auth/admin/login"
+  },
+  {
+    "type": "request",
+    "method": "GET",
+    "url": "http://localhost:8000/api/v1/admin/central/allocation-options/partners?limit=500",
+    "postData": null
+  },
+  {
+    "type": "request",
+    "method": "GET",
+    "url": "http://localhost:8000/api/v1/admin/central/allocation-options/tenants?limit=500",
+    "postData": null
+  },
+  {
+    "type": "request",
+    "method": "GET",
+    "url": "http://localhost:8000/api/v1/admin/central/allocation-options/games?limit=500",
+    "postData": null
+  },
+  {
+    "type": "response",
+    "status": 200,
+    "url": "http://localhost:8000/api/v1/admin/central/allocation-options/partners?limit=500"
+  },
+  {
+    "type": "response",
+    "status": 200,
+    "url": "http://localhost:8000/api/v1/admin/central/allocation-options/tenants?limit=500"
+  },
+  {
+    "type": "response",
+    "status": 200,
+    "url": "http://localhost:8000/api/v1/admin/central/allocation-options/games?limit=500"
+  },
+  {
+    "type": "request",
+    "method": "GET",
+    "url": "http://localhost:8000/api/v1/admin/central/allocations?limit=20",
+    "postData": null
+  },
+  {
+    "type": "response",
+    "status": 200,
+    "url": "http://localhost:8000/api/v1/admin/central/allocations?limit=20"
+  },
+  {
+    "type": "request",
+    "method": "POST",
+    "url": "http://localhost:8000/api/v1/admin/central/allocations",
+    "postData": {
+      "partner_id": "par_boqa_single",
+      "tenant_id": "ten_boqa_single",
+      "game_id": "gam_boqa_alloc",
+      "allocation_percent": 30,
+      "reason": "qa authenticated bo create allocation"
+    }
+  },
+  {
+    "type": "response",
+    "status": 202,
+    "url": "http://localhost:8000/api/v1/admin/central/allocations"
+  },
+  {
+    "type": "request",
+    "method": "GET",
+    "url": "http://localhost:8000/api/v1/admin/central/allocations?limit=20",
+    "postData": null
+  },
+  {
+    "type": "response",
+    "status": 200,
+    "url": "http://localhost:8000/api/v1/admin/central/allocations?limit=20"
+  },
+  {
+    "type": "request",
+    "method": "POST",
+    "url": "http://localhost:8000/api/v1/admin/central/allocations/alc_01KS0MYHXH96RMN6WYVG5GNE7R/recall-all",
+    "postData": {
+      "reason": "qa authenticated bo recall all"
+    }
+  },
+  {
+    "type": "response",
+    "status": 200,
+    "url": "http://localhost:8000/api/v1/admin/central/allocations/alc_01KS0MYHXH96RMN6WYVG5GNE7R/recall-all"
+  },
+  {
+    "type": "request",
+    "method": "GET",
+    "url": "http://localhost:8000/api/v1/admin/central/allocations?limit=20",
+    "postData": null
+  },
+  {
+    "type": "response",
+    "status": 200,
+    "url": "http://localhost:8000/api/v1/admin/central/allocations?limit=20"
+  },
+  {
+    "type": "request",
+    "method": "POST",
+    "url": "http://localhost:8000/api/v1/admin/central/allocations/alc_01KS0MYHXH96RMN6WYVG5GNE7R/redistribute",
+    "postData": {
+      "reason": "qa authenticated bo redistribute"
+    }
+  },
+  {
+    "type": "response",
+    "status": 200,
+    "url": "http://localhost:8000/api/v1/admin/central/allocations/alc_01KS0MYHXH96RMN6WYVG5GNE7R/redistribute"
+  },
+  {
+    "type": "request",
+    "method": "GET",
+    "url": "http://localhost:8000/api/v1/admin/central/allocations?limit=20",
+    "postData": null
+  },
+  {
+    "type": "response",
+    "status": 200,
+    "url": "http://localhost:8000/api/v1/admin/central/allocations?limit=20"
+  },
+  {
+    "type": "request",
+    "method": "GET",
+    "url": "http://localhost:8000/api/v1/admin/central/allocation-options/partners?limit=500",
+    "postData": null
+  },
+  {
+    "type": "request",
+    "method": "GET",
+    "url": "http://localhost:8000/api/v1/admin/central/allocation-options/tenants?limit=500",
+    "postData": null
+  },
+  {
+    "type": "request",
+    "method": "GET",
+    "url": "http://localhost:8000/api/v1/admin/central/allocation-options/games?limit=500",
+    "postData": null
+  },
+  {
+    "type": "response",
+    "status": 200,
+    "url": "http://localhost:8000/api/v1/admin/central/allocation-options/partners?limit=500"
+  },
+  {
+    "type": "response",
+    "status": 200,
+    "url": "http://localhost:8000/api/v1/admin/central/allocation-options/tenants?limit=500"
+  },
+  {
+    "type": "response",
+    "status": 200,
+    "url": "http://localhost:8000/api/v1/admin/central/allocation-options/games?limit=500"
+  },
+  {
+    "type": "request",
+    "method": "PUT",
+    "url": "http://localhost:8000/api/v1/admin/central/allocations/partner-percent",
+    "postData": {
+      "partner_id": "par_boqa_other",
+      "tenant_id": "ten_boqa_other",
+      "game_id": "gam_boqa_alloc",
+      "allocation_percent": 80
+    }
+  },
+  {
+    "type": "response",
+    "status": 422,
+    "url": "http://localhost:8000/api/v1/admin/central/allocations/partner-percent"
+  },
+  {
+    "type": "request",
+    "method": "GET",
+    "url": "http://localhost:8000/api/v1/admin/central/allocation-options/partners?limit=500",
+    "postData": null
+  },
+  {
+    "type": "request",
+    "method": "GET",
+    "url": "http://localhost:8000/api/v1/admin/central/allocation-options/tenants?limit=500",
+    "postData": null
+  },
+  {
+    "type": "response",
+    "status": 200,
+    "url": "http://localhost:8000/api/v1/admin/central/allocation-options/tenants?limit=500"
+  },
+  {
+    "type": "response",
+    "status": 200,
+    "url": "http://localhost:8000/api/v1/admin/central/allocation-options/partners?limit=500"
+  }
+]

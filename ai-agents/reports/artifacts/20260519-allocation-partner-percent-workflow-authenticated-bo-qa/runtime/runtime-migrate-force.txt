@@ -1,0 +1,4 @@
+
+   INFO  Running migrations.
+
+  2026_05_19_000005_add_percent_workflow_to_partner_stock_allocations  8.18ms DONE
