@@ -1,5 +1,36 @@
 # Coordinator Agent Handoff
 
+## 2026-05-20 Retire Physical Stock Flow QA Review
+
+Coordinator reviewed QA for `retire-physical-stock-flow`.
+
+Decision:
+
+- `ai-agents/decisions/20260520-retire-physical-stock-flow-qa-review-decision.md`
+
+QA report:
+
+- `ai-agents/reports/20260520-retire-physical-stock-flow-qa-report.md`
+
+Result:
+
+- PASS
+- No defects found.
+- Focused backend tests passed: `CentralStockTest`, `CentralAllocationTest`, `PartnerSyncAllocationTest`, `PublicStockSearchTest`, `VirtualStockRealtimeTest`, `PartnerQuotaTest`, `LocalStockSyncTest`.
+- BO validation passed: lint, test, stock summary widget check, build.
+- Authenticated BO evidence passed: Partner Quotas removed from active navigation; stale deep link shows retired guidance and no create/update write path.
+- Runtime restore/login smoke passed with `platform:smoke`, customer `/login`, BO `/login`, BO `/admin/login`, and central admin API login.
+
+Risk:
+
+- Full platform test suite was not run; QA ran the focused Docker filters required by the task.
+- PHPUnit modified `apps/platform-api/.phpunit.result.cache`; this cache file is not product evidence and should not be staged.
+
+Status:
+
+- Approved / completed.
+- Next Agent: None.
+
 ## 2026-05-20 Retire Physical Stock Flow
 
 Coordinator opened task `retire-physical-stock-flow` for Orchestrator.
