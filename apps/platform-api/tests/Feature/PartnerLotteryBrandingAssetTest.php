@@ -20,9 +20,9 @@ class PartnerLotteryBrandingAssetTest extends TestCase
         $tenant = $this->createTenantSession('ten_branding', 'par_branding', ['asset.manage'], 'adm_branding_tenant', 'branding-tenant@example.test');
 
         $assetIds = [
-            'logo_qr' => $this->insertCentralImageAsset('ast_logo_qr', 'logo-qr.jpg', 'image/jpeg'),
-            'right_sidebar' => $this->insertCentralImageAsset('ast_right_sidebar', 'right-sidebar.webp'),
-            'logo_bottom' => $this->insertCentralImageAsset('ast_logo_bottom', 'logo-bottom.webp'),
+            'logo_qr' => $this->insertCentralImageAsset('ast_logo_qr', 'logo_qr'),
+            'right_sidebar' => $this->insertCentralImageAsset('ast_right_sidebar', 'right_sidebar'),
+            'logo_bottom' => $this->insertCentralImageAsset('ast_logo_bottom', 'logo_bottom'),
         ];
 
         $this->withToken($tenant['access_token'])
@@ -66,7 +66,10 @@ class PartnerLotteryBrandingAssetTest extends TestCase
             ->assertJsonPath('status', 'ready')
             ->assertJsonPath('locked', false)
             ->assertJsonPath('assets.logo_qr.asset_id', $assetIds['logo_qr'])
-            ->assertJsonPath('assets.logo_qr.content_type', 'image/jpeg')
+            ->assertJsonPath('assets.logo_qr.content_type', 'image/webp')
+            ->assertJsonPath('assets.logo_qr.file_name', 'logo_qr.webp')
+            ->assertJsonPath('assets.right_sidebar.file_name', 'rightsidebar.webp')
+            ->assertJsonPath('assets.logo_bottom.file_name', 'logo_bottom.webp')
             ->json();
 
         $this->assertSame($saved, $this->withToken($central['access_token'])
@@ -136,23 +139,30 @@ class PartnerLotteryBrandingAssetTest extends TestCase
             ->assertJsonPath('error.code', 'resource_conflict');
     }
 
-    private function insertCentralImageAsset(string $assetId, string $fileName, string $contentType = 'image/webp'): string
+    private function insertCentralImageAsset(string $assetId, string $slot): string
     {
+        $fileName = match ($slot) {
+            'right_sidebar' => 'rightsidebar.webp',
+            'logo_bottom' => 'logo_bottom.webp',
+            default => 'logo_qr.webp',
+        };
+        $storageKey = 'partners/par_branding/lottery-branding/v1/'.$fileName;
+
         DB::table('platform_assets')->insert([
             'id' => $assetId,
             'scope_type' => 'central',
             'tenant_id' => null,
             'created_by_admin_id' => null,
-            'purpose' => 'ticket_image',
+            'purpose' => 'partner_lottery_branding',
             'file_name' => $fileName,
-            'content_type' => $contentType,
+            'content_type' => 'image/webp',
             'size_bytes' => 1024,
             'checksum_sha256' => hash('sha256', $assetId),
             'status' => 'committed',
-            'storage_key' => 'lottery-image-assets/partners/par_branding/branding/v1/'.$fileName,
+            'storage_key' => $storageKey,
             'upload_url' => null,
-            'public_url' => 'https://local-assets.newpaotang.test/'.$fileName,
-            'metadata_json' => json_encode(['fixture' => true], JSON_THROW_ON_ERROR),
+            'public_url' => 'https://local-assets.newpaotang.test/'.$storageKey,
+            'metadata_json' => json_encode(['fixture' => true, 'partner_id' => 'par_branding', 'branding_slot' => $slot, 'version' => 'v1'], JSON_THROW_ON_ERROR),
             'expires_at' => null,
             'committed_at' => now(),
             'created_at' => now(),

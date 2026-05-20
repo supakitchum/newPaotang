@@ -21,6 +21,7 @@ use App\Models\WebhookCallback;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Modules\Auth\Services\CustomerAuthService;
+use App\Modules\PartnerStore\Services\VirtualLotteryImageService;
 use App\Modules\PartnerStore\Services\VirtualStockService;
 use App\Shared\Auth\CustomerSessionContext;
 use App\Shared\Idempotency\IdempotencyService;
@@ -38,6 +39,7 @@ class CommerceService
         private readonly CustomerAuthService $customerAuth,
         private readonly IdempotencyService $idempotency,
         private readonly VirtualStockService $virtualStock,
+        private readonly VirtualLotteryImageService $virtualImages,
     ) {
     }
 
@@ -1212,6 +1214,7 @@ class CommerceService
         foreach ($stockRows as $stock) {
             $ticketId = 'tic_'.Str::ulid()->toBase32();
             $orderItemId = 'oit_'.Str::ulid()->toBase32();
+            $image = $this->virtualImages->renderSoldTicketImages($ticketId, $stock);
 
             Ticket::query()->insert([
                 'id' => $ticketId,
@@ -1222,8 +1225,9 @@ class CommerceService
                 'game_id' => $stock->game_id,
                 'full_number' => $stock->full_number,
                 'status' => 'active',
-                'image_url' => $stock->image_url,
-                'image_thumb_url' => $stock->image_thumb_url,
+                'image_url' => $image['image_url'],
+                'image_thumb_url' => $image['image_thumb_url'],
+                'image_render_snapshot_json' => $image['snapshot'] === [] ? null : json_encode($image['snapshot'], JSON_THROW_ON_ERROR),
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);

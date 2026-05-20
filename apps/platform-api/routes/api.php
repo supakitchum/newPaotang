@@ -32,6 +32,7 @@ use App\Modules\PublicSite\Http\Controllers\PublicGameController;
 use App\Modules\PublicSite\Http\Controllers\PublicContentController;
 use App\Modules\Reward\Http\Controllers\PublicRewardController;
 use App\Modules\PublicSite\Http\Controllers\PublicSiteConfigController;
+use App\Modules\PartnerStore\Http\Controllers\PublicStockImageController;
 use App\Modules\PartnerStore\Http\Controllers\PublicStockSearchController;
 use App\Modules\Growth\Http\Controllers\ReportController;
 use App\Modules\Tenancy\Http\Controllers\TenantConfigurationController;
@@ -56,6 +57,7 @@ Route::get('/public/news', [PublicContentController::class, 'news']);
 Route::get('/public/stores', [PublicContentController::class, 'stores']);
 Route::get('/public/games/current', [PublicGameController::class, 'current']);
 Route::get('/public/stock/search', [PublicStockSearchController::class, 'index']);
+Route::get('/public/stock/images/{token}.webp', [PublicStockImageController::class, 'show']);
 Route::get('/public/results/latest', [PublicRewardController::class, 'latest']);
 Route::get('/public/results/{game_id}', [PublicRewardController::class, 'show']);
 

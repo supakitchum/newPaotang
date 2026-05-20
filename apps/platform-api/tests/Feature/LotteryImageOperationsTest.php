@@ -762,11 +762,13 @@ class LotteryImageOperationsTest extends TestCase
     private function uploadBrandingImageAsset(string $token, string $partnerId, string $slot, int $width, int $height): string
     {
         $bytes = $this->fixtureWebp('odd', $width, $height);
-        $fileName = $slot.'.webp';
+        $fileName = 'user-upload-'.$slot.'.webp';
+        $canonicalFileName = $slot === 'right_sidebar' ? 'rightsidebar.webp' : $slot.'.webp';
+        $canonicalStorageKey = 'partners/'.$partnerId.'/lottery-branding/v1/'.$canonicalFileName;
 
         $intent = $this->withToken($token)
             ->postJson('/api/v1/admin/central/assets/uploads', [
-                'purpose' => 'ticket_image',
+                'purpose' => 'partner_lottery_branding',
                 'file_name' => $fileName,
                 'content_type' => 'image/webp',
                 'size_bytes' => strlen($bytes),
@@ -774,6 +776,7 @@ class LotteryImageOperationsTest extends TestCase
                 'metadata' => [
                     'partner_id' => $partnerId,
                     'branding_slot' => $slot,
+                    'version' => 'v1',
                     'width' => $width,
                     'height' => $height,
                 ],
@@ -793,6 +796,9 @@ class LotteryImageOperationsTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('metadata.storage_boundary', 'local_dev_uploaded')
+            ->assertJsonPath('storage_key', $canonicalStorageKey)
+            ->assertJsonPath('file_name', $canonicalFileName)
+            ->assertJsonPath('content_type', 'image/webp')
             ->json();
 
         $this->assertTrue(Storage::disk('lottery_images')->exists($uploaded['storage_key']));
@@ -810,7 +816,10 @@ class LotteryImageOperationsTest extends TestCase
                 'Idempotency-Key' => 'branding-local-upload-commit-'.$slot,
             ])
             ->assertOk()
-            ->assertJsonPath('status', 'committed');
+            ->assertJsonPath('status', 'committed')
+            ->assertJsonPath('purpose', 'partner_lottery_branding')
+            ->assertJsonPath('storage_key', $canonicalStorageKey)
+            ->assertJsonPath('file_name', $canonicalFileName);
 
         return (string) $intent['asset_id'];
     }
@@ -1199,9 +1208,9 @@ class LotteryImageOperationsTest extends TestCase
             'logo_qr_asset_id' => $assetIds['logo_qr'],
             'right_sidebar_asset_id' => $assetIds['right_sidebar'],
             'logo_bottom_asset_id' => $assetIds['logo_bottom'],
-            'logo_qr_storage_path' => 'lottery-image-assets/partners/'.$partnerId.'/branding/v1/logo_qr.webp',
-            'right_sidebar_storage_path' => 'lottery-image-assets/partners/'.$partnerId.'/branding/v1/right_sidebar.webp',
-            'logo_bottom_storage_path' => 'lottery-image-assets/partners/'.$partnerId.'/branding/v1/logo_bottom.webp',
+            'logo_qr_storage_path' => 'partners/'.$partnerId.'/lottery-branding/v1/logo_qr.webp',
+            'right_sidebar_storage_path' => 'partners/'.$partnerId.'/lottery-branding/v1/rightsidebar.webp',
+            'logo_bottom_storage_path' => 'partners/'.$partnerId.'/lottery-branding/v1/logo_bottom.webp',
             'uploaded_by_admin_id' => null,
             'activated_at' => now(),
             'locked_at' => null,
@@ -1213,7 +1222,8 @@ class LotteryImageOperationsTest extends TestCase
     private function insertBrandingImageAsset(string $partnerId, string $slot, int $width, int $height): string
     {
         $assetId = 'ast_'.substr(sha1($partnerId.':'.$slot), 0, 20);
-        $storageKey = 'lottery-image-assets/partners/'.$partnerId.'/branding/v1/'.$slot.'.webp';
+        $fileName = $slot === 'right_sidebar' ? 'rightsidebar.webp' : $slot.'.webp';
+        $storageKey = 'partners/'.$partnerId.'/lottery-branding/v1/'.$fileName;
         $bytes = $this->fixtureWebp('odd', $width, $height);
 
         Storage::disk('lottery_images')->put($storageKey, $bytes);
@@ -1222,8 +1232,8 @@ class LotteryImageOperationsTest extends TestCase
             'scope_type' => 'central',
             'tenant_id' => null,
             'created_by_admin_id' => null,
-            'purpose' => 'ticket_image',
-            'file_name' => $slot.'.webp',
+            'purpose' => 'partner_lottery_branding',
+            'file_name' => $fileName,
             'content_type' => 'image/webp',
             'size_bytes' => strlen($bytes),
             'checksum_sha256' => hash('sha256', $bytes),
@@ -1231,7 +1241,7 @@ class LotteryImageOperationsTest extends TestCase
             'storage_key' => $storageKey,
             'upload_url' => null,
             'public_url' => 'https://cdn.lottery.test/'.$storageKey,
-            'metadata_json' => json_encode(['width' => $width, 'height' => $height], JSON_THROW_ON_ERROR),
+            'metadata_json' => json_encode(['width' => $width, 'height' => $height, 'partner_id' => $partnerId, 'branding_slot' => $slot, 'version' => 'v1'], JSON_THROW_ON_ERROR),
             'expires_at' => null,
             'committed_at' => now(),
             'created_at' => now(),

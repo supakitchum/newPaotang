@@ -196,6 +196,10 @@ class PartnerLotteryBrandingAssetService
                 $errors[$field][] = 'The '.$field.' field must reference a committed asset.';
             }
 
+            if ((string) $asset->purpose !== 'partner_lottery_branding') {
+                $errors[$field][] = 'The '.$field.' field must reference a partner lottery branding asset.';
+            }
+
             if (! str_starts_with((string) $asset->content_type, 'image/')) {
                 $errors[$field][] = 'The '.$field.' field must reference an image asset.';
             }

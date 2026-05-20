@@ -358,16 +358,16 @@ class LotteryImageTest extends TestCase
     {
         $now = now();
         $assets = [
-            'logo_qr' => 'logo-qr.webp',
-            'right_sidebar' => 'right-sidebar.webp',
-            'logo_bottom' => 'logo-bottom.webp',
+            'logo_qr' => 'logo_qr.webp',
+            'right_sidebar' => 'rightsidebar.webp',
+            'logo_bottom' => 'logo_bottom.webp',
         ];
         $assetIds = [];
 
         foreach ($assets as $slot => $fileName) {
             $assetId = 'ast_'.substr(sha1($partnerId.':'.$slot), 0, 20);
             $assetIds[$slot] = $assetId;
-            $storageKey = 'lottery-image-assets/partners/'.$partnerId.'/branding/v1/'.$fileName;
+            $storageKey = 'partners/'.$partnerId.'/lottery-branding/v1/'.$fileName;
             $bytes = $this->fixtureBrandingWebp($slot);
 
             Storage::disk('lottery_images')->put($storageKey, $bytes);
@@ -377,7 +377,7 @@ class LotteryImageTest extends TestCase
                 'scope_type' => 'central',
                 'tenant_id' => null,
                 'created_by_admin_id' => null,
-                'purpose' => 'ticket_image',
+                'purpose' => 'partner_lottery_branding',
                 'file_name' => $fileName,
                 'content_type' => 'image/webp',
                 'size_bytes' => strlen($bytes),
@@ -386,7 +386,7 @@ class LotteryImageTest extends TestCase
                 'storage_key' => $storageKey,
                 'upload_url' => null,
                 'public_url' => 'https://cdn.lottery.test/'.$fileName,
-                'metadata_json' => json_encode(['fixture' => true], JSON_THROW_ON_ERROR),
+                'metadata_json' => json_encode(['fixture' => true, 'partner_id' => $partnerId, 'branding_slot' => $slot, 'version' => 'v1'], JSON_THROW_ON_ERROR),
                 'expires_at' => null,
                 'committed_at' => $now,
                 'created_at' => $now,
@@ -402,9 +402,9 @@ class LotteryImageTest extends TestCase
             'logo_qr_asset_id' => $assetIds['logo_qr'],
             'right_sidebar_asset_id' => $assetIds['right_sidebar'],
             'logo_bottom_asset_id' => $assetIds['logo_bottom'],
-            'logo_qr_storage_path' => 'lottery-image-assets/partners/'.$partnerId.'/branding/v1/logo-qr.webp',
-            'right_sidebar_storage_path' => 'lottery-image-assets/partners/'.$partnerId.'/branding/v1/right-sidebar.webp',
-            'logo_bottom_storage_path' => 'lottery-image-assets/partners/'.$partnerId.'/branding/v1/logo-bottom.webp',
+            'logo_qr_storage_path' => 'partners/'.$partnerId.'/lottery-branding/v1/logo_qr.webp',
+            'right_sidebar_storage_path' => 'partners/'.$partnerId.'/lottery-branding/v1/rightsidebar.webp',
+            'logo_bottom_storage_path' => 'partners/'.$partnerId.'/lottery-branding/v1/logo_bottom.webp',
             'uploaded_by_admin_id' => null,
             'activated_at' => $now,
             'locked_at' => null,

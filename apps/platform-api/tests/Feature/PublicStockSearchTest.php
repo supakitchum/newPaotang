@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Tests\Support\PartnerStoreFixtures;
 use Tests\TestCase;
 
@@ -249,6 +250,54 @@ class PublicStockSearchTest extends TestCase
         $this->assertSame(1, DB::table('local_stock_items')->where('tenant_id', 'ten_virtual_public')->whereNotNull('virtual_stock_ref')->count());
     }
 
+    public function test_PublicStockSearch_virtual_preview_image_url_is_deterministic_lazy_and_renders_on_demand(): void
+    {
+        config([
+            'app.url' => 'http://preview-api.newpaotang.test',
+            'lottery_images.object_prefix' => 'test-lotteries-preview',
+            'lottery_images.asset_root' => storage_path('framework/testing/lottery-images-preview'),
+        ]);
+
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_virtual_preview', 'ten_virtual_preview', 'virtual-preview.newpaotang.test');
+        $this->insertGame('gam_virtual_preview', 'open');
+        $this->insertBaseLotteryNumbers(['654321']);
+        $this->insertVirtualProfile('gam_virtual_preview');
+        $this->insertPartnerDistribution('gam_virtual_preview', 'par_virtual_preview', 'ten_virtual_preview', 10000);
+        $this->insertReadyVirtualImageAssets('par_virtual_preview', 'gam_virtual_preview');
+
+        $first = $this->getJson('http://virtual-preview.newpaotang.test/api/v1/public/stock/search?game_id=gam_virtual_preview&number=654321')
+            ->assertOk()
+            ->assertJsonPath('data.0.image_url', null)
+            ->assertJsonPath('data.0.image_status', 'ready')
+            ->json('data.0');
+
+        $second = $this->getJson('http://virtual-preview.newpaotang.test/api/v1/public/stock/search?game_id=gam_virtual_preview&number=654321')
+            ->assertOk()
+            ->json('data.0');
+
+        $this->assertIsString($first['preview_image_url'] ?? null);
+        $this->assertStringContainsString('/api/v1/public/stock/images/', $first['preview_image_url']);
+        $this->assertSame($first['preview_image_url'], $first['image_thumb_url']);
+        $this->assertSame($first['preview_image_url'], $second['preview_image_url']);
+        $this->assertSame([], Storage::disk('lottery_images')->allFiles('test-lotteries-preview/cache/virtual'));
+
+        $path = parse_url((string) $first['preview_image_url'], PHP_URL_PATH);
+        $this->assertIsString($path);
+
+        $image = $this->get($path)
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/webp')
+            ->getContent();
+
+        $this->assertStringStartsWith('RIFF', $image);
+        $this->assertSame('WEBP', substr($image, 8, 4));
+        $this->assertCount(1, Storage::disk('lottery_images')->allFiles('test-lotteries-preview/cache/virtual'));
+
+        $this->get($path)->assertOk();
+        $this->assertCount(1, Storage::disk('lottery_images')->allFiles('test-lotteries-preview/cache/virtual'));
+    }
+
     public function test_PublicStockSearch_ignores_retired_partner_quota_sale_window_overrides(): void
     {
         $this->seedDefaultRbac();
@@ -375,5 +424,91 @@ class PublicStockSearchTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    private function insertReadyVirtualImageAssets(string $partnerId, string $gameId): void
+    {
+        foreach (['odd', 'even', 'charity'] as $setType) {
+            $directory = storage_path('framework/testing/lottery-images-preview/games/'.$gameId.'/backgrounds/v1/'.$setType);
+
+            if (! is_dir($directory)) {
+                mkdir($directory, 0777, true);
+            }
+
+            file_put_contents($directory.'/001.webp', $this->fixtureWebp(500, 280));
+        }
+
+        $assetIds = [];
+
+        foreach ([
+            'logo_qr' => ['file' => 'logo_qr.webp', 'width' => 80, 'height' => 80],
+            'right_sidebar' => ['file' => 'rightsidebar.webp', 'width' => 80, 'height' => 240],
+            'logo_bottom' => ['file' => 'logo_bottom.webp', 'width' => 160, 'height' => 60],
+        ] as $slot => $asset) {
+            $assetId = 'ast_'.substr(sha1($partnerId.':'.$slot), 0, 20);
+            $storageKey = 'partners/'.$partnerId.'/lottery-branding/v1/'.$asset['file'];
+            $bytes = $this->fixtureWebp($asset['width'], $asset['height']);
+            $assetIds[$slot] = $assetId;
+
+            Storage::disk('lottery_images')->put($storageKey, $bytes);
+            DB::table('platform_assets')->insert([
+                'id' => $assetId,
+                'scope_type' => 'central',
+                'tenant_id' => null,
+                'created_by_admin_id' => null,
+                'purpose' => 'partner_lottery_branding',
+                'file_name' => $asset['file'],
+                'content_type' => 'image/webp',
+                'size_bytes' => strlen($bytes),
+                'checksum_sha256' => hash('sha256', $bytes),
+                'status' => 'committed',
+                'storage_key' => $storageKey,
+                'upload_url' => null,
+                'public_url' => 'https://cdn.lottery.test/'.$storageKey,
+                'metadata_json' => json_encode(['partner_id' => $partnerId, 'branding_slot' => $slot, 'version' => 'v1'], JSON_THROW_ON_ERROR),
+                'expires_at' => null,
+                'committed_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        DB::table('partner_lottery_branding_asset_sets')->insert([
+            'id' => 'pba_'.substr(sha1($partnerId.':ready'), 0, 20),
+            'partner_id' => $partnerId,
+            'version' => 'v1',
+            'status' => 'ready',
+            'logo_qr_asset_id' => $assetIds['logo_qr'],
+            'right_sidebar_asset_id' => $assetIds['right_sidebar'],
+            'logo_bottom_asset_id' => $assetIds['logo_bottom'],
+            'logo_qr_storage_path' => 'partners/'.$partnerId.'/lottery-branding/v1/logo_qr.webp',
+            'right_sidebar_storage_path' => 'partners/'.$partnerId.'/lottery-branding/v1/rightsidebar.webp',
+            'logo_bottom_storage_path' => 'partners/'.$partnerId.'/lottery-branding/v1/logo_bottom.webp',
+            'uploaded_by_admin_id' => null,
+            'activated_at' => now(),
+            'locked_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function fixtureWebp(int $width, int $height): string
+    {
+        $image = imagecreatetruecolor($width, $height);
+        $this->assertNotFalse($image);
+
+        if ($image === false) {
+            return '';
+        }
+
+        imagefill($image, 0, 0, imagecolorallocate($image, 244, 236, 220));
+        ob_start();
+        imagewebp($image, null, 80);
+        $bytes = ob_get_clean();
+        imagedestroy($image);
+
+        $this->assertIsString($bytes);
+
+        return $bytes;
     }
 }

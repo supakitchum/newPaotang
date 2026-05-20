@@ -2,7 +2,6 @@
 
 namespace App\Modules\PartnerStore\Services;
 
-use App\Jobs\GeneratePartnerLotteryImageJob;
 use App\Models\Game;
 use App\Models\LocalStockItem;
 use App\Models\PartnerTenant;
@@ -30,6 +29,7 @@ class VirtualStockService
     public function __construct(
         private readonly StockCoverageRealtimeService $coverageRealtime,
         private readonly AuditLogger $auditLogger,
+        private readonly VirtualLotteryImageService $virtualImages,
     ) {
     }
 
@@ -503,10 +503,6 @@ class VirtualStockService
                 'created_at' => $now,
                 'updated_at' => $now,
             ], $localIds));
-
-            foreach ($localIds as $localId) {
-                GeneratePartnerLotteryImageJob::dispatch($localId)->afterCommit();
-            }
 
             $this->broadcastAfterCommit($events);
 
@@ -1655,6 +1651,7 @@ class VirtualStockService
     private function virtualStockResource(string $tenantId, string $partnerId, string $gameId, string $fullNumber, int $copyIndex, array $availability): array
     {
         $stockRef = $this->virtualRef($tenantId, $gameId, $fullNumber, $copyIndex);
+        $preview = $this->virtualImages->previewDescriptor($tenantId, $partnerId, $gameId, $fullNumber, $copyIndex);
 
         return [
             'id' => $stockRef,
@@ -1673,8 +1670,11 @@ class VirtualStockService
             'status' => (string) $availability['availability_status'],
             'price' => ['amount' => 0, 'currency' => 'THB'],
             'price_rule_summary' => null,
-            'image_thumb_url' => null,
+            'preview_image_url' => $preview['url'],
+            'image_thumb_url' => $preview['url'],
             'image_url' => null,
+            'image_status' => $preview['status'],
+            'image_error' => $preview['error'],
         ];
     }
 
@@ -1792,27 +1792,50 @@ class VirtualStockService
             'status' => (string) $reservation->status,
             'expires_at' => $reservation->expires_at,
             'server_time' => now()->toISOString(),
-            'items' => array_map(fn (object $stock): array => [
-                'id' => (string) $stock->id,
-                'game_id' => (string) $stock->game_id,
-                'full_number' => (string) $stock->full_number,
-                'front3' => $stock->front3,
-                'back3' => $stock->back3,
-                'back2' => $stock->back2,
-                'status' => (string) $stock->status,
-                'stock_ref' => $stock->virtual_stock_ref,
-                'stock_mode' => $stock->virtual_stock_ref === null ? 'physical' : 'virtual',
-                'remaining_count' => null,
-                'availability_status' => (string) $stock->status,
-                'price' => ['amount' => 0, 'currency' => 'THB'],
-                'price_rule_summary' => null,
-                'image_thumb_url' => $stock->image_thumb_url,
-                'image_url' => $stock->image_url,
-            ], $items),
+            'items' => array_map(fn (object $stock): array => $this->reservationItemResource($stock), $items),
             'tenant_id' => (string) $reservation->tenant_id,
             'customer_id' => (string) $reservation->customer_id,
             'created_at' => $reservation->created_at,
             'updated_at' => $reservation->updated_at,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function reservationItemResource(object $stock): array
+    {
+        $preview = ['url' => null, 'status' => $stock->image_generation_status, 'error' => $stock->image_generation_error];
+
+        if ($stock->virtual_stock_ref !== null && $stock->image_thumb_url === null) {
+            $preview = $this->virtualImages->previewDescriptor(
+                (string) $stock->tenant_id,
+                (string) $stock->partner_id,
+                (string) $stock->game_id,
+                (string) $stock->full_number,
+                (int) ($stock->virtual_copy_index ?? 0),
+            );
+        }
+
+        return [
+            'id' => (string) $stock->id,
+            'game_id' => (string) $stock->game_id,
+            'full_number' => (string) $stock->full_number,
+            'front3' => $stock->front3,
+            'back3' => $stock->back3,
+            'back2' => $stock->back2,
+            'status' => (string) $stock->status,
+            'stock_ref' => $stock->virtual_stock_ref,
+            'stock_mode' => $stock->virtual_stock_ref === null ? 'physical' : 'virtual',
+            'remaining_count' => null,
+            'availability_status' => (string) $stock->status,
+            'price' => ['amount' => 0, 'currency' => 'THB'],
+            'price_rule_summary' => null,
+            'preview_image_url' => $stock->image_thumb_url ?? $preview['url'],
+            'image_thumb_url' => $stock->image_thumb_url ?? $preview['url'],
+            'image_url' => $stock->image_url,
+            'image_status' => $stock->image_generation_status ?? $preview['status'],
+            'image_error' => $stock->image_generation_error ?? $preview['error'],
         ];
     }
 

@@ -556,7 +556,7 @@ const uploadSlot = async (slot: BrandingSlot): Promise<string | null> => {
       scope: 'central',
       idempotencyKey: api.idempotencyKey(),
       body: {
-        purpose: 'ticket_image',
+        purpose: 'partner_lottery_branding',
         file_name: file.name,
         content_type: file.type || 'image/webp',
         size_bytes: file.size,
@@ -581,7 +581,7 @@ const uploadSlot = async (slot: BrandingSlot): Promise<string | null> => {
           partner_id: props.partnerId,
           branding_slot: slot,
           version: version.value || 'v1',
-          file_name: file.name,
+          source_file_name: file.name,
         },
       },
     })

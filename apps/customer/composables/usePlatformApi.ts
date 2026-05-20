@@ -79,12 +79,13 @@ const normalizeGame = (game: AnyRecord | null | undefined) => {
 
 const normalizeImageFields = (item: AnyRecord) => {
   const imageUrl = item.image_url || item.image || ''
-  const imageThumbUrl = item.image_thumb_url || item.image_thumb || item.thumb_url || imageUrl
+  const imageThumbUrl = item.image_thumb_url || item.preview_image_url || item.image_thumb || item.thumb_url || imageUrl
   const imageStatus = item.image_status || (imageUrl || imageThumbUrl ? 'ready' : 'missing')
 
   return {
     image_url: imageUrl,
     image_thumb_url: imageThumbUrl,
+    preview_image_url: item.preview_image_url || imageThumbUrl || '',
     image_status: imageStatus,
     image_error: item.image_error || null,
     image: imageUrl || imageThumbUrl || ''

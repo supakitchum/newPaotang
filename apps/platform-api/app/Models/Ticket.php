@@ -24,8 +24,13 @@ class Ticket extends BaseModel
         'status',
         'image_url',
         'image_thumb_url',
+        'image_render_snapshot_json',
         'created_at',
         'updated_at',
+    ];
+
+    protected $casts = [
+        'image_render_snapshot_json' => 'array',
     ];
 
     public function customer(): BelongsTo

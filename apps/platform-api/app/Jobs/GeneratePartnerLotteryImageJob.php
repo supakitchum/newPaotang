@@ -42,6 +42,11 @@ class GeneratePartnerLotteryImageJob implements ShouldQueue
             return;
         }
 
+        if ($localStock->virtual_stock_ref !== null) {
+            $this->mark($localStock, 'deferred', 'virtual_image_on_demand');
+            return;
+        }
+
         $stock = StockItem::query()->whereKey($localStock->stock_item_id)->first();
 
         if ($stock === null || $stock->batch_id === null || $stock->background_set_type === null || $stock->background_asset_version === null || $stock->background_asset_index === null) {

@@ -14,11 +14,19 @@ use Illuminate\Support\Str;
 
 class AssetService
 {
+    private const PARTNER_LOTTERY_BRANDING_PURPOSE = 'partner_lottery_branding';
+    private const PARTNER_LOTTERY_BRANDING_FILES = [
+        'logo_qr' => 'logo_qr.webp',
+        'right_sidebar' => 'rightsidebar.webp',
+        'logo_bottom' => 'logo_bottom.webp',
+    ];
+
     private const PURPOSES = [
         'tenant_logo',
         'tenant_favicon',
         'tenant_og_image',
         'ticket_image',
+        self::PARTNER_LOTTERY_BRANDING_PURPOSE,
         'admin_attachment',
         'import_file',
         'other',
@@ -52,7 +60,7 @@ class AssetService
 
         return DB::transaction(function () use ($scopeType, $tenantId, $payload, $normalized, $actor, $request): array {
             $assetId = 'ast_'.Str::ulid()->toBase32();
-            $storageKey = $this->storageKey($scopeType, $tenantId, $assetId, $normalized['file_name']);
+            $storageKey = $this->storageKey($scopeType, $tenantId, $assetId, $normalized);
             $uploadUrl = 'https://local-assets.newpaotang.test/'.$storageKey.'?intent='.$assetId;
             $expiresAt = now()->addMinutes(15);
 
@@ -144,25 +152,30 @@ class AssetService
             }
 
             /** @var UploadedFile $file */
+            $stored = $this->localUploadPayload($asset, $file);
             Storage::disk((string) config('lottery_images.disk', 'lottery_images'))->put(
                 (string) $asset->storage_key,
-                file_get_contents($file->getRealPath()) ?: '',
+                $stored['bytes'],
+                ['ContentType' => $stored['content_type']],
             );
 
             $metadata = is_array($asset->metadata_json) ? $asset->metadata_json : [];
             PlatformAsset::query()
                 ->where('id', $assetId)
                 ->update([
+                    'content_type' => $stored['content_type'],
+                    'size_bytes' => $stored['size_bytes'],
+                    'file_name' => $stored['file_name'],
                     'metadata_json' => array_replace_recursive($metadata, [
                         'storage_boundary' => 'local_dev_uploaded',
                         'storage_disk' => (string) config('lottery_images.disk', 'lottery_images'),
                         'production_storage_ready' => false,
                         'local_uploaded_at' => now()->toISOString(),
-                    ]),
+                    ], $stored['metadata']),
                     'updated_at' => now(),
                 ]);
 
-            $this->audit($actor, $request, $scopeType, 'asset.local_upload_stored', $assetId, ['file_name' => $file->getClientOriginalName()], $tenantId);
+            $this->audit($actor, $request, $scopeType, 'asset.local_upload_stored', $assetId, ['source_file_name' => $file->getClientOriginalName()], $tenantId);
 
             return ['resource' => $this->findAsset($scopeType, $tenantId, $assetId)];
         });
@@ -218,18 +231,26 @@ class AssetService
                 $metadata = array_replace_recursive($metadata, $payload['metadata']);
             }
 
+            $updates = [
+                'checksum_sha256' => $payload['checksum_sha256'] ?? $asset->checksum_sha256,
+                'status' => 'committed',
+                'metadata_json' => $metadata + [
+                    'storage_boundary' => 'local_dev_metadata_only',
+                    'production_storage_ready' => false,
+                ],
+                'committed_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            if ((string) $asset->purpose === self::PARTNER_LOTTERY_BRANDING_PURPOSE) {
+                $updates['public_url'] = $this->publicAssetUrl((string) $asset->storage_key);
+                $updates['content_type'] = (string) config('lottery_images.content_type', 'image/webp');
+                $updates['file_name'] = $this->canonicalBrandingFileName((string) ($metadata['branding_slot'] ?? ''));
+            }
+
             PlatformAsset::query()
                 ->where('id', $assetId)
-                ->update([
-                    'checksum_sha256' => $payload['checksum_sha256'] ?? $asset->checksum_sha256,
-                    'status' => 'committed',
-                    'metadata_json' => $metadata + [
-                        'storage_boundary' => 'local_dev_metadata_only',
-                        'production_storage_ready' => false,
-                    ],
-                    'committed_at' => now(),
-                    'updated_at' => now(),
-                ]);
+                ->update($updates);
 
             $this->audit($actor, $request, $scopeType, 'asset.committed_local_dev', $assetId, $payload, $tenantId);
 
@@ -243,16 +264,33 @@ class AssetService
      */
     private function uploadPayload(?string $tenantId, array $payload): array
     {
-        return [
+        $metadata = is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [];
+        $normalized = [
             'tenant_id' => $payload['tenant_id'] ?? null,
             'purpose' => trim((string) ($payload['purpose'] ?? '')),
             'file_name' => trim((string) ($payload['file_name'] ?? '')),
             'content_type' => trim((string) ($payload['content_type'] ?? '')),
             'size_bytes' => filter_var($payload['size_bytes'] ?? null, FILTER_VALIDATE_INT),
             'checksum_sha256' => $this->nullableString($payload['checksum_sha256'] ?? null),
-            'metadata' => is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [],
+            'metadata' => $metadata,
             'expected_tenant_id' => $tenantId,
         ];
+
+        if ($normalized['purpose'] === self::PARTNER_LOTTERY_BRANDING_PURPOSE) {
+            $slot = trim((string) ($metadata['branding_slot'] ?? ''));
+            $version = $this->canonicalBrandingVersion($metadata['version'] ?? 'v1');
+
+            $normalized['metadata'] = array_replace_recursive($metadata, [
+                'branding_slot' => $slot,
+                'version' => $version,
+                'source_file_name' => $normalized['file_name'],
+                'source_content_type' => $normalized['content_type'],
+            ]);
+            $normalized['file_name'] = $this->canonicalBrandingFileName($slot);
+            $normalized['content_type'] = (string) config('lottery_images.content_type', 'image/webp');
+        }
+
+        return $normalized;
     }
 
     /**
@@ -269,6 +307,29 @@ class AssetService
 
         if (! in_array($payload['purpose'], self::PURPOSES, true)) {
             $errors['purpose'][] = 'The purpose field is invalid.';
+        }
+
+        if ($payload['purpose'] === self::PARTNER_LOTTERY_BRANDING_PURPOSE) {
+            $metadata = is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [];
+            $partnerId = trim((string) ($metadata['partner_id'] ?? ''));
+            $slot = trim((string) ($metadata['branding_slot'] ?? ''));
+            $version = trim((string) ($metadata['version'] ?? ''));
+
+            if ($payload['expected_tenant_id'] !== null) {
+                $errors['purpose'][] = 'Partner lottery branding assets must be uploaded in central scope.';
+            }
+
+            if ($partnerId === '' || ! DB::table('partners')->where('id', $partnerId)->exists()) {
+                $errors['metadata.partner_id'][] = 'The metadata.partner_id field must reference an existing partner.';
+            }
+
+            if (! array_key_exists($slot, self::PARTNER_LOTTERY_BRANDING_FILES)) {
+                $errors['metadata.branding_slot'][] = 'The metadata.branding_slot field is invalid.';
+            }
+
+            if ($version === '' || strlen($version) > 64 || preg_match('/^[A-Za-z0-9._-]+$/', $version) !== 1) {
+                $errors['metadata.version'][] = 'The metadata.version field must be 1-64 characters and may contain letters, numbers, dot, underscore, or dash.';
+            }
         }
 
         foreach (['file_name', 'content_type'] as $field) {
@@ -336,6 +397,10 @@ class AssetService
             $errors['file'][] = 'The uploaded file size does not match the upload intent.';
         }
 
+        if ((string) $asset->purpose === self::PARTNER_LOTTERY_BRANDING_PURPOSE && ! str_starts_with((string) $file->getMimeType(), 'image/')) {
+            $errors['file'][] = 'The uploaded file must be an image.';
+        }
+
         $checksum = hash_file('sha256', $file->getRealPath());
 
         if ($asset->checksum_sha256 !== null && is_string($checksum) && strcasecmp((string) $asset->checksum_sha256, $checksum) !== 0) {
@@ -359,8 +424,18 @@ class AssetService
             : $query->whereNull('tenant_id');
     }
 
-    private function storageKey(string $scopeType, ?string $tenantId, string $assetId, string $fileName): string
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function storageKey(string $scopeType, ?string $tenantId, string $assetId, array $payload): string
     {
+        if ($payload['purpose'] === self::PARTNER_LOTTERY_BRANDING_PURPOSE) {
+            $metadata = is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [];
+
+            return 'partners/'.trim((string) $metadata['partner_id']).'/lottery-branding/'.$this->canonicalBrandingVersion($metadata['version'] ?? 'v1').'/'.$this->canonicalBrandingFileName((string) ($metadata['branding_slot'] ?? ''));
+        }
+
+        $fileName = (string) $payload['file_name'];
         $slug = Str::slug(pathinfo($fileName, PATHINFO_FILENAME));
         $extension = strtolower((string) pathinfo($fileName, PATHINFO_EXTENSION));
         $safeName = ($slug !== '' ? $slug : 'asset').($extension !== '' ? '.'.$extension : '');
@@ -368,6 +443,92 @@ class AssetService
         return $scopeType === 'tenant'
             ? 'tenants/'.$tenantId.'/assets/'.$assetId.'/'.$safeName
             : 'central/assets/'.$assetId.'/'.$safeName;
+    }
+
+    /**
+     * @return array{bytes: string, content_type: string, size_bytes: int, file_name: string, metadata: array<string, mixed>}
+     */
+    private function localUploadPayload(object $asset, UploadedFile $file): array
+    {
+        $sourceBytes = file_get_contents($file->getRealPath()) ?: '';
+
+        if ((string) $asset->purpose !== self::PARTNER_LOTTERY_BRANDING_PURPOSE) {
+            return [
+                'bytes' => $sourceBytes,
+                'content_type' => (string) $asset->content_type,
+                'size_bytes' => strlen($sourceBytes),
+                'file_name' => (string) $asset->file_name,
+                'metadata' => [],
+            ];
+        }
+
+        $webpBytes = $this->webpBytes($sourceBytes);
+        $bytes = $webpBytes ?? $sourceBytes;
+        $metadata = is_array($asset->metadata_json) ? $asset->metadata_json : [];
+
+        return [
+            'bytes' => $bytes,
+            'content_type' => (string) config('lottery_images.content_type', 'image/webp'),
+            'size_bytes' => strlen($bytes),
+            'file_name' => $this->canonicalBrandingFileName((string) ($metadata['branding_slot'] ?? '')),
+            'metadata' => [
+                'source_file_name' => $file->getClientOriginalName(),
+                'source_content_type' => $file->getClientMimeType(),
+                'source_size_bytes' => (int) $file->getSize(),
+                'webp_conversion_status' => $webpBytes === null ? 'source_passthrough' : 'converted',
+                'stored_checksum_sha256' => hash('sha256', $bytes),
+                'stored_size_bytes' => strlen($bytes),
+            ],
+        ];
+    }
+
+    private function webpBytes(string $sourceBytes): ?string
+    {
+        if (! extension_loaded('gd') || ! function_exists('imagecreatefromstring') || ! function_exists('imagewebp')) {
+            return null;
+        }
+
+        $image = @imagecreatefromstring($sourceBytes);
+
+        if ($image === false) {
+            return null;
+        }
+
+        try {
+            imagepalettetotruecolor($image);
+            imagealphablending($image, true);
+            imagesavealpha($image, true);
+            ob_start();
+            $ok = imagewebp($image, null, 82);
+            $bytes = ob_get_clean();
+
+            return $ok && is_string($bytes) && $bytes !== '' ? $bytes : null;
+        } finally {
+            imagedestroy($image);
+        }
+    }
+
+    private function canonicalBrandingFileName(string $slot): string
+    {
+        return self::PARTNER_LOTTERY_BRANDING_FILES[$slot] ?? 'asset.webp';
+    }
+
+    private function canonicalBrandingVersion(mixed $version): string
+    {
+        $value = trim((string) $version);
+
+        return $value === '' ? 'v1' : $value;
+    }
+
+    private function publicAssetUrl(string $key): string
+    {
+        $baseUrl = rtrim((string) config('lottery_images.cdn_base_url', ''), '/');
+
+        if ($baseUrl !== '') {
+            return $baseUrl.'/'.ltrim($key, '/');
+        }
+
+        return Storage::disk((string) config('lottery_images.disk', 'lottery_images'))->url($key);
     }
 
     /**
