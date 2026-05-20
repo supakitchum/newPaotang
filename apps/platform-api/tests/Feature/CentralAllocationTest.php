@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
+use App\Modules\CentralStock\Events\StockCoverageUpdated;
 use Tests\Support\CentralStockFixtures;
 use Tests\TestCase;
 
@@ -537,6 +539,40 @@ class CentralAllocationTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonPath('error.details.fields.requested_count.0', 'The requested_count exceeds the active partner quota.');
+    }
+
+    public function test_CentralAllocation_percent_create_broadcasts_single_refresh_invalidation(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenant('par_realtime_alloc', 'ten_realtime_alloc');
+        $this->insertGame('gam_realtime_alloc', 'open');
+        $this->insertVirtualSupplyProfile('gam_realtime_alloc', 100);
+        Event::fake([StockCoverageUpdated::class]);
+
+        $login = $this->createCentralSession(['stock.allocate'], 'adm_realtime_alloc', 'realtime-alloc@example.test');
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/allocations', [
+                'partner_id' => 'par_realtime_alloc',
+                'tenant_id' => 'ten_realtime_alloc',
+                'game_id' => 'gam_realtime_alloc',
+                'allocation_percent' => 10,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'allocation-realtime-refresh',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('partner_id', 'par_realtime_alloc')
+            ->assertJsonPath('tenant_id', 'ten_realtime_alloc');
+
+        Event::assertDispatchedTimes(StockCoverageUpdated::class, 1);
+        Event::assertDispatched(StockCoverageUpdated::class, fn (StockCoverageUpdated $event): bool => (
+            ($event->payload['game_id'] ?? null) === 'gam_realtime_alloc'
+            && ($event->payload['refresh_required'] ?? null) === true
+            && ($event->payload['reason'] ?? null) === 'stock_supply_changed'
+            && ! array_key_exists('dimension', $event->payload)
+            && ! array_key_exists('number', $event->payload)
+        ));
     }
 
     private function insertVirtualSupplyProfile(string $gameId, int $capacity): void

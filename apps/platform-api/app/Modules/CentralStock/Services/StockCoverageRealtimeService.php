@@ -14,16 +14,12 @@ class StockCoverageRealtimeService
 
     public function broadcastGameSupplyChangedAfterCommit(string $gameId): void
     {
-        $this->broadcastRowsAfterCommit($gameId, 'central', 'central');
-
-        foreach ($this->partnerScopeIdsForGame($gameId) as $partnerId) {
-            $this->broadcastRowsAfterCommit($gameId, 'partner', $partnerId);
-        }
+        $this->broadcastRefreshRequiredAfterCommit($gameId, 'stock_supply_changed');
     }
 
     public function broadcastLimitSettingsChangedAfterCommit(string $gameId, string $scopeType, string $scopeId): void
     {
-        $this->broadcastRowsAfterCommit($gameId, $scopeType, $scopeId);
+        $this->broadcastRefreshRequiredAfterCommit($gameId, 'limit_settings_changed', $scopeType, $scopeId);
     }
 
     /**
@@ -103,10 +99,10 @@ class StockCoverageRealtimeService
         $rows = [];
 
         foreach ($dimensions as $currentDimension) {
-            $counts = $this->generatedCountsForDimension($gameId, $currentDimension, $scopeType, $scopeId);
             $valueList = $values === null
                 ? $this->dimensionValues($currentDimension)
                 : array_values(array_unique(array_map(fn (string $value): string => $this->normalizeDimensionValue($currentDimension, $value), $values)));
+            $counts = $this->generatedCountsForDimension($gameId, $currentDimension, $scopeType, $scopeId, $valueList);
             $counterRows = $this->counterRows($gameId, $scopeType, $scopeId, $currentDimension, $valueList);
             $overrides = $this->limitOverrideRows($gameId, $scopeType, $scopeId, $currentDimension, $valueList);
             $defaultLimit = $this->limitSettings($gameId, $scopeType, $scopeId)[$currentDimension.'_limit'];
@@ -153,7 +149,7 @@ class StockCoverageRealtimeService
     /**
      * @return array<string, int>
      */
-    private function generatedCountsForDimension(string $gameId, string $dimension, string $scopeType, string $scopeId): array
+    private function generatedCountsForDimension(string $gameId, string $dimension, string $scopeType, string $scopeId, array $values): array
     {
         $profile = $this->activeProfile($gameId);
 
@@ -162,10 +158,21 @@ class StockCoverageRealtimeService
         }
 
         $layers = $this->activeLayers($profile);
+        $precomputed = $this->precomputedGeneratedCountsForDimension($gameId, $dimension, $scopeType, $scopeId, (string) $profile->id, $layers, $values);
+
+        if ($precomputed !== null) {
+            return $precomputed;
+        }
+
         $partnerRows = $scopeType === 'partner' ? $this->partnerDistributionRows($gameId, $scopeId) : [];
         $counts = [];
+        $query = DB::table('base_lottery_numbers');
 
-        foreach (DB::table('base_lottery_numbers')->get(['full_number', $dimension.' as value']) as $number) {
+        if ($values !== []) {
+            $query->whereIn($dimension, $values);
+        }
+
+        foreach ($query->get(['full_number', $dimension.' as value']) as $number) {
             $capacity = $this->capacityForNumber((string) $number->full_number, $layers);
 
             if ($scopeType === 'partner') {
@@ -185,6 +192,86 @@ class StockCoverageRealtimeService
         }
 
         return $counts;
+    }
+
+    /**
+     * @param array<int, array{id: string, seed: string, set_distribution: array<int, array<string, mixed>>, total_capacity: int}> $layers
+     * @param array<int, string> $values
+     * @return array<string, int>|null
+     */
+    private function precomputedGeneratedCountsForDimension(
+        string $gameId,
+        string $dimension,
+        string $scopeType,
+        string $scopeId,
+        string $profileId,
+        array $layers,
+        array $values,
+    ): ?array {
+        $sourceIds = array_values(array_filter(array_map(
+            fn (array $layer): string => (string) ($layer['id'] ?? ''),
+            $layers,
+        )));
+
+        if ($sourceIds === []) {
+            return null;
+        }
+
+        if ($scopeType === 'partner') {
+            $activePartnerIds = DB::table('stock_partner_distributions')
+                ->where('game_id', $gameId)
+                ->where('status', 'active')
+                ->where('percent_basis_points', '>', 0)
+                ->pluck('partner_id')
+                ->map(fn (mixed $value): string => (string) $value)
+                ->all();
+
+            if ($activePartnerIds === []) {
+                if (DB::table('stock_partner_distributions')->where('game_id', $gameId)->exists()) {
+                    return [];
+                }
+
+                return $this->precomputedGeneratedCountsForDimension($gameId, $dimension, 'central', 'central', $profileId, $layers, $values);
+            }
+
+            if (! in_array($scopeId, $activePartnerIds, true)) {
+                return [];
+            }
+        }
+
+        $existingSourceIds = DB::table('virtual_stock_pattern_generated_counts')
+            ->where('game_id', $gameId)
+            ->where('profile_id', $profileId)
+            ->where('scope_type', $scopeType)
+            ->where('scope_id', $scopeId)
+            ->whereIn('source_id', $sourceIds)
+            ->distinct()
+            ->pluck('source_id')
+            ->map(fn (mixed $value): string => (string) $value)
+            ->all();
+
+        if (array_diff($sourceIds, $existingSourceIds) !== []) {
+            return null;
+        }
+
+        $query = DB::table('virtual_stock_pattern_generated_counts')
+            ->select(['value'])
+            ->selectRaw('SUM(generated_count)::bigint as generated_count')
+            ->where('game_id', $gameId)
+            ->where('profile_id', $profileId)
+            ->where('scope_type', $scopeType)
+            ->where('scope_id', $scopeId)
+            ->where('dimension', $dimension)
+            ->whereIn('source_id', $sourceIds)
+            ->groupBy('value');
+
+        if ($values !== []) {
+            $query->whereIn('value', $values);
+        }
+
+        return $query->get()
+            ->mapWithKeys(fn (object $row): array => [(string) $row->value => (int) $row->generated_count])
+            ->all();
     }
 
     private function activeProfile(string $gameId): ?object
@@ -407,31 +494,39 @@ class StockCoverageRealtimeService
         return $defaults;
     }
 
-    /**
-     * @return array<int, string>
-     */
-    private function partnerScopeIdsForGame(string $gameId): array
-    {
-        $partnerIds = [];
+    private function broadcastRefreshRequiredAfterCommit(
+        string $gameId,
+        string $reason,
+        string $scopeType = 'all',
+        string $scopeId = 'all',
+    ): void {
+        $gameId = trim($gameId);
 
-        foreach (['stock_partner_distributions', 'stock_sale_limit_settings', 'partner_quotas'] as $table) {
-            $query = DB::table($table)->where('game_id', $gameId);
-
-            if ($table === 'stock_sale_limit_settings') {
-                $query->where('scope_type', 'partner');
-                $column = 'scope_id';
-            } else {
-                $column = 'partner_id';
-            }
-
-            foreach ($query->pluck($column)->all() as $partnerId) {
-                if ($partnerId !== null && $partnerId !== '') {
-                    $partnerIds[] = (string) $partnerId;
-                }
-            }
+        if ($gameId === '') {
+            return;
         }
 
-        return array_values(array_unique($partnerIds));
+        $this->afterCommit(function () use ($gameId, $reason, $scopeType, $scopeId): void {
+            try {
+                StockCoverageUpdated::dispatch([
+                    'event_type' => 'stock.coverage.updated',
+                    'game_id' => $gameId,
+                    'scope_type' => $scopeType,
+                    'scope_id' => $scopeId,
+                    'refresh_required' => true,
+                    'reason' => $reason,
+                    'updated_at' => now()->toISOString(),
+                ]);
+            } catch (\Throwable $exception) {
+                Log::warning('Stock coverage realtime refresh broadcast failed.', [
+                    'game_id' => $gameId,
+                    'scope_type' => $scopeType,
+                    'scope_id' => $scopeId,
+                    'reason' => $reason,
+                    'message' => $exception->getMessage(),
+                ]);
+            }
+        });
     }
 
     /**
