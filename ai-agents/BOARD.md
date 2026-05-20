@@ -22,7 +22,7 @@ stock-table-realtime-socket
 ## Open Questions
 
 ```text
-stock-table-realtime-socket opened from Coordinator. Backend Develop must start first and add the game-scoped stock table realtime channel/event, stock.view auth, row/refresh payloads, emit coverage, and backend tests.
+stock-table-realtime-socket opened from Coordinator. Backend Develop must start first and add the game-scoped stock table realtime channel/event, stock.view auth, row/refresh payloads, emit coverage, and backend tests. Coordinator appended frozen virtual top-up ownership: allocations snapshot active supply layers, old allocations stay fixed after top-up, and new top-up copies remain unassigned/no_agent until allocated.
 ```
 
 ## Latest Decision

@@ -36,6 +36,15 @@ ai-agents/tasks/20260520-stock-table-realtime-socket-backend.md
 
 Backend is routed first because BO needs a final channel, event name, auth requirement, and payload contract before subscribing and merging central Stock table rows.
 
+Coordinator amendment after the initial Orchestrator dispatch appended frozen virtual top-up ownership to the same Backend task. Backend Develop must implement this together with stock table realtime before BO starts:
+
+```text
+allocation must snapshot active virtual supply layers
+existing allocations must not grow after later top-ups
+top-up copies must show as unassigned/no_agent until a later allocation explicitly assigns them
+top-up layers keep independent system-managed layer_seed randomness
+```
+
 ## Files Changed
 
 ```text
@@ -67,6 +76,7 @@ Destructive validation commands in the task target newpaotang_test.
 Backend must choose carefully between row payloads and refresh_required because grouped Stock table filter/sort/page compatibility belongs to BO.
 Existing stock.coverage.updated and stock.generation.progress.updated behavior must not regress.
 Customer reservation/release/sold coverage may need focused event tests because the same counter changes also drive customer availability and pattern coverage realtime.
+Frozen allocation ownership adds migration and compatibility risk; Backend must keep legacy allocations readable and must not expose unassigned top-up supply to partner/customer availability before allocation.
 ```
 
 ## Questions For Coordinator

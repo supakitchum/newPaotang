@@ -79,6 +79,12 @@ Coordinator board:
 - Orchestrator must track each handoff through Backend Develop -> BO Develop -> QA Tester -> Coordinator.
 - Do not skip QA Tester.
 
+Coordinator amendment after Orchestrator dispatch:
+
+- Append frozen virtual top-up ownership into `ai-agents/tasks/20260520-stock-table-realtime-socket-backend.md`.
+- Keep the same active task and route through Backend Develop first to avoid conflicting edits.
+- Backend must add allocation supply layer snapshots, keep old allocation counts/owners fixed after top-up, mark later top-up copies as unassigned/no_agent until allocated, and keep top-up layer seeds independent.
+
 ## 2026-05-20 Retire Physical Stock Flow QA Review
 
 Coordinator reviewed QA for `retire-physical-stock-flow`.

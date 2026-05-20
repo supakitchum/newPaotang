@@ -79,6 +79,7 @@ Back-office entry point:
 - Central -> Stock Generation -> Generate stock
 - Set distribution defines set capacity percentages, for example 10% of base numbers get 2-ticket capacity and 15% get 3-ticket capacity
 - Re-running Generate stock for the same game is a virtual top-up and must increase generated virtual supply without replacing existing counters/reservations
+- Allocation ownership is frozen to the supply layers that existed when the allocation was created or redistributed. A later top-up increases central generated/unassigned supply, but it must not increase an existing partner allocation or owner assignment.
 - Partner distribution, central sale limits, and partner sale limits belong in Stock Settings / Stock Pattern Coverage, not in the generate modal
 - Legacy physical fields such as `total_count`, `back2_count_per_number`, `start_number`, and `count` are not available in BO and are rejected by API
 
@@ -203,6 +204,9 @@ Expected behavior:
 - counters remain stable across top-ups
 - idempotency replay must not add supply twice
 - changing set distribution for a top-up affects only that top-up layer
+- allocation creates/redistributes snapshot the currently active supply layers; top-up layers created later remain unassigned/no_agent until a later allocation explicitly assigns them
+- partner allocation/availability and partner generated pattern counts must use allocation snapshots instead of dynamically inheriting every later top-up layer
+- partner percent assignment must use `10000` basis points as the fixed denominator so any unallocated percent remains unassigned instead of being normalized to active partners
 - Stock Generation/detail must expose owner/agent assignment where available and show `no agent`/unassigned where not allocated
 - image actions must show real materialized `stock_items` / `local_stock_items` image fields only
 - unmaterialized virtual capacity must be shown as capacity, not as fake ticket image rows
@@ -344,7 +348,7 @@ Backend implementation contract:
 - Recall/redistribute endpoints:
   - `POST /admin/central/allocations/{allocation_id}/recall-all`
   - `POST /admin/central/allocations/{allocation_id}/redistribute`
-- Percent allocation target count is calculated from active virtual generated supply for the game.
+- Percent allocation target count is calculated from eligible unassigned virtual supply layers at allocation/redistribute time and then stored as a fixed snapshot for that allocation.
 - Active partner percentages for the same game must sum to `<= 100%`.
 - Percent updates below already reserved/sold partner usage are rejected.
 - Recall-all sets the partner distribution to `status=recalled` and `percent_basis_points=0`; redistribute reactivates the saved allocation percent only after full recall.

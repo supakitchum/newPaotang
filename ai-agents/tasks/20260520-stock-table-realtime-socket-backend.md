@@ -59,6 +59,14 @@ recalled_count
 total_count
 ```
 
+Append the frozen virtual top-up ownership requirement to this same backend pass:
+
+```text
+existing allocations stay fixed to the supply layers that existed at allocation time
+new top-up supply remains unassigned/no_agent until a later allocation explicitly assigns it
+top-up layer capacity uses a fresh independent layer_seed
+```
+
 ## Source Of Truth
 
 Read before implementation:
@@ -87,6 +95,7 @@ apps/platform-api/app/Modules/PartnerStore/Services/VirtualStockService.php
 apps/platform-api/tests/Feature/AdminOperationsTest.php
 apps/platform-api/tests/Feature/VirtualStockRealtimeTest.php
 apps/platform-api/tests/Feature/CentralAllocationTest.php
+apps/platform-api/database/migrations/**
 ```
 
 ## Scope
@@ -102,6 +111,8 @@ row events for safe single full_number changes
 emits from generation/top-up/import/allocation/cancel/recall/redistribute/customer reservation/release/sold paths where applicable
 backend tests
 backend handoff
+virtual top-up ownership snapshot support
+partner availability/count logic that respects allocation layer snapshots
 ```
 
 ## Out Of Scope
@@ -185,6 +196,56 @@ stock.coverage.updated
 stock.availability.updated
 ```
 
+## Required Frozen Top-Up Ownership Behavior
+
+Use the existing virtual model:
+
+```text
+one active stock_supply_profiles row per game
+multiple active virtual_stock_supply_layers rows per game/profile
+```
+
+Do not split each top-up into a separate profile.
+
+Add allocation-time supply snapshot support:
+
+```text
+partner_stock_allocations must store the supply layers that were active when the allocation was created or redistributed
+suggested column: supply_layer_ids_json
+snapshot content: ordered list of virtual_stock_supply_layers.id values
+```
+
+Ownership and availability rules:
+
+```text
+allocation created after initial generate can assign only the layers in its snapshot
+top-up layers created later must be unassigned/no_agent for that existing allocation
+existing allocation allocated_count must not increase after later top-up
+central generated supply and remaining/unassigned supply may increase after top-up
+new allocation after top-up may assign only still-unassigned supply from layers that are not already in active allocation snapshots
+virtual copy detail must show old allocated copies with partner owner and new top-up copies as unassigned/no_agent
+partner/customer search must not expose unassigned top-up copies to a partner until allocated
+```
+
+Partner assignment must not normalize active partner percentages to 100%. Use `10000` basis points as the denominator so any unallocated percent remains unassigned.
+
+Top-up randomness:
+
+```text
+each new generation/top-up batch must keep using a new independent system-managed layer_seed
+do not expose seed input in BO/API
+do not force capacity to differ from previous layers for the same full_number
+idempotency replay must return the original layer and must not create a duplicate layer
+```
+
+Generated pattern counts:
+
+```text
+central generated pattern counts include all active layers
+partner generated pattern counts include only layers assigned to that partner through allocation snapshots
+unassigned top-up layers must not be counted as partner generated supply
+```
+
 ## Implementation Notes
 
 Prefer a dedicated event class such as:
@@ -215,13 +276,17 @@ For reservation/release/sold or single full_number counter changes, emit row pay
 3. Add central realtime auth pattern for `private-admin.central.stock.table.game.{game_id}` and require `stock.view`.
 4. Add payload helper/service for refresh and row events.
 5. Wire refresh/row emits into generation/import/allocation/cancel/recall/redistribute/customer reservation/release/sold paths.
-6. Ensure existing coverage/generation/customer realtime still dispatches as before.
-7. Add tests for channel auth allowed/denied.
-8. Add tests proving allocation changes dispatch stock table update or refresh event.
-9. Add tests proving customer reservation/release/sold counter changes dispatch stock table row or refresh event.
-10. Update docs/OpenAPI only if useful for realtime contract documentation.
-11. Run Docker-only validation with test DB isolation.
-12. Commit scoped backend changes and write backend handoff.
+6. Add a migration for allocation supply layer snapshots, with backwards-compatible handling for allocations that predate the column.
+7. Update allocation create/redistribute to store active layer snapshots and keep `allocated_count` fixed after top-up.
+8. Update partner availability, owner detail, and generated pattern count logic to use allocation snapshots and unassigned top-up supply.
+9. Ensure existing coverage/generation/customer realtime still dispatches as before.
+10. Add tests for channel auth allowed/denied.
+11. Add tests proving allocation changes dispatch stock table update or refresh event.
+12. Add tests proving customer reservation/release/sold counter changes dispatch stock table row or refresh event.
+13. Add tests proving frozen allocation/top-up ownership behavior.
+14. Update docs/OpenAPI only if useful for realtime contract documentation.
+15. Run Docker-only validation with test DB isolation.
+16. Commit scoped backend changes and write backend handoff.
 
 ## Acceptance Criteria
 
@@ -234,6 +299,11 @@ row payload count fields match grouped stock table contract
 generation/import broad changes emit refresh_required
 allocation state changes emit row or refresh event
 customer reservation/release/sold changes emit row or refresh event
+percent allocations snapshot supply layers at allocation time
+existing allocation allocated_count does not increase after later top-up
+top-up copies are unassigned/no_agent until explicitly allocated
+partner generated pattern counts exclude unassigned top-up layers
+new top-up layer_seed differs across distinct generation batches
 existing stock coverage/generation/customer realtime tests still pass
 backend tests pass through Docker with newpaotang_test isolation
 handoff includes commit hash
@@ -278,6 +348,10 @@ refresh_required behavior
 generation/import emit behavior
 allocation/cancel/recall/redistribute emit behavior
 customer reservation/release/sold emit behavior
+allocation layer snapshot migration/column
+frozen allocation/top-up ownership behavior
+unassigned top-up owner behavior
+partner generated pattern count behavior
 existing realtime compatibility notes
 validation commands/results
 test DB isolation evidence

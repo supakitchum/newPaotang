@@ -14,6 +14,19 @@ Add realtime websocket updates for the central Stock data table so operators can
 
 This is a normal Coordinator-flow task. Coordinator must not implement this directly. User must send the dispatch prompt to Orchestrator.
 
+## Coordinator Amendment: Frozen Allocation Ownership For Top-Ups
+
+Append this virtual top-up ownership rule to the same backend workflow before Backend Develop starts. Do not split it into a separate task because it touches the same stock generation, allocation, customer availability, grouped stock table row, and realtime refresh surfaces.
+
+Required product rule:
+
+- Keep one active `stock_supply_profiles` container per game with multiple `virtual_stock_supply_layers`.
+- Each allocation must snapshot the active supply layers that existed at allocation time.
+- Existing allocations must stay fixed after later top-ups; their `allocated_count` and partner ownership must not grow just because generated supply grew.
+- Supply added by later top-ups must be unassigned (`no_agent` / unassigned owner) until a new allocation or redistribute flow explicitly allocates it.
+- Top-up layers must keep using a new independent system-managed `layer_seed`; do not force per-number capacity to differ from previous layers because that would distort the configured distribution.
+- Partner assignment must use a fixed denominator of `10000` basis points so unallocated percent remains unassigned instead of normalizing active partners to 100%.
+
 ## Current State
 
 - `Generation progress` already subscribes to `stock.generation.progress.updated`.
@@ -46,6 +59,10 @@ stock.table.updated
   - admin session is authenticated.
 - If a row update matches the current filters and exists on the current page, merge it into the table in-place.
 - If payload is incomplete, filter/sort compatibility is uncertain, or `refresh_required` is true, reload the table and refresh stock summary widgets.
+- Stock table rows, number detail rows, partner availability, and realtime payloads must respect allocation layer snapshots:
+  - central generated supply can increase after top-up,
+  - existing partner allocation/assigned count must stay unchanged,
+  - new top-up copies show as unassigned until explicitly allocated.
 
 ## Broadcast Coverage
 
@@ -68,6 +85,8 @@ Backend implementation must cover changes that affect grouped stock table counts
 
 - Backend tests for realtime channel authorization, including rejection without `stock.view`.
 - Backend tests proving stock table update or refresh events are dispatched for allocation and customer stock counter changes.
+- Backend tests proving initial allocation stays fixed after top-up, top-up copies are unassigned, and a later allocation can assign newly unassigned supply.
+- Backend tests proving partner generated pattern counts exclude unassigned top-up layers.
 - BO tests or component-level evidence proving realtime payloads update/reload the central stock table.
 - BO lint/test/build through Docker.
 - QA must use `APP_ENV=testing`, `DB_DATABASE=newpaotang_test`, and `--env=testing` for destructive commands.
