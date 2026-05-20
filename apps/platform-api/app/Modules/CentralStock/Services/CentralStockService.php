@@ -67,6 +67,7 @@ class CentralStockService
         'cancelled',
     ];
     private const CANCELLABLE_ALLOCATION_STATUSES = ['draft', 'pending', 'processing', 'partially_allocated', 'failed'];
+    private const ACTIVE_ALLOCATION_PAIR_STATUSES = ['pending', 'processing', 'allocated', 'partially_allocated'];
 
     public function __construct(
         private readonly AuditLogger $auditLogger,
@@ -3783,6 +3784,10 @@ class CentralStockService
     {
         $limit = $this->limit($queryParams['limit'] ?? null);
         $gameId = trim((string) ($queryParams['game_id'] ?? ''));
+        $availableForCreate = $this->allocationAvailableForCreate($queryParams);
+        $allocatedTenantIdsByPartner = $availableForCreate && $gameId !== ''
+            ? $this->allocatedTenantIdsByPartnerForGame($gameId)
+            : [];
         $query = Partner::query()
             ->where('status', 'active')
             ->orderBy('code')
@@ -3796,9 +3801,21 @@ class CentralStockService
             });
         }
 
-        $rows = $query->get()->map(function (object $partner) use ($gameId): array {
+        $rows = $query->get()->map(function (object $partner) use ($gameId, $availableForCreate, $allocatedTenantIdsByPartner): ?array {
             $tenants = $this->activeTenantRowsForPartner((string) $partner->id);
-            $singleTenant = count($tenants) === 1 ? $tenants[0] : null;
+            $allocatedTenantIds = $allocatedTenantIdsByPartner[(string) $partner->id] ?? [];
+            $availableTenants = $availableForCreate && $gameId !== ''
+                ? array_values(array_filter(
+                    $tenants,
+                    fn (object $tenant): bool => ! in_array((string) $tenant->id, $allocatedTenantIds, true),
+                ))
+                : $tenants;
+
+            if ($availableForCreate && $gameId !== '' && $availableTenants === []) {
+                return null;
+            }
+
+            $singleTenant = count($availableTenants) === 1 ? $availableTenants[0] : null;
             $distribution = $gameId !== ''
                 ? DB::table('stock_partner_distributions')
                     ->where('game_id', $gameId)
@@ -3813,14 +3830,16 @@ class CentralStockService
                 'name' => (string) $partner->name,
                 'label' => trim((string) $partner->code.' - '.(string) $partner->name),
                 'status' => (string) $partner->status,
-                'active_tenant_count' => count($tenants),
+                'active_tenant_count' => count($availableTenants),
+                'total_active_tenant_count' => count($tenants),
+                'allocated_tenant_count' => count($allocatedTenantIds),
                 'single_tenant_id' => $singleTenant === null ? null : (string) $singleTenant->id,
                 'single_tenant_code' => $singleTenant === null ? null : (string) $singleTenant->code,
                 'single_tenant_name' => $singleTenant === null ? null : (string) $singleTenant->name,
                 'allocation_percent' => $distribution === null ? null : $this->percentFromBasisPoints((int) $distribution->percent_basis_points),
                 'allocation_percent_basis_points' => $distribution === null ? null : (int) $distribution->percent_basis_points,
             ];
-        })->all();
+        })->filter()->values()->all();
 
         return ['data' => $rows, 'meta' => ['next_cursor' => null, 'has_more' => false]];
     }
@@ -3832,6 +3851,8 @@ class CentralStockService
     public function allocationTenantOptions(array $queryParams): array
     {
         $limit = $this->limit($queryParams['limit'] ?? null);
+        $gameId = trim((string) ($queryParams['game_id'] ?? ''));
+        $availableForCreate = $this->allocationAvailableForCreate($queryParams);
         $query = PartnerTenant::query()
             ->join('partners', 'partners.id', '=', 'partner_tenants.partner_id')
             ->where('partner_tenants.status', 'active')
@@ -3841,6 +3862,13 @@ class CentralStockService
 
         if (($queryParams['partner_id'] ?? null) !== null && trim((string) $queryParams['partner_id']) !== '') {
             $query->where('partner_tenants.partner_id', trim((string) $queryParams['partner_id']));
+        }
+
+        if ($availableForCreate && $gameId !== '') {
+            $allocatedTenantIds = $this->allocatedTenantIdsForGame($gameId);
+            if ($allocatedTenantIds !== []) {
+                $query->whereNotIn('partner_tenants.id', $allocatedTenantIds);
+            }
         }
 
         if (($queryParams['q'] ?? null) !== null && trim((string) $queryParams['q']) !== '') {
@@ -3977,6 +4005,22 @@ class CentralStockService
 
         if ($gameId === '' || ! Game::where('id', $gameId)->where('status', 'open')->exists()) {
             $errors['game_id'][] = 'The game_id field must reference an open game.';
+        }
+
+        $resolvedTenantId = null;
+        if (! isset($errors['partner_id'], $errors['tenant_id']) && $partnerId !== '') {
+            $resolvedTenantId = $this->resolveTenantIdForPartner($partnerId, $tenantId);
+        }
+
+        if (
+            $hasPercent
+            && $gameId !== ''
+            && $partnerId !== ''
+            && $resolvedTenantId !== null
+            && ! isset($errors['game_id'])
+            && $this->allocationPairAlreadyConfigured($gameId, $partnerId, $resolvedTenantId)
+        ) {
+            $errors['tenant_id'][] = 'This partner tenant already has an active allocation for this game.';
         }
 
         if ($hasPercent) {
@@ -4175,6 +4219,10 @@ class CentralStockService
         $percentBasisPoints = $this->percentBasisPointsFrom($payload['allocation_percent'] ?? null);
 
         if ($percentBasisPoints === null) {
+            return null;
+        }
+
+        if ($this->allocationPairAlreadyConfigured($gameId, $partnerId, $tenantId, true)) {
             return null;
         }
 
@@ -4857,6 +4905,85 @@ class CentralStockService
             ->orderBy('partner_tenants.code')
             ->get(['partner_tenants.id', 'partner_tenants.code', 'partner_tenants.name'])
             ->all();
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     */
+    private function allocationAvailableForCreate(array $queryParams): bool
+    {
+        return filter_var($queryParams['available_for_create'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function allocatedTenantIdsForGame(string $gameId): array
+    {
+        if ($gameId === '') {
+            return [];
+        }
+
+        return PartnerStockAllocation::query()
+            ->where('game_id', $gameId)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->pluck('tenant_id')
+            ->filter()
+            ->map(fn (mixed $tenantId): string => (string) $tenantId)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    private function allocatedTenantIdsByPartnerForGame(string $gameId): array
+    {
+        if ($gameId === '') {
+            return [];
+        }
+
+        $rows = PartnerStockAllocation::query()
+            ->where('game_id', $gameId)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->get(['partner_id', 'tenant_id']);
+        $grouped = [];
+
+        foreach ($rows as $row) {
+            $partnerId = (string) $row->partner_id;
+            $tenantId = (string) $row->tenant_id;
+
+            if ($partnerId === '' || $tenantId === '') {
+                continue;
+            }
+
+            $grouped[$partnerId] = array_values(array_unique([
+                ...($grouped[$partnerId] ?? []),
+                $tenantId,
+            ]));
+        }
+
+        return $grouped;
+    }
+
+    private function allocationPairAlreadyConfigured(string $gameId, string $partnerId, string $tenantId, bool $lock = false): bool
+    {
+        if ($gameId === '' || $partnerId === '' || $tenantId === '') {
+            return false;
+        }
+
+        $query = PartnerStockAllocation::query()
+            ->where('game_id', $gameId)
+            ->where('partner_id', $partnerId)
+            ->where('tenant_id', $tenantId)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES);
+
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        return $query->exists();
     }
 
     /**

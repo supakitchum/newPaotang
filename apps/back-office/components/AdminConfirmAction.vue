@@ -245,8 +245,27 @@
     <textarea v-if="requiresPayload" v-model="payloadJson" class="form-control np-admin-json-editor mb-3" rows="8" spellcheck="false" />
     <label v-if="requiresReason" class="form-label">Reason</label>
     <textarea v-if="requiresReason" v-model="reason" class="form-control" rows="3" />
+    <AdminApiState :error="allocationOptionError" />
+    <div v-if="allocationOptionLoading" class="np-confirm-progress mb-3">
+      <div class="d-flex align-items-center justify-content-between gap-3 small mb-2">
+        <span class="fw-semibold">Preparing available partner tenants</span>
+        <span class="text-muted">Please wait</span>
+      </div>
+      <div class="progress" role="progressbar" aria-label="Loading allocation options">
+        <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%" />
+      </div>
+    </div>
+    <div v-if="loading" class="np-confirm-progress mb-3">
+      <div class="d-flex align-items-center justify-content-between gap-3 small mb-2">
+        <span class="fw-semibold">{{ submitProgressTitle }}</span>
+        <span class="text-muted">{{ submitProgressHint }}</span>
+      </div>
+      <div class="progress" role="progressbar" :aria-label="submitProgressTitle">
+        <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%" />
+      </div>
+    </div>
     <template #footer>
-      <button class="btn btn-light btn-wave" type="button" @click="emit('update:modelValue', false)">Cancel</button>
+      <button class="btn btn-light btn-wave" type="button" :disabled="loading" @click="emit('update:modelValue', false)">Cancel</button>
       <button class="btn btn-primary btn-wave" type="button" :disabled="confirmDisabled" @click="confirm">
         <span v-if="loading" class="spinner-border spinner-border-sm me-2" />
         Confirm
@@ -256,7 +275,7 @@
 </template>
 
 <script setup lang="ts">
-import type { OperationFormField } from '~/composables/useAdminOperationsCatalog'
+import type { OperationFormField, OperationOption } from '~/composables/useAdminOperationsCatalog'
 
 const props = defineProps<{
   modelValue: boolean
@@ -280,6 +299,12 @@ const emit = defineEmits<{
 const reason = ref('')
 const payloadJson = ref('')
 const formState = reactive<Record<string, any>>({})
+const api = useAdminApi()
+const allocationPartnerOptions = ref<OperationOption[]>([])
+const allocationTenantOptions = ref<OperationOption[]>([])
+const allocationOptionLoading = ref(false)
+const allocationOptionError = ref<any>(null)
+let allocationOptionRequestId = 0
 
 const formFields = computed(() => props.formFields || [])
 const visibleFormFields = computed(() => formFields.value.filter(isFieldVisible))
@@ -296,6 +321,15 @@ const partnerField = computed(() => formFields.value.find((field) => field.key =
 const tenantField = computed(() => formFields.value.find((field) => field.key === 'tenant_id'))
 const gameField = computed(() => formFields.value.find((field) => field.key === 'game_id'))
 const allocationPercentField = computed(() => formFields.value.find((field) => field.key === 'allocation_percent'))
+const isAllocationCreateForm = computed(() => Boolean(
+  allocationPercentField.value
+  && partnerField.value?.optionSource === 'allocation-partners'
+  && tenantField.value?.optionSource === 'allocation-tenants'
+  && gameField.value?.optionSource === 'allocation-games'
+  && !partnerField.value?.readonly,
+))
+const submitProgressTitle = computed(() => isAllocationCreateForm.value ? 'Creating allocation' : 'Submitting request')
+const submitProgressHint = computed(() => isAllocationCreateForm.value ? 'Preparing stock allocation' : 'API request is running')
 const selectedPartnerOption = computed(() => partnerField.value ? findOption(partnerField.value, formState.partner_id) : null)
 const selectedGameOption = computed(() => gameField.value ? findOption(gameField.value, formState.game_id) : null)
 const allocationPreviewMetrics = computed(() => {
@@ -440,6 +474,12 @@ const fieldDisabled = (field: OperationFormField) => {
     return true
   }
 
+  if (isAllocationCreateForm.value && (field.key === 'partner_id' || field.key === 'tenant_id')) {
+    if (isBlank(formState.game_id) || allocationOptionLoading.value) {
+      return true
+    }
+  }
+
   if (field.key === 'tenant_id') {
     const activeTenantCount = optionNumber(selectedPartnerOption.value, 'activeTenantCount')
     return activeTenantCount === 0 || activeTenantCount === 1
@@ -461,7 +501,7 @@ const visibleOptions = (field: OperationFormField) => {
     }
   }
 
-  const options = field.options || []
+  const options = fieldOptions(field)
   const withCurrentReadonlyOption = (nextOptions: any[]) => {
     const value = formState[field.key]
     if (!field.readonly || isBlank(value) || nextOptions.some((option) => String(optionValue(option)) === String(value))) {
@@ -486,6 +526,88 @@ const visibleOptions = (field: OperationFormField) => {
   }
 
   return withCurrentReadonlyOption(options.filter((option) => optionPartnerId(option) === String(dependencyValue)))
+}
+
+const fieldOptions = (field: OperationFormField) => {
+  if (isAllocationCreateForm.value && !isBlank(formState.game_id)) {
+    if (field.key === 'partner_id') {
+      return allocationPartnerOptions.value
+    }
+
+    if (field.key === 'tenant_id') {
+      return allocationTenantOptions.value
+    }
+  }
+
+  return field.options || []
+}
+
+const loadAllocationCreateOptions = async () => {
+  const requestId = ++allocationOptionRequestId
+
+  if (!props.modelValue || !isAllocationCreateForm.value) {
+    allocationPartnerOptions.value = []
+    allocationTenantOptions.value = []
+    allocationOptionError.value = null
+    allocationOptionLoading.value = false
+    return
+  }
+
+  const gameId = String(formState.game_id || '').trim()
+  const partnerId = String(formState.partner_id || '').trim()
+
+  if (!gameId) {
+    allocationPartnerOptions.value = []
+    allocationTenantOptions.value = []
+    allocationOptionError.value = null
+    allocationOptionLoading.value = false
+    return
+  }
+
+  allocationOptionLoading.value = true
+  allocationOptionError.value = null
+
+  try {
+    const [partnerResponse, tenantResponse] = await Promise.all([
+      api.apiFetch('/admin/central/allocation-options/partners', {
+        scope: 'central',
+        query: { limit: 500, game_id: gameId, available_for_create: 1 },
+      }),
+      api.apiFetch('/admin/central/allocation-options/tenants', {
+        scope: 'central',
+        query: compactQuery({ limit: 500, game_id: gameId, partner_id: partnerId, available_for_create: 1 }),
+      }),
+    ])
+
+    if (requestId !== allocationOptionRequestId) {
+      return
+    }
+
+    allocationPartnerOptions.value = normalizeAllocationPartnerOptions(extractItems(partnerResponse))
+    allocationTenantOptions.value = normalizeAllocationTenantOptions(extractItems(tenantResponse))
+
+    if (!isBlank(formState.partner_id) && !allocationPartnerOptions.value.some((option) => String(optionValue(option)) === String(formState.partner_id))) {
+      formState.partner_id = ''
+      formState.tenant_id = ''
+    }
+
+    syncDependentTenant()
+
+    const tenant = tenantField.value
+    if (tenant && !isBlank(formState.tenant_id) && !visibleOptions(tenant).some((option) => String(optionValue(option)) === String(formState.tenant_id))) {
+      formState.tenant_id = ''
+    }
+  } catch (err) {
+    if (requestId === allocationOptionRequestId) {
+      allocationPartnerOptions.value = []
+      allocationTenantOptions.value = []
+      allocationOptionError.value = err
+    }
+  } finally {
+    if (requestId === allocationOptionRequestId) {
+      allocationOptionLoading.value = false
+    }
+  }
 }
 
 const addStockSetDistributionRow = (field: OperationFormField) => {
@@ -658,7 +780,7 @@ const findOption = (field: OperationFormField, value: any) => {
   if (isBlank(value)) {
     return null
   }
-  return (field.options || []).find((option) => String(optionValue(option)) === String(value)) || null
+  return fieldOptions(field).find((option) => String(optionValue(option)) === String(value)) || null
 }
 const numberOrNull = (value: any) => {
   if (value === undefined || value === null || value === '') {
@@ -816,6 +938,66 @@ const basisPointsToPercent = (value: any) => {
   return Number.isFinite(parsed) ? parsed / 100 : ''
 }
 
+const extractItems = (response: any): any[] => {
+  const data = response?.data?.data || response?.data || response?.items || response
+  return Array.isArray(data) ? data : []
+}
+
+const compactQuery = (query: Record<string, any>) => Object.fromEntries(
+  Object.entries(query).filter(([, value]) => !isBlank(value)),
+)
+
+const normalizeAllocationPartnerOptions = (items: any[]): OperationOption[] => items
+  .map(allocationPartnerOption)
+  .filter((option) => !isBlank(optionValue(option)))
+
+const normalizeAllocationTenantOptions = (items: any[]): OperationOption[] => items
+  .map(allocationTenantOption)
+  .filter((option) => !isBlank(optionValue(option)))
+
+const allocationPartnerOption = (partner: any): OperationOption => {
+  const id = partner?.partner_id || partner?.id || partner?.uuid || partner?.code
+  const code = partner?.code || partner?.partner_code || ''
+  const name = partner?.name || partner?.partner_name || partner?.display_name || id
+  const singleTenantId = partner?.single_tenant_id || ''
+  const singleTenantLabel = [partner?.single_tenant_code, partner?.single_tenant_name]
+    .filter(Boolean)
+    .join(' - ')
+
+  return {
+    value: id,
+    label: partner?.label || [code, name].filter(Boolean).join(' - ') || String(id || ''),
+    code,
+    name,
+    partnerId: id,
+    activeTenantCount: Number(partner?.active_tenant_count || 0),
+    singleTenantId,
+    singleTenantLabel: singleTenantLabel || singleTenantId,
+    allocationPercent: numberOrNull(partner?.allocation_percent),
+    allocationPercentBasisPoints: numberOrNull(partner?.allocation_percent_basis_points),
+    status: String(partner?.status || '').toLowerCase(),
+  }
+}
+
+const allocationTenantOption = (tenant: any): OperationOption => {
+  const id = tenant?.tenant_id || tenant?.id || tenant?.uuid || tenant?.code
+  const code = tenant?.code || tenant?.tenant_code || ''
+  const name = tenant?.name || tenant?.tenant_name || id
+  const partnerCode = tenant?.partner_code || ''
+
+  return {
+    value: id,
+    label: tenant?.label || [code, name].filter(Boolean).join(' - ') || String(id || ''),
+    code,
+    name,
+    tenantId: id,
+    partnerId: tenant?.partner_id || '',
+    status: String(tenant?.status || '').toLowerCase(),
+    disabled: String(tenant?.status || '').toLowerCase() !== 'active',
+    singleTenantLabel: partnerCode ? `${partnerCode} / ${name}` : name,
+  }
+}
+
 watch(() => [props.modelValue, props.payloadTemplate, props.formFields, props.recordContext] as const, () => {
   if (props.modelValue) {
     reason.value = ''
@@ -828,6 +1010,10 @@ watch(() => [formState.partner_id, props.modelValue, props.formFields] as const,
   if (props.modelValue) {
     syncDependentTenant()
   }
+}, { deep: true })
+
+watch(() => [props.modelValue, formState.game_id, formState.partner_id, isAllocationCreateForm.value] as const, () => {
+  loadAllocationCreateOptions()
 }, { deep: true })
 </script>
 
@@ -884,6 +1070,16 @@ watch(() => [formState.partner_id, props.modelValue, props.formFields] as const,
 .np-allocation-preview > div {
   display: grid;
   gap: .15rem;
+}
+
+.np-confirm-progress {
+  border: 1px solid var(--default-border);
+  border-radius: 6px;
+  padding: .75rem;
+}
+
+.np-confirm-progress .progress {
+  height: .5rem;
 }
 
 .np-stock-config-grid {

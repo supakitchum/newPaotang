@@ -248,6 +248,17 @@ class CentralAllocationTest extends TestCase
             ->assertJsonPath('data.0.partner_id', 'par_percent_a');
 
         $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/allocation-options/partners?game_id=gam_percent&available_for_create=1&q=percent_a', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('data.0.partner_id', 'par_percent_a')
+            ->assertJsonPath('data.0.single_tenant_id', 'ten_percent_a');
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/allocation-options/tenants?game_id=gam_percent&partner_id=par_percent_a&available_for_create=1', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('data.0.tenant_id', 'ten_percent_a');
+
+        $this->withToken($login['access_token'])
             ->getJson('/api/v1/admin/central/allocation-options/games?q=gam_percent', ['X-Admin-Scope' => 'central'])
             ->assertOk()
             ->assertJsonPath('data.0.game_id', 'gam_percent')
@@ -313,6 +324,28 @@ class CentralAllocationTest extends TestCase
             ])
             ->assertStatus(409)
             ->assertJsonPath('error.code', 'idempotency_conflict');
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/allocation-options/partners?game_id=gam_percent&available_for_create=1&q=percent_a', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/allocation-options/tenants?game_id=gam_percent&partner_id=par_percent_a&available_for_create=1', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/allocations', [
+                'partner_id' => 'par_percent_a',
+                'game_id' => 'gam_percent',
+                'allocation_percent' => 10,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'allocation-percent-a-duplicate-tenant',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.tenant_id.0', 'This partner tenant already has an active allocation for this game.');
 
         $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/allocations', [
