@@ -4221,7 +4221,7 @@ class CentralStockService
                 $targetCount = $this->allocationTargetCountForPercent(
                     $gameId,
                     (int) $percentBasisPoints,
-                    $this->unassignedActiveSupplyLayerIds($gameId),
+                    $this->eligibleSupplyLayerIdsForNewAllocation($gameId),
                 );
 
                 if ($targetCount < 1) {
@@ -4310,7 +4310,7 @@ class CentralStockService
             return null;
         }
 
-        $supplyLayerIds = $this->unassignedActiveSupplyLayerIds($gameId);
+        $supplyLayerIds = $this->eligibleSupplyLayerIdsForNewAllocation($gameId);
         $targetCount = $this->allocationTargetCountForPercent($gameId, $percentBasisPoints, $supplyLayerIds);
 
         if ($targetCount < 1 || $this->partnerUsedVirtualCount($gameId, $partnerId) > $targetCount) {
@@ -4705,7 +4705,7 @@ class CentralStockService
             $partnerId = (string) $allocation->partner_id;
             $tenantId = (string) $allocation->tenant_id;
             $percentBasisPoints = (int) $allocation->allocation_percent_basis_points;
-            $supplyLayerIds = $this->unassignedActiveSupplyLayerIds($gameId);
+            $supplyLayerIds = $this->eligibleSupplyLayerIdsForNewAllocation($gameId);
             $targetCount = $this->allocationTargetCountForPercent($gameId, $percentBasisPoints, $supplyLayerIds);
 
             DB::table('stock_partner_distributions')->where('game_id', $gameId)->lockForUpdate()->get();
@@ -5286,7 +5286,7 @@ class CentralStockService
     /**
      * @return array<int, string>
      */
-    private function unassignedActiveSupplyLayerIds(string $gameId): array
+    private function eligibleSupplyLayerIdsForNewAllocation(string $gameId): array
     {
         $activeLayerIds = $this->activeVirtualSupplyLayerIds($gameId);
 
@@ -5295,8 +5295,42 @@ class CentralStockService
         }
 
         $assignedLayerIds = $this->activeAllocationSnapshotLayerIds($gameId);
+        $neverAllocatedLayerIds = array_values(array_diff($activeLayerIds, $assignedLayerIds));
 
-        return array_values(array_diff($activeLayerIds, $assignedLayerIds));
+        if ($neverAllocatedLayerIds !== []) {
+            return $neverAllocatedLayerIds;
+        }
+
+        return $this->activeSupplyLayerIdsWithRemainingPercent($gameId, $activeLayerIds);
+    }
+
+    /**
+     * @param array<int, string> $activeLayerIds
+     * @return array<int, string>
+     */
+    private function activeSupplyLayerIdsWithRemainingPercent(string $gameId, array $activeLayerIds): array
+    {
+        $usedBasisPointsByLayer = array_fill_keys($activeLayerIds, 0);
+        $rows = DB::table('partner_stock_allocations')
+            ->where('game_id', $gameId)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->whereNotNull('allocation_percent_basis_points')
+            ->where('allocation_percent_basis_points', '>', 0)
+            ->get(['allocation_percent_basis_points', 'supply_layer_ids_json']);
+
+        foreach ($rows as $row) {
+            foreach (array_intersect($activeLayerIds, $this->snapshotLayerIds($row->supply_layer_ids_json ?? null, $activeLayerIds)) as $layerId) {
+                $usedBasisPointsByLayer[$layerId] = min(
+                    self::VIRTUAL_MAX_BP,
+                    (int) $usedBasisPointsByLayer[$layerId] + max(0, (int) $row->allocation_percent_basis_points),
+                );
+            }
+        }
+
+        return array_values(array_filter(
+            $activeLayerIds,
+            fn (string $layerId): bool => (int) ($usedBasisPointsByLayer[$layerId] ?? 0) < self::VIRTUAL_MAX_BP,
+        ));
     }
 
     /**

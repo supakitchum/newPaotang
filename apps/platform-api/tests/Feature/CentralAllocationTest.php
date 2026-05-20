@@ -763,6 +763,52 @@ class CentralAllocationTest extends TestCase
         $this->assertSame(['vsl_snapshot_topup'], json_decode((string) $storedAllocationB->supply_layer_ids_json, true));
     }
 
+    public function test_CentralAllocation_create_allows_additional_partner_when_current_layer_still_has_remaining_percent(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenant('par_layer_a', 'ten_layer_a');
+        $this->insertActivePartnerTenant('par_layer_b', 'ten_layer_b');
+        $this->insertGame('gam_layer_remaining', 'open');
+        $this->insertVirtualSupplyProfile('gam_layer_remaining', 10);
+
+        $login = $this->createCentralSession(['stock.allocate'], 'adm_layer_remaining', 'layer-remaining@example.test');
+
+        $allocationA = $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/allocations', [
+                'partner_id' => 'par_layer_a',
+                'tenant_id' => 'ten_layer_a',
+                'game_id' => 'gam_layer_remaining',
+                'allocation_percent' => 10,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'allocation-layer-remaining-a',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('allocated_count', 1)
+            ->json();
+
+        $allocationB = $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/allocations', [
+                'partner_id' => 'par_layer_b',
+                'tenant_id' => 'ten_layer_b',
+                'game_id' => 'gam_layer_remaining',
+                'allocation_percent' => 10,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'allocation-layer-remaining-b',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('allocated_count', 1)
+            ->json();
+
+        $storedAllocationA = DB::table('partner_stock_allocations')->where('id', $allocationA['id'])->first();
+        $storedAllocationB = DB::table('partner_stock_allocations')->where('id', $allocationB['id'])->first();
+
+        $this->assertSame(['vsp_gam_layer_remaining'], json_decode((string) $storedAllocationA->supply_layer_ids_json, true));
+        $this->assertSame(['vsp_gam_layer_remaining'], json_decode((string) $storedAllocationB->supply_layer_ids_json, true));
+        $this->assertSame(2000, (int) DB::table('stock_partner_distributions')->where('game_id', 'gam_layer_remaining')->sum('percent_basis_points'));
+    }
+
     private function insertVirtualSupplyProfile(string $gameId, int $capacity): void
     {
         DB::table('stock_supply_profiles')->insert([

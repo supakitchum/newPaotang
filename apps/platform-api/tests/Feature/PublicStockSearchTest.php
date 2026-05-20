@@ -257,6 +257,7 @@ class PublicStockSearchTest extends TestCase
             'lottery_images.object_prefix' => 'test-lotteries-preview',
             'lottery_images.asset_root' => storage_path('framework/testing/lottery-images-preview'),
         ]);
+        Storage::disk('lottery_images')->deleteDirectory('test-lotteries-preview');
 
         $this->seedDefaultRbac();
         $this->insertActivePartnerTenantWithDomain('par_virtual_preview', 'ten_virtual_preview', 'virtual-preview.newpaotang.test');
