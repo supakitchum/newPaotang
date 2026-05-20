@@ -66,8 +66,11 @@ class CentralStockService
         'recalled',
         'cancelled',
     ];
-    private const CANCELLABLE_ALLOCATION_STATUSES = ['draft', 'pending', 'processing', 'partially_allocated', 'failed'];
+    private const CANCELLABLE_ALLOCATION_STATUSES = ['draft', 'pending', 'processing', 'allocated', 'partially_allocated', 'failed'];
     private const ACTIVE_ALLOCATION_PAIR_STATUSES = ['pending', 'processing', 'allocated', 'partially_allocated'];
+
+    /** @var array<string, array{code: ?string, name: ?string, label: string}> */
+    private array $ownerPartnerLabelCache = [];
 
     public function __construct(
         private readonly AuditLogger $auditLogger,
@@ -1962,8 +1965,7 @@ class CentralStockService
      */
     private function listStockGroups(array $queryParams, int $limit): array
     {
-        if (! $this->hasPhysicalStockOnlyFilters($queryParams)
-            && $this->activeVirtualStockProfile($this->nullableQueryString($queryParams['game_id'] ?? null)) !== null) {
+        if ($this->activeVirtualStockProfile($this->nullableQueryString($queryParams['game_id'] ?? null)) !== null) {
             return $this->listVirtualStockGroups($queryParams, $limit);
         }
 
@@ -2030,10 +2032,6 @@ class CentralStockService
      */
     private function listVirtualStockGroups(array $queryParams, int $limit): array
     {
-        if ($this->hasPhysicalStockOnlyFilters($queryParams)) {
-            return ['data' => [], 'meta' => ['next_cursor' => null, 'has_more' => false]];
-        }
-
         $gameId = $this->nullableQueryString($queryParams['game_id'] ?? null);
         $profile = $this->activeVirtualStockProfile($gameId);
         $sort = $this->resolveVirtualStockGroupSort($this->resolveStockGroupSort($queryParams));
@@ -2042,8 +2040,24 @@ class CentralStockService
             return ['data' => [], 'meta' => ['next_cursor' => null, 'has_more' => false]];
         }
 
+        $scope = $this->virtualStockListScope($queryParams, $profile);
+
+        if (($scope['valid'] ?? false) !== true) {
+            return [
+                'data' => [],
+                'meta' => [
+                    'next_cursor' => null,
+                    'has_more' => false,
+                    'sort_by' => $sort['key'],
+                    'sort_dir' => $sort['direction'],
+                    'scope_type' => $scope['scope_type'],
+                    'scope_id' => $scope['scope_id'],
+                ],
+            ];
+        }
+
         if ($sort['key'] === 'total_count') {
-            return $this->listVirtualStockGroupsByCapacity($profile, $queryParams, $limit, $sort);
+            return $this->listVirtualStockGroupsByCapacity($profile, $queryParams, $limit, $sort, $scope);
         }
 
         $numberQuery = DB::table('base_lottery_numbers')
@@ -2055,7 +2069,7 @@ class CentralStockService
             ])
             ->limit($limit + 1);
 
-        $this->applyVirtualStockGroupSortJoin($numberQuery, $profile, $sort);
+        $this->applyVirtualStockGroupSortJoin($numberQuery, $profile, $sort, (string) $scope['scope_type'], (string) $scope['scope_id']);
         $this->applyVirtualNumberFilters($numberQuery, $queryParams);
         $this->applyVirtualStockGroupOrder($numberQuery, $sort);
 
@@ -2084,13 +2098,35 @@ class CentralStockService
         $counterMap = $this->virtualCounterMap((string) $profile->game_id, $numbers);
         $centralLimits = $this->virtualCentralLimits((string) $profile->game_id);
         $limitOverrides = $this->virtualLimitOverrideMapForNumbers((string) $profile->game_id, 'central', 'central', $numbers);
+        $scopedCounterMap = $scope['scope_type'] === 'partner'
+            ? $this->virtualCounterMap((string) $profile->game_id, $numbers, 'partner', (string) $scope['scope_id'])
+            : null;
+        $scopedLimits = $scope['scope_type'] === 'partner'
+            ? $this->virtualLimits((string) $profile->game_id, 'partner', (string) $scope['scope_id'])
+            : null;
+        $scopedLimitOverrides = $scope['scope_type'] === 'partner'
+            ? $this->virtualLimitOverrideMapForNumbers((string) $profile->game_id, 'partner', (string) $scope['scope_id'], $numbers)
+            : null;
         $batchId = $this->latestVirtualBatchId((string) $profile->game_id);
         $rows = array_values(array_filter(
             array_map(
-                fn (object $number): array => $this->virtualStockNumberGroupResource($profile, $number, $counterMap, $centralLimits, $limitOverrides, $batchId),
+                fn (object $number): array => $this->virtualStockNumberGroupResource(
+                    $profile,
+                    $number,
+                    $counterMap,
+                    $centralLimits,
+                    $limitOverrides,
+                    $batchId,
+                    (string) $scope['scope_type'],
+                    (string) $scope['scope_id'],
+                    $scopedCounterMap,
+                    $scopedLimits,
+                    $scopedLimitOverrides,
+                    $scope['tenant_id'],
+                ),
                 $numbers,
             ),
-            fn (array $row): bool => $this->virtualStockGroupMatchesStatus($row, $queryParams),
+            fn (array $row): bool => $this->virtualStockGroupVisibleForScope($row) && $this->virtualStockGroupMatchesStatus($row, $queryParams),
         ));
 
         return [
@@ -2102,6 +2138,8 @@ class CentralStockService
                 'has_more' => $hasMore,
                 'sort_by' => $sort['key'],
                 'sort_dir' => $sort['direction'],
+                'scope_type' => $scope['scope_type'],
+                'scope_id' => $scope['scope_id'],
             ],
         ];
     }
@@ -2109,15 +2147,93 @@ class CentralStockService
     /**
      * @param array<string, mixed> $queryParams
      */
-    private function hasPhysicalStockOnlyFilters(array $queryParams): bool
+    private function virtualStockGroupVisibleForScope(array $row): bool
     {
-        foreach (['partner_id', 'tenant_id', 'allocation_id'] as $filter) {
-            if ($this->nullableQueryString($queryParams[$filter] ?? null) !== null) {
-                return true;
+        return ($row['scope_type'] ?? 'central') !== 'partner' || (int) ($row['total_count'] ?? 0) > 0;
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     * @return array{valid: bool, scope_type: string, scope_id: string, tenant_id: ?string}
+     */
+    private function virtualStockListScope(array $queryParams, object $profile): array
+    {
+        $gameId = (string) $profile->game_id;
+        $allocationId = $this->nullableQueryString($queryParams['allocation_id'] ?? null);
+        $tenantId = $this->nullableQueryString($queryParams['tenant_id'] ?? null);
+
+        if ($allocationId !== null) {
+            $allocation = PartnerStockAllocation::query()
+                ->where('id', $allocationId)
+                ->first(['game_id', 'partner_id', 'tenant_id']);
+
+            if ($allocation === null || (string) $allocation->game_id !== $gameId) {
+                return ['valid' => false, 'scope_type' => 'partner', 'scope_id' => '', 'tenant_id' => $tenantId];
             }
+
+            return $this->validatedVirtualPartnerScope(
+                $gameId,
+                (string) $allocation->partner_id,
+                (string) $allocation->tenant_id,
+            );
         }
 
-        return false;
+        [$scopeType, $scopeId] = $this->virtualScopeFromQuery($queryParams);
+
+        if ($scopeType === 'partner') {
+            return $this->validatedVirtualPartnerScope($gameId, $scopeId, $tenantId);
+        }
+
+        if ($tenantId !== null) {
+            $distribution = DB::table('stock_partner_distributions')
+                ->where('game_id', $gameId)
+                ->where('tenant_id', $tenantId)
+                ->where('status', 'active')
+                ->where('percent_basis_points', '>', 0)
+                ->first(['partner_id', 'tenant_id']);
+
+            return $distribution === null
+                ? ['valid' => false, 'scope_type' => 'partner', 'scope_id' => '', 'tenant_id' => $tenantId]
+                : [
+                    'valid' => true,
+                    'scope_type' => 'partner',
+                    'scope_id' => (string) $distribution->partner_id,
+                    'tenant_id' => $distribution->tenant_id === null ? $tenantId : (string) $distribution->tenant_id,
+                ];
+        }
+
+        return ['valid' => true, 'scope_type' => 'central', 'scope_id' => 'central', 'tenant_id' => null];
+    }
+
+    /**
+     * @return array{valid: bool, scope_type: string, scope_id: string, tenant_id: ?string}
+     */
+    private function validatedVirtualPartnerScope(string $gameId, string $partnerId, ?string $tenantId): array
+    {
+        if ($partnerId === '') {
+            return ['valid' => false, 'scope_type' => 'partner', 'scope_id' => '', 'tenant_id' => $tenantId];
+        }
+
+        $query = DB::table('stock_partner_distributions')
+            ->where('game_id', $gameId)
+            ->where('partner_id', $partnerId)
+            ->where('status', 'active')
+            ->where('percent_basis_points', '>', 0);
+
+        if ($tenantId !== null) {
+            $query->where('tenant_id', $tenantId);
+        }
+
+        $distribution = $query->first(['partner_id', 'tenant_id']);
+
+        return $distribution === null
+            ? ['valid' => false, 'scope_type' => 'partner', 'scope_id' => $partnerId, 'tenant_id' => $tenantId]
+            : [
+                'valid' => true,
+                'scope_type' => 'partner',
+                'scope_id' => (string) $distribution->partner_id,
+                'tenant_id' => $distribution->tenant_id === null ? $tenantId : (string) $distribution->tenant_id,
+            ];
     }
 
     private function activeVirtualStockProfile(?string $gameId): ?object
@@ -2182,9 +2298,10 @@ class CentralStockService
 
     /**
      * @param array{key: string, direction: string, expression: string, bindings: array<int, mixed>, needs_counter: bool} $sort
+     * @param array{valid: bool, scope_type: string, scope_id: string, tenant_id: ?string} $scope
      * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
      */
-    private function listVirtualStockGroupsByCapacity(object $profile, array $queryParams, int $limit, array $sort): array
+    private function listVirtualStockGroupsByCapacity(object $profile, array $queryParams, int $limit, array $sort, array $scope): array
     {
         $numberQuery = DB::table('base_lottery_numbers')
             ->select([
@@ -2229,7 +2346,7 @@ class CentralStockService
 
             $targetQuery
                 ->orderBy('base_lottery_numbers.full_number')
-                ->chunk(5000, function ($chunk) use (&$pageNumbers, $profile, $layers, $targetCapacity, $queryParams, $status, $centralLimits, $batchId, $limit): bool {
+                ->chunk(5000, function ($chunk) use (&$pageNumbers, $profile, $layers, $targetCapacity, $queryParams, $status, $centralLimits, $batchId, $limit, $scope): bool {
                     $numbers = [];
 
                     foreach ($chunk as $number) {
@@ -2246,12 +2363,35 @@ class CentralStockService
                     if ($status !== null && $numbers !== []) {
                         $counterMap = $this->virtualCounterMap((string) $profile->game_id, $numbers);
                         $limitOverrides = $this->virtualLimitOverrideMapForNumbers((string) $profile->game_id, 'central', 'central', $numbers);
+                        $scopedCounterMap = $scope['scope_type'] === 'partner'
+                            ? $this->virtualCounterMap((string) $profile->game_id, $numbers, 'partner', (string) $scope['scope_id'])
+                            : null;
+                        $scopedLimits = $scope['scope_type'] === 'partner'
+                            ? $this->virtualLimits((string) $profile->game_id, 'partner', (string) $scope['scope_id'])
+                            : null;
+                        $scopedLimitOverrides = $scope['scope_type'] === 'partner'
+                            ? $this->virtualLimitOverrideMapForNumbers((string) $profile->game_id, 'partner', (string) $scope['scope_id'], $numbers)
+                            : null;
                         $numbers = array_values(array_filter(
                             $numbers,
-                            fn (object $number): bool => $this->virtualStockGroupMatchesStatus(
-                                $this->virtualStockNumberGroupResource($profile, $number, $counterMap, $centralLimits, $limitOverrides, $batchId),
-                                $queryParams,
-                            ),
+                            function (object $number) use ($profile, $counterMap, $centralLimits, $limitOverrides, $batchId, $scope, $scopedCounterMap, $scopedLimits, $scopedLimitOverrides, $queryParams): bool {
+                                $row = $this->virtualStockNumberGroupResource(
+                                    $profile,
+                                    $number,
+                                    $counterMap,
+                                    $centralLimits,
+                                    $limitOverrides,
+                                    $batchId,
+                                    (string) $scope['scope_type'],
+                                    (string) $scope['scope_id'],
+                                    $scopedCounterMap,
+                                    $scopedLimits,
+                                    $scopedLimitOverrides,
+                                    $scope['tenant_id'],
+                                );
+
+                                return $this->virtualStockGroupVisibleForScope($row) && $this->virtualStockGroupMatchesStatus($row, $queryParams);
+                            },
                         ));
                     }
 
@@ -2283,18 +2423,42 @@ class CentralStockService
         $counterMap = $this->virtualCounterMap((string) $profile->game_id, $pageNumbers);
         $centralLimits = $this->virtualCentralLimits((string) $profile->game_id);
         $limitOverrides = $this->virtualLimitOverrideMapForNumbers((string) $profile->game_id, 'central', 'central', $pageNumbers);
+        $scopedCounterMap = $scope['scope_type'] === 'partner'
+            ? $this->virtualCounterMap((string) $profile->game_id, $pageNumbers, 'partner', (string) $scope['scope_id'])
+            : null;
+        $scopedLimits = $scope['scope_type'] === 'partner'
+            ? $this->virtualLimits((string) $profile->game_id, 'partner', (string) $scope['scope_id'])
+            : null;
+        $scopedLimitOverrides = $scope['scope_type'] === 'partner'
+            ? $this->virtualLimitOverrideMapForNumbers((string) $profile->game_id, 'partner', (string) $scope['scope_id'], $pageNumbers)
+            : null;
         $batchId = $this->latestVirtualBatchId((string) $profile->game_id);
 
         return [
-            'data' => array_map(
-                fn (object $number): array => $this->virtualStockNumberGroupResource($profile, $number, $counterMap, $centralLimits, $limitOverrides, $batchId),
+            'data' => array_values(array_filter(array_map(
+                fn (object $number): array => $this->virtualStockNumberGroupResource(
+                    $profile,
+                    $number,
+                    $counterMap,
+                    $centralLimits,
+                    $limitOverrides,
+                    $batchId,
+                    (string) $scope['scope_type'],
+                    (string) $scope['scope_id'],
+                    $scopedCounterMap,
+                    $scopedLimits,
+                    $scopedLimitOverrides,
+                    $scope['tenant_id'],
+                ),
                 $pageNumbers,
-            ),
+            ), fn (array $row): bool => $this->virtualStockGroupVisibleForScope($row))),
             'meta' => [
                 'next_cursor' => $hasMore ? $this->stockGroupCursor(end($pageNumbers), $sort) : null,
                 'has_more' => $hasMore,
                 'sort_by' => $sort['key'],
                 'sort_dir' => $sort['direction'],
+                'scope_type' => $scope['scope_type'],
+                'scope_id' => $scope['scope_id'],
             ],
         ];
     }
@@ -2711,18 +2875,18 @@ class CentralStockService
     /**
      * @param array{key: string, direction: string, expression: string, bindings: array<int, mixed>, needs_counter: bool} $sort
      */
-    private function applyVirtualStockGroupSortJoin(mixed $query, object $profile, array &$sort): void
+    private function applyVirtualStockGroupSortJoin(mixed $query, object $profile, array &$sort, string $scopeType = 'central', string $scopeId = 'central'): void
     {
         if (! $sort['needs_counter']) {
             return;
         }
 
-        $query->leftJoin('virtual_stock_counters as full_counter', function ($join) use ($profile): void {
+        $query->leftJoin('virtual_stock_counters as full_counter', function ($join) use ($profile, $scopeType, $scopeId): void {
             $join
                 ->on('full_counter.value', '=', 'base_lottery_numbers.full_number')
                 ->where('full_counter.game_id', '=', (string) $profile->game_id)
-                ->where('full_counter.scope_type', '=', 'central')
-                ->where('full_counter.scope_id', '=', 'central')
+                ->where('full_counter.scope_type', '=', $scopeType)
+                ->where('full_counter.scope_id', '=', $scopeId)
                 ->where('full_counter.dimension', '=', 'full_number');
         });
 
@@ -3781,9 +3945,14 @@ class CentralStockService
         $limit = $this->limit($queryParams['limit'] ?? null);
         $gameId = trim((string) ($queryParams['game_id'] ?? ''));
         $availableForCreate = $this->allocationAvailableForCreate($queryParams);
+        if ($gameId !== '' && ! $this->latestOpenAllocationGameExists($gameId)) {
+            return ['data' => [], 'meta' => ['next_cursor' => null, 'has_more' => false]];
+        }
+
         $allocatedTenantIdsByPartner = $availableForCreate && $gameId !== ''
             ? $this->allocatedTenantIdsByPartnerForGame($gameId)
             : [];
+        $gameAllocationSnapshot = $gameId === '' ? null : $this->activeAllocationGameSnapshot($gameId);
         $query = Partner::query()
             ->where('status', 'active')
             ->orderBy('code')
@@ -3797,7 +3966,7 @@ class CentralStockService
             });
         }
 
-        $rows = $query->get()->map(function (object $partner) use ($gameId, $availableForCreate, $allocatedTenantIdsByPartner): ?array {
+        $rows = $query->get()->map(function (object $partner) use ($gameId, $availableForCreate, $allocatedTenantIdsByPartner, $gameAllocationSnapshot): ?array {
             $tenants = $this->activeTenantRowsForPartner((string) $partner->id);
             $allocatedTenantIds = $allocatedTenantIdsByPartner[(string) $partner->id] ?? [];
             $availableTenants = $availableForCreate && $gameId !== ''
@@ -3818,6 +3987,19 @@ class CentralStockService
                     ->where('partner_id', (string) $partner->id)
                     ->first()
                 : null;
+            $stockPercentBasisPoints = (int) ($partner->stock_percent_basis_points ?? 0);
+            $partnerAllocationSnapshot = $gameId === '' ? null : $this->activePartnerAllocationSnapshot($gameId, (string) $partner->id);
+            $allocationPercentBasisPoints = $partnerAllocationSnapshot['basis_points'] ?? (
+                $distribution === null ? null : (int) $distribution->percent_basis_points
+            );
+            $targetAllocationCount = $partnerAllocationSnapshot['allocated_count'] ?? (
+                $gameId !== '' && $allocationPercentBasisPoints !== null
+                    ? $this->allocationTargetCountForPercent($gameId, $allocationPercentBasisPoints)
+                    : null
+            );
+            $usedCount = $gameId !== '' && $allocationPercentBasisPoints !== null
+                ? $this->partnerUsedVirtualCount($gameId, (string) $partner->id)
+                : null;
 
             return [
                 'id' => (string) $partner->id,
@@ -3832,8 +4014,21 @@ class CentralStockService
                 'single_tenant_id' => $singleTenant === null ? null : (string) $singleTenant->id,
                 'single_tenant_code' => $singleTenant === null ? null : (string) $singleTenant->code,
                 'single_tenant_name' => $singleTenant === null ? null : (string) $singleTenant->name,
-                'allocation_percent' => $distribution === null ? null : $this->percentFromBasisPoints((int) $distribution->percent_basis_points),
-                'allocation_percent_basis_points' => $distribution === null ? null : (int) $distribution->percent_basis_points,
+                'stock_percent' => $this->percentFromBasisPoints($stockPercentBasisPoints),
+                'stock_percent_basis_points' => $stockPercentBasisPoints,
+                'default_allocation_percent' => $this->percentFromBasisPoints($stockPercentBasisPoints),
+                'default_allocation_percent_basis_points' => $stockPercentBasisPoints,
+                'allocation_percent' => $allocationPercentBasisPoints === null ? null : $this->percentFromBasisPoints($allocationPercentBasisPoints),
+                'allocation_percent_basis_points' => $allocationPercentBasisPoints,
+                'target_allocation_count' => $targetAllocationCount,
+                'used_count' => $usedCount,
+                'remaining_count' => $targetAllocationCount === null || $usedCount === null
+                    ? null
+                    : max(0, $targetAllocationCount - $usedCount),
+                'existing_allocation_percent' => $gameAllocationSnapshot === null ? null : $this->percentFromBasisPoints($gameAllocationSnapshot['basis_points']),
+                'existing_allocation_percent_basis_points' => $gameAllocationSnapshot['basis_points'] ?? null,
+                'existing_allocated_count' => $gameAllocationSnapshot['allocated_count'] ?? null,
+                'existing_remaining_count' => $gameAllocationSnapshot['remaining_count'] ?? null,
             ];
         })->filter()->values()->all();
 
@@ -3849,6 +4044,10 @@ class CentralStockService
         $limit = $this->limit($queryParams['limit'] ?? null);
         $gameId = trim((string) ($queryParams['game_id'] ?? ''));
         $availableForCreate = $this->allocationAvailableForCreate($queryParams);
+        if ($gameId !== '' && ! $this->latestOpenAllocationGameExists($gameId)) {
+            return ['data' => [], 'meta' => ['next_cursor' => null, 'has_more' => false]];
+        }
+
         $query = PartnerTenant::query()
             ->join('partners', 'partners.id', '=', 'partner_tenants.partner_id')
             ->where('partner_tenants.status', 'active')
@@ -3904,18 +4103,12 @@ class CentralStockService
      */
     public function allocationGameOptions(array $queryParams): array
     {
-        $limit = $this->limit($queryParams['limit'] ?? null);
-        $status = trim((string) ($queryParams['status'] ?? 'open'));
         $query = Game::query()
+            ->where('status', 'open')
             ->orderByDesc('draw_at')
-            ->orderBy('code')
-            ->limit($limit);
-
-        if ($status !== '') {
-            $query->where('status', $status);
-        } else {
-            $query->whereIn('status', ['open']);
-        }
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit(1);
 
         if (($queryParams['q'] ?? null) !== null && trim((string) $queryParams['q']) !== '') {
             $q = strtolower(trim((string) $queryParams['q']));
@@ -3925,18 +4118,26 @@ class CentralStockService
             });
         }
 
-        $rows = $query->get()->map(fn (object $game): array => [
-            'id' => (string) $game->id,
-            'game_id' => (string) $game->id,
-            'code' => (string) $game->code,
-            'name' => (string) $game->name,
-            'label' => trim((string) $game->code.' - '.(string) $game->name),
-            'status' => (string) $game->status,
-            'sale_start_at' => $game->sale_start_at,
-            'draw_at' => $game->draw_at,
-            'close_at' => $game->close_at,
-            'generated_supply_count' => $this->activeVirtualSupplyCount((string) $game->id),
-        ])->all();
+        $rows = $query->get()->map(function (object $game): array {
+            $snapshot = $this->activeAllocationGameSnapshot((string) $game->id);
+
+            return [
+                'id' => (string) $game->id,
+                'game_id' => (string) $game->id,
+                'code' => (string) $game->code,
+                'name' => (string) $game->name,
+                'label' => trim((string) $game->code.' - '.(string) $game->name),
+                'status' => (string) $game->status,
+                'sale_start_at' => $game->sale_start_at,
+                'draw_at' => $game->draw_at,
+                'close_at' => $game->close_at,
+                'generated_supply_count' => $this->activeVirtualSupplyCount((string) $game->id),
+                'existing_allocation_percent' => $this->percentFromBasisPoints($snapshot['basis_points']),
+                'existing_allocation_percent_basis_points' => $snapshot['basis_points'],
+                'existing_allocated_count' => $snapshot['allocated_count'],
+                'existing_remaining_count' => $snapshot['remaining_count'],
+            ];
+        })->all();
 
         return ['data' => $rows, 'meta' => ['next_cursor' => null, 'has_more' => false]];
     }
@@ -3998,9 +4199,7 @@ class CentralStockService
 
         $errors = $this->mergeFieldErrors($errors, $this->tenantSelectionErrors($partnerId, $tenantId));
 
-        if ($gameId === '' || ! Game::where('id', $gameId)->where('status', 'open')->exists()) {
-            $errors['game_id'][] = 'The game_id field must reference an open game.';
-        }
+        $errors = $this->mergeFieldErrors($errors, $this->allocationGameSelectionErrors($gameId));
 
         $resolvedTenantId = null;
         if (! isset($errors['partner_id'], $errors['tenant_id']) && $partnerId !== '') {
@@ -4066,7 +4265,7 @@ class CentralStockService
                 return null;
             }
 
-            if (! Game::query()->where('id', $gameId)->where('status', 'open')->lockForUpdate()->exists()) {
+            if (! $this->latestOpenAllocationGameExists($gameId, true)) {
                 return null;
             }
 
@@ -4196,9 +4395,7 @@ class CentralStockService
 
         $errors = $this->mergeFieldErrors($errors, $this->tenantSelectionErrors($partnerId, $tenantId));
 
-        if ($gameId === '' || ! Game::where('id', $gameId)->where('status', 'open')->exists()) {
-            $errors['game_id'][] = 'The game_id field must reference an open game.';
-        }
+        $errors = $this->mergeFieldErrors($errors, $this->allocationGameSelectionErrors($gameId));
 
         if ($percentBasisPoints === null || $percentBasisPoints < 1 || $percentBasisPoints > self::VIRTUAL_MAX_BP) {
             $errors['allocation_percent'][] = 'The allocation_percent field must be greater than 0 and may not exceed 100.';
@@ -4232,6 +4429,10 @@ class CentralStockService
             $now = now();
 
             if ($tenantId === null || $percentBasisPoints === null) {
+                return null;
+            }
+
+            if (! $this->latestOpenAllocationGameExists($gameId, true)) {
                 return null;
             }
 
@@ -4279,6 +4480,15 @@ class CentralStockService
             }
 
             $now = now();
+            $isPercentAllocation = $allocation->allocation_percent_basis_points !== null;
+
+            if (
+                $isPercentAllocation
+                && $this->partnerUsedVirtualCount((string) $allocation->game_id, (string) $allocation->partner_id) > 0
+            ) {
+                return null;
+            }
+
             $stockIds = PartnerStockAllocationItem::query()
                 ->where('allocation_id', $allocationId)
                 ->where('status', 'allocated')
@@ -4318,6 +4528,19 @@ class CentralStockService
                         'updated_at' => $now,
                     ]);
                 }
+            }
+
+            if ($isPercentAllocation) {
+                $this->upsertPartnerDistribution(
+                    (string) $allocation->game_id,
+                    (string) $allocation->partner_id,
+                    (string) $allocation->tenant_id,
+                    0,
+                    'cancelled',
+                    $now,
+                );
+                $this->invalidatePartnerDistributionGeneratedCounts((string) $allocation->game_id);
+                $this->coverageRealtime->broadcastGameSupplyChangedAfterCommit((string) $allocation->game_id);
             }
 
             PartnerStockAllocation::query()->where('id', $allocationId)->update([
@@ -4795,6 +5018,41 @@ class CentralStockService
     }
 
     /**
+     * @return array<string, array<int, string>>
+     */
+    private function allocationGameSelectionErrors(string $gameId): array
+    {
+        if ($gameId === '' || ! Game::query()->where('id', $gameId)->where('status', 'open')->exists()) {
+            return ['game_id' => ['The game_id field must reference an open game.']];
+        }
+
+        return $this->latestOpenAllocationGameExists($gameId)
+            ? []
+            : ['game_id' => ['The game_id field must reference the latest open game.']];
+    }
+
+    private function latestOpenAllocationGameExists(string $gameId, bool $lock = false): bool
+    {
+        if ($gameId === '') {
+            return false;
+        }
+
+        $query = Game::query()
+            ->where('status', 'open')
+            ->orderByDesc('draw_at')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
+
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        $game = $query->first(['id']);
+
+        return $game !== null && (string) $game->id === $gameId;
+    }
+
+    /**
      * @return array<int, string>
      */
     private function allocatedTenantIdsForGame(string $gameId): array
@@ -4942,6 +5200,64 @@ class CentralStockService
         return $layerCapacity > 0 ? $layerCapacity : (int) $profile->total_capacity;
     }
 
+    /**
+     * @return array{basis_points: int, allocated_count: int, remaining_count: int}
+     */
+    private function activeAllocationGameSnapshot(string $gameId): array
+    {
+        $generatedSupply = $this->activeVirtualSupplyCount($gameId);
+        $row = DB::table('partner_stock_allocations')
+            ->where('game_id', $gameId)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->whereNotNull('allocation_percent_basis_points')
+            ->selectRaw('COUNT(*) as row_count')
+            ->selectRaw('COALESCE(SUM(allocation_percent_basis_points), 0) as basis_points')
+            ->selectRaw('COALESCE(SUM(allocated_count), 0) as allocated_count')
+            ->first();
+
+        $basisPoints = (int) ($row->basis_points ?? 0);
+        $allocatedCount = (int) ($row->allocated_count ?? 0);
+
+        if ((int) ($row->row_count ?? 0) === 0) {
+            $basisPoints = (int) DB::table('stock_partner_distributions')
+                ->where('game_id', $gameId)
+                ->where('status', 'active')
+                ->sum('percent_basis_points');
+            $allocatedCount = $this->allocationTargetCountForPercent($gameId, $basisPoints);
+        }
+
+        return [
+            'basis_points' => $basisPoints,
+            'allocated_count' => $allocatedCount,
+            'remaining_count' => max(0, $generatedSupply - $allocatedCount),
+        ];
+    }
+
+    /**
+     * @return array{basis_points: int, allocated_count: int}|null
+     */
+    private function activePartnerAllocationSnapshot(string $gameId, string $partnerId): ?array
+    {
+        $row = DB::table('partner_stock_allocations')
+            ->where('game_id', $gameId)
+            ->where('partner_id', $partnerId)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->whereNotNull('allocation_percent_basis_points')
+            ->selectRaw('COUNT(*) as row_count')
+            ->selectRaw('COALESCE(SUM(allocation_percent_basis_points), 0) as basis_points')
+            ->selectRaw('COALESCE(SUM(allocated_count), 0) as allocated_count')
+            ->first();
+
+        if ((int) ($row->row_count ?? 0) < 1) {
+            return null;
+        }
+
+        return [
+            'basis_points' => (int) ($row->basis_points ?? 0),
+            'allocated_count' => (int) ($row->allocated_count ?? 0),
+        ];
+    }
+
     private function allocationTargetCountForPercent(string $gameId, int $basisPoints): int
     {
         $generatedSupply = $this->activeVirtualSupplyCount($gameId);
@@ -5055,6 +5371,10 @@ class CentralStockService
             return null;
         }
 
+        $generatedSupplyCount = $this->activeVirtualSupplyCount((string) $row->game_id);
+        $targetAllocationCount = $this->allocationTargetCountForPercent((string) $row->game_id, (int) $row->percent_basis_points);
+        $usedCount = $this->partnerUsedVirtualCount((string) $row->game_id, (string) $row->partner_id);
+
         return [
             'id' => (string) $row->id,
             'game_id' => (string) $row->game_id,
@@ -5068,9 +5388,10 @@ class CentralStockService
             'tenant_name' => $row->tenant_name,
             'allocation_percent' => $this->percentFromBasisPoints((int) $row->percent_basis_points),
             'allocation_percent_basis_points' => (int) $row->percent_basis_points,
-            'generated_supply_count' => $this->activeVirtualSupplyCount((string) $row->game_id),
-            'target_allocation_count' => $this->allocationTargetCountForPercent((string) $row->game_id, (int) $row->percent_basis_points),
-            'used_count' => $this->partnerUsedVirtualCount((string) $row->game_id, (string) $row->partner_id),
+            'generated_supply_count' => $generatedSupplyCount,
+            'target_allocation_count' => $targetAllocationCount,
+            'used_count' => $usedCount,
+            'remaining_count' => max(0, $targetAllocationCount - $usedCount),
             'status' => (string) $row->status,
             'created_at' => $row->created_at,
             'updated_at' => $row->updated_at,
@@ -5559,7 +5880,7 @@ class CentralStockService
 
     /**
      * @param array<int, array{partner_id: string, tenant_id: ?string, bp: int}> $rows
-     * @return array{type: string, label: string, partner_id: ?string, tenant_id: ?string, agent_id: ?string}
+     * @return array{type: string, label: string, partner_id: ?string, partner_code: ?string, partner_name: ?string, tenant_id: ?string, agent_id: ?string}
      */
     private function virtualOwnerForCopyResource(array $rows, string $fullNumber, int $copyIndex): array
     {
@@ -5583,7 +5904,7 @@ class CentralStockService
     }
 
     /**
-     * @return array{type: string, label: string, partner_id: ?string, tenant_id: ?string, agent_id: ?string}
+     * @return array{type: string, label: string, partner_id: ?string, partner_code: ?string, partner_name: ?string, tenant_id: ?string, agent_id: ?string}
      */
     private function ownershipResource(mixed $partnerId, mixed $tenantId, mixed $agentId): array
     {
@@ -5596,16 +5917,22 @@ class CentralStockService
                 'type' => 'agent',
                 'label' => 'agent',
                 'partner_id' => $partnerId,
+                'partner_code' => null,
+                'partner_name' => null,
                 'tenant_id' => $tenantId,
                 'agent_id' => $agentId,
             ];
         }
 
         if ($partnerId !== null || $tenantId !== null) {
+            $partnerLabel = $this->ownerPartnerLabel($partnerId);
+
             return [
                 'type' => 'partner',
-                'label' => 'partner',
+                'label' => $partnerLabel['label'],
                 'partner_id' => $partnerId,
+                'partner_code' => $partnerLabel['code'],
+                'partner_name' => $partnerLabel['name'],
                 'tenant_id' => $tenantId,
                 'agent_id' => null,
             ];
@@ -5615,9 +5942,35 @@ class CentralStockService
             'type' => 'unassigned',
             'label' => 'no_agent',
             'partner_id' => null,
+            'partner_code' => null,
+            'partner_name' => null,
             'tenant_id' => null,
             'agent_id' => null,
         ];
+    }
+
+    /**
+     * @return array{code: ?string, name: ?string, label: string}
+     */
+    private function ownerPartnerLabel(?string $partnerId): array
+    {
+        if ($partnerId === null || $partnerId === '') {
+            return ['code' => null, 'name' => null, 'label' => 'partner'];
+        }
+
+        if (! array_key_exists($partnerId, $this->ownerPartnerLabelCache)) {
+            $partner = Partner::query()->whereKey($partnerId)->first(['code', 'name']);
+            $name = $partner?->name === null ? null : (string) $partner->name;
+            $code = $partner?->code === null ? null : (string) $partner->code;
+
+            $this->ownerPartnerLabelCache[$partnerId] = [
+                'code' => $code,
+                'name' => $name,
+                'label' => $name !== null && $name !== '' ? $name : ($code !== null && $code !== '' ? $code : $partnerId),
+            ];
+        }
+
+        return $this->ownerPartnerLabelCache[$partnerId];
     }
 
     private function tenantIdForPartner(string $partnerId): ?string
@@ -5708,15 +6061,29 @@ class CentralStockService
      * @param array<string, int> $limitOverrides
      * @return array<string, mixed>
      */
-    private function virtualStockNumberGroupResource(object $profile, object $number, array $counterMap, array $centralLimits, array $limitOverrides, ?string $batchId): array
+    private function virtualStockNumberGroupResource(
+        object $profile,
+        object $number,
+        array $counterMap,
+        array $centralLimits,
+        array $limitOverrides,
+        ?string $batchId,
+        string $scopeType = 'central',
+        string $scopeId = 'central',
+        ?array $scopedCounterMap = null,
+        ?array $scopedLimits = null,
+        ?array $scopedLimitOverrides = null,
+        ?string $tenantId = null,
+    ): array
     {
         $fullNumber = (string) $number->full_number;
         $front3 = (string) $number->front3;
         $back3 = (string) $number->back3;
         $back2 = (string) $number->back2;
-        $totalCount = property_exists($number, 'total_count')
+        $generatedCapacity = property_exists($number, 'total_count')
             ? (int) $number->total_count
             : $this->virtualCapacityForNumber($fullNumber, $profile);
+        $totalCount = $generatedCapacity;
         $fullCounter = $counterMap['full_number:'.$fullNumber] ?? ['reserved' => 0, 'sold' => 0];
         $reservedCount = min($totalCount, (int) $fullCounter['reserved']);
         $soldCount = min($totalCount, (int) $fullCounter['sold']);
@@ -5728,9 +6095,36 @@ class CentralStockService
             $this->virtualRemainingForPattern($counterMap, 'back2', $back2, $this->virtualEffectiveLimit($limitOverrides, 'back2', $back2, $centralLimits['back2_limit'])),
         );
 
+        if ($scopeType === 'partner') {
+            $scopedCounterMap ??= [];
+            $scopedLimits ??= $this->virtualLimits((string) $profile->game_id, 'partner', $scopeId);
+            $scopedLimitOverrides ??= [];
+            $assignedCount = count($this->virtualPartnerCopyIndexes($scopeId, (string) $profile->game_id, $fullNumber, $generatedCapacity));
+            $partnerFullCounter = $scopedCounterMap['full_number:'.$fullNumber] ?? ['reserved' => 0, 'sold' => 0];
+            $reservedCount = min($assignedCount, (int) $partnerFullCounter['reserved']);
+            $soldCount = min($assignedCount, (int) $partnerFullCounter['sold']);
+            $usedCount = $reservedCount + $soldCount;
+            $availableCount = min(
+                max(0, $assignedCount - $usedCount),
+                $this->virtualRemainingForPattern($counterMap, 'front3', $front3, $this->virtualEffectiveLimit($limitOverrides, 'front3', $front3, $centralLimits['front3_limit'])),
+                $this->virtualRemainingForPattern($counterMap, 'back3', $back3, $this->virtualEffectiveLimit($limitOverrides, 'back3', $back3, $centralLimits['back3_limit'])),
+                $this->virtualRemainingForPattern($counterMap, 'back2', $back2, $this->virtualEffectiveLimit($limitOverrides, 'back2', $back2, $centralLimits['back2_limit'])),
+                $this->virtualRemainingForPattern($scopedCounterMap, 'front3', $front3, $this->virtualEffectiveLimit($scopedLimitOverrides, 'front3', $front3, $scopedLimits['front3_limit'])),
+                $this->virtualRemainingForPattern($scopedCounterMap, 'back3', $back3, $this->virtualEffectiveLimit($scopedLimitOverrides, 'back3', $back3, $scopedLimits['back3_limit'])),
+                $this->virtualRemainingForPattern($scopedCounterMap, 'back2', $back2, $this->virtualEffectiveLimit($scopedLimitOverrides, 'back2', $back2, $scopedLimits['back2_limit'])),
+            );
+            $totalCount = $assignedCount;
+        }
+
         return [
-            'id' => (string) $profile->game_id.':'.$fullNumber,
+            'id' => $scopeType === 'partner'
+                ? (string) $profile->game_id.':'.$scopeId.':'.$fullNumber
+                : (string) $profile->game_id.':'.$fullNumber,
             'stock_mode' => 'virtual',
+            'scope_type' => $scopeType,
+            'scope_id' => $scopeId,
+            'partner_id' => $scopeType === 'partner' ? $scopeId : null,
+            'tenant_id' => $scopeType === 'partner' ? $tenantId : null,
             'profile_id' => (string) $profile->id,
             'batch_id' => $batchId,
             'game_id' => (string) $profile->game_id,
@@ -5782,7 +6176,7 @@ class CentralStockService
      * @param array<int, object> $numbers
      * @return array<string, array{reserved: int, sold: int, updated_at?: mixed}>
      */
-    private function virtualCounterMap(string $gameId, array $numbers): array
+    private function virtualCounterMap(string $gameId, array $numbers, string $scopeType = 'central', string $scopeId = 'central'): array
     {
         if ($numbers === []) {
             return [];
@@ -5804,8 +6198,8 @@ class CentralStockService
 
         $rows = DB::table('virtual_stock_counters')
             ->where('game_id', $gameId)
-            ->where('scope_type', 'central')
-            ->where('scope_id', 'central')
+            ->where('scope_type', $scopeType)
+            ->where('scope_id', $scopeId)
             ->where(function ($query) use ($values): void {
                 foreach ($values as $dimension => $dimensionValues) {
                     $dimensionValues = array_values(array_unique($dimensionValues));
@@ -6026,9 +6420,13 @@ class CentralStockService
      */
     private function virtualScopeFromQuery(array $payload): array
     {
-        $scopeType = $this->nullableQueryString($payload['scope_type'] ?? null) === 'partner' ? 'partner' : 'central';
+        $requestedScopeType = $this->nullableQueryString($payload['scope_type'] ?? null);
+        $requestedPartnerId = $this->nullableQueryString($payload['scope_id'] ?? $payload['partner_id'] ?? null);
+        $scopeType = $requestedScopeType === 'partner' || ($requestedScopeType === null && $requestedPartnerId !== null)
+            ? 'partner'
+            : 'central';
         $scopeId = $scopeType === 'partner'
-            ? ($this->nullableQueryString($payload['scope_id'] ?? $payload['partner_id'] ?? null) ?? '')
+            ? ($requestedPartnerId ?? '')
             : 'central';
 
         if ($scopeType === 'partner' && $scopeId === '') {
@@ -6391,7 +6789,9 @@ class CentralStockService
 
         return match ($status) {
             'available' => (int) $row['available_count'] > 0,
-            'allocated' => (int) $row['allocated_count'] > 0,
+            'allocated' => ($row['scope_type'] ?? 'central') === 'partner'
+                ? (int) ($row['total_count'] ?? 0) > 0
+                : (int) $row['allocated_count'] > 0,
             'sold' => (int) $row['available_count'] <= 0 || (int) $row['sold_count'] > 0,
             'recalled', 'voided' => false,
             default => true,

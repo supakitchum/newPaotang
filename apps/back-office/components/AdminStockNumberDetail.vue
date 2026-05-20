@@ -368,7 +368,7 @@ function ownerType(row: any) {
 }
 
 function ownerLabel(row: any) {
-  const label = String(row?.owner?.label || row?.owner_label || (ownerType(row) === 'unassigned' ? 'no_agent' : ownerType(row)) || 'no_agent')
+  const label = String(row?.owner?.partner_name || row?.owner?.label || row?.owner_label || (ownerType(row) === 'unassigned' ? 'no_agent' : ownerType(row)) || 'no_agent')
   return label === 'no_agent' ? 'no agent' : label
 }
 

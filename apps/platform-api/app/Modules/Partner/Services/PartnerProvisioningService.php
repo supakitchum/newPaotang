@@ -39,6 +39,7 @@ class PartnerProvisioningService
     private const TENANT_STATUSES = ['provisioning', 'active', 'maintenance', 'suspended', 'closed'];
     private const DOMAIN_TYPES = ['subdomain', 'custom_domain'];
     private const API_CLIENT_STATUSES = ['active', 'suspended', 'revoked'];
+    private const MAX_PERCENT_BASIS_POINTS = 10000;
 
     public function __construct(private readonly AuditLogger $auditLogger)
     {
@@ -110,6 +111,14 @@ class PartnerProvisioningService
             $errors['status'][] = 'The status field is invalid.';
         }
 
+        if (array_key_exists('stock_percent', $payload) || array_key_exists('stock_percent_basis_points', $payload)) {
+            $basisPoints = $this->percentBasisPointsFrom($payload['stock_percent'] ?? null, $payload['stock_percent_basis_points'] ?? null);
+
+            if ($basisPoints === null || $basisPoints < 0 || $basisPoints > self::MAX_PERCENT_BASIS_POINTS) {
+                $errors['stock_percent'][] = 'The stock_percent field must be between 0 and 100.';
+            }
+        }
+
         return $errors;
     }
 
@@ -156,6 +165,7 @@ class PartnerProvisioningService
                 'name' => trim((string) $payload['name']),
                 'type' => $payload['type'] ?? 'partner_store',
                 'status' => $payload['status'] ?? 'draft',
+                'stock_percent_basis_points' => $this->percentBasisPointsFrom($payload['stock_percent'] ?? null, $payload['stock_percent_basis_points'] ?? null) ?? 0,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
@@ -185,6 +195,10 @@ class PartnerProvisioningService
                 if (array_key_exists($field, $payload)) {
                     $updates[$field] = is_string($payload[$field]) ? trim($payload[$field]) : $payload[$field];
                 }
+            }
+
+            if (array_key_exists('stock_percent', $payload) || array_key_exists('stock_percent_basis_points', $payload)) {
+                $updates['stock_percent_basis_points'] = $this->percentBasisPointsFrom($payload['stock_percent'] ?? null, $payload['stock_percent_basis_points'] ?? null) ?? 0;
             }
 
             Partner::query()->where('id', $partnerId)->update($updates);
@@ -929,6 +943,8 @@ class PartnerProvisioningService
             'code' => (string) $partner->code,
             'name' => (string) $partner->name,
             'type' => (string) $partner->type,
+            'stock_percent' => $this->percentFromBasisPoints((int) ($partner->stock_percent_basis_points ?? 0)),
+            'stock_percent_basis_points' => (int) ($partner->stock_percent_basis_points ?? 0),
             'tenants' => array_map(fn (object $tenant): array => [
                 'id' => (string) $tenant->id,
                 'partner_id' => (string) $tenant->partner_id,
@@ -954,6 +970,34 @@ class PartnerProvisioningService
                 'billing_status' => PartnerBillingPlanBinding::where('partner_id', $partner->id)->value('status'),
             ],
         ];
+    }
+
+    private function percentBasisPointsFrom(mixed $percent, mixed $basisPoints = null): ?int
+    {
+        if ($percent !== null && $percent !== '') {
+            if (! is_numeric($percent)) {
+                return null;
+            }
+
+            return (int) round(((float) $percent) * 100);
+        }
+
+        if ($basisPoints !== null && $basisPoints !== '') {
+            if (! is_numeric($basisPoints)) {
+                return null;
+            }
+
+            return (int) round((float) $basisPoints);
+        }
+
+        return null;
+    }
+
+    private function percentFromBasisPoints(int $basisPoints): float|int
+    {
+        $percent = $basisPoints / 100;
+
+        return fmod($percent, 1.0) === 0.0 ? (int) $percent : $percent;
     }
 
     /**

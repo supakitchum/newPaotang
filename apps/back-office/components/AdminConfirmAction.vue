@@ -321,11 +321,14 @@ const partnerField = computed(() => formFields.value.find((field) => field.key =
 const tenantField = computed(() => formFields.value.find((field) => field.key === 'tenant_id'))
 const gameField = computed(() => formFields.value.find((field) => field.key === 'game_id'))
 const allocationPercentField = computed(() => formFields.value.find((field) => field.key === 'allocation_percent'))
-const isAllocationCreateForm = computed(() => Boolean(
+const isAllocationPercentForm = computed(() => Boolean(
   allocationPercentField.value
   && partnerField.value?.optionSource === 'allocation-partners'
   && tenantField.value?.optionSource === 'allocation-tenants'
-  && gameField.value?.optionSource === 'allocation-games'
+  && gameField.value?.optionSource === 'allocation-games',
+))
+const isAllocationCreateForm = computed(() => Boolean(
+  isAllocationPercentForm.value
   && !partnerField.value?.readonly,
 ))
 const submitProgressTitle = computed(() => isAllocationCreateForm.value ? 'Creating allocation' : 'Submitting request')
@@ -342,14 +345,20 @@ const allocationPreviewMetrics = computed(() => {
   const estimatedAllocation = generatedSupply !== null && percent !== null
     ? Math.floor((generatedSupply * percent) / 100)
     : null
-  const partnerExistingPercent = optionNumber(selectedPartnerOption.value, 'allocationPercent')
+  const partnerExistingPercent = optionNumber(selectedPartnerOption.value, 'existingAllocationPercent')
+    ?? optionNumber(selectedPartnerOption.value, 'allocationPercent')
+    ?? numberOrNull(getPath(sourceRecord.value, 'active_partner_percent'))
+    ?? numberOrNull(getPath(sourceRecord.value, 'allocation_percent'))
+  const partnerExistingRemaining = optionNumber(selectedPartnerOption.value, 'existingRemainingCount')
+    ?? optionNumber(selectedPartnerOption.value, 'remainingCount')
+    ?? numberOrNull(getPath(sourceRecord.value, 'remaining_count'))
 
   return [
-    { key: 'supply', label: 'Estimated supply', value: formatNumberOrDash(generatedSupply) },
-    { key: 'percent', label: 'Percent', value: percent === null ? '-' : `${formatNumber(percent)}%` },
-    { key: 'estimate', label: 'Estimated allocation', value: formatNumberOrDash(estimatedAllocation) },
+    { key: 'supply', label: 'Generated supply', value: formatNumberOrDash(generatedSupply) },
+    { key: 'remaining', label: 'Existing remaining', value: formatNumberOrDash(partnerExistingRemaining) },
     { key: 'active', label: 'Existing partner %', value: partnerExistingPercent === null ? '-' : `${formatNumber(partnerExistingPercent)}%` },
-    { key: 'remaining', label: 'Existing remaining', value: formatContextValue(getPath(sourceRecord.value, 'remaining_count')) },
+    { key: 'percent', label: 'Percent', value: percent === null ? '-' : `${formatNumber(percent)}%` },
+    { key: 'estimate', label: 'Estimated supply', value: formatNumberOrDash(estimatedAllocation) },
   ]
 })
 
@@ -402,14 +411,15 @@ const validationMessagesByField = computed(() => {
       }
     }
 
-    if (
-      field.defaultValueSource === 'current-game'
-      && field.required
-      && field.optionSource === 'central-games'
-      && isBlank(formState[field.key])
-    ) {
-      add(field.key, 'No single current draw/current game is available. Open exactly one current game before generating stock.')
-      add('__form', 'Select a current game before submitting.')
+    if (field.defaultValueSource === 'current-game' && field.required && isCurrentGameField(field)) {
+      const currentGame = currentOnlyGameOption(field)
+      if (isBlank(formState[field.key])) {
+        add(field.key, currentGameMissingMessage(field))
+        add('__form', 'Select a current game before submitting.')
+      } else if (field.currentOnly && currentGame && String(formState[field.key]) !== String(optionValue(currentGame))) {
+        add(field.key, 'The game must be the latest open game.')
+        add('__form', 'Use the latest open game before submitting.')
+      }
     }
   }
 
@@ -465,8 +475,33 @@ const isFieldVisible = (field: OperationFormField) => {
   return field.visibleForGenerationModes.includes(String(formState.generation_mode || ''))
 }
 
+const isCurrentGameField = (field: OperationFormField) => (
+  field.key === 'game_id'
+  && (field.optionSource === 'central-games' || field.optionSource === 'allocation-games')
+)
+
+const currentOnlyGameOption = (field: OperationFormField) => {
+  const currentOptions = (field.options || []).filter((option) => (
+    typeof option === 'object'
+    && option !== null
+    && (option.isCurrent || String(option.status || '').toLowerCase() === 'open')
+  ))
+
+  return currentOptions[0] || null
+}
+
+const currentGameMissingMessage = (field: OperationFormField) => (
+  field.optionSource === 'allocation-games'
+    ? 'No latest open game is available for allocation.'
+    : 'No single current draw/current game is available. Open exactly one current game before generating stock.'
+)
+
 const fieldDisabled = (field: OperationFormField) => {
   if (field.readonly) {
+    return true
+  }
+
+  if (field.currentOnly && isCurrentGameField(field)) {
     return true
   }
 
@@ -474,7 +509,7 @@ const fieldDisabled = (field: OperationFormField) => {
     return true
   }
 
-  if (isAllocationCreateForm.value && (field.key === 'partner_id' || field.key === 'tenant_id')) {
+  if (isAllocationPercentForm.value && (field.key === 'partner_id' || field.key === 'tenant_id')) {
     if (isBlank(formState.game_id) || allocationOptionLoading.value) {
       return true
     }
@@ -529,7 +564,7 @@ const visibleOptions = (field: OperationFormField) => {
 }
 
 const fieldOptions = (field: OperationFormField) => {
-  if (isAllocationCreateForm.value && !isBlank(formState.game_id)) {
+  if (isAllocationPercentForm.value && !isBlank(formState.game_id)) {
     if (field.key === 'partner_id') {
       return allocationPartnerOptions.value
     }
@@ -542,10 +577,10 @@ const fieldOptions = (field: OperationFormField) => {
   return field.options || []
 }
 
-const loadAllocationCreateOptions = async () => {
+const loadAllocationOptions = async () => {
   const requestId = ++allocationOptionRequestId
 
-  if (!props.modelValue || !isAllocationCreateForm.value) {
+  if (!props.modelValue || !isAllocationPercentForm.value) {
     allocationPartnerOptions.value = []
     allocationTenantOptions.value = []
     allocationOptionError.value = null
@@ -555,6 +590,7 @@ const loadAllocationCreateOptions = async () => {
 
   const gameId = String(formState.game_id || '').trim()
   const partnerId = String(formState.partner_id || '').trim()
+  const availableForCreate = isAllocationCreateForm.value ? 1 : undefined
 
   if (!gameId) {
     allocationPartnerOptions.value = []
@@ -571,11 +607,11 @@ const loadAllocationCreateOptions = async () => {
     const [partnerResponse, tenantResponse] = await Promise.all([
       api.apiFetch('/admin/central/allocation-options/partners', {
         scope: 'central',
-        query: { limit: 500, game_id: gameId, available_for_create: 1 },
+        query: compactQuery({ limit: 500, game_id: gameId, available_for_create: availableForCreate }),
       }),
       api.apiFetch('/admin/central/allocation-options/tenants', {
         scope: 'central',
-        query: compactQuery({ limit: 500, game_id: gameId, partner_id: partnerId, available_for_create: 1 }),
+        query: compactQuery({ limit: 500, game_id: gameId, partner_id: partnerId, available_for_create: availableForCreate }),
       }),
     ])
 
@@ -586,12 +622,13 @@ const loadAllocationCreateOptions = async () => {
     allocationPartnerOptions.value = normalizeAllocationPartnerOptions(extractItems(partnerResponse))
     allocationTenantOptions.value = normalizeAllocationTenantOptions(extractItems(tenantResponse))
 
-    if (!isBlank(formState.partner_id) && !allocationPartnerOptions.value.some((option) => String(optionValue(option)) === String(formState.partner_id))) {
+    if (!partnerField.value?.readonly && !isBlank(formState.partner_id) && !allocationPartnerOptions.value.some((option) => String(optionValue(option)) === String(formState.partner_id))) {
       formState.partner_id = ''
       formState.tenant_id = ''
     }
 
     syncDependentTenant()
+    syncAllocationPercentFromPartner()
 
     const tenant = tenantField.value
     if (tenant && !isBlank(formState.tenant_id) && !visibleOptions(tenant).some((option) => String(optionValue(option)) === String(formState.tenant_id))) {
@@ -661,6 +698,28 @@ const syncDependentTenant = () => {
   const allowed = new Set(visibleOptions(field).map((option) => String(optionValue(option))))
   if (formState[field.key] && !allowed.has(String(formState[field.key]))) {
     formState[field.key] = ''
+  }
+}
+
+const syncAllocationPercentFromPartner = () => {
+  const field = allocationPercentField.value
+  if (!field) {
+    return
+  }
+
+  const existingPercent = isAllocationCreateForm.value
+    ? (
+        optionNumber(selectedPartnerOption.value, 'defaultAllocationPercent')
+        ?? optionNumber(selectedPartnerOption.value, 'stockPercent')
+      )
+    : optionNumber(selectedPartnerOption.value, 'allocationPercent')
+  if (existingPercent === null) {
+    return
+  }
+
+  const currentValue = numberOrNull(formState[field.key])
+  if (currentValue === null || currentValue === optionNumber(sourceRecord.value, field.key)) {
+    formState[field.key] = existingPercent
   }
 }
 
@@ -975,6 +1034,15 @@ const allocationPartnerOption = (partner: any): OperationOption => {
     singleTenantLabel: singleTenantLabel || singleTenantId,
     allocationPercent: numberOrNull(partner?.allocation_percent),
     allocationPercentBasisPoints: numberOrNull(partner?.allocation_percent_basis_points),
+    stockPercent: numberOrNull(partner?.stock_percent),
+    stockPercentBasisPoints: numberOrNull(partner?.stock_percent_basis_points),
+    defaultAllocationPercent: numberOrNull(partner?.default_allocation_percent),
+    defaultAllocationPercentBasisPoints: numberOrNull(partner?.default_allocation_percent_basis_points),
+    remainingCount: numberOrNull(partner?.remaining_count),
+    existingAllocationPercent: numberOrNull(partner?.existing_allocation_percent),
+    existingAllocationPercentBasisPoints: numberOrNull(partner?.existing_allocation_percent_basis_points),
+    existingAllocatedCount: numberOrNull(partner?.existing_allocated_count),
+    existingRemainingCount: numberOrNull(partner?.existing_remaining_count),
     status: String(partner?.status || '').toLowerCase(),
   }
 }
@@ -1009,11 +1077,12 @@ watch(() => [props.modelValue, props.payloadTemplate, props.formFields, props.re
 watch(() => [formState.partner_id, props.modelValue, props.formFields] as const, () => {
   if (props.modelValue) {
     syncDependentTenant()
+    syncAllocationPercentFromPartner()
   }
 }, { deep: true })
 
-watch(() => [props.modelValue, formState.game_id, formState.partner_id, isAllocationCreateForm.value] as const, () => {
-  loadAllocationCreateOptions()
+watch(() => [props.modelValue, formState.game_id, formState.partner_id, isAllocationPercentForm.value] as const, () => {
+  loadAllocationOptions()
 }, { deep: true })
 </script>
 

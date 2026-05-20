@@ -14,7 +14,20 @@ export type OperationOption = string | {
   singleTenantLabel?: string
   allocationPercent?: number | null
   allocationPercentBasisPoints?: number | null
+  stockPercent?: number | null
+  stockPercentBasisPoints?: number | null
+  defaultAllocationPercent?: number | null
+  defaultAllocationPercentBasisPoints?: number | null
+  remainingCount?: number | null
+  existingAllocationPercent?: number | null
+  existingAllocationPercentBasisPoints?: number | null
+  existingAllocatedCount?: number | null
+  existingRemainingCount?: number | null
   generatedSupplyCount?: number | null
+  existingGameAllocationPercent?: number | null
+  existingGameAllocationPercentBasisPoints?: number | null
+  existingGameAllocatedCount?: number | null
+  existingGameRemainingCount?: number | null
   isCurrent?: boolean
   sale_start_at?: string
   draw_at?: string
@@ -225,6 +238,10 @@ const allocationGameField = (overrides: Partial<OperationFormField> = {}): Opera
   type: 'select',
   optionSource: 'allocation-games',
   required: true,
+  currentOnly: true,
+  defaultValueSource: 'current-game',
+  hideEmptyOption: true,
+  emptyOptionLabel: 'No open game available',
   ...overrides,
 })
 
@@ -237,6 +254,18 @@ const allocationPercentField = (overrides: Partial<OperationFormField> = {}): Op
   step: 0.01,
   required: true,
   help: 'Backend enforces total active partner percent per game <= 100% and rejects values below already reserved or sold usage.',
+  ...overrides,
+})
+
+const partnerStockPercentField = (overrides: Partial<OperationFormField> = {}): OperationFormField => ({
+  key: 'stock_percent',
+  label: 'Stock %',
+  type: 'number',
+  min: 0,
+  max: 100,
+  step: 0.01,
+  required: true,
+  help: 'Base partner stock percent. Allocation uses this value as the default for every game.',
   ...overrides,
 })
 
@@ -386,7 +415,7 @@ const maintenanceModeOptions = ['full_site', 'customer_web_only', 'admin_only', 
 const tenantDomainStatusOptions = ['pending_verification', 'dns_verified', 'ssl_pending', 'active', 'failed', 'suspended', 'archived']
 const gameCreateStatusOptions = ['draft', 'open']
 const gameLifecycleTransitionOptions = ['open', 'reward_recorded', 'reward_checking', 'reward_verified', 'reward_published']
-const partnerActionContext = ['id', 'code', 'name', 'type', 'status', 'tenants.0.id', 'tenants.0.code', 'domains.0.host', 'runtime.billing_status', 'runtime.monitoring_status', 'allocation_percent', 'active_partner_percent']
+const partnerActionContext = ['id', 'code', 'name', 'type', 'status', 'stock_percent', 'tenants.0.id', 'tenants.0.code', 'domains.0.host', 'runtime.billing_status', 'runtime.monitoring_status']
 const gameActionContext = ['id', 'code', 'name', 'status', 'sale_start_at', 'draw_at', 'close_at', 'closed_at', 'archived_at']
 const allocationActionContext = ['id', 'partner_name', 'partner_code', 'partner_id', 'tenant_name', 'tenant_code', 'tenant_id', 'game_name', 'game_code', 'game_id', 'allocation_percent', 'allocated_count', 'remaining_count', 'recalled_count', 'status']
 const billingPlanActionContext = ['id', 'code', 'name', 'monthly_fee.amount', 'monthly_fee.currency', 'status']
@@ -1684,7 +1713,7 @@ const central: OperationResource[] = [
       { key: 'code', label: 'Code' },
       { key: 'name', label: 'Name' },
       { key: 'type', label: 'Type' },
-      { key: 'allocation_percent', label: 'Stock %', type: 'number', fallbackKeys: ['active_partner_percent', 'stock_percent'] },
+      { key: 'stock_percent', label: 'Stock %', type: 'number' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
     ],
@@ -1695,19 +1724,12 @@ const central: OperationResource[] = [
       {
         key: 'stock-percent',
         label: 'Edit stock percent',
-        method: 'PUT',
-        endpoint: '/admin/central/allocations/partner-percent',
+        method: 'PATCH',
+        endpoint: '/admin/central/partners/{partner_id}',
         variant: 'info',
         contextFields: partnerActionContext,
         formFields: [
-          allocationPartnerField({
-            sourceKey: 'id',
-            readonly: true,
-            help: 'Partner is locked to the selected row. Backend validates the active game total.',
-          }),
-          allocationTenantField(),
-          allocationGameField(),
-          allocationPercentField(),
+          partnerStockPercentField(),
         ],
       },
       { key: 'lottery-branding', label: 'Lottery branding', route: adminUiRoute('central', 'partners/{id}/lottery-branding'), variant: 'success', contextFields: partnerActionContext },
@@ -2068,6 +2090,20 @@ const central: OperationResource[] = [
         route: adminUiRoute('central', 'stock-pattern-coverage?game_id={game_id}&scope_type=partner&scope_id={partner_id}'),
         variant: 'info',
         contextFields: allocationActionContext,
+      },
+      {
+        key: 'edit-percent',
+        label: 'Edit percent',
+        method: 'PUT',
+        endpoint: '/admin/central/allocations/partner-percent',
+        variant: 'info',
+        contextFields: allocationActionContext,
+        formFields: [
+          allocationPartnerField({ sourceKey: 'partner_id', readonly: true }),
+          allocationTenantField({ sourceKey: 'tenant_id', readonly: true }),
+          allocationGameField({ sourceKey: 'game_id', readonly: true }),
+          allocationPercentField(),
+        ],
       },
       {
         key: 'remaining-stock',

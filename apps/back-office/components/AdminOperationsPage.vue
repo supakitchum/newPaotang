@@ -278,6 +278,24 @@
         :batch-id="stockSummaryBatchId"
         :refresh-key="stockSummaryRefreshKey"
       />
+      <div v-if="showAllocationSummaryWidgets" class="row g-3 mb-3">
+        <div v-for="card in allocationSummaryCards" :key="card.key" class="col-12 col-md-4">
+          <div class="card custom-card np-allocation-summary-card">
+            <div class="card-body">
+              <div class="d-flex align-items-start justify-content-between gap-3">
+                <div>
+                  <p class="text-muted mb-1">{{ card.label }}</p>
+                  <h4 class="mb-1">{{ card.value }}</h4>
+                  <span class="text-muted fs-12">{{ card.hint }}</span>
+                </div>
+                <span :class="['avatar', card.colorClass]">
+                  <i :class="[card.icon, 'fs-4']" />
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       <AdminStockGenerationBatches
         v-if="showStockGenerationProgress"
         :game-id="stockSummaryGameId"
@@ -674,12 +692,47 @@ const isStockGrouped = computed(() => Boolean(resource.value?.stockGrouped))
 const isStockGenerationRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-generation')
 const isStockSettingsRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-settings')
 const isStockPatternCoverageRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-pattern-coverage')
+const isAllocationsRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'allocations')
 const showStockSummaryWidgets = computed(() => Boolean(resource.value?.stockSummaryEndpoint && mode.value === 'list'))
+const showAllocationSummaryWidgets = computed(() => Boolean(isAllocationsRoute.value && mode.value === 'list'))
 const showStockGenerationProgress = computed(() => Boolean(isStockGenerationRoute.value && mode.value === 'list'))
 const stockSummaryEndpoint = computed(() => resource.value?.stockSummaryEndpoint || '')
 const stockSummaryGameId = computed(() => filters.value.game_id || '')
 const stockSummaryBatchId = computed(() => filters.value.batch_id || '')
 const currentCentralGameOption = computed(() => singleCurrentGameOption(optionSourceOptions['central-games'] || []))
+const currentAllocationGameOption = computed(() => latestCurrentGameOption(optionSourceOptions['allocation-games'] || []))
+const allocationSummaryCards = computed(() => {
+  const game = currentAllocationGameOption.value
+  const isLoading = optionSourceLoading['allocation-games']
+  const gameHint = game ? `Game ${optionLabel(game)}` : 'No latest open game'
+
+  return [
+    {
+      key: 'generated',
+      label: 'Generated supply',
+      value: summaryNumberValue(optionNumber(game, 'generatedSupplyCount'), isLoading),
+      hint: gameHint,
+      icon: 'ri-ticket-2-line',
+      colorClass: 'bg-primary-transparent text-primary',
+    },
+    {
+      key: 'remaining',
+      label: 'Existing remaining',
+      value: summaryNumberValue(optionNumber(game, 'existingGameRemainingCount'), isLoading),
+      hint: gameHint,
+      icon: 'ri-inbox-archive-line',
+      colorClass: 'bg-success-transparent text-success',
+    },
+    {
+      key: 'percent',
+      label: 'Existing partner %',
+      value: summaryPercentValue(optionNumber(game, 'existingGameAllocationPercent'), isLoading),
+      hint: gameHint,
+      icon: 'ri-pie-chart-2-line',
+      colorClass: 'bg-info-transparent text-info',
+    },
+  ]
+})
 const stockSetDistributionDefault = computed(() => (
   stockSettingsDefaults.value.length
     ? stockSettingsDefaults.value
@@ -788,7 +841,7 @@ const resetFilters = () => {
 }
 
 const applyFilters = (next: Record<string, any>) => {
-  filters.value = stockGenerationFiltersWithCurrentGame({ ...next })
+  filters.value = routeFiltersWithCurrentGame({ ...next })
   stockGenerationSubmittedBatch.value = null
   stockGenerationHasActiveBatch.value = false
   load()
@@ -892,6 +945,16 @@ const hydrateFilters = (items: OperationFilter[]) => items.map((item) => {
     }
   }
 
+  if (isAllocationsRoute.value && item.key === 'game_id' && item.optionSource === 'allocation-games') {
+    const currentGame = currentAllocationGameOption.value
+    return {
+      ...item,
+      options: currentGame ? [currentGame] : [],
+      hideEmptyOption: Boolean(currentGame),
+      emptyOptionLabel: currentGame ? item.emptyOptionLabel : 'No open game',
+    }
+  }
+
   return {
     ...item,
     options,
@@ -900,8 +963,10 @@ const hydrateFilters = (items: OperationFilter[]) => items.map((item) => {
 
 const hydrateFields = (fields: OperationFormField[] = []) => fields.map((field) => {
   const sourceOptions = field.optionSource ? hydratedOptions(field.optionSource, field.options) : field.options
-  const currentGame = currentCentralGameOption.value
-  const options = field.currentOnly && field.optionSource === 'central-games'
+  const currentGame = field.optionSource === 'allocation-games'
+    ? currentAllocationGameOption.value
+    : currentCentralGameOption.value
+  const options = field.currentOnly && (field.optionSource === 'central-games' || field.optionSource === 'allocation-games')
     ? currentGame ? [currentGame] : []
     : sourceOptions
   const currentGameValue = currentGame ? optionValue(currentGame) : ''
@@ -980,6 +1045,12 @@ const loadStockSettingsDefaults = async () => {
   } finally {
     stockSettingsLoading.value = false
   }
+}
+
+const refreshAllocationGameOptions = async () => {
+  optionSourceOptions['allocation-games'] = []
+  await loadOptionSource('allocation-games')
+  filters.value = allocationFiltersWithCurrentGame(filters.value)
 }
 
 const collectOptionSources = (item: OperationResource) => {
@@ -1070,7 +1141,7 @@ const loadOptionSource = async (source: OperationOptionSource) => {
     } else if (source === 'allocation-games') {
       const response = await api.apiFetch('/admin/central/allocation-options/games', {
         scope: 'central',
-        query: { limit: 500 },
+        query: { limit: 1 },
       })
       optionSourceOptions[source] = normalizeAllocationGameOptions(extractItems(response))
     }
@@ -1137,6 +1208,15 @@ const allocationPartnerOption = (partner: any): OperationOption => {
     singleTenantLabel: singleTenantLabel || singleTenantId,
     allocationPercent: numberOrNull(partner?.allocation_percent),
     allocationPercentBasisPoints: numberOrNull(partner?.allocation_percent_basis_points),
+    stockPercent: numberOrNull(partner?.stock_percent),
+    stockPercentBasisPoints: numberOrNull(partner?.stock_percent_basis_points),
+    defaultAllocationPercent: numberOrNull(partner?.default_allocation_percent),
+    defaultAllocationPercentBasisPoints: numberOrNull(partner?.default_allocation_percent_basis_points),
+    remainingCount: numberOrNull(partner?.remaining_count),
+    existingAllocationPercent: numberOrNull(partner?.existing_allocation_percent),
+    existingAllocationPercentBasisPoints: numberOrNull(partner?.existing_allocation_percent_basis_points),
+    existingAllocatedCount: numberOrNull(partner?.existing_allocated_count),
+    existingRemainingCount: numberOrNull(partner?.existing_remaining_count),
     status: String(partner?.status || '').toLowerCase(),
   }
 }
@@ -1172,6 +1252,10 @@ const allocationGameOption = (game: any): OperationOption => {
     status,
     isCurrent: status === 'open',
     generatedSupplyCount: numberOrNull(game?.generated_supply_count),
+    existingGameAllocationPercent: numberOrNull(game?.existing_allocation_percent),
+    existingGameAllocationPercentBasisPoints: numberOrNull(game?.existing_allocation_percent_basis_points),
+    existingGameAllocatedCount: numberOrNull(game?.existing_allocated_count),
+    existingGameRemainingCount: numberOrNull(game?.existing_remaining_count),
     sale_start_at: game?.sale_start_at,
     draw_at: game?.draw_at,
     close_at: game?.close_at,
@@ -1190,7 +1274,48 @@ const normalizeAllocationGameOptions = (items: any[]) => items
   .map(allocationGameOption)
   .filter((option) => !isBlank(optionValue(option)))
 
-const optionValue = (option: OperationOption) => typeof option === 'object' && option !== null ? option.value : option
+const optionValue = (option: OperationOption | null | undefined) => typeof option === 'object' && option !== null ? option.value : option
+const optionLabel = (option: OperationOption | null | undefined) => typeof option === 'object' && option !== null ? option.label : String(option || '')
+
+const optionNumber = (option: OperationOption | null | undefined, key: string) => {
+  if (typeof option !== 'object' || option === null) {
+    return null
+  }
+
+  const value = (option as Record<string, any>)[key]
+  if (value === undefined || value === null || value === '') {
+    return null
+  }
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+const summaryNumberValue = (value: number | null, loading: boolean) => {
+  if (loading) {
+    return 'Loading'
+  }
+
+  return formatNumberOrDash(value)
+}
+
+const summaryPercentValue = (value: number | null, loading: boolean) => {
+  if (loading) {
+    return 'Loading'
+  }
+
+  return value === null ? '-' : `${formatNumberOrDash(value)}%`
+}
+
+const formatNumberOrDash = (value: number | null | undefined) => {
+  if (value === undefined || value === null || Number.isNaN(Number(value))) {
+    return '-'
+  }
+
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: Number.isInteger(Number(value)) ? 0 : 2,
+  }).format(Number(value))
+}
 
 const mergeOptions = (base: OperationOption[], next: OperationOption[]) => {
   const seen = new Set(base.map((option) => String(optionValue(option))))
@@ -1215,9 +1340,19 @@ const singleCurrentGameOption = (options: OperationOption[]) => {
   return currentOptions.length === 1 ? currentOptions[0] : null
 }
 
+const latestCurrentGameOption = (options: OperationOption[]) => options.find((option) => (
+  typeof option === 'object'
+  && option !== null
+  && (option.isCurrent || String(option.status || '').toLowerCase() === 'open')
+)) || null
+
 const applyCurrentGameFilterDefault = () => {
-  filters.value = stockGenerationFiltersWithCurrentGame(filters.value)
+  filters.value = routeFiltersWithCurrentGame(filters.value)
 }
+
+const routeFiltersWithCurrentGame = (next: Record<string, any>) => (
+  allocationFiltersWithCurrentGame(stockGenerationFiltersWithCurrentGame(next))
+)
 
 const stockGenerationFiltersWithCurrentGame = (next: Record<string, any>) => {
   if (!shouldDefaultStockGenerationGame.value || !isBlank(next.game_id)) {
@@ -1232,6 +1367,18 @@ const stockGenerationFiltersWithCurrentGame = (next: Record<string, any>) => {
   return {
     ...next,
     game_id: optionValue(currentGame),
+  }
+}
+
+const allocationFiltersWithCurrentGame = (next: Record<string, any>) => {
+  if (!isAllocationsRoute.value) {
+    return next
+  }
+
+  const currentGame = currentAllocationGameOption.value
+  return {
+    ...next,
+    game_id: currentGame ? optionValue(currentGame) : '',
   }
 }
 
@@ -1459,14 +1606,15 @@ const openRelatedRowAction = (related: OperationRelatedList, action: OperationAc
 
 const openStockNumberDetail = (row: any) => {
   const source = row.__raw || row
+  const partnerScopeId = String(source.partner_id || filters.value.scope_id || filters.value.partner_id || '')
   stockNumberDetail.open = true
   stockNumberDetail.title = `Number ${source.full_number || row.full_number || '-'}`
   stockNumberDetail.error = null
   stockNumberDetail.record = null
   stockNumberDetail.gameId = String(source.game_id || row.game_id || '')
   stockNumberDetail.fullNumber = String(source.full_number || row.full_number || source.number || row.number || '')
-  stockNumberDetail.scopeType = 'central'
-  stockNumberDetail.scopeId = 'central'
+  stockNumberDetail.scopeType = partnerScopeId ? 'partner' : 'central'
+  stockNumberDetail.scopeId = partnerScopeId || 'central'
   void loadStockNumberDetail()
 }
 
@@ -1616,6 +1764,9 @@ const runConfirmedAction = async (reason: string, payloadJson = '', formValues: 
     }
     confirm.open = false
     await load()
+    if (showAllocationSummaryWidgets.value) {
+      await refreshAllocationGameOptions()
+    }
     if (showStockSummaryWidgets.value) {
       stockSummaryRefreshKey.value += 1
     }

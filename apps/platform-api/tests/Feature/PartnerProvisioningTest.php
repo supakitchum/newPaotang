@@ -12,6 +12,59 @@ class PartnerProvisioningTest extends TestCase
     use AdminAuthFixtures;
     use RefreshDatabase;
 
+    public function test_PartnerProvisioning_stock_percent_is_saved_as_partner_base_default(): void
+    {
+        $this->seedDefaultRbac();
+        $login = $this->createCentralSession([
+            'partner.view',
+            'partner.create',
+            'partner.update',
+        ], 'adm_stock_percent', 'stock-percent@example.test');
+
+        $partner = $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/partners', [
+                'code' => 'stock_percent_partner',
+                'name' => 'Stock Percent Partner',
+                'type' => 'partner_store',
+                'status' => 'active',
+                'stock_percent' => 12.5,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'partner-stock-percent-create',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('stock_percent', 12.5)
+            ->assertJsonPath('stock_percent_basis_points', 1250)
+            ->json();
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/partners/'.$partner['id'], [
+                'stock_percent' => 22.25,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'partner-stock-percent-update',
+            ])
+            ->assertOk()
+            ->assertJsonPath('stock_percent', 22.25)
+            ->assertJsonPath('stock_percent_basis_points', 2225);
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/partners?q=stock_percent_partner', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $partner['id'])
+            ->assertJsonPath('data.0.stock_percent', 22.25);
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/partners/'.$partner['id'], [
+                'stock_percent' => 101,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'partner-stock-percent-too-high',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.stock_percent.0', 'The stock_percent field must be between 0 and 100.');
+    }
+
     public function test_PartnerProvisioning_central_admin_can_create_provision_idempotently_login_owner_and_suspend(): void
     {
         $this->seedDefaultRbac();
@@ -39,6 +92,7 @@ class PartnerProvisioningTest extends TestCase
                 'name' => 'Acme Partner',
                 'type' => 'white_label',
                 'status' => 'draft',
+                'stock_percent' => 12.5,
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'partner-create-acme',
@@ -46,6 +100,8 @@ class PartnerProvisioningTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('code', 'acme_partner')
             ->assertJsonPath('status', 'draft')
+            ->assertJsonPath('stock_percent', 12.5)
+            ->assertJsonPath('stock_percent_basis_points', 1250)
             ->json();
 
         $this->withToken($login['access_token'])
@@ -63,12 +119,20 @@ class PartnerProvisioningTest extends TestCase
             ->patchJson('/api/v1/admin/central/partners/'.$partner['id'], [
                 'name' => 'Acme Partner Updated',
                 'status' => 'draft',
+                'stock_percent' => 22.25,
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'partner-update-acme',
             ])
             ->assertOk()
-            ->assertJsonPath('name', 'Acme Partner Updated');
+            ->assertJsonPath('name', 'Acme Partner Updated')
+            ->assertJsonPath('stock_percent', 22.25)
+            ->assertJsonPath('stock_percent_basis_points', 2225);
+
+        $this->assertDatabaseHas('partners', [
+            'id' => $partner['id'],
+            'stock_percent_basis_points' => 2225,
+        ]);
 
         $provisionPayload = [
             'tenant_code' => 'acme_tenant',
@@ -181,7 +245,7 @@ class PartnerProvisioningTest extends TestCase
                 'X-Tenant-Id' => $tenantId,
             ])
             ->assertUnauthorized()
-            ->assertJsonPath('error.code', 'authentication_required');
+            ->assertJsonPath('error.code', 'admin_session_replaced');
 
         $this->withToken($ownerThemeLogin['access_token'])
             ->getJson('/api/v1/admin/tenant/theme', [
@@ -189,7 +253,7 @@ class PartnerProvisioningTest extends TestCase
                 'X-Tenant-Id' => $tenantId,
             ])
             ->assertUnauthorized()
-            ->assertJsonPath('error.code', 'authentication_required');
+            ->assertJsonPath('error.code', 'admin_session_replaced');
 
         $this->postJson('/api/v1/auth/admin/refresh', [
             'refresh_token' => $ownerRefreshLogin['refresh_token'],

@@ -128,6 +128,33 @@ class CentralAllocationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.id', $allocation['id']);
 
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/allocations/'.$allocation['id'].'/cancel', [
+                'reason' => 'operator cancelled before sale',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'allocation-cancel-main',
+                'X-Request-Id' => 'req-allocation-cancel',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'cancelled')
+            ->assertJsonPath('allocated_count', 0)
+            ->assertJsonPath('remaining_count', 0)
+            ->assertJsonPath('active_partner_percent', 0);
+
+        $this->assertDatabaseHas('stock_partner_distributions', [
+            'game_id' => 'gam_alloc',
+            'partner_id' => 'par_alloc',
+            'tenant_id' => 'ten_alloc',
+            'percent_basis_points' => 0,
+            'status' => 'cancelled',
+        ]);
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/allocation-options/partners?game_id=gam_alloc&available_for_create=1&q=par_alloc', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('data.0.partner_id', 'par_alloc');
+
         DB::table('games')->where('id', 'gam_alloc')->update(['status' => 'closed', 'updated_at' => now()]);
 
         $this->withToken($login['access_token'])
@@ -161,6 +188,98 @@ class CentralAllocationTest extends TestCase
             ->assertJsonPath('error.details.fields.tenant_id.0', 'The tenant_id field must reference an active tenant for an active partner.');
     }
 
+    public function test_CentralAllocation_requires_latest_open_game_for_options_and_create(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenant('par_alloc_latest', 'ten_alloc_latest');
+        $this->insertGame('gam_alloc_old', 'open');
+        $this->insertGame('gam_alloc_latest', 'open');
+        $this->insertGame('gam_alloc_closed', 'closed');
+        $this->insertVirtualSupplyProfile('gam_alloc_old', 10);
+        $this->insertVirtualSupplyProfile('gam_alloc_latest', 20);
+
+        DB::table('games')->where('id', 'gam_alloc_old')->update([
+            'draw_at' => now()->addDay(),
+            'created_at' => now()->subDay(),
+            'updated_at' => now(),
+        ]);
+        DB::table('games')->where('id', 'gam_alloc_latest')->update([
+            'draw_at' => now()->addDays(2),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('games')->where('id', 'gam_alloc_closed')->update([
+            'draw_at' => now()->addDays(3),
+            'created_at' => now()->addDay(),
+            'updated_at' => now(),
+        ]);
+
+        $login = $this->createCentralSession(['stock.allocate'], 'adm_alloc_latest', 'alloc-latest@example.test');
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/allocation-options/games', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.game_id', 'gam_alloc_latest')
+            ->assertJsonPath('data.0.generated_supply_count', 20)
+            ->assertJsonPath('data.0.existing_allocation_percent', 0)
+            ->assertJsonPath('data.0.existing_remaining_count', 20);
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/allocation-options/partners?game_id=gam_alloc_old&available_for_create=1', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/allocations', [
+                'partner_id' => 'par_alloc_latest',
+                'tenant_id' => 'ten_alloc_latest',
+                'game_id' => 'gam_alloc_old',
+                'allocation_percent' => 10,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'allocation-old-open-game',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.game_id.0', 'The game_id field must reference the latest open game.');
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/allocations', [
+                'partner_id' => 'par_alloc_latest',
+                'tenant_id' => 'ten_alloc_latest',
+                'game_id' => 'gam_alloc_closed',
+                'allocation_percent' => 10,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'allocation-closed-latest-game',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.game_id.0', 'The game_id field must reference an open game.');
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/allocations', [
+                'partner_id' => 'par_alloc_latest',
+                'tenant_id' => 'ten_alloc_latest',
+                'game_id' => 'gam_alloc_latest',
+                'allocation_percent' => 10,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'allocation-latest-open-game',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('game_id', 'gam_alloc_latest')
+            ->assertJsonPath('allocation_percent', 10)
+            ->assertJsonPath('allocated_count', 2);
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/allocation-options/games', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('data.0.game_id', 'gam_alloc_latest')
+            ->assertJsonPath('data.0.existing_allocation_percent', 10)
+            ->assertJsonPath('data.0.existing_allocated_count', 2)
+            ->assertJsonPath('data.0.existing_remaining_count', 18);
+    }
+
     public function test_CentralAllocation_percent_workflow_options_recall_all_redistribute_and_validation(): void
     {
         $this->seedDefaultRbac();
@@ -168,6 +287,10 @@ class CentralAllocationTest extends TestCase
         $this->insertActivePartnerTenant('par_percent_b', 'ten_percent_b');
         $this->insertGame('gam_percent', 'open');
         $this->insertVirtualSupplyProfile('gam_percent', 10);
+        DB::table('partners')->where('id', 'par_percent_a')->update([
+            'stock_percent_basis_points' => 2500,
+            'updated_at' => now(),
+        ]);
 
         DB::table('partners')->insert([
             'id' => 'par_no_tenant',
@@ -186,7 +309,12 @@ class CentralAllocationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.partner_id', 'par_percent_a')
             ->assertJsonPath('data.0.single_tenant_id', 'ten_percent_a')
-            ->assertJsonPath('data.0.active_tenant_count', 1);
+            ->assertJsonPath('data.0.active_tenant_count', 1)
+            ->assertJsonPath('data.0.stock_percent', 25)
+            ->assertJsonPath('data.0.default_allocation_percent', 25)
+            ->assertJsonPath('data.0.allocation_percent', null)
+            ->assertJsonPath('data.0.existing_allocation_percent', 0)
+            ->assertJsonPath('data.0.existing_remaining_count', 10);
 
         $this->withToken($login['access_token'])
             ->getJson('/api/v1/admin/central/allocation-options/tenants?partner_id=par_percent_a', ['X-Admin-Scope' => 'central'])
@@ -198,7 +326,11 @@ class CentralAllocationTest extends TestCase
             ->getJson('/api/v1/admin/central/allocation-options/partners?game_id=gam_percent&available_for_create=1&q=percent_a', ['X-Admin-Scope' => 'central'])
             ->assertOk()
             ->assertJsonPath('data.0.partner_id', 'par_percent_a')
-            ->assertJsonPath('data.0.single_tenant_id', 'ten_percent_a');
+            ->assertJsonPath('data.0.single_tenant_id', 'ten_percent_a')
+            ->assertJsonPath('data.0.stock_percent', 25)
+            ->assertJsonPath('data.0.default_allocation_percent', 25)
+            ->assertJsonPath('data.0.existing_allocation_percent', 0)
+            ->assertJsonPath('data.0.existing_remaining_count', 10);
 
         $this->withToken($login['access_token'])
             ->getJson('/api/v1/admin/central/allocation-options/tenants?game_id=gam_percent&partner_id=par_percent_a&available_for_create=1', ['X-Admin-Scope' => 'central'])
@@ -278,6 +410,33 @@ class CentralAllocationTest extends TestCase
             ->assertOk()
             ->assertJsonCount(0, 'data');
 
+        DB::table('stock_partner_distributions')
+            ->where('game_id', 'gam_percent')
+            ->where('partner_id', 'par_percent_a')
+            ->update([
+                'percent_basis_points' => 9000,
+                'updated_at' => now(),
+            ]);
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/allocation-options/partners?game_id=gam_percent&q=percent_a', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('data.0.stock_percent', 25)
+            ->assertJsonPath('data.0.default_allocation_percent', 25)
+            ->assertJsonPath('data.0.allocation_percent', 30)
+            ->assertJsonPath('data.0.remaining_count', 3)
+            ->assertJsonPath('data.0.existing_allocation_percent', 30)
+            ->assertJsonPath('data.0.existing_allocated_count', 3)
+            ->assertJsonPath('data.0.existing_remaining_count', 7);
+
+        DB::table('stock_partner_distributions')
+            ->where('game_id', 'gam_percent')
+            ->where('partner_id', 'par_percent_a')
+            ->update([
+                'percent_basis_points' => 3000,
+                'updated_at' => now(),
+            ]);
+
         $this->withToken($login['access_token'])
             ->getJson('/api/v1/admin/central/allocation-options/tenants?game_id=gam_percent&partner_id=par_percent_a&available_for_create=1', ['X-Admin-Scope' => 'central'])
             ->assertOk()
@@ -321,7 +480,8 @@ class CentralAllocationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('partner_id', 'par_percent_b')
             ->assertJsonPath('allocation_percent', 70)
-            ->assertJsonPath('target_allocation_count', 7);
+            ->assertJsonPath('target_allocation_count', 7)
+            ->assertJsonPath('remaining_count', 7);
 
         DB::table('virtual_stock_counters')->insert([
             'id' => 'vsc_percent_b_used',
@@ -458,6 +618,45 @@ class CentralAllocationTest extends TestCase
         $this->assertSame(2, DB::table('stock_items')->where('game_id', 'gam_replay')->where('status', 'available')->count());
     }
 
+    public function test_CentralAllocation_percent_create_exposes_partner_virtual_inventory_without_physical_assignment(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenant('par_inventory', 'ten_inventory');
+        $this->insertGame('gam_inventory', 'open');
+        $this->insertBaseLotteryNumbers(['000001', '000002', '000003', '000004']);
+        $this->insertVirtualSupplyProfile('gam_inventory', 4);
+
+        $login = $this->createCentralSession(['stock.allocate', 'stock.view'], 'adm_inventory', 'inventory@example.test');
+
+        $allocation = $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/allocations', [
+                'partner_id' => 'par_inventory',
+                'tenant_id' => 'ten_inventory',
+                'game_id' => 'gam_inventory',
+                'allocation_percent' => 100,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'allocation-inventory-visible',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('allocated_count', 4)
+            ->json();
+
+        $this->assertSame(0, DB::table('stock_items')->where('partner_id', 'par_inventory')->count());
+        $this->assertSame(0, DB::table('stock_items')->where('allocation_id', $allocation['id'])->count());
+
+        $stock = $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/stock?grouped=1&game_id=gam_inventory&partner_id=par_inventory&tenant_id=ten_inventory&allocation_id='.$allocation['id'].'&status=allocated&limit=20', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('meta.scope_type', 'partner')
+            ->assertJsonPath('meta.scope_id', 'par_inventory')
+            ->json('data');
+
+        $this->assertCount(4, $stock);
+        $this->assertSame(4, array_sum(array_map(fn (array $row): int => (int) $row['total_count'], $stock)));
+        $this->assertSame(['par_inventory'], array_values(array_unique(array_map(fn (array $row): ?string => $row['partner_id'], $stock))));
+    }
+
     public function test_CentralAllocation_percent_create_broadcasts_single_refresh_invalidation(): void
     {
         $this->seedDefaultRbac();
@@ -506,5 +705,26 @@ class CentralAllocationTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    /**
+     * @param array<int, string> $numbers
+     */
+    private function insertBaseLotteryNumbers(array $numbers): void
+    {
+        $rows = [];
+
+        foreach ($numbers as $number) {
+            $rows[] = [
+                'full_number' => $number,
+                'front3' => substr($number, 0, 3),
+                'back3' => substr($number, -3),
+                'back2' => substr($number, -2),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        DB::table('base_lottery_numbers')->insert($rows);
     }
 }

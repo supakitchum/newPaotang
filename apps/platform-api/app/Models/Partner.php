@@ -15,8 +15,13 @@ class Partner extends BaseModel
         'name',
         'type',
         'status',
+        'stock_percent_basis_points',
         'created_at',
         'updated_at',
+    ];
+
+    protected $casts = [
+        'stock_percent_basis_points' => 'integer',
     ];
 
     public function tenants(): HasMany
