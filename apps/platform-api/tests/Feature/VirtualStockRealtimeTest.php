@@ -337,6 +337,7 @@ class VirtualStockRealtimeTest extends TestCase
         $this->insertGame('gam_virtual_table', 'open');
         $this->insertActivePartnerTenantWithDomain('par_virtual_table', 'ten_virtual_table', 'virtual-table.newpaotang.test');
         $this->insertVirtualProfile('gam_virtual_table');
+        $this->insertPartnerDistribution('gam_virtual_table', 'par_virtual_table', 'ten_virtual_table', 10000);
         $this->insertBaseLotteryNumbers(['000000', '000001', '123456']);
         $this->insertVirtualCounter('gam_virtual_table', '000000', reserved: 1, sold: 0);
         $this->insertVirtualCounter('gam_virtual_table', '123456', reserved: 0, sold: 1);
@@ -637,6 +638,7 @@ class VirtualStockRealtimeTest extends TestCase
         $distribution = [['set_size' => 3, 'percent_basis_points' => 5000]];
         $this->insertBaseLotteryNumbers($numbers);
         $this->insertVirtualProfile('gam_virtual_detail', $distribution);
+        $this->insertPartnerDistribution('gam_virtual_detail', 'par_virtual_detail', 'ten_virtual_detail', 10000);
         $this->insertSaleLimit('gam_virtual_detail', 'central', 'central', back2: 10, back3: 10, front3: 10);
         $this->insertSaleLimit('gam_virtual_detail', 'partner', 'par_virtual_detail', back2: 5, back3: 5, front3: 5);
         $this->insertScopedVirtualCounter('gam_virtual_detail', 'central', 'central', 'full_number', '123456', reserved: 1, sold: 0);
@@ -742,6 +744,7 @@ class VirtualStockRealtimeTest extends TestCase
         $this->insertGame('gam_virtual', 'open');
         $this->insertBaseLotteryNumbers(['123456']);
         $this->insertVirtualProfile('gam_virtual');
+        $this->insertPartnerDistribution('gam_virtual', 'par_virtual', 'ten_virtual', 10000);
         $this->insertSaleLimit('gam_virtual', 'central', 'central', back2: 1, back3: 10, front3: 10);
 
         Event::fake([StockAvailabilityUpdated::class, StockCoverageUpdated::class]);
@@ -875,6 +878,20 @@ class VirtualStockRealtimeTest extends TestCase
             'value' => $value,
             'reserved_count' => $reserved,
             'sold_count' => $sold,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function insertPartnerDistribution(string $gameId, string $partnerId, string $tenantId, int $basisPoints): void
+    {
+        DB::table('stock_partner_distributions')->insert([
+            'id' => 'spd_'.substr(sha1($gameId.':'.$partnerId), 0, 20),
+            'game_id' => $gameId,
+            'partner_id' => $partnerId,
+            'tenant_id' => $tenantId,
+            'percent_basis_points' => $basisPoints,
+            'status' => 'active',
             'created_at' => now(),
             'updated_at' => now(),
         ]);

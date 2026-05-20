@@ -302,8 +302,8 @@ auditor
 | `POST /admin/central/partners/{partner_id}/provision` | central | partner.provision |
 | `POST /admin/central/partners/{partner_id}/suspend` | central | partner.suspend |
 | `GET /admin/central/partner-quotas` | central | partner.quota.manage |
-| `POST /admin/central/partner-quotas` | central | partner.quota.manage |
-| `PATCH /admin/central/partner-quotas/{quota_id}` | central | partner.quota.manage |
+| `POST /admin/central/partner-quotas` (retired write: `retired_flow`) | central | partner.quota.manage |
+| `PATCH /admin/central/partner-quotas/{quota_id}` (retired write: `retired_flow`) | central | partner.quota.manage |
 | `GET /admin/central/partner-api-clients` | central | partner.api.manage |
 | `POST /admin/central/partner-api-clients` | central | partner.api.manage |
 | `PATCH /admin/central/partner-api-clients/{client_id}` | central | partner.api.manage |

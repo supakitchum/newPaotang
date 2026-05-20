@@ -1266,21 +1266,9 @@ class PartnerStoreService
     {
         $now = now();
         $query = Game::query()
-            ->leftJoin('partner_quotas', function ($join) use ($partnerId): void {
-                $join->on('partner_quotas.game_id', '=', 'games.id')
-                    ->where('partner_quotas.partner_id', '=', $partnerId);
-            })
             ->where('games.status', 'open')
             ->where('games.sale_start_at', '<=', $now)
             ->where('games.close_at', '>', $now)
-            ->where(function ($nested) use ($now): void {
-                $nested->whereNull('partner_quotas.sale_start_at')
-                    ->orWhere('partner_quotas.sale_start_at', '<=', $now);
-            })
-            ->where(function ($nested) use ($now): void {
-                $nested->whereNull('partner_quotas.sale_close_at')
-                    ->orWhere('partner_quotas.sale_close_at', '>', $now);
-            })
             ->select('games.*');
 
         if ($gameId !== null && $gameId !== '') {

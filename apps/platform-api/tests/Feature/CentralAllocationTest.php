@@ -14,13 +14,13 @@ class CentralAllocationTest extends TestCase
     use CentralStockFixtures;
     use RefreshDatabase;
 
-    public function test_CentralAllocation_create_view_list_recall_allocated_stock_cancel_and_enforce_constraints(): void
+    public function test_CentralAllocation_retires_requested_count_and_creates_percent_snapshot_without_physical_rows(): void
     {
         $this->seedDefaultRbac();
         $this->insertActivePartnerTenant('par_alloc', 'ten_alloc');
         $this->insertGame('gam_alloc', 'open');
+        $this->insertVirtualSupplyProfile('gam_alloc', 10);
         $this->insertStockItems('gam_alloc', 5);
-        $this->insertQuota('pqt_alloc', 'par_alloc', 'gam_alloc', 6);
 
         $limitedLogin = $this->createCentralSession(['stock.view'], 'adm_alloc_limited', 'alloc-limited@example.test');
 
@@ -37,17 +37,21 @@ class CentralAllocationTest extends TestCase
                 'tenant_id' => 'ten_alloc',
                 'game_id' => 'gam_alloc',
                 'requested_count' => 3,
-            ], ['X-Admin-Scope' => 'central'])
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'allocation-requested-count-retired',
+            ])
             ->assertUnprocessable()
-            ->assertJsonPath('error.code', 'validation_failed');
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.fields.requested_count.0', 'The requested_count field is retired for allocation create. Use allocation_percent.');
 
         $allocation = $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/allocations', [
                 'partner_id' => 'par_alloc',
                 'tenant_id' => 'ten_alloc',
                 'game_id' => 'gam_alloc',
-                'requested_count' => 3,
-                'reason' => 'initial quota',
+                'allocation_percent' => 30,
+                'reason' => 'initial percent',
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'allocation-create-main',
@@ -57,8 +61,10 @@ class CentralAllocationTest extends TestCase
             ->assertJsonPath('partner_id', 'par_alloc')
             ->assertJsonPath('tenant_id', 'ten_alloc')
             ->assertJsonPath('game_id', 'gam_alloc')
-            ->assertJsonPath('status', 'pending')
+            ->assertJsonPath('status', 'allocated')
+            ->assertJsonPath('allocation_percent', 30)
             ->assertJsonPath('allocated_count', 3)
+            ->assertJsonPath('remaining_count', 3)
             ->json();
 
         $this->assertDatabaseHas('sync_outbox', [
@@ -71,10 +77,15 @@ class CentralAllocationTest extends TestCase
             'correlation_id' => 'req-allocation-create',
             'status' => 'pending',
         ]);
-        $this->assertSame(3, DB::table('stock_items')->where('allocation_id', $allocation['id'])->where('status', 'allocated')->count());
-        $this->assertDatabaseHas('partner_quotas', [
-            'id' => 'pqt_alloc',
-            'allocated_count' => 3,
+        $this->assertSame(0, DB::table('stock_items')->where('allocation_id', $allocation['id'])->count());
+        $this->assertSame(5, DB::table('stock_items')->where('game_id', 'gam_alloc')->where('status', 'available')->count());
+        $this->assertSame(0, DB::table('partner_stock_allocation_items')->where('allocation_id', $allocation['id'])->count());
+        $this->assertDatabaseHas('stock_partner_distributions', [
+            'game_id' => 'gam_alloc',
+            'partner_id' => 'par_alloc',
+            'tenant_id' => 'ten_alloc',
+            'percent_basis_points' => 3000,
+            'status' => 'active',
         ]);
 
         $sameAllocation = $this->withToken($login['access_token'])
@@ -82,8 +93,8 @@ class CentralAllocationTest extends TestCase
                 'partner_id' => 'par_alloc',
                 'tenant_id' => 'ten_alloc',
                 'game_id' => 'gam_alloc',
-                'requested_count' => 3,
-                'reason' => 'initial quota',
+                'allocation_percent' => 30,
+                'reason' => 'initial percent',
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'allocation-create-main',
@@ -99,13 +110,13 @@ class CentralAllocationTest extends TestCase
                 'partner_id' => 'par_alloc',
                 'tenant_id' => 'ten_alloc',
                 'game_id' => 'gam_alloc',
-                'requested_count' => 3,
+                'allocation_percent' => 40,
             ], [
                 'X-Admin-Scope' => 'central',
-                'Idempotency-Key' => 'allocation-create-no-stock',
+                'Idempotency-Key' => 'allocation-create-main',
             ])
-            ->assertConflict()
-            ->assertJsonPath('error.code', 'resource_conflict');
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'idempotency_conflict');
 
         $this->withToken($login['access_token'])
             ->getJson('/api/v1/admin/central/allocations/'.$allocation['id'], ['X-Admin-Scope' => 'central'])
@@ -117,73 +128,6 @@ class CentralAllocationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.id', $allocation['id']);
 
-        $recallLogin = $this->createCentralSession(['stock.recall'], 'adm_recall_alloc', 'recall-alloc@example.test');
-        $allocatedStockId = (string) DB::table('stock_items')
-            ->where('allocation_id', $allocation['id'])
-            ->orderBy('full_number')
-            ->value('id');
-
-        $this->withToken($recallLogin['access_token'])
-            ->postJson('/api/v1/admin/central/stock/'.$allocatedStockId.'/recall', [
-                'reason' => 'quota_adjustment',
-            ], [
-                'X-Admin-Scope' => 'central',
-                'Idempotency-Key' => 'allocation-stock-recall',
-            ])
-            ->assertAccepted()
-            ->assertJsonPath('status', 'recalled');
-
-        $this->assertDatabaseHas('sync_outbox', [
-            'event_type' => 'stock.recalled.v1',
-            'aggregate_id' => $allocatedStockId,
-            'partner_id' => 'par_alloc',
-            'tenant_id' => 'ten_alloc',
-        ]);
-        $this->assertDatabaseHas('partner_stock_allocations', [
-            'id' => $allocation['id'],
-            'status' => 'partially_allocated',
-            'allocated_count' => 2,
-        ]);
-        $this->assertDatabaseHas('partner_quotas', [
-            'id' => 'pqt_alloc',
-            'allocated_count' => 2,
-        ]);
-
-        $this->withToken($login['access_token'])
-            ->postJson('/api/v1/admin/central/allocations/'.$allocation['id'].'/cancel', [
-                'reason' => 'sync cancelled before partner pull',
-            ], [
-                'X-Admin-Scope' => 'central',
-                'Idempotency-Key' => 'allocation-cancel-main',
-            ])
-            ->assertOk()
-            ->assertJsonPath('status', 'cancelled')
-            ->assertJsonPath('allocated_count', 0);
-
-        $this->assertSame(4, DB::table('stock_items')->where('game_id', 'gam_alloc')->where('status', 'available')->count());
-        $this->assertSame(1, DB::table('stock_items')->where('game_id', 'gam_alloc')->where('status', 'recalled')->count());
-        $this->assertDatabaseHas('partner_quotas', [
-            'id' => 'pqt_alloc',
-            'allocated_count' => 0,
-        ]);
-        $this->assertDatabaseHas('audit_logs', [
-            'action' => 'stock.allocation_cancelled',
-            'target_id' => $allocation['id'],
-        ]);
-
-        $this->withToken($login['access_token'])
-            ->postJson('/api/v1/admin/central/allocations', [
-                'partner_id' => 'par_alloc',
-                'tenant_id' => 'ten_alloc',
-                'game_id' => 'gam_alloc',
-                'requested_count' => 7,
-            ], [
-                'X-Admin-Scope' => 'central',
-                'Idempotency-Key' => 'allocation-over-quota',
-            ])
-            ->assertUnprocessable()
-            ->assertJsonPath('error.details.fields.requested_count.0', 'The requested_count exceeds the active partner quota.');
-
         DB::table('games')->where('id', 'gam_alloc')->update(['status' => 'closed', 'updated_at' => now()]);
 
         $this->withToken($login['access_token'])
@@ -191,7 +135,7 @@ class CentralAllocationTest extends TestCase
                 'partner_id' => 'par_alloc',
                 'tenant_id' => 'ten_alloc',
                 'game_id' => 'gam_alloc',
-                'requested_count' => 1,
+                'allocation_percent' => 10,
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'allocation-closed-game',
@@ -201,13 +145,14 @@ class CentralAllocationTest extends TestCase
 
         DB::table('games')->where('id', 'gam_alloc')->update(['status' => 'open', 'updated_at' => now()]);
         DB::table('partner_tenants')->where('id', 'ten_alloc')->update(['status' => 'suspended', 'updated_at' => now()]);
+        $this->insertActivePartnerTenant('par_alloc_suspended_check', 'ten_alloc_suspended_check');
 
         $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/allocations', [
-                'partner_id' => 'par_alloc',
+                'partner_id' => 'par_alloc_suspended_check',
                 'tenant_id' => 'ten_alloc',
                 'game_id' => 'gam_alloc',
-                'requested_count' => 1,
+                'allocation_percent' => 10,
             ], [
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'allocation-suspended-tenant',
@@ -300,6 +245,7 @@ class CentralAllocationTest extends TestCase
             'status' => 'active',
         ]);
         $this->assertSame(0, DB::table('stock_items')->where('game_id', 'gam_percent')->count());
+        $this->assertSame(0, DB::table('partner_stock_allocation_items')->where('allocation_id', $allocation['id'])->count());
 
         $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/allocations', [
@@ -466,66 +412,33 @@ class CentralAllocationTest extends TestCase
             ->assertJsonPath('error.code', 'resource_conflict');
     }
 
-    public function test_CentralAllocation_same_key_replay_returns_existing_allocation_after_quota_is_exhausted(): void
+    public function test_CentralAllocation_requested_count_is_rejected_even_when_old_idempotency_key_exists(): void
     {
         $this->seedDefaultRbac();
         $this->insertActivePartnerTenant('par_replay', 'ten_replay');
         $this->insertGame('gam_replay', 'open');
         $this->insertStockItems('gam_replay', 2);
-        $this->insertQuota('pqt_replay', 'par_replay', 'gam_replay', 2);
+        DB::table('partner_stock_allocations')->insert([
+            'id' => 'alc_replay_legacy',
+            'partner_id' => 'par_replay',
+            'tenant_id' => 'ten_replay',
+            'game_id' => 'gam_replay',
+            'quota_id' => null,
+            'status' => 'pending',
+            'requested_count' => 2,
+            'allocation_percent_basis_points' => null,
+            'allocated_count' => 0,
+            'recalled_count' => 0,
+            'idempotency_key' => 'allocation-replay-exhausts-quota',
+            'payload_hash' => hash('sha256', 'legacy-requested-count'),
+            'created_by_admin_id' => null,
+            'reason' => 'legacy replay seed',
+            'cancelled_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         $login = $this->createCentralSession(['stock.allocate'], 'adm_replay', 'replay@example.test');
-
-        $allocation = $this->withToken($login['access_token'])
-            ->postJson('/api/v1/admin/central/allocations', [
-                'partner_id' => 'par_replay',
-                'tenant_id' => 'ten_replay',
-                'game_id' => 'gam_replay',
-                'requested_count' => 2,
-            ], [
-                'X-Admin-Scope' => 'central',
-                'Idempotency-Key' => 'allocation-replay-exhausts-quota',
-            ])
-            ->assertAccepted()
-            ->assertJsonPath('allocated_count', 2)
-            ->json();
-
-        $stockStateBeforeReplay = DB::table('stock_items')
-            ->where('game_id', 'gam_replay')
-            ->orderBy('id')
-            ->get(['id', 'status', 'partner_id', 'tenant_id', 'allocation_id'])
-            ->map(fn (object $row): array => (array) $row)
-            ->all();
-
-        $replay = $this->withToken($login['access_token'])
-            ->postJson('/api/v1/admin/central/allocations', [
-                'partner_id' => 'par_replay',
-                'tenant_id' => 'ten_replay',
-                'game_id' => 'gam_replay',
-                'requested_count' => 2,
-            ], [
-                'X-Admin-Scope' => 'central',
-                'Idempotency-Key' => 'allocation-replay-exhausts-quota',
-            ])
-            ->assertAccepted()
-            ->assertJsonPath('id', $allocation['id'])
-            ->assertJsonPath('allocated_count', 2)
-            ->json();
-
-        $this->assertSame($allocation['id'], $replay['id']);
-        $this->assertSame(1, DB::table('partner_stock_allocations')->where('game_id', 'gam_replay')->count());
-        $this->assertSame(2, DB::table('partner_stock_allocation_items')->where('allocation_id', $allocation['id'])->count());
-        $this->assertSame(1, DB::table('sync_outbox')->where('event_type', 'stock.allocated.v1')->where('aggregate_id', $allocation['id'])->count());
-        $this->assertSame(2, DB::table('partner_quotas')->where('id', 'pqt_replay')->value('allocated_count'));
-        $this->assertSame(2, DB::table('stock_items')->where('game_id', 'gam_replay')->where('status', 'allocated')->count());
-
-        $stockStateAfterReplay = DB::table('stock_items')
-            ->where('game_id', 'gam_replay')
-            ->orderBy('id')
-            ->get(['id', 'status', 'partner_id', 'tenant_id', 'allocation_id'])
-            ->map(fn (object $row): array => (array) $row)
-            ->all();
-
-        $this->assertSame($stockStateBeforeReplay, $stockStateAfterReplay);
 
         $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/central/allocations', [
@@ -535,10 +448,14 @@ class CentralAllocationTest extends TestCase
                 'requested_count' => 2,
             ], [
                 'X-Admin-Scope' => 'central',
-                'Idempotency-Key' => 'allocation-replay-different-key',
+                'Idempotency-Key' => 'allocation-replay-exhausts-quota',
             ])
             ->assertUnprocessable()
-            ->assertJsonPath('error.details.fields.requested_count.0', 'The requested_count exceeds the active partner quota.');
+            ->assertJsonPath('error.details.fields.requested_count.0', 'The requested_count field is retired for allocation create. Use allocation_percent.');
+
+        $this->assertSame(1, DB::table('partner_stock_allocations')->where('game_id', 'gam_replay')->count());
+        $this->assertSame(0, DB::table('partner_stock_allocation_items')->where('allocation_id', 'alc_replay_legacy')->count());
+        $this->assertSame(2, DB::table('stock_items')->where('game_id', 'gam_replay')->where('status', 'available')->count());
     }
 
     public function test_CentralAllocation_percent_create_broadcasts_single_refresh_invalidation(): void

@@ -99,7 +99,7 @@ class LotteryImageOperationsTest extends TestCase
             ->assertJsonPath('ready', false);
     }
 
-    public function test_LotteryImageMix_persists_percentages_and_generation_uses_them(): void
+    public function test_LotteryImageMix_persists_percentages_and_materialized_assignments_use_them(): void
     {
         $this->seedDefaultRbac();
         $this->insertGame('gam_lottery_mix_ops', 'open');
@@ -130,17 +130,7 @@ class LotteryImageOperationsTest extends TestCase
             ->assertJsonPath('mix.odd', 100)
             ->assertJsonPath('source', 'persisted');
 
-        $this->withToken($central['access_token'])
-            ->postJson('/api/v1/admin/central/stock/generate', [
-                'game_id' => 'gam_lottery_mix_ops',
-                'back2_count_per_number' => 10,
-                'back3_count_per_number' => 1,
-                'front3_count_per_number' => 1,
-            ], [
-                'X-Admin-Scope' => 'central',
-                'Idempotency-Key' => 'mix-generate-odd-only',
-            ])
-            ->assertAccepted();
+        $this->insertImageReadyMaterializedStock('gam_lottery_mix_ops', 'sbg_lottery_mix_ops', 1000);
 
         $counts = DB::table('stock_items')
             ->where('game_id', 'gam_lottery_mix_ops')
@@ -213,17 +203,7 @@ class LotteryImageOperationsTest extends TestCase
             ])
             ->assertOk();
 
-        $this->withToken($central['access_token'])
-            ->postJson('/api/v1/admin/central/stock/generate', [
-                'game_id' => 'gam_lottery_retry_ops',
-                'back2_count_per_number' => 10,
-                'back3_count_per_number' => 1,
-                'front3_count_per_number' => 1,
-            ], [
-                'X-Admin-Scope' => 'central',
-                'Idempotency-Key' => 'retry-even-generate',
-            ])
-            ->assertAccepted();
+        $this->insertImageReadyMaterializedStock('gam_lottery_retry_ops', 'sbg_lottery_retry_ops', 1000);
 
         $this->assertSame(1000, DB::table('stock_items')->where('game_id', 'gam_lottery_retry_ops')->where('image_generation_status', 'pending_assets')->count());
 
@@ -926,6 +906,77 @@ class LotteryImageOperationsTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    private function insertImageReadyMaterializedStock(string $gameId, string $batchId, int $count): void
+    {
+        $now = now();
+        $stockIds = [];
+
+        DB::table('stock_generation_batches')->insert([
+            'id' => $batchId,
+            'game_id' => $gameId,
+            'type' => 'import',
+            'status' => 'completed',
+            'requested_count' => $count,
+            'generated_count' => $count,
+            'total_rounds' => 0,
+            'processed_rounds' => 0,
+            'chunk_rounds' => 0,
+            'range_start' => '000000',
+            'range_end' => '999999',
+            'number_digits' => 6,
+            'idempotency_key' => $batchId,
+            'payload_hash' => hash('sha256', $batchId),
+            'created_by_admin_id' => null,
+            'payload_json' => json_encode(['fixture' => 'legacy-materialized-image-stock'], JSON_THROW_ON_ERROR),
+            'started_at' => $now,
+            'completed_at' => $now,
+            'failed_at' => null,
+            'failure_reason' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        for ($number = 0; $number < $count; $number++) {
+            $fullNumber = str_pad((string) $number, 6, '0', STR_PAD_LEFT);
+            $stockIds[] = 'stk_'.substr(sha1($gameId.':'.$batchId.':'.$fullNumber), 0, 20);
+        }
+
+        $assignments = app(LotteryImageGenerator::class)->assignmentsForStockIds($gameId, $batchId, $stockIds);
+        $rows = [];
+
+        foreach ($stockIds as $index => $stockId) {
+            $fullNumber = str_pad((string) $index, 6, '0', STR_PAD_LEFT);
+            $assignment = $assignments[$stockId];
+
+            $rows[] = [
+                'id' => $stockId,
+                'game_id' => $gameId,
+                'batch_id' => $batchId,
+                'full_number' => $fullNumber,
+                'front3' => substr($fullNumber, 0, 3),
+                'back3' => substr($fullNumber, -3),
+                'back2' => substr($fullNumber, -2),
+                'status' => 'available',
+                'partner_id' => null,
+                'tenant_id' => null,
+                'allocation_id' => null,
+                'image_generation_status' => $assignment['image_generation_status'],
+                'image_generation_error' => $assignment['image_generation_error'],
+                'background_set_type' => $assignment['background_set_type'],
+                'background_asset_version' => $assignment['background_asset_version'],
+                'background_asset_index' => $assignment['background_asset_index'],
+                'recall_reason' => null,
+                'recalled_at' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        foreach (array_chunk($rows, 500) as $chunk) {
+            DB::table('stock_items')->insert($chunk);
+        }
     }
 
     /**

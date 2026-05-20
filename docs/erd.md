@@ -203,6 +203,7 @@ lottery_image_mix_settings
   updated_by_admin_id nullable fk -> admin_users.id
 
 partner_quotas
+  legacy/read-only for retired physical quota flow; not source-of-truth for new virtual visibility/allocation
   id pk
   partner_id fk -> partners.id
   tenant_id fk -> partner_tenants.id

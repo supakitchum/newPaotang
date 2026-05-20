@@ -211,13 +211,51 @@ class PublicStockSearchTest extends TestCase
             ->assertJsonPath('data.1.full_number', '444444');
     }
 
-    public function test_PublicStockSearch_and_reservations_respect_partner_sale_window_overrides(): void
+    public function test_PublicStockSearch_virtual_visibility_requires_active_distribution_and_reservation_materializes_stock(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_virtual_public', 'ten_virtual_public', 'virtual-public.newpaotang.test');
+        $this->insertGame('gam_virtual_public', 'open');
+        $this->insertBaseLotteryNumbers(['123456']);
+        $this->insertVirtualProfile('gam_virtual_public');
+
+        $this->getJson('http://virtual-public.newpaotang.test/api/v1/public/stock/search?game_id=gam_virtual_public&number=123456')
+            ->assertOk()
+            ->assertJsonPath('meta.stock_mode', 'virtual')
+            ->assertJsonCount(0, 'data');
+
+        $this->insertPartnerDistribution('gam_virtual_public', 'par_virtual_public', 'ten_virtual_public', 10000);
+
+        $stock = $this->getJson('http://virtual-public.newpaotang.test/api/v1/public/stock/search?game_id=gam_virtual_public&number=123456')
+            ->assertOk()
+            ->assertJsonPath('meta.stock_mode', 'virtual')
+            ->assertJsonPath('data.0.stock_mode', 'virtual')
+            ->assertJsonPath('data.0.full_number', '123456')
+            ->json('data.0');
+
+        $customerToken = $this->issueCustomerToken('ten_virtual_public', 'cus_virtual_public');
+        $this->withToken($customerToken)
+            ->postJson('http://virtual-public.newpaotang.test/api/v1/customer/reservations', [
+                'game_id' => 'gam_virtual_public',
+                'local_stock_item_ids' => [$stock['id']],
+            ], [
+                'Idempotency-Key' => 'reserve-virtual-public',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('items.0.stock_mode', 'virtual')
+            ->assertJsonPath('items.0.full_number', '123456');
+
+        $this->assertSame(1, DB::table('stock_items')->where('game_id', 'gam_virtual_public')->whereNotNull('virtual_stock_ref')->count());
+        $this->assertSame(1, DB::table('local_stock_items')->where('tenant_id', 'ten_virtual_public')->whereNotNull('virtual_stock_ref')->count());
+    }
+
+    public function test_PublicStockSearch_ignores_retired_partner_quota_sale_window_overrides(): void
     {
         $this->seedDefaultRbac();
         $this->insertActivePartnerTenantWithDomain('par_window', 'ten_window', 'window.newpaotang.test');
         $this->insertGame('gam_window', 'open');
-        $localIds = $this->syncAllocatedStockToLocal('par_window', 'ten_window', 'gam_window', 1, 'alloc-window', 777770);
-        $customerToken = $this->issueCustomerToken('ten_window', 'cus_window');
+        $this->insertQuota('pqt_window', 'par_window', 'gam_window', 1);
+        $this->syncAllocatedStockToLocal('par_window', 'ten_window', 'gam_window', 1, 'alloc-window', 777770);
 
         DB::table('partner_quotas')
             ->where('partner_id', 'par_window')
@@ -229,21 +267,12 @@ class PublicStockSearchTest extends TestCase
             ]);
 
         $this->getJson('http://window.newpaotang.test/api/v1/public/games/current')
-            ->assertNotFound();
+            ->assertOk()
+            ->assertJsonPath('id', 'gam_window');
 
         $this->getJson('http://window.newpaotang.test/api/v1/public/stock/search?game_id=gam_window&number=777770')
             ->assertOk()
-            ->assertJsonCount(0, 'data');
-
-        $this->withToken($customerToken)
-            ->postJson('http://window.newpaotang.test/api/v1/customer/reservations', [
-                'game_id' => 'gam_window',
-                'local_stock_item_ids' => [$localIds[0]],
-            ], [
-                'Idempotency-Key' => 'reserve-window-before-start',
-            ])
-            ->assertConflict()
-            ->assertJsonPath('error.code', 'reservation_unavailable');
+            ->assertJsonPath('data.0.full_number', '777770');
 
         DB::table('partner_quotas')
             ->where('partner_id', 'par_window')
@@ -273,6 +302,57 @@ class PublicStockSearchTest extends TestCase
 
         $this->getJson('http://window.newpaotang.test/api/v1/public/stock/search?game_id=gam_window&number=777770')
             ->assertOk()
-            ->assertJsonCount(0, 'data');
+            ->assertJsonPath('data.0.full_number', '777770');
+    }
+
+    /**
+     * @param array<int, string> $numbers
+     */
+    private function insertBaseLotteryNumbers(array $numbers): void
+    {
+        $rows = [];
+
+        foreach ($numbers as $number) {
+            $rows[] = [
+                'full_number' => $number,
+                'front3' => substr($number, 0, 3),
+                'back3' => substr($number, -3),
+                'back2' => substr($number, -2),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        DB::table('base_lottery_numbers')->insert($rows);
+    }
+
+    private function insertVirtualProfile(string $gameId): void
+    {
+        DB::table('stock_supply_profiles')->insert([
+            'id' => 'vsp_'.$gameId,
+            'game_id' => $gameId,
+            'status' => 'active',
+            'seed' => 'virtual-public-seed',
+            'base_count' => 1,
+            'total_capacity' => 1,
+            'set_distribution_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'created_by_admin_id' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function insertPartnerDistribution(string $gameId, string $partnerId, string $tenantId, int $basisPoints): void
+    {
+        DB::table('stock_partner_distributions')->insert([
+            'id' => 'spd_'.substr(sha1($gameId.':'.$partnerId), 0, 20),
+            'game_id' => $gameId,
+            'partner_id' => $partnerId,
+            'tenant_id' => $tenantId,
+            'percent_basis_points' => $basisPoints,
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 }

@@ -227,11 +227,7 @@ class StockCoverageRealtimeService
                 ->all();
 
             if ($activePartnerIds === []) {
-                if (DB::table('stock_partner_distributions')->where('game_id', $gameId)->exists()) {
-                    return [];
-                }
-
-                return $this->precomputedGeneratedCountsForDimension($gameId, $dimension, 'central', 'central', $profileId, $layers, $values);
+                return [];
             }
 
             if (! in_array($scopeId, $activePartnerIds, true)) {
@@ -366,9 +362,7 @@ class StockCoverageRealtimeService
             return $rows;
         }
 
-        return DB::table('stock_partner_distributions')->where('game_id', $gameId)->exists()
-            ? []
-            : [['partner_id' => $fallbackPartnerId, 'bp' => self::MAX_BP]];
+        return [];
     }
 
     /**

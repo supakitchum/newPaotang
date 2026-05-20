@@ -1642,7 +1642,8 @@ paths:
   /admin/central/partner-quotas:
     get:
       tags: [Central Admin]
-      summary: List partner quotas
+      summary: List legacy partner quotas
+      description: Legacy read-only endpoint. Partner quotas are retired from active stock allocation/visibility source-of-truth; use percent allocation and stock_partner_distributions instead.
       parameters:
         - $ref: "#/components/parameters/CentralAdminScopeHeader"
         - $ref: "#/components/parameters/RequestIdHeader"
@@ -1671,7 +1672,9 @@ paths:
                 $ref: "#/components/schemas/AdminResourceListResponse"
     post:
       tags: [Central Admin]
-      summary: Create partner quota
+      summary: Create partner quota (retired)
+      deprecated: true
+      description: Retired flow. Partner quota writes return retired_flow; use partner stock percent allocation instead.
       parameters:
         - $ref: "#/components/parameters/CentralAdminScopeHeader"
         - $ref: "#/components/parameters/RequestIdHeader"
@@ -1683,16 +1686,18 @@ paths:
             schema:
               $ref: "#/components/schemas/AdminCreateRequest"
       responses:
-        "201":
-          description: Partner quota created
+        "410":
+          description: Partner quota writes are retired
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminResource"
+                $ref: "#/components/schemas/ErrorResponse"
   /admin/central/partner-quotas/{quota_id}:
     patch:
       tags: [Central Admin]
-      summary: Update partner quota
+      summary: Update partner quota (retired)
+      deprecated: true
+      description: Retired flow. Partner quota writes return retired_flow; use partner stock percent allocation instead.
       parameters:
         - $ref: "#/components/parameters/CentralAdminScopeHeader"
         - $ref: "#/components/parameters/RequestIdHeader"
@@ -1709,12 +1714,12 @@ paths:
             schema:
               $ref: "#/components/schemas/AdminPatchRequest"
       responses:
-        "200":
-          description: Partner quota updated
+        "410":
+          description: Partner quota writes are retired
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminResource"
+                $ref: "#/components/schemas/ErrorResponse"
   /admin/central/partner-api-clients:
     get:
       tags: [Central Admin]
@@ -7751,7 +7756,8 @@ paths:
   /partner-sync/allocations:
     get:
       tags: [Partner Sync]
-      summary: Pull allocation chunks by cursor
+      summary: Pull virtual allocation distribution rows by cursor
+      description: Returns virtual allocation/distribution metadata from stock_partner_distributions and partner_stock_allocations. New active flow no longer streams physical partner_stock_allocation_items as the source of truth.
       parameters:
         - $ref: "#/components/parameters/PartnerIdHeader"
         - $ref: "#/components/parameters/TenantIdHeader"
@@ -8392,7 +8398,7 @@ components:
             $ref: "#/components/schemas/StockSetDistributionRow"
         partner_distribution:
           type: array
-          description: Optional partner allocation percent. Empty uses partner quota weights.
+          description: Optional initial partner allocation percent rows. Active allocation source-of-truth is stock_partner_distributions; partner_quotas are not used for new visibility/allocation.
           items:
             type: object
             required: [partner_id, percent]
@@ -11530,29 +11536,72 @@ components:
         data:
           type: array
           items:
-            $ref: "#/components/schemas/AllocationStockItem"
+            $ref: "#/components/schemas/AllocationPullItem"
         meta:
           $ref: "#/components/schemas/CursorMeta"
-    AllocationStockItem:
+    AllocationPullItem:
       type: object
-      required: [stock_item_id, game_id, full_number]
+      required:
+        - id
+        - source
+        - stock_mode
+        - partner_id
+        - tenant_id
+        - game_id
+        - status
+        - allocation_percent
+        - allocation_percent_basis_points
+        - generated_supply_count
+        - allocated_count
+        - remaining_count
       properties:
-        stock_item_id:
+        id:
           type: string
+          description: Cursor source id from stock_partner_distributions.
+        source:
+          type: string
+          enum: [stock_partner_distributions]
+        stock_mode:
+          type: string
+          enum: [virtual]
+        allocation_id:
+          type: string
+          nullable: true
+          description: Latest matching partner_stock_allocations snapshot id when available.
+        partner_id:
+          type: string
+        tenant_id:
+          type: string
+          nullable: true
         game_id:
           type: string
-        full_number:
+        status:
           type: string
-        front3:
+          enum: [active, allocated, partially_allocated, recalled, cancelled, inactive, archived]
+        allocation_percent:
+          type: number
+        allocation_percent_basis_points:
+          type: integer
+          minimum: 0
+        generated_supply_count:
+          type: integer
+          minimum: 0
+        allocated_count:
+          type: integer
+          minimum: 0
+        remaining_count:
+          type: integer
+          minimum: 0
+        used_count:
+          type: integer
+          minimum: 0
+        recalled_count:
+          type: integer
+          minimum: 0
+        updated_at:
           type: string
-        back3:
-          type: string
-        back2:
-          type: string
-        image_key:
-          type: string
-        image_thumb_key:
-          type: string
+          format: date-time
+          nullable: true
     EventBatchRequest:
       type: object
       required: [events]

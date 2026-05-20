@@ -95,64 +95,97 @@ trait PartnerStoreFixtures
         int $stockStart = 1,
         ?string $storeId = null,
     ): array {
-        $quota = DB::table('partner_quotas')
-            ->where('partner_id', $partnerId)
-            ->where('game_id', $gameId)
-            ->first();
-
-        if ($quota === null) {
-            $this->insertQuota('pqt_'.substr(sha1($partnerId.':'.$gameId), 0, 20), $partnerId, $gameId, $count + 10);
-        } else {
-            DB::table('partner_quotas')->where('id', $quota->id)->update([
-                'quota_count' => max((int) $quota->quota_count, (int) $quota->allocated_count + $count + 10),
-                'updated_at' => now(),
-            ]);
-        }
-
         $this->insertStockItems($gameId, $count, $stockStart);
         $keyHash = substr(sha1($allocationKey), 0, 10);
-        $centralAdminId = 'adm_al_'.substr(sha1('alloc:'.$tenantId.':'.$allocationKey), 0, 19);
-        $tenantAdminId = 'adm_sy_'.substr(sha1('sync:'.$tenantId.':'.$allocationKey), 0, 19);
-        $central = $this->createCentralSession(['stock.allocate'], $centralAdminId, 'alloc-'.$tenantId.'-'.$keyHash.'@example.test');
+        $allocationId = 'alc_'.substr(sha1($tenantId.':'.$allocationKey), 0, 20);
+        $now = now();
+        $storeId ??= $tenantId;
+        $stockRows = DB::table('stock_items')
+            ->where('game_id', $gameId)
+            ->where('status', 'available')
+            ->orderBy('full_number')
+            ->limit($count)
+            ->get(['id', 'full_number', 'front3', 'back3', 'back2'])
+            ->all();
 
-        $allocation = $this->withToken($central['access_token'])
-            ->postJson('/api/v1/admin/central/allocations', [
+        DB::table('partner_stock_allocations')->insert([
+            'id' => $allocationId,
+            'partner_id' => $partnerId,
+            'tenant_id' => $tenantId,
+            'game_id' => $gameId,
+            'quota_id' => null,
+            'status' => 'allocated',
+            'requested_count' => $count,
+            'allocation_percent_basis_points' => null,
+            'allocated_count' => count($stockRows),
+            'recalled_count' => 0,
+            'idempotency_key' => $allocationKey,
+            'payload_hash' => hash('sha256', 'legacy-materialized-fixture:'.$allocationKey),
+            'created_by_admin_id' => null,
+            'reason' => 'legacy materialized fixture',
+            'cancelled_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('stock_items')->whereIn('id', array_map(fn (object $stock): string => (string) $stock->id, $stockRows))->update([
+            'status' => 'allocated',
+            'partner_id' => $partnerId,
+            'tenant_id' => $tenantId,
+            'allocation_id' => $allocationId,
+            'updated_at' => $now,
+        ]);
+
+        $allocationItems = [];
+        $localItems = [];
+
+        foreach ($stockRows as $stock) {
+            $allocationItems[] = [
+                'allocation_id' => $allocationId,
+                'stock_item_id' => (string) $stock->id,
                 'partner_id' => $partnerId,
                 'tenant_id' => $tenantId,
                 'game_id' => $gameId,
-                'requested_count' => $count,
-            ], [
-                'X-Admin-Scope' => 'central',
-                'Idempotency-Key' => $allocationKey,
-                'X-Request-Id' => 'req-'.$allocationKey,
-            ])
-            ->assertAccepted()
-            ->json();
+                'status' => 'allocated',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
 
-        if ($storeId !== null) {
-            $this->attachStoreIdToAllocatedOutbox((string) $allocation['id'], $storeId);
+            $localItems[] = [
+                'id' => 'lsi_'.substr(sha1($tenantId.':'.$stock->id.':'.$keyHash), 0, 20),
+                'tenant_id' => $tenantId,
+                'partner_id' => $partnerId,
+                'store_id' => $storeId,
+                'game_id' => $gameId,
+                'stock_item_id' => (string) $stock->id,
+                'allocation_id' => $allocationId,
+                'full_number' => (string) $stock->full_number,
+                'front3' => $stock->front3,
+                'back3' => $stock->back3,
+                'back2' => $stock->back2,
+                'image_url' => null,
+                'image_thumb_url' => null,
+                'status' => 'available',
+                'synced_at' => $now,
+                'reserved_at' => null,
+                'sold_at' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
         }
 
-        $tenant = $this->createTenantSession($tenantId, $partnerId, ['stock.sync'], $tenantAdminId, 'sync-'.$tenantId.'-'.$keyHash.'@example.test');
+        if ($allocationItems !== []) {
+            DB::table('partner_stock_allocation_items')->insert($allocationItems);
+            DB::table('local_stock_items')->insert($localItems);
+        }
 
-        $this->withToken($tenant['access_token'])
-            ->postJson('/api/v1/admin/tenant/stock-sync/batches', [], [
-                'X-Admin-Scope' => 'tenant',
-                'X-Tenant-Id' => $tenantId,
-                'Idempotency-Key' => 'sync-'.$allocationKey,
-            ])
-            ->assertAccepted()
-            ->assertJsonPath('processed_count', $count);
-
-        $localStock = DB::table('local_stock_items')
+        return DB::table('local_stock_items')
             ->where('tenant_id', $tenantId)
-            ->where('game_id', $gameId);
-
-        if ($storeId !== null) {
-            $localStock->where('store_id', $storeId);
-        }
-
-        return $localStock->orderBy('full_number')->pluck('id')->all();
+            ->where('game_id', $gameId)
+            ->where('store_id', $storeId)
+            ->orderBy('full_number')
+            ->pluck('id')
+            ->all();
     }
 
     private function attachStoreIdToAllocatedOutbox(string $allocationId, string $storeId): void

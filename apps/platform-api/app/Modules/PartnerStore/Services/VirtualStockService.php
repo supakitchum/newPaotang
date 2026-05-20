@@ -5,7 +5,6 @@ namespace App\Modules\PartnerStore\Services;
 use App\Jobs\GeneratePartnerLotteryImageJob;
 use App\Models\Game;
 use App\Models\LocalStockItem;
-use App\Models\PartnerQuota;
 use App\Models\PartnerTenant;
 use App\Models\StockGenerationBatch;
 use App\Models\StockItem;
@@ -971,28 +970,7 @@ class VirtualStockService
             return $rows;
         }
 
-        if (DB::table('stock_partner_distributions')->where('game_id', $gameId)->exists()) {
-            return [];
-        }
-
-        $quotaRows = PartnerQuota::query()
-            ->where('game_id', $gameId)
-            ->where('status', 'active')
-            ->where('quota_count', '>', 0)
-            ->orderBy('partner_id')
-            ->get(['partner_id', 'quota_count'])
-            ->all();
-
-        $total = array_sum(array_map(fn (object $row): int => (int) $row->quota_count, $quotaRows));
-
-        if ($total > 0) {
-            return array_map(fn (object $row): array => [
-                'partner_id' => (string) $row->partner_id,
-                'bp' => max(1, (int) floor(((int) $row->quota_count / $total) * self::MAX_BP)),
-            ], $quotaRows);
-        }
-
-        return [['partner_id' => $fallbackPartnerId, 'bp' => self::MAX_BP]];
+        return [];
     }
 
     /**

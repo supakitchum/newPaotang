@@ -79,6 +79,12 @@ class CentralAllocationController extends Controller
         }
 
         $payload = $request->all();
+        if (array_key_exists('requested_count', $payload)) {
+            return ApiErrorResponse::validationFailed($request, [
+                'requested_count' => ['The requested_count field is retired for allocation create. Use allocation_percent.'],
+            ]);
+        }
+
         $replay = $this->centralStock->findAllocationReplay($context, $request, $payload);
 
         if (($replay['error'] ?? null) === 'idempotency_conflict') {

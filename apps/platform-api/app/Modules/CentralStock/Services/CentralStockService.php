@@ -1283,15 +1283,11 @@ class CentralStockService
                 ->all();
 
             if ($activePartnerIds === []) {
-                if (DB::table('stock_partner_distributions')->where('game_id', $gameId)->exists()) {
-                    return [
-                        'back2' => [],
-                        'back3' => [],
-                        'front3' => [],
-                    ];
-                }
-
-                return $this->precomputedVirtualGeneratedCountsForDimensions($gameId, 'central', 'central', $profile, $layers);
+                return [
+                    'back2' => [],
+                    'back3' => [],
+                    'front3' => [],
+                ];
             }
 
             if (! in_array($scopeId, $activePartnerIds, true)) {
@@ -3994,7 +3990,6 @@ class CentralStockService
         $gameId = trim((string) ($payload['game_id'] ?? ''));
         $hasPercent = array_key_exists('allocation_percent', $payload);
         $hasRequestedCount = array_key_exists('requested_count', $payload);
-        $requestedCount = $this->integerFrom($payload['requested_count'] ?? null);
         $percentBasisPoints = $this->percentBasisPointsFrom($payload['allocation_percent'] ?? null);
 
         if ($partnerId === '' || ! Partner::where('id', $partnerId)->where('status', 'active')->exists()) {
@@ -4023,11 +4018,11 @@ class CentralStockService
             $errors['tenant_id'][] = 'This partner tenant already has an active allocation for this game.';
         }
 
-        if ($hasPercent) {
-            if ($hasRequestedCount) {
-                $errors['requested_count'][] = 'The requested_count field is retired for allocation create. Use allocation_percent.';
-            }
+        if ($hasRequestedCount) {
+            $errors['requested_count'][] = 'The requested_count field is retired for allocation create. Use allocation_percent.';
+        }
 
+        if ($hasPercent) {
             if ($percentBasisPoints === null || $percentBasisPoints < 1 || $percentBasisPoints > self::VIRTUAL_MAX_BP) {
                 $errors['allocation_percent'][] = 'The allocation_percent field must be greater than 0 and may not exceed 100.';
             }
@@ -4041,27 +4036,6 @@ class CentralStockService
 
                 $errors = $this->mergeFieldErrors($errors, $this->partnerPercentSumErrors($gameId, $partnerId, (int) $percentBasisPoints));
                 $errors = $this->mergeFieldErrors($errors, $this->partnerPercentUsageErrors($gameId, $partnerId, $targetCount));
-            }
-        } elseif ($hasRequestedCount) {
-            if ($requestedCount < 1) {
-                $errors['requested_count'][] = 'The requested_count field must be at least 1.';
-            }
-
-            if ($requestedCount > 10000) {
-                $errors['requested_count'][] = 'The requested_count field may not be greater than 10000.';
-            }
-
-            if ($partnerId !== '' && $gameId !== '' && $requestedCount > 0) {
-                $quota = PartnerQuota::where('partner_id', $partnerId)
-                    ->where('game_id', $gameId)
-                    ->where('status', 'active')
-                    ->first();
-
-                if ($quota === null) {
-                    $errors['quota'][] = 'An active partner quota is required for this game.';
-                } elseif (((int) $quota->quota_count - (int) $quota->allocated_count) < $requestedCount) {
-                    $errors['requested_count'][] = 'The requested_count exceeds the active partner quota.';
-                }
             }
         } else {
             $errors['allocation_percent'][] = 'The allocation_percent field is required.';
@@ -4104,102 +4078,7 @@ class CentralStockService
                 return $this->createPercentAllocation($payload, $actor, $request, $partnerId, $tenantId, $gameId, $now);
             }
 
-            $requestedCount = $this->integerFrom($payload['requested_count']);
-            $quota = PartnerQuota::query()
-                ->where('partner_id', $partnerId)
-                ->where('game_id', $gameId)
-                ->where('status', 'active')
-                ->lockForUpdate()
-                ->first();
-
-            if ($quota === null || ((int) $quota->quota_count - (int) $quota->allocated_count) < $requestedCount) {
-                return null;
-            }
-
-            $stockRows = StockItem::query()
-                ->where('game_id', $gameId)
-                ->where('status', 'available')
-                ->orderBy('id')
-                ->limit($requestedCount)
-                ->lockForUpdate()
-                ->get()
-                ->all();
-
-            if (count($stockRows) < $requestedCount) {
-                return null;
-            }
-
-            $allocationId = 'alc_'.Str::ulid()->toBase32();
-            $stockIds = array_map(fn (object $stock): string => (string) $stock->id, $stockRows);
-
-            PartnerStockAllocation::query()->insert([
-                'id' => $allocationId,
-                'partner_id' => $partnerId,
-                'tenant_id' => $tenantId,
-                'game_id' => $gameId,
-                'quota_id' => $quota->id,
-                'status' => 'pending',
-                'requested_count' => $requestedCount,
-                'allocation_percent_basis_points' => null,
-                'allocated_count' => count($stockRows),
-                'recalled_count' => 0,
-                'idempotency_key' => $request->header('Idempotency-Key'),
-                'payload_hash' => $this->allocationPayloadHash($payload),
-                'created_by_admin_id' => $actor->adminUser['id'],
-                'reason' => $payload['reason'] ?? null,
-                'cancelled_at' => null,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
-
-            StockItem::query()->whereIn('id', $stockIds)->update([
-                'status' => 'allocated',
-                'partner_id' => $partnerId,
-                'tenant_id' => $tenantId,
-                'allocation_id' => $allocationId,
-                'updated_at' => $now,
-            ]);
-
-            PartnerStockAllocationItem::query()->insert(array_map(fn (string $stockId): array => [
-                'allocation_id' => $allocationId,
-                'stock_item_id' => $stockId,
-                'partner_id' => $partnerId,
-                'tenant_id' => $tenantId,
-                'game_id' => $gameId,
-                'status' => 'allocated',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ], $stockIds));
-
-            PartnerQuota::query()->where('id', $quota->id)->update([
-                'allocated_count' => (int) $quota->allocated_count + count($stockRows),
-                'updated_at' => $now,
-            ]);
-
-            $this->insertOutboxEvent(
-                eventType: 'stock.allocated.v1',
-                producer: 'central_stock',
-                tenantId: $tenantId,
-                partnerId: $partnerId,
-                gameId: $gameId,
-                aggregateType: 'partner_stock_allocation',
-                aggregateId: $allocationId,
-                idempotencyKey: $request->header('Idempotency-Key'),
-                correlationId: $request->header('X-Request-Id'),
-                payload: [
-                    'allocation_id' => $allocationId,
-                    'partner_id' => $partnerId,
-                    'tenant_id' => $tenantId,
-                    'game_id' => $gameId,
-                    'cursor' => $allocationId,
-                    'item_count' => count($stockRows),
-                    'chunk_size' => 5000,
-                ],
-            );
-
-            $this->auditAllocationChange($actor, $request, $allocationId, 'stock.allocated', $payload, $partnerId, $tenantId);
-
-            return $this->findAllocation($allocationId);
+            return null;
         });
     }
 
@@ -5675,27 +5554,7 @@ class CentralStockService
             return $distributionRows;
         }
 
-        if (DB::table('stock_partner_distributions')->where('game_id', $gameId)->exists()) {
-            return [];
-        }
-
-        $quotaRows = PartnerQuota::query()
-            ->where('game_id', $gameId)
-            ->where('status', 'active')
-            ->where('quota_count', '>', 0)
-            ->orderBy('partner_id')
-            ->get(['partner_id', 'quota_count']);
-        $total = $quotaRows->sum(fn (object $row): int => (int) $row->quota_count);
-
-        if ($total < 1) {
-            return [];
-        }
-
-        return $quotaRows->map(fn (object $row): array => [
-            'partner_id' => (string) $row->partner_id,
-            'tenant_id' => $this->tenantIdForPartner((string) $row->partner_id),
-            'bp' => max(1, (int) floor(((int) $row->quota_count / $total) * self::VIRTUAL_MAX_BP)),
-        ])->all();
+        return [];
     }
 
     /**
@@ -6478,9 +6337,7 @@ class CentralStockService
             return $rows;
         }
 
-        return DB::table('stock_partner_distributions')->where('game_id', $gameId)->exists()
-            ? []
-            : [['partner_id' => $fallbackPartnerId, 'bp' => self::VIRTUAL_MAX_BP]];
+        return [];
     }
 
     /**

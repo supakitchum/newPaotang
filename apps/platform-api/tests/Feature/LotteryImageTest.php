@@ -42,21 +42,9 @@ class LotteryImageTest extends TestCase
         $this->seedDefaultRbac();
         $this->insertGame('gam_lottery_mix', 'open');
         $this->putAllBackgroundSets('gam_lottery_mix');
-        $central = $this->createCentralSession(['stock.generate'], 'adm_lottery_mix', 'lottery-mix@example.test');
 
-        $batch = $this->withToken($central['access_token'])
-            ->postJson('/api/v1/admin/central/stock/generate', [
-                'game_id' => 'gam_lottery_mix',
-                'back2_count_per_number' => 10,
-                'back3_count_per_number' => 1,
-                'front3_count_per_number' => 1,
-            ], [
-                'X-Admin-Scope' => 'central',
-                'Idempotency-Key' => 'lottery-image-mix',
-            ])
-            ->assertAccepted()
-            ->assertJsonPath('generated_count', 1000)
-            ->json();
+        $batchId = 'sbg_lottery_image_mix';
+        $this->insertImageReadyMaterializedStock('gam_lottery_mix', $batchId, 1000);
 
         $rows = DB::table('stock_items')
             ->where('game_id', 'gam_lottery_mix')
@@ -74,8 +62,8 @@ class LotteryImageTest extends TestCase
 
         $this->assertSame(['charity' => 100, 'even' => 450, 'odd' => 450], $counts);
         $this->assertSame('generated', $generated->image_generation_status);
-        $this->assertStringStartsWith('lotteries/gam_lottery_mix/'.$batch['id'].'/central/', $generated->image_storage_path);
-        $this->assertStringStartsWith('https://cdn.lottery.test/lotteries/gam_lottery_mix/'.$batch['id'].'/central/', $generated->image_url);
+        $this->assertStringStartsWith('lotteries/gam_lottery_mix/'.$batchId.'/central/', $generated->image_storage_path);
+        $this->assertStringStartsWith('https://cdn.lottery.test/lotteries/gam_lottery_mix/'.$batchId.'/central/', $generated->image_url);
 
         $bytes = Storage::disk('lottery_images')->get((string) $generated->image_storage_path);
         $thumbBytes = Storage::disk('lottery_images')->get((string) $generated->image_thumb_storage_path);
@@ -92,19 +80,8 @@ class LotteryImageTest extends TestCase
         $this->seedDefaultRbac();
         $this->insertGame('gam_lottery_pending', 'open');
         $this->putBackground('gam_lottery_pending', 'odd');
-        $central = $this->createCentralSession(['stock.generate'], 'adm_lottery_pending', 'lottery-pending@example.test');
 
-        $this->withToken($central['access_token'])
-            ->postJson('/api/v1/admin/central/stock/generate', [
-                'game_id' => 'gam_lottery_pending',
-                'back2_count_per_number' => 10,
-                'back3_count_per_number' => 1,
-                'front3_count_per_number' => 1,
-            ], [
-                'X-Admin-Scope' => 'central',
-                'Idempotency-Key' => 'lottery-image-pending',
-            ])
-            ->assertAccepted();
+        $this->insertImageReadyMaterializedStock('gam_lottery_pending', 'sbg_lottery_image_pending', 1000);
 
         $pending = DB::table('stock_items')
             ->where('game_id', 'gam_lottery_pending')
@@ -138,30 +115,13 @@ class LotteryImageTest extends TestCase
         $this->seedDefaultRbac();
         $this->insertActivePartnerTenantWithDomain('par_lottery_partner', 'ten_lottery_partner', 'lottery-image.newpaotang.test');
         $this->insertGame('gam_lottery_partner', 'open');
-        $this->insertQuota('pqt_lottery_partner', 'par_lottery_partner', 'gam_lottery_partner', 5);
         $this->putAllBackgroundSets('gam_lottery_partner');
         $this->insertBrandingAssetSet('par_lottery_partner');
 
-        $central = $this->createCentralSession(
-            ['stock.generate', 'stock.allocate'],
-            'adm_lottery_partner',
-            'lottery-partner@example.test',
-        );
-
-        $this->withToken($central['access_token'])
-            ->postJson('/api/v1/admin/central/stock/generate', [
-                'game_id' => 'gam_lottery_partner',
-                'back2_count_per_number' => 10,
-                'back3_count_per_number' => 1,
-                'front3_count_per_number' => 1,
-            ], [
-                'X-Admin-Scope' => 'central',
-                'Idempotency-Key' => 'lottery-image-partner-generate',
-            ])
-            ->assertAccepted();
+        $stockIds = $this->insertImageReadyMaterializedStock('gam_lottery_partner', 'sbg_lottery_image_partner', 1);
 
         $stock = DB::table('stock_items')
-            ->where('game_id', 'gam_lottery_partner')
+            ->where('id', $stockIds[0])
             ->first();
 
         (new GenerateLotteryImageJob((string) $stock->id))->handle(app(LotteryImageGenerator::class));
@@ -177,38 +137,15 @@ class LotteryImageTest extends TestCase
         $this->assertWebpDimensions($centralThumbBytes, 280, 157);
         $this->assertStringNotContainsString('logo_qr_storage_path', $centralBytes);
 
-        $this->withToken($central['access_token'])
-            ->postJson('/api/v1/admin/central/allocations', [
-                'partner_id' => 'par_lottery_partner',
-                'tenant_id' => 'ten_lottery_partner',
-                'game_id' => 'gam_lottery_partner',
-                'requested_count' => 1,
-            ], [
-                'X-Admin-Scope' => 'central',
-                'Idempotency-Key' => 'lottery-image-partner-allocation',
-            ])
-            ->assertAccepted();
-
-        $tenant = $this->createTenantSession(
-            'ten_lottery_partner',
+        $localStockId = $this->insertLegacyMaterializedLocalStock(
             'par_lottery_partner',
-            ['stock.sync'],
-            'adm_lottery_sync',
-            'lottery-sync@example.test',
+            'ten_lottery_partner',
+            'gam_lottery_partner',
+            (string) $stock->id,
         );
 
-        $this->withToken($tenant['access_token'])
-            ->postJson('/api/v1/admin/tenant/stock-sync/batches', [], [
-                'X-Admin-Scope' => 'tenant',
-                'X-Tenant-Id' => 'ten_lottery_partner',
-                'Idempotency-Key' => 'lottery-image-partner-sync',
-            ])
-            ->assertAccepted()
-            ->assertJsonPath('processed_count', 1);
-
         $localStock = DB::table('local_stock_items')
-            ->where('tenant_id', 'ten_lottery_partner')
-            ->where('game_id', 'gam_lottery_partner')
+            ->where('id', $localStockId)
             ->first();
 
         (new GeneratePartnerLotteryImageJob((string) $localStock->id))->handle(app(LotteryImageGenerator::class));
@@ -253,6 +190,157 @@ class LotteryImageTest extends TestCase
         foreach (['odd', 'even', 'charity'] as $setType) {
             $this->putBackground($gameId, $setType);
         }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function insertImageReadyMaterializedStock(string $gameId, string $batchId, int $count): array
+    {
+        $now = now();
+        $stockIds = [];
+
+        DB::table('stock_generation_batches')->insert([
+            'id' => $batchId,
+            'game_id' => $gameId,
+            'type' => 'import',
+            'status' => 'completed',
+            'requested_count' => $count,
+            'generated_count' => $count,
+            'total_rounds' => 0,
+            'processed_rounds' => 0,
+            'chunk_rounds' => 0,
+            'range_start' => '000000',
+            'range_end' => '999999',
+            'number_digits' => 6,
+            'idempotency_key' => $batchId,
+            'payload_hash' => hash('sha256', $batchId),
+            'created_by_admin_id' => null,
+            'payload_json' => json_encode(['fixture' => 'legacy-materialized-image-stock'], JSON_THROW_ON_ERROR),
+            'started_at' => $now,
+            'completed_at' => $now,
+            'failed_at' => null,
+            'failure_reason' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        for ($number = 0; $number < $count; $number++) {
+            $fullNumber = str_pad((string) $number, 6, '0', STR_PAD_LEFT);
+            $stockIds[] = 'stk_'.substr(sha1($gameId.':'.$batchId.':'.$fullNumber), 0, 20);
+        }
+
+        $assignments = app(LotteryImageGenerator::class)->assignmentsForStockIds($gameId, $batchId, $stockIds);
+        $rows = [];
+
+        foreach ($stockIds as $index => $stockId) {
+            $fullNumber = str_pad((string) $index, 6, '0', STR_PAD_LEFT);
+            $assignment = $assignments[$stockId];
+
+            $rows[] = [
+                'id' => $stockId,
+                'game_id' => $gameId,
+                'batch_id' => $batchId,
+                'full_number' => $fullNumber,
+                'front3' => substr($fullNumber, 0, 3),
+                'back3' => substr($fullNumber, -3),
+                'back2' => substr($fullNumber, -2),
+                'status' => 'available',
+                'partner_id' => null,
+                'tenant_id' => null,
+                'allocation_id' => null,
+                'recall_reason' => null,
+                'recalled_at' => null,
+                'background_set_type' => $assignment['background_set_type'],
+                'background_asset_version' => $assignment['background_asset_version'],
+                'background_asset_index' => $assignment['background_asset_index'],
+                'image_generation_status' => $assignment['image_generation_status'],
+                'image_generation_error' => $assignment['image_generation_error'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        foreach (array_chunk($rows, 500) as $chunk) {
+            DB::table('stock_items')->insert($chunk);
+        }
+
+        return $stockIds;
+    }
+
+    private function insertLegacyMaterializedLocalStock(
+        string $partnerId,
+        string $tenantId,
+        string $gameId,
+        string $stockId,
+    ): string {
+        $now = now();
+        $allocationId = 'alc_'.substr(sha1($tenantId.':lottery-image-legacy'), 0, 20);
+        $localStockId = 'lsi_'.substr(sha1($tenantId.':'.$stockId.':lottery-image-legacy'), 0, 20);
+        $stock = DB::table('stock_items')->where('id', $stockId)->first();
+
+        DB::table('partner_stock_allocations')->insert([
+            'id' => $allocationId,
+            'partner_id' => $partnerId,
+            'tenant_id' => $tenantId,
+            'game_id' => $gameId,
+            'quota_id' => null,
+            'status' => 'allocated',
+            'requested_count' => 1,
+            'allocation_percent_basis_points' => null,
+            'allocated_count' => 1,
+            'recalled_count' => 0,
+            'idempotency_key' => 'lottery-image-legacy-materialized',
+            'payload_hash' => hash('sha256', 'lottery-image-legacy-materialized'),
+            'created_by_admin_id' => null,
+            'reason' => 'legacy materialized fixture',
+            'cancelled_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('stock_items')->where('id', $stockId)->update([
+            'status' => 'allocated',
+            'partner_id' => $partnerId,
+            'tenant_id' => $tenantId,
+            'allocation_id' => $allocationId,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('partner_stock_allocation_items')->insert([
+            'allocation_id' => $allocationId,
+            'stock_item_id' => $stockId,
+            'partner_id' => $partnerId,
+            'tenant_id' => $tenantId,
+            'game_id' => $gameId,
+            'status' => 'allocated',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('local_stock_items')->insert([
+            'id' => $localStockId,
+            'tenant_id' => $tenantId,
+            'partner_id' => $partnerId,
+            'store_id' => $tenantId,
+            'game_id' => $gameId,
+            'stock_item_id' => $stockId,
+            'allocation_id' => $allocationId,
+            'full_number' => (string) $stock->full_number,
+            'front3' => $stock->front3,
+            'back3' => $stock->back3,
+            'back2' => $stock->back2,
+            'image_url' => null,
+            'image_thumb_url' => null,
+            'status' => 'available',
+            'synced_at' => $now,
+            'reserved_at' => null,
+            'sold_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return $localStockId;
     }
 
     private function putBackground(string $gameId, string $setType, int $index = 1): void

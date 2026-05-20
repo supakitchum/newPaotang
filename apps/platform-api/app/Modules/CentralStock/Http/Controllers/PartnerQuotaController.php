@@ -39,24 +39,12 @@ class PartnerQuotaController extends Controller
             return $context;
         }
 
-        $headerErrors = $this->headers->idempotencyKeyErrors($request);
-
-        if ($headerErrors !== []) {
-            return ApiErrorResponse::validationFailed($request, $headerErrors);
-        }
-
-        $payload = $request->all();
-        $errors = $this->centralStock->validateQuotaPayload($payload, true);
-
-        if ($errors !== []) {
-            return ApiErrorResponse::validationFailed($request, $errors);
-        }
-
-        if ($this->centralStock->quotaConflictErrors($payload) !== []) {
-            return ApiErrorResponse::resourceConflict($request);
-        }
-
-        return response()->json($this->centralStock->createQuota($payload, $context, $request), 201);
+        return ApiErrorResponse::make(
+            $request,
+            410,
+            'retired_flow',
+            'Partner quota writes are retired. Use partner stock percent allocation instead.',
+        );
     }
 
     public function update(Request $request, string $quota_id): JsonResponse
@@ -67,32 +55,12 @@ class PartnerQuotaController extends Controller
             return $context;
         }
 
-        $headerErrors = $this->headers->idempotencyKeyErrors($request);
-
-        if ($headerErrors !== []) {
-            return ApiErrorResponse::validationFailed($request, $headerErrors);
-        }
-
-        if ($this->centralStock->findQuota($quota_id) === null) {
-            return ApiErrorResponse::notFound($request);
-        }
-
-        $payload = $request->all();
-        $errors = $this->centralStock->validateQuotaPayload($payload, false, $quota_id);
-
-        if ($errors !== []) {
-            return ApiErrorResponse::validationFailed($request, $errors);
-        }
-
-        if ($this->centralStock->quotaConflictErrors($payload, $quota_id) !== []) {
-            return ApiErrorResponse::resourceConflict($request);
-        }
-
-        $quota = $this->centralStock->updateQuota($quota_id, $payload, $context, $request);
-
-        return $quota === null
-            ? ApiErrorResponse::notFound($request)
-            : response()->json($quota);
+        return ApiErrorResponse::make(
+            $request,
+            410,
+            'retired_flow',
+            'Partner quota writes are retired. Use partner stock percent allocation instead.',
+        );
     }
 
     /**

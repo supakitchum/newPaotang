@@ -4,7 +4,7 @@ namespace App\Modules\Partner\Services;
 
 use App\Models\Partner;
 use App\Models\PartnerApiClient;
-use App\Models\PartnerStockAllocationItem;
+use App\Models\PartnerStockAllocation;
 use App\Models\PartnerTenant;
 use App\Models\SyncInbox;
 use Illuminate\Support\Facades\DB;
@@ -62,44 +62,135 @@ class PartnerSyncService
     public function pullAllocations(string $partnerId, string $tenantId, array $queryParams): array
     {
         $limit = $this->allocationLimit($queryParams['limit'] ?? null);
-        $query = PartnerStockAllocationItem::query()
-            ->join('stock_items', 'stock_items.id', '=', 'partner_stock_allocation_items.stock_item_id')
-            ->where('partner_stock_allocation_items.partner_id', $partnerId)
-            ->where('partner_stock_allocation_items.tenant_id', $tenantId)
-            ->where('partner_stock_allocation_items.status', 'allocated')
-            ->select([
-                'partner_stock_allocation_items.stock_item_id',
-                'partner_stock_allocation_items.game_id',
-                'stock_items.full_number',
-                'stock_items.front3',
-                'stock_items.back3',
-                'stock_items.back2',
-            ])
-            ->orderBy('partner_stock_allocation_items.stock_item_id')
+        $query = DB::table('stock_partner_distributions')
+            ->where('partner_id', $partnerId)
+            ->where('tenant_id', $tenantId)
+            ->orderBy('id')
             ->limit($limit + 1);
 
         if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
-            $query->where('partner_stock_allocation_items.stock_item_id', '>', trim((string) $queryParams['cursor']));
+            $query->where('id', '>', trim((string) $queryParams['cursor']));
         }
 
         $rows = $query->get()->all();
         $hasMore = count($rows) > $limit;
         $rows = array_slice($rows, 0, $limit);
+        $allocations = $this->latestVirtualAllocationsForRows($partnerId, $tenantId, $rows);
 
         return [
-            'data' => array_map(fn (object $row): array => [
-                'stock_item_id' => (string) $row->stock_item_id,
-                'game_id' => (string) $row->game_id,
-                'full_number' => (string) $row->full_number,
-                'front3' => $row->front3,
-                'back3' => $row->back3,
-                'back2' => $row->back2,
-            ], $rows),
+            'data' => array_map(fn (object $row): array => $this->virtualAllocationResource($row, $allocations[(string) $row->game_id] ?? null), $rows),
             'meta' => [
-                'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->stock_item_id : null,
+                'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->id : null,
                 'has_more' => $hasMore,
             ],
         ];
+    }
+
+    /**
+     * @param array<int, object> $distributionRows
+     * @return array<string, object>
+     */
+    private function latestVirtualAllocationsForRows(string $partnerId, string $tenantId, array $distributionRows): array
+    {
+        $gameIds = array_values(array_unique(array_map(fn (object $row): string => (string) $row->game_id, $distributionRows)));
+
+        if ($gameIds === []) {
+            return [];
+        }
+
+        $allocations = [];
+        $rows = PartnerStockAllocation::query()
+            ->where('partner_id', $partnerId)
+            ->where('tenant_id', $tenantId)
+            ->whereIn('game_id', $gameIds)
+            ->whereNotNull('allocation_percent_basis_points')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get()
+            ->all();
+
+        foreach ($rows as $allocation) {
+            $gameId = (string) $allocation->game_id;
+
+            if (! array_key_exists($gameId, $allocations)) {
+                $allocations[$gameId] = $allocation;
+            }
+        }
+
+        return $allocations;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function virtualAllocationResource(object $distribution, ?object $allocation): array
+    {
+        $gameId = (string) $distribution->game_id;
+        $basisPoints = max(0, (int) $distribution->percent_basis_points);
+        $generatedSupplyCount = $this->activeVirtualSupplyCount($gameId);
+        $targetCount = $allocation === null
+            ? (int) floor(($generatedSupplyCount * $basisPoints) / 10000)
+            : (int) $allocation->requested_count;
+        $usedCount = $this->partnerUsedVirtualCount($gameId, (string) $distribution->partner_id);
+        $status = (string) ($allocation->status ?? $distribution->status);
+        $remainingCount = in_array($status, ['recalled', 'cancelled', 'inactive', 'archived'], true)
+            ? 0
+            : max(0, $targetCount - $usedCount - (int) ($allocation->recalled_count ?? 0));
+
+        return [
+            'id' => (string) $distribution->id,
+            'source' => 'stock_partner_distributions',
+            'stock_mode' => 'virtual',
+            'allocation_id' => $allocation === null ? null : (string) $allocation->id,
+            'partner_id' => (string) $distribution->partner_id,
+            'tenant_id' => $distribution->tenant_id === null ? null : (string) $distribution->tenant_id,
+            'game_id' => $gameId,
+            'status' => $status,
+            'allocation_percent' => $this->percentFromBasisPoints($basisPoints),
+            'allocation_percent_basis_points' => $basisPoints,
+            'generated_supply_count' => $generatedSupplyCount,
+            'allocated_count' => $targetCount,
+            'remaining_count' => $remainingCount,
+            'used_count' => $usedCount,
+            'recalled_count' => (int) ($allocation->recalled_count ?? 0),
+            'updated_at' => $distribution->updated_at ?? null,
+        ];
+    }
+
+    private function activeVirtualSupplyCount(string $gameId): int
+    {
+        $profile = DB::table('stock_supply_profiles')
+            ->where('game_id', $gameId)
+            ->where('status', 'active')
+            ->first();
+
+        if ($profile === null) {
+            return 0;
+        }
+
+        $layerCount = (int) DB::table('virtual_stock_supply_layers')
+            ->where('profile_id', (string) $profile->id)
+            ->where('status', 'active')
+            ->sum('total_capacity');
+
+        return $layerCount > 0 ? $layerCount : (int) $profile->total_capacity;
+    }
+
+    private function partnerUsedVirtualCount(string $gameId, string $partnerId): int
+    {
+        return (int) DB::table('virtual_stock_counters')
+            ->where('game_id', $gameId)
+            ->where('scope_type', 'partner')
+            ->where('scope_id', $partnerId)
+            ->selectRaw('COALESCE(SUM(reserved_count + sold_count), 0) as used_count')
+            ->value('used_count');
+    }
+
+    private function percentFromBasisPoints(int $basisPoints): float|int
+    {
+        $value = $basisPoints / 100;
+
+        return fmod($value, 1.0) === 0.0 ? (int) $value : $value;
     }
 
     /**

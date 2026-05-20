@@ -20,19 +20,7 @@ class LocalStockSyncTest extends TestCase
         $this->insertQuota('pqt_sync', 'par_sync', 'gam_sync', 5);
         $this->insertStockItems('gam_sync', 2);
 
-        $central = $this->createCentralSession(['stock.allocate'], 'adm_sync_alloc', 'sync-alloc@example.test');
-        $this->withToken($central['access_token'])
-            ->postJson('/api/v1/admin/central/allocations', [
-                'partner_id' => 'par_sync',
-                'tenant_id' => 'ten_sync',
-                'game_id' => 'gam_sync',
-                'requested_count' => 2,
-            ], [
-                'X-Admin-Scope' => 'central',
-                'Idempotency-Key' => 'sync-allocation',
-                'X-Request-Id' => 'req-sync-allocation',
-            ])
-            ->assertAccepted();
+        $this->insertLegacyAllocatedOutboxForSync('alc_sync', 'par_sync', 'ten_sync', 'gam_sync');
 
         $limited = $this->createTenantSession('ten_sync', 'par_sync', ['stock.view'], 'adm_sync_limited', 'sync-limited@example.test');
         $this->withToken($limited['access_token'])
@@ -118,5 +106,81 @@ class LocalStockSyncTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('id', $batch['id']);
+    }
+
+    private function insertLegacyAllocatedOutboxForSync(string $allocationId, string $partnerId, string $tenantId, string $gameId): void
+    {
+        $now = now();
+        $stockRows = DB::table('stock_items')->where('game_id', $gameId)->orderBy('full_number')->get(['id'])->all();
+
+        DB::table('partner_stock_allocations')->insert([
+            'id' => $allocationId,
+            'partner_id' => $partnerId,
+            'tenant_id' => $tenantId,
+            'game_id' => $gameId,
+            'quota_id' => null,
+            'status' => 'allocated',
+            'requested_count' => count($stockRows),
+            'allocation_percent_basis_points' => null,
+            'allocated_count' => count($stockRows),
+            'recalled_count' => 0,
+            'idempotency_key' => 'sync-allocation',
+            'payload_hash' => hash('sha256', 'legacy-sync-fixture'),
+            'created_by_admin_id' => null,
+            'reason' => 'legacy sync fixture',
+            'cancelled_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('stock_items')->whereIn('id', array_map(fn (object $row): string => (string) $row->id, $stockRows))->update([
+            'status' => 'allocated',
+            'partner_id' => $partnerId,
+            'tenant_id' => $tenantId,
+            'allocation_id' => $allocationId,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('partner_stock_allocation_items')->insert(array_map(fn (object $row): array => [
+            'allocation_id' => $allocationId,
+            'stock_item_id' => (string) $row->id,
+            'partner_id' => $partnerId,
+            'tenant_id' => $tenantId,
+            'game_id' => $gameId,
+            'status' => 'allocated',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], $stockRows));
+
+        DB::table('sync_outbox')->insert([
+            'id' => 'out_sync_alloc',
+            'event_id' => 'evt_sync_alloc',
+            'event_type' => 'stock.allocated.v1',
+            'event_version' => 1,
+            'producer' => 'central_stock',
+            'tenant_id' => $tenantId,
+            'partner_id' => $partnerId,
+            'game_id' => $gameId,
+            'aggregate_type' => 'partner_stock_allocation',
+            'aggregate_id' => $allocationId,
+            'idempotency_key' => 'sync-allocation',
+            'correlation_id' => 'req-sync-allocation',
+            'payload_json' => json_encode([
+                'allocation_id' => $allocationId,
+                'partner_id' => $partnerId,
+                'tenant_id' => $tenantId,
+                'game_id' => $gameId,
+                'cursor' => $allocationId,
+                'item_count' => count($stockRows),
+                'chunk_size' => 5000,
+            ], JSON_THROW_ON_ERROR),
+            'status' => 'pending',
+            'attempt_count' => 0,
+            'available_at' => $now,
+            'processed_at' => null,
+            'last_error' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
     }
 }

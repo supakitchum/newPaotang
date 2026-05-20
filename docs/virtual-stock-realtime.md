@@ -17,6 +17,7 @@ Retired from active API/UI behavior:
 - `requested_count` allocation create payload
 - physical allocation branch that bulk assigns `stock_items`
 - `partner_stock_allocation_items` as source of truth for new partner allocation
+- partner quota weights/sale windows as the source of virtual stock visibility
 
 Still required:
 
@@ -37,6 +38,7 @@ Virtual stock generation requires seeded `base_lottery_numbers`. `DatabaseSeeder
 When a game has an active virtual profile:
 
 - customer search uses combined virtual capacity instead of prebuilt `stock_items`
+- partner/customer visibility requires active `stock_partner_distributions` rows for partner ownership; `partner_quotas` are legacy and not used as the new visibility source
 - reservation creates `stock_items` and `local_stock_items` lazily only for selected tickets
 - reserved and sold tickets are counted in `virtual_stock_counters`
 - availability is broadcast after reserve, release, expiration, and sold conversion
@@ -64,7 +66,13 @@ The set distribution controls added capacity per full number for the initial gen
 
 `seed` is internal and system-managed. BO must not show a seed input and API callers should not send one. Backend stores profile/layer seed metadata internally to make generated capacity deterministic and idempotent.
 
-Partner distribution and sale limits are configured outside the generate form. If partner distribution is empty, the engine falls back to existing partner quota weights or the current safe default behavior.
+Partner distribution and sale limits are configured outside the generate form. Active partner visibility is sourced from `stock_partner_distributions`; if a virtual game has no active partner distribution rows, partner/customer virtual availability is empty until allocation percent is configured.
+
+Partner sync allocation pulls:
+
+- `GET /partner-sync/allocations` returns virtual allocation/distribution metadata from `stock_partner_distributions` and the matching `partner_stock_allocations` snapshot when present
+- new active partner sync no longer uses `partner_stock_allocation_items` as the stock source of truth
+- legacy materialized `stock_items` and `local_stock_items` still exist for reservation/sale/image materialization after a customer action
 
 Back-office entry point:
 
@@ -248,13 +256,12 @@ Terminology:
 - "Agent" in business wording maps to the current `partners` table unless a later Coordinator decision introduces a separate agent entity.
 - Partner tenant selection must be derived from the selected partner whenever possible.
 
-Current gap:
+Retirement follow-up status:
 
-- `central:allocations` still exposes raw id text filters and create fields.
-- Allocation creation still accepts `requested_count`, which is not aligned with the newer partner percentage distribution model.
-- Allocation rows do not display partner names, tenant names, game names, or partner percent clearly.
-- Allocation actions do not yet link to partner stock coverage, partner stock remaining, full recall, or re-distribution after recall.
-- Partners list does not expose or validate each partner/agent stock percent.
+- Backend allocation create rejects `requested_count`; BO create must use `allocation_percent`.
+- Backend allocation list/detail exposes partner, tenant, game, percent, remaining, and recalled metadata.
+- Backend option endpoints, recall-all, redistribute, and partner percent update endpoints are implemented.
+- BO still owns final UI retirement for physical allocation/Partner Quotas surfaces.
 
 Expected backend contract:
 
