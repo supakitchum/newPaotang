@@ -6,7 +6,7 @@
 
 ## Status
 
-Needs BO remediation after Coordinator review.
+Approved after remediation QA.
 
 ## Decision
 
@@ -125,4 +125,35 @@ Remediation task:
 
 ```text
 ai-agents/tasks/20260520-stock-table-realtime-socket-remediation-orchestrator.md
+```
+
+## Coordinator Approval After Remediation QA
+
+Date: 2026-05-20
+
+Coordinator approves `stock-table-realtime-socket` after remediation QA.
+
+Evidence reviewed:
+
+- BO remediation implementation commit: `6d730b18418d789ab05774bb26abc4330d72b761`.
+- QA dispatch/current HEAD under test: `6d1c536b4cf26a4544c941d823814a9e28130fe0`.
+- QA report: `ai-agents/reports/20260520-stock-table-realtime-socket-remediation-qa-report.md`.
+- Browser artifact directory: `ai-agents/reports/artifacts/20260520-stock-table-realtime-socket-remediation-qa/browser`.
+
+Acceptance result:
+
+- Authenticated BO login passed.
+- `/admin/central/stock` shows visible `.np-stock-realtime-panel` and no-game prompt.
+- Selected-game routes `/admin/central/stock`, `/admin/central/master-stock`, `/admin/central/stock-generation`, and `/admin/central/stock-recall` show the visible Stock table realtime panel, summary widgets, and grouped stock count columns.
+- Backend focused tests, BO lint/test/check/build, runtime restore, and login smoke passed.
+- Destructive DB command was limited to `APP_ENV=testing`, `DB_DATABASE=newpaotang_test`, and `--env=testing`.
+
+Residual risk:
+
+- QA did not manually trigger a live browser stock mutation event. Backend event/auth tests and BO source/static checks still cover the `stock.table.updated` contract and merge/reload paths.
+
+Decision:
+
+```text
+APPROVED
 ```

@@ -1,0 +1,145 @@
+{
+  "generatedAt": "2026-05-20T14:34:00.516Z",
+  "baseUrl": "http://localhost:3100",
+  "gameId": "gam_01KS29G2SJBX41ZZ51YKRVKB0B",
+  "chromiumPath": "/Applications/Chromium.app/Contents/MacOS/Chromium",
+  "loginWorks": true,
+  "pageErrors": [],
+  "consoleErrors": [],
+  "failedRequests": [
+    "GET http://localhost:8000/api/v1/admin/central/dashboard/summary net::ERR_ABORTED",
+    "GET http://localhost:8000/api/v1/admin/central/menu net::ERR_ABORTED",
+    "GET http://localhost:3100/_nuxt/components/AdminLotteryImageOperations.vue net::ERR_ABORTED"
+  ],
+  "routes": [
+    {
+      "route": "/admin/central/stock",
+      "finalUrl": "http://localhost:3100/admin/central/stock",
+      "screenshotPath": "/Users/supakit/WorkSpace/www/newPaotang/ai-agents/reports/artifacts/20260520-stock-table-realtime-socket-remediation-qa/browser/central-stock-no-game.png",
+      "textPath": "/Users/supakit/WorkSpace/www/newPaotang/ai-agents/reports/artifacts/20260520-stock-table-realtime-socket-remediation-qa/browser/central-stock-no-game.txt",
+      "panelVisible": true,
+      "titleVisible": true,
+      "panelText": "Stock table realtime Game required Choose a game filter to load the stock summary panel and subscribe this grouped table to live count updates. Select a game to show stock summary widgets and enable live table updates.",
+      "noGamePromptVisible": true,
+      "gameBadgeVisible": false,
+      "summaryCardCount": 0,
+      "summaryGeneratedVisible": false,
+      "statusTotalsVisible": false,
+      "tableVisible": true,
+      "columns": {
+        "Available": true,
+        "Allocated": true,
+        "Sold": true,
+        "Recalled": true,
+        "Tickets": true
+      },
+      "routePageErrors": [],
+      "routeConsoleErrors": [],
+      "routeFailedRequests": [
+        "GET http://localhost:8000/api/v1/admin/central/dashboard/summary net::ERR_ABORTED",
+        "GET http://localhost:8000/api/v1/admin/central/menu net::ERR_ABORTED",
+        "GET http://localhost:3100/_nuxt/components/AdminLotteryImageOperations.vue net::ERR_ABORTED"
+      ]
+    },
+    {
+      "route": "/admin/central/stock?game_id=gam_01KS29G2SJBX41ZZ51YKRVKB0B",
+      "finalUrl": "http://localhost:3100/admin/central/stock?game_id=gam_01KS29G2SJBX41ZZ51YKRVKB0B",
+      "screenshotPath": "/Users/supakit/WorkSpace/www/newPaotang/ai-agents/reports/artifacts/20260520-stock-table-realtime-socket-remediation-qa/browser/central-stock-selected-game.png",
+      "textPath": "/Users/supakit/WorkSpace/www/newPaotang/ai-agents/reports/artifacts/20260520-stock-table-realtime-socket-remediation-qa/browser/central-stock-selected-game.txt",
+      "panelVisible": true,
+      "titleVisible": true,
+      "panelText": "Stock table realtime Live Listening for stock.table.updated events. Safe visible rows update in place; uncertain changes refresh this table and summary. Game gam_01KS29G2SJBX41ZZ51YKRVKB0B",
+      "noGamePromptVisible": false,
+      "gameBadgeVisible": true,
+      "summaryCardCount": 5,
+      "summaryGeneratedVisible": true,
+      "statusTotalsVisible": true,
+      "tableVisible": true,
+      "columns": {
+        "Available": true,
+        "Allocated": true,
+        "Sold": true,
+        "Recalled": true,
+        "Tickets": true
+      },
+      "routePageErrors": [],
+      "routeConsoleErrors": [],
+      "routeFailedRequests": []
+    },
+    {
+      "route": "/admin/central/master-stock?game_id=gam_01KS29G2SJBX41ZZ51YKRVKB0B",
+      "finalUrl": "http://localhost:3100/admin/central/master-stock?game_id=gam_01KS29G2SJBX41ZZ51YKRVKB0B",
+      "screenshotPath": "/Users/supakit/WorkSpace/www/newPaotang/ai-agents/reports/artifacts/20260520-stock-table-realtime-socket-remediation-qa/browser/central-master-stock-selected-game.png",
+      "textPath": "/Users/supakit/WorkSpace/www/newPaotang/ai-agents/reports/artifacts/20260520-stock-table-realtime-socket-remediation-qa/browser/central-master-stock-selected-game.txt",
+      "panelVisible": true,
+      "titleVisible": true,
+      "panelText": "Stock table realtime Live Listening for stock.table.updated events. Safe visible rows update in place; uncertain changes refresh this table and summary. Game gam_01KS29G2SJBX41ZZ51YKRVKB0B",
+      "noGamePromptVisible": false,
+      "gameBadgeVisible": true,
+      "summaryCardCount": 5,
+      "summaryGeneratedVisible": true,
+      "statusTotalsVisible": true,
+      "tableVisible": true,
+      "columns": {
+        "Available": true,
+        "Allocated": true,
+        "Sold": true,
+        "Recalled": true,
+        "Tickets": true
+      },
+      "routePageErrors": [],
+      "routeConsoleErrors": [],
+      "routeFailedRequests": []
+    },
+    {
+      "route": "/admin/central/stock-generation?game_id=gam_01KS29G2SJBX41ZZ51YKRVKB0B",
+      "finalUrl": "http://localhost:3100/admin/central/stock-generation?game_id=gam_01KS29G2SJBX41ZZ51YKRVKB0B",
+      "screenshotPath": "/Users/supakit/WorkSpace/www/newPaotang/ai-agents/reports/artifacts/20260520-stock-table-realtime-socket-remediation-qa/browser/central-stock-generation-selected-game.png",
+      "textPath": "/Users/supakit/WorkSpace/www/newPaotang/ai-agents/reports/artifacts/20260520-stock-table-realtime-socket-remediation-qa/browser/central-stock-generation-selected-game.txt",
+      "panelVisible": true,
+      "titleVisible": true,
+      "panelText": "Stock table realtime Live Listening for stock.table.updated events. Safe visible rows update in place; uncertain changes refresh this table and summary. Game gam_01KS29G2SJBX41ZZ51YKRVKB0B",
+      "noGamePromptVisible": false,
+      "gameBadgeVisible": true,
+      "summaryCardCount": 5,
+      "summaryGeneratedVisible": true,
+      "statusTotalsVisible": true,
+      "tableVisible": true,
+      "columns": {
+        "Available": true,
+        "Allocated": true,
+        "Sold": true,
+        "Recalled": true,
+        "Tickets": true
+      },
+      "routePageErrors": [],
+      "routeConsoleErrors": [],
+      "routeFailedRequests": []
+    },
+    {
+      "route": "/admin/central/stock-recall?game_id=gam_01KS29G2SJBX41ZZ51YKRVKB0B",
+      "finalUrl": "http://localhost:3100/admin/central/stock-recall?game_id=gam_01KS29G2SJBX41ZZ51YKRVKB0B",
+      "screenshotPath": "/Users/supakit/WorkSpace/www/newPaotang/ai-agents/reports/artifacts/20260520-stock-table-realtime-socket-remediation-qa/browser/central-stock-recall-selected-game.png",
+      "textPath": "/Users/supakit/WorkSpace/www/newPaotang/ai-agents/reports/artifacts/20260520-stock-table-realtime-socket-remediation-qa/browser/central-stock-recall-selected-game.txt",
+      "panelVisible": true,
+      "titleVisible": true,
+      "panelText": "Stock table realtime Live Listening for stock.table.updated events. Safe visible rows update in place; uncertain changes refresh this table and summary. Game gam_01KS29G2SJBX41ZZ51YKRVKB0B",
+      "noGamePromptVisible": false,
+      "gameBadgeVisible": true,
+      "summaryCardCount": 5,
+      "summaryGeneratedVisible": true,
+      "statusTotalsVisible": true,
+      "tableVisible": true,
+      "columns": {
+        "Available": true,
+        "Allocated": true,
+        "Sold": true,
+        "Recalled": true,
+        "Tickets": true
+      },
+      "routePageErrors": [],
+      "routeConsoleErrors": [],
+      "routeFailedRequests": []
+    }
+  ]
+}

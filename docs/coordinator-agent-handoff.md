@@ -93,6 +93,13 @@ Coordinator review after QA:
 - Orchestrator must dispatch BO Develop remediation, then QA Tester.
 - QA Tester must provide authenticated BO browser evidence that the panel is visible before reporting PASS.
 
+Coordinator approval after remediation QA:
+
+- Remediation QA report: `ai-agents/reports/20260520-stock-table-realtime-socket-remediation-qa-report.md`.
+- Browser evidence: `ai-agents/reports/artifacts/20260520-stock-table-realtime-socket-remediation-qa/browser`.
+- Coordinator approved `stock-table-realtime-socket` after authenticated BO DOM evidence showed the panel visible on central Stock, Master Stock, Stock Generation, and Stock Recall routes.
+- Residual risk: QA did not manually trigger a live browser stock mutation event; backend event tests and BO merge/reload source checks cover that contract.
+
 ## 2026-05-20 Retire Physical Stock Flow QA Review
 
 Coordinator reviewed QA for `retire-physical-stock-flow`.
