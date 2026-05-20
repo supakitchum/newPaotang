@@ -1,5 +1,84 @@
 # Coordinator Agent Handoff
 
+## 2026-05-20 Stock Table Realtime Socket
+
+Coordinator opened task `stock-table-realtime-socket` for Orchestrator.
+
+Decision:
+
+- `ai-agents/decisions/20260520-stock-table-realtime-socket-decision.md`
+
+Orchestrator task prompt:
+
+- `ai-agents/tasks/20260520-stock-table-realtime-socket-orchestrator.md`
+
+Base worktree evidence before writing this dispatch:
+
+```text
+worktree: /Users/supakit/WorkSpace/www/newPaotang
+branch: develop
+base HEAD before dispatch docs: 08d1827ea6bc93c4d81286f69bf262480638dd52
+origin/develop before dispatch docs: 08d1827ea6bc93c4d81286f69bf262480638dd52
+git status before dispatch docs: clean
+```
+
+Coordinator instruction for user to send to Orchestrator chat:
+
+```text
+รับงาน `stock-table-realtime-socket` จาก Coordinator board.
+
+อ่าน:
+- ai-agents/decisions/20260520-stock-table-realtime-socket-decision.md
+- ai-agents/tasks/20260520-stock-table-realtime-socket-orchestrator.md
+- docs/virtual-stock-realtime.md
+- docs/coordinator-agent-handoff.md section 2026-05-20 Stock Table Realtime Socket
+- ai-agents/rules/global-rules.md
+- ai-agents/workflow/handoff-protocol.md
+
+เป้าหมาย:
+- เพิ่ม realtime socket ให้ main central Stock data table เพื่อให้เห็น available_count, allocated_count, sold_count, recalled_count, total_count แบบสดตาม game_id ที่เลือก.
+
+ให้แตกงานตามลำดับ:
+1. Backend Develop
+   - Add stock-table realtime event/channel for grouped central stock rows.
+   - Suggested channel: private-admin.central.stock.table.game.{game_id}
+   - Suggested event: stock.table.updated
+   - Channel auth must require stock.view.
+   - Emit refresh_required for broad changes and row payloads for safe single full_number changes.
+   - Cover generation/import/allocation/cancel/recall/customer reservation/release/sold paths.
+   - Add backend tests.
+2. BO Develop
+   - Subscribe in AdminOperationsPage.vue only for central grouped stock table with selected game_id.
+   - Merge matching row updates in-place when safe.
+   - Reload table and summary widgets on refresh_required or uncertain filter/sort/page compatibility.
+   - Add BO tests where practical and run lint/test/build.
+3. QA Tester
+   - Validate websocket behavior and fallback reload.
+   - Verify available/allocated/sold updates after allocation and customer stock state changes.
+   - Use test DB only for destructive commands.
+
+ทุก agent ต้องเริ่มจาก canonical worktree:
+cd /Users/supakit/WorkSpace/www/newPaotang
+git fetch origin
+git status --short --branch
+git merge --ff-only origin/develop
+
+ห้ามล้าง runtime DB newpaotang.
+QA/destructive commands ต้องใช้ APP_ENV=testing, DB_DATABASE=newpaotang_test, --env=testing.
+หลัง Worker แต่ละตัวทำเสร็จต้อง commit/push และส่ง handoff.
+หลัง QA Tester ส่ง report แล้วกลับ Coordinator.
+
+Next Agent: Orchestrator
+```
+
+Coordinator board:
+
+- This entry is the board instruction for the user to send in the Orchestrator chat.
+- Do not treat this board entry as an already-running background task.
+- Orchestrator must open the next agent from its own chat/context, starting with Backend Develop.
+- Orchestrator must track each handoff through Backend Develop -> BO Develop -> QA Tester -> Coordinator.
+- Do not skip QA Tester.
+
 ## 2026-05-20 Retire Physical Stock Flow QA Review
 
 Coordinator reviewed QA for `retire-physical-stock-flow`.
