@@ -10,6 +10,8 @@ services:
       WORKSPACE_ROOT: /workspace
       APP_ENV: local
       APP_DEBUG: "true"
+      APP_TIMEZONE: Asia/Bangkok
+      TZ: Asia/Bangkok
       DB_CONNECTION: pgsql
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -52,6 +54,8 @@ services:
       WORKSPACE_ROOT: /workspace
       APP_ENV: local
       APP_DEBUG: "true"
+      APP_TIMEZONE: Asia/Bangkok
+      TZ: Asia/Bangkok
       DB_CONNECTION: pgsql
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -92,6 +96,8 @@ services:
       WORKSPACE_ROOT: /workspace
       APP_ENV: local
       APP_DEBUG: "true"
+      APP_TIMEZONE: Asia/Bangkok
+      TZ: Asia/Bangkok
       DB_CONNECTION: pgsql
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -135,6 +141,8 @@ services:
       WORKSPACE_ROOT: /workspace
       APP_ENV: local
       APP_DEBUG: "true"
+      APP_TIMEZONE: Asia/Bangkok
+      TZ: Asia/Bangkok
       DB_CONNECTION: pgsql
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -168,6 +176,8 @@ services:
       WORKSPACE_ROOT: /workspace
       APP_ENV: local
       APP_DEBUG: "true"
+      APP_TIMEZONE: Asia/Bangkok
+      TZ: Asia/Bangkok
       DB_CONNECTION: pgsql
       DB_HOST: postgres
       DB_PORT: "5432"
