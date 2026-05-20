@@ -34,6 +34,33 @@ ai-agents/decisions/YYYYMMDD-<task-key>-decision.md
 ## Next Agent
 ```
 
+## Worktree Evidence
+
+หัวข้อ `Worktree / HEAD` ต้องมีข้อมูลขั้นต่ำ:
+
+```text
+canonical worktree path
+branch
+git rev-parse HEAD
+git rev-parse origin/develop
+git status --short --branch
+```
+
+ถ้า agent ไม่ได้อยู่ที่ `/Users/supakit/WorkSpace/www/newPaotang` หรือ HEAD ไม่ตรงกับ `origin/develop` โดยไม่มีคำสั่งเฉพาะงาน ให้หยุดและส่ง blocker กลับ Coordinator ก่อนทำงานต่อ
+
+## Coordinator Dispatch Evidence
+
+เมื่อ Coordinator เปิดงานใหม่ในบอร์ด/decision ต้องระบุ:
+
+```text
+latest pushed branch
+latest pushed commit hash
+dirty/untracked files ถ้ามีและเหตุผลว่าทำไมยังไม่ commit
+Next Agent: Orchestrator
+```
+
+Coordinator ห้ามบันทึกว่างานถูก dispatch แล้วถ้าเป็นเพียง board instruction ให้เขียนชัดเจนว่า `user must send this to Orchestrator chat`
+
 ## Required QA Report Extra Section
 
 QA report ทุกฉบับต้องเพิ่มหัวข้อนี้ก่อน `Recommendation`:

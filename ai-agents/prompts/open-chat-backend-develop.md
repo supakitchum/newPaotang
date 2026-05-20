@@ -39,6 +39,8 @@ docs/status-enums.md
 กฎสำคัญ:
 
 ```text
+ก่อนเริ่มต้อง sync canonical worktree /Users/supakit/WorkSpace/www/newPaotang ให้ตรง origin/develop
+ต้องบันทึก worktree path, branch, HEAD, origin/develop ใน handoff
 ห้ามแก้ apps/back-office
 ห้ามแก้ apps/customer
 ห้ามเปลี่ยน API contract โดยไม่มีคำสั่งจาก Coordinator/Orchestrator

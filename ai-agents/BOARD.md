@@ -12,7 +12,7 @@ none
 
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
-| Coordinator | completed | allocation-partner-percent-workflow-authenticated-bo-qa | docs/coordinator-agent-handoff.md |
+| Coordinator | completed | coordinator-role-rules-update | ai-agents/decisions/20260520-coordinator-role-rules-decision.md |
 | Orchestrator | completed | allocation-partner-percent-workflow | ai-agents/handoffs/20260519-allocation-partner-percent-workflow-orchestrator-qa-dispatch-handoff.md |
 | Backend Develop | completed | allocation-partner-percent-workflow-backend | ai-agents/handoffs/20260519-allocation-partner-percent-workflow-backend-handoff.md |
 | BO Develop | completed | allocation-partner-percent-workflow-bo | ai-agents/handoffs/20260519-allocation-partner-percent-workflow-bo-handoff.md |
@@ -22,11 +22,11 @@ none
 ## Open Questions
 
 ```text
-Allocation partner percent workflow is complete. Authenticated BO QA rerun passed: login, allocation selects, allocation_percent create flow without requested_count, partner percent <=100 validation, recall-all, redistribute, scoped stock/coverage actions, BO lint/test/build, and runtime restore/login smoke all passed. No product defects found.
+No active product task. Coordinator role/rules have been refreshed; normal work must be written to the board/decision docs for the user to send to Orchestrator.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/reports/20260519-allocation-partner-percent-workflow-authenticated-bo-qa-report.md
+ai-agents/decisions/20260520-coordinator-role-rules-decision.md
 ```

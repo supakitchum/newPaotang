@@ -129,3 +129,25 @@ docker compose -p newpaotang exec -T platform-api php artisan platform:smoke
 ```
 
 ถ้า QA ต้องทดสอบผ่าน BO browser workflow ที่เขียนข้อมูล ให้ใช้ข้อมูล fixture เฉพาะ QA หรือ test runtime database แยก ห้ามใช้ `migrate:fresh --seed` เพื่อ restore ฐานข้อมูลหลักหลังทดสอบ
+
+## Runtime DB Write Gate
+
+ค่า default ของทุก agent คือห้ามเขียนหรือล้าง runtime DB หลัก `newpaotang` เว้นแต่ user สั่งชัดเจนใน turn นั้น หรือคำสั่งนั้นเป็น smoke/seed idempotent ที่ Coordinator ระบุไว้ใน task/QA report requirement
+
+ต้องขอ Coordinator/user decision ก่อนเสมอเมื่อคำสั่งจะทำสิ่งต่อไปนี้กับ runtime DB:
+
+```text
+drop/truncate/reset/migrate:fresh/migrate:refresh/migrate:reset/db:wipe
+seed data ชุดใหญ่
+copy/replace source data เช่น base lottery number source
+generate/top-up stock จริง
+recall/redistribute allocation จริง
+```
+
+ถ้าเป็นการทดสอบ logic ให้ใช้:
+
+```text
+APP_ENV=testing
+DB_DATABASE=newpaotang_test
+--env=testing
+```

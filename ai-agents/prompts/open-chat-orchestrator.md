@@ -36,6 +36,8 @@ ai-agents/tasks/*.md
 กฎสำคัญ:
 
 ```text
+ก่อนเริ่มต้อง sync canonical worktree /Users/supakit/WorkSpace/www/newPaotang ให้ตรง origin/develop
+ต้องบันทึก worktree path, branch, HEAD, origin/develop ใน handoff/task dispatch
 ห้าม implement code เอง
 ห้ามเปลี่ยน scope เอง
 ห้ามส่งงานให้ agent ผิด ownership

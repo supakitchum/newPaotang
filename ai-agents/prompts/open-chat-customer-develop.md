@@ -41,6 +41,8 @@ apps/customer
 กฎสำคัญ:
 
 ```text
+ก่อนเริ่มต้อง sync canonical worktree /Users/supakit/WorkSpace/www/newPaotang ให้ตรง origin/develop
+ต้องบันทึก worktree path, branch, HEAD, origin/develop ใน handoff
 ห้าม rewrite customer flow เดิมโดยไม่มี approval
 ห้ามเปลี่ยน route/page flow เดิมโดยไม่มี approval
 ห้ามแก้ backend logic

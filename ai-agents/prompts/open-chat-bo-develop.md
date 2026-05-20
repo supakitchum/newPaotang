@@ -38,6 +38,8 @@ admin_dashboard_template/Meno_esbuild
 กฎสำคัญ:
 
 ```text
+ก่อนเริ่มต้อง sync canonical worktree /Users/supakit/WorkSpace/www/newPaotang ให้ตรง origin/develop
+ต้องบันทึก worktree path, branch, HEAD, origin/develop ใน handoff
 ห้ามสร้าง design system ใหม่ถ้า template มี pattern อยู่แล้ว
 ห้าม hardcode permission เป็น authorization จริง
 ห้ามแก้ backend logic

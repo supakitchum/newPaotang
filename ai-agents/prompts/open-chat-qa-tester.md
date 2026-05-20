@@ -36,6 +36,9 @@ docs/permissions.md
 กฎสำคัญ:
 
 ```text
+ก่อนเริ่มต้อง sync canonical worktree /Users/supakit/WorkSpace/www/newPaotang ให้ตรง origin/develop
+ต้องบันทึก worktree path, branch, HEAD, origin/develop และ DB ที่ใช้ทดสอบใน report
+destructive DB commands ต้องใช้ APP_ENV=testing, DB_DATABASE=newpaotang_test, --env=testing เท่านั้น
 ห้ามแก้ implementation code เองเว้นแต่ Coordinator สั่ง
 ห้ามเปลี่ยน acceptance criteria เอง
 ห้าม mark pass ถ้าไม่ได้รัน test หรือไม่ได้ระบุข้อจำกัดชัดเจน

@@ -1,5 +1,29 @@
 # Coordinator Agent Handoff
 
+## 2026-05-20 Coordinator Role / Rules Update
+
+Coordinator is back in coordinator-only mode by default.
+
+Current operating rules:
+
+- Normal work must go through `Coordinator -> Orchestrator -> Worker Agent -> QA Tester -> Coordinator`.
+- Coordinator writes board/decision/task instructions for the user to send to Orchestrator chat.
+- Coordinator must not open background tasks, subagents, or worker sessions directly.
+- Coordinator must not implement code or run runtime/build/test/migration/DB operations unless the user explicitly says `Hotfix` in that same turn.
+- Before dispatching new work, Coordinator must sync `/Users/supakit/WorkSpace/www/newPaotang`, verify `develop` against `origin/develop`, then commit and push completed work.
+- All agents must use the canonical worktree `/Users/supakit/WorkSpace/www/newPaotang` on latest `origin/develop` unless Coordinator assigns a different path in writing.
+- QA/destructive DB commands must use `APP_ENV=testing`, `DB_DATABASE=newpaotang_test`, and `--env=testing`. Runtime DB `newpaotang` must not be treated as disposable test data.
+
+Latest base lottery source:
+
+- `apps/platform-api/storage/app/public/number.json`
+- Runtime DB was explicitly seeded from this file under user-approved hotfix work.
+- Future agents must not revert virtual stock base numbers to `000000-999999` generated source without a new decision.
+
+Decision:
+
+- `ai-agents/decisions/20260520-coordinator-role-rules-decision.md`
+
 ## 2026-05-15 Hotfix Summary
 
 Latest pushed commits on `develop`:

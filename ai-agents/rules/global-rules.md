@@ -17,6 +17,31 @@ Coordinator ห้ามทำ implementation, operation, migration, DB reset, d
 
 Coordinator ทำเกินหน้าที่และลงมือแก้/รันเองได้เฉพาะเมื่อคำสั่งผู้ใช้ใน turn นั้นระบุชัดว่า `Hotfix` เท่านั้น ถ้าไม่มีคำว่า `Hotfix` ให้ถือว่าเป็นงาน coordinator flow ปกติและห้าม direct execution
 
+## Coordinator Board Dispatch Rule
+
+Coordinator ต้องส่งงานผ่านบอร์ด/เอกสารเท่านั้นในงานปกติ โดยเขียนคำสั่งให้ผู้ใช้นำไปเปิดใน Orchestrator chat ห้ามเปิด background task, subagent, หรือ agent session แทนผู้ใช้เอง
+
+สิ่งที่ Coordinator ทำได้ใน flow ปกติ:
+
+```text
+อ่าน source of truth
+สรุป requirement และ decision
+เขียน/อัปเดต ai-agents/BOARD.md
+เขียน/อัปเดต ai-agents/decisions/*.md
+เขียน task/handoff instruction ที่ Orchestrator ต้องรับช่วงต่อ
+ตรวจ handoff และ QA report
+```
+
+สิ่งที่ Coordinator ห้ามทำถ้า user ไม่ได้ระบุ `Hotfix` ใน turn นั้น:
+
+```text
+แก้ implementation code
+รัน migration/seed/reset/build/test/runtime operation
+เปิด subagent/background task เอง
+dispatch worker โดยข้าม Orchestrator
+ส่งงานกลับ Coordinator โดยข้าม QA Tester
+```
+
 ## Clarification Rule
 
 Coordinator ต้องถามผู้ใช้หรือขอความเห็นเมื่อเจอข้อมูลไม่ชัดเจนในส่วนที่มีผลต่อ architecture, scope, security, tenant isolation, payment, wallet, reward, permission, หรือ customer flow
@@ -168,6 +193,8 @@ git merge --ff-only origin/develop
 
 ถ้า command ใด fail ต้องหยุดและส่งกลับ Coordinator ห้ามเดินงานต่อบนฐานที่ไม่ตรงกัน
 
+ก่อนเริ่มงานใหม่หรือรับ handoff ทุกครั้ง agent ต้องบันทึก `worktree path`, `branch`, `HEAD`, และ `origin/develop` ใน handoff/report เพื่อยืนยันว่าอ่านงานจาก commit เดียวกันกับทีม
+
 ## QA Runtime Restore Rule
 
 QA Tester ต้องใช้ฐานข้อมูลทดสอบแยกจากฐานข้อมูล runtime หลักเสมอ และต้องคืนสภาพ local Docker runtime ให้ login ได้ก่อนส่งรายงานทุกครั้ง โดยเฉพาะงานที่แตะ database, migration, seeder, PHPUnit/feature test, Docker volume, Nuxt `.nuxt`, `npm run build`, หรือ browser QA
@@ -255,3 +282,21 @@ Coordinator ต้องเคลียร์ git ก่อนเริ่มห
 ```
 
 ห้าม Coordinator เปิด task ใหม่บน worktree ที่ยังมี implementation/docs changes ค้างโดยไม่ commit/push เว้นแต่ผู้ใช้สั่งข้ามเป็นลายลักษณ์อักษรใน turn นั้นโดยตรง
+
+## Base Lottery Number Source Rule
+
+เลขฐานของ virtual stock ต้องมาจากไฟล์ในโปรเจคนี้:
+
+```text
+apps/platform-api/storage/app/public/number.json
+```
+
+กฎสำหรับทุก agent:
+
+```text
+1. ห้ามกลับไปใช้ generator 000000-999999 เป็น source หลักโดยไม่มี Coordinator decision ใหม่
+2. ห้ามลบหรือแทนที่ไฟล์ number.json นี้ เว้นแต่ user สั่งชัดเจนใน turn นั้น
+3. ถ้าต้อง seed base_lottery_numbers ให้ใช้คำสั่ง stock:base-lottery:seed ผ่าน Docker เท่านั้น
+4. ถ้าจะ seed runtime DB newpaotang ต้องมี user approval ชัดเจนใน turn นั้น
+5. QA/destructive setup ต้อง seed เฉพาะ newpaotang_test ตาม QA Runtime Restore Rule
+```

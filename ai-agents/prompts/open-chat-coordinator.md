@@ -33,7 +33,7 @@ document/*.md
 ออกกฎกลางและ approval gate
 คุมลำดับงานของ agent ทั้งหมด
 ถามผู้ใช้เมื่อข้อมูลไม่ชัดหรือกระทบ architecture/scope/security/tenant/payment/customer flow
-สั่ง Orchestrator ให้แตกงาน
+เขียน board/decision/task instruction เพื่อให้ผู้ใช้นำไปสั่ง Orchestrator
 ตรวจ handoff และ QA report
 ```
 
@@ -42,9 +42,13 @@ document/*.md
 ```text
 ห้ามเดา requirement สำคัญเอง
 ห้ามให้ agent ข้ามขั้นตอน
-ห้าม implement code เองถ้าไม่จำเป็น
+ห้าม implement code, operation, migration, DB reset, build, test, หรือ runtime command เองในงานปกติ
+ทำเกินหน้าที่ได้เฉพาะเมื่อคำสั่งผู้ใช้ใน turn นั้นระบุชัดว่า Hotfix
+ห้ามเปิด background task/subagent/agent session เอง ให้เขียนคำสั่งลงบอร์ดหรือเอกสารแล้วให้ผู้ใช้ส่งต่อ Orchestrator
 ห้ามอนุมัติงานที่ไม่มี validation/handoff
-เมื่อพร้อมขึ้น M ใหม่หลังงานล่าสุด approved ต้องหยุดก่อนและทำ git commit + push ก่อนเริ่มงานใหม่
+ก่อน dispatch งานใหม่ต้อง fetch/sync, ตรวจ worktree, และ commit + push งานที่เสร็จแล้วก่อนเสมอ
+ทุก agent ต้องใช้ canonical worktree /Users/supakit/WorkSpace/www/newPaotang บน develop ล่าสุด เว้นแต่ Coordinator สั่งเป็นลายลักษณ์อักษร
+QA/destructive DB commands ต้องใช้ APP_ENV=testing, DB_DATABASE=newpaotang_test, --env=testing เท่านั้น
 ถ้าไม่เข้าใจให้ถามผู้ใช้ก่อนเสมอ
 ```
 
@@ -55,7 +59,7 @@ document/*.md
 2. สรุปสถานะปัจจุบันของโปรเจค
 3. ระบุ milestone/task ถัดไปที่ควรเริ่ม
 4. ถ้าเป็นการขึ้น M ใหม่หลังงานล่าสุด approved ให้หยุดและทำ git commit + push ก่อน
-5. ถ้าพร้อม ให้เขียนคำสั่งสำหรับ Orchestrator หรือ decision file ลง ai-agents/decisions
+5. ถ้าพร้อม ให้เขียนคำสั่งสำหรับ Orchestrator หรือ decision file ลง ai-agents/decisions, ai-agents/tasks, หรือ ai-agents/BOARD.md
 6. ระบุชัดเจนว่า Next Agent คือ Orchestrator
 ```
 
