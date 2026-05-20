@@ -1,5 +1,31 @@
 # Virtual Stock + Realtime Availability
 
+## Retire Physical Stock Flow
+
+Decision file:
+
+```text
+ai-agents/decisions/20260520-retire-physical-stock-flow-decision.md
+```
+
+Virtual stock is the only active stock generation and allocation model for new work.
+
+Retired from active API/UI behavior:
+
+- physical stock generation modes
+- Partner Quotas BO workflow
+- `requested_count` allocation create payload
+- physical allocation branch that bulk assigns `stock_items`
+- `partner_stock_allocation_items` as source of truth for new partner allocation
+
+Still required:
+
+- `stock_items` and `local_stock_items` for lazy materialization after customer reservation/sale/image work
+- `partner_stock_allocations` as allocation snapshot
+- `stock_partner_distributions` as partner stock percent source of truth
+
+Do not drop legacy tables in the retirement task. Schema cleanup is a later phase after QA confirms no active endpoint/client depends on the old physical path.
+
 ## Current Contract
 
 Virtual stock is enabled per game through `POST /admin/central/stock/generate` with a virtual-only generation mode.

@@ -1,5 +1,71 @@
 # Coordinator Agent Handoff
 
+## 2026-05-20 Retire Physical Stock Flow
+
+Coordinator opened task `retire-physical-stock-flow` for Orchestrator.
+
+Decision:
+
+- `ai-agents/decisions/20260520-retire-physical-stock-flow-decision.md`
+
+Base worktree evidence before writing this dispatch:
+
+```text
+worktree: /Users/supakit/WorkSpace/www/newPaotang
+branch: develop
+base HEAD before dispatch docs: ab224f3ceb3eba0f92a5183842a794854d9ae837
+origin/develop before dispatch docs: ab224f3ceb3eba0f92a5183842a794854d9ae837
+```
+
+Coordinator instruction for user to send to Orchestrator chat:
+
+```text
+รับงาน `retire-physical-stock-flow` จาก Coordinator board.
+
+อ่าน:
+- ai-agents/decisions/20260520-retire-physical-stock-flow-decision.md
+- docs/virtual-stock-realtime.md
+- docs/coordinator-agent-handoff.md section 2026-05-20 Retire Physical Stock Flow
+- docs/openapi.yaml
+
+เป้าหมาย:
+- Retire old physical stock flow from active API/UI usage.
+- Keep virtual materialization tables: stock_items, local_stock_items, virtual_stock_ref.
+- Do not drop legacy tables in this task.
+
+ให้แตกงานตามลำดับ:
+1. Backend Develop
+   - POST /admin/central/stock/generate accepts only generation_mode=virtual_profile for active stock generation.
+   - POST /admin/central/allocations rejects requested_count.
+   - Remove/deactivate physical allocation branch that bulk assigns stock_items and partner_stock_allocation_items.
+   - Use partner_stock_allocations as allocation snapshot and stock_partner_distributions as source of truth.
+   - Make partner-sync/allocations support virtual allocation data.
+   - Ensure partner/customer stock visibility reads virtual distribution/generated counts.
+   - Update OpenAPI/docs/tests.
+2. BO Develop
+   - Remove or disable Partner Quotas UI/menu/operations from active BO.
+   - Remove physical allocation fields.
+   - Allocation create/preview must use virtual distribution and real remaining distributed percent.
+   - Stock/remaining partner views must show virtual stock from stock_partner_distributions.
+3. QA Tester
+   - Use APP_ENV=testing, DB_DATABASE=newpaotang_test, --env=testing for destructive commands only.
+   - Test virtual generate -> allocation -> partner/customer stock visibility -> reservation materializes stock_items/local_stock_items.
+   - Confirm requested_count allocation and physical generate payloads are rejected.
+
+ทุก agent ต้องเริ่มจาก canonical worktree:
+cd /Users/supakit/WorkSpace/www/newPaotang
+git fetch origin
+git status --short --branch
+git merge --ff-only origin/develop
+
+ห้ามล้าง runtime DB newpaotang.
+หลัง Backend Develop commit/push แล้วส่ง BO Develop.
+หลัง BO Develop commit/push แล้วส่ง QA Tester.
+หลัง QA Tester ส่ง report แล้วกลับ Coordinator.
+
+Next Agent: Orchestrator
+```
+
 ## 2026-05-20 Coordinator Role / Rules Update
 
 Coordinator is back in coordinator-only mode by default.

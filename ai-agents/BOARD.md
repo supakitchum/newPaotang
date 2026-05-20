@@ -5,15 +5,15 @@
 ## Active Task
 
 ```text
-none
+retire-physical-stock-flow
 ```
 
 ## Agent Status
 
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
-| Coordinator | completed | coordinator-role-rules-update | ai-agents/decisions/20260520-coordinator-role-rules-decision.md |
-| Orchestrator | completed | allocation-partner-percent-workflow | ai-agents/handoffs/20260519-allocation-partner-percent-workflow-orchestrator-qa-dispatch-handoff.md |
+| Coordinator | ready for orchestrator | retire-physical-stock-flow | ai-agents/decisions/20260520-retire-physical-stock-flow-decision.md |
+| Orchestrator | next | retire-physical-stock-flow | ai-agents/decisions/20260520-retire-physical-stock-flow-decision.md |
 | Backend Develop | completed | allocation-partner-percent-workflow-backend | ai-agents/handoffs/20260519-allocation-partner-percent-workflow-backend-handoff.md |
 | BO Develop | completed | allocation-partner-percent-workflow-bo | ai-agents/handoffs/20260519-allocation-partner-percent-workflow-bo-handoff.md |
 | Customer Develop | completed | lottery-image-customer-ssr-error-serialization-remediation | ai-agents/handoffs/20260514-lottery-image-customer-ssr-error-serialization-remediation-customer-handoff.md |
@@ -22,11 +22,11 @@ none
 ## Open Questions
 
 ```text
-No active product task. Coordinator role/rules have been refreshed; normal work must be written to the board/decision docs for the user to send to Orchestrator.
+No open product question. User approved Retire Flow: remove physical stock flow from active API/UI behavior, keep virtual materialization tables, and dispatch to Orchestrator.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/decisions/20260520-coordinator-role-rules-decision.md
+ai-agents/decisions/20260520-retire-physical-stock-flow-decision.md
 ```
