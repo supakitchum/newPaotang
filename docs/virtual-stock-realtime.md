@@ -6,6 +6,8 @@ Virtual stock is enabled per game through `POST /admin/central/stock/generate` w
 
 The first generation for a game creates the active virtual stock profile/container. Later generation requests for the same game are top-ups: they add virtual supply to the existing active profile instead of replacing it.
 
+Virtual stock generation requires seeded `base_lottery_numbers`. `DatabaseSeeder` runs `BaseLotteryNumberSeeder`, which loads the approved `number.json` from `BASE_LOTTERY_NUMBERS_PATH` or `storage/app/public/number.json` when present. If that file is missing, the seed step warns and generation remains blocked with `Base lottery numbers must be seeded before generating virtual stock.`
+
 When a game has an active virtual profile:
 
 - customer search uses combined virtual capacity instead of prebuilt `stock_items`

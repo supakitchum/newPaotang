@@ -52,7 +52,7 @@ withCommands([...])
 | `platform:migration:rehearsal` | `platform:migration:rehearsal {--dry-run} {--format=table}` | `App\Shared\Migration\MigrationRehearsalReadinessService::report()` |
 | `platform:runtime:readiness` | `platform:runtime:readiness {--format=table}` | `App\Shared\Runtime\RuntimeReadinessService::report()` |
 | `stock:reservations:expire` | `stock:reservations:expire {--limit=100}` | `App\Modules\PartnerStore\Services\PartnerStoreService::expireReservations()` |
-| `stock:base-lottery:seed` | `stock:base-lottery:seed {--chunk=5000} {--source=} {--truncate}` | seeds `base_lottery_numbers` for virtual stock from the approved JSON number list |
+| `stock:base-lottery:seed` | `stock:base-lottery:seed {--chunk=5000} {--source=} {--truncate}` | seeds `base_lottery_numbers` for virtual stock from the approved JSON number list; `DatabaseSeeder` also runs this seeder when `BASE_LOTTERY_NUMBERS_PATH` or `storage/app/public/number.json` is available |
 | `stock:sold:sync` | `stock:sold:sync {--limit=100}` | `App\Modules\Commerce\Services\CommerceService::processSoldSync()` |
 | `reward:check` | `reward:check {reward_result_id?} {--chunk=100}` | `App\Modules\Reward\Services\RewardService::processRewardCheck()` |
 | `commission:calculate` | `commission:calculate {order_id?} {--tenant_id=} {--limit=100}` | `App\Modules\Growth\Services\GrowthService::calculateCommissions()` |
@@ -68,7 +68,7 @@ Successful command output keeps the existing intent:
 
 ```text
 platform:about -> NewPaotang Platform API
-platform:smoke -> app/database/cache/queue/seeded-login/monitoring-default readiness lines
+platform:smoke -> app/database/cache/queue/monitoring-default/base-lottery-numbers/seeded-login readiness lines
 platform:observability:report --format=json -> safe machine-readable M10 signal inventory
 platform:alerts:check --dry-run --format=json -> safe local/dev alert policy evaluation
 platform:cloudflare:readiness --format=json -> safe local/dev Cloudflare/HTTPS/WAF/cache/CDN/R2 readiness report with production_approved=false
@@ -106,6 +106,22 @@ docker compose run --rm platform-api php artisan lottery-images:readiness --form
 ```
 
 Do not run `php artisan ...` directly on the host machine.
+
+## Base Lottery Seed
+
+Virtual stock generation requires `base_lottery_numbers` to contain the approved number universe. The source of truth is `number.json`, formatted as either:
+
+```json
+[{ "number": "001100" }, { "full_number": "123456" }, "999999"]
+```
+
+The normal seed path is:
+
+```text
+BASE_LOTTERY_NUMBERS_PATH=/var/www/html/storage/app/public/number.json
+```
+
+If that env var is not set, `DatabaseSeeder` looks for `storage/app/public/number.json`, then `storage/app/public/number2.json`. If no source file is available, `DatabaseSeeder` warns and skips only the base lottery seed; virtual stock generation will still reject with `base_lottery_numbers` until the source file is placed and the seeder/command is rerun.
 
 ## Lottery Image Production Ops Runbook
 

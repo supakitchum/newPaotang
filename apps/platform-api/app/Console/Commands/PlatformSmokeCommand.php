@@ -27,6 +27,7 @@ class PlatformSmokeCommand extends Command
             'cache' => $this->checkCache(),
             'queue' => $this->checkQueue(),
             'monitoring-defaults' => $this->checkMonitoringDefaults(),
+            'base-lottery-numbers' => $this->checkBaseLotteryNumbers(),
         ];
 
         if (! $this->option('no-seed-login')) {
@@ -89,6 +90,15 @@ class PlatformSmokeCommand extends Command
             $healthChecks = PartnerHealthCheck::count();
 
             return $profiles > 0 && $meters > 0 && $policies > 0 && $healthChecks > 0 ? 'ok' : 'failed';
+        } catch (Throwable) {
+            return 'failed';
+        }
+    }
+
+    private function checkBaseLotteryNumbers(): string
+    {
+        try {
+            return DB::table('base_lottery_numbers')->exists() ? 'ok' : 'failed';
         } catch (Throwable) {
             return 'failed';
         }

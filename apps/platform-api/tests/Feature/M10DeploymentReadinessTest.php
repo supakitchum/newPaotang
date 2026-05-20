@@ -14,6 +14,8 @@ class M10DeploymentReadinessTest extends TestCase
 
     public function test_Platform_smoke_command_checks_dependencies_seeded_logins_and_monitoring_defaults(): void
     {
+        config(['platform.stock_generation.base_lottery_numbers_path' => $this->baseLotteryFixturePath()]);
+
         $this->seed(DatabaseSeeder::class);
 
         $this->artisan('platform:smoke')
@@ -22,6 +24,7 @@ class M10DeploymentReadinessTest extends TestCase
             ->expectsOutput('cache: ok')
             ->expectsOutput('queue: '.config('queue.default'))
             ->expectsOutput('monitoring-defaults: ok')
+            ->expectsOutput('base-lottery-numbers: ok')
             ->expectsOutput('seeded-logins: ok')
             ->assertExitCode(SymfonyCommand::SUCCESS);
 
@@ -59,6 +62,23 @@ class M10DeploymentReadinessTest extends TestCase
         foreach ($requiredMeters as $meter) {
             $this->assertSame(3, DB::table('partner_usage_meters')->where('meter_key', $meter)->count(), $meter.' meter must exist for every demo partner.');
         }
+    }
+
+    private function baseLotteryFixturePath(): string
+    {
+        $dir = storage_path('framework/testing/deployment-readiness-base-lottery');
+
+        if (! is_dir($dir)) {
+            mkdir($dir, 0777, true);
+        }
+
+        $path = $dir.'/number.json';
+        file_put_contents($path, json_encode([
+            ['number' => '001100'],
+            ['number' => '123456'],
+        ], JSON_THROW_ON_ERROR));
+
+        return $path;
     }
 
     public function test_Root_health_routes_match_openapi_readiness_contract(): void

@@ -120,6 +120,7 @@ class MigrationRehearsalReadinessService
             'apps/platform-api/database/seeders/DefaultRbacMenuSeeder.php',
             'apps/platform-api/database/seeders/BootstrapAdminSeeder.php',
             'apps/platform-api/database/seeders/DemoTenantSeeder.php',
+            'apps/platform-api/database/seeders/BaseLotteryNumberSeeder.php',
         ];
         $missingSeeders = array_values(array_filter($seeders, fn (string $path): bool => ! is_file($this->workspacePath($path))));
         $blockers = [];
