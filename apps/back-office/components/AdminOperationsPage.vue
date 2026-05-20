@@ -271,36 +271,6 @@
     <template v-else>
       <AdminFilterBar v-if="resource.filters?.length" :filters="hydratedFilters" :model-value="filters" @apply="applyFilters" />
       <AdminApiState v-if="stockGenerateCurrentGameMessage" :message="stockGenerateCurrentGameMessage" />
-      <div v-if="showStockTableRealtimePanel" class="card custom-card np-stock-realtime-panel">
-        <div class="card-body">
-          <div class="d-flex flex-column flex-xl-row align-items-xl-center justify-content-between gap-3">
-            <div class="d-flex align-items-start gap-3">
-              <span class="avatar bg-info-transparent text-info">
-                <i class="ri-broadcast-line fs-4" />
-              </span>
-              <div>
-                <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                  <h6 class="mb-0">Stock table realtime</h6>
-                  <span :class="['badge', stockTableRealtimeStatusBadgeClass]">{{ stockTableRealtimeStatusLabel }}</span>
-                </div>
-                <p class="text-muted mb-0">{{ stockTableRealtimePanelMessage }}</p>
-              </div>
-            </div>
-            <div class="d-flex flex-wrap align-items-center gap-2">
-              <span v-if="selectedStockTableGameId" class="badge bg-light text-default">Game {{ selectedStockTableGameId }}</span>
-              <span v-if="stockTableRealtimeLastEventLabel" class="badge bg-success-transparent text-success">{{ stockTableRealtimeLastEventLabel }}</span>
-            </div>
-          </div>
-          <div v-if="!selectedStockTableGameId" class="alert alert-info d-flex align-items-start gap-2 mt-3 mb-0">
-            <i class="ri-information-line fs-18" />
-            <div>Select a game to show stock summary widgets and enable live table updates.</div>
-          </div>
-          <div v-else-if="stockTableRealtimeError" class="alert alert-warning d-flex align-items-start gap-2 mt-3 mb-0">
-            <i class="ri-alert-line fs-18" />
-            <div>{{ stockTableRealtimeError }}</div>
-          </div>
-        </div>
-      </div>
       <AdminStockSummaryWidgets
         v-if="showStockSummaryWidgets"
         :endpoint="stockSummaryEndpoint"
@@ -348,6 +318,36 @@
         empty-message="No records were returned from the approved back-office API."
         @sort-change="applySort"
       >
+        <template #beforeTable>
+          <div v-if="showStockTableRealtimePanel" class="np-stock-realtime-panel border rounded p-3 mb-3">
+            <div class="d-flex flex-column flex-xl-row align-items-xl-center justify-content-between gap-3">
+              <div class="d-flex align-items-start gap-3">
+                <span class="avatar bg-info-transparent text-info">
+                  <i class="ri-broadcast-line fs-4" />
+                </span>
+                <div>
+                  <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                    <h6 class="mb-0">Stock table realtime</h6>
+                    <span :class="['badge', stockTableRealtimeStatusBadgeClass]">{{ stockTableRealtimeStatusLabel }}</span>
+                  </div>
+                  <p class="text-muted mb-0">{{ stockTableRealtimePanelMessage }}</p>
+                </div>
+              </div>
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <span v-if="selectedStockTableGameId" class="badge bg-light text-default">Game {{ selectedStockTableGameId }}</span>
+                <span v-if="stockTableRealtimeLastEventLabel" class="badge bg-success-transparent text-success">{{ stockTableRealtimeLastEventLabel }}</span>
+              </div>
+            </div>
+            <div v-if="!selectedStockTableGameId" class="alert alert-info d-flex align-items-start gap-2 mt-3 mb-0">
+              <i class="ri-information-line fs-18" />
+              <div>Select a game to show stock summary widgets and enable live table updates.</div>
+            </div>
+            <div v-else-if="stockTableRealtimeError" class="alert alert-warning d-flex align-items-start gap-2 mt-3 mb-0">
+              <i class="ri-alert-line fs-18" />
+              <div>{{ stockTableRealtimeError }}</div>
+            </div>
+          </div>
+        </template>
         <template v-for="column in tableColumns" #[`cell-${column.key}`]="{ row }">
           <AdminStatusBadge v-if="column.type === 'status'" :status="row[column.key]" />
           <span v-else>{{ row[column.key] ?? '-' }}</span>

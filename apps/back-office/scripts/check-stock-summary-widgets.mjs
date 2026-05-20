@@ -67,6 +67,10 @@ for (const token of [
   }
 }
 
+if (!operationsPage.includes('<template #beforeTable>') || !read('components/AdminDataTable.vue').includes('<slot name="beforeTable" />')) {
+  failures.push('Stock table realtime panel must render inside the Stock Manager data table card')
+}
+
 for (const token of [
   'game_id: normalizedGameId.value',
   'batch_id: normalizedBatchId.value',

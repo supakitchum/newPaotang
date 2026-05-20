@@ -7,6 +7,7 @@
       </div>
     </div>
     <div :class="embedded ? 'p-0' : 'card-body'">
+      <slot name="beforeTable" />
       <AdminLoader v-if="loading" />
       <AdminEmptyState v-else-if="!rows.length" :title="emptyTitle" :message="emptyMessage" />
       <div v-else class="table-responsive">
