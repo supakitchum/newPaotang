@@ -291,7 +291,7 @@
       <AdminDataTable
         :title="resource.title"
         :columns="tableColumns"
-        :rows="tableRows"
+        :rows="rows"
         :loading="loading"
         :sort-key="sortState.key"
         :sort-direction="sortState.direction"
@@ -523,7 +523,7 @@
 </template>
 
 <script setup lang="ts">
-import type { OperationAction, OperationColumn, OperationFilter, OperationFormField, OperationOption, OperationOptionSource, OperationRelatedList, OperationResource, OperationSettingsPanel } from '~/composables/useAdminOperationsCatalog'
+import type { OperationAction, OperationFilter, OperationFormField, OperationOption, OperationOptionSource, OperationRelatedList, OperationResource, OperationSettingsPanel } from '~/composables/useAdminOperationsCatalog'
 import { formatDateTime, titleize } from '~/utils/format'
 
 const props = defineProps<{
@@ -716,37 +716,13 @@ const hydratedFilters = computed(() => hydrateFilters(resource.value?.filters ||
 const hydratedCollectionActions = computed(() => hydrateActions(resource.value?.collectionActions || []))
 const hydratedActions = computed(() => hydrateActions(resource.value?.actions || []))
 const detailActions = computed(() => hydratedActions.value)
-const tableColumns = computed<OperationColumn[]>(() => {
+const tableColumns = computed(() => {
   const columns = resource.value?.columns || []
   if (!isStockGenerationRoute.value) {
     return columns
   }
 
-  const next: OperationColumn[] = []
-  for (const column of columns) {
-    if (column.key === 'game_id') {
-      next.push(
-        { key: 'partner_label', label: 'Partner', sortable: false },
-        { key: 'tenant_label', label: 'Tenant', sortable: false },
-      )
-      continue
-    }
-
-    next.push(column)
-  }
-
-  return next
-})
-const tableRows = computed(() => {
-  if (!isStockGenerationRoute.value) {
-    return rows.value
-  }
-
-  return rows.value.map((row) => ({
-    ...row,
-    partner_label: stockGenerationPartnerLabel(row),
-    tenant_label: stockGenerationTenantLabel(row),
-  }))
+  return columns.filter((column) => column.key !== 'game_id')
 })
 const detailDisplayRecord = computed(() => {
   if (resource.value?.detailRenderer !== 'reward' || !detail.value) {
@@ -1142,40 +1118,6 @@ const normalizePartnerOptions = (items: any[]) => items
   .map(partnerOption)
   .filter((option) => !isBlank(optionValue(option)))
 
-const optionLabelByValue = (source: OperationOptionSource, value: any) => {
-  const normalized = String(value ?? '').trim()
-  if (!normalized) {
-    return ''
-  }
-
-  const option = (optionSourceOptions[source] || []).find((item) => String(optionValue(item)) === normalized)
-  return option ? optionLabel(option) : ''
-}
-
-const stockGenerationPartnerLabel = (row: any) => {
-  const raw = row?.__raw || row || {}
-  const partnerId = raw.partner_id || filters.value.partner_id || ''
-  const partnerName = raw.partner_name || raw.partner?.name || ''
-  const partnerCode = raw.partner_code || raw.partner?.code || ''
-  if (partnerName || partnerCode) {
-    return [partnerCode, partnerName].filter(Boolean).join(' - ')
-  }
-
-  return optionLabelByValue('allocation-partners', partnerId) || partnerId || '-'
-}
-
-const stockGenerationTenantLabel = (row: any) => {
-  const raw = row?.__raw || row || {}
-  const tenantId = raw.tenant_id || filters.value.tenant_id || ''
-  const tenantName = raw.tenant_name || raw.tenant?.name || ''
-  const tenantCode = raw.tenant_code || raw.tenant?.code || ''
-  if (tenantName || tenantCode) {
-    return [tenantCode, tenantName].filter(Boolean).join(' - ')
-  }
-
-  return optionLabelByValue('allocation-tenants', tenantId) || tenantId || '-'
-}
-
 const allocationPartnerOption = (partner: any): OperationOption => {
   const id = partner?.partner_id || partner?.id || partner?.uuid || partner?.code
   const code = partner?.code || partner?.partner_code || ''
@@ -1249,7 +1191,6 @@ const normalizeAllocationGameOptions = (items: any[]) => items
   .filter((option) => !isBlank(optionValue(option)))
 
 const optionValue = (option: OperationOption) => typeof option === 'object' && option !== null ? option.value : option
-const optionLabel = (option: OperationOption) => typeof option === 'object' && option !== null ? option.label : String(option)
 
 const mergeOptions = (base: OperationOption[], next: OperationOption[]) => {
   const seen = new Set(base.map((option) => String(optionValue(option))))

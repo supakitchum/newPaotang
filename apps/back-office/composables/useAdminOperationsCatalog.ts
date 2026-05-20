@@ -28,7 +28,6 @@ export type OperationColumn = {
   label: string
   type?: 'text' | 'status' | 'datetime' | 'money' | 'json' | 'customer' | 'number'
   fallbackKeys?: string[]
-  sortable?: boolean
 }
 
 export type OperationFilter = {

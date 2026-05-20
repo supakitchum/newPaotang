@@ -24,8 +24,8 @@
                   @change="toggleAllVisible"
                 >
               </th>
-              <th v-for="column in columns" :key="column.key" scope="col" :aria-sort="isColumnSortable(column) ? ariaSort(column.key) : undefined">
-                <button v-if="isColumnSortable(column)" class="np-sort-button" type="button" @click="toggleSort(column)">
+              <th v-for="column in columns" :key="column.key" scope="col" :aria-sort="sortable ? ariaSort(column.key) : undefined">
+                <button v-if="sortable" class="np-sort-button" type="button" @click="toggleSort(column)">
                   <span>{{ column.label }}</span>
                   <i :class="sortIcon(column.key)" aria-hidden="true" />
                 </button>
@@ -66,7 +66,6 @@ type DataTableColumn = {
   key: string
   label: string
   type?: string
-  sortable?: boolean
 }
 
 const props = withDefaults(defineProps<{
@@ -138,15 +137,9 @@ const toggleRow = (row: any) => {
 }
 
 const toggleSort = (column: DataTableColumn) => {
-  if (!isColumnSortable(column)) {
-    return
-  }
-
   const nextDirection = props.sortKey === column.key && props.sortDirection === 'asc' ? 'desc' : 'asc'
   emit('sortChange', { key: column.key, direction: nextDirection })
 }
-
-const isColumnSortable = (column: DataTableColumn) => Boolean(props.sortable && column.sortable !== false)
 
 const sortIcon = (key: string) => {
   if (props.sortKey !== key) {
