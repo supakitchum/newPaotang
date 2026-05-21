@@ -897,7 +897,7 @@ const tenant: OperationResource[] = [
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
     ],
-    filters: cursorFilters([{ key: 'game_id', label: 'Game', type: 'select', optionSource: 'tenant-price-rule-games', hideEmptyOption: true, emptyOptionLabel: 'No open game' }]),
+    filters: cursorFilters([{ key: 'game_id', label: 'Game', type: 'select', optionSource: 'tenant-sale-price-games', hideEmptyOption: true, emptyOptionLabel: 'No open game' }]),
     confirmContextFields: salePriceRuleActionContext,
     actions: [
       {
