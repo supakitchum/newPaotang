@@ -37,6 +37,7 @@ expect('customer stock realtime can resolve tenant from site-config', stockRealt
 expect('customer stock realtime prefers tenant host over auth user tenant', stockRealtimeComposable.includes('tenantIdFromSiteConfig(siteConfig.value) || tenantIdFromUser(user.value)'))
 expect('customer stock realtime uses public stock channel subscription', stockRealtimeComposable.includes('subscribePublicChannels') && stockRealtimeComposable.includes('customer.tenant.${tenantId.value}.stock.game.${gameId.value}') && !stockRealtimeComposable.includes('private-customer.tenant.${tenantId.value}.stock.game.${gameId.value}'))
 expect('customer sale price realtime uses tenant-wide public channel fallback', stockRealtimeComposable.includes('customer.tenant.${tenantId.value}.sale-price'))
+expect('customer sale price realtime can subscribe before game stock channel is ready', !stockRealtimeComposable.includes('&& gameId.value && tenantId.value && channelNames.value.length'))
 
 const failed = checks.filter((check) => !check.condition)
 

@@ -121,7 +121,6 @@ const showSkeletonItems = computed(() => isSearching.value && lotteries.value.le
 const showEmptyState = computed(() => hasSearched.value && !isSearching.value && !isLoadingMore.value && lotteries.value.length === 0)
 useCustomerStockRealtime({
   gameId: currentGameId,
-  enabled: computed(() => Boolean(currentGameId.value)),
   onAvailability: (payload) => applyAvailabilityUpdate(payload),
   onPrice: (payload) => applyPriceUpdateToTickets(lotteries, payload, { gameId: currentGameId }),
 })

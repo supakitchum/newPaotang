@@ -614,7 +614,7 @@ class LotterySalePriceService
             return;
         }
 
-        DB::afterCommit(function () use ($tenantIds, $gameId, $setSize): void {
+        $this->afterCommitOrNow(function () use ($tenantIds, $gameId, $setSize): void {
             foreach ($tenantIds as $nextTenantId) {
                 try {
                     $price = $this->effectivePrice($nextTenantId, $gameId, $setSize);
@@ -636,6 +636,17 @@ class LotterySalePriceService
                 }
             }
         });
+    }
+
+    private function afterCommitOrNow(callable $callback): void
+    {
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit($callback);
+
+            return;
+        }
+
+        $callback();
     }
 
     /**

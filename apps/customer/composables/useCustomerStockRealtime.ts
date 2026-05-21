@@ -38,7 +38,7 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
     return `customer.tenant.${tenantId.value}.sale-price`
   })
   const channelNames = computed(() => [stockChannelName.value, salePriceChannelName.value].filter(Boolean))
-  const shouldSubscribe = computed(() => Boolean(import.meta.client && enabled.value && gameId.value && tenantId.value && channelNames.value.length))
+  const shouldSubscribe = computed(() => Boolean(import.meta.client && enabled.value && tenantId.value && channelNames.value.length))
 
   let socket: WebSocket | null = null
   let socketId = ''

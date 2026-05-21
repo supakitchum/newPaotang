@@ -108,7 +108,6 @@ const showSkeletonItems = computed(() => isLoadingInitial.value && tickets.value
 const showEmptyState = computed(() => !isLoadingInitial.value && !isLoadingMore.value && tickets.value.length === 0)
 useCustomerStockRealtime({
   gameId: currentGameId,
-  enabled: computed(() => Boolean(currentGameId.value)),
   onAvailability: (payload) => applyAvailabilityUpdate(payload),
   onPrice: (payload) => applyPriceUpdateToTickets(tickets, payload, { gameId: currentGameId }),
 })
