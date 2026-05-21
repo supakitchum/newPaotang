@@ -620,6 +620,7 @@
 
 <script setup lang="ts">
 import type { OperationAction, OperationFilter, OperationFormField, OperationOption, OperationOptionSource, OperationRelatedList, OperationResource, OperationSettingsPanel } from '~/composables/useAdminOperationsCatalog'
+import AdminPartnerDetail from '~/components/AdminPartnerDetail.vue'
 import AdminTenantStockCoverage from '~/components/AdminTenantStockCoverage.vue'
 import AdminTenantStockDetail from '~/components/AdminTenantStockDetail.vue'
 import { formatDateTime, titleize } from '~/utils/format'
