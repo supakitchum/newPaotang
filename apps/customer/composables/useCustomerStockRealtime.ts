@@ -22,7 +22,7 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
   const isConfigured = computed(() => Boolean(realtimeUrl.value))
   const gameId = computed(() => readRealtimeValue(options.gameId).trim())
   const enabled = computed(() => options.enabled === undefined ? true : Boolean(readRealtimeValue(options.enabled)))
-  const tenantId = computed(() => tenantIdFromUser(user.value) || tenantIdFromSiteConfig(siteConfig.value))
+  const tenantId = computed(() => tenantIdFromSiteConfig(siteConfig.value) || tenantIdFromUser(user.value))
   const stockChannelName = computed(() => {
     if (!gameId.value || !tenantId.value) {
       return ''
