@@ -1,7 +1,12 @@
 export const normalizeTenantHost = (host: unknown) => {
   const value = String(host || '').trim().toLowerCase()
+  const withoutPort = value.replace(/:\d+$/, '')
 
-  return value.replace(/:\d+$/, '')
+  try {
+    return new URL(`http://${withoutPort}`).hostname.toLowerCase()
+  } catch {
+    return withoutPort
+  }
 }
 
 export const tenantHostScope = (host: unknown) => {

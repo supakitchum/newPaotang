@@ -127,6 +127,27 @@ class PartnerProvisioningTest extends TestCase
 
         $this->withToken($login['access_token'])
             ->patchJson('/api/v1/admin/central/partners/'.$partner['id'].'/profile', [
+                'section' => 'domain',
+                'domain' => [
+                    'host' => 'พบโชค.localhost',
+                    'type' => 'custom_domain',
+                    'status' => 'active',
+                    'is_primary' => true,
+                ],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'domain-profile-idn-update',
+            ])
+            ->assertOk()
+            ->assertJsonPath('domains.0.host', 'xn--42cl1cp5p.localhost');
+
+        $this->assertDatabaseHas('partner_tenant_domains', [
+            'tenant_id' => $tenantId,
+            'host' => 'xn--42cl1cp5p.localhost',
+        ]);
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/partners/'.$partner['id'].'/profile', [
                 'section' => 'settings',
                 'settings' => [
                     'site' => [
@@ -207,7 +228,7 @@ class PartnerProvisioningTest extends TestCase
         ]);
         $this->assertDatabaseHas('partner_tenant_domains', [
             'tenant_id' => $tenantId,
-            'host' => 'profile-updated.example.test',
+            'host' => 'xn--42cl1cp5p.localhost',
             'type' => 'custom_domain',
             'status' => 'active',
         ]);

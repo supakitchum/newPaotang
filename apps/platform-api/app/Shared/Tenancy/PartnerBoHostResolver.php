@@ -22,7 +22,7 @@ class PartnerBoHostResolver
         $record = PartnerTenantDomain::query()
             ->join('partner_tenants', 'partner_tenants.id', '=', 'partner_tenant_domains.tenant_id')
             ->join('partners', 'partners.id', '=', 'partner_tenant_domains.partner_id')
-            ->where('partner_tenant_domains.host', $storefrontHost)
+            ->whereIn('partner_tenant_domains.host', TenantHostNormalizer::variants($storefrontHost))
             ->select([
                 'partner_tenant_domains.id as domain_id',
                 'partner_tenant_domains.host as storefront_host',
@@ -96,6 +96,6 @@ class PartnerBoHostResolver
 
     private function normalizeHost(string $host): string
     {
-        return strtolower(preg_replace('/:\d+$/', '', trim($host)) ?? $host);
+        return TenantHostNormalizer::normalize($host);
     }
 }

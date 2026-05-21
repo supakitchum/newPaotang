@@ -19,6 +19,7 @@ use App\Modules\SupportAccess\Http\Middleware\BlockSensitiveSupportImpersonation
 use App\Shared\Auth\Http\Middleware\AuthenticateAdmin;
 use App\Shared\Auth\Http\Middleware\AuthenticateCustomer;
 use App\Shared\Auth\Http\Middleware\RequireAdminScope;
+use App\Shared\Tenancy\Http\Middleware\NormalizeRequestHost;
 use App\Shared\Tenancy\Http\Middleware\ResolveTenantByHost;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -51,6 +52,8 @@ return Application::configure(basePath: dirname(__DIR__))
         LotteryImageReadinessCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->prepend(NormalizeRequestHost::class);
+
         $middleware->alias([
             'admin.auth' => AuthenticateAdmin::class,
             'customer.auth' => AuthenticateCustomer::class,

@@ -2,8 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Shared\Tenancy\Http\Middleware\NormalizeRequestHost;
+use Illuminate\Http\Request;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\Response;
 use Tests\Support\AdminAuthFixtures;
 use Tests\TestCase;
 
@@ -316,6 +319,47 @@ class AdminAuthTest extends TestCase
             ->assertJsonPath('mode', 'central')
             ->assertJsonPath('partner', null)
             ->assertJsonPath('tenant', null);
+    }
+
+    public function test_partner_bo_and_storefront_resolve_idn_domains_from_punycode_hosts(): void
+    {
+        $this->seedDefaultRbac();
+        $this->createPartner('par_lucky_th', 'lucky-th', 'พบโชค');
+        $this->createTenant('ten_lucky_th', 'par_lucky_th', 'lucky-th', 'พบโชค Tenant');
+        $this->createTenantDomain('dom_lucky_th', 'par_lucky_th', 'ten_lucky_th', 'พบโชค.localhost');
+        $this->createTenantSettings('ten_lucky_th', 'พบโชค', 'พบโชค BO');
+        $this->createTenantTheme('ten_lucky_th', 'https://cdn.example.test/logo.png', 'https://cdn.example.test/favicon.ico');
+
+        $punycodeHost = 'xn--42cl1cp5p.localhost';
+
+        $this->getJson('http://'.$punycodeHost.'/api/v1/public/site-config')
+            ->assertOk()
+            ->assertJsonPath('data.partner_id', 'par_lucky_th')
+            ->assertJsonPath('data.tenant_id', 'ten_lucky_th');
+
+        $this->getJson('http://bo.'.$punycodeHost.'/api/v1/public/admin-site-config')
+            ->assertOk()
+            ->assertJsonPath('mode', 'partner')
+            ->assertJsonPath('partner.id', 'par_lucky_th')
+            ->assertJsonPath('tenant.id', 'ten_lucky_th')
+            ->assertJsonPath('domain.storefront_host', 'พบโชค.localhost')
+            ->assertJsonPath('domain.bo_host', 'bo.'.$punycodeHost);
+
+        $request = Request::create('/api/v1/public/site-config', 'GET', server: [
+            'HTTP_HOST' => 'พบโชค.localhost',
+        ]);
+        (new NormalizeRequestHost())->handle($request, fn (Request $request): Response => new Response());
+
+        $this->assertSame($punycodeHost, $request->headers->get('host'));
+        $this->assertSame($punycodeHost, $request->server->get('HTTP_HOST'));
+
+        $boRequest = Request::create('/api/v1/public/admin-site-config', 'GET', server: [
+            'HTTP_HOST' => 'bo.พบโชค.localhost',
+        ]);
+        (new NormalizeRequestHost())->handle($boRequest, fn (Request $request): Response => new Response());
+
+        $this->assertSame('bo.'.$punycodeHost, $boRequest->headers->get('host'));
+        $this->assertSame('bo.'.$punycodeHost, $boRequest->server->get('HTTP_HOST'));
     }
 
     public function test_partner_bo_login_infers_tenant_and_rejects_central_or_cross_partner_access(): void

@@ -1,3 +1,18 @@
+import { domainToASCII } from 'node:url'
+
+const normalizeDevProxyHost = (host?: string) => {
+  const value = String(host || '').trim().toLowerCase()
+
+  if (!value) {
+    return ''
+  }
+
+  const withoutPort = value.replace(/:\d+$/, '')
+  const ascii = domainToASCII(withoutPort)
+
+  return ascii || withoutPort
+}
+
 export default defineNuxtConfig({
   devtools: { enabled: false },
   buildDir: process.env.NUXT_BUILD_DIR || '.nuxt',
@@ -42,11 +57,20 @@ export default defineNuxtConfig({
   },
   vite: {
     server: {
-      allowedHosts: ['.test'],
+      allowedHosts: ['.test', '.localhost'],
       proxy: {
         '/api/v1': {
           target: 'http://platform-api:8000',
           changeOrigin: false,
+          configure: (proxy) => {
+            proxy.on('proxyReq', (proxyReq, req) => {
+              const host = normalizeDevProxyHost(req.headers.host)
+
+              if (host) {
+                proxyReq.setHeader('Host', host)
+              }
+            })
+          },
         },
       },
     },

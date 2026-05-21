@@ -11,6 +11,7 @@ use App\Models\PartnerTenantSetting;
 use App\Models\PartnerTenantTheme;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
+use App\Shared\Tenancy\TenantHostNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -710,7 +711,7 @@ class TenantSeoService
 
     private function normalizeHost(string $host): string
     {
-        return strtolower(preg_replace('/:\\d+$/', '', trim($host)) ?? $host);
+        return TenantHostNormalizer::normalize($host);
     }
 
     private function limit(mixed $value): int

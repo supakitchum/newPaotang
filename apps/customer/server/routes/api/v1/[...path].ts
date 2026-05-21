@@ -1,6 +1,6 @@
 import { request as httpRequest, type IncomingHttpHeaders } from 'node:http'
 import { request as httpsRequest } from 'node:https'
-import { normalizeTenantHost } from '~/utils/tenantHost'
+import { domainToASCII } from 'node:url'
 
 const forwardHeaders = [
   'accept',
@@ -22,6 +22,19 @@ const responseHeaders = [
 ]
 
 const createRequestId = () => `req_customer_proxy_${Date.now()}_${Math.random().toString(36).slice(2)}`
+
+const normalizeProxyHost = (host: unknown) => {
+  const value = String(host || '').trim().toLowerCase()
+
+  if (!value) {
+    return ''
+  }
+
+  const withoutPort = value.replace(/:\d+$/, '')
+  const ascii = domainToASCII(withoutPort)
+
+  return ascii || withoutPort
+}
 
 const requestPlatformApi = (
   targetUrl: URL,
@@ -63,7 +76,7 @@ const requestPlatformApi = (
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  const requestUrl = getRequestURL(event)
+  const requestUrl = new URL(event.node.req.url || '/', 'http://newpaotang.local')
   const targetBaseUrl = String(config.platformApiInternalBaseUrl || 'http://platform-api:8000/api/v1').replace(/\/$/, '')
   const path = requestUrl.pathname.replace(/^\/api\/v1\/?/, '')
   const targetUrl = new URL(path, `${targetBaseUrl}/`)
@@ -72,7 +85,7 @@ export default defineEventHandler(async (event) => {
 
   const incomingHeaders = getHeaders(event)
   const headers: Record<string, string> = {}
-  const tenantHost = normalizeTenantHost(incomingHeaders.host)
+  const tenantHost = normalizeProxyHost(incomingHeaders.host)
 
   for (const headerName of forwardHeaders) {
     const value = incomingHeaders[headerName]

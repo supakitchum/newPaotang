@@ -4,10 +4,10 @@ namespace App\Shared\Tenancy\Http\Middleware;
 
 use App\Models\PartnerTenantDomain;
 use App\Shared\Tenancy\TenantContext;
+use App\Shared\Tenancy\TenantHostNormalizer;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 class ResolveTenantByHost
@@ -24,7 +24,7 @@ class ResolveTenantByHost
         $record = PartnerTenantDomain::query()
             ->join('partner_tenants', 'partner_tenants.id', '=', 'partner_tenant_domains.tenant_id')
             ->join('partners', 'partners.id', '=', 'partner_tenant_domains.partner_id')
-            ->where('partner_tenant_domains.host', $host)
+            ->whereIn('partner_tenant_domains.host', TenantHostNormalizer::variants($host))
             ->select([
                 'partner_tenant_domains.id as domain_id',
                 'partner_tenant_domains.status as domain_status',
@@ -58,7 +58,7 @@ class ResolveTenantByHost
 
     private function normalizeHost(string $host): string
     {
-        return strtolower(preg_replace('/:\d+$/', '', trim($host)) ?? $host);
+        return TenantHostNormalizer::normalize($host);
     }
 
     private function error(string $code, string $message, int $status, Request $request): JsonResponse

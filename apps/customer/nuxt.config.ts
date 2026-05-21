@@ -16,6 +16,7 @@ export default defineNuxtConfig({
   vite: {
     server: {
       allowedHosts: [
+        '.localhost',
         'partner-a.test',
         'alpha.newpaotang.test',
         'beta.newpaotang.test',

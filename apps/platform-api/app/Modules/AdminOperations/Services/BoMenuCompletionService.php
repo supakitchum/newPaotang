@@ -25,6 +25,7 @@ use App\Models\WebhookCallback;
 use App\Modules\Reward\Services\TenantRewardPriceRuleService;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
+use App\Shared\Tenancy\TenantHostNormalizer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -1104,7 +1105,7 @@ class BoMenuCompletionService
             return ['error' => 'validation_failed', 'errors' => $errors];
         }
 
-        if (PartnerTenantDomain::query()->where('host', $normalized['host'])->exists()) {
+        if (PartnerTenantDomain::query()->whereIn('host', TenantHostNormalizer::variants($normalized['host']))->exists()) {
             return ['error' => 'resource_conflict'];
         }
 
@@ -1148,7 +1149,7 @@ class BoMenuCompletionService
 
         if (
             array_key_exists('host', $updates)
-            && PartnerTenantDomain::query()->where('host', $updates['host'])->where('id', '!=', $domainId)->exists()
+            && PartnerTenantDomain::query()->whereIn('host', TenantHostNormalizer::variants($updates['host']))->where('id', '!=', $domainId)->exists()
         ) {
             return ['error' => 'resource_conflict'];
         }
@@ -2264,21 +2265,7 @@ class BoMenuCompletionService
 
     private function normalizeHost(mixed $value): string
     {
-        $host = strtolower(trim((string) $value));
-
-        if ($host === '') {
-            return '';
-        }
-
-        if (str_contains($host, '://')) {
-            $parsedHost = parse_url($host, PHP_URL_HOST);
-            $host = is_string($parsedHost) ? $parsedHost : $host;
-        }
-
-        $host = explode('/', $host)[0];
-        $host = preg_replace('/:\d+$/', '', $host) ?? $host;
-
-        return rtrim($host, '.');
+        return TenantHostNormalizer::normalize((string) $value);
     }
 
     private function validHost(string $host): bool

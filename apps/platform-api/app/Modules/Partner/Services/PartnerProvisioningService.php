@@ -27,6 +27,7 @@ use App\Models\RolePermission;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Observability\ObservabilityCatalog;
+use App\Shared\Tenancy\TenantHostNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -298,7 +299,7 @@ class PartnerProvisioningService
             if (
                 $host !== ''
                 && PartnerTenantDomain::query()
-                    ->where('host', $host)
+                    ->whereIn('host', TenantHostNormalizer::variants($host))
                     ->where('partner_id', '!=', $partnerId)
                     ->exists()
             ) {
@@ -730,7 +731,7 @@ class PartnerProvisioningService
             $errors['tenant_code'][] = 'The tenant_code field conflicts with an existing tenant.';
         }
 
-        $domainConflict = PartnerTenantDomain::where('host', $domainHost)
+        $domainConflict = PartnerTenantDomain::whereIn('host', TenantHostNormalizer::variants($domainHost))
             ->where('tenant_id', '!=', $tenantId)
             ->exists();
 
@@ -2004,7 +2005,7 @@ class PartnerProvisioningService
 
     private function normalizeHost(string $host): string
     {
-        return strtolower(preg_replace('/:\d+$/', '', trim($host)) ?? $host);
+        return TenantHostNormalizer::normalize($host);
     }
 
     private function limit(mixed $value): int
