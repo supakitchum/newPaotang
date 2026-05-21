@@ -34,6 +34,7 @@ class RewardService
         private readonly IdempotencyService $idempotency,
         private readonly CustomerAuthService $customerAuth,
         private readonly CommerceService $commerce,
+        private readonly TenantRewardPriceRuleService $tenantRewardPriceRules,
     ) {
     }
 
@@ -791,6 +792,7 @@ class RewardService
 
             $claimId = 'rcl_'.Str::ulid()->toBase32();
             $now = now();
+            $priceRuleSnapshot = $winning->price_rule_snapshot_json;
 
             RewardClaim::query()->insert([
                 'id' => $claimId,
@@ -804,6 +806,10 @@ class RewardService
                 'status' => 'submitted',
                 'payout_method' => $normalized['payout_method'],
                 'prize_amount' => (int) $winning->amount,
+                'base_prize_amount' => (int) ($winning->base_amount ?? $winning->amount),
+                'adjustment_amount' => (int) ($winning->adjustment_amount ?? 0),
+                'tenant_price_rule_id' => $winning->tenant_price_rule_id,
+                'price_rule_snapshot_json' => is_array($priceRuleSnapshot) ? json_encode($priceRuleSnapshot, JSON_THROW_ON_ERROR) : $priceRuleSnapshot,
                 'currency' => (string) $winning->currency,
                 'bank_account_json' => $normalized['bank_account'] === null ? null : json_encode($normalized['bank_account'], JSON_THROW_ON_ERROR),
                 'customer_note' => $payload['note'] ?? null,
@@ -1029,6 +1035,8 @@ class RewardService
                             continue;
                         }
 
+                        $pricing = $this->tenantRewardPriceRules->resolveForPrize((string) $ticket->tenant_id, (string) $ticket->game_id, $prize);
+
                         WinningTicket::query()->updateOrInsert(
                             [
                                 'game_id' => (string) $ticket->game_id,
@@ -1041,7 +1049,11 @@ class RewardService
                                 'tenant_id' => (string) $ticket->tenant_id,
                                 'reward_result_id' => (string) $locked->id,
                                 'reward_prize_id' => (string) $prize->id,
-                                'amount' => (int) $prize->amount,
+                                'amount' => (int) $pricing['effective_amount'],
+                                'base_amount' => (int) $pricing['base_amount'],
+                                'adjustment_amount' => (int) $pricing['adjustment_amount'],
+                                'tenant_price_rule_id' => $pricing['tenant_price_rule_id'],
+                                'price_rule_snapshot_json' => $pricing['price_rule_snapshot'] === null ? null : json_encode($pricing['price_rule_snapshot'], JSON_THROW_ON_ERROR),
                                 'currency' => (string) $prize->currency,
                                 'status' => 'pending',
                                 'created_at' => $now,
@@ -1491,6 +1503,14 @@ class RewardService
             'prize_type' => $winning?->prize_type,
             'prize_number' => $winning?->prize_number,
             'prize_amount' => $this->money((int) $claim->prize_amount, (string) $claim->currency),
+            'reward_pricing' => [
+                'base_source' => TenantRewardPriceRuleService::BASE_SOURCE_CENTRAL_REWARD,
+                'base_prize_amount' => $this->money((int) ($claim->base_prize_amount ?? $claim->prize_amount), (string) $claim->currency),
+                'adjustment_amount' => $this->money((int) ($claim->adjustment_amount ?? 0), (string) $claim->currency),
+                'effective_prize_amount' => $this->money((int) $claim->prize_amount, (string) $claim->currency),
+                'tenant_price_rule_id' => $claim->tenant_price_rule_id,
+                'price_rule_snapshot' => $this->decodeJsonObject($claim->price_rule_snapshot_json),
+            ],
             'status' => (string) $claim->status,
             'payout_method' => $claim->payout_method,
             'payout_wallet' => $wallet === null ? null : $this->walletResource($wallet),

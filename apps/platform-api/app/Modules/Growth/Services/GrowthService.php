@@ -18,6 +18,7 @@ use App\Models\LocalStockItem;
 use App\Models\Order;
 use App\Models\PartnerSettlement;
 use App\Models\PartnerTenant;
+use App\Models\RewardClaim;
 use App\Models\ReportExportJob;
 use App\Models\StockItem;
 use App\Models\SyncOutbox;
@@ -33,8 +34,8 @@ use Illuminate\Support\Str;
 
 class GrowthService
 {
-    private const TENANT_REPORT_KEYS = ['overview', 'sales', 'stock', 'wallet', 'commission', 'orders', 'customers', 'audit'];
-    private const CENTRAL_REPORT_KEYS = ['overview', 'sales', 'stock', 'wallet', 'commission', 'settlement', 'partner_usage', 'audit'];
+    private const TENANT_REPORT_KEYS = ['overview', 'sales', 'stock', 'wallet', 'commission', 'rewards', 'orders', 'customers', 'audit'];
+    private const CENTRAL_REPORT_KEYS = ['overview', 'sales', 'stock', 'wallet', 'commission', 'rewards', 'settlement', 'partner_usage', 'audit'];
     private const EXPORT_FORMATS = ['csv', 'xlsx', 'pdf'];
     private const PAYOUT_METHODS = ['bank_transfer', 'manual_cash', 'wallet_credit'];
     private const RULE_TYPES = ['fixed_per_order', 'percent_sales', 'per_ticket'];
@@ -2009,6 +2010,7 @@ class GrowthService
             'commission_rules' => CommissionRule::query(),
             'commission_transactions' => CommissionTransaction::query(),
             'orders' => Order::query(),
+            'reward_claims' => RewardClaim::query(),
             'wallet_ledger' => WalletLedger::query(),
             default => throw new \InvalidArgumentException('Unsupported model-backed table: '.$table),
         };
@@ -2033,9 +2035,20 @@ class GrowthService
             'wallet_ledger_total' => $this->money((int) $this->scopedTable('wallet_ledger', $tenantId, $dateRange)->sum('amount')),
             'commission_total' => $this->money((int) $this->scopedTable('commission_transactions', $tenantId, $dateRange)->sum('amount')),
             'payout_total' => $this->money((int) $this->scopedTable('affiliate_payouts', $tenantId, $dateRange)->sum('amount')),
+            'reward_claims_count' => $this->scopedTable('reward_claims', $tenantId, $dateRange)->count(),
+            'reward_base_total' => $this->money($this->rewardClaimSum($tenantId, $dateRange, 'COALESCE(base_prize_amount, prize_amount)')),
+            'reward_adjustment_total' => $this->money($this->rewardClaimSum($tenantId, $dateRange, 'COALESCE(adjustment_amount, 0)')),
+            'reward_payout_total' => $this->money((int) $this->scopedTable('reward_claims', $tenantId, $dateRange)->sum('prize_amount')),
             'customers_count' => Customer::query()->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))->count(),
             'settlements_count' => PartnerSettlement::query()->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))->count(),
         ];
+    }
+
+    private function rewardClaimSum(?string $tenantId, array $dateRange, string $expression): int
+    {
+        return (int) $this->scopedTable('reward_claims', $tenantId, $dateRange)
+            ->selectRaw('COALESCE(SUM('.$expression.'), 0) as aggregate')
+            ->value('aggregate');
     }
 
     /**
@@ -2051,6 +2064,21 @@ class GrowthService
                 : LocalStockItem::query()->where('tenant_id', $tenantId),
             'wallet' => $this->scopedTable('wallet_ledger', $tenantId, $dateRange),
             'commission' => $this->scopedTable('commission_transactions', $tenantId, $dateRange),
+            'rewards' => $this->scopedTable('reward_claims', $tenantId, $dateRange)
+                ->select([
+                    'id',
+                    'tenant_id',
+                    'game_id',
+                    'status',
+                    'base_prize_amount',
+                    'adjustment_amount',
+                    'prize_amount',
+                    'currency',
+                    'tenant_price_rule_id',
+                    'price_rule_snapshot_json',
+                    'created_at',
+                    'updated_at',
+                ]),
             'customers' => Customer::query()->when($tenantId !== null, fn ($builder) => $builder->where('tenant_id', $tenantId)),
             'audit' => AuditLog::query()->when($tenantId !== null, fn ($builder) => $builder->where('tenant_id', $tenantId)),
             'settlement' => PartnerSettlement::query()->when($tenantId !== null, fn ($builder) => $builder->where('tenant_id', $tenantId)),
@@ -2079,8 +2107,9 @@ class GrowthService
     private function genericRowResource(object $row): array
     {
         $resource = [];
+        $attributes = method_exists($row, 'getAttributes') ? $row->getAttributes() : (array) $row;
 
-        foreach ((array) $row as $key => $value) {
+        foreach ($attributes as $key => $value) {
             if (str_ends_with((string) $key, '_json')) {
                 $resource[str_replace('_json', '', (string) $key)] = $this->decodeJson($value);
                 continue;

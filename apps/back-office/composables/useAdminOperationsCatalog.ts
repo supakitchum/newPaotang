@@ -339,6 +339,7 @@ const tenantReportFilters = baseReportFilters
 
 const currencyOptions = ['THB']
 const priceRuleStatusOptions = ['active', 'archived']
+const priceRuleTypeOptions = ['reward_adjustment_amount', 'reward_adjustment_percent']
 const memberStatusOptions = ['active', 'pending_verification', 'suspended', 'disabled']
 const notifyCustomerField: OperationFormField = {
   key: 'notify_customer',
@@ -426,7 +427,7 @@ const alertPolicyActionContext = ['id', 'partner_id', 'partner.name', 'policy_ke
 const alertEventActionContext = ['id', 'partner_id', 'partner.name', 'policy_key', 'severity', 'status', 'channel', 'title', 'triggered_at']
 const rewardActionContext = ['id', 'game_id', 'status', 'version', 'checked_at', 'verified_at', 'published_at']
 const settlementActionContext = ['id', 'partner_id', 'tenant_id', 'status', 'sales_amount.amount', 'commission_amount.amount', 'payout_amount.amount', 'net_amount.amount', 'period_from', 'period_to']
-const priceRuleActionContext = ['id', 'tenant_id', 'code', 'name', 'game_id', 'rule_type', 'price.amount', 'price.currency', 'status', 'conditions', 'updated_at']
+const priceRuleActionContext = ['id', 'tenant_id', 'code', 'name', 'game_id', 'base_source', 'rule_type', 'adjustment.amount', 'adjustment.bps', 'reward_preview.summary.base_total.amount', 'reward_preview.summary.effective_total.amount', 'status', 'conditions', 'updated_at']
 const memberActionContext = ['id', 'tenant_id', 'member_no', 'name', 'phone', 'email', 'status', 'order_count', 'lifetime_spend.amount', 'updated_at']
 const agentActionContext = ['id', 'tenant_id', 'partner_id', 'code', 'name', 'phone', 'email', 'store_id', 'status', 'metadata', 'updated_at']
 const agentQuotaActionContext = ['id', 'tenant_id', 'code', 'name', 'store_id', 'status', 'quotas.0.game_id', 'quotas.0.quota_count', 'quotas.0.used_count', 'quotas.0.status', 'updated_at']
@@ -543,20 +544,22 @@ const tenantDomainCreateFields: OperationFormField[] = [
 ]
 const tenantDomainUpdateFields: OperationFormField[] = tenantDomainCreateFields.map((field) => ({ ...field, required: false }))
 const priceRuleCreateFields: OperationFormField[] = [
-  { key: 'code', label: 'Code', required: true, placeholder: 'vip_fixed', help: 'Unique within the active tenant.' },
-  { key: 'name', label: 'Name', required: true, placeholder: 'VIP Fixed Price' },
-  { key: 'game_id', label: 'Game ID', placeholder: 'Optional game scope' },
-  { key: 'rule_type', label: 'Rule type', defaultValue: 'fixed_price', placeholder: 'fixed_price' },
-  { key: 'price_amount', label: 'Price amount (minor units)', type: 'number', min: 0, step: 1, defaultValue: 0, help: 'Use the smallest currency unit, for example 12000 for THB 120.00.' },
+  { key: 'code', label: 'Code', required: true, placeholder: 'first_prize_plus_100', help: 'Unique within the active tenant.' },
+  { key: 'name', label: 'Name', required: true, placeholder: 'First prize plus 100 THB' },
+  { key: 'game_id', label: 'Game ID', placeholder: 'Game to adjust from Central Reward' },
+  { key: 'base_source', label: 'Base source', type: 'select', options: ['central_reward'], defaultValue: 'central_reward', required: true },
+  { key: 'rule_type', label: 'Rule type', type: 'select', options: priceRuleTypeOptions, defaultValue: 'reward_adjustment_amount', required: true },
+  { key: 'adjustment_amount', label: 'Adjustment amount (minor units)', type: 'number', step: 1, defaultValue: 0, help: 'Signed delta from Central Reward, for example 10000 adds THB 100.00 and -10000 subtracts THB 100.00.' },
+  { key: 'adjustment_bps', label: 'Adjustment BPS', type: 'number', step: 1, help: 'Used only for percent adjustments. 100 bps = 1%; negative values reduce the Central Reward.' },
   { key: 'currency', label: 'Currency', type: 'select', options: currencyOptions, defaultValue: 'THB' },
-  { key: 'conditions', label: 'Conditions JSON', type: 'json', defaultValue: '{}', placeholder: '{"segment":"vip"}', help: 'Must be a JSON object or array.' },
+  { key: 'conditions', label: 'Prize conditions JSON', type: 'json', defaultValue: '{"prize_type":"first_prize"}', placeholder: '{"prize_type":"first_prize"}', help: 'Use prize_type, prize_types, prize_number, or prize_numbers to scope reward adjustment.' },
   { key: 'status', label: 'Status', type: 'select', options: priceRuleStatusOptions, defaultValue: 'active' },
 ]
 const priceRuleUpdateFields: OperationFormField[] = priceRuleCreateFields.map((field) => {
   const updateField: OperationFormField = {
     ...field,
     required: false,
-    sourceKey: field.key === 'price_amount' ? 'price.amount' : field.key === 'currency' ? 'price.currency' : field.key,
+    sourceKey: field.key === 'adjustment_amount' ? 'adjustment.amount' : field.key === 'adjustment_bps' ? 'adjustment.bps' : field.key === 'currency' ? 'adjustment.currency' : field.key,
   }
   delete updateField.defaultValue
   return updateField
@@ -850,7 +853,9 @@ const tenant: OperationResource[] = [
       { key: 'game_id', label: 'Game' },
       { key: 'code', label: 'Code' },
       { key: 'rule_type', label: 'Type' },
-      { key: 'price.amount', label: 'Price', type: 'money' },
+      { key: 'reward_preview.summary.base_total', label: 'Central Reward', type: 'money' },
+      { key: 'adjustment', label: 'Adjustment', type: 'money' },
+      { key: 'reward_preview.summary.effective_total', label: 'Partner Reward', type: 'money' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
     ],
@@ -1666,7 +1671,7 @@ const tenant: OperationResource[] = [
     columns: syncColumns,
     filters: cursorFilters([statusFilter(['pending', 'running', 'completed', 'processed', 'failed'])]),
   },
-  reportIndex('tenant', ['overview', 'sales', 'stock', 'wallet', 'commission', 'orders', 'customers', 'audit']),
+  reportIndex('tenant', ['overview', 'sales', 'stock', 'wallet', 'commission', 'rewards', 'orders', 'customers', 'audit']),
 ]
 
 const central: OperationResource[] = [
@@ -2212,7 +2217,7 @@ const central: OperationResource[] = [
     ...settingsResource('central', 'system-settings', 'System Settings', '/admin/central/system-settings'),
     settingsFields: systemSettingsFields,
   },
-  reportIndex('central', ['overview', 'sales', 'stock', 'wallet', 'commission', 'settlement', 'partner_usage', 'audit']),
+  reportIndex('central', ['overview', 'sales', 'stock', 'wallet', 'commission', 'rewards', 'settlement', 'partner_usage', 'audit']),
 ]
 
 const resources = [...tenant, ...central]

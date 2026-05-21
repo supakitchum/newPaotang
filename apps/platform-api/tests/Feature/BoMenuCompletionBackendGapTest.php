@@ -255,8 +255,9 @@ class BoMenuCompletionBackendGapTest extends TestCase
     {
         $this->seedDefaultRbac();
         $this->createPartner('par_tenant_gap');
+        $this->createPartner('par_other_gap');
         $this->createTenant('ten_tenant_gap', 'par_tenant_gap');
-        $this->createTenant('ten_other_gap', 'par_tenant_gap');
+        $this->createTenant('ten_other_gap', 'par_other_gap');
         $this->createAdmin('adm_tenant_gap', 'tenant-gap@example.test');
         $this->createAdminScope('scp_tenant_gap', 'tenant', 'ten_tenant_gap', 'par_tenant_gap');
         $this->assignRoleWithPermissions('adm_tenant_gap', 'scp_tenant_gap', 'tenant', 'ten_tenant_gap', [
@@ -313,6 +314,15 @@ class BoMenuCompletionBackendGapTest extends TestCase
             ->assertJsonPath('tenant_id', 'ten_tenant_gap')
             ->assertJsonPath('code', 'vip-fixed')
             ->json();
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/tenant/price-rules/'.$priceRule['id'], [
+                'rule_type' => 'reward_adjustment_amount',
+                'adjustment_amount' => -500,
+            ], $tenantHeaders + ['Idempotency-Key' => 'tenant-price-rule-adjustment-update'])
+            ->assertOk()
+            ->assertJsonPath('adjustment.amount', -500)
+            ->assertJsonPath('base_source', 'central_reward');
 
         $this->withToken($login['access_token'])
             ->patchJson('/api/v1/admin/tenant/price-rules/'.$priceRule['id'], [

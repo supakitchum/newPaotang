@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Modules\Reward\Services\TenantRewardPriceRuleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\M7RewardFixtures;
@@ -132,6 +133,85 @@ class RewardClaimTest extends TestCase
             'target_id' => $claim['id'],
             'tenant_id' => $world['tenant_id'],
         ]);
+    }
+
+    public function test_RewardClaim_uses_tenant_reward_price_adjustment_snapshot_for_reports(): void
+    {
+        $world = $this->prepareRewardWorld('par_reward_adjust', 'ten_reward_adjust', 'reward-adjust.m7.test', 'gam_reward_adjust', '0807201000', 790301);
+
+        DB::table('tenant_price_rules')->insert([
+            'id' => 'prr_reward_adjust',
+            'tenant_id' => $world['tenant_id'],
+            'game_id' => $world['game_id'],
+            'code' => 'first_prize_minus_1000',
+            'name' => 'First prize minus 1000 THB',
+            'rule_type' => TenantRewardPriceRuleService::RULE_TYPE_AMOUNT_DELTA,
+            'base_source' => TenantRewardPriceRuleService::BASE_SOURCE_CENTRAL_REWARD,
+            'price_amount' => 100000,
+            'adjustment_amount' => -100000,
+            'adjustment_bps' => null,
+            'currency' => 'THB',
+            'status' => 'active',
+            'conditions_json' => json_encode(['prize_type' => 'first_prize'], JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->publishReward($world, keySuffix: 'adjusted');
+
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/tickets/'.$world['ticket_id'].'/reward-status')
+            ->assertOk()
+            ->assertJsonPath('status', 'winning')
+            ->assertJsonPath('prize_amount.amount', 5900000);
+
+        $claim = $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/reward-claims', [
+                'ticket_id' => $world['ticket_id'],
+                'payout_method' => 'bank_transfer',
+                'bank_account' => ['bank' => 'test', 'account_no' => '1234567890'],
+            ], [
+                'Idempotency-Key' => 'reward-adjust-claim-create',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('prize_amount.amount', 5900000)
+            ->assertJsonPath('reward_pricing.base_prize_amount.amount', 6000000)
+            ->assertJsonPath('reward_pricing.adjustment_amount.amount', -100000)
+            ->assertJsonPath('reward_pricing.tenant_price_rule_id', 'prr_reward_adjust')
+            ->assertJsonPath('reward_pricing.price_rule_snapshot.code', 'first_prize_minus_1000')
+            ->json();
+
+        $this->assertDatabaseHas('winning_tickets', [
+            'tenant_id' => $world['tenant_id'],
+            'ticket_id' => $world['ticket_id'],
+            'amount' => 5900000,
+            'base_amount' => 6000000,
+            'adjustment_amount' => -100000,
+            'tenant_price_rule_id' => 'prr_reward_adjust',
+        ]);
+        $this->assertDatabaseHas('reward_claims', [
+            'id' => $claim['id'],
+            'tenant_id' => $world['tenant_id'],
+            'prize_amount' => 5900000,
+            'base_prize_amount' => 6000000,
+            'adjustment_amount' => -100000,
+            'tenant_price_rule_id' => 'prr_reward_adjust',
+        ]);
+
+        $tenantReporter = $this->tenantAdmin($world, ['report.view'], 'reward-adjust-report');
+        $this->withToken($tenantReporter['access_token'])
+            ->getJson('/api/v1/admin/tenant/reports/rewards', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => $world['tenant_id'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('summary.reward_claims_count', 1)
+            ->assertJsonPath('summary.reward_base_total.amount', 6000000)
+            ->assertJsonPath('summary.reward_adjustment_total.amount', -100000)
+            ->assertJsonPath('summary.reward_payout_total.amount', 5900000)
+            ->assertJsonPath('rows.0.base_prize_amount', 6000000)
+            ->assertJsonPath('rows.0.adjustment_amount', -100000)
+            ->assertJsonPath('rows.0.prize_amount', 5900000);
     }
 
     public function test_RewardClaim_pay_rejects_invalid_payout_method_without_mutation(): void

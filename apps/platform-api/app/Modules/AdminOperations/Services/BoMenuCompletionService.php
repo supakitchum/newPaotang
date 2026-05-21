@@ -3,6 +3,7 @@
 namespace App\Modules\AdminOperations\Services;
 
 use App\Models\Customer;
+use App\Models\Game;
 use App\Models\Order;
 use App\Models\Partner;
 use App\Models\PartnerAlertEvent;
@@ -21,6 +22,7 @@ use App\Models\SyncOutbox;
 use App\Models\TenantPriceRule;
 use App\Models\Wallet;
 use App\Models\WebhookCallback;
+use App\Modules\Reward\Services\TenantRewardPriceRuleService;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use Illuminate\Database\Eloquent\Builder;
@@ -42,8 +44,10 @@ class BoMenuCompletionService
     private const MEMBER_STATUSES = ['active', 'pending_verification', 'suspended', 'disabled'];
     private const ALERT_EVENT_STATUSES = ['open', 'acknowledged', 'resolved', 'suppressed'];
 
-    public function __construct(private readonly AuditLogger $auditLogger)
-    {
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly TenantRewardPriceRuleService $rewardPriceRules,
+    ) {
     }
 
     /**
@@ -703,7 +707,21 @@ class BoMenuCompletionService
         }
 
         $updates = $this->priceRulePayload($tenantId, $payload, false);
-        $errors = $this->priceRuleErrors($tenantId, $updates, false);
+        $validationPayload = array_merge([
+            'tenant_id' => (string) $rule->tenant_id,
+            'game_id' => $rule->game_id,
+            'code' => (string) $rule->code,
+            'name' => (string) $rule->name,
+            'rule_type' => (string) $rule->rule_type,
+            'base_source' => (string) ($rule->base_source ?? TenantRewardPriceRuleService::BASE_SOURCE_CENTRAL_REWARD),
+            'price_amount' => (int) $rule->price_amount,
+            'adjustment_amount' => (int) ($rule->adjustment_amount ?? $rule->price_amount ?? 0),
+            'adjustment_bps' => $rule->adjustment_bps,
+            'currency' => (string) $rule->currency,
+            'status' => (string) $rule->status,
+            'conditions_json' => $this->arrayValue($rule->conditions_json),
+        ], $updates);
+        $errors = $this->priceRuleErrors($tenantId, $validationPayload, false);
 
         if ($errors !== []) {
             return ['error' => 'validation_failed', 'errors' => $errors];
@@ -1479,6 +1497,11 @@ class BoMenuCompletionService
      */
     private function priceRuleResource(object $rule): array
     {
+        $adjustmentAmount = (int) ($rule->adjustment_amount ?? $rule->price_amount ?? 0);
+        $adjustmentBps = $rule->adjustment_bps === null ? null : (int) $rule->adjustment_bps;
+        $currency = (string) $rule->currency;
+        $preview = $this->rewardPriceRules->previewRule($rule);
+
         return [
             'id' => (string) $rule->id,
             'tenant_id' => (string) $rule->tenant_id,
@@ -1489,11 +1512,22 @@ class BoMenuCompletionService
             'code' => (string) $rule->code,
             'name' => (string) $rule->name,
             'rule_type' => (string) $rule->rule_type,
+            'base_source' => (string) ($rule->base_source ?? TenantRewardPriceRuleService::BASE_SOURCE_CENTRAL_REWARD),
             'price' => [
-                'amount' => (int) $rule->price_amount,
-                'currency' => (string) $rule->currency,
+                'amount' => $adjustmentAmount,
+                'currency' => $currency,
+            ],
+            'adjustment' => [
+                'amount' => $adjustmentAmount,
+                'currency' => $currency,
+                'bps' => $adjustmentBps,
             ],
             'conditions' => $this->arrayValue($rule->conditions_json),
+            'reward_preview' => $preview,
+            'reporting' => [
+                'base_source' => TenantRewardPriceRuleService::BASE_SOURCE_CENTRAL_REWARD,
+                'snapshot_fields' => ['base_prize_amount', 'adjustment_amount', 'prize_amount', 'tenant_price_rule_id', 'price_rule_snapshot'],
+            ],
         ];
     }
 
@@ -1860,19 +1894,28 @@ class BoMenuCompletionService
             }
         }
 
-        foreach (['game_id', 'rule_type', 'status', 'currency'] as $field) {
+        foreach (['game_id', 'rule_type', 'base_source', 'status', 'currency'] as $field) {
             if ($creating || array_key_exists($field, $payload)) {
                 $updates[$field] = match ($field) {
-                    'game_id' => $payload[$field] ?? null,
-                    'rule_type' => trim((string) ($payload[$field] ?? 'fixed_price')),
+                    'game_id' => trim((string) ($payload[$field] ?? '')) ?: null,
+                    'rule_type' => trim((string) ($payload[$field] ?? TenantRewardPriceRuleService::RULE_TYPE_AMOUNT_DELTA)),
+                    'base_source' => trim((string) ($payload[$field] ?? TenantRewardPriceRuleService::BASE_SOURCE_CENTRAL_REWARD)),
                     'status' => trim((string) ($payload[$field] ?? 'active')),
                     'currency' => strtoupper(trim((string) ($payload[$field] ?? 'THB'))) ?: 'THB',
                 };
             }
         }
 
-        if ($creating || array_key_exists('price_amount', $payload)) {
-            $updates['price_amount'] = max(0, (int) ($payload['price_amount'] ?? $payload['amount'] ?? 0));
+        if ($creating || array_key_exists('adjustment_amount', $payload) || array_key_exists('price_amount', $payload)) {
+            $adjustmentAmount = (int) ($payload['adjustment_amount'] ?? $payload['price_amount'] ?? $payload['amount'] ?? 0);
+            $updates['adjustment_amount'] = $adjustmentAmount;
+            $updates['price_amount'] = max(0, abs($adjustmentAmount));
+        }
+
+        if ($creating || array_key_exists('adjustment_bps', $payload)) {
+            $updates['adjustment_bps'] = ($payload['adjustment_bps'] ?? null) === null || $payload['adjustment_bps'] === ''
+                ? null
+                : (int) $payload['adjustment_bps'];
         }
 
         if ($creating || array_key_exists('conditions', $payload)) {
@@ -1908,11 +1951,37 @@ class BoMenuCompletionService
             $errors['status'][] = 'The status field is invalid.';
         }
 
+        if (array_key_exists('game_id', $payload) && $payload['game_id'] !== null && trim((string) $payload['game_id']) !== '' && ! Game::whereKey((string) $payload['game_id'])->exists()) {
+            $errors['game_id'][] = 'The game_id field must reference an existing game.';
+        }
+
+        if (array_key_exists('base_source', $payload) && $payload['base_source'] !== TenantRewardPriceRuleService::BASE_SOURCE_CENTRAL_REWARD) {
+            $errors['base_source'][] = 'The base_source field must be central_reward.';
+        }
+
+        if (array_key_exists('rule_type', $payload) && ! in_array($payload['rule_type'], [TenantRewardPriceRuleService::RULE_TYPE_AMOUNT_DELTA, TenantRewardPriceRuleService::RULE_TYPE_PERCENT_DELTA, 'fixed_price'], true)) {
+            $errors['rule_type'][] = 'The rule_type field must be a reward adjustment type.';
+        }
+
         if (array_key_exists('conditions_json', $payload) && ! is_array($payload['conditions_json'])) {
             $errors['conditions'][] = 'The conditions field must be an object or array.';
         }
 
-        return $errors;
+        return $this->mergeFieldErrors($errors, $this->rewardPriceRules->validateRulePayload($payload));
+    }
+
+    /**
+     * @param array<string, array<int, string>> $base
+     * @param array<string, array<int, string>> $extra
+     * @return array<string, array<int, string>>
+     */
+    private function mergeFieldErrors(array $base, array $extra): array
+    {
+        foreach ($extra as $field => $messages) {
+            $base[$field] = array_values(array_merge($base[$field] ?? [], $messages));
+        }
+
+        return $base;
     }
 
     /**

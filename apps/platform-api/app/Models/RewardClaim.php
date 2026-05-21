@@ -24,6 +24,10 @@ class RewardClaim extends BaseModel
         'status',
         'payout_method',
         'prize_amount',
+        'base_prize_amount',
+        'adjustment_amount',
+        'tenant_price_rule_id',
+        'price_rule_snapshot_json',
         'currency',
         'bank_account_json',
         'customer_note',
@@ -41,6 +45,9 @@ class RewardClaim extends BaseModel
 
     protected $casts = [
         'prize_amount' => 'integer',
+        'base_prize_amount' => 'integer',
+        'adjustment_amount' => 'integer',
+        'price_rule_snapshot_json' => 'array',
         'bank_account_json' => 'array',
         'submitted_at' => 'datetime',
         'reviewed_at' => 'datetime',

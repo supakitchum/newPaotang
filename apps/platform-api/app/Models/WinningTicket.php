@@ -22,6 +22,10 @@ class WinningTicket extends BaseModel
         'prize_type',
         'prize_number',
         'amount',
+        'base_amount',
+        'adjustment_amount',
+        'tenant_price_rule_id',
+        'price_rule_snapshot_json',
         'currency',
         'status',
         'created_at',
@@ -30,6 +34,9 @@ class WinningTicket extends BaseModel
 
     protected $casts = [
         'amount' => 'integer',
+        'base_amount' => 'integer',
+        'adjustment_amount' => 'integer',
+        'price_rule_snapshot_json' => 'array',
     ];
 
     public function game(): BelongsTo
