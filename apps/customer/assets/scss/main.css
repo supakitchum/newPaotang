@@ -496,6 +496,11 @@ a {
   padding-top: 22px;
 }
 
+.register-name-grid {
+  display: grid;
+  gap: 0;
+}
+
 .login-form-head {
   margin-bottom: 22px;
 }

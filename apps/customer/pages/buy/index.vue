@@ -76,11 +76,15 @@ interface LotteryTicket {
   remaining_count?: number | null
   availability_status?: string | null
   status?: string | null
+  price?: number | string
+  priceTrend?: 'up' | 'down' | null
+  priceFlashKey?: number | null
 }
 
 const platformApi = usePlatformApi()
-const { isAuthenticated, clearAuthToken } = useAuth()
+const { clearAuthToken } = useAuth()
 const { currentDrawDate: drawDate, currentGame } = useAppInit()
+const { applyPriceUpdateToTickets } = usePriceRealtimePatch()
 const lotteries = useState<LotteryTicket[]>('buy_browse_lotteries', () => [])
 const seed = useState<string | null>('buy_browse_seed', () => null)
 const nextCursor = useState<string | null>('buy_browse_next_cursor', () => null)
@@ -92,7 +96,6 @@ const isLoadingMore = ref(false)
 const cooldownSeconds = ref(0)
 const canBuyLottery = useState<boolean>('buy_browse_can_buy', () => true)
 let cooldownTimer: ReturnType<typeof setInterval> | null = null
-let availabilityPollTimer: ReturnType<typeof setInterval> | null = null
 let scrollContainer: HTMLElement | null = null
 
 definePageMeta({
@@ -122,10 +125,11 @@ const refreshButtonText = computed(() => {
 
   return 'แสดงเลขใหม่'
 })
-const realtime = useCustomerStockRealtime({
+useCustomerStockRealtime({
   gameId: currentGameId,
   enabled: computed(() => Boolean(currentGameId.value)),
   onAvailability: (payload) => applyAvailabilityUpdate(payload),
+  onPrice: (payload) => applyPriceUpdateToTickets(lotteries, payload),
 })
 
 const currentAppGameId = computed(() => String(currentGame.value?.id || ''))
@@ -198,20 +202,6 @@ const applyAvailabilityUpdate = (payload: any) => {
   ))
 }
 
-const startAvailabilityPolling = () => {
-  if (availabilityPollTimer) {
-    clearInterval(availabilityPollTimer)
-  }
-
-  availabilityPollTimer = setInterval(() => {
-    if (!isAuthenticated.value || !['unavailable', 'error'].includes(realtime.status.value) || isLoadingInitial.value || isRefreshing.value || isLoadingMore.value) {
-      return
-    }
-
-    void getData()
-  }, 120000)
-}
-
 const loadNextPage = async () => {
   if (isRefreshing.value || isLoadingMore.value || !hasNextPage.value) {
     return
@@ -271,7 +261,6 @@ onMounted(async () => {
     isLoadingInitial.value = false
   }
 
-  startAvailabilityPolling()
   scrollContainer = document.querySelector('.app-scroll')
   scrollContainer?.addEventListener('scroll', handleScroll, { passive: true })
   requestAnimationFrame(() => {
@@ -288,10 +277,6 @@ onBeforeUnmount(() => {
 
   if (cooldownTimer) {
     clearInterval(cooldownTimer)
-  }
-
-  if (availabilityPollTimer) {
-    clearInterval(availabilityPollTimer)
   }
 
   scrollContainer?.removeEventListener('scroll', handleScroll)

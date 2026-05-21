@@ -72,6 +72,9 @@ interface LotteryTicket {
   remaining_count?: number | null
   availability_status?: string | null
   status?: string | null
+  price?: number | string
+  priceTrend?: 'up' | 'down' | null
+  priceFlashKey?: number | null
 }
 
 interface SearchPagination {
@@ -88,8 +91,8 @@ definePageMeta({
 
 const platformApi = usePlatformApi()
 const route = useRoute()
-const { isAuthenticated } = useAuth()
 const { currentDrawDate: displayDrawDate } = useAppInit()
+const { applyPriceUpdateToTickets } = usePriceRealtimePatch()
 const searchDigits = ref<string[]>(['', '', '', '', '', ''])
 const lotteries = ref<LotteryTicket[]>([])
 const pagination = ref<SearchPagination | null>(null)
@@ -98,7 +101,6 @@ const isSearching = ref(false)
 const isLoadingMore = ref(false)
 const hasSearched = ref(false)
 let scrollContainer: HTMLElement | null = null
-let availabilityPollTimer: ReturnType<typeof setInterval> | null = null
 
 const skeletonItems = [1, 2, 3, 4, 5]
 const skeletonTicket: LotteryTicket = {
@@ -117,10 +119,11 @@ const totalPage = computed(() => pagination.value?.total_page ?? 1)
 const hasNextPage = computed(() => Boolean(pagination.value?.seed) && currentPage.value < totalPage.value)
 const showSkeletonItems = computed(() => isSearching.value && lotteries.value.length === 0)
 const showEmptyState = computed(() => hasSearched.value && !isSearching.value && !isLoadingMore.value && lotteries.value.length === 0)
-const realtime = useCustomerStockRealtime({
+useCustomerStockRealtime({
   gameId: currentGameId,
   enabled: computed(() => Boolean(currentGameId.value)),
   onAvailability: (payload) => applyAvailabilityUpdate(payload),
+  onPrice: (payload) => applyPriceUpdateToTickets(lotteries, payload),
 })
 
 const handleDigitsUpdate = (digits: string[]) => {
@@ -187,20 +190,6 @@ const applyAvailabilityUpdate = (payload: any) => {
         }
       : ticket
   ))
-}
-
-const startAvailabilityPolling = () => {
-  if (availabilityPollTimer) {
-    clearInterval(availabilityPollTimer)
-  }
-
-  availabilityPollTimer = setInterval(() => {
-    if (!isAuthenticated.value || !['unavailable', 'error'].includes(realtime.status.value) || isSearching.value || isLoadingMore.value || !hasSearched.value) {
-      return
-    }
-
-    void search()
-  }, 120000)
 }
 
 const search = async () => {
@@ -284,13 +273,9 @@ const ticketKey = (ticket: LotteryTicket, index: number) => String(ticket.token 
 onMounted(() => {
   scrollContainer = document.querySelector('.app-scroll')
   scrollContainer?.addEventListener('scroll', handleScroll, {passive: true})
-  startAvailabilityPolling()
 })
 
 onBeforeUnmount(() => {
   scrollContainer?.removeEventListener('scroll', handleScroll)
-  if (availabilityPollTimer) {
-    clearInterval(availabilityPollTimer)
-  }
 })
 </script>

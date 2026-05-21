@@ -267,6 +267,26 @@ class PublicStockSearchTest extends TestCase
         }
     }
 
+    public function test_PublicStockSearch_short_number_uses_suffix_matching(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_suffix_virtual', 'ten_suffix_virtual', 'suffix-virtual.newpaotang.test');
+        $this->insertGame('gam_suffix_virtual', 'open');
+        $this->insertBaseLotteryNumbers(['000222', '000223', '123422']);
+        $this->insertVirtualProfile('gam_suffix_virtual', 3, 3);
+        $this->insertPartnerDistribution('gam_suffix_virtual', 'par_suffix_virtual', 'ten_suffix_virtual', 10000, 3);
+
+        $rows = $this->getJson('http://suffix-virtual.newpaotang.test/api/v1/public/stock/search?game_id=gam_suffix_virtual&number=22&limit=10')
+            ->assertOk()
+            ->json('data');
+
+        $numbers = array_values(array_map(fn (array $row): string => (string) $row['full_number'], $rows));
+        $this->assertContains('000222', $numbers);
+        $this->assertContains('123422', $numbers);
+        $this->assertNotContains('000223', $numbers);
+        $this->assertTrue(collect($numbers)->every(fn (string $number): bool => str_ends_with($number, '22')));
+    }
+
     public function test_PublicStockSearch_virtual_preview_image_url_is_deterministic_lazy_and_renders_on_demand(): void
     {
         config([

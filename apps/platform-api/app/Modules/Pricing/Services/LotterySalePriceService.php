@@ -6,6 +6,9 @@ use App\Models\Game;
 use App\Models\GameSalePriceRule;
 use App\Models\PartnerTenant;
 use App\Models\TenantSalePriceOverride;
+use App\Modules\Pricing\Events\SalePriceUpdated;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class LotterySalePriceService
@@ -97,6 +100,44 @@ class LotterySalePriceService
     }
 
     /**
+     * @param array<int, object> $stockRows
+     * @return array{items: array<string, array<string, mixed>>, total_amount: int, currency: string}
+     */
+    public function pricesForReservationStockRows(string $tenantId, array $stockRows): array
+    {
+        $pricing = $this->allocatePricesForStockRows($tenantId, $stockRows);
+        $items = $pricing['items'];
+        $total = 0;
+        $currency = (string) ($pricing['currency'] ?? self::DEFAULT_CURRENCY);
+
+        foreach ($stockRows as $stock) {
+            $stockId = (string) $stock->id;
+            $snapshotAmount = $stock->reservation_price_amount ?? null;
+
+            if ($snapshotAmount !== null) {
+                $snapshot = $this->snapshotFromMixed($stock->reservation_sale_price_rule_snapshot_json ?? null);
+                $amount = (int) $snapshotAmount;
+                $rowCurrency = strtoupper(trim((string) ($stock->reservation_currency ?? self::DEFAULT_CURRENCY))) ?: self::DEFAULT_CURRENCY;
+                $items[$stockId] = [
+                    'amount' => $amount,
+                    'currency' => $rowCurrency,
+                    'summary' => $this->summaryFromSnapshot($snapshot, $amount, $rowCurrency),
+                    'snapshot' => $snapshot,
+                ];
+            }
+
+            $total += (int) ($items[$stockId]['amount'] ?? 0);
+            $currency = (string) ($items[$stockId]['currency'] ?? $currency);
+        }
+
+        return [
+            'items' => $items,
+            'total_amount' => $total,
+            'currency' => $currency,
+        ];
+    }
+
+    /**
      * @param array<string, mixed> $queryParams
      * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
      */
@@ -163,6 +204,7 @@ class LotterySalePriceService
                 'updated_at' => $now,
             ],
         );
+        $this->broadcastSalePriceUpdatedAfterCommit($normalized['game_id'], (int) $normalized['set_size']);
 
         return ['resource' => $this->findCentralRule((string) $id)];
     }
@@ -277,6 +319,7 @@ class LotterySalePriceService
                 'updated_at' => $now,
             ],
         );
+        $this->broadcastSalePriceUpdatedAfterCommit($normalized['game_id'], (int) $normalized['set_size'], $tenantId);
 
         return ['resource' => $this->findTenantRule($tenantId, (string) $id)];
     }
@@ -559,6 +602,77 @@ class LotterySalePriceService
     private function money(int $amount, string $currency = self::DEFAULT_CURRENCY): array
     {
         return ['amount' => $amount, 'currency' => $currency];
+    }
+
+    private function broadcastSalePriceUpdatedAfterCommit(string $gameId, int $setSize, ?string $tenantId = null): void
+    {
+        $tenantIds = $tenantId === null
+            ? PartnerTenant::query()->where('status', 'active')->orderBy('id')->pluck('id')->map(fn (mixed $id): string => (string) $id)->all()
+            : [$tenantId];
+
+        if ($tenantIds === []) {
+            return;
+        }
+
+        DB::afterCommit(function () use ($tenantIds, $gameId, $setSize): void {
+            foreach ($tenantIds as $nextTenantId) {
+                try {
+                    $price = $this->effectivePrice($nextTenantId, $gameId, $setSize);
+                    SalePriceUpdated::dispatch([
+                        'tenant_id' => $nextTenantId,
+                        'game_id' => $gameId,
+                        'set_size' => $setSize,
+                        'price' => ['amount' => (int) $price['amount'], 'currency' => (string) $price['currency']],
+                        'price_rule_summary' => $this->summary($price),
+                        'source' => (string) $price['source'],
+                    ]);
+                } catch (\Throwable $exception) {
+                    Log::warning('Sale price realtime broadcast failed.', [
+                        'tenant_id' => $nextTenantId,
+                        'game_id' => $gameId,
+                        'set_size' => $setSize,
+                        'message' => $exception->getMessage(),
+                    ]);
+                }
+            }
+        });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function snapshotFromMixed(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (! is_string($value) || trim($value) === '') {
+            return [];
+        }
+
+        try {
+            $decoded = json_decode($value, true, flags: JSON_THROW_ON_ERROR);
+
+            return is_array($decoded) ? $decoded : [];
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $snapshot
+     * @return array<string, mixed>
+     */
+    private function summaryFromSnapshot(array $snapshot, int $amount, string $currency): array
+    {
+        return [
+            'set_size' => (int) ($snapshot['set_size'] ?? 1),
+            'source' => (string) ($snapshot['source'] ?? 'reservation_snapshot'),
+            'central_amount' => $snapshot['central_amount'] ?? ['amount' => $amount, 'currency' => $currency],
+            'effective_amount' => $snapshot['effective_amount'] ?? ['amount' => $amount, 'currency' => $currency],
+            'fallback' => (bool) ($snapshot['fallback'] ?? false),
+        ];
     }
 
     /**

@@ -6,6 +6,7 @@ type CustomerStockRealtimeOptions = {
   gameId: RealtimeValue<string>
   enabled?: RealtimeValue<boolean>
   onAvailability: (payload: any) => void
+  onPrice?: (payload: any) => void
   onReconnect?: () => void
 }
 
@@ -120,6 +121,11 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
     if (normalizeEventName(message.event) === 'stock.availability.updated') {
       lastEventAt.value = new Date().toISOString()
       options.onAvailability(parseRealtimeData(message.data))
+    }
+
+    if (normalizeEventName(message.event) === 'stock.price.updated') {
+      lastEventAt.value = new Date().toISOString()
+      options.onPrice?.(parseRealtimeData(message.data))
     }
   }
 

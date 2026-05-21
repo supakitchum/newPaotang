@@ -1,7 +1,4 @@
-import { APP_INIT_TTL_MS } from '~/composables/useAppInit'
 import { watch } from 'vue'
-
-let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 export default defineNuxtPlugin({
   name: 'app-init',
@@ -20,15 +17,6 @@ export default defineNuxtPlugin({
     }
 
     ensureAppInit().then(applyRedirect)
-
-    if (refreshTimer) {
-      clearInterval(refreshTimer)
-    }
-
-    refreshTimer = setInterval(async () => {
-      await ensureAppInit()
-      await applyRedirect()
-    }, APP_INIT_TTL_MS)
 
     watch(token, async (nextToken, previousToken) => {
       if (nextToken === previousToken) {

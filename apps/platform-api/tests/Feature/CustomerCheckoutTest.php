@@ -112,7 +112,7 @@ class CustomerCheckoutTest extends TestCase
             ->assertJsonPath('data.0.image_thumb_url', 'https://cdn.lottery.test/lotteries/gam_checkout/batch/partners/par_checkout/thumbs/stk_checkout.webp');
     }
 
-    public function test_CustomerCheckout_uses_sale_price_rule_for_cart_checkout_and_order_item_snapshot(): void
+    public function test_CustomerCheckout_locks_reservation_price_when_cart_is_created(): void
     {
         $world = $this->prepareReservedCart('par_checkout_price', 'ten_checkout_price', 'checkout-price.m5.test', 'gam_checkout_price', '0802003001', 710101);
 
@@ -130,24 +130,24 @@ class CustomerCheckoutTest extends TestCase
         $this->withToken($world['auth']['token'])
             ->getJson('http://'.$world['host'].'/api/v1/customer/cart')
             ->assertOk()
-            ->assertJsonPath('reservations.0.items.0.price.amount', 12300)
-            ->assertJsonPath('total.amount', 12300);
+            ->assertJsonPath('reservations.0.items.0.price.amount', 8000)
+            ->assertJsonPath('total.amount', 8000);
 
         $order = $this->checkoutWallet($world, 'checkout-sale-price-rule');
-        $this->assertSame(12300, $order['total']['amount']);
+        $this->assertSame(8000, $order['total']['amount']);
         $this->assertDatabaseHas('orders', [
             'id' => $order['id'],
-            'total_amount' => 12300,
+            'total_amount' => 8000,
             'currency' => 'THB',
         ]);
         $this->assertDatabaseHas('order_items', [
             'tenant_id' => 'ten_checkout_price',
             'order_id' => $order['id'],
-            'price_amount' => 12300,
+            'price_amount' => 8000,
             'currency' => 'THB',
         ]);
         $snapshot = json_decode((string) DB::table('order_items')->where('order_id', $order['id'])->value('sale_price_rule_snapshot_json'), true, flags: JSON_THROW_ON_ERROR);
-        $this->assertSame('gsp_checkout_price', $snapshot['central_rule_id'] ?? null);
-        $this->assertSame(12300, $snapshot['effective_amount']['amount'] ?? null);
+        $this->assertNotSame('gsp_checkout_price', $snapshot['central_rule_id'] ?? null);
+        $this->assertSame(8000, $snapshot['effective_amount']['amount'] ?? null);
     }
 }

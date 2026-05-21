@@ -19,18 +19,33 @@
         <p>กรอกข้อมูลให้ตรงกับเบอร์โทรศัพท์ที่ใช้งาน</p>
       </div>
 
-      <label class="login-field">
-        <span>ชื่อ-นามสกุล</span>
-        <div class="login-input">
-          <i class="bi bi-person" />
-          <input
-              v-model.trim="fullName"
-              autocomplete="name"
-              placeholder="กรอกชื่อ-นามสกุล"
-              type="text"
-          >
-        </div>
-      </label>
+      <div class="register-name-grid">
+        <label class="login-field">
+          <span>ชื่อ</span>
+          <div class="login-input">
+            <i class="bi bi-person" />
+            <input
+                v-model.trim="firstName"
+                autocomplete="given-name"
+                placeholder="กรอกชื่อ"
+                type="text"
+            >
+          </div>
+        </label>
+
+        <label class="login-field">
+          <span>สกุล</span>
+          <div class="login-input">
+            <i class="bi bi-person" />
+            <input
+                v-model.trim="lastName"
+                autocomplete="family-name"
+                placeholder="กรอกสกุล"
+                type="text"
+            >
+          </div>
+        </label>
+      </div>
 
       <label class="login-field">
         <span>เบอร์โทรศัพท์</span>
@@ -107,7 +122,8 @@ definePageMeta({
   guestOnly: true
 })
 
-const fullName = ref('')
+const firstName = ref('')
+const lastName = ref('')
 const phone = ref('')
 const password = ref('')
 const confirmPassword = ref('')
@@ -158,8 +174,11 @@ const handleSubmit = async () => {
   isSubmitting.value = true
 
   try {
+    const fullName = `${firstName.value} ${lastName.value}`.trim()
     const response = await platformApi.register({
-      name: fullName.value,
+      first_name: firstName.value,
+      last_name: lastName.value,
+      name: fullName,
       phone: phone.value,
       username: phone.value,
       password: password.value,

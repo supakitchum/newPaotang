@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Modules\Pricing\Services\LotterySalePriceService;
+use App\Modules\Pricing\Events\SalePriceUpdated;
 use Database\Seeders\DefaultSalePriceRuleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Tests\Support\PartnerStoreFixtures;
 use Tests\TestCase;
 
@@ -22,6 +24,7 @@ class SalePriceRuleTest extends TestCase
         $this->insertBaseLotteryNumbers(['120000', '120001']);
         $this->insertVirtualProfile('gam_sale_price', 2);
         $this->insertVirtualAllocation('gam_sale_price', 'par_sale_price', 'ten_sale_price', 10000, 2);
+        Event::fake([SalePriceUpdated::class]);
 
         $central = $this->createCentralSession(['price_rule.view', 'price_rule.manage'], 'adm_sale_price_central', 'sale-price-central@example.test');
         $centralHeaders = [
@@ -39,6 +42,12 @@ class SalePriceRuleTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('price.amount', 9000)
             ->json();
+        Event::assertDispatched(SalePriceUpdated::class, fn (SalePriceUpdated $event): bool => (
+            ($event->payload['tenant_id'] ?? null) === 'ten_sale_price'
+            && ($event->payload['game_id'] ?? null) === 'gam_sale_price'
+            && (int) ($event->payload['set_size'] ?? 0) === 1
+            && (int) data_get($event->payload, 'price.amount') === 9000
+        ));
 
         $this->withToken($central['access_token'])
             ->postJson('/api/v1/admin/central/sale-price-rules', [
@@ -102,6 +111,12 @@ class SalePriceRuleTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('partner_price.amount', 9500)
             ->assertJsonPath('source', 'tenant_override');
+        Event::assertDispatched(SalePriceUpdated::class, fn (SalePriceUpdated $event): bool => (
+            ($event->payload['tenant_id'] ?? null) === 'ten_sale_price'
+            && ($event->payload['game_id'] ?? null) === 'gam_sale_price'
+            && (int) ($event->payload['set_size'] ?? 0) === 1
+            && (int) data_get($event->payload, 'price.amount') === 9500
+        ));
 
         $search = $this->getJson('http://sale-price.newpaotang.test/api/v1/public/stock/search?game_id=gam_sale_price&number=120000')
             ->assertOk()

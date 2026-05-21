@@ -65,7 +65,7 @@ class StockReservation extends BaseModel
     public function localStockItems(): BelongsToMany
     {
         return $this->belongsToMany(LocalStockItem::class, 'stock_reservation_items', 'reservation_id', 'local_stock_item_id')
-            ->withPivot(['tenant_id', 'game_id', 'status'])
+            ->withPivot(['tenant_id', 'game_id', 'status', 'price_amount', 'currency', 'sale_price_rule_snapshot_json'])
             ->withTimestamps();
     }
 }

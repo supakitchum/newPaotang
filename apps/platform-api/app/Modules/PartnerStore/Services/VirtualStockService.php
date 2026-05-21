@@ -592,12 +592,23 @@ class VirtualStockService
                 'updated_at' => $now,
             ]);
 
+            $stockRows = LocalStockItem::query()
+                ->where('tenant_id', $tenantId)
+                ->whereIn('id', $localIds)
+                ->orderBy('id')
+                ->get()
+                ->all();
+            $pricing = $this->salePrices->allocatePricesForStockRows($tenantId, $stockRows);
+
             StockReservationItem::query()->insert(array_map(fn (string $localId): array => [
                 'reservation_id' => $reservationId,
                 'local_stock_item_id' => $localId,
                 'tenant_id' => $tenantId,
                 'game_id' => $gameId,
                 'status' => 'active',
+                'price_amount' => (int) ($pricing['items'][$localId]['amount'] ?? 0),
+                'currency' => (string) ($pricing['items'][$localId]['currency'] ?? 'THB'),
+                'sale_price_rule_snapshot_json' => json_encode($pricing['items'][$localId]['snapshot'] ?? [], JSON_THROW_ON_ERROR),
                 'created_at' => $now,
                 'updated_at' => $now,
             ], $localIds));
@@ -754,7 +765,7 @@ class VirtualStockService
         }
 
         if ($number !== '') {
-            $query->where('full_number', 'like', '%'.$number.'%');
+            $this->applyNumberSuffixFilter($query, $number);
         }
 
         if ($mode === 'random') {
@@ -769,6 +780,21 @@ class VirtualStockService
         foreach ($query->offset(max(0, $cursor))->limit(50001)->get() as $row) {
             yield (string) $row->full_number;
         }
+    }
+
+    private function applyNumberSuffixFilter($query, string $number): void
+    {
+        if (strlen($number) === 3) {
+            $query->where('back3', $number);
+            return;
+        }
+
+        if (strlen($number) === 2) {
+            $query->where('back2', $number);
+            return;
+        }
+
+        $query->where('full_number', 'like', '%'.$number);
     }
 
     /**
@@ -2065,10 +2091,15 @@ class VirtualStockService
             ->join('local_stock_items', 'local_stock_items.id', '=', 'stock_reservation_items.local_stock_item_id')
             ->where('stock_reservation_items.reservation_id', $reservationId)
             ->orderBy('local_stock_items.id')
-            ->select('local_stock_items.*')
+            ->select(
+                'local_stock_items.*',
+                'stock_reservation_items.price_amount as reservation_price_amount',
+                'stock_reservation_items.currency as reservation_currency',
+                'stock_reservation_items.sale_price_rule_snapshot_json as reservation_sale_price_rule_snapshot_json',
+            )
             ->get()
             ->all();
-        $pricing = $this->salePrices->allocatePricesForStockRows((string) $reservation->tenant_id, $items);
+        $pricing = $this->salePrices->pricesForReservationStockRows((string) $reservation->tenant_id, $items);
 
         return [
             'id' => (string) $reservation->id,

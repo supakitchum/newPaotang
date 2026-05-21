@@ -64,6 +64,9 @@ interface MoreNumberTicket {
   remaining_count?: number | null
   availability_status?: string | null
   status?: string | null
+  price?: number | string
+  priceTrend?: 'up' | 'down' | null
+  priceFlashKey?: number | null
 }
 
 interface MorePagination {
@@ -80,14 +83,13 @@ definePageMeta({
 const route = useRoute()
 const router = useRouter()
 const platformApi = usePlatformApi()
-const { isAuthenticated } = useAuth()
+const { applyPriceUpdateToTickets } = usePriceRealtimePatch()
 const tickets = ref<MoreNumberTicket[]>([])
 const pagination = ref<MorePagination | null>(null)
 const currentGameId = ref('')
 const isLoadingInitial = ref(false)
 const isLoadingMore = ref(false)
 let scrollContainer: HTMLElement | null = null
-let availabilityPollTimer: ReturnType<typeof setInterval> | null = null
 
 const skeletonItems = [1, 2, 3, 4, 5]
 const skeletonTicket: MoreNumberTicket = {
@@ -104,10 +106,11 @@ const totalPage = computed(() => pagination.value?.total_page ?? 1)
 const hasNextPage = computed(() => Boolean(pagination.value?.seed) && currentPage.value < totalPage.value)
 const showSkeletonItems = computed(() => isLoadingInitial.value && tickets.value.length === 0)
 const showEmptyState = computed(() => !isLoadingInitial.value && !isLoadingMore.value && tickets.value.length === 0)
-const realtime = useCustomerStockRealtime({
+useCustomerStockRealtime({
   gameId: currentGameId,
   enabled: computed(() => Boolean(currentGameId.value)),
   onAvailability: (payload) => applyAvailabilityUpdate(payload),
+  onPrice: (payload) => applyPriceUpdateToTickets(tickets, payload),
 })
 
 const goBack = () => {
@@ -173,20 +176,6 @@ const applyAvailabilityUpdate = (payload: any) => {
         }
       : ticket
   ))
-}
-
-const startAvailabilityPolling = () => {
-  if (availabilityPollTimer) {
-    clearInterval(availabilityPollTimer)
-  }
-
-  availabilityPollTimer = setInterval(() => {
-    if (!isAuthenticated.value || !['unavailable', 'error'].includes(realtime.status.value) || isLoadingInitial.value || isLoadingMore.value || !selectedNumber.value) {
-      return
-    }
-
-    void search(false)
-  }, 120000)
 }
 
 const search = async (append = false) => {
@@ -258,15 +247,11 @@ onMounted(async () => {
     isLoadingInitial.value = false
   }
 
-  startAvailabilityPolling()
   scrollContainer = document.querySelector('.app-scroll')
   scrollContainer?.addEventListener('scroll', handleScroll, { passive: true })
 })
 
 onBeforeUnmount(() => {
   scrollContainer?.removeEventListener('scroll', handleScroll)
-  if (availabilityPollTimer) {
-    clearInterval(availabilityPollTimer)
-  }
 })
 </script>

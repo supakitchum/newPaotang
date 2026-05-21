@@ -149,10 +149,19 @@ class CustomerAuthController extends Controller
     {
         $errors = [];
 
-        foreach (['name', 'phone', 'password', 'password_confirmation'] as $field) {
+        foreach (['phone', 'password', 'password_confirmation'] as $field) {
             if (trim((string) ($payload[$field] ?? '')) === '') {
                 $errors[$field][] = 'The '.$field.' field is required.';
             }
+        }
+
+        $hasLegacyName = trim((string) ($payload['name'] ?? '')) !== '';
+        if (! $hasLegacyName && trim((string) ($payload['first_name'] ?? '')) === '') {
+            $errors['first_name'][] = 'The first_name field is required.';
+        }
+
+        if (! $hasLegacyName && trim((string) ($payload['last_name'] ?? '')) === '') {
+            $errors['last_name'][] = 'The last_name field is required.';
         }
 
         if (($payload['password'] ?? null) !== ($payload['password_confirmation'] ?? null)) {

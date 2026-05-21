@@ -67,6 +67,12 @@ interface StoreLotteryTicket {
   selected?: boolean
   highlight?: string
   highlightDigits?: Array<string | null>
+  remaining_count?: number | null
+  availability_status?: string | null
+  status?: string | null
+  price?: number | string
+  priceTrend?: 'up' | 'down' | null
+  priceFlashKey?: number | null
 }
 
 interface StoreLotteryPagination {
@@ -83,9 +89,11 @@ definePageMeta({
 const route = useRoute()
 const platformApi = usePlatformApi()
 const { currentDrawDate: drawDate } = useAppInit()
+const { applyPriceUpdateToTickets } = usePriceRealtimePatch()
 const lotteries = ref<StoreLotteryTicket[]>([])
 const storeName = ref('ร้านสลากฯ')
 const pagination = ref<StoreLotteryPagination | null>(null)
+const currentGameId = ref('')
 const isLoadingInitial = ref(false)
 const isRefreshing = ref(false)
 const isLoadingMore = ref(false)
@@ -118,6 +126,12 @@ const refreshButtonText = computed(() => {
   }
 
   return 'แสดงเลขใหม่'
+})
+useCustomerStockRealtime({
+  gameId: currentGameId,
+  enabled: computed(() => Boolean(currentGameId.value)),
+  onAvailability: (payload) => applyAvailabilityUpdate(payload),
+  onPrice: (payload) => applyPriceUpdateToTickets(lotteries, payload),
 })
 
 const startCooldown = () => {
@@ -173,11 +187,31 @@ async function getData(options: { append?: boolean } = {}) {
       const nextLotteries = (response.data.result.lotteries || []).map(withHighlight)
       lotteries.value = options.append ? [...lotteries.value, ...nextLotteries] : nextLotteries
       storeName.value = response.data.result.seller?.name || storeName.value
+      currentGameId.value = String(response.data.result.game_id || currentGameId.value || '')
       pagination.value = nextPagination
     }
   } catch (e) {
     console.log(e)
   }
+}
+
+const applyAvailabilityUpdate = (payload: any) => {
+  const fullNumber = String(payload?.full_number || '').replace(/\D/g, '').slice(0, 6)
+
+  if (!fullNumber) {
+    return
+  }
+
+  lotteries.value = lotteries.value.map((ticket) => (
+    getTicketNumber(ticket) === fullNumber
+      ? {
+          ...ticket,
+          remaining_count: Number(payload.remaining_count || 0),
+          availability_status: payload.status || (Number(payload.remaining_count || 0) > 0 ? 'available' : 'sold_out'),
+          status: payload.status || ticket.status
+        }
+      : ticket
+  ))
 }
 
 const loadNextPage = async () => {

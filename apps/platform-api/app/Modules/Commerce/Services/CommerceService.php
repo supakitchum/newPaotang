@@ -164,7 +164,7 @@ class CommerceService
                 }
             }
 
-            $pricing = $this->salePrices->allocatePricesForStockRows((string) $tenant['tenant_id'], $stockRows);
+            $pricing = $this->salePrices->pricesForReservationStockRows((string) $tenant['tenant_id'], $stockRows);
             $totalAmount = (int) $pricing['total_amount'];
 
             if ($normalized['payment_method'] === 'wallet') {
@@ -1361,7 +1361,12 @@ class CommerceService
             ->where('stock_reservation_items.status', 'active')
             ->whereNotNull('local_stock_items.virtual_stock_ref')
             ->orderBy('local_stock_items.id')
-            ->select('local_stock_items.*')
+            ->select(
+                'local_stock_items.*',
+                'stock_reservation_items.price_amount as reservation_price_amount',
+                'stock_reservation_items.currency as reservation_currency',
+                'stock_reservation_items.sale_price_rule_snapshot_json as reservation_sale_price_rule_snapshot_json',
+            )
             ->lockForUpdate()
             ->get()
             ->all();
@@ -1600,11 +1605,16 @@ class CommerceService
             ->where('stock_reservation_items.reservation_id', $reservation->id)
             ->whereNotNull('local_stock_items.virtual_stock_ref')
             ->orderBy('local_stock_items.id')
-            ->select('local_stock_items.*')
+            ->select(
+                'local_stock_items.*',
+                'stock_reservation_items.price_amount as reservation_price_amount',
+                'stock_reservation_items.currency as reservation_currency',
+                'stock_reservation_items.sale_price_rule_snapshot_json as reservation_sale_price_rule_snapshot_json',
+            )
             ->get()
             ->all();
 
-        $pricing = $this->salePrices->allocatePricesForStockRows((string) $reservation->tenant_id, $items);
+        $pricing = $this->salePrices->pricesForReservationStockRows((string) $reservation->tenant_id, $items);
 
         return [
             'id' => (string) $reservation->id,

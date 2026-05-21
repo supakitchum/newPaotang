@@ -58,7 +58,11 @@
       </div>
       <div class="d-flex justify-content-between align-items-center mt-2">
         <div class="muted-text fw-medium">{{ sellerName }}</div>
-        <div class="price">{{ price }} บาท</div>
+        <div class="price" :class="priceTrendClass">
+          <i v-if="priceTrend === 'up'" class="bi bi-arrow-up-short price-trend-icon" aria-hidden="true" />
+          <i v-else-if="priceTrend === 'down'" class="bi bi-arrow-down-short price-trend-icon" aria-hidden="true" />
+          <span>{{ price }} บาท</span>
+        </div>
       </div>
     </template>
     <template v-else>
@@ -112,6 +116,8 @@ const props = defineProps<{
     image_status?: string | null
     image_error?: string | null
     price?: number | string
+    priceTrend?: 'up' | 'down' | null
+    priceFlashKey?: number | null
     remaining_count?: number | null
     availability_status?: string | null
     status?: string | null
@@ -157,6 +163,11 @@ const price = computed(() => {
 
   return Number.isFinite(value) && value > 0 ? value : ticketPrice
 })
+const priceTrend = computed(() => props.ticket.priceTrend || null)
+const priceTrendClass = computed(() => ({
+  'price-flash-up': priceTrend.value === 'up',
+  'price-flash-down': priceTrend.value === 'down'
+}))
 const selectButtonText = computed(() => {
   if (isUnavailable.value) {
     return 'ขายหมดแล้ว'
@@ -280,3 +291,46 @@ const handleBooking = async () => {
   }
 }
 </script>
+
+<style scoped>
+.price {
+  align-items: center;
+  display: inline-flex;
+  gap: 2px;
+  min-width: 72px;
+  justify-content: flex-end;
+}
+
+.price-trend-icon {
+  font-size: 1.15em;
+  line-height: 1;
+}
+
+.price-flash-up {
+  animation: pricePulse 2s ease-out;
+  color: #15803d;
+}
+
+.price-flash-down {
+  animation: pricePulse 2s ease-out;
+  color: #dc2626;
+}
+
+@keyframes pricePulse {
+  0%,
+  55% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  20% {
+    opacity: 0.35;
+    transform: translateY(-1px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+</style>

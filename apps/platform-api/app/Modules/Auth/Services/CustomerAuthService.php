@@ -29,11 +29,13 @@ class CustomerAuthService
     public function register(array $tenant, array $payload, Request $request): array
     {
         $normalized = [
-            'name' => trim((string) ($payload['name'] ?? '')),
+            'first_name' => trim((string) ($payload['first_name'] ?? '')),
+            'last_name' => trim((string) ($payload['last_name'] ?? '')),
             'phone' => trim((string) ($payload['phone'] ?? '')),
             'email' => $this->nullableLower($payload['email'] ?? null),
             'accepted_terms' => (bool) ($payload['accepted_terms'] ?? true),
         ];
+        $normalized['name'] = trim((string) ($payload['name'] ?? trim($normalized['first_name'].' '.$normalized['last_name'])));
         $idempotencyKey = (string) $request->header('Idempotency-Key');
         $actorId = $tenant['tenant_id'].':'.$normalized['phone'];
         $replay = $this->idempotency->replayOrConflict($tenant['tenant_id'], 'customer_register', $actorId, 'customer.auth.register', $idempotencyKey, $normalized);
@@ -62,6 +64,8 @@ class CustomerAuthService
                 'password_hash' => Hash::make((string) $payload['password']),
                 'avatar_url' => null,
                 'name' => $normalized['name'],
+                'first_name' => $normalized['first_name'] !== '' ? $normalized['first_name'] : null,
+                'last_name' => $normalized['last_name'] !== '' ? $normalized['last_name'] : null,
                 'status' => 'active',
                 'last_login_at' => $now,
                 'created_at' => $now,
@@ -200,6 +204,8 @@ class CustomerAuthService
     {
         $normalized = array_filter([
             'name' => array_key_exists('name', $payload) ? trim((string) $payload['name']) : null,
+            'first_name' => array_key_exists('first_name', $payload) ? trim((string) $payload['first_name']) : null,
+            'last_name' => array_key_exists('last_name', $payload) ? trim((string) $payload['last_name']) : null,
             'phone' => array_key_exists('phone', $payload) ? trim((string) $payload['phone']) : null,
             'email' => array_key_exists('email', $payload) ? $this->nullableLower($payload['email']) : null,
             'avatar_url' => array_key_exists('avatar_url', $payload) ? ($payload['avatar_url'] ?: null) : null,
@@ -321,6 +327,8 @@ class CustomerAuthService
             'id' => (string) $customer->id,
             'tenant_id' => (string) $customer->tenant_id,
             'name' => $customer->name,
+            'first_name' => $customer->first_name ?? null,
+            'last_name' => $customer->last_name ?? null,
             'phone' => $customer->phone,
             'email' => $customer->email ?? null,
             'status' => $customer->status ?? null,
