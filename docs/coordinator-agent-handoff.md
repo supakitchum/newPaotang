@@ -394,3 +394,54 @@ Dispatch order:
 2. BO Develop: selects/dependent tenant UX, percent modal, allocation row actions, Partners percent UI.
 3. QA Tester: real menu/API workflow, partner percent validation, recall-all/redistribute, runtime smoke.
 4. Coordinator: review evidence and adjust completion status.
+
+## 2026-05-21 Customer Tenant Domain API Integration
+
+Coordinator opened normal workflow task:
+
+```text
+customer-tenant-domain-api-integration
+```
+
+User request:
+
+```text
+เปิดงาน customer develop ให้เข้ากับ api ใหม่ของแต่ละ tenant
+```
+
+Decision:
+
+- `ai-agents/decisions/20260521-customer-tenant-domain-api-integration-decision.md`
+
+Task docs:
+
+- `ai-agents/tasks/20260521-customer-tenant-domain-api-integration-orchestrator.md`
+- `ai-agents/tasks/20260521-customer-tenant-domain-api-integration-customer.md`
+- `ai-agents/tasks/20260521-customer-tenant-domain-api-integration-qa.md`
+
+Scope:
+
+```text
+partner-a.test -> customer storefront
+partner-a.test/api/v1/* -> platform-api /api/v1/* with Host preserved as partner-a.test
+bo.partner-a.test -> Back Office, already handled by partner-bo-domain-auth-branding
+```
+
+Important constraints:
+
+- No `api.*` host support in v1.
+- Customer default API base should be same-origin `/api/v1` for tenant storefront domains.
+- SSR/server calls must preserve original storefront Host if they call platform-api directly.
+- Customer must use `/api/v1/public/site-config` for tenant identity, branding, SEO, feature flags, and maintenance.
+- Customer auth/session storage must not leak across tenant hosts.
+- Prior QA caveat must be closed: `alpha.newpaotang.test:3000` was blocked by local customer Vite/Nuxt host policy.
+- Do not edit `apps/platform-api/**` or `apps/back-office/**` from this task. Report API gaps instead.
+
+Dispatch order:
+
+1. Orchestrator
+2. Customer Develop
+3. QA Tester
+4. Coordinator
+
+Next Agent: Orchestrator
