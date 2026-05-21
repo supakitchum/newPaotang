@@ -1,4 +1,15 @@
 services:
+  local-proxy:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx/local-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - customer
+      - back-office
+      - platform-api
+
   platform-api:
     build:
       context: ./apps/platform-api
@@ -230,7 +241,7 @@ services:
     working_dir: /app
     command: npm run dev
     environment:
-      VITE_ADMIN_API_BASE: http://localhost:8000/api/v1
+      VITE_ADMIN_API_BASE: /api/v1
       VITE_ADMIN_REALTIME_URL: http://localhost:8080
       VITE_ADMIN_REALTIME_KEY: newpaotang-admin
       NUXT_BUILD_DIR: /tmp/newpaotang-back-office-nuxt
