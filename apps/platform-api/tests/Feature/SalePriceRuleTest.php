@@ -162,6 +162,45 @@ class SalePriceRuleTest extends TestCase
         $this->assertTrue($rules->every(fn (object $rule): bool => (string) $rule->status === 'active'));
     }
 
+    public function test_TenantSalePriceRule_broadcasts_immediately_when_saved_inside_transaction(): void
+    {
+        $this->insertActivePartnerTenantWithDomain('par_sale_price_tx', 'ten_sale_price_tx', 'sale-price-tx.newpaotang.test');
+        $this->insertGame('gam_sale_price_tx', 'open');
+        DB::table('game_sale_price_rules')->insert([
+            'id' => 'gsp_sale_price_tx_one',
+            'game_id' => 'gam_sale_price_tx',
+            'set_size' => 1,
+            'price_amount' => 8000,
+            'currency' => 'THB',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        Event::fake([SalePriceUpdated::class]);
+
+        DB::beginTransaction();
+
+        try {
+            $result = app(LotterySalePriceService::class)->upsertTenantRule('ten_sale_price_tx', [
+                'game_id' => 'gam_sale_price_tx',
+                'set_size' => 1,
+                'price_amount' => 9000,
+                'currency' => 'THB',
+                'status' => 'active',
+            ]);
+
+            $this->assertArrayHasKey('resource', $result);
+            Event::assertDispatched(SalePriceUpdated::class, fn (SalePriceUpdated $event): bool => (
+                ($event->payload['tenant_id'] ?? null) === 'ten_sale_price_tx'
+                && ($event->payload['game_id'] ?? null) === 'gam_sale_price_tx'
+                && (int) data_get($event->payload, 'price.amount') === 9000
+                && in_array('customer.tenant.ten_sale_price_tx.sale-price', $this->eventChannelNames($event), true)
+            ));
+        } finally {
+            DB::rollBack();
+        }
+    }
+
     /**
      * @param array<int, string> $numbers
      */

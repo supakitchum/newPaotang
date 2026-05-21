@@ -204,7 +204,7 @@ class LotterySalePriceService
                 'updated_at' => $now,
             ],
         );
-        $this->broadcastSalePriceUpdatedAfterCommit($normalized['game_id'], (int) $normalized['set_size']);
+        $this->broadcastSalePriceUpdated($normalized['game_id'], (int) $normalized['set_size']);
 
         return ['resource' => $this->findCentralRule((string) $id)];
     }
@@ -319,7 +319,7 @@ class LotterySalePriceService
                 'updated_at' => $now,
             ],
         );
-        $this->broadcastSalePriceUpdatedAfterCommit($normalized['game_id'], (int) $normalized['set_size'], $tenantId);
+        $this->broadcastSalePriceUpdated($normalized['game_id'], (int) $normalized['set_size'], $tenantId);
 
         return ['resource' => $this->findTenantRule($tenantId, (string) $id)];
     }
@@ -604,7 +604,7 @@ class LotterySalePriceService
         return ['amount' => $amount, 'currency' => $currency];
     }
 
-    private function broadcastSalePriceUpdatedAfterCommit(string $gameId, int $setSize, ?string $tenantId = null): void
+    private function broadcastSalePriceUpdated(string $gameId, int $setSize, ?string $tenantId = null): void
     {
         $tenantIds = $tenantId === null
             ? PartnerTenant::query()->where('status', 'active')->orderBy('id')->pluck('id')->map(fn (mixed $id): string => (string) $id)->all()
@@ -614,39 +614,26 @@ class LotterySalePriceService
             return;
         }
 
-        $this->afterCommitOrNow(function () use ($tenantIds, $gameId, $setSize): void {
-            foreach ($tenantIds as $nextTenantId) {
-                try {
-                    $price = $this->effectivePrice($nextTenantId, $gameId, $setSize);
-                    SalePriceUpdated::dispatch([
-                        'tenant_id' => $nextTenantId,
-                        'game_id' => $gameId,
-                        'set_size' => $setSize,
-                        'price' => ['amount' => (int) $price['amount'], 'currency' => (string) $price['currency']],
-                        'price_rule_summary' => $this->summary($price),
-                        'source' => (string) $price['source'],
-                    ]);
-                } catch (\Throwable $exception) {
-                    Log::warning('Sale price realtime broadcast failed.', [
-                        'tenant_id' => $nextTenantId,
-                        'game_id' => $gameId,
-                        'set_size' => $setSize,
-                        'message' => $exception->getMessage(),
-                    ]);
-                }
+        foreach ($tenantIds as $nextTenantId) {
+            try {
+                $price = $this->effectivePrice($nextTenantId, $gameId, $setSize);
+                SalePriceUpdated::dispatch([
+                    'tenant_id' => $nextTenantId,
+                    'game_id' => $gameId,
+                    'set_size' => $setSize,
+                    'price' => ['amount' => (int) $price['amount'], 'currency' => (string) $price['currency']],
+                    'price_rule_summary' => $this->summary($price),
+                    'source' => (string) $price['source'],
+                ]);
+            } catch (\Throwable $exception) {
+                Log::warning('Sale price realtime broadcast failed.', [
+                    'tenant_id' => $nextTenantId,
+                    'game_id' => $gameId,
+                    'set_size' => $setSize,
+                    'message' => $exception->getMessage(),
+                ]);
             }
-        });
-    }
-
-    private function afterCommitOrNow(callable $callback): void
-    {
-        if (DB::transactionLevel() > 0) {
-            DB::afterCommit($callback);
-
-            return;
         }
-
-        $callback();
     }
 
     /**
