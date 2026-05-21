@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Modules\Pricing\Services\LotterySalePriceService;
+use Database\Seeders\DefaultSalePriceRuleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\PartnerStoreFixtures;
@@ -109,6 +110,35 @@ class SalePriceRuleTest extends TestCase
             ->assertJsonPath('data.0.price_rule_summary.source', 'tenant_override')
             ->json();
         $this->assertArrayNotHasKey('stock_mode', $search['data'][0]);
+    }
+
+    public function test_DefaultSalePriceRuleSeeder_seeds_sets_one_through_twenty_at_eighty_thb_per_ticket(): void
+    {
+        $this->insertGame('gam_sale_price_seed', 'open');
+        DB::table('game_sale_price_rules')->insert([
+            'id' => 'gsp_existing_seed_one',
+            'game_id' => 'gam_sale_price_seed',
+            'set_size' => 1,
+            'price_amount' => 9999,
+            'currency' => 'THB',
+            'status' => 'inactive',
+            'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
+        ]);
+
+        $this->seed(DefaultSalePriceRuleSeeder::class);
+        $this->seed(DefaultSalePriceRuleSeeder::class);
+
+        $rules = DB::table('game_sale_price_rules')
+            ->where('game_id', 'gam_sale_price_seed')
+            ->orderBy('set_size')
+            ->get(['set_size', 'price_amount', 'currency', 'status']);
+
+        $this->assertCount(20, $rules);
+        $this->assertSame(8000, (int) $rules->firstWhere('set_size', 1)->price_amount);
+        $this->assertSame(160000, (int) $rules->firstWhere('set_size', 20)->price_amount);
+        $this->assertTrue($rules->every(fn (object $rule): bool => (string) $rule->currency === 'THB'));
+        $this->assertTrue($rules->every(fn (object $rule): bool => (string) $rule->status === 'active'));
     }
 
     /**

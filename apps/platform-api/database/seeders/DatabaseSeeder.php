@@ -12,6 +12,7 @@ class DatabaseSeeder extends Seeder
             DefaultRbacMenuSeeder::class,
             BootstrapAdminSeeder::class,
             DemoTenantSeeder::class,
+            DefaultSalePriceRuleSeeder::class,
             BaseLotteryNumberSeeder::class,
         ]);
     }
