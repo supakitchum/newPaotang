@@ -5,12 +5,15 @@ namespace App\Modules\Reward\Services;
 use App\Models\RewardPrize;
 use App\Models\RewardResult;
 use App\Models\TenantPriceRule;
+use Illuminate\Support\Facades\Schema;
 
 class TenantRewardPriceRuleService
 {
     public const BASE_SOURCE_CENTRAL_REWARD = 'central_reward';
     public const RULE_TYPE_AMOUNT_DELTA = 'reward_adjustment_amount';
     public const RULE_TYPE_PERCENT_DELTA = 'reward_adjustment_percent';
+
+    private ?bool $rewardRuleColumnsReady = null;
 
     public function settingRowId(string $gameId, string $prizeType): string
     {
@@ -101,6 +104,12 @@ class TenantRewardPriceRuleService
         if ($partnerPayoutAmount < 0) {
             return ['error' => 'validation_failed', 'errors' => [
                 'partner_payout_amount' => ['The partner_payout_amount field must be at least zero.'],
+            ]];
+        }
+
+        if (! $this->rewardRuleColumnsReady()) {
+            return ['error' => 'validation_failed', 'errors' => [
+                'price_rule_schema' => ['Reward payout settings are not ready. Please run the tenant price rule migration before saving.'],
             ]];
         }
 
@@ -260,6 +269,10 @@ class TenantRewardPriceRuleService
      */
     private function matchingRules(string $tenantId, string $gameId, object $prize): array
     {
+        if (! $this->rewardRuleColumnsReady()) {
+            return [];
+        }
+
         return TenantPriceRule::query()
             ->forTenant($tenantId)
             ->where('status', 'active')
@@ -447,6 +460,10 @@ class TenantRewardPriceRuleService
 
     private function existingSettingRule(string $tenantId, string $gameId, string $prizeType): ?TenantPriceRule
     {
+        if (! $this->rewardRuleColumnsReady()) {
+            return null;
+        }
+
         return TenantPriceRule::query()
             ->forTenant($tenantId)
             ->where('game_id', $gameId)
@@ -496,6 +513,21 @@ class TenantRewardPriceRuleService
     private function prizeTypeLabel(string $type): string
     {
         return ucwords(str_replace('_', ' ', $type));
+    }
+
+    private function rewardRuleColumnsReady(): bool
+    {
+        if ($this->rewardRuleColumnsReady !== null) {
+            return $this->rewardRuleColumnsReady;
+        }
+
+        foreach (['base_source', 'adjustment_amount', 'adjustment_bps'] as $column) {
+            if (! Schema::hasColumn('tenant_price_rules', $column)) {
+                return $this->rewardRuleColumnsReady = false;
+            }
+        }
+
+        return $this->rewardRuleColumnsReady = true;
     }
 
     private function moneyInputAmount(mixed $value): ?int
