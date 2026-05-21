@@ -2,6 +2,8 @@ import { toSerializableError, type SerializableError } from '~/utils/serializabl
 import { normalizeTenantHost, tenantHostScope } from '~/utils/tenantHost'
 
 export interface SiteConfig {
+  partner_id?: string
+  tenant_id?: string
   site?: {
     site_name?: string
     display_name?: string

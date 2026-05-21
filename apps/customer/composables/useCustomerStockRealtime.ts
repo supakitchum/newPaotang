@@ -13,6 +13,7 @@ type CustomerStockRealtimeOptions = {
 export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) => {
   const config = useRuntimeConfig()
   const axios = useAxios()
+  const { config: siteConfig } = useSiteConfig()
   const { token, user } = useAuth()
   const status = ref<CustomerRealtimeStatus>('idle')
   const error = ref('')
@@ -22,9 +23,18 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
   const isConfigured = computed(() => Boolean(realtimeUrl.value))
   const gameId = computed(() => readRealtimeValue(options.gameId).trim())
   const enabled = computed(() => options.enabled === undefined ? true : Boolean(readRealtimeValue(options.enabled)))
-  const tenantId = computed(() => tenantIdFromUser(user.value) || tenantIdFromToken(token.value))
-  const channelName = computed(() => gameId.value ? `private-customer.tenant.${tenantId.value}.stock.game.${gameId.value}` : '')
-  const shouldSubscribe = computed(() => Boolean(import.meta.client && enabled.value && token.value && gameId.value && tenantId.value))
+  const tenantId = computed(() => tenantIdFromUser(user.value) || tenantIdFromToken(token.value) || tenantIdFromSiteConfig(siteConfig.value))
+  const usesPrivateChannel = computed(() => Boolean(token.value && tenantId.value))
+  const channelName = computed(() => {
+    if (!gameId.value || !tenantId.value) {
+      return ''
+    }
+
+    const prefix = usesPrivateChannel.value ? 'private-' : ''
+
+    return `${prefix}customer.tenant.${tenantId.value}.stock.game.${gameId.value}`
+  })
+  const shouldSubscribe = computed(() => Boolean(import.meta.client && enabled.value && gameId.value && tenantId.value && channelName.value))
 
   let socket: WebSocket | null = null
   let socketId = ''
@@ -32,7 +42,7 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
   let hasConnectedOnce = false
 
   watch(
-    () => [shouldSubscribe.value, isConfigured.value, gameId.value, token.value, tenantId.value],
+    () => [shouldSubscribe.value, isConfigured.value, channelName.value, token.value, realtimeKey.value],
     () => {
       if (!shouldSubscribe.value) {
         disconnect('idle')
@@ -104,7 +114,11 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
     if (message.event === 'pusher:connection_established') {
       const data = parseRealtimeData(message.data)
       socketId = String(data?.socket_id || '').trim()
-      await authenticateChannel(activeSocket)
+      if (usesPrivateChannel.value) {
+        await authenticateChannel(activeSocket)
+      } else {
+        subscribePublicChannel(activeSocket)
+      }
       return
     }
 
@@ -163,6 +177,19 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
         scheduleReconnect()
       }
     }
+  }
+
+  function subscribePublicChannel(activeSocket: WebSocket) {
+    if (activeSocket !== socket || activeSocket.readyState !== WebSocket.OPEN || !channelName.value) {
+      return
+    }
+
+    sendRealtime(activeSocket, {
+      event: 'pusher:subscribe',
+      data: {
+        channel: channelName.value,
+      },
+    })
   }
 
   function markConnected() {
@@ -293,4 +320,18 @@ const tenantIdFromUser = (user: Record<string, unknown> | null | undefined) => {
   }
 
   return String(user.tenant_id || user.tenantId || '')
+}
+
+const tenantIdFromSiteConfig = (siteConfig: Record<string, unknown> | null | undefined) => {
+  if (!siteConfig) {
+    return ''
+  }
+
+  const tenant = siteConfig.tenant
+
+  if (tenant && typeof tenant === 'object' && !Array.isArray(tenant)) {
+    return String((tenant as Record<string, unknown>).id || '')
+  }
+
+  return String(siteConfig.tenant_id || siteConfig.tenantId || '')
 }

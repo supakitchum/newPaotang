@@ -13,6 +13,7 @@ const nuxtConfig = read('nuxt.config.ts')
 const axiosPlugin = read('plugins/axios.ts')
 const authComposable = read('composables/useAuth.ts')
 const siteConfigComposable = read('composables/useSiteConfig.ts')
+const stockRealtimeComposable = read('composables/useCustomerStockRealtime.ts')
 const proxyRoutePath = 'server/routes/api/v1/[...path].ts'
 const proxyRoute = read(proxyRoutePath)
 
@@ -30,6 +31,8 @@ expect('auth useState keys are host-scoped', authComposable.includes('auth_token
 expect('site-config state is host-scoped', siteConfigComposable.includes('site_config_${hostScope}'))
 expect('site-config promise cache is host-scoped', siteConfigComposable.includes('siteConfigPromises'))
 expect('site-config no longer replaces API base with site-config api.base_url', !siteConfigComposable.includes('runtimeApiBaseUrl.value = siteConfig.api.base_url'))
+expect('customer stock realtime can resolve tenant from site-config', stockRealtimeComposable.includes('tenantIdFromSiteConfig(siteConfig.value)'))
+expect('customer stock realtime supports public stock channel subscription', stockRealtimeComposable.includes('subscribePublicChannel') && stockRealtimeComposable.includes("const prefix = usesPrivateChannel.value ? 'private-' : ''"))
 
 const failed = checks.filter((check) => !check.condition)
 

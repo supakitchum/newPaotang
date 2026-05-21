@@ -47,6 +47,8 @@ class SalePriceRuleTest extends TestCase
             && ($event->payload['game_id'] ?? null) === 'gam_sale_price'
             && (int) ($event->payload['set_size'] ?? 0) === 1
             && (int) data_get($event->payload, 'price.amount') === 9000
+            && in_array('private-customer.tenant.ten_sale_price.stock.game.gam_sale_price', $this->eventChannelNames($event), true)
+            && in_array('customer.tenant.ten_sale_price.stock.game.gam_sale_price', $this->eventChannelNames($event), true)
         ));
 
         $this->withToken($central['access_token'])
@@ -116,6 +118,8 @@ class SalePriceRuleTest extends TestCase
             && ($event->payload['game_id'] ?? null) === 'gam_sale_price'
             && (int) ($event->payload['set_size'] ?? 0) === 1
             && (int) data_get($event->payload, 'price.amount') === 9500
+            && in_array('private-customer.tenant.ten_sale_price.stock.game.gam_sale_price', $this->eventChannelNames($event), true)
+            && in_array('customer.tenant.ten_sale_price.stock.game.gam_sale_price', $this->eventChannelNames($event), true)
         ));
 
         $search = $this->getJson('http://sale-price.newpaotang.test/api/v1/public/stock/search?game_id=gam_sale_price&number=120000')
@@ -209,5 +213,13 @@ class SalePriceRuleTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function eventChannelNames(SalePriceUpdated $event): array
+    {
+        return array_map(fn (object $channel): string => (string) $channel->name, $event->broadcastOn());
     }
 }

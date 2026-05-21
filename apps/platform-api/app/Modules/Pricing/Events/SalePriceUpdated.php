@@ -2,6 +2,7 @@
 
 namespace App\Modules\Pricing\Events;
 
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
@@ -21,14 +22,24 @@ class SalePriceUpdated implements ShouldBroadcastNow
     {
     }
 
-    public function broadcastOn(): PrivateChannel
+    /**
+     * @return array<int, Channel|PrivateChannel>
+     */
+    public function broadcastOn(): array
     {
-        return new PrivateChannel(
-            'customer.tenant.'
-            .trim((string) ($this->payload['tenant_id'] ?? ''))
-            .'.stock.game.'
-            .trim((string) ($this->payload['game_id'] ?? '')),
-        );
+        $tenantId = trim((string) ($this->payload['tenant_id'] ?? ''));
+        $gameId = trim((string) ($this->payload['game_id'] ?? ''));
+
+        if ($tenantId === '' || $gameId === '') {
+            return [];
+        }
+
+        $channel = 'customer.tenant.'.$tenantId.'.stock.game.'.$gameId;
+
+        return [
+            new PrivateChannel($channel),
+            new Channel($channel),
+        ];
     }
 
     public function broadcastAs(): string
