@@ -37,7 +37,7 @@ export type OperationOption = string | {
   close_at?: string
   server_time?: string
 }
-export type OperationOptionSource = 'central-games' | 'central-partners' | 'allocation-partners' | 'allocation-tenants' | 'allocation-games' | 'tenant-stock-games'
+export type OperationOptionSource = 'central-games' | 'central-partners' | 'allocation-partners' | 'allocation-tenants' | 'allocation-games' | 'tenant-stock-games' | 'tenant-price-rule-games'
 
 export type OperationColumn = {
   key: string
@@ -338,8 +338,6 @@ const centralReportFilters: OperationFilter[] = [
 const tenantReportFilters = baseReportFilters
 
 const currencyOptions = ['THB']
-const priceRuleStatusOptions = ['active', 'archived']
-const priceRuleTypeOptions = ['reward_adjustment_amount', 'reward_adjustment_percent']
 const memberStatusOptions = ['active', 'pending_verification', 'suspended', 'disabled']
 const notifyCustomerField: OperationFormField = {
   key: 'notify_customer',
@@ -427,7 +425,7 @@ const alertPolicyActionContext = ['id', 'partner_id', 'partner.name', 'policy_ke
 const alertEventActionContext = ['id', 'partner_id', 'partner.name', 'policy_key', 'severity', 'status', 'channel', 'title', 'triggered_at']
 const rewardActionContext = ['id', 'game_id', 'status', 'version', 'checked_at', 'verified_at', 'published_at']
 const settlementActionContext = ['id', 'partner_id', 'tenant_id', 'status', 'sales_amount.amount', 'commission_amount.amount', 'payout_amount.amount', 'net_amount.amount', 'period_from', 'period_to']
-const priceRuleActionContext = ['id', 'tenant_id', 'code', 'name', 'game_id', 'base_source', 'rule_type', 'adjustment.amount', 'adjustment.bps', 'reward_preview.summary.base_total.amount', 'reward_preview.summary.effective_total.amount', 'status', 'conditions', 'updated_at']
+const priceRuleActionContext = ['game_id', 'prize_type', 'prize_label', 'prize_count', 'central_reward_amount.amount', 'partner_payout_amount.amount', 'adjustment_amount.amount', 'source', 'updated_at']
 const memberActionContext = ['id', 'tenant_id', 'member_no', 'name', 'phone', 'email', 'status', 'order_count', 'lifetime_spend.amount', 'updated_at']
 const agentActionContext = ['id', 'tenant_id', 'partner_id', 'code', 'name', 'phone', 'email', 'store_id', 'status', 'metadata', 'updated_at']
 const agentQuotaActionContext = ['id', 'tenant_id', 'code', 'name', 'store_id', 'status', 'quotas.0.game_id', 'quotas.0.quota_count', 'quotas.0.used_count', 'quotas.0.status', 'updated_at']
@@ -543,27 +541,18 @@ const tenantDomainCreateFields: OperationFormField[] = [
   { key: 'is_primary', label: 'Primary domain', type: 'checkbox', defaultValue: false },
 ]
 const tenantDomainUpdateFields: OperationFormField[] = tenantDomainCreateFields.map((field) => ({ ...field, required: false }))
-const priceRuleCreateFields: OperationFormField[] = [
-  { key: 'code', label: 'Code', required: true, placeholder: 'first_prize_plus_100', help: 'Unique within the active tenant.' },
-  { key: 'name', label: 'Name', required: true, placeholder: 'First prize plus 100 THB' },
-  { key: 'game_id', label: 'Game ID', placeholder: 'Game to adjust from Central Reward' },
-  { key: 'base_source', label: 'Base source', type: 'select', options: ['central_reward'], defaultValue: 'central_reward', required: true },
-  { key: 'rule_type', label: 'Rule type', type: 'select', options: priceRuleTypeOptions, defaultValue: 'reward_adjustment_amount', required: true },
-  { key: 'adjustment_amount', label: 'Adjustment amount (minor units)', type: 'number', step: 1, defaultValue: 0, help: 'Signed delta from Central Reward, for example 10000 adds THB 100.00 and -10000 subtracts THB 100.00.' },
-  { key: 'adjustment_bps', label: 'Adjustment BPS', type: 'number', step: 1, help: 'Used only for percent adjustments. 100 bps = 1%; negative values reduce the Central Reward.' },
-  { key: 'currency', label: 'Currency', type: 'select', options: currencyOptions, defaultValue: 'THB' },
-  { key: 'conditions', label: 'Prize conditions JSON', type: 'json', defaultValue: '{"prize_type":"first_prize"}', placeholder: '{"prize_type":"first_prize"}', help: 'Use prize_type, prize_types, prize_number, or prize_numbers to scope reward adjustment.' },
-  { key: 'status', label: 'Status', type: 'select', options: priceRuleStatusOptions, defaultValue: 'active' },
+const priceRuleUpdateFields: OperationFormField[] = [
+  {
+    key: 'partner_payout_amount',
+    label: 'Partner payout amount (minor units)',
+    type: 'number',
+    sourceKey: 'partner_payout_amount.amount',
+    min: 0,
+    step: 1,
+    required: true,
+    help: 'Final payout for this prize in the selected game. The backend stores only the delta from Central Reward for reports.',
+  },
 ]
-const priceRuleUpdateFields: OperationFormField[] = priceRuleCreateFields.map((field) => {
-  const updateField: OperationFormField = {
-    ...field,
-    required: false,
-    sourceKey: field.key === 'adjustment_amount' ? 'adjustment.amount' : field.key === 'adjustment_bps' ? 'adjustment.bps' : field.key === 'currency' ? 'adjustment.currency' : field.key,
-  }
-  delete updateField.defaultValue
-  return updateField
-})
 const memberCreateFields: OperationFormField[] = [
   { key: 'name', label: 'Name', required: true, placeholder: 'Tenant Member' },
   { key: 'phone', label: 'Phone', required: true, placeholder: '0811111111' },
@@ -841,7 +830,7 @@ const tenant: OperationResource[] = [
   {
     scope: 'tenant',
     slug: 'price-rules',
-    title: 'Price Rules',
+    title: 'Reward Payout Rules',
     group: 'Tenant Store Operations',
     listEndpoint: '/admin/tenant/price-rules',
     detailEndpoint: '/admin/tenant/price-rules/{price_rule_id}',
@@ -849,44 +838,27 @@ const tenant: OperationResource[] = [
     idParam: 'price_rule_id',
     idKey: 'id',
     columns: [
-      { key: 'id', label: 'Price rule' },
-      { key: 'game_id', label: 'Game' },
-      { key: 'code', label: 'Code' },
-      { key: 'rule_type', label: 'Type' },
-      { key: 'reward_preview.summary.base_total', label: 'Central Reward', type: 'money' },
-      { key: 'adjustment', label: 'Adjustment', type: 'money' },
-      { key: 'reward_preview.summary.effective_total', label: 'Partner Reward', type: 'money' },
-      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'prize_label', label: 'Reward' },
+      { key: 'prize_count', label: 'Count', type: 'number' },
+      { key: 'central_reward_amount', label: 'Central payout', type: 'money' },
+      { key: 'partner_payout_amount', label: 'Partner payout', type: 'money' },
+      { key: 'adjustment_amount', label: 'Delta', type: 'money' },
+      { key: 'source', label: 'Source' },
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
     ],
-    filters: cursorFilters([{ key: 'game_id', label: 'Game ID' }, statusFilter(priceRuleStatusOptions)]),
+    filters: cursorFilters([{ key: 'game_id', label: 'Game', type: 'select', optionSource: 'tenant-price-rule-games', hideEmptyOption: true, emptyOptionLabel: 'No open game' }]),
     confirmContextFields: priceRuleActionContext,
     actions: [
       {
         key: 'update',
-        label: 'Update price rule',
+        label: 'Set payout',
         method: 'PATCH',
         endpoint: '/admin/tenant/price-rules/{price_rule_id}',
         variant: 'primary',
         contextFields: priceRuleActionContext,
         formFields: priceRuleUpdateFields,
       },
-      {
-        key: 'archive',
-        label: 'Archive',
-        method: 'DELETE',
-        endpoint: '/admin/tenant/price-rules/{price_rule_id}',
-        variant: 'danger',
-        reason: true,
-        contextFields: priceRuleActionContext,
-      },
     ],
-    collectionActions: [{
-      key: 'create',
-      label: 'Create price rule',
-      endpoint: '/admin/tenant/price-rules',
-      formFields: priceRuleCreateFields,
-    }],
   },
   {
     scope: 'tenant',

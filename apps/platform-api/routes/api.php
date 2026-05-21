@@ -457,6 +457,8 @@ Route::post('/admin/tenant/reservations/{reservation_id}/cancel', [TenantReserva
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/price-rules', [BoMenuCompletionController::class, 'priceRulesIndex'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/price-rule-games', [BoMenuCompletionController::class, 'priceRuleGames'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/price-rules', [BoMenuCompletionController::class, 'priceRulesStore'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/price-rules/{price_rule_id}', [BoMenuCompletionController::class, 'priceRulesShow'])

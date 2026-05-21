@@ -739,6 +739,7 @@ const optionSourceOptions = reactive<Record<OperationOptionSource, OperationOpti
   'allocation-tenants': [],
   'allocation-games': [],
   'tenant-stock-games': [],
+  'tenant-price-rule-games': [],
 })
 const optionSourceLoading = reactive<Record<OperationOptionSource, boolean>>({
   'central-games': false,
@@ -747,6 +748,7 @@ const optionSourceLoading = reactive<Record<OperationOptionSource, boolean>>({
   'allocation-tenants': false,
   'allocation-games': false,
   'tenant-stock-games': false,
+  'tenant-price-rule-games': false,
 })
 const stockSettingsDefaults = ref<any[]>([])
 const stockSettingsLoading = ref(false)
@@ -769,6 +771,7 @@ const isStockSettingsRoute = computed(() => props.scope === 'central' && slugPar
 const isStockPatternCoverageRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-pattern-coverage')
 const isAllocationsRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'allocations')
 const isTenantStockRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'stock')
+const isPriceRulesRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'price-rules')
 const showStockSummaryWidgets = computed(() => Boolean(resource.value?.stockSummaryEndpoint && mode.value === 'list'))
 const showAllocationSummaryWidgets = computed(() => Boolean(isAllocationsRoute.value && mode.value === 'list'))
 const showStockGenerationProgress = computed(() => Boolean(isStockGenerationRoute.value && mode.value === 'list'))
@@ -969,6 +972,7 @@ const tenantStockRealtimePanelMessage = computed(() => {
 const currentCentralGameOption = computed(() => singleCurrentGameOption(optionSourceOptions['central-games'] || []))
 const currentAllocationGameOption = computed(() => latestCurrentGameOption(optionSourceOptions['allocation-games'] || []))
 const currentTenantStockGameOption = computed(() => latestTenantStockGameOption(optionSourceOptions['tenant-stock-games'] || []))
+const currentTenantPriceRuleGameOption = computed(() => latestTenantPriceRuleGameOption(optionSourceOptions['tenant-price-rule-games'] || []))
 const allocationSummaryCards = computed(() => {
   const game = currentAllocationGameOption.value
   const isLoading = optionSourceLoading['allocation-games']
@@ -1452,6 +1456,12 @@ const loadOptionSource = async (source: OperationOptionSource) => {
         tenantId: session.currentTenantId.value,
       })
       optionSourceOptions[source] = normalizeTenantStockGameOptions(extractItems(response))
+    } else if (source === 'tenant-price-rule-games') {
+      const response = await api.apiFetch('/admin/tenant/price-rule-games', {
+        scope: 'tenant',
+        tenantId: session.currentTenantId.value,
+      })
+      optionSourceOptions[source] = normalizeTenantPriceRuleGameOptions(extractItems(response))
     }
   } catch {
     optionSourceOptions[source] = []
@@ -1609,6 +1619,10 @@ const normalizeTenantStockGameOptions = (items: any[]) => items
   .map(tenantStockGameOption)
   .filter((option) => !isBlank(optionValue(option)))
 
+const normalizeTenantPriceRuleGameOptions = (items: any[]) => items
+  .map(tenantStockGameOption)
+  .filter((option) => !isBlank(optionValue(option)))
+
 const optionValue = (option: OperationOption | null | undefined) => typeof option === 'object' && option !== null ? option.value : option
 const optionLabel = (option: OperationOption | null | undefined) => typeof option === 'object' && option !== null ? option.label : String(option || '')
 
@@ -1687,12 +1701,18 @@ const latestTenantStockGameOption = (options: OperationOption[]) => options.find
   && option.isDefault
 )) || latestCurrentGameOption(options) || options[0] || null
 
+const latestTenantPriceRuleGameOption = (options: OperationOption[]) => options.find((option) => (
+  typeof option === 'object'
+  && option !== null
+  && option.isDefault
+)) || latestCurrentGameOption(options) || options[0] || null
+
 const applyCurrentGameFilterDefault = () => {
   filters.value = routeFiltersWithCurrentGame(filters.value)
 }
 
 const routeFiltersWithCurrentGame = (next: Record<string, any>) => (
-  tenantStockFiltersWithCurrentGame(allocationFiltersWithCurrentGame(stockGenerationFiltersWithCurrentGame(next)))
+  priceRuleFiltersWithCurrentGame(tenantStockFiltersWithCurrentGame(allocationFiltersWithCurrentGame(stockGenerationFiltersWithCurrentGame(next))))
 )
 
 const stockGenerationFiltersWithCurrentGame = (next: Record<string, any>) => {
@@ -1729,6 +1749,18 @@ const tenantStockFiltersWithCurrentGame = (next: Record<string, any>) => {
   }
 
   const currentGame = currentTenantStockGameOption.value
+  return {
+    ...next,
+    game_id: currentGame ? optionValue(currentGame) : '',
+  }
+}
+
+const priceRuleFiltersWithCurrentGame = (next: Record<string, any>) => {
+  if (!isPriceRulesRoute.value || !isBlank(next.game_id)) {
+    return next
+  }
+
+  const currentGame = currentTenantPriceRuleGameOption.value
   return {
     ...next,
     game_id: currentGame ? optionValue(currentGame) : '',

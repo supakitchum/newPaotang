@@ -639,14 +639,37 @@ class BoMenuCompletionService
      */
     public function listPriceRules(string $tenantId, array $queryParams): array
     {
-        $query = TenantPriceRule::query()
-            ->forTenant($tenantId)
-            ->orderBy('id');
+        $gameId = trim((string) ($queryParams['game_id'] ?? '')) ?: $this->latestOpenPriceRuleGameId();
 
-        $this->whereString($query, 'game_id', $queryParams['game_id'] ?? null);
-        $this->whereString($query, 'status', $queryParams['status'] ?? null);
+        if ($gameId === null) {
+            return ['data' => [], 'meta' => ['next_cursor' => null, 'has_more' => false, 'default_game_id' => null]];
+        }
 
-        return $this->paginate($query, $queryParams, fn (object $row): array => $this->priceRuleResource($row));
+        return $this->paginateArrayRows(
+            $this->rewardPriceRules->settingRows($tenantId, $gameId),
+            $queryParams,
+            ['default_game_id' => $gameId],
+        );
+    }
+
+    /**
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
+     */
+    public function listPriceRuleGames(string $tenantId): array
+    {
+        $defaultGameId = $this->latestOpenPriceRuleGameId();
+        $rows = Game::query()
+            ->orderByRaw("CASE WHEN status = 'open' THEN 0 ELSE 1 END")
+            ->orderByDesc('draw_at')
+            ->limit(100)
+            ->get()
+            ->map(fn (object $game): array => $this->priceRuleGameResource($game, $defaultGameId))
+            ->all();
+
+        return [
+            'data' => $rows,
+            'meta' => ['default_game_id' => $defaultGameId],
+        ];
     }
 
     /**
@@ -654,6 +677,12 @@ class BoMenuCompletionService
      */
     public function findPriceRule(string $tenantId, string $priceRuleId): ?array
     {
+        $setting = $this->rewardPriceRules->settingRow($tenantId, $priceRuleId);
+
+        if ($setting !== null) {
+            return $setting;
+        }
+
         $rule = TenantPriceRule::query()
             ->forTenant($tenantId)
             ->where('id', $priceRuleId)
@@ -668,6 +697,21 @@ class BoMenuCompletionService
      */
     public function createPriceRule(string $tenantId, array $payload, AdminSessionContext $actor, Request $request): array
     {
+        if (array_key_exists('partner_payout_amount', $payload)) {
+            return DB::transaction(function () use ($tenantId, $payload, $actor, $request): array {
+                $result = $this->rewardPriceRules->savePayoutSetting($tenantId, '', $payload);
+
+                if (isset($result['error'])) {
+                    return $result;
+                }
+
+                $targetId = (string) ($result['resource']['tenant_price_rule_id'] ?? $result['resource']['id'] ?? '');
+                $this->audit($actor, $request, 'price_rule.updated', 'tenant_price_rule', $targetId, $payload, tenantId: $tenantId);
+
+                return $result;
+            });
+        }
+
         $normalized = $this->priceRulePayload($tenantId, $payload, true);
         $errors = $this->priceRuleErrors($tenantId, $normalized);
 
@@ -700,6 +744,21 @@ class BoMenuCompletionService
      */
     public function updatePriceRule(string $tenantId, string $priceRuleId, array $payload, AdminSessionContext $actor, Request $request): array
     {
+        if ($this->rewardPriceRules->settingIdentityFromId($priceRuleId) !== null || array_key_exists('partner_payout_amount', $payload)) {
+            return DB::transaction(function () use ($tenantId, $priceRuleId, $payload, $actor, $request): array {
+                $result = $this->rewardPriceRules->savePayoutSetting($tenantId, $priceRuleId, $payload);
+
+                if (isset($result['error'])) {
+                    return $result;
+                }
+
+                $targetId = (string) ($result['resource']['tenant_price_rule_id'] ?? $result['resource']['id'] ?? $priceRuleId);
+                $this->audit($actor, $request, 'price_rule.updated', 'tenant_price_rule', $targetId, $payload, tenantId: $tenantId);
+
+                return $result;
+            });
+        }
+
         $rule = TenantPriceRule::query()->forTenant($tenantId)->where('id', $priceRuleId)->first();
 
         if ($rule === null) {
@@ -1276,6 +1335,34 @@ class BoMenuCompletionService
         ];
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $rows
+     * @param array<string, mixed> $queryParams
+     * @param array<string, mixed> $meta
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
+     */
+    private function paginateArrayRows(array $rows, array $queryParams, array $meta = []): array
+    {
+        $limit = $this->limit($queryParams['limit'] ?? null);
+        $cursor = is_string($queryParams['cursor'] ?? null) ? trim((string) $queryParams['cursor']) : '';
+
+        if ($cursor !== '') {
+            $rows = array_values(array_filter($rows, fn (array $row): bool => strcmp((string) ($row['id'] ?? ''), $cursor) > 0));
+        }
+
+        $pageRows = array_slice($rows, 0, $limit + 1);
+        $hasMore = count($pageRows) > $limit;
+        $pageRows = array_slice($pageRows, 0, $limit);
+
+        return [
+            'data' => $pageRows,
+            'meta' => array_merge($meta, [
+                'next_cursor' => $hasMore && $pageRows !== [] ? (string) $pageRows[array_key_last($pageRows)]['id'] : null,
+                'has_more' => $hasMore,
+            ]),
+        ];
+    }
+
     private function whereString(Builder $query, string $column, mixed $value): void
     {
         if (is_string($value) && trim($value) !== '') {
@@ -1529,6 +1616,40 @@ class BoMenuCompletionService
                 'snapshot_fields' => ['base_prize_amount', 'adjustment_amount', 'prize_amount', 'tenant_price_rule_id', 'price_rule_snapshot'],
             ],
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function priceRuleGameResource(object $game, ?string $defaultGameId): array
+    {
+        $code = (string) ($game->code ?? '');
+        $name = (string) ($game->name ?? $game->id);
+        $status = (string) $game->status;
+
+        return [
+            'id' => (string) $game->id,
+            'game_id' => (string) $game->id,
+            'code' => $code,
+            'name' => $name,
+            'label' => trim(($code !== '' ? $code.' - ' : '').$name).($status === 'open' ? ' (Current)' : ''),
+            'status' => $status,
+            'is_current' => $status === 'open',
+            'is_default' => $defaultGameId !== null && (string) $game->id === $defaultGameId,
+            'sale_start_at' => $game->sale_start_at,
+            'draw_at' => $game->draw_at,
+            'close_at' => $game->close_at,
+        ];
+    }
+
+    private function latestOpenPriceRuleGameId(): ?string
+    {
+        $id = Game::query()
+            ->where('status', 'open')
+            ->orderByDesc('draw_at')
+            ->value('id');
+
+        return $id === null ? null : (string) $id;
     }
 
     /**

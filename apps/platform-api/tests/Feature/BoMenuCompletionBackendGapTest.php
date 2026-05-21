@@ -45,6 +45,7 @@ class BoMenuCompletionBackendGapTest extends TestCase
             'GET|HEAD api/v1/admin/central/webhook-logs/{webhook_log_id}',
             'GET|HEAD api/v1/admin/central/sync-logs',
             'GET|HEAD api/v1/admin/tenant/price-rules',
+            'GET|HEAD api/v1/admin/tenant/price-rule-games',
             'POST api/v1/admin/tenant/price-rules',
             'GET|HEAD api/v1/admin/tenant/price-rules/{price_rule_id}',
             'PATCH api/v1/admin/tenant/price-rules/{price_rule_id}',
@@ -303,49 +304,37 @@ class BoMenuCompletionBackendGapTest extends TestCase
             'tenant_id' => 'ten_tenant_gap',
         ]);
 
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/tenant/price-rule-games', $tenantHeaders)
+            ->assertOk()
+            ->assertJsonPath('meta.default_game_id', 'gam_price_gap')
+            ->assertJsonPath('data.0.game_id', 'gam_price_gap');
+
         $priceRule = $this->withToken($login['access_token'])
-            ->postJson('/api/v1/admin/tenant/price-rules', [
-                'code' => 'vip-fixed',
-                'name' => 'VIP Fixed Price',
-                'price_amount' => 12000,
-                'conditions' => ['segment' => 'vip'],
-            ], $tenantHeaders + ['Idempotency-Key' => 'tenant-price-rule-create'])
-            ->assertCreated()
-            ->assertJsonPath('tenant_id', 'ten_tenant_gap')
-            ->assertJsonPath('code', 'vip-fixed')
+            ->getJson('/api/v1/admin/tenant/price-rules?game_id=gam_price_gap', $tenantHeaders)
+            ->assertOk()
+            ->assertJsonPath('data.0.game_id', 'gam_price_gap')
+            ->assertJsonPath('data.0.prize_type', 'first_prize')
+            ->assertJsonPath('data.0.central_reward_amount.amount', 6000000)
+            ->assertJsonPath('data.0.partner_payout_amount.amount', 6000000)
+            ->json();
+        $firstPrizeRowId = $priceRule['data'][0]['id'];
+
+        $updatedPriceRule = $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/tenant/price-rules/'.$firstPrizeRowId, [
+                'partner_payout_amount' => 5900000,
+            ], $tenantHeaders + ['Idempotency-Key' => 'tenant-price-rule-payout-update'])
+            ->assertOk()
+            ->assertJsonPath('id', $firstPrizeRowId)
+            ->assertJsonPath('partner_payout_amount.amount', 5900000)
+            ->assertJsonPath('adjustment_amount.amount', -100000)
             ->json();
 
         $this->withToken($login['access_token'])
-            ->patchJson('/api/v1/admin/tenant/price-rules/'.$priceRule['id'], [
-                'rule_type' => 'reward_adjustment_amount',
-                'adjustment_amount' => -500,
-            ], $tenantHeaders + ['Idempotency-Key' => 'tenant-price-rule-adjustment-update'])
+            ->getJson('/api/v1/admin/tenant/price-rules/'.$firstPrizeRowId, $tenantHeaders)
             ->assertOk()
-            ->assertJsonPath('adjustment.amount', -500)
-            ->assertJsonPath('base_source', 'central_reward');
-
-        $this->withToken($login['access_token'])
-            ->patchJson('/api/v1/admin/tenant/price-rules/'.$priceRule['id'], [
-                'status' => 'archived',
-            ], $tenantHeaders + ['Idempotency-Key' => 'tenant-price-rule-update'])
-            ->assertOk()
-            ->assertJsonPath('status', 'archived');
-
-        $this->withToken($login['access_token'])
-            ->getJson('/api/v1/admin/tenant/price-rules?status=archived', $tenantHeaders)
-            ->assertOk()
-            ->assertJsonPath('data.0.id', $priceRule['id']);
-
-        $this->withToken($login['access_token'])
-            ->deleteJson('/api/v1/admin/tenant/price-rules/'.$priceRule['id'], [
-                'reason' => 'Retired duplicate rule',
-            ], $tenantHeaders + ['Idempotency-Key' => 'tenant-price-rule-delete'])
-            ->assertNoContent();
-
-        $this->withToken($login['access_token'])
-            ->getJson('/api/v1/admin/tenant/price-rules/'.$priceRule['id'], $tenantHeaders)
-            ->assertOk()
-            ->assertJsonPath('status', 'archived');
+            ->assertJsonPath('partner_payout_amount.amount', 5900000)
+            ->assertJsonPath('tenant_price_rule_id', $updatedPriceRule['tenant_price_rule_id']);
 
         $domain = $this->withToken($login['access_token'])
             ->postJson('/api/v1/admin/tenant/domains', [
@@ -455,7 +444,7 @@ class BoMenuCompletionBackendGapTest extends TestCase
         $this->assertNotEmpty($syncLogs['data']);
         $this->assertSame(['ten_tenant_gap'], array_values(array_unique(array_column($syncLogs['data'], 'tenant_id'))));
 
-        $this->assertDatabaseHas('audit_logs', ['action' => 'price_rule.created', 'target_id' => $priceRule['id'], 'tenant_id' => 'ten_tenant_gap']);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'price_rule.updated', 'target_id' => $updatedPriceRule['tenant_price_rule_id'], 'tenant_id' => 'ten_tenant_gap']);
         $this->assertDatabaseHas('audit_logs', ['action' => 'domain.created', 'target_id' => $domain['id'], 'tenant_id' => 'ten_tenant_gap']);
         $this->assertDatabaseHas('audit_logs', ['action' => 'member.status_changed', 'target_id' => $member['id'], 'tenant_id' => 'ten_tenant_gap']);
     }
@@ -603,6 +592,21 @@ class BoMenuCompletionBackendGapTest extends TestCase
 
     private function insertTenantOperationalFixtures(): void
     {
+        DB::table('games')->insert([
+            'id' => 'gam_price_gap',
+            'code' => 'PRICE-GAP',
+            'name' => 'Price Gap Draw',
+            'sale_start_at' => now()->subHour(),
+            'draw_at' => now()->addDay(),
+            'close_at' => now()->addHours(20),
+            'closed_at' => null,
+            'archived_at' => null,
+            'status' => 'open',
+            'metadata_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         DB::table('customers')->insert([
             'id' => 'cus_other_gap',
             'tenant_id' => 'ten_other_gap',

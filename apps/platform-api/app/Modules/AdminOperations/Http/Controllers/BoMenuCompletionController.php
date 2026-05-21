@@ -367,6 +367,15 @@ class BoMenuCompletionController extends Controller
             : $context;
     }
 
+    public function priceRuleGames(Request $request): JsonResponse
+    {
+        $context = $this->tenantContext($request, 'price_rule.view');
+
+        return $context instanceof AdminSessionContext
+            ? response()->json($this->completion->listPriceRuleGames((string) $context->activeTenantId()))
+            : $context;
+    }
+
     public function priceRulesStore(Request $request): JsonResponse
     {
         $context = $this->tenantContext($request, 'price_rule.manage');
