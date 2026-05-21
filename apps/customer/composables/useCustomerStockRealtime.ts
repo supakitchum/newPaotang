@@ -42,12 +42,14 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
 
   let socket: WebSocket | null = null
   let socketId = ''
+  let currentSocketUrl = ''
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
   let hasConnectedOnce = false
   let socketConnectionMarked = false
+  const subscribedChannels = new Set<string>()
 
   watch(
-    () => [shouldSubscribe.value, isConfigured.value, channelNames.value.join('|'), realtimeKey.value],
+    () => [shouldSubscribe.value, isConfigured.value, realtimeUrl.value, realtimeKey.value],
     () => {
       if (!shouldSubscribe.value) {
         disconnect('idle')
@@ -64,6 +66,11 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
     { immediate: true },
   )
 
+  watch(
+    () => channelNames.value.join('|'),
+    () => syncPublicChannels(socket),
+  )
+
   onBeforeUnmount(() => disconnect('idle'))
 
   function connect(reconnecting = false) {
@@ -72,14 +79,22 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
       return
     }
 
+    const nextSocketUrl = buildRealtimeSocketUrl(realtimeUrl.value, realtimeKey.value)
+    if (socket && currentSocketUrl === nextSocketUrl && [WebSocket.CONNECTING, WebSocket.OPEN].includes(socket.readyState)) {
+      syncPublicChannels(socket)
+      return
+    }
+
     stopReconnectTimer()
-    cleanupSocket()
+    cleanupSocket(true)
     error.value = ''
     status.value = reconnecting ? 'reconnecting' : 'connecting'
 
     try {
-      socket = new WebSocket(buildRealtimeSocketUrl(realtimeUrl.value, realtimeKey.value))
+      currentSocketUrl = nextSocketUrl
+      socket = new WebSocket(nextSocketUrl)
     } catch (err: any) {
+      currentSocketUrl = ''
       error.value = err?.message || 'Realtime connection failed.'
       status.value = 'error'
       scheduleReconnect()
@@ -106,7 +121,9 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
 
       socket = null
       socketId = ''
+      currentSocketUrl = ''
       socketConnectionMarked = false
+      subscribedChannels.clear()
       if (shouldSubscribe.value && isConfigured.value) {
         scheduleReconnect()
       } else {
@@ -121,7 +138,7 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
     if (message.event === 'pusher:connection_established') {
       const data = parseRealtimeData(message.data)
       socketId = String(data?.socket_id || '').trim()
-      subscribePublicChannels(activeSocket)
+      syncPublicChannels(activeSocket)
       return
     }
 
@@ -146,18 +163,43 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
     }
   }
 
-  function subscribePublicChannels(activeSocket: WebSocket) {
-    if (activeSocket !== socket || activeSocket.readyState !== WebSocket.OPEN || !channelNames.value.length) {
+  function syncPublicChannels(activeSocket: WebSocket | null) {
+    if (activeSocket !== socket || !activeSocket || activeSocket.readyState !== WebSocket.OPEN || !socketId) {
       return
     }
 
-    for (const channel of channelNames.value) {
+    const desiredChannels = new Set(channelNames.value)
+
+    for (const channel of [...subscribedChannels]) {
+      if (desiredChannels.has(channel)) {
+        continue
+      }
+
+      sendRealtime(activeSocket, {
+        event: 'pusher:unsubscribe',
+        data: {
+          channel,
+        },
+      })
+      subscribedChannels.delete(channel)
+    }
+
+    if (!shouldSubscribe.value) {
+      return
+    }
+
+    for (const channel of desiredChannels) {
+      if (subscribedChannels.has(channel)) {
+        continue
+      }
+
       sendRealtime(activeSocket, {
         event: 'pusher:subscribe',
         data: {
           channel,
         },
       })
+      subscribedChannels.add(channel)
     }
   }
 
@@ -192,6 +234,7 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
     stopReconnectTimer()
     cleanupSocket(true)
     socketId = ''
+    currentSocketUrl = ''
     socketConnectionMarked = false
     status.value = finalStatus
   }
@@ -199,16 +242,20 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
   function cleanupSocket(sendUnsubscribe = false) {
     const activeSocket = socket
     socket = null
+    socketId = ''
+    currentSocketUrl = ''
+    socketConnectionMarked = false
     if (!activeSocket) {
       return
     }
 
     if (sendUnsubscribe && activeSocket.readyState === WebSocket.OPEN) {
-      for (const channel of channelNames.value) {
+      for (const channel of subscribedChannels) {
         sendRealtime(activeSocket, { event: 'pusher:unsubscribe', data: { channel } })
       }
     }
 
+    subscribedChannels.clear()
     activeSocket.close()
   }
 

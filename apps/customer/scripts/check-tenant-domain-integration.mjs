@@ -35,9 +35,10 @@ expect('site-config promise cache is host-scoped', siteConfigComposable.includes
 expect('site-config no longer replaces API base with site-config api.base_url', !siteConfigComposable.includes('runtimeApiBaseUrl.value = siteConfig.api.base_url'))
 expect('customer stock realtime can resolve tenant from site-config', stockRealtimeComposable.includes('tenantIdFromSiteConfig(siteConfig.value)'))
 expect('customer stock realtime prefers tenant host over auth user tenant', stockRealtimeComposable.includes('tenantIdFromSiteConfig(siteConfig.value) || tenantIdFromUser(user.value)'))
-expect('customer stock realtime uses public stock channel subscription', stockRealtimeComposable.includes('subscribePublicChannels') && stockRealtimeComposable.includes('customer.tenant.${tenantId.value}.stock.game.${gameId.value}') && !stockRealtimeComposable.includes('private-customer.tenant.${tenantId.value}.stock.game.${gameId.value}'))
+expect('customer stock realtime uses public stock channel subscription', stockRealtimeComposable.includes('syncPublicChannels') && stockRealtimeComposable.includes('customer.tenant.${tenantId.value}.stock.game.${gameId.value}') && !stockRealtimeComposable.includes('private-customer.tenant.${tenantId.value}.stock.game.${gameId.value}'))
 expect('customer sale price realtime uses tenant-wide public channel fallback', stockRealtimeComposable.includes('customer.tenant.${tenantId.value}.sale-price'))
 expect('customer sale price realtime can subscribe before game stock channel is ready', !stockRealtimeComposable.includes('&& gameId.value && tenantId.value && channelNames.value.length'))
+expect('customer realtime channel changes do not reconnect the websocket', !stockRealtimeComposable.includes("channelNames.value.join('|'), realtimeKey.value") && stockRealtimeComposable.includes("watch(\n    () => channelNames.value.join('|')"))
 
 const failed = checks.filter((check) => !check.condition)
 
