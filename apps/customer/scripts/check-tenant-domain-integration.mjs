@@ -25,6 +25,7 @@ expect('same-origin /api/v1 proxy route exists', existsSync(resolve(root, proxyR
 expect('proxy targets platform API internal base', proxyRoute.includes('platformApiInternalBaseUrl'))
 expect('proxy preserves tenant Host header', proxyRoute.includes('headers.host = tenantHost'))
 expect('proxy uses Node HTTP client so Host is not stripped by fetch', proxyRoute.includes("from 'node:http'") && !proxyRoute.includes('$fetch.raw'))
+expect('proxy streams sale price EventSource without buffering', proxyRoute.includes("path === 'public/sale-price/stream'") && proxyRoute.includes('response.pipe(event.node.res)'))
 expect('axios uses internal platform API base on SSR', axiosPlugin.includes('serverApiBaseUrl') && axiosPlugin.includes('process.server'))
 expect('axios forwards storefront Host on SSR', axiosPlugin.includes("request.headers.set('Host', tenantHost)"))
 expect('auth cookies are host-scoped', authComposable.includes('tenantHostScope') && authComposable.includes('AUTH_TOKEN_COOKIE}_${authScope}'))
@@ -36,6 +37,7 @@ expect('customer stock realtime can resolve tenant from site-config', stockRealt
 expect('customer stock realtime prefers tenant host over auth user tenant', stockRealtimeComposable.includes('tenantIdFromSiteConfig(siteConfig.value) || tenantIdFromUser(user.value)'))
 expect('customer stock realtime uses public stock channel subscription', stockRealtimeComposable.includes('subscribePublicChannels') && stockRealtimeComposable.includes('customer.tenant.${tenantId.value}.stock.game.${gameId.value}') && !stockRealtimeComposable.includes('private-customer.tenant.${tenantId.value}.stock.game.${gameId.value}'))
 expect('customer sale price realtime uses tenant-wide public channel fallback', stockRealtimeComposable.includes('customer.tenant.${tenantId.value}.sale-price'))
+expect('customer sale price realtime has EventSource fallback', stockRealtimeComposable.includes('EventSource') && stockRealtimeComposable.includes('/api/v1/public/sale-price/stream'))
 
 const failed = checks.filter((check) => !check.condition)
 
