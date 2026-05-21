@@ -118,6 +118,12 @@ Coverage limits must be bounded by generated virtual supply. If a user wants to 
 
 ## Realtime
 
+Troubleshooting runbook:
+
+```text
+docs/realtime-troubleshooting.md
+```
+
 Customer stock updates are broadcast as:
 
 - channel: `private-customer.tenant.{tenant_id}.stock.game.{game_id}`

@@ -57,6 +57,22 @@ postgres      PostgreSQL service
 valkey        Redis-compatible cache/queue/lock service
 ```
 
+## Local Realtime Runtime
+
+`platform-api` must preserve Docker Compose env in the HTTP PHP server process. In local Docker, run Laravel serve with `--no-reload`:
+
+```yaml
+command: php artisan serve --host=0.0.0.0 --port=8000 --no-reload
+```
+
+Without `--no-reload`, Laravel `artisan serve` may start a child `php -S` process that receives only a small env allowlist. In that failure mode, the parent container can show `BROADCAST_CONNECTION=reverb` while actual BO HTTP requests use the `log` broadcaster, so websocket clients never receive events.
+
+Realtime diagnosis steps are documented in:
+
+```text
+docs/realtime-troubleshooting.md
+```
+
 ## Agent / Developer Requirements
 
 ```text
