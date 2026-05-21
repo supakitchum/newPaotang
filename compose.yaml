@@ -16,7 +16,7 @@ services:
       dockerfile: Dockerfile
       target: development
     working_dir: /var/www/html
-    command: php artisan serve --host=0.0.0.0 --port=8000
+    command: php artisan serve --host=0.0.0.0 --port=8000 --no-reload
     environment:
       WORKSPACE_ROOT: /workspace
       APP_ENV: local
