@@ -5,28 +5,28 @@
 ## Active Task
 
 ```text
-stock-table-realtime-socket
+partner-bo-domain-auth-branding
 ```
 
 ## Agent Status
 
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
-| Coordinator | approved | stock-table-realtime-socket | ai-agents/decisions/20260520-stock-table-realtime-socket-decision.md |
-| Orchestrator | completed | stock-table-realtime-socket-remediation-qa-dispatch | ai-agents/handoffs/20260520-stock-table-realtime-socket-remediation-orchestrator-qa-dispatch-handoff.md |
-| Backend Develop | completed | stock-table-realtime-socket-backend | ai-agents/handoffs/20260520-stock-table-realtime-socket-backend-handoff.md |
-| BO Develop | completed | stock-table-realtime-socket-remediation-bo | ai-agents/handoffs/20260520-stock-table-realtime-socket-remediation-bo-handoff.md |
+| Coordinator | dispatched | partner-bo-domain-auth-branding | ai-agents/handoffs/20260521-partner-bo-domain-auth-branding-coordinator-handoff.md |
+| Orchestrator | pending | partner-bo-domain-auth-branding | ai-agents/tasks/20260521-partner-bo-domain-auth-branding-orchestrator.md |
+| Backend Develop | pending | partner-bo-domain-auth-branding-backend | ai-agents/tasks/20260521-partner-bo-domain-auth-branding-backend.md |
+| BO Develop | pending | partner-bo-domain-auth-branding-bo | ai-agents/tasks/20260521-partner-bo-domain-auth-branding-bo.md |
 | Customer Develop | completed | lottery-image-customer-ssr-error-serialization-remediation | ai-agents/handoffs/20260514-lottery-image-customer-ssr-error-serialization-remediation-customer-handoff.md |
-| QA Tester | completed | stock-table-realtime-socket-remediation-qa | ai-agents/reports/20260520-stock-table-realtime-socket-remediation-qa-report.md |
+| QA Tester | pending | partner-bo-domain-auth-branding-qa | ai-agents/tasks/20260521-partner-bo-domain-auth-branding-qa.md |
 
 ## Open Questions
 
 ```text
-Coordinator approved after remediation QA. Authenticated BO browser/DOM evidence shows the Stock table realtime panel is visible on central Stock, Master Stock, Stock Generation, and Stock Recall routes, with no-game prompt and selected-game summary widgets.
+Partner BO domain/auth/branding work is ready for Orchestrator dispatch. Use bo.{storefront_host} as the partner Back Office and same-origin API entrypoint; do not use api.*.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/decisions/20260520-stock-table-realtime-socket-decision.md
+ai-agents/decisions/20260521-partner-bo-domain-auth-branding-decision.md
 ```
