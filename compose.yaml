@@ -212,6 +212,7 @@ services:
       NUXT_PUBLIC_SITE_URL: http://localhost:3000
       NUXT_PUBLIC_CUSTOMER_REALTIME_URL: http://localhost:8080
       NUXT_PUBLIC_CUSTOMER_REALTIME_KEY: newpaotang-admin
+      NUXT_BUILD_DIR: /tmp/newpaotang-customer-nuxt
       NITRO_NO_UNIX_SOCKET: "1"
       NODE_OPTIONS: --no-deprecation
     ports:

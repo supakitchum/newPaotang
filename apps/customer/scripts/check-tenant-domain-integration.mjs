@@ -18,6 +18,7 @@ const proxyRoutePath = 'server/routes/api/v1/[...path].ts'
 const proxyRoute = read(proxyRoutePath)
 
 expect('public API base defaults to /api/v1', nuxtConfig.includes("apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || '/api/v1'"))
+expect('customer build dir can be isolated from dev .nuxt volume', nuxtConfig.includes("buildDir: process.env.NUXT_BUILD_DIR || '.nuxt'"))
 expect('internal platform API base is configured for SSR/proxy', nuxtConfig.includes('platformApiInternalBaseUrl'))
 expect('local tenant storefront hosts are allowlisted', ['partner-a.test', 'alpha.newpaotang.test', 'beta.newpaotang.test', 'gamma.newpaotang.test'].every((host) => nuxtConfig.includes(host)))
 expect('same-origin /api/v1 proxy route exists', existsSync(resolve(root, proxyRoutePath)))
@@ -32,7 +33,7 @@ expect('site-config state is host-scoped', siteConfigComposable.includes('site_c
 expect('site-config promise cache is host-scoped', siteConfigComposable.includes('siteConfigPromises'))
 expect('site-config no longer replaces API base with site-config api.base_url', !siteConfigComposable.includes('runtimeApiBaseUrl.value = siteConfig.api.base_url'))
 expect('customer stock realtime can resolve tenant from site-config', stockRealtimeComposable.includes('tenantIdFromSiteConfig(siteConfig.value)'))
-expect('customer stock realtime supports public stock channel subscription', stockRealtimeComposable.includes('subscribePublicChannel') && stockRealtimeComposable.includes("const prefix = usesPrivateChannel.value ? 'private-' : ''"))
+expect('customer stock realtime uses public stock channel subscription', stockRealtimeComposable.includes('subscribePublicChannel') && stockRealtimeComposable.includes('customer.tenant.${tenantId.value}.stock.game.${gameId.value}') && !stockRealtimeComposable.includes('private-customer.tenant.${tenantId.value}.stock.game.${gameId.value}'))
 
 const failed = checks.filter((check) => !check.condition)
 

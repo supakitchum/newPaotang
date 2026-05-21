@@ -12,9 +12,8 @@ type CustomerStockRealtimeOptions = {
 
 export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) => {
   const config = useRuntimeConfig()
-  const axios = useAxios()
   const { config: siteConfig } = useSiteConfig()
-  const { token, user } = useAuth()
+  const { user } = useAuth()
   const status = ref<CustomerRealtimeStatus>('idle')
   const error = ref('')
   const lastEventAt = ref('')
@@ -23,16 +22,13 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
   const isConfigured = computed(() => Boolean(realtimeUrl.value))
   const gameId = computed(() => readRealtimeValue(options.gameId).trim())
   const enabled = computed(() => options.enabled === undefined ? true : Boolean(readRealtimeValue(options.enabled)))
-  const tenantId = computed(() => tenantIdFromUser(user.value) || tenantIdFromToken(token.value) || tenantIdFromSiteConfig(siteConfig.value))
-  const usesPrivateChannel = computed(() => Boolean(token.value && tenantId.value))
+  const tenantId = computed(() => tenantIdFromUser(user.value) || tenantIdFromSiteConfig(siteConfig.value))
   const channelName = computed(() => {
     if (!gameId.value || !tenantId.value) {
       return ''
     }
 
-    const prefix = usesPrivateChannel.value ? 'private-' : ''
-
-    return `${prefix}customer.tenant.${tenantId.value}.stock.game.${gameId.value}`
+    return `customer.tenant.${tenantId.value}.stock.game.${gameId.value}`
   })
   const shouldSubscribe = computed(() => Boolean(import.meta.client && enabled.value && gameId.value && tenantId.value && channelName.value))
 
@@ -42,7 +38,7 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
   let hasConnectedOnce = false
 
   watch(
-    () => [shouldSubscribe.value, isConfigured.value, channelName.value, token.value, realtimeKey.value],
+    () => [shouldSubscribe.value, isConfigured.value, channelName.value, realtimeKey.value],
     () => {
       if (!shouldSubscribe.value) {
         disconnect('idle')
@@ -114,11 +110,7 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
     if (message.event === 'pusher:connection_established') {
       const data = parseRealtimeData(message.data)
       socketId = String(data?.socket_id || '').trim()
-      if (usesPrivateChannel.value) {
-        await authenticateChannel(activeSocket)
-      } else {
-        subscribePublicChannel(activeSocket)
-      }
+      subscribePublicChannel(activeSocket)
       return
     }
 
@@ -140,42 +132,6 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
     if (normalizeEventName(message.event) === 'stock.price.updated') {
       lastEventAt.value = new Date().toISOString()
       options.onPrice?.(parseRealtimeData(message.data))
-    }
-  }
-
-  async function authenticateChannel(activeSocket: WebSocket) {
-    if (!socketId || activeSocket !== socket || activeSocket.readyState !== WebSocket.OPEN) {
-      return
-    }
-
-    status.value = 'authenticating'
-
-    try {
-      const response = await axios.post('/customer/realtime/auth', {
-        socket_id: socketId,
-        channel_name: channelName.value,
-      })
-      const authorization = response?.data?.data ?? response?.data
-
-      if (activeSocket !== socket || activeSocket.readyState !== WebSocket.OPEN) {
-        return
-      }
-
-      sendRealtime(activeSocket, {
-        event: 'pusher:subscribe',
-        data: {
-          channel: channelName.value,
-          auth: authorization?.auth,
-          channel_data: authorization?.channel_data || undefined,
-        },
-      })
-    } catch (err: any) {
-      error.value = err?.message || 'Realtime channel authorization failed.'
-      status.value = 'error'
-      cleanupSocket()
-      if (![401, 403].includes(Number(err?.response?.status))) {
-        scheduleReconnect()
-      }
     }
   }
 
@@ -298,20 +254,6 @@ const buildRealtimeSocketUrl = (baseUrl: string, key: string) => {
   }
 
   return `${url}${separator}protocol=7&client=newpaotang-customer&version=1.0&flash=false`
-}
-
-const tenantIdFromToken = (token: string | null | undefined) => {
-  if (!token || !token.includes('.')) {
-    return ''
-  }
-
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-
-    return String(payload?.tenant_id || payload?.tenantId || '')
-  } catch {
-    return ''
-  }
 }
 
 const tenantIdFromUser = (user: Record<string, unknown> | null | undefined) => {

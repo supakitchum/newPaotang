@@ -2,6 +2,7 @@
 
 namespace App\Modules\PartnerStore\Events;
 
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
@@ -22,7 +23,7 @@ class StockAvailabilityUpdated implements ShouldBroadcastNow
     }
 
     /**
-     * @return array<int, PrivateChannel>
+     * @return array<int, Channel|PrivateChannel>
      */
     public function broadcastOn(): array
     {
@@ -32,7 +33,9 @@ class StockAvailabilityUpdated implements ShouldBroadcastNow
         $customerId = trim((string) ($this->payload['customer_id'] ?? ''));
 
         if ($tenantId !== '' && $gameId !== '') {
-            $channels[] = new PrivateChannel('customer.tenant.'.$tenantId.'.stock.game.'.$gameId);
+            $channel = 'customer.tenant.'.$tenantId.'.stock.game.'.$gameId;
+            $channels[] = new PrivateChannel($channel);
+            $channels[] = new Channel($channel);
             $channels[] = new PrivateChannel('admin.tenant.'.$tenantId.'.stock.game.'.$gameId);
         }
 

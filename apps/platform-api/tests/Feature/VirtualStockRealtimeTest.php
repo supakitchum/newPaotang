@@ -781,11 +781,15 @@ class VirtualStockRealtimeTest extends TestCase
             ->assertOk()
             ->assertJsonCount(0, 'data');
 
-        Event::assertDispatched(StockAvailabilityUpdated::class, fn (StockAvailabilityUpdated $event): bool => (
-            ($event->payload['full_number'] ?? null) === '123456'
-            && ($event->payload['remaining_count'] ?? null) === 0
-            && ($event->payload['status'] ?? null) === 'sold_out'
-        ));
+        Event::assertDispatched(StockAvailabilityUpdated::class, function (StockAvailabilityUpdated $event): bool {
+            $channels = array_map(fn (object $channel): string => (string) $channel->name, $event->broadcastOn());
+
+            return ($event->payload['full_number'] ?? null) === '123456'
+                && ($event->payload['remaining_count'] ?? null) === 0
+                && ($event->payload['status'] ?? null) === 'sold_out'
+                && in_array('private-customer.tenant.ten_virtual.stock.game.gam_virtual', $channels, true)
+                && in_array('customer.tenant.ten_virtual.stock.game.gam_virtual', $channels, true);
+        });
         Event::assertDispatched(StockCoverageUpdated::class, function (StockCoverageUpdated $event): bool {
             $channels = array_map(fn (object $channel): string => (string) $channel->name, $event->broadcastOn());
 

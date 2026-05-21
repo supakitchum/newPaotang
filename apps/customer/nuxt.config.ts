@@ -1,5 +1,6 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-01-01',
+  buildDir: process.env.NUXT_BUILD_DIR || '.nuxt',
   devtools: { enabled: false },
   telemetry: false,
   runtimeConfig: {
