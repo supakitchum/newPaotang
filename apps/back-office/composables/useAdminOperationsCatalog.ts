@@ -60,7 +60,7 @@ export type OperationFilter = {
 export type OperationFormField = {
   key: string
   label: string
-  type?: 'text' | 'number' | 'textarea' | 'json' | 'select' | 'checkbox' | 'date' | 'datetime-local' | 'datetime-range' | 'lines' | 'password' | 'color' | 'prize-lines' | 'reward-prize-grid' | 'reward-prize-number-grid' | 'reward-prize-amount-grid' | 'stock-set-distribution' | 'stock-sale-limits' | 'stock-partner-distribution' | 'stock-partner-limits'
+  type?: 'text' | 'number' | 'money' | 'textarea' | 'json' | 'select' | 'checkbox' | 'date' | 'datetime-local' | 'datetime-range' | 'lines' | 'password' | 'color' | 'prize-lines' | 'reward-prize-grid' | 'reward-prize-number-grid' | 'reward-prize-amount-grid' | 'stock-set-distribution' | 'stock-sale-limits' | 'stock-partner-distribution' | 'stock-partner-limits'
   sourceKey?: string
   rangeStartKey?: string
   rangeEndKey?: string
@@ -426,7 +426,7 @@ const alertEventActionContext = ['id', 'partner_id', 'partner.name', 'policy_key
 const rewardActionContext = ['id', 'game_id', 'status', 'version', 'checked_at', 'verified_at', 'published_at']
 const settlementActionContext = ['id', 'partner_id', 'tenant_id', 'status', 'sales_amount.amount', 'commission_amount.amount', 'payout_amount.amount', 'net_amount.amount', 'period_from', 'period_to']
 const priceRuleActionContext = ['game_id', 'prize_type', 'prize_label', 'prize_count', 'central_reward_amount.amount', 'partner_payout_amount.amount', 'adjustment_amount.amount', 'source', 'updated_at']
-const salePriceRuleActionContext = ['game_id', 'game_name', 'set_size', 'central_price.amount', 'partner_price.amount', 'price.amount', 'source', 'status', 'updated_at']
+const salePriceRuleActionContext = ['game_id', 'game_name', 'set_size', 'central_price', 'partner_price', 'price', 'source', 'status', 'updated_at']
 const memberActionContext = ['id', 'tenant_id', 'member_no', 'name', 'phone', 'email', 'status', 'order_count', 'lifetime_spend.amount', 'updated_at']
 const agentActionContext = ['id', 'tenant_id', 'partner_id', 'code', 'name', 'phone', 'email', 'store_id', 'status', 'metadata', 'updated_at']
 const agentQuotaActionContext = ['id', 'tenant_id', 'code', 'name', 'store_id', 'status', 'quotas.0.game_id', 'quotas.0.quota_count', 'quotas.0.used_count', 'quotas.0.status', 'updated_at']
@@ -557,7 +557,7 @@ const priceRuleUpdateFields: OperationFormField[] = [
 const centralSalePriceRuleFields: OperationFormField[] = [
   { key: 'game_id', label: 'Game', type: 'select', optionSource: 'central-sale-price-games', hideEmptyOption: true, required: true, defaultValueSource: 'current-game' },
   { key: 'set_size', label: 'Set size', type: 'number', min: 1, max: 99, step: 1, required: true },
-  { key: 'price_amount', label: 'Sale price (minor units)', type: 'number', sourceKey: 'price.amount', min: 1, step: 1, required: true },
+  { key: 'price_amount', label: 'Sale price (บาท)', type: 'money', sourceKey: 'price.amount', min: 0.01, step: 0.01, required: true },
   { key: 'currency', label: 'Currency', type: 'select', options: currencyOptions, defaultValue: 'THB', required: true },
   { key: 'status', label: 'Status', type: 'select', options: ['active', 'inactive', 'archived'], defaultValue: 'active', required: true },
 ]
@@ -565,7 +565,7 @@ const centralSalePriceRuleUpdateFields: OperationFormField[] = centralSalePriceR
 const tenantSalePriceRuleFields: OperationFormField[] = [
   { key: 'game_id', label: 'Game', type: 'select', optionSource: 'tenant-sale-price-games', hideEmptyOption: true, required: true, defaultValueSource: 'current-game' },
   { key: 'set_size', label: 'Set size', type: 'number', min: 1, max: 99, step: 1, required: true },
-  { key: 'price_amount', label: 'Partner sale price (minor units)', type: 'number', sourceKey: 'price.amount', min: 1, step: 1, required: true, help: 'Must be greater than or equal to the central sale price.' },
+  { key: 'price_amount', label: 'Partner sale price (บาท)', type: 'money', sourceKey: 'price.amount', min: 0.01, step: 0.01, required: true, help: 'Must be greater than or equal to the central sale price.' },
   { key: 'currency', label: 'Currency', type: 'select', options: currencyOptions, defaultValue: 'THB', required: true },
   { key: 'status', label: 'Status', type: 'select', options: ['active', 'inactive', 'archived'], defaultValue: 'active', required: true },
 ]

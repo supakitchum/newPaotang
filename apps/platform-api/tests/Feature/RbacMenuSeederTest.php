@@ -15,7 +15,7 @@ class RbacMenuSeederTest extends TestCase
     {
         $this->seed(DefaultRbacMenuSeeder::class);
 
-        $this->assertSame(42, DB::table('permissions')->where('scope_type', 'central')->count());
+        $this->assertSame(44, DB::table('permissions')->where('scope_type', 'central')->count());
         $this->assertSame(69, DB::table('permissions')->where('scope_type', 'tenant')->count());
 
         $this->assertDatabaseHas('permissions', [
@@ -31,14 +31,21 @@ class RbacMenuSeederTest extends TestCase
             'name' => 'Impersonate tenant admin with approval',
             'status' => 'active',
         ]);
+
+        $this->assertDatabaseHas('permissions', [
+            'scope_type' => 'central',
+            'code' => 'price_rule.view',
+            'name' => 'View central sale price rules',
+            'status' => 'active',
+        ]);
     }
 
     public function test_default_menus_seed_with_documented_permission_codes(): void
     {
         $this->seed(DefaultRbacMenuSeeder::class);
 
-        $this->assertSame(22, DB::table('admin_menus')->where('scope_type', 'central')->count());
-        $this->assertSame(31, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
+        $this->assertSame(23, DB::table('admin_menus')->where('scope_type', 'central')->count());
+        $this->assertSame(32, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
 
         $this->assertDatabaseHas('admin_menus', [
             'scope_type' => 'central',
@@ -59,6 +66,15 @@ class RbacMenuSeederTest extends TestCase
             'code' => 'stock_generation',
             'label' => 'Stock Manager',
             'route' => '/admin/central/stock',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('admin_menus', [
+            'scope_type' => 'central',
+            'code' => 'sale_price_rules',
+            'label' => 'Sale Price Rules',
+            'route' => '/admin/central/sale-price-rules',
+            'required_permission_code' => 'price_rule.view',
             'status' => 'active',
         ]);
 
@@ -150,6 +166,34 @@ class RbacMenuSeederTest extends TestCase
             'scope_type' => 'central',
             'code' => 'stock_recall',
         ]);
+    }
+
+    public function test_reseeding_grants_sale_price_permissions_to_central_super_admin_role(): void
+    {
+        DB::table('roles')->insert([
+            'id' => 'rol_c_super_admin',
+            'scope_type' => 'central',
+            'tenant_id' => null,
+            'code' => 'super_admin',
+            'name' => 'Platform Super Admin',
+            'status' => 'active',
+            'version' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->seed(DefaultRbacMenuSeeder::class);
+
+        $permissionIds = DB::table('permissions')
+            ->where('scope_type', 'central')
+            ->whereIn('code', ['price_rule.view', 'price_rule.manage'])
+            ->pluck('id')
+            ->all();
+
+        $this->assertSame(2, DB::table('role_permissions')
+            ->where('role_id', 'rol_c_super_admin')
+            ->whereIn('permission_id', $permissionIds)
+            ->count());
     }
 
     public function test_reseeding_removes_retired_tenant_stock_sync_menu_and_permission(): void

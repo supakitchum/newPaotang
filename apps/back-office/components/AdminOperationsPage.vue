@@ -2584,6 +2584,11 @@ const normalizePayloadField = (field: OperationFormField, value: any) => {
     return Boolean(value)
   }
 
+  if (field.type === 'money') {
+    if (value === '' || value === undefined || value === null) return undefined
+    return Math.round(Number(value) * 100)
+  }
+
   if (field.type === 'number') {
     if (value === '' || value === undefined || value === null) return undefined
     return Number(value)
@@ -2997,10 +3002,7 @@ const formatValue = (value: any, type?: string) => {
   if (type === 'customer') return formatCustomerValue(value)
   if (type === 'datetime') return formatDateTime(String(value))
   if (type === 'number') return new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 }).format(Number(value || 0))
-  if (type === 'money') {
-    const amount = typeof value === 'object' && value !== null ? value.amount : value
-    return amount === undefined || amount === null ? '-' : new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(amount || 0))
-  }
+  if (type === 'money') return formatMoneyValue(value)
   if (type === 'json' || typeof value === 'object') return JSON.stringify(value)
   return value
 }
@@ -3041,6 +3043,21 @@ const formatCustomerValue = (value: any) => {
   const parts = [name, contact, id].filter((part, index, all) => part && all.indexOf(part) === index)
 
   return parts.length ? parts.join(' | ') : JSON.stringify(value)
+}
+
+const formatMoneyValue = (value: any) => {
+  const amount = typeof value === 'object' && value !== null ? value.amount : value
+  if (amount === undefined || amount === null || amount === '') return '-'
+
+  const currency = typeof value === 'object' && value !== null && value.currency
+    ? String(value.currency)
+    : 'THB'
+  const formatted = new Intl.NumberFormat('th-TH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(amount || 0) / 100)
+
+  return `${formatted} ${currency === 'THB' ? 'บาท' : currency}`
 }
 
 const formatDateTimeLocalValue = (value: any) => {

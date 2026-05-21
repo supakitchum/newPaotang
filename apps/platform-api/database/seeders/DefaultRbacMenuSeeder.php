@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\AdminMenu;
 use App\Models\Permission;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class DefaultRbacMenuSeeder extends Seeder
 {
@@ -60,6 +61,8 @@ class DefaultRbacMenuSeeder extends Seeder
             ->where('scope_type', 'tenant')
             ->where('code', 'stock.sync')
             ->delete();
+
+        $this->grantSalePricePermissionsToDefaultRoles($now);
     }
 
     /**
@@ -471,5 +474,96 @@ class DefaultRbacMenuSeeder extends Seeder
             $scopeType === 'central' => 'ri-apps-2-line',
             default => 'ri-dashboard-line',
         };
+    }
+
+    private function grantSalePricePermissionsToDefaultRoles(mixed $now): void
+    {
+        $roleScopes = [
+            'central' => ['super_admin'],
+            'tenant' => ['owner'],
+        ];
+
+        foreach ($roleScopes as $scopeType => $roleCodes) {
+            $roles = DB::table('roles')
+                ->where('scope_type', $scopeType)
+                ->whereIn('code', $roleCodes)
+                ->get(['id']);
+            $roleIds = $roles->pluck('id')->all();
+
+            if ($roleIds === []) {
+                continue;
+            }
+
+            $permissionIds = DB::table('permissions')
+                ->where('scope_type', $scopeType)
+                ->whereIn('code', ['price_rule.view', 'price_rule.manage'])
+                ->where('status', 'active')
+                ->pluck('id')
+                ->all();
+
+            if ($permissionIds === []) {
+                continue;
+            }
+
+            $rows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($permissionIds as $permissionId) {
+                    $rows[] = [
+                        'role_id' => $roleId,
+                        'permission_id' => $permissionId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_permissions')->insertOrIgnore($rows);
+            $this->bumpPermissionCacheVersions($roleIds, $now);
+        }
+    }
+
+    /**
+     * @param array<int, string> $roleIds
+     */
+    private function bumpPermissionCacheVersions(array $roleIds, mixed $now): void
+    {
+        DB::table('admin_user_roles')
+            ->whereIn('role_id', $roleIds)
+            ->orderBy('admin_user_id')
+            ->select(['admin_user_id', 'scope_id'])
+            ->distinct()
+            ->chunk(100, function ($rows) use ($now): void {
+                foreach ($rows as $row) {
+                    $keys = [
+                        'admin_user_id' => (string) $row->admin_user_id,
+                        'scope_id' => (string) $row->scope_id,
+                    ];
+                    $updated = DB::table('admin_permission_cache_versions')
+                        ->where($keys)
+                        ->update([
+                            'version' => DB::raw('version + 1'),
+                            'updated_at' => $now,
+                        ]);
+
+                    if ($updated > 0) {
+                        continue;
+                    }
+
+                    DB::table('admin_permission_cache_versions')->insert([
+                        ...$keys,
+                        ...[
+                            'id' => $this->permissionCacheVersionId((string) $row->admin_user_id, (string) $row->scope_id),
+                            'version' => 2,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ],
+                    ]);
+                }
+            });
+    }
+
+    private function permissionCacheVersionId(string $adminUserId, string $scopeId): string
+    {
+        return 'pcv_'.substr(sha1($adminUserId.':'.$scopeId), 0, 20);
     }
 }

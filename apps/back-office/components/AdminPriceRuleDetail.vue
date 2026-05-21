@@ -216,9 +216,9 @@ function moneyValue(value: any) {
   const formatted = new Intl.NumberFormat('th-TH', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(Number(amount || 0))
+  }).format(Number(amount || 0) / 100)
 
-  return currency ? `${formatted} ${currency}` : formatted
+  return currency ? `${formatted} ${currency === 'THB' ? 'บาท' : currency}` : formatted
 }
 
 function moneyCurrency(value: any) {

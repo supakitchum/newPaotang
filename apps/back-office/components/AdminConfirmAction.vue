@@ -401,7 +401,7 @@ const validationMessagesByField = computed(() => {
       continue
     }
 
-    if (field.type === 'number') {
+    if (field.type === 'number' || field.type === 'money') {
       const value = numberOrNull(formState[field.key])
       if (value !== null && field.min !== undefined && value < Number(field.min)) {
         add(field.key, `${field.label} must be at least ${field.min}.`)
@@ -736,6 +736,10 @@ const normalizeInitialValue = (field: OperationFormField, value: any) => {
     return formatJsonFieldValue(value)
   }
 
+  if (field.type === 'money') {
+    return value === undefined || value === null || value === '' ? '' : Number(value) / 100
+  }
+
   if (field.type === 'stock-set-distribution') {
     return normalizeStockSetDistribution(value, field)
   }
@@ -803,7 +807,7 @@ const fieldColumnClass = (field: OperationFormField) => (
 ) ? 'col-12' : 'col-md-6'
 
 const inputType = (field: OperationFormField) => {
-  if (field.type === 'number') return 'number'
+  if (field.type === 'number' || field.type === 'money') return 'number'
   if (field.type === 'datetime-local') return 'datetime-local'
   if (field.type === 'date') return 'date'
   if (field.type === 'password') return 'password'
@@ -853,8 +857,28 @@ const formatNumberOrDash = (value: number | null) => value === null ? '-' : form
 
 const formatContextValue = (value: any) => {
   if (value === undefined || value === null || value === '') return '-'
+  if (isMoneyObject(value)) return formatMoneyValue(value)
   if (typeof value === 'object') return JSON.stringify(value)
   return String(value)
+}
+
+const isMoneyObject = (value: any) => (
+  typeof value === 'object'
+  && value !== null
+  && Object.prototype.hasOwnProperty.call(value, 'amount')
+)
+
+const formatMoneyValue = (value: any) => {
+  const amount = typeof value === 'object' && value !== null ? value.amount : value
+  const currency = typeof value === 'object' && value !== null && value.currency
+    ? String(value.currency)
+    : 'THB'
+  const formatted = new Intl.NumberFormat('th-TH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(amount || 0) / 100)
+
+  return `${formatted} ${currency === 'THB' ? 'บาท' : currency}`
 }
 
 const formatJsonFieldValue = (value: any) => {
