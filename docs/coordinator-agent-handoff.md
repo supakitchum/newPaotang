@@ -198,6 +198,42 @@ git merge --ff-only origin/develop
 Next Agent: Orchestrator
 ```
 
+## 2026-05-21 Customer Tenant Domain API Integration QA Closure
+
+QA result:
+
+- Report: `ai-agents/reports/20260521-customer-tenant-domain-api-integration-qa-report.md`
+- Review decision: `ai-agents/decisions/20260521-customer-tenant-domain-api-integration-qa-review-decision.md`
+- Coordinator closure handoff: `ai-agents/handoffs/20260521-customer-tenant-domain-api-integration-coordinator-qa-closure-handoff.md`
+- Result: PASS.
+- Tested HEAD: `1d354e64ad5d4dddcd4dff63b5898091a6a994b8`
+
+Validated:
+
+- `alpha.newpaotang.test`, `beta.newpaotang.test`, and `gamma.newpaotang.test` no longer hit customer local host blocking.
+- Same-origin `/api/v1/public/site-config` through Customer resolves storefront Host to the correct tenant.
+- Customer proxy preserves Host to platform-api.
+- Customer SSR renders tenant-specific title/description and host-scoped state keys.
+- Public stores and stock search route through storefront hosts.
+- Customer uses `/api/v1` and has no `api.*` dependency.
+- Customer auth/session/site-config storage is host-scoped by source and SSR evidence.
+- Customer lint/test/build passed.
+- Runtime db:seed/platform:smoke passed without wiping runtime DB.
+
+Accepted caveats:
+
+- Runtime DB has no seeded customer credentials, so authenticated customer alpha/beta session reuse was not executed end-to-end.
+- `partner-a.test` reaches Customer but platform-api returns `tenant_not_found` because runtime DB lacks that domain.
+- `/public/games/current` returns 404 because the seeded open game `close_at` is already in the past for 2026-05-21.
+- `.test` browser evidence used curl `--resolve`/SSR instead of in-app Browser DNS resolution.
+
+Current status:
+
+```text
+Active task: none
+Next Agent: User
+```
+
 ## 2026-05-20 Coordinator Role / Rules Update
 
 Coordinator is back in coordinator-only mode by default.

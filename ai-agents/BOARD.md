@@ -5,28 +5,28 @@
 ## Active Task
 
 ```text
-customer-tenant-domain-api-integration
+none - customer-tenant-domain-api-integration QA PASS, waiting user direction
 ```
 
 ## Agent Status
 
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
-| Coordinator | completed | customer-tenant-domain-api-integration-open | ai-agents/handoffs/20260521-customer-tenant-domain-api-integration-coordinator-handoff.md |
+| Coordinator | completed | customer-tenant-domain-api-integration-qa-closure | ai-agents/handoffs/20260521-customer-tenant-domain-api-integration-coordinator-qa-closure-handoff.md |
 | Orchestrator | completed | customer-tenant-domain-api-integration-qa-dispatch | ai-agents/handoffs/20260521-customer-tenant-domain-api-integration-orchestrator-qa-dispatch-handoff.md |
 | Backend Develop | completed | partner-bo-domain-auth-branding-backend | ai-agents/handoffs/20260521-partner-bo-domain-auth-branding-backend-handoff.md |
 | BO Develop | completed | partner-bo-domain-auth-branding-bo | ai-agents/handoffs/20260521-partner-bo-domain-auth-branding-bo-handoff.md |
 | Customer Develop | completed | customer-tenant-domain-api-integration | ai-agents/handoffs/20260521-customer-tenant-domain-api-integration-customer-handoff.md |
-| QA Tester | pending | customer-tenant-domain-api-integration | ai-agents/tasks/20260521-customer-tenant-domain-api-integration-qa.md |
+| QA Tester | completed | customer-tenant-domain-api-integration | ai-agents/reports/20260521-customer-tenant-domain-api-integration-qa-report.md |
 
 ## Open Questions
 
 ```text
-Customer domain/API integration must close the prior QA caveat where local customer dev blocked alpha.newpaotang.test through Vite/Nuxt allowedHosts. Orchestrator must keep scope to apps/customer and local customer dev/proxy config; backend/BO gaps should be reported, not patched, unless Coordinator opens a separate task.
+QA PASS. Coordinator caveats: authenticated customer end-to-end alpha/beta session reuse was not executed because runtime has no seeded customers; partner-a.test is allowed by customer but runtime platform-api returns tenant_not_found because that domain is not seeded; /public/games/current returns 404 because the seeded open game close_at is in the past for 2026-05-21.
 ```
 
 ## Latest Decision
 
 ```text
-ai-agents/tasks/20260521-customer-tenant-domain-api-integration-qa.md
+ai-agents/decisions/20260521-customer-tenant-domain-api-integration-qa-review-decision.md
 ```
