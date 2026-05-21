@@ -49,6 +49,21 @@ apps/platform-api/.phpunit.result.cache
 
 Do not stage it.
 
+## Commits Under Test
+
+Customer Develop:
+
+```text
+implementation: 2b36f1b13ed914a62fcff665cfd89fdba064e804
+handoff: 172c2985810c6fe799a66d63651f079b7e668353
+```
+
+QA must test latest pushed `origin/develop` at or after:
+
+```text
+172c2985810c6fe799a66d63651f079b7e668353
+```
+
 ## Objective
 
 Prove Customer storefront works with per-tenant domains and same-origin API routing:
@@ -104,9 +119,16 @@ Local domain/API evidence:
 alpha.newpaotang.test:3000 customer page is not blocked by Vite/Nuxt allowedHosts
 alpha.newpaotang.test:3000/api/v1/public/site-config returns tenant_id=ten_demo_alpha
 beta.newpaotang.test:3000/api/v1/public/site-config returns tenant_id=ten_demo_beta
+gamma.newpaotang.test:3000/api/v1/public/site-config returns tenant_id=ten_demo_gamma if included in QA evidence
 alpha and beta render different tenant/site identity where data differs
 public stock/search/store API requests resolve by storefront host
 no request depends on api.* host
+```
+
+Known Customer handoff runtime note:
+
+```text
+partner-a.test is allowed by customer dev host policy and reaches customer, but current runtime DB does not contain partner-a.test in partner_tenant_domains. Site-config for partner-a.test may return tenant_not_found. QA should use seeded alpha/beta/gamma hosts for pass/fail evidence unless Coordinator separately approves runtime seed/data changes.
 ```
 
 Customer session evidence:
