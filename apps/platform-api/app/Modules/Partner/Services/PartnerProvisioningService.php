@@ -280,6 +280,15 @@ class PartnerProvisioningService
         $domainHost = $this->normalizeHost((string) ($payload['domain_host'] ?? $tenantCode.'.newpaotang.test'));
         $errors = [];
 
+        $existingTenantId = PartnerTenant::where('partner_id', $partnerId)
+            ->where('id', '!=', $tenantId)
+            ->orderBy('id')
+            ->value('id');
+
+        if ($existingTenantId !== null) {
+            $errors['partner_id'][] = 'The partner already has a tenant and cannot be provisioned with another tenant.';
+        }
+
         $tenantCodeConflict = PartnerTenant::where('code', $tenantCode)
             ->where('id', '!=', $tenantId)
             ->exists();

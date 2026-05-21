@@ -256,6 +256,117 @@ class AdminAuthTest extends TestCase
         $this->assertDatabaseCount('admin_auth_sessions', 0);
     }
 
+    public function test_partner_bo_admin_site_config_resolves_tenant_brand_and_domain(): void
+    {
+        $this->seedPartnerBoAuthGraph();
+
+        $this->getJson('http://bo.partner-a.test/api/v1/public/admin-site-config')
+            ->assertOk()
+            ->assertJsonPath('mode', 'partner')
+            ->assertJsonPath('partner.id', 'par_partner_a')
+            ->assertJsonPath('partner.code', 'partner-a')
+            ->assertJsonPath('partner.name', 'Partner A')
+            ->assertJsonPath('tenant.id', 'ten_partner_a')
+            ->assertJsonPath('tenant.code', 'partner-a')
+            ->assertJsonPath('tenant.name', 'Partner A Tenant')
+            ->assertJsonPath('domain.storefront_host', 'partner-a.test')
+            ->assertJsonPath('domain.bo_host', 'bo.partner-a.test')
+            ->assertJsonPath('brand.logo_url', 'https://cdn.partner-a.test/logo.png')
+            ->assertJsonPath('brand.favicon_url', 'https://cdn.partner-a.test/favicon.ico')
+            ->assertJsonPath('site.display_name', 'Partner A BO');
+
+        $this->getJson('http://localhost/api/v1/public/admin-site-config')
+            ->assertOk()
+            ->assertJsonPath('mode', 'central')
+            ->assertJsonPath('partner', null)
+            ->assertJsonPath('tenant', null);
+    }
+
+    public function test_partner_bo_login_infers_tenant_and_rejects_central_or_cross_partner_access(): void
+    {
+        $this->seedPartnerBoAuthGraph();
+
+        $this->postJson('http://bo.partner-a.test/api/v1/auth/admin/login', [
+            'email' => 'owner-a@example.test',
+            'password' => 'secret-password',
+        ])
+            ->assertOk()
+            ->assertJsonCount(1, 'scopes')
+            ->assertJsonPath('scopes.0.scope', 'tenant')
+            ->assertJsonPath('scopes.0.tenant_id', 'ten_partner_a');
+
+        $this->postJson('http://bo.partner-a.test/api/v1/auth/admin/login', [
+            'email' => 'central-only@example.test',
+            'password' => 'secret-password',
+            'scope' => 'central',
+        ])
+            ->assertUnauthorized()
+            ->assertJsonPath('error.code', 'authentication_required');
+
+        $this->postJson('http://bo.partner-a.test/api/v1/auth/admin/login', [
+            'email' => 'owner-a@example.test',
+            'password' => 'secret-password',
+            'scope' => 'tenant',
+            'tenant_id' => 'ten_partner_b',
+        ])
+            ->assertUnauthorized()
+            ->assertJsonPath('error.code', 'authentication_required');
+
+        $this->postJson('http://bo.partner-a.test/api/v1/auth/admin/login', [
+            'email' => 'owner-b@example.test',
+            'password' => 'secret-password',
+        ])
+            ->assertUnauthorized()
+            ->assertJsonPath('error.code', 'authentication_required');
+    }
+
+    public function test_partner_bo_me_and_refresh_require_host_tenant_and_filter_scopes(): void
+    {
+        $this->seedPartnerBoAuthGraph();
+
+        $login = $this->postJson('http://bo.partner-a.test/api/v1/auth/admin/login', [
+            'email' => 'multi-scope@example.test',
+            'password' => 'secret-password',
+        ])
+            ->assertOk()
+            ->assertJsonCount(1, 'scopes')
+            ->assertJsonPath('scopes.0.scope', 'tenant')
+            ->assertJsonPath('scopes.0.tenant_id', 'ten_partner_a')
+            ->json();
+
+        $this->withToken($login['access_token'])
+            ->getJson('http://bo.partner-a.test/api/v1/auth/admin/me')
+            ->assertOk()
+            ->assertJsonPath('active_scope', 'tenant')
+            ->assertJsonPath('active_tenant_id', 'ten_partner_a')
+            ->assertJsonCount(1, 'scopes')
+            ->assertJsonPath('scopes.0.tenant_id', 'ten_partner_a');
+
+        $this->postJson('http://bo.partner-a.test/api/v1/auth/admin/refresh', [
+            'refresh_token' => $login['refresh_token'],
+        ])
+            ->assertOk()
+            ->assertJsonCount(1, 'scopes')
+            ->assertJsonPath('scopes.0.tenant_id', 'ten_partner_a');
+
+        $central = $this->loginAdmin([
+            'email' => 'central-only@example.test',
+            'password' => 'secret-password',
+            'scope' => 'central',
+        ]);
+
+        $this->withToken($central['access_token'])
+            ->getJson('http://bo.partner-a.test/api/v1/auth/admin/me')
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'permission_denied');
+
+        $this->postJson('http://bo.partner-a.test/api/v1/auth/admin/refresh', [
+            'refresh_token' => $central['refresh_token'],
+        ])
+            ->assertUnauthorized()
+            ->assertJsonPath('error.code', 'authentication_required');
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -279,5 +390,85 @@ class AdminAuthTest extends TestCase
             'access_token_hash' => hash('sha256', $accessToken),
             'revoked_at' => null,
         ]);
+    }
+
+    private function seedPartnerBoAuthGraph(): void
+    {
+        $this->seedDefaultRbac();
+        $this->createPartner('par_partner_a', 'partner-a', 'Partner A');
+        $this->createTenant('ten_partner_a', 'par_partner_a', 'partner-a', 'Partner A Tenant');
+        $this->createTenantDomain('dom_partner_a', 'par_partner_a', 'ten_partner_a', 'partner-a.test');
+        $this->createTenantSettings('ten_partner_a', 'Partner A Lucky', 'Partner A BO');
+        $this->createTenantTheme(
+            'ten_partner_a',
+            'https://cdn.partner-a.test/logo.png',
+            'https://cdn.partner-a.test/favicon.ico',
+        );
+
+        $this->createPartner('par_partner_b', 'partner-b', 'Partner B');
+        $this->createTenant('ten_partner_b', 'par_partner_b', 'partner-b', 'Partner B Tenant');
+        $this->createTenantDomain('dom_partner_b', 'par_partner_b', 'ten_partner_b', 'partner-b.test');
+
+        $this->createAdmin('adm_owner_a', 'owner-a@example.test');
+        $this->createAdminScope('scp_partner_a', 'tenant', 'ten_partner_a', 'par_partner_a');
+        $this->assignRoleWithPermissions(
+            'adm_owner_a',
+            'scp_partner_a',
+            'tenant',
+            'ten_partner_a',
+            ['dashboard.view', 'order.view'],
+            'partner_a_owner',
+        );
+
+        $this->createAdmin('adm_owner_b', 'owner-b@example.test');
+        $this->createAdminScope('scp_partner_b', 'tenant', 'ten_partner_b', 'par_partner_b');
+        $this->assignRoleWithPermissions(
+            'adm_owner_b',
+            'scp_partner_b',
+            'tenant',
+            'ten_partner_b',
+            ['dashboard.view'],
+            'partner_b_owner',
+        );
+
+        $this->createAdmin('adm_central_only', 'central-only@example.test');
+        $this->createAdminScope('scp_central_only', 'central');
+        $this->assignRoleWithPermissions(
+            'adm_central_only',
+            'scp_central_only',
+            'central',
+            null,
+            ['dashboard.view'],
+            'central_only',
+        );
+
+        $this->createAdmin('adm_multi_scope', 'multi-scope@example.test');
+        $this->createAdminScope('scp_multi_central', 'central');
+        $this->createAdminScope('scp_multi_partner_a', 'tenant', 'ten_partner_a', 'par_partner_a');
+        $this->createAdminScope('scp_multi_partner_b', 'tenant', 'ten_partner_b', 'par_partner_b');
+        $this->assignRoleWithPermissions(
+            'adm_multi_scope',
+            'scp_multi_central',
+            'central',
+            null,
+            ['dashboard.view'],
+            'multi_central',
+        );
+        $this->assignRoleWithPermissions(
+            'adm_multi_scope',
+            'scp_multi_partner_a',
+            'tenant',
+            'ten_partner_a',
+            ['dashboard.view', 'order.view'],
+            'multi_partner_a',
+        );
+        $this->assignRoleWithPermissions(
+            'adm_multi_scope',
+            'scp_multi_partner_b',
+            'tenant',
+            'ten_partner_b',
+            ['dashboard.view'],
+            'multi_partner_b',
+        );
     }
 }

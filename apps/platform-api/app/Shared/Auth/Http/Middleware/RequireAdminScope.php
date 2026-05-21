@@ -5,14 +5,17 @@ namespace App\Shared\Auth\Http\Middleware;
 use App\Modules\Auth\Services\AdminAuthService;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Auth\ApiErrorResponse;
+use App\Shared\Tenancy\PartnerBoHostResolver;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class RequireAdminScope
 {
-    public function __construct(private readonly AdminAuthService $authService)
-    {
+    public function __construct(
+        private readonly AdminAuthService $authService,
+        private readonly PartnerBoHostResolver $partnerBoHosts,
+    ) {
     }
 
     /**
@@ -28,6 +31,22 @@ class RequireAdminScope
 
         if (! in_array($scope, ['central', 'tenant'], true)) {
             return ApiErrorResponse::permissionDenied($request);
+        }
+
+        $partnerBo = $this->partnerBoContextOrResponse($request);
+
+        if ($partnerBo instanceof Response) {
+            return $partnerBo;
+        }
+
+        if ($partnerBo !== null) {
+            if ($scope === 'central' || ! $this->authService->contextMatchesPartnerBo($context, $partnerBo)) {
+                return ApiErrorResponse::permissionDenied($request);
+            }
+
+            if ($request->header('X-Tenant-Id') !== $partnerBo['tenant_id']) {
+                return ApiErrorResponse::permissionDenied($request);
+            }
         }
 
         if ($request->header('X-Admin-Scope') !== $scope || $context->activeScope() !== $scope) {
@@ -47,5 +66,24 @@ class RequireAdminScope
         }
 
         return $next($request);
+    }
+
+    /**
+     * @return array<string, mixed>|null|Response
+     */
+    private function partnerBoContextOrResponse(Request $request): array|null|Response
+    {
+        $resolved = $this->partnerBoHosts->resolve($request);
+
+        if ($resolved['error'] !== null) {
+            return ApiErrorResponse::make(
+                $request,
+                $resolved['error']['status'],
+                $resolved['error']['code'],
+                $resolved['error']['message'],
+            );
+        }
+
+        return $resolved['context'];
     }
 }

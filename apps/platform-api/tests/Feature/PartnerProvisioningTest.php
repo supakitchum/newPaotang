@@ -3,7 +3,10 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use RuntimeException;
 use Tests\Support\AdminAuthFixtures;
 use Tests\TestCase;
 
@@ -548,6 +551,89 @@ class PartnerProvisioningTest extends TestCase
             ->where('target_type', 'tenant_theme')
             ->value('payload_redacted_json'), true, flags: JSON_THROW_ON_ERROR);
         $this->assertSame('theme.updated', $auditPayload['change_type']);
+    }
+
+    public function test_PartnerProvisioning_rejects_second_tenant_for_partner(): void
+    {
+        $this->seedDefaultRbac();
+        $login = $this->createCentralSession(['partner.create', 'partner.provision']);
+        $partner = $this->createPartnerViaApi($login, 'one_tenant_partner', 'One Tenant Partner');
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/partners/'.$partner['id'].'/provision', [
+                'tenant_id' => 'ten_one_tenant_first',
+                'tenant_code' => 'one_tenant_first',
+                'tenant_name' => 'One Tenant First',
+                'domain_host' => 'one-tenant-first.example.test',
+                'owner_email' => 'owner@one-tenant-first.test',
+                'owner_password' => 'owner-password',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'one-tenant-first',
+            ])
+            ->assertAccepted();
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/partners/'.$partner['id'].'/provision', [
+                'tenant_id' => 'ten_one_tenant_second',
+                'tenant_code' => 'one_tenant_second',
+                'tenant_name' => 'One Tenant Second',
+                'domain_host' => 'one-tenant-second.example.test',
+                'owner_email' => 'owner@one-tenant-second.test',
+                'owner_password' => 'owner-password',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'one-tenant-second',
+            ])
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'resource_conflict');
+
+        $this->assertSame(1, DB::table('partner_tenants')->where('partner_id', $partner['id'])->count());
+    }
+
+    public function test_partner_tenant_partner_id_migration_guard_reports_duplicates(): void
+    {
+        Schema::table('partner_tenants', function (Blueprint $table): void {
+            $table->dropUnique('partner_tenants_partner_id_unique');
+        });
+
+        DB::table('partners')->insert([
+            'id' => 'par_duplicate_tenants',
+            'code' => 'duplicate_tenants',
+            'name' => 'Duplicate Tenants',
+            'type' => 'partner_store',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('partner_tenants')->insert([
+            [
+                'id' => 'ten_duplicate_one',
+                'partner_id' => 'par_duplicate_tenants',
+                'code' => 'duplicate_one',
+                'name' => 'Duplicate One',
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => 'ten_duplicate_two',
+                'partner_id' => 'par_duplicate_tenants',
+                'code' => 'duplicate_two',
+                'name' => 'Duplicate Two',
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $migration = include database_path('migrations/2026_05_21_000001_guard_partner_tenants_one_tenant_per_partner.php');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('par_duplicate_tenants (2)');
+
+        $migration->up();
     }
 
     /**

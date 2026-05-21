@@ -51,6 +51,7 @@ Route::get('/health', [HealthController::class, 'summary']);
 Route::get('/health/live', [HealthController::class, 'live']);
 Route::get('/health/ready', [HealthController::class, 'ready']);
 
+Route::get('/public/admin-site-config', [PublicSiteConfigController::class, 'admin']);
 Route::get('/public/site-config', [PublicSiteConfigController::class, 'show']);
 Route::get('/public/seo/page', [PublicContentController::class, 'seoPage']);
 Route::get('/public/news', [PublicContentController::class, 'news']);

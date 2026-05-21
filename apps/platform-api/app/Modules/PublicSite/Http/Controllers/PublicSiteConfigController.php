@@ -29,4 +29,20 @@ class PublicSiteConfigController extends Controller
 
         return response()->json(['data' => $result['data']]);
     }
+
+    public function admin(Request $request): JsonResponse
+    {
+        $result = $this->configuration->adminSiteConfigForRequest($request);
+
+        if (isset($result['error'])) {
+            return ApiErrorResponse::make(
+                $request,
+                $result['error']['status'],
+                $result['error']['code'],
+                $result['error']['message'],
+            );
+        }
+
+        return response()->json($result['data']);
+    }
 }

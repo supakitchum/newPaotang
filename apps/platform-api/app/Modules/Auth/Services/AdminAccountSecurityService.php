@@ -594,7 +594,7 @@ class AdminAccountSecurityService
                     'updated_at' => now(),
                 ]);
 
-            $response = $this->adminAuth->issueSessionForChallenge($admin, $challenge);
+            $response = $this->adminAuth->issueSessionForChallenge($admin, $challenge, $request);
 
             if ($response === null) {
                 return ['error' => 'authentication_required'];

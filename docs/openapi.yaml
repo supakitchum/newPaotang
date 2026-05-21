@@ -69,6 +69,25 @@ paths:
           $ref: "#/components/responses/TenantNotFound"
         "409":
           $ref: "#/components/responses/DomainNotActive"
+  /public/admin-site-config:
+    get:
+      tags: [Public Tenant]
+      security: []
+      summary: Resolve partner Back Office branding by bo.* request host
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: Partner Back Office branding configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSiteConfigResponse"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
+        "409":
+          $ref: "#/components/responses/DomainNotActive"
   /public/seo/page:
     get:
       tags: [Public Tenant]
@@ -9800,6 +9819,62 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/SiteConfig"
+    AdminSiteConfigResponse:
+      type: object
+      required: [mode, partner, tenant, domain, brand, site]
+      properties:
+        mode:
+          type: string
+          enum: [central, partner]
+        partner:
+          type: object
+          nullable: true
+          required: [id, code, name]
+          properties:
+            id:
+              type: string
+            code:
+              type: string
+            name:
+              type: string
+        tenant:
+          type: object
+          nullable: true
+          required: [id, code, name]
+          properties:
+            id:
+              type: string
+            code:
+              type: string
+            name:
+              type: string
+        domain:
+          type: object
+          nullable: true
+          required: [storefront_host, bo_host]
+          properties:
+            storefront_host:
+              type: string
+            bo_host:
+              type: string
+        brand:
+          type: object
+          required: [logo_url, favicon_url]
+          properties:
+            logo_url:
+              type: string
+              format: uri
+              nullable: true
+            favicon_url:
+              type: string
+              format: uri
+              nullable: true
+        site:
+          type: object
+          required: [display_name]
+          properties:
+            display_name:
+              type: string
     SiteConfig:
       type: object
       required: [partner_id, tenant_id, status, site, domain, brand, theme, features, seo, maintenance]

@@ -78,7 +78,8 @@ class AdminMenuTest extends TestCase
         $this->seedDefaultRbac();
         $this->createPartner();
         $this->createTenant('ten_auth');
-        $this->createTenant('ten_other');
+        $this->createPartner('par_other');
+        $this->createTenant('ten_other', 'par_other');
         $this->createAdmin('adm_tenant', 'tenant@example.test');
         $this->createAdminScope('scp_tenant', 'tenant', 'ten_auth', 'par_auth');
         $this->assignRoleWithPermissions('adm_tenant', 'scp_tenant', 'tenant', 'ten_auth', ['dashboard.view'], 'tenant_dashboard');
@@ -97,6 +98,69 @@ class AdminMenuTest extends TestCase
             ])
             ->assertForbidden()
             ->assertJsonPath('error.code', 'permission_denied');
+    }
+
+    public function test_partner_bo_rejects_central_routes_and_requires_matching_tenant_header(): void
+    {
+        $this->seedDefaultRbac();
+        $this->createPartner('par_partner_a', 'partner-a', 'Partner A');
+        $this->createTenant('ten_partner_a', 'par_partner_a', 'partner-a', 'Partner A Tenant');
+        $this->createTenantDomain('dom_partner_a', 'par_partner_a', 'ten_partner_a', 'partner-a.test');
+        $this->createPartner('par_partner_b', 'partner-b', 'Partner B');
+        $this->createTenant('ten_partner_b', 'par_partner_b', 'partner-b', 'Partner B Tenant');
+        $this->createTenantDomain('dom_partner_b', 'par_partner_b', 'ten_partner_b', 'partner-b.test');
+
+        $this->createAdmin('adm_central', 'central@example.test');
+        $this->createAdminScope('scp_central', 'central');
+        $this->assignRoleWithPermissions('adm_central', 'scp_central', 'central', null, ['dashboard.view'], 'central_dashboard');
+
+        $this->createAdmin('adm_tenant', 'tenant-a@example.test');
+        $this->createAdminScope('scp_partner_a', 'tenant', 'ten_partner_a', 'par_partner_a');
+        $this->assignRoleWithPermissions(
+            'adm_tenant',
+            'scp_partner_a',
+            'tenant',
+            'ten_partner_a',
+            ['dashboard.view', 'order.view'],
+            'tenant_partner_a_dashboard_orders',
+        );
+
+        $central = $this->loginAdmin([
+            'email' => 'central@example.test',
+            'password' => 'secret-password',
+            'scope' => 'central',
+        ]);
+
+        $this->withToken($central['access_token'])
+            ->getJson('http://bo.partner-a.test/api/v1/admin/central/menu', [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'permission_denied');
+
+        $tenant = $this->postJson('http://bo.partner-a.test/api/v1/auth/admin/login', [
+            'email' => 'tenant-a@example.test',
+            'password' => 'secret-password',
+        ])
+            ->assertOk()
+            ->assertJsonCount(1, 'scopes')
+            ->json();
+
+        $this->withToken($tenant['access_token'])
+            ->getJson('http://bo.partner-a.test/api/v1/admin/tenant/menu', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_partner_b',
+            ])
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'permission_denied');
+
+        $this->withToken($tenant['access_token'])
+            ->getJson('http://bo.partner-a.test/api/v1/admin/tenant/menu', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_partner_a',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.0.key', 'dashboard');
     }
 
     public function test_central_admin_cannot_use_tenant_menu_with_central_token(): void

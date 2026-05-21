@@ -11,6 +11,7 @@ use App\Models\AdminUserRole;
 use App\Modules\Rbac\Services\PermissionService;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
+use App\Shared\Tenancy\PartnerBoHostResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -27,6 +28,7 @@ class AdminAuthService
     public function __construct(
         private readonly AuditLogger $auditLogger,
         private readonly PermissionService $permissions,
+        private readonly PartnerBoHostResolver $partnerBoHosts,
     ) {
     }
 
@@ -34,7 +36,7 @@ class AdminAuthService
      * @param array{email?: string, password?: string, scope?: string|null, tenant_id?: string|null} $payload
      * @return array<string, mixed>|null
      */
-    public function login(array $payload, Request $request): ?array
+    public function login(array $payload, Request $request, ?array $partnerBoContext = null): ?array
     {
         $email = strtolower(trim((string) ($payload['email'] ?? '')));
         $password = (string) ($payload['password'] ?? '');
@@ -53,17 +55,25 @@ class AdminAuthService
 
         $admin = $this->adminToArray($adminUser);
         $scopes = $this->scopesForAdmin($admin['id']);
-        $activeScope = $this->chooseActiveScope($scopes, $payload['scope'] ?? null, $payload['tenant_id'] ?? null);
+        $payload = $this->partnerBoLoginPayload($payload, $partnerBoContext);
 
-        if ($activeScope === null) {
+        if ($payload === null) {
             return null;
         }
 
-        if ((bool) $adminUser->two_factor_enabled) {
-            return $this->issueTwoFactorChallenge($admin, $scopes, $activeScope, $request);
+        $activeScope = $this->chooseActiveScope($scopes, $payload['scope'] ?? null, $payload['tenant_id'] ?? null);
+
+        if ($activeScope === null || ! $this->activeScopeMatchesPartnerBo($activeScope, $partnerBoContext)) {
+            return null;
         }
 
-        $response = $this->issueSession($admin, $scopes, $activeScope);
+        $visibleScopes = $this->visibleScopesForPartnerBo($scopes, $partnerBoContext);
+
+        if ((bool) $adminUser->two_factor_enabled) {
+            return $this->issueTwoFactorChallenge($admin, $visibleScopes, $activeScope, $request);
+        }
+
+        $response = $this->issueSession($admin, $visibleScopes, $activeScope);
 
         $this->auditLogger->logAdminWrite(
             actorId: $admin['id'],
@@ -94,17 +104,28 @@ class AdminAuthService
     /**
      * @return array<string, mixed>|null
      */
-    public function issueSessionForChallenge(AdminUser $adminUser, object $challenge): ?array
+    public function issueSessionForChallenge(AdminUser $adminUser, object $challenge, ?Request $request = null): ?array
     {
         $admin = $this->adminToArray($adminUser);
         $scopes = $this->scopesForAdmin($admin['id']);
         $activeScope = $this->scopeFromChallenge($scopes, $challenge);
+        $partnerBoContext = null;
 
-        if ($activeScope === null) {
+        if ($request !== null) {
+            $resolved = $this->partnerBoHosts->resolve($request);
+
+            if ($resolved['error'] !== null) {
+                return null;
+            }
+
+            $partnerBoContext = $resolved['context'];
+        }
+
+        if ($activeScope === null || ! $this->activeScopeMatchesPartnerBo($activeScope, $partnerBoContext)) {
             return null;
         }
 
-        $response = $this->issueSession($admin, $scopes, $activeScope);
+        $response = $this->issueSession($admin, $this->visibleScopesForPartnerBo($scopes, $partnerBoContext), $activeScope);
         unset($response['session_id']);
 
         return $response;
@@ -113,13 +134,13 @@ class AdminAuthService
     /**
      * @return array<string, mixed>|null
      */
-    public function refresh(string $refreshToken): ?array
+    public function refresh(string $refreshToken, ?array $partnerBoContext = null): ?array
     {
         if ($refreshToken === '') {
             return null;
         }
 
-        return DB::transaction(function () use ($refreshToken): ?array {
+        return DB::transaction(function () use ($refreshToken, $partnerBoContext): ?array {
             $oldSession = AdminAuthSession::query()
                 ->where('refresh_token_hash', $this->tokenHash($refreshToken))
                 ->whereNull('revoked_at')
@@ -128,6 +149,10 @@ class AdminAuthService
                 ->first();
 
             if ($oldSession === null) {
+                return null;
+            }
+
+            if ($partnerBoContext !== null && ! $this->sessionMatchesPartnerBo($oldSession, $partnerBoContext)) {
                 return null;
             }
 
@@ -159,11 +184,16 @@ class AdminAuthService
             $scopes = $this->scopesForAdmin($admin['id']);
             $activeScope = $this->scopeFromSession($scopes, $oldSession);
 
-            if ($activeScope === null) {
+            if ($activeScope === null || ! $this->activeScopeMatchesPartnerBo($activeScope, $partnerBoContext)) {
                 return null;
             }
 
-            $response = $this->issueSession($admin, $scopes, $activeScope, (string) $oldSession->id);
+            $response = $this->issueSession(
+                $admin,
+                $this->visibleScopesForPartnerBo($scopes, $partnerBoContext),
+                $activeScope,
+                (string) $oldSession->id,
+            );
             unset($response['session_id']);
 
             return $response;
@@ -200,13 +230,17 @@ class AdminAuthService
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array<string, mixed>|null
      */
-    public function sessionProfile(AdminSessionContext $context): array
+    public function sessionProfile(AdminSessionContext $context, ?array $partnerBoContext = null): ?array
     {
+        if ($partnerBoContext !== null && ! $this->contextMatchesPartnerBo($context, $partnerBoContext)) {
+            return null;
+        }
+
         return [
             'user' => $this->profileFromAdmin($context->adminUser),
-            'scopes' => $context->scopes,
+            'scopes' => $this->visibleScopesForPartnerBo($context->scopes, $partnerBoContext),
             'active_scope' => $context->activeScope(),
             'active_tenant_id' => $context->activeTenantId(),
         ];
@@ -397,6 +431,76 @@ class AdminAuthService
         }
 
         return $this->tenantAndPartnerAreActive((string) $record->tenant_status, (string) $record->partner_status);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $scopes
+     * @return array<int, array<string, mixed>>
+     */
+    public function visibleScopesForPartnerBo(array $scopes, ?array $partnerBoContext): array
+    {
+        if ($partnerBoContext === null) {
+            return $scopes;
+        }
+
+        return array_values(array_filter(
+            $scopes,
+            fn (array $scope): bool => $this->activeScopeMatchesPartnerBo($scope, $partnerBoContext),
+        ));
+    }
+
+    /**
+     * @param array<string, mixed> $partnerBoContext
+     */
+    public function contextMatchesPartnerBo(AdminSessionContext $context, array $partnerBoContext): bool
+    {
+        return $context->activeScope() === 'tenant'
+            && $context->activeTenantId() === $partnerBoContext['tenant_id'];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>|null
+     */
+    private function partnerBoLoginPayload(array $payload, ?array $partnerBoContext): ?array
+    {
+        if ($partnerBoContext === null) {
+            return $payload;
+        }
+
+        if (($payload['scope'] ?? null) === 'central') {
+            return null;
+        }
+
+        $requestedTenantId = trim((string) ($payload['tenant_id'] ?? ''));
+
+        if ($requestedTenantId !== '' && $requestedTenantId !== $partnerBoContext['tenant_id']) {
+            return null;
+        }
+
+        $payload['scope'] = 'tenant';
+        $payload['tenant_id'] = $partnerBoContext['tenant_id'];
+
+        return $payload;
+    }
+
+    /**
+     * @param array<string, mixed> $activeScope
+     */
+    private function activeScopeMatchesPartnerBo(array $activeScope, ?array $partnerBoContext): bool
+    {
+        if ($partnerBoContext === null) {
+            return true;
+        }
+
+        return ($activeScope['scope'] ?? null) === 'tenant'
+            && ($activeScope['tenant_id'] ?? null) === $partnerBoContext['tenant_id'];
+    }
+
+    private function sessionMatchesPartnerBo(object $session, array $partnerBoContext): bool
+    {
+        return (string) $session->scope_type === 'tenant'
+            && (string) $session->tenant_id === $partnerBoContext['tenant_id'];
     }
 
     /**

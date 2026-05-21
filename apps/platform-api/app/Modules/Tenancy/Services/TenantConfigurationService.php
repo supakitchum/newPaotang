@@ -10,6 +10,7 @@ use App\Models\PartnerTenantTheme;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Modules\Maintenance\Services\MaintenanceService;
+use App\Shared\Tenancy\PartnerBoHostResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -27,6 +28,7 @@ class TenantConfigurationService
     public function __construct(
         private readonly AuditLogger $auditLogger,
         private readonly MaintenanceService $maintenance,
+        private readonly PartnerBoHostResolver $partnerBoHosts,
     ) {
     }
 
@@ -70,6 +72,75 @@ class TenantConfigurationService
 
         return [
             'data' => $this->siteConfigResource($record),
+        ];
+    }
+
+    /**
+     * @return array{data?: array<string, mixed>, error?: array{status: int, code: string, message: string}}
+     */
+    public function adminSiteConfigForRequest(Request $request): array
+    {
+        $resolved = $this->partnerBoHosts->resolve($request);
+
+        if ($resolved['error'] !== null) {
+            return ['error' => $resolved['error']];
+        }
+
+        $context = $resolved['context'];
+
+        if ($context === null) {
+            return [
+                'data' => [
+                    'mode' => 'central',
+                    'partner' => null,
+                    'tenant' => null,
+                    'domain' => null,
+                    'brand' => [
+                        'logo_url' => null,
+                        'favicon_url' => null,
+                    ],
+                    'site' => [
+                        'display_name' => 'NewPaotang Back Office',
+                    ],
+                ],
+            ];
+        }
+
+        $tenant = (object) [
+            'id' => $context['tenant_id'],
+            'partner_id' => $context['partner_id'],
+            'name' => $context['tenant_name'],
+        ];
+        $settings = $this->settingsOrDefault($tenant);
+        $theme = $this->themeOrDefault($tenant);
+        $site = $this->sitePayload($settings);
+        $displayName = $site['display_name'] ?: ($site['site_name'] ?: $context['tenant_name']);
+
+        return [
+            'data' => [
+                'mode' => 'partner',
+                'partner' => [
+                    'id' => $context['partner_id'],
+                    'code' => $context['partner_code'],
+                    'name' => $context['partner_name'],
+                ],
+                'tenant' => [
+                    'id' => $context['tenant_id'],
+                    'code' => $context['tenant_code'],
+                    'name' => $context['tenant_name'],
+                ],
+                'domain' => [
+                    'storefront_host' => $context['storefront_host'],
+                    'bo_host' => $context['bo_host'],
+                ],
+                'brand' => [
+                    'logo_url' => $theme->logo_url,
+                    'favicon_url' => $theme->favicon_url,
+                ],
+                'site' => [
+                    'display_name' => $displayName,
+                ],
+            ],
         ];
     }
 
