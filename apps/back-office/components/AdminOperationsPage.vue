@@ -249,6 +249,11 @@
         :record="detailDisplayRecord"
         :loading="loading && !detailGap"
       />
+      <AdminPriceRuleDetail
+        v-else-if="resource.detailRenderer === 'price-rule'"
+        :record="detailDisplayRecord"
+        :loading="loading && !detailGap"
+      />
       <AdminDetailSection v-else :title="`${resource.title} detail`" :record="detailDisplayRecord" :loading="loading && !detailGap" />
       <AdminRewardPrizes
         v-if="resource.detailRenderer === 'reward' && !detailGap && detail"

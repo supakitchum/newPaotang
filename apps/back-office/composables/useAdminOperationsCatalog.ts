@@ -152,7 +152,7 @@ export type OperationResource = {
   confirmContextFields?: string[]
   reportKeys?: string[]
   detailJsonEditor?: boolean
-  detailRenderer?: 'reward'
+  detailRenderer?: 'reward' | 'price-rule'
   defaultQuery?: Record<string, any>
   stockGrouped?: boolean
   stockSummaryEndpoint?: string
@@ -848,6 +848,7 @@ const tenant: OperationResource[] = [
     ],
     filters: cursorFilters([{ key: 'game_id', label: 'Game', type: 'select', optionSource: 'tenant-price-rule-games', hideEmptyOption: true, emptyOptionLabel: 'No open game' }]),
     confirmContextFields: priceRuleActionContext,
+    detailRenderer: 'price-rule',
     actions: [
       {
         key: 'update',
