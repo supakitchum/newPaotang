@@ -160,9 +160,11 @@ export const useAdminRealtimeSubscription = (options: AdminRealtimeSubscriptionO
 
     status.value = 'authenticating'
     try {
-      const authorization = await api.apiFetch('/admin/central/realtime/auth', {
+      const tenantChannel = channelName.value.startsWith('private-admin.tenant.') || channelName.value.startsWith('presence-admin.tenant.')
+      const authorization = await api.apiFetch(tenantChannel ? '/admin/tenant/realtime/auth' : '/admin/central/realtime/auth', {
         method: 'POST',
-        scope: 'central',
+        scope: tenantChannel ? 'tenant' : 'central',
+        tenantId: tenantChannel ? session.currentTenantId.value : undefined,
         body: {
           socket_id: socketId,
           channel_name: channelName.value,

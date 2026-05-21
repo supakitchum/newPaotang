@@ -553,7 +553,7 @@ class VirtualStockService
                 );
 
                 $this->incrementVirtualCounters($gameId, $tenantId, $partnerId, $ref['full_number'], reservedDelta: 1, soldDelta: 0);
-                $this->coverageRealtime->broadcastNumberChangedAfterCommit($gameId, $partnerId, $ref['full_number']);
+                $this->coverageRealtime->broadcastNumberChangedAfterCommit($gameId, $partnerId, $ref['full_number'], $tenantId);
                 $events[] = $this->availabilityPayload($tenantId, $partnerId, $gameId, $ref['full_number'], $customer->customerId());
             }
 
@@ -602,7 +602,7 @@ class VirtualStockService
 
         foreach ($rows as $row) {
             $this->incrementVirtualCounters((string) $reservation->game_id, $tenantId, $partnerId, (string) $row->full_number, reservedDelta: -1, soldDelta: 0);
-            $this->coverageRealtime->broadcastNumberChangedAfterCommit((string) $reservation->game_id, $partnerId, (string) $row->full_number);
+            $this->coverageRealtime->broadcastNumberChangedAfterCommit((string) $reservation->game_id, $partnerId, (string) $row->full_number, $tenantId);
             $events[] = $this->availabilityPayload($tenantId, $partnerId, (string) $reservation->game_id, (string) $row->full_number, $customerId);
         }
 
@@ -622,7 +622,7 @@ class VirtualStockService
             }
 
             $this->incrementVirtualCounters($gameId, $tenantId, $partnerId, (string) $row->full_number, reservedDelta: -1, soldDelta: 1);
-            $this->coverageRealtime->broadcastNumberChangedAfterCommit($gameId, $partnerId, (string) $row->full_number);
+            $this->coverageRealtime->broadcastNumberChangedAfterCommit($gameId, $partnerId, (string) $row->full_number, $tenantId);
             $events[] = $this->availabilityPayload($tenantId, $partnerId, $gameId, (string) $row->full_number, $customerId);
         }
 
@@ -1885,10 +1885,13 @@ class VirtualStockService
             'partner_id' => $partnerId,
             'stock_item_id' => $stockRef,
             'allocation_id' => null,
+            'owner_customer_id' => null,
+            'owner' => null,
             'created_at' => $now,
             'updated_at' => $now,
             'synced_at' => $now,
             'reserved_at' => null,
+            'sold_at' => null,
         ];
     }
 

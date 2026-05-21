@@ -39,7 +39,7 @@ class StockCoverageRealtimeService
         $this->broadcastStockTableRefreshAfterCommit($gameId, 'limit_overrides_changed');
     }
 
-    public function broadcastNumberChangedAfterCommit(string $gameId, string $partnerId, string $fullNumber): void
+    public function broadcastNumberChangedAfterCommit(string $gameId, string $partnerId, string $fullNumber, ?string $tenantId = null): void
     {
         $fullNumber = preg_replace('/\D+/', '', $fullNumber) ?? '';
 
@@ -55,7 +55,7 @@ class StockCoverageRealtimeService
 
         foreach ($values as $dimension => $dimensionValues) {
             $this->broadcastRowsAfterCommit($gameId, 'central', 'central', $dimension, $dimensionValues);
-            $this->broadcastRowsAfterCommit($gameId, 'partner', $partnerId, $dimension, $dimensionValues);
+            $this->broadcastRowsAfterCommit($gameId, 'partner', $partnerId, $dimension, $dimensionValues, $tenantId);
         }
 
         $this->broadcastStockTableRowAfterCommit($gameId, $fullNumber, 'stock_counter_changed');
@@ -141,6 +141,7 @@ class StockCoverageRealtimeService
         string $scopeId,
         ?string $dimension = null,
         ?array $values = null,
+        ?string $tenantId = null,
     ): void {
         $gameId = trim($gameId);
 
@@ -148,9 +149,13 @@ class StockCoverageRealtimeService
             return;
         }
 
-        $this->afterCommit(function () use ($gameId, $scopeType, $scopeId, $dimension, $values): void {
+        $this->afterCommit(function () use ($gameId, $scopeType, $scopeId, $dimension, $values, $tenantId): void {
             foreach ($this->coverageRows($gameId, $scopeType, $scopeId, $dimension, $values) as $payload) {
                 try {
+                    if ($tenantId !== null && $tenantId !== '') {
+                        $payload['tenant_id'] = $tenantId;
+                    }
+
                     StockCoverageUpdated::dispatch($payload);
                 } catch (\Throwable $exception) {
                     Log::warning('Stock coverage realtime broadcast failed.', [

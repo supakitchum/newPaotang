@@ -33,6 +33,7 @@ class StockAvailabilityUpdated implements ShouldBroadcastNow
 
         if ($tenantId !== '' && $gameId !== '') {
             $channels[] = new PrivateChannel('customer.tenant.'.$tenantId.'.stock.game.'.$gameId);
+            $channels[] = new PrivateChannel('admin.tenant.'.$tenantId.'.stock.game.'.$gameId);
         }
 
         if ($tenantId !== '' && $customerId !== '') {

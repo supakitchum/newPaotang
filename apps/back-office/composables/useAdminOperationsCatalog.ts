@@ -28,13 +28,16 @@ export type OperationOption = string | {
   existingGameAllocationPercentBasisPoints?: number | null
   existingGameAllocatedCount?: number | null
   existingGameRemainingCount?: number | null
+  allocatedCount?: number | null
   isCurrent?: boolean
+  isDefault?: boolean
+  stockModes?: string[]
   sale_start_at?: string
   draw_at?: string
   close_at?: string
   server_time?: string
 }
-export type OperationOptionSource = 'central-games' | 'central-partners' | 'allocation-partners' | 'allocation-tenants' | 'allocation-games'
+export type OperationOptionSource = 'central-games' | 'central-partners' | 'allocation-partners' | 'allocation-tenants' | 'allocation-games' | 'tenant-stock-games'
 
 export type OperationColumn = {
   key: string
@@ -809,14 +812,13 @@ const tenant: OperationResource[] = [
     idKey: 'id',
     apiSort: true,
     columns: [
-      { key: 'id', label: 'Stock item' },
-      { key: 'game_id', label: 'Game' },
       { key: 'full_number', label: 'Number' },
       { key: 'status', label: 'Status', type: 'status' },
+      { key: 'owner_customer_id', label: 'Owner' },
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
     ],
     filters: cursorFilters([
-      { key: 'game_id', label: 'Game ID' },
+      { key: 'game_id', label: 'Game', type: 'select', optionSource: 'tenant-stock-games', hideEmptyOption: true, emptyOptionLabel: 'No stock game' },
       statusFilter(['available', 'reserved', 'sold', 'recalled', 'inactive']),
       { key: 'number', label: 'Number' },
     ]),

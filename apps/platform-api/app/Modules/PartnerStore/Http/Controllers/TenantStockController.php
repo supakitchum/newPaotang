@@ -4,6 +4,7 @@ namespace App\Modules\PartnerStore\Http\Controllers;
 
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Auth\ApiErrorResponse;
+use App\Modules\CentralStock\Services\CentralStockService;
 use App\Shared\Http\RequestHeaderValidator;
 use App\Modules\PartnerStore\Services\PartnerStoreService;
 use App\Modules\Rbac\Services\PermissionService;
@@ -16,6 +17,7 @@ class TenantStockController extends Controller
     public function __construct(
         private readonly PermissionService $permissions,
         private readonly PartnerStoreService $partnerStore,
+        private readonly CentralStockService $centralStock,
         private readonly RequestHeaderValidator $headers,
     ) {
     }
@@ -29,6 +31,50 @@ class TenantStockController extends Controller
         }
 
         return response()->json($this->partnerStore->listTenantStock((string) $context->activeTenantId(), $request->query()));
+    }
+
+    public function games(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'stock.view');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        return response()->json($this->partnerStore->tenantStockGames((string) $context->activeTenantId()));
+    }
+
+    public function coverage(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'stock.view');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $tenantId = (string) $context->activeTenantId();
+        $partnerId = $this->partnerStore->partnerIdForTenant($tenantId);
+
+        if ($partnerId === null) {
+            return response()->json([
+                'game_id' => null,
+                'scope_type' => 'partner',
+                'scope_id' => null,
+                'stock_mode' => 'virtual',
+                'empty' => true,
+                'data' => [],
+                'meta' => [
+                    'next_cursor' => null,
+                    'has_more' => false,
+                ],
+            ]);
+        }
+
+        return response()->json($this->centralStock->stockPatternSummary([
+            ...$request->query(),
+            'scope_type' => 'partner',
+            'scope_id' => $partnerId,
+        ]));
     }
 
     public function show(Request $request, string $stock_item_id): JsonResponse

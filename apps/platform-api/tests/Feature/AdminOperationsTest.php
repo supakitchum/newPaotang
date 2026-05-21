@@ -176,6 +176,51 @@ class AdminOperationsTest extends TestCase
             ->assertJsonPath('error.code', 'permission_denied');
     }
 
+    public function test_AdminRealtime_tenant_stock_channels_require_tenant_stock_view_permission(): void
+    {
+        $this->seedDefaultRbac();
+        $viewLogin = $this->createTenantSession(['stock.view']);
+        $deniedLogin = $this->createTenantSession(['dashboard.view'], 'adm_tenant_stock_deny', 'realtime-tenant-stock-denied@example.test');
+
+        foreach ([
+            'private-admin.tenant.ten_auth.stock.game.gam_realtime',
+            'private-admin.tenant.ten_auth.stock.coverage.game.gam_realtime',
+        ] as $channelName) {
+            $this->withToken($viewLogin['access_token'])
+                ->postJson('/api/v1/admin/tenant/realtime/auth', [
+                    'socket_id' => '4444.5555',
+                    'channel_name' => $channelName,
+                ], [
+                    'X-Admin-Scope' => 'tenant',
+                    'X-Tenant-Id' => 'ten_auth',
+                ])
+                ->assertOk()
+                ->assertJsonStructure(['auth', 'channel_data', 'expires_at']);
+
+            $this->withToken($deniedLogin['access_token'])
+                ->postJson('/api/v1/admin/tenant/realtime/auth', [
+                    'socket_id' => '4444.5555',
+                    'channel_name' => $channelName,
+                ], [
+                    'X-Admin-Scope' => 'tenant',
+                    'X-Tenant-Id' => 'ten_auth',
+                ])
+                ->assertForbidden()
+                ->assertJsonPath('error.code', 'permission_denied');
+        }
+
+        $this->withToken($viewLogin['access_token'])
+            ->postJson('/api/v1/admin/tenant/realtime/auth', [
+                'socket_id' => '4444.5555',
+                'channel_name' => 'private-admin.tenant.ten_other.stock.game.gam_realtime',
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_auth',
+            ])
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'permission_denied');
+    }
+
     public function test_AdminMenu_management_read_and_update_validates_idempotency_and_writes_audit(): void
     {
         $this->seedDefaultRbac();
@@ -323,7 +368,8 @@ class AdminOperationsTest extends TestCase
         $this->seedDefaultRbac();
         $centralLogin = $this->createCentralSession(['audit.view']);
         $tenantLogin = $this->createTenantSession(['audit.view']);
-        $this->createTenant('ten_other');
+        $this->createPartner('par_auth_other');
+        $this->createTenant('ten_other', 'par_auth_other');
 
         app(AuditLogger::class)->logAdminWrite(
             actorId: 'adm_central',
@@ -450,16 +496,27 @@ class AdminOperationsTest extends TestCase
      * @param array<int, string> $permissions
      * @return array<string, mixed>
      */
-    private function createTenantSession(array $permissions): array
-    {
-        $this->createPartner();
-        $this->createTenant('ten_auth');
-        $this->createAdmin('adm_tenant', 'tenant@example.test');
-        $this->createAdminScope('scp_tenant', 'tenant', 'ten_auth', 'par_auth');
-        $this->assignRoleWithPermissions('adm_tenant', 'scp_tenant', 'tenant', 'ten_auth', $permissions, 'tenant_ops');
+    private function createTenantSession(
+        array $permissions,
+        string $adminId = 'adm_tenant',
+        string $email = 'tenant@example.test',
+    ): array {
+        if (! DB::table('partners')->where('id', 'par_auth')->exists()) {
+            $this->createPartner();
+        }
+        if (! DB::table('partner_tenants')->where('id', 'ten_auth')->exists()) {
+            $this->createTenant('ten_auth');
+        }
+
+        $scopeId = $adminId === 'adm_tenant' ? 'scp_tenant' : 'scp_'.$adminId;
+        $roleCode = $adminId === 'adm_tenant' ? 'tenant_ops' : 'tenant_ops_'.$adminId;
+
+        $this->createAdmin($adminId, $email);
+        $this->createAdminScope($scopeId, 'tenant', 'ten_auth', 'par_auth');
+        $this->assignRoleWithPermissions($adminId, $scopeId, 'tenant', 'ten_auth', $permissions, $roleCode);
 
         return $this->loginAdmin([
-            'email' => 'tenant@example.test',
+            'email' => $email,
             'password' => 'secret-password',
             'scope' => 'tenant',
             'tenant_id' => 'ten_auth',

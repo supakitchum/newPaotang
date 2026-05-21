@@ -444,6 +444,10 @@ Route::delete('/admin/tenant/redirects/{redirect_id}', [TenantSeoController::cla
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/stock', [TenantStockController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/stock/games', [TenantStockController::class, 'games'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/stock/coverage', [TenantStockController::class, 'coverage'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/stock/exports', [TenantStockController::class, 'exports'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/stock/{stock_item_id}', [TenantStockController::class, 'show'])

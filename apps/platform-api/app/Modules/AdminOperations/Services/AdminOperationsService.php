@@ -117,8 +117,10 @@ class AdminOperationsService
 
     public function requiredRealtimePermission(string $scopeType, string $channelName): ?string
     {
-        if ($scopeType !== 'central') {
-            return null;
+        if ($scopeType === 'tenant') {
+            return $this->isTenantStockChannel($channelName) || $this->isTenantStockCoverageChannel($channelName)
+                ? 'stock.view'
+                : null;
         }
 
         if ($this->isCentralStockGenerationChannel($channelName)) {
@@ -257,7 +259,8 @@ class AdminOperationsService
             'private-admin.tenant.'.$tenantId.'.menu',
             'private-admin.tenant.'.$tenantId.'.admin.'.$adminUserId,
             'presence-admin.tenant.'.$tenantId.'.admin.'.$adminUserId,
-        ], true);
+        ], true) || $this->isTenantStockChannel($channelName, $tenantId)
+            || $this->isTenantStockCoverageChannel($channelName, $tenantId);
     }
 
     private function isCentralStockGenerationChannel(string $channelName): bool
@@ -275,6 +278,24 @@ class AdminOperationsService
     private function isCentralStockTableChannel(string $channelName): bool
     {
         return preg_match('/^private-admin\.central\.stock\.table\.game\.[A-Za-z0-9_-]+$/', $channelName) === 1;
+    }
+
+    private function isTenantStockChannel(string $channelName, ?string $tenantId = null): bool
+    {
+        $tenantPattern = $tenantId === null || $tenantId === ''
+            ? '[A-Za-z0-9_-]+'
+            : preg_quote($tenantId, '/');
+
+        return preg_match('/^private-admin\.tenant\.'.$tenantPattern.'\.stock\.game\.[A-Za-z0-9_-]+$/', $channelName) === 1;
+    }
+
+    private function isTenantStockCoverageChannel(string $channelName, ?string $tenantId = null): bool
+    {
+        $tenantPattern = $tenantId === null || $tenantId === ''
+            ? '[A-Za-z0-9_-]+'
+            : preg_quote($tenantId, '/');
+
+        return preg_match('/^private-admin\.tenant\.'.$tenantPattern.'\.stock\.coverage\.game\.[A-Za-z0-9_-]+$/', $channelName) === 1;
     }
 
     private function limit(mixed $value): int

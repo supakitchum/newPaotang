@@ -244,7 +244,12 @@
     <template v-else-if="mode === 'detail'">
       <AdminApiState v-if="detailGap" :message="detailGap" />
       <AdminApiState :error="error" />
-      <AdminDetailSection :title="`${resource.title} detail`" :record="detailDisplayRecord" :loading="loading && !detailGap" />
+      <AdminTenantStockDetail
+        v-if="isTenantStockRoute"
+        :record="detailDisplayRecord"
+        :loading="loading && !detailGap"
+      />
+      <AdminDetailSection v-else :title="`${resource.title} detail`" :record="detailDisplayRecord" :loading="loading && !detailGap" />
       <AdminRewardPrizes
         v-if="resource.detailRenderer === 'reward' && !detailGap && detail"
         :prizes="detail?.prizes || []"
@@ -347,6 +352,34 @@
               <div>{{ stockTableRealtimeError }}</div>
             </div>
           </div>
+          <div v-if="showTenantStockRealtimePanel" class="np-stock-realtime-panel border rounded p-3 mb-3">
+            <div class="d-flex flex-column flex-xl-row align-items-xl-center justify-content-between gap-3">
+              <div class="d-flex align-items-start gap-3">
+                <span class="avatar bg-info-transparent text-info">
+                  <i class="ri-broadcast-line fs-4" />
+                </span>
+                <div>
+                  <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                    <h6 class="mb-0">Tenant stock realtime</h6>
+                    <span :class="['badge', tenantStockRealtimeStatusBadgeClass]">{{ tenantStockRealtimeStatusLabel }}</span>
+                  </div>
+                  <p class="text-muted mb-0">{{ tenantStockRealtimePanelMessage }}</p>
+                </div>
+              </div>
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <span v-if="selectedTenantStockGameId" class="badge bg-light text-default">Game {{ selectedTenantStockGameId }}</span>
+                <span v-if="tenantStockRealtimeLastEventLabel" class="badge bg-success-transparent text-success">{{ tenantStockRealtimeLastEventLabel }}</span>
+              </div>
+            </div>
+            <div v-if="!selectedTenantStockGameId" class="alert alert-info d-flex align-items-start gap-2 mt-3 mb-0">
+              <i class="ri-information-line fs-18" />
+              <div>Select a game to enable live tenant stock updates.</div>
+            </div>
+            <div v-else-if="tenantStockRealtimeError" class="alert alert-warning d-flex align-items-start gap-2 mt-3 mb-0">
+              <i class="ri-alert-line fs-18" />
+              <div>{{ tenantStockRealtimeError }}</div>
+            </div>
+          </div>
         </template>
         <template v-for="column in tableColumns" #[`cell-${column.key}`]="{ row }">
           <AdminStatusBadge v-if="column.type === 'status'" :status="row[column.key]" />
@@ -400,6 +433,11 @@
         :page-size="filters.limit || 20"
         @previous="loadPreviousPage"
         @next="loadNextPage"
+      />
+      <AdminTenantStockCoverage
+        v-if="showTenantStockCoverage"
+        :game-id="selectedTenantStockGameId"
+        :refresh-key="tenantStockCoverageRefreshKey"
       />
     </template>
 
@@ -572,6 +610,8 @@
 
 <script setup lang="ts">
 import type { OperationAction, OperationFilter, OperationFormField, OperationOption, OperationOptionSource, OperationRelatedList, OperationResource, OperationSettingsPanel } from '~/composables/useAdminOperationsCatalog'
+import AdminTenantStockCoverage from '~/components/AdminTenantStockCoverage.vue'
+import AdminTenantStockDetail from '~/components/AdminTenantStockDetail.vue'
 import { formatDateTime, titleize } from '~/utils/format'
 
 const props = defineProps<{
@@ -600,6 +640,8 @@ const detailDraft = ref('')
 const filters = ref<Record<string, any>>({})
 const stockSummaryRefreshKey = ref(0)
 const stockTableRealtimeReloading = ref(false)
+const tenantStockRealtimeReloading = ref(false)
+const tenantStockCoverageRefreshKey = ref(0)
 const stockGenerationProgressRefreshKey = ref(0)
 const stockGenerationSubmittedBatch = ref<any>(null)
 const stockGenerationHasActiveBatch = ref(false)
@@ -696,6 +738,7 @@ const optionSourceOptions = reactive<Record<OperationOptionSource, OperationOpti
   'allocation-partners': [],
   'allocation-tenants': [],
   'allocation-games': [],
+  'tenant-stock-games': [],
 })
 const optionSourceLoading = reactive<Record<OperationOptionSource, boolean>>({
   'central-games': false,
@@ -703,6 +746,7 @@ const optionSourceLoading = reactive<Record<OperationOptionSource, boolean>>({
   'allocation-partners': false,
   'allocation-tenants': false,
   'allocation-games': false,
+  'tenant-stock-games': false,
 })
 const stockSettingsDefaults = ref<any[]>([])
 const stockSettingsLoading = ref(false)
@@ -724,13 +768,16 @@ const isStockGenerationRoute = computed(() => props.scope === 'central' && slugP
 const isStockSettingsRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-settings')
 const isStockPatternCoverageRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-pattern-coverage')
 const isAllocationsRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'allocations')
+const isTenantStockRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'stock')
 const showStockSummaryWidgets = computed(() => Boolean(resource.value?.stockSummaryEndpoint && mode.value === 'list'))
 const showAllocationSummaryWidgets = computed(() => Boolean(isAllocationsRoute.value && mode.value === 'list'))
 const showStockGenerationProgress = computed(() => Boolean(isStockGenerationRoute.value && mode.value === 'list'))
+const showTenantStockCoverage = computed(() => Boolean(isTenantStockRoute.value && mode.value === 'list' && selectedTenantStockGameId.value))
 const stockSummaryEndpoint = computed(() => resource.value?.stockSummaryEndpoint || '')
 const stockSummaryGameId = computed(() => filters.value.game_id || '')
 const stockSummaryBatchId = computed(() => filters.value.batch_id || '')
 const selectedStockTableGameId = computed(() => String(filters.value.game_id || '').trim())
+const selectedTenantStockGameId = computed(() => isTenantStockRoute.value ? String(filters.value.game_id || '').trim() : '')
 const isCentralGroupedStockRoute = computed(() => Boolean(
   props.scope === 'central'
   && mode.value === 'list'
@@ -829,8 +876,99 @@ const stockTableRealtimePanelMessage = computed(() => {
   }
   return 'Preparing stock table realtime for this game.'
 })
+const showTenantStockRealtimePanel = computed(() => Boolean(isTenantStockRoute.value && mode.value === 'list'))
+const tenantStockRealtimeChannelName = computed(() => (
+  selectedTenantStockGameId.value && session.currentTenantId.value
+    ? `private-admin.tenant.${session.currentTenantId.value}.stock.game.${selectedTenantStockGameId.value}`
+    : ''
+))
+const tenantStockRealtimeEnabled = computed(() => Boolean(
+  showTenantStockRealtimePanel.value
+  && selectedTenantStockGameId.value
+  && session.isAuthenticated.value,
+))
+const tenantStockRealtime = useAdminRealtimeSubscription({
+  channelName: tenantStockRealtimeChannelName,
+  eventName: 'stock.availability.updated',
+  enabled: tenantStockRealtimeEnabled,
+  onEvent: handleTenantStockRealtimeEvent,
+  onReconnect: handleTenantStockRealtimeReconnect,
+})
+const tenantStockRealtimeStatus = computed(() => tenantStockRealtime.status.value)
+const tenantStockRealtimeError = computed(() => tenantStockRealtime.error.value)
+const tenantStockRealtimeConfigured = computed(() => tenantStockRealtime.isConfigured.value)
+const tenantStockRealtimeLastEventLabel = computed(() => (
+  tenantStockRealtime.lastEventAt.value
+    ? `Last event ${formatDateTime(tenantStockRealtime.lastEventAt.value)}`
+    : ''
+))
+const tenantStockRealtimeStatusLabel = computed(() => {
+  if (!selectedTenantStockGameId.value) {
+    return 'Game required'
+  }
+  if (!tenantStockRealtimeConfigured.value) {
+    return 'Fallback HTTP'
+  }
+  if (tenantStockRealtimeReloading.value) {
+    return 'Refreshing'
+  }
+
+  const labels: Record<string, string> = {
+    idle: 'Idle',
+    unavailable: 'Unavailable',
+    connecting: 'Connecting',
+    authenticating: 'Authenticating',
+    connected: 'Live',
+    reconnecting: 'Reconnecting',
+    error: 'Attention',
+  }
+  return labels[tenantStockRealtimeStatus.value] || 'Realtime'
+})
+const tenantStockRealtimeStatusBadgeClass = computed(() => {
+  if (!selectedTenantStockGameId.value) {
+    return 'bg-info-transparent text-info'
+  }
+  if (!tenantStockRealtimeConfigured.value) {
+    return 'bg-secondary-transparent text-secondary'
+  }
+  if (tenantStockRealtimeReloading.value || tenantStockRealtimeStatus.value === 'connecting' || tenantStockRealtimeStatus.value === 'authenticating' || tenantStockRealtimeStatus.value === 'reconnecting') {
+    return 'bg-warning-transparent text-warning'
+  }
+  if (tenantStockRealtimeStatus.value === 'connected') {
+    return 'bg-success-transparent text-success'
+  }
+  if (tenantStockRealtimeStatus.value === 'error') {
+    return 'bg-danger-transparent text-danger'
+  }
+  return 'bg-light text-default'
+})
+const tenantStockRealtimePanelMessage = computed(() => {
+  if (!selectedTenantStockGameId.value) {
+    return 'Choose a game filter to subscribe this tenant stock table to live availability updates.'
+  }
+  if (!session.isAuthenticated.value) {
+    return 'Sign in to enable live tenant stock updates.'
+  }
+  if (!tenantStockRealtimeConfigured.value) {
+    return 'Realtime is not configured in this environment. The table and coverage still load through HTTP refresh.'
+  }
+  if (tenantStockRealtimeReloading.value) {
+    return 'Applying a realtime availability update by refreshing this tenant stock page.'
+  }
+  if (tenantStockRealtimeStatus.value === 'connected') {
+    return 'Listening for stock.availability.updated events for this tenant game.'
+  }
+  if (tenantStockRealtimeStatus.value === 'reconnecting') {
+    return 'Reconnecting to tenant stock realtime. The table refreshes after the subscription is restored.'
+  }
+  if (tenantStockRealtimeStatus.value === 'error') {
+    return 'Realtime needs attention. Manual refresh still loads the latest tenant stock.'
+  }
+  return 'Preparing tenant stock realtime for this game.'
+})
 const currentCentralGameOption = computed(() => singleCurrentGameOption(optionSourceOptions['central-games'] || []))
 const currentAllocationGameOption = computed(() => latestCurrentGameOption(optionSourceOptions['allocation-games'] || []))
+const currentTenantStockGameOption = computed(() => latestTenantStockGameOption(optionSourceOptions['tenant-stock-games'] || []))
 const allocationSummaryCards = computed(() => {
   const game = currentAllocationGameOption.value
   const isLoading = optionSourceLoading['allocation-games']
@@ -1308,6 +1446,12 @@ const loadOptionSource = async (source: OperationOptionSource) => {
         query: { limit: 1 },
       })
       optionSourceOptions[source] = normalizeAllocationGameOptions(extractItems(response))
+    } else if (source === 'tenant-stock-games') {
+      const response = await api.apiFetch('/admin/tenant/stock/games', {
+        scope: 'tenant',
+        tenantId: session.currentTenantId.value,
+      })
+      optionSourceOptions[source] = normalizeTenantStockGameOptions(extractItems(response))
     }
   } catch {
     optionSourceOptions[source] = []
@@ -1426,6 +1570,29 @@ const allocationGameOption = (game: any): OperationOption => {
   }
 }
 
+const tenantStockGameOption = (game: any): OperationOption => {
+  const id = game?.game_id || game?.id || game?.uuid || game?.code
+  const code = game?.code || game?.game_code || ''
+  const name = game?.name || game?.game_name || game?.title || id
+  const status = String(game?.status || '').toLowerCase()
+  const allocatedCount = numberOrNull(game?.allocated_count)
+  const countLabel = allocatedCount === null ? '' : ` · ${formatNumberOrDash(allocatedCount)} stock`
+  return {
+    value: id,
+    label: game?.label || `${[code, name].filter(Boolean).join(' - ') || String(id || '')}${status === 'open' ? ' (Current)' : ''}${countLabel}`,
+    code,
+    name,
+    status,
+    isCurrent: status === 'open' || Boolean(game?.is_current),
+    isDefault: Boolean(game?.is_default),
+    allocatedCount,
+    stockModes: Array.isArray(game?.stock_modes) ? game.stock_modes.map(String) : [],
+    sale_start_at: game?.sale_start_at,
+    draw_at: game?.draw_at,
+    close_at: game?.close_at,
+  }
+}
+
 const normalizeAllocationPartnerOptions = (items: any[]) => items
   .map(allocationPartnerOption)
   .filter((option) => !isBlank(optionValue(option)))
@@ -1436,6 +1603,10 @@ const normalizeAllocationTenantOptions = (items: any[]) => items
 
 const normalizeAllocationGameOptions = (items: any[]) => items
   .map(allocationGameOption)
+  .filter((option) => !isBlank(optionValue(option)))
+
+const normalizeTenantStockGameOptions = (items: any[]) => items
+  .map(tenantStockGameOption)
   .filter((option) => !isBlank(optionValue(option)))
 
 const optionValue = (option: OperationOption | null | undefined) => typeof option === 'object' && option !== null ? option.value : option
@@ -1510,12 +1681,18 @@ const latestCurrentGameOption = (options: OperationOption[]) => options.find((op
   && (option.isCurrent || String(option.status || '').toLowerCase() === 'open')
 )) || null
 
+const latestTenantStockGameOption = (options: OperationOption[]) => options.find((option) => (
+  typeof option === 'object'
+  && option !== null
+  && option.isDefault
+)) || latestCurrentGameOption(options) || options[0] || null
+
 const applyCurrentGameFilterDefault = () => {
   filters.value = routeFiltersWithCurrentGame(filters.value)
 }
 
 const routeFiltersWithCurrentGame = (next: Record<string, any>) => (
-  allocationFiltersWithCurrentGame(stockGenerationFiltersWithCurrentGame(next))
+  tenantStockFiltersWithCurrentGame(allocationFiltersWithCurrentGame(stockGenerationFiltersWithCurrentGame(next)))
 )
 
 const stockGenerationFiltersWithCurrentGame = (next: Record<string, any>) => {
@@ -1540,6 +1717,18 @@ const allocationFiltersWithCurrentGame = (next: Record<string, any>) => {
   }
 
   const currentGame = currentAllocationGameOption.value
+  return {
+    ...next,
+    game_id: currentGame ? optionValue(currentGame) : '',
+  }
+}
+
+const tenantStockFiltersWithCurrentGame = (next: Record<string, any>) => {
+  if (!isTenantStockRoute.value || !isBlank(next.game_id)) {
+    return next
+  }
+
+  const currentGame = currentTenantStockGameOption.value
   return {
     ...next,
     game_id: currentGame ? optionValue(currentGame) : '',
@@ -1989,6 +2178,28 @@ function handleStockTableRealtimeReconnect() {
   void reloadStockTableFromRealtime()
 }
 
+function handleTenantStockRealtimeEvent(payload: any) {
+  if (!tenantStockRealtimeEnabled.value || !payload || typeof payload !== 'object') {
+    return
+  }
+
+  const payloadGameId = String(payload.game_id || '').trim()
+  const payloadTenantId = String(payload.tenant_id || '').trim()
+  if (payloadGameId !== selectedTenantStockGameId.value || (payloadTenantId && payloadTenantId !== String(session.currentTenantId.value || ''))) {
+    return
+  }
+
+  void reloadTenantStockFromRealtime()
+}
+
+function handleTenantStockRealtimeReconnect() {
+  if (!tenantStockRealtimeEnabled.value) {
+    return
+  }
+
+  void reloadTenantStockFromRealtime()
+}
+
 async function reloadStockTableFromRealtime() {
   if (!stockTableRealtimeEnabled.value || stockTableRealtimeReloading.value) {
     return
@@ -2000,6 +2211,20 @@ async function reloadStockTableFromRealtime() {
     refreshStockSummaryWidgets()
   } finally {
     stockTableRealtimeReloading.value = false
+  }
+}
+
+async function reloadTenantStockFromRealtime() {
+  if (!tenantStockRealtimeEnabled.value || tenantStockRealtimeReloading.value) {
+    return
+  }
+
+  tenantStockRealtimeReloading.value = true
+  try {
+    await load(pageState.cursors[pageState.index] || null, 'current')
+    tenantStockCoverageRefreshKey.value += 1
+  } finally {
+    tenantStockRealtimeReloading.value = false
   }
 }
 

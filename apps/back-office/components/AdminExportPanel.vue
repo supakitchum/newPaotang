@@ -1,8 +1,5 @@
 <template>
   <div v-if="actions.length" class="card custom-card">
-    <div class="card-header">
-      <div class="card-title">Documented operations</div>
-    </div>
     <div class="card-body d-flex flex-wrap align-items-start gap-2">
       <div
         v-for="action in actions"

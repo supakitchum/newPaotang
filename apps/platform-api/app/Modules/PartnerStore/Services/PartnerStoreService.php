@@ -30,6 +30,7 @@ class PartnerStoreService
 {
     private const LOCAL_STOCK_STATUSES = ['available', 'reserved', 'sold', 'expired', 'returned', 'recalled', 'unavailable'];
     private const RESERVATION_STATUSES = ['active', 'released', 'expired', 'converted', 'cancelled'];
+    private const ACTIVE_ALLOCATION_PAIR_STATUSES = ['pending', 'processing', 'allocated', 'partially_allocated'];
     private const RESERVATION_TTL_MINUTES = 15;
 
     public function __construct(
@@ -142,6 +143,88 @@ class PartnerStoreService
         }
 
         return $game === null ? null : $this->gameResource($game);
+    }
+
+    /**
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
+     */
+    public function tenantStockGames(string $tenantId): array
+    {
+        $partnerId = $this->partnerIdForTenant($tenantId);
+
+        if ($partnerId === null) {
+            return ['data' => [], 'meta' => ['default_game_id' => null]];
+        }
+
+        $games = [];
+        $virtualRows = DB::table('partner_stock_allocations')
+            ->join('games', 'games.id', '=', 'partner_stock_allocations.game_id')
+            ->join('stock_supply_profiles', 'stock_supply_profiles.game_id', '=', 'partner_stock_allocations.game_id')
+            ->where('partner_stock_allocations.partner_id', $partnerId)
+            ->where('partner_stock_allocations.tenant_id', $tenantId)
+            ->whereIn('partner_stock_allocations.status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->where('partner_stock_allocations.allocated_count', '>', 0)
+            ->where('stock_supply_profiles.status', 'active')
+            ->groupBy('games.id', 'games.code', 'games.name', 'games.status', 'games.sale_start_at', 'games.draw_at', 'games.close_at')
+            ->get([
+                'games.id',
+                'games.code',
+                'games.name',
+                'games.status',
+                'games.sale_start_at',
+                'games.draw_at',
+                'games.close_at',
+                DB::raw('SUM(partner_stock_allocations.allocated_count) as allocated_count'),
+                DB::raw('MAX(partner_stock_allocations.created_at) as latest_stock_at'),
+            ]);
+
+        foreach ($virtualRows as $row) {
+            $games[(string) $row->id] = $this->tenantStockGameResource($row, 'virtual');
+        }
+
+        $localRows = DB::table('local_stock_items')
+            ->join('games', 'games.id', '=', 'local_stock_items.game_id')
+            ->where('local_stock_items.tenant_id', $tenantId)
+            ->groupBy('games.id', 'games.code', 'games.name', 'games.status', 'games.sale_start_at', 'games.draw_at', 'games.close_at')
+            ->get([
+                'games.id',
+                'games.code',
+                'games.name',
+                'games.status',
+                'games.sale_start_at',
+                'games.draw_at',
+                'games.close_at',
+                DB::raw('COUNT(local_stock_items.id) as allocated_count'),
+                DB::raw('MAX(local_stock_items.updated_at) as latest_stock_at'),
+            ]);
+
+        foreach ($localRows as $row) {
+            $gameId = (string) $row->id;
+            if (isset($games[$gameId])) {
+                $games[$gameId]['stock_modes'][] = 'physical';
+                $games[$gameId]['allocated_count'] = max((int) $games[$gameId]['allocated_count'], (int) $row->allocated_count);
+                $games[$gameId]['latest_stock_at'] = max((string) ($games[$gameId]['latest_stock_at'] ?? ''), (string) ($row->latest_stock_at ?? '')) ?: null;
+                continue;
+            }
+
+            $games[$gameId] = $this->tenantStockGameResource($row, 'physical');
+        }
+
+        $rows = array_values($games);
+        usort($rows, fn (array $a, array $b): int => $this->tenantStockGameSortValue($b) <=> $this->tenantStockGameSortValue($a));
+        $defaultGameId = $rows[0]['id'] ?? null;
+
+        foreach ($rows as &$row) {
+            $row['is_default'] = $row['id'] === $defaultGameId;
+        }
+        unset($row);
+
+        return [
+            'data' => $rows,
+            'meta' => [
+                'default_game_id' => $defaultGameId,
+            ],
+        ];
     }
 
     /**
@@ -1328,16 +1411,72 @@ class PartnerStoreService
      */
     private function tenantStockResource(object $stock): array
     {
+        $ownerCustomerId = $this->tenantStockOwnerCustomerId($stock);
+
         return array_merge($this->localStockResource($stock), [
             'tenant_id' => (string) $stock->tenant_id,
             'partner_id' => (string) $stock->partner_id,
             'stock_item_id' => (string) $stock->stock_item_id,
             'allocation_id' => $stock->allocation_id,
+            'owner_customer_id' => $ownerCustomerId,
+            'owner' => $ownerCustomerId,
             'created_at' => $stock->created_at,
             'updated_at' => $stock->updated_at,
             'synced_at' => $stock->synced_at,
             'reserved_at' => $stock->reserved_at,
+            'sold_at' => $stock->sold_at ?? null,
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function tenantStockGameResource(object $game, string $stockMode): array
+    {
+        $code = (string) ($game->code ?? '');
+        $name = (string) ($game->name ?? $game->id);
+
+        return [
+            'id' => (string) $game->id,
+            'game_id' => (string) $game->id,
+            'code' => $code,
+            'name' => $name,
+            'label' => trim(($code !== '' ? $code.' - ' : '').$name).($game->status === 'open' ? ' (Current)' : ''),
+            'status' => (string) $game->status,
+            'is_current' => (string) $game->status === 'open',
+            'allocated_count' => (int) ($game->allocated_count ?? 0),
+            'stock_modes' => [$stockMode],
+            'latest_stock_at' => $game->latest_stock_at,
+            'sale_start_at' => $game->sale_start_at,
+            'draw_at' => $game->draw_at,
+            'close_at' => $game->close_at,
+        ];
+    }
+
+    private function tenantStockGameSortValue(array $game): int
+    {
+        $statusScore = ($game['status'] ?? '') === 'open' ? 9_000_000_000_000 : 0;
+        $timestamp = strtotime((string) ($game['draw_at'] ?? $game['latest_stock_at'] ?? '')) ?: 0;
+
+        return $statusScore + $timestamp;
+    }
+
+    private function tenantStockOwnerCustomerId(object $stock): ?string
+    {
+        if (! in_array((string) $stock->status, ['reserved', 'sold'], true)) {
+            return null;
+        }
+
+        $customerId = DB::table('stock_reservation_items')
+            ->join('stock_reservations', 'stock_reservations.id', '=', 'stock_reservation_items.reservation_id')
+            ->where('stock_reservation_items.tenant_id', (string) $stock->tenant_id)
+            ->where('stock_reservation_items.local_stock_item_id', (string) $stock->id)
+            ->whereIn('stock_reservation_items.status', ['active', 'converted'])
+            ->whereIn('stock_reservations.status', ['active', 'converted'])
+            ->orderByDesc('stock_reservation_items.updated_at')
+            ->value('stock_reservations.customer_id');
+
+        return $customerId === null ? null : (string) $customerId;
     }
 
     /**

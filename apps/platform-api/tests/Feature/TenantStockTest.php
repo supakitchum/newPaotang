@@ -203,6 +203,111 @@ class TenantStockTest extends TestCase
             ->assertJsonPath('data.0.stock_mode', 'virtual');
     }
 
+    public function test_TenantStock_games_coverage_and_owner_fields_are_tenant_scoped(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_tenant_stock_ui', 'ten_tenant_stock_ui', 'tenant-stock-ui.newpaotang.test');
+        $this->insertGame('gam_tenant_stock_old', 'open');
+        $this->insertGame('gam_tenant_stock_new', 'open');
+        DB::table('games')->where('id', 'gam_tenant_stock_old')->update(['draw_at' => now()->addDay()]);
+        DB::table('games')->where('id', 'gam_tenant_stock_new')->update(['draw_at' => now()->addDays(2)]);
+        $this->insertBaseLotteryNumbers(['555550', '555551']);
+        $this->insertVirtualProfile('gam_tenant_stock_old', 2);
+        $this->insertVirtualProfile('gam_tenant_stock_new', 2);
+        $this->insertVirtualAllocation('gam_tenant_stock_old', 'par_tenant_stock_ui', 'ten_tenant_stock_ui', 10000, 2);
+        $this->insertVirtualAllocation('gam_tenant_stock_new', 'par_tenant_stock_ui', 'ten_tenant_stock_ui', 10000, 2);
+
+        $stockAdmin = $this->createTenantSession(
+            'ten_tenant_stock_ui',
+            'par_tenant_stock_ui',
+            ['stock.view'],
+            'adm_tenant_stock_ui',
+            'tenant-stock-ui@example.test',
+        );
+
+        $this->withToken($stockAdmin['access_token'])
+            ->getJson('/api/v1/admin/tenant/stock/games', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_tenant_stock_ui',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.0.id', 'gam_tenant_stock_new')
+            ->assertJsonPath('data.0.is_default', true)
+            ->assertJsonPath('meta.default_game_id', 'gam_tenant_stock_new');
+
+        $this->withToken($stockAdmin['access_token'])
+            ->getJson('/api/v1/admin/tenant/stock/coverage?'.http_build_query([
+                'game_id' => 'gam_tenant_stock_new',
+                'dimension' => 'back2',
+                'limit' => 1,
+            ]), [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_tenant_stock_ui',
+            ])
+            ->assertOk()
+            ->assertJsonPath('scope_type', 'partner')
+            ->assertJsonPath('scope_id', 'par_tenant_stock_ui')
+            ->assertJsonStructure(['data' => [['number', 'generated_count', 'reserved_count', 'sold_count', 'sellable_remaining_count']]]);
+
+        $localStockIds = $this->syncAllocatedStockToLocal('par_tenant_stock_ui', 'ten_tenant_stock_ui', 'gam_tenant_stock_new', 1, 'tenant-stock-owner', 777770);
+        $this->issueCustomerToken('ten_tenant_stock_ui', 'cus_tenant_stock_owner');
+        DB::table('stock_reservations')->insert([
+            'id' => 'res_tenant_stock_owner',
+            'tenant_id' => 'ten_tenant_stock_ui',
+            'customer_id' => 'cus_tenant_stock_owner',
+            'game_id' => 'gam_tenant_stock_new',
+            'status' => 'active',
+            'expires_at' => now()->addMinutes(15),
+            'released_at' => null,
+            'cancelled_at' => null,
+            'converted_at' => null,
+            'idempotency_key' => 'tenant-stock-owner',
+            'payload_hash' => hash('sha256', 'tenant-stock-owner'),
+            'released_idempotency_key' => null,
+            'released_payload_hash' => null,
+            'cancelled_idempotency_key' => null,
+            'cancelled_payload_hash' => null,
+            'cancelled_by_admin_id' => null,
+            'cancel_reason' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('stock_reservation_items')->insert([
+            'reservation_id' => 'res_tenant_stock_owner',
+            'local_stock_item_id' => $localStockIds[0],
+            'tenant_id' => 'ten_tenant_stock_ui',
+            'game_id' => 'gam_tenant_stock_new',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('local_stock_items')->where('id', $localStockIds[0])->update([
+            'status' => 'reserved',
+            'reserved_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->withToken($stockAdmin['access_token'])
+            ->getJson('/api/v1/admin/tenant/stock?'.http_build_query([
+                'game_id' => 'gam_tenant_stock_new',
+                'status' => 'reserved',
+            ]), [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_tenant_stock_ui',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $localStockIds[0])
+            ->assertJsonPath('data.0.owner_customer_id', 'cus_tenant_stock_owner');
+
+        $this->withToken($stockAdmin['access_token'])
+            ->getJson('/api/v1/admin/tenant/stock/'.$localStockIds[0], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_tenant_stock_ui',
+            ])
+            ->assertOk()
+            ->assertJsonPath('owner_customer_id', 'cus_tenant_stock_owner');
+    }
+
     /**
      * @param array<int, string> $numbers
      */

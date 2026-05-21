@@ -32,7 +32,7 @@
                 </button>
                 <span v-else>{{ column.label }}</span>
               </th>
-              <th v-if="$slots.rowActions" scope="col" class="text-end">Actions</th>
+              <th v-if="$slots.rowActions" scope="col" class="text-end">Action</th>
             </tr>
           </thead>
           <tbody>
