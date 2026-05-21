@@ -13,11 +13,11 @@ partner-bo-domain-auth-branding
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
 | Coordinator | dispatched | partner-bo-domain-auth-branding | ai-agents/handoffs/20260521-partner-bo-domain-auth-branding-coordinator-handoff.md |
-| Orchestrator | completed | partner-bo-domain-auth-branding | ai-agents/handoffs/20260521-partner-bo-domain-auth-branding-orchestrator-handoff.md |
-| Backend Develop | pending | partner-bo-domain-auth-branding-backend | ai-agents/tasks/20260521-partner-bo-domain-auth-branding-backend.md |
-| BO Develop | waiting-backend | partner-bo-domain-auth-branding-bo | ai-agents/tasks/20260521-partner-bo-domain-auth-branding-bo.md |
+| Orchestrator | completed | partner-bo-domain-auth-branding-qa-dispatch | ai-agents/handoffs/20260521-partner-bo-domain-auth-branding-orchestrator-qa-dispatch-handoff.md |
+| Backend Develop | completed | partner-bo-domain-auth-branding-backend | ai-agents/handoffs/20260521-partner-bo-domain-auth-branding-backend-handoff.md |
+| BO Develop | completed | partner-bo-domain-auth-branding-bo | ai-agents/handoffs/20260521-partner-bo-domain-auth-branding-bo-handoff.md |
 | Customer Develop | completed | lottery-image-customer-ssr-error-serialization-remediation | ai-agents/handoffs/20260514-lottery-image-customer-ssr-error-serialization-remediation-customer-handoff.md |
-| QA Tester | waiting-implementation | partner-bo-domain-auth-branding-qa | ai-agents/tasks/20260521-partner-bo-domain-auth-branding-qa.md |
+| QA Tester | pending | partner-bo-domain-auth-branding-qa | ai-agents/tasks/20260521-partner-bo-domain-auth-branding-qa.md |
 
 ## Open Questions
 
@@ -28,5 +28,5 @@ Partner BO domain/auth/branding work is ready for Orchestrator dispatch. Use bo.
 ## Latest Decision
 
 ```text
-ai-agents/tasks/20260521-partner-bo-domain-auth-branding-backend.md
+ai-agents/tasks/20260521-partner-bo-domain-auth-branding-qa.md
 ```

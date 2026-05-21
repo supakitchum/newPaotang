@@ -42,6 +42,36 @@ git rev-parse origin/develop
 
 Stop and report blocker if HEAD is not `origin/develop`, worktree is not canonical, or overlapping dirty files exist.
 
+Known unrelated dirty artifact may exist:
+
+```text
+apps/platform-api/.phpunit.result.cache
+```
+
+Do not stage it unless QA changes it during validation and records why.
+
+## Commits Under Test
+
+Backend:
+
+```text
+implementation: 643e5ee3fc47c047bd90b1090396f0a34bac6831
+handoff: ee17699bf957171431bbe9211a6523d2330a6eda
+```
+
+Back Office:
+
+```text
+implementation: fcb4be74b5aae8fa31bb551671618eb92f30e68d
+handoff: f4ad35fb73e9e84847b03d02a314cfccd1e2d1f4
+```
+
+QA must test latest pushed `origin/develop` at or after:
+
+```text
+f4ad35fb73e9e84847b03d02a314cfccd1e2d1f4
+```
+
 ## Objective
 
 Prove partner Back Office domains work end-to-end:
@@ -127,6 +157,12 @@ bo.partner-a.test/api/v1/* -> platform-api with Host header preserved as bo.part
 
 If proxy is not available, use Host-header API evidence plus BO static/runtime evidence and record the limitation clearly.
 
+Known implementation note from BO handoff:
+
+```text
+The local BO smoke confirmed bo.partner-a.test /api/v1 proxy preserved Host and reached platform-api, but current local runtime data returned 404 tenant_not_found for partner-a.test. QA must use an actually seeded storefront host from partner_tenant_domains.host or create safe non-destructive runtime fixture data with Coordinator-approved scope. Do not wipe runtime DB.
+```
+
 ## Required Commands
 
 Run implementation validations from handoffs plus, at minimum:
@@ -138,6 +174,22 @@ docker compose -p newpaotang run --rm back-office npm run test
 docker compose -p newpaotang run --rm back-office npm run build
 git diff --check
 ```
+
+## Runtime Restore / Login Smoke
+
+Before a clean PASS, QA must restore/check local Docker runtime without wiping runtime DB:
+
+```sh
+docker compose -p newpaotang exec -T platform-api php artisan db:seed --no-interaction
+docker compose -p newpaotang exec -T platform-api php artisan platform:smoke
+docker compose -p newpaotang stop back-office
+docker compose -p newpaotang rm -f back-office
+docker compose -p newpaotang up -d back-office
+curl --max-time 5 -i -s http://localhost:3100/login
+curl --max-time 5 -i -s http://localhost:3100/admin/login
+```
+
+The QA report must include the required `Runtime Restore / Login Smoke` section from `ai-agents/workflow/handoff-protocol.md`.
 
 ## Report
 
@@ -158,4 +210,7 @@ API host-header evidence
 browser/login evidence or limitation
 test DB isolation evidence
 PASS/FAIL recommendation
+Runtime Restore / Login Smoke
+unrelated dirty files left unstaged
+Next Agent: Coordinator
 ```
