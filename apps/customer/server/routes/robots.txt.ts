@@ -1,11 +1,13 @@
+import { normalizeTenantHost } from '~/utils/tenantHost'
+
 export default defineEventHandler(async (event) => {
   setHeader(event, 'content-type', 'text/plain; charset=utf-8')
   setHeader(event, 'cache-control', 'no-store')
   setHeader(event, 'vary', 'Host')
 
   const config = useRuntimeConfig()
-  const host = getHeader(event, 'host') || ''
-  const baseUrl = String(config.public.apiBaseUrl || '/api/v1')
+  const host = normalizeTenantHost(getHeader(event, 'host') || '')
+  const baseUrl = String(config.platformApiInternalBaseUrl || config.public.apiBaseUrl || '/api/v1')
   const origin = `https://${host}`
   const apiBaseUrl = /^https?:\/\//i.test(baseUrl) ? baseUrl : `${origin}${baseUrl.startsWith('/') ? baseUrl : `/${baseUrl}`}`
 
@@ -40,4 +42,3 @@ export default defineEventHandler(async (event) => {
     return 'User-agent: *\nDisallow: /\n'
   }
 })
-

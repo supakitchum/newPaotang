@@ -1,4 +1,5 @@
 import { toSerializableError, type SerializableError } from '~/utils/serializableError'
+import { normalizeTenantHost, tenantHostScope } from '~/utils/tenantHost'
 
 export interface SiteConfig {
   site?: {
@@ -55,7 +56,7 @@ export interface SiteConfig {
   [key: string]: unknown
 }
 
-let siteConfigPromise: Promise<SiteConfig | null> | null = null
+const siteConfigPromises = new Map<string, Promise<SiteConfig | null>>()
 
 const isSafeColor = (value: unknown) => typeof value === 'string' && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(value)
 
@@ -93,10 +94,13 @@ const defaultBlockedRoutes = [
 const checkoutPaymentRoutes = ['/checkout', '/topup']
 
 export const useSiteConfig = () => {
-  const config = useState<SiteConfig | null>('site_config', () => null)
-  const error = useState<SerializableError | null>('site_config_error', () => null)
-  const isLoading = useState<boolean>('site_config_loading', () => false)
-  const runtimeApiBaseUrl = useState<string>('platform_api_base_url')
+  const requestHeaders = process.server ? useRequestHeaders(['host']) : {}
+  const hostScope = tenantHostScope(normalizeTenantHost(
+    process.server ? requestHeaders.host : (process.client ? window.location.host : '')
+  ))
+  const config = useState<SiteConfig | null>(`site_config_${hostScope}`, () => null)
+  const error = useState<SerializableError | null>(`site_config_error_${hostScope}`, () => null)
+  const isLoading = useState<boolean>(`site_config_loading_${hostScope}`, () => false)
   const axios = useAxios()
 
   const applyTheme = (siteConfig: SiteConfig | null) => {
@@ -128,10 +132,6 @@ export const useSiteConfig = () => {
   const setSiteConfig = (siteConfig: SiteConfig | null) => {
     config.value = siteConfig
 
-    if (siteConfig?.api?.base_url) {
-      runtimeApiBaseUrl.value = siteConfig.api.base_url
-    }
-
     applyTheme(siteConfig)
   }
 
@@ -140,11 +140,13 @@ export const useSiteConfig = () => {
       return config.value
     }
 
-    if (!options.force && siteConfigPromise) {
-      return siteConfigPromise
+    const currentPromise = siteConfigPromises.get(hostScope)
+
+    if (!options.force && currentPromise) {
+      return currentPromise
     }
 
-    siteConfigPromise = (async () => {
+    const nextPromise = (async () => {
       isLoading.value = true
       error.value = null
 
@@ -162,11 +164,13 @@ export const useSiteConfig = () => {
         return null
       } finally {
         isLoading.value = false
-        siteConfigPromise = null
+        siteConfigPromises.delete(hostScope)
       }
     })()
 
-    return siteConfigPromise
+    siteConfigPromises.set(hostScope, nextPromise)
+
+    return nextPromise
   }
 
   const canonicalBase = computed(() => {

@@ -139,7 +139,7 @@ const resultGame = computed(() => {
 const resultSummary = computed(() => toSummary(resultGame.value))
 const apiAssetBaseUrl = computed(() => {
   const baseUrl = config.public.apiBaseUrl || ''
-  return `${baseUrl}`.replace(/\/api\/?$/, '').replace(/\/$/, '')
+  return `${baseUrl}`.replace(/\/api\/v\d+\/?$/i, '').replace(/\/api\/?$/i, '').replace(/\/$/, '')
 })
 const currentNews = computed(() => newsItems.value[activeNewsIndex.value] || null)
 const currentNewsCover = computed(() => {

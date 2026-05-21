@@ -1,4 +1,5 @@
 import { computed } from 'vue'
+import { normalizeTenantHost, tenantHostScope } from '~/utils/tenantHost'
 
 export const AUTH_TOKEN_COOKIE = 'auth_token'
 export const AUTH_REFRESH_TOKEN_COOKIE = 'auth_refresh_token'
@@ -14,22 +15,26 @@ export type AuthSessionResponse = {
 }
 
 export const useAuth = () => {
-  const tokenCookie = useCookie<string | null>(AUTH_TOKEN_COOKIE, {
+  const requestHeaders = process.server ? useRequestHeaders(['host']) : {}
+  const authScope = tenantHostScope(normalizeTenantHost(
+    process.server ? requestHeaders.host : (process.client ? window.location.host : '')
+  ))
+  const tokenCookie = useCookie<string | null>(`${AUTH_TOKEN_COOKIE}_${authScope}`, {
     sameSite: 'lax'
   })
-  const refreshTokenCookie = useCookie<string | null>(AUTH_REFRESH_TOKEN_COOKIE, {
+  const refreshTokenCookie = useCookie<string | null>(`${AUTH_REFRESH_TOKEN_COOKIE}_${authScope}`, {
     sameSite: 'lax'
   })
-  const userCookie = useCookie<AuthUser | null>(AUTH_USER_COOKIE, {
+  const userCookie = useCookie<AuthUser | null>(`${AUTH_USER_COOKIE}_${authScope}`, {
     sameSite: 'lax'
   })
-  const lineRedirect = useCookie<string | null>(LINE_REDIRECT_COOKIE, {
+  const lineRedirect = useCookie<string | null>(`${LINE_REDIRECT_COOKIE}_${authScope}`, {
     sameSite: 'lax'
   })
-  const token = useState<string | null>('auth_token_state', () => tokenCookie.value)
-  const refreshToken = useState<string | null>('auth_refresh_token_state', () => refreshTokenCookie.value)
-  const user = useState<AuthUser | null>('auth_user_state', () => userCookie.value)
-  const hasRestoredUser = useState<boolean>('auth_me_restored_state', () => Boolean(userCookie.value))
+  const token = useState<string | null>(`auth_token_state_${authScope}`, () => tokenCookie.value)
+  const refreshToken = useState<string | null>(`auth_refresh_token_state_${authScope}`, () => refreshTokenCookie.value)
+  const user = useState<AuthUser | null>(`auth_user_state_${authScope}`, () => userCookie.value)
+  const hasRestoredUser = useState<boolean>(`auth_me_restored_state_${authScope}`, () => Boolean(userCookie.value))
 
   const isAuthenticated = computed(() => Boolean(token.value))
 

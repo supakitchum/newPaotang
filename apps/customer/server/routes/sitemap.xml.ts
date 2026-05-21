@@ -1,3 +1,5 @@
+import { normalizeTenantHost } from '~/utils/tenantHost'
+
 const publicRoutes = ['/', '/buy', '/buy/search', '/countdown', '/result', '/result/full']
 
 const escapeXml = (value: string) => value
@@ -13,8 +15,8 @@ export default defineEventHandler(async (event) => {
   setHeader(event, 'vary', 'Host')
 
   const config = useRuntimeConfig()
-  const host = getHeader(event, 'host') || ''
-  const baseUrl = String(config.public.apiBaseUrl || '/api/v1')
+  const host = normalizeTenantHost(getHeader(event, 'host') || '')
+  const baseUrl = String(config.platformApiInternalBaseUrl || config.public.apiBaseUrl || '/api/v1')
   const origin = `https://${host}`
   const apiBaseUrl = /^https?:\/\//i.test(baseUrl) ? baseUrl : `${origin}${baseUrl.startsWith('/') ? baseUrl : `/${baseUrl}`}`
 
@@ -43,4 +45,3 @@ export default defineEventHandler(async (event) => {
     return '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>'
   }
 })
-

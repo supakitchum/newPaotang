@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { normalizeTenantHost, tenantHostScope } from '~/utils/tenantHost'
 
 const createRequestId = () => {
   const randomValue = typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -16,10 +17,18 @@ export default defineNuxtPlugin({
     const requestHeaders = process.server ? useRequestHeaders(['host']) : {}
     const { token: authToken, clearAuthToken } = useAuth()
     const { showAlert } = useAppAlert()
-    const runtimeApiBaseUrl = useState<string>('platform_api_base_url', () => String(config.public.apiBaseUrl || '/api/v1'))
+    const publicApiBaseUrl = String(config.public.apiBaseUrl || '/api/v1')
+    const tenantHost = normalizeTenantHost(process.server ? requestHeaders.host : (process.client ? window.location.host : ''))
+    const runtimeApiBaseUrl = useState<string>(`platform_api_base_url_${tenantHostScope(tenantHost)}`, () => publicApiBaseUrl)
+    const serverApiBaseUrl = String(config.platformApiInternalBaseUrl || publicApiBaseUrl)
+    const resolveApiBaseUrl = () => {
+      const nextPublicBaseUrl = runtimeApiBaseUrl.value || publicApiBaseUrl
+
+      return process.server && nextPublicBaseUrl.startsWith('/') ? serverApiBaseUrl : nextPublicBaseUrl
+    }
     let isHandlingUnauthorized = false
     const api = axios.create({
-      baseURL: runtimeApiBaseUrl.value,
+      baseURL: resolveApiBaseUrl(),
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json'
@@ -29,9 +38,8 @@ export default defineNuxtPlugin({
 
     api.interceptors.request.use((request) => {
       const isFormData = typeof FormData !== 'undefined' && request.data instanceof FormData
-      const tenantHost = process.server ? requestHeaders.host : (process.client ? window.location.host : '')
 
-      request.baseURL = runtimeApiBaseUrl.value || String(config.public.apiBaseUrl || '/api/v1')
+      request.baseURL = resolveApiBaseUrl()
 
       request.headers.set('Accept', 'application/json')
       request.headers.set('X-Request-Id', createRequestId())
