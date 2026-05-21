@@ -253,7 +253,43 @@ class AdminAuthTest extends TestCase
             ->assertUnauthorized()
             ->assertJsonPath('error.code', 'authentication_required');
 
+        $this->postJson('/api/v1/auth/admin/login', [
+            'email' => 'central@example.test',
+            'password' => 'secret-password',
+            'scope' => 'tenant',
+        ])
+            ->assertUnauthorized()
+            ->assertJsonPath('error.code', 'authentication_required');
+
         $this->assertDatabaseCount('admin_auth_sessions', 0);
+    }
+
+    public function test_tenant_admin_can_login_on_central_host_without_tenant_id(): void
+    {
+        $this->seedDefaultRbac();
+        $this->createPartner();
+        $this->createTenant('ten_auth');
+        $this->createAdmin('adm_tenant', 'tenant@example.test');
+        $this->createAdminScope('scp_tenant', 'tenant', 'ten_auth', 'par_auth');
+        $this->assignRoleWithPermissions('adm_tenant', 'scp_tenant', 'tenant', 'ten_auth', ['dashboard.view'], 'tenant_dashboard');
+
+        $response = $this->postJson('/api/v1/auth/admin/login', [
+            'email' => 'tenant@example.test',
+            'password' => 'secret-password',
+            'scope' => 'tenant',
+        ])
+            ->assertOk()
+            ->assertJsonPath('scopes.0.scope', 'tenant')
+            ->assertJsonPath('scopes.0.tenant_id', 'ten_auth')
+            ->json();
+
+        $this->assertDatabaseHas('admin_auth_sessions', [
+            'admin_user_id' => 'adm_tenant',
+            'access_token_hash' => hash('sha256', $response['access_token']),
+            'scope_type' => 'tenant',
+            'scope_id' => 'scp_tenant',
+            'tenant_id' => 'ten_auth',
+        ]);
     }
 
     public function test_partner_bo_admin_site_config_resolves_tenant_brand_and_domain(): void

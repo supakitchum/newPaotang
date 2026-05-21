@@ -94,7 +94,7 @@ export const useAdminApi = () => {
     session.clear()
     const partnerMode = hostMode.isPartnerBoHost.value
     const scope = partnerMode || payload.scope === 'tenant' ? 'tenant' : 'central'
-    const tenantId = partnerMode ? null : payload.tenant_id
+    const tenantId = partnerMode ? null : payload.tenant_id || null
     const body = partnerMode
       ? {
           email: payload.email,

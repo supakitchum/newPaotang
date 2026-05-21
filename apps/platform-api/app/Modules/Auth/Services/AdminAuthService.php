@@ -509,11 +509,9 @@ class AdminAuthService
      */
     private function chooseActiveScope(array $scopes, ?string $requestedScope, ?string $tenantId): ?array
     {
-        if ($requestedScope !== null && ! in_array($requestedScope, ['central', 'tenant'], true)) {
-            return null;
-        }
+        $tenantId = $tenantId === '' ? null : $tenantId;
 
-        if ($requestedScope === 'tenant' && ($tenantId === null || $tenantId === '')) {
+        if ($requestedScope !== null && ! in_array($requestedScope, ['central', 'tenant'], true)) {
             return null;
         }
 
@@ -543,7 +541,7 @@ class AdminAuthService
                 continue;
             }
 
-            if ($scopeType === 'tenant' && $scope['tenant_id'] !== $tenantId) {
+            if ($scopeType === 'tenant' && $tenantId !== null && $scope['tenant_id'] !== $tenantId) {
                 continue;
             }
 

@@ -30,17 +30,13 @@
                       <label class="form-label">Password</label>
                       <input v-model="form.password" type="password" class="form-control" autocomplete="current-password" required />
                     </div>
-                    <div v-if="!isPartnerBoMode" class="row g-2" data-central-login-scope-controls>
-                      <div class="col-sm-5">
+                    <div v-if="!isPartnerBoMode" class="mb-0" data-central-login-scope-controls>
+                      <div>
                         <label class="form-label">Scope</label>
                         <select v-model="form.scope" class="form-select">
                           <option value="central">Central</option>
                           <option value="tenant">Tenant</option>
                         </select>
-                      </div>
-                      <div class="col-sm-7">
-                        <label class="form-label">Tenant ID</label>
-                        <input v-model="form.tenant_id" class="form-control" :disabled="form.scope === 'central'" placeholder="Required for tenant login" />
                       </div>
                     </div>
                     <div v-else class="alert alert-primary d-flex align-items-center mb-0" data-partner-login-tenant-only>
@@ -104,13 +100,11 @@ const form = reactive({
   email: '',
   password: '',
   scope: 'central',
-  tenant_id: '',
 })
 
 onMounted(async () => {
   if (isPartnerBoMode.value) {
     form.scope = 'tenant'
-    form.tenant_id = ''
     await adminSiteConfig.load()
   }
 
@@ -150,7 +144,6 @@ const submit = async () => {
       email: form.email,
       password: form.password,
       scope,
-      tenant_id: isPartnerBoMode.value ? null : scope === 'tenant' ? form.tenant_id : null,
     })
     await navigateTo(afterLoginPath(scope))
   } catch (err) {
