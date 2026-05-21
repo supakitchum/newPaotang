@@ -142,7 +142,8 @@ class AdminRoleTest extends TestCase
     public function test_tenant_admin_cannot_manage_another_tenant_role(): void
     {
         $login = $this->createTenantAdminSession(['role.manage']);
-        $this->createTenant('ten_other');
+        $this->createPartner('par_auth_other');
+        $this->createTenant('ten_other', 'par_auth_other');
         $otherRoleId = $this->insertRole('tenant', 'ten_other', 'other_tenant_role', 'Other Tenant Role', ['dashboard.view']);
 
         $this->withToken($login['access_token'])

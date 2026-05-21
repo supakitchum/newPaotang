@@ -62,7 +62,7 @@ return [
     'runtime' => [
         'worker_queues' => array_values(array_filter(array_map(
             'trim',
-            explode(',', (string) env('PLATFORM_WORKER_QUEUES', 'partner-inbox-high,partner-inbox-normal,stock-allocation,stock-generation,stock-image-generation,stock-partner-image-generation,stock-sold-events,stock-recall,stock-sync,reservation-expiration,checkout-finalize,central-outbox,affiliate-commission,reward-validate,reward-check-high,reward-check-normal,reward-summary,reward-publish,reward-notification,report-build,webhook-dispatch,notification,usage-metering,partner-monitoring,default')),
+            explode(',', (string) env('PLATFORM_WORKER_QUEUES', 'partner-inbox-high,partner-inbox-normal,stock-allocation,stock-generation,stock-image-generation,stock-partner-image-generation,stock-sold-events,stock-recall,reservation-expiration,checkout-finalize,central-outbox,affiliate-commission,reward-validate,reward-check-high,reward-check-normal,reward-summary,reward-publish,reward-notification,report-build,webhook-dispatch,notification,usage-metering,partner-monitoring,default')),
         ))),
     ],
     'stock_generation' => [

@@ -13,7 +13,7 @@ class PublicStockSearchTest extends TestCase
     use PartnerStoreFixtures;
     use RefreshDatabase;
 
-    public function test_PublicStockSearch_resolves_tenant_current_game_filters_indexes_and_blocks_maintenance(): void
+    public function test_PublicStockSearch_hides_retired_physical_stock_and_blocks_maintenance(): void
     {
         $this->seedDefaultRbac();
         $this->insertActivePartnerTenantWithDomain('par_public_a', 'ten_public_a', 'a.newpaotang.test');
@@ -32,16 +32,16 @@ class PublicStockSearchTest extends TestCase
 
         $this->getJson('http://a.newpaotang.test/api/v1/public/stock/search?game_id=gam_public&number=123450')
             ->assertOk()
-            ->assertJsonPath('data.0.full_number', '123450')
+            ->assertJsonCount(0, 'data')
             ->assertJsonPath('meta.has_more', false);
 
         $this->getJson('http://a.newpaotang.test/api/v1/public/stock/search?game_id=gam_public&front3=123')
             ->assertOk()
-            ->assertJsonCount(3, 'data');
+            ->assertJsonCount(0, 'data');
 
         $this->getJson('http://a.newpaotang.test/api/v1/public/stock/search?game_id=gam_public&back2=50')
             ->assertOk()
-            ->assertJsonPath('data.0.full_number', '123450');
+            ->assertJsonCount(0, 'data');
 
         $this->getJson('http://a.newpaotang.test/api/v1/public/stock/search?game_id=gam_public&number=999990')
             ->assertOk()
@@ -49,11 +49,11 @@ class PublicStockSearchTest extends TestCase
 
         $this->getJson('http://b.newpaotang.test/api/v1/public/stock/search?game_id=gam_public&number=999990')
             ->assertOk()
-            ->assertJsonPath('data.0.full_number', '999990');
+            ->assertJsonCount(0, 'data');
 
         $this->getJson('http://a.newpaotang.test/api/v1/public/stock/search?game_id=gam_public&store_id=ten_public_a&number=123450')
             ->assertOk()
-            ->assertJsonPath('data.0.full_number', '123450');
+            ->assertJsonCount(0, 'data');
 
         $this->getJson('http://a.newpaotang.test/api/v1/public/stock/search?game_id=gam_public&store_id=ten_public_b&number=999990')
             ->assertOk()
@@ -67,38 +67,32 @@ class PublicStockSearchTest extends TestCase
             ->assertJsonPath('error.code', 'maintenance_active');
     }
 
-    public function test_PublicStockSearch_filters_by_store_id_within_tenant_and_composes_with_search_options(): void
+    public function test_PublicStockSearch_no_longer_serves_physical_store_scoped_rows(): void
     {
         $this->seedDefaultRbac();
         $this->insertActivePartnerTenantWithDomain('par_store_filter_a', 'ten_store_filter_a', 'filter-a.newpaotang.test');
         $this->insertActivePartnerTenantWithDomain('par_store_filter_b', 'ten_store_filter_b', 'filter-b.newpaotang.test');
         $this->insertGame('gam_store_filter', 'open');
 
-        $storeOneItems = $this->syncAllocatedStockToLocal('par_store_filter_a', 'ten_store_filter_a', 'gam_store_filter', 2, 'alloc-store-filter-one', 123450, 'sto_filter_one');
-        $storeTwoItems = $this->syncAllocatedStockToLocal('par_store_filter_a', 'ten_store_filter_a', 'gam_store_filter', 2, 'alloc-store-filter-two', 123460, 'sto_filter_two');
+        $this->syncAllocatedStockToLocal('par_store_filter_a', 'ten_store_filter_a', 'gam_store_filter', 2, 'alloc-store-filter-one', 123450, 'sto_filter_one');
+        $this->syncAllocatedStockToLocal('par_store_filter_a', 'ten_store_filter_a', 'gam_store_filter', 2, 'alloc-store-filter-two', 123460, 'sto_filter_two');
         $this->syncAllocatedStockToLocal('par_store_filter_b', 'ten_store_filter_b', 'gam_store_filter', 1, 'alloc-store-filter-foreign', 123470, 'sto_filter_foreign');
 
         $this->getJson('http://filter-a.newpaotang.test/api/v1/public/stock/search?game_id=gam_store_filter&front3=123')
             ->assertOk()
-            ->assertJsonCount(4, 'data');
+            ->assertJsonCount(0, 'data');
 
-        $storeOne = $this->getJson('http://filter-a.newpaotang.test/api/v1/public/stock/search?game_id=gam_store_filter&store_id=sto_filter_one&front3=123')
+        $this->getJson('http://filter-a.newpaotang.test/api/v1/public/stock/search?game_id=gam_store_filter&store_id=sto_filter_one&front3=123')
             ->assertOk()
-            ->assertJsonCount(2, 'data')
-            ->json('data');
+            ->assertJsonCount(0, 'data');
 
-        $this->assertSame(collect($storeOneItems)->sort()->values()->all(), collect($storeOne)->pluck('id')->sort()->values()->all());
-
-        $storeTwo = $this->getJson('http://filter-a.newpaotang.test/api/v1/public/stock/search?game_id=gam_store_filter&store_id=sto_filter_two&number=123')
+        $this->getJson('http://filter-a.newpaotang.test/api/v1/public/stock/search?game_id=gam_store_filter&store_id=sto_filter_two&number=123')
             ->assertOk()
-            ->assertJsonCount(2, 'data')
-            ->json('data');
-
-        $this->assertSame(collect($storeTwoItems)->sort()->values()->all(), collect($storeTwo)->pluck('id')->sort()->values()->all());
+            ->assertJsonCount(0, 'data');
 
         $this->getJson('http://filter-a.newpaotang.test/api/v1/public/stock/search?game_id=gam_store_filter&store_id=sto_filter_two&back2=60')
             ->assertOk()
-            ->assertJsonPath('data.0.full_number', '123460');
+            ->assertJsonCount(0, 'data');
 
         $this->getJson('http://filter-a.newpaotang.test/api/v1/public/stock/search?game_id=gam_store_filter&store_id=sto_filter_one&back2=60')
             ->assertOk()
@@ -106,18 +100,18 @@ class PublicStockSearchTest extends TestCase
 
         $pageOne = $this->getJson('http://filter-a.newpaotang.test/api/v1/public/stock/search?game_id=gam_store_filter&store_id=sto_filter_two&front3=123&limit=1')
             ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('meta.has_more', true)
+            ->assertJsonCount(0, 'data')
+            ->assertJsonPath('meta.has_more', false)
             ->json();
 
-        $this->getJson('http://filter-a.newpaotang.test/api/v1/public/stock/search?game_id=gam_store_filter&store_id=sto_filter_two&front3=123&limit=1&cursor='.$pageOne['meta']['next_cursor'])
+        $this->getJson('http://filter-a.newpaotang.test/api/v1/public/stock/search?game_id=gam_store_filter&store_id=sto_filter_two&front3=123&limit=1&cursor='.($pageOne['meta']['next_cursor'] ?? ''))
             ->assertOk()
-            ->assertJsonCount(1, 'data')
+            ->assertJsonCount(0, 'data')
             ->assertJsonPath('meta.has_more', false);
 
         $this->getJson('http://filter-a.newpaotang.test/api/v1/public/stock/search?game_id=gam_store_filter&store_id=sto_filter_one&mode=random&limit=1')
             ->assertOk()
-            ->assertJsonCount(1, 'data');
+            ->assertJsonCount(0, 'data');
 
         $this->getJson('http://filter-a.newpaotang.test/api/v1/public/stock/search?game_id=gam_store_filter&store_id=sto_filter_foreign&front3=123')
             ->assertOk()
@@ -125,10 +119,10 @@ class PublicStockSearchTest extends TestCase
 
         $this->getJson('http://filter-b.newpaotang.test/api/v1/public/stock/search?game_id=gam_store_filter&store_id=sto_filter_foreign&front3=123')
             ->assertOk()
-            ->assertJsonCount(1, 'data');
+            ->assertJsonCount(0, 'data');
     }
 
-    public function test_PublicStockSearch_returns_multiple_available_tickets_with_same_number(): void
+    public function test_PublicStockSearch_does_not_return_legacy_duplicate_physical_tickets(): void
     {
         $this->seedDefaultRbac();
         $this->insertActivePartnerTenantWithDomain('par_dup_number', 'ten_dup_number', 'dup-number.newpaotang.test');
@@ -207,9 +201,7 @@ class PublicStockSearchTest extends TestCase
 
         $this->getJson('http://dup-number.newpaotang.test/api/v1/public/stock/search?game_id=gam_dup_number&number=444444')
             ->assertOk()
-            ->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.full_number', '444444')
-            ->assertJsonPath('data.1.full_number', '444444');
+            ->assertJsonCount(0, 'data');
     }
 
     public function test_PublicStockSearch_virtual_visibility_requires_active_distribution_and_reservation_materializes_stock(): void
@@ -322,7 +314,7 @@ class PublicStockSearchTest extends TestCase
 
         $this->getJson('http://window.newpaotang.test/api/v1/public/stock/search?game_id=gam_window&number=777770')
             ->assertOk()
-            ->assertJsonPath('data.0.full_number', '777770');
+            ->assertJsonCount(0, 'data');
 
         DB::table('partner_quotas')
             ->where('partner_id', 'par_window')
@@ -339,7 +331,7 @@ class PublicStockSearchTest extends TestCase
 
         $this->getJson('http://window.newpaotang.test/api/v1/public/stock/search?game_id=gam_window&number=777770')
             ->assertOk()
-            ->assertJsonPath('data.0.full_number', '777770');
+            ->assertJsonCount(0, 'data');
 
         DB::table('partner_quotas')
             ->where('partner_id', 'par_window')
@@ -352,7 +344,7 @@ class PublicStockSearchTest extends TestCase
 
         $this->getJson('http://window.newpaotang.test/api/v1/public/stock/search?game_id=gam_window&number=777770')
             ->assertOk()
-            ->assertJsonPath('data.0.full_number', '777770');
+            ->assertJsonCount(0, 'data');
     }
 
     /**

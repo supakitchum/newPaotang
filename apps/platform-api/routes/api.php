@@ -42,7 +42,6 @@ use App\Modules\Maintenance\Http\Controllers\TenantMaintenanceController;
 use App\Modules\Reward\Http\Controllers\TenantRewardClaimController;
 use App\Modules\PartnerStore\Http\Controllers\TenantReservationController;
 use App\Modules\PartnerStore\Http\Controllers\TenantStockController;
-use App\Modules\PartnerStore\Http\Controllers\TenantStockSyncController;
 use App\Modules\SupportAccess\Http\Controllers\TenantSupportAccessController;
 use App\Modules\Webhook\Http\Controllers\WebhookController;
 use Illuminate\Support\Facades\Route;
@@ -451,12 +450,6 @@ Route::get('/admin/tenant/stock/coverage', [TenantStockController::class, 'cover
 Route::post('/admin/tenant/stock/exports', [TenantStockController::class, 'exports'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/stock/{stock_item_id}', [TenantStockController::class, 'show'])
-    ->middleware(['admin.auth', 'admin.scope:tenant']);
-Route::get('/admin/tenant/stock-sync/batches', [TenantStockSyncController::class, 'index'])
-    ->middleware(['admin.auth', 'admin.scope:tenant']);
-Route::post('/admin/tenant/stock-sync/batches', [TenantStockSyncController::class, 'store'])
-    ->middleware(['admin.auth', 'admin.scope:tenant']);
-Route::get('/admin/tenant/stock-sync/batches/{batch_id}', [TenantStockSyncController::class, 'show'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/reservations', [TenantReservationController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);

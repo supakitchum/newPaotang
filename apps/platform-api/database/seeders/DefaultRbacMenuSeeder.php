@@ -50,6 +50,16 @@ class DefaultRbacMenuSeeder extends Seeder
             ->where('scope_type', 'central')
             ->whereIn('code', ['master_stock', 'stock_recall'])
             ->delete();
+
+        AdminMenu::query()
+            ->where('scope_type', 'tenant')
+            ->where('code', 'stock_sync')
+            ->delete();
+
+        Permission::query()
+            ->where('scope_type', 'tenant')
+            ->where('code', 'stock.sync')
+            ->delete();
     }
 
     /**
@@ -104,8 +114,7 @@ class DefaultRbacMenuSeeder extends Seeder
             ]),
             ...$this->scopedPermissions('tenant', [
                 'dashboard.view' => 'View tenant dashboard',
-                'stock.view' => 'View tenant-local stock',
-                'stock.sync' => 'Run or view stock sync',
+                'stock.view' => 'View tenant virtual stock',
                 'stock.export' => 'Export tenant stock',
                 'reservation.view' => 'View reservations',
                 'reservation.cancel' => 'Cancel reservations',
@@ -211,7 +220,6 @@ class DefaultRbacMenuSeeder extends Seeder
             ...$this->scopedMenus('tenant', [
                 'dashboard' => 'dashboard.view',
                 'local_stock' => 'stock.view',
-                'stock_sync' => 'stock.sync',
                 'price_rules' => 'price_rule.view',
                 'reservations' => 'reservation.view',
                 'orders' => 'order.view',
@@ -316,7 +324,6 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:system_settings' => '/admin/central/dashboard',
             'tenant:dashboard' => '/admin/tenant/dashboard',
             'tenant:local_stock' => '/admin/tenant/stock',
-            'tenant:stock_sync' => '/admin/tenant/stock-sync',
             'tenant:price_rules' => '/admin/tenant/settings',
             'tenant:reservations' => '/admin/tenant/reservations',
             'tenant:orders' => '/admin/tenant/orders',
@@ -361,6 +368,10 @@ class DefaultRbacMenuSeeder extends Seeder
             return 'Stock Manager';
         }
 
+        if ($code === 'local_stock') {
+            return 'Tenant Stock';
+        }
+
         return str($code)->replace('_', ' ')->title()->toString();
     }
 
@@ -394,7 +405,6 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:menu_management',
             'central:system_settings' => 'Administration',
             'tenant:local_stock',
-            'tenant:stock_sync',
             'tenant:price_rules',
             'tenant:reservations',
             'tenant:orders',

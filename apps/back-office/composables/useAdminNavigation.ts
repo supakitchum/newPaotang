@@ -75,7 +75,7 @@ export const useAdminNavigation = () => {
         tenantId: session.currentTenantId.value,
       })
       const nextMenus = Array.isArray(response?.data) ? response.data : []
-      menus.value = scope === 'central' ? hideCentralOnlyMenus(nextMenus) : nextMenus
+      menus.value = hideRetiredMenus(scope, nextMenus)
     } catch (err) {
       error.value = err
       menus.value = []
@@ -175,14 +175,19 @@ const buildMenuTree = (items: AdminMenuItem[]) => {
 }
 
 const retiredCentralMenuKeys = new Set(['master_stock', 'partner_quotas', 'stock_recall'])
+const retiredTenantMenuKeys = new Set(['stock_sync'])
 
-const hideCentralOnlyMenus = (items: AdminMenuItem[]): AdminMenuItem[] => items
-  .filter((item) => item.key !== 'prize_checking' && !retiredCentralMenuKeys.has(item.key))
-  .map((item) => ({
-    ...item,
-    label: item.key === 'stock_generation' ? 'Stock Manager' : item.label,
-    children: Array.isArray(item.children) ? hideCentralOnlyMenus(item.children) : [],
-  }))
+const hideRetiredMenus = (scope: string, items: AdminMenuItem[]): AdminMenuItem[] => {
+  const retiredKeys = scope === 'central' ? retiredCentralMenuKeys : retiredTenantMenuKeys
+
+  return items
+    .filter((item) => item.key !== 'prize_checking' && !retiredKeys.has(item.key))
+    .map((item) => ({
+      ...item,
+      label: item.key === 'stock_generation' ? 'Stock Manager' : item.key === 'local_stock' ? 'Tenant Stock' : item.label,
+      children: Array.isArray(item.children) ? hideRetiredMenus(scope, item.children) : [],
+    }))
+}
 
 const categoryIcon = (category: string) => {
   const value = category.toLowerCase()

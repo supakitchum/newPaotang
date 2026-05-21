@@ -18,18 +18,24 @@ class TenantReservationTest extends TestCase
         $this->insertActivePartnerTenantWithDomain('par_admin_res', 'ten_admin_res', 'admin-res.newpaotang.test');
         $this->insertActivePartnerTenantWithDomain('par_admin_other', 'ten_admin_other', 'admin-other.newpaotang.test');
         $this->insertGame('gam_admin_res', 'open');
-        $localIds = $this->syncAllocatedStockToLocal('par_admin_res', 'ten_admin_res', 'gam_admin_res', 1, 'alloc-admin-res', 777770);
+        $this->insertBaseLotteryNumbers(['777770']);
+        $this->insertVirtualProfile('gam_admin_res', 1);
+        $this->insertVirtualAllocation('gam_admin_res', 'par_admin_res', 'ten_admin_res', 10000, 1);
         $customerToken = $this->issueCustomerToken('ten_admin_res', 'cus_admin_res');
+        $stock = $this->getJson('http://admin-res.newpaotang.test/api/v1/public/stock/search?game_id=gam_admin_res&number=777770')
+            ->assertOk()
+            ->json('data.0');
 
         $reservation = $this->withToken($customerToken)
             ->postJson('http://admin-res.newpaotang.test/api/v1/customer/reservations', [
                 'game_id' => 'gam_admin_res',
-                'local_stock_item_ids' => [$localIds[0]],
+                'local_stock_item_ids' => [$stock['id']],
             ], [
                 'Idempotency-Key' => 'admin-reserve',
             ])
             ->assertCreated()
             ->json();
+        $localStockId = $reservation['items'][0]['id'];
 
         $limited = $this->createTenantSession('ten_admin_res', 'par_admin_res', ['stock.view'], 'adm_res_limited', 'res-limited@example.test');
         $this->withToken($limited['access_token'])
@@ -103,7 +109,7 @@ class TenantReservationTest extends TestCase
 
         $this->assertSame($reservation['id'], $cancelled['id']);
         $this->assertDatabaseHas('local_stock_items', [
-            'id' => $localIds[0],
+            'id' => $localStockId,
             'tenant_id' => 'ten_admin_res',
             'status' => 'available',
         ]);
@@ -139,5 +145,60 @@ class TenantReservationTest extends TestCase
 
         $this->assertSame($reservation['id'], $replay['id']);
         $this->assertSame(1, DB::table('stock_reservations')->where('id', $reservation['id'])->where('status', 'cancelled')->count());
+    }
+
+    /**
+     * @param array<int, string> $numbers
+     */
+    private function insertBaseLotteryNumbers(array $numbers): void
+    {
+        DB::table('base_lottery_numbers')->insert(array_map(fn (string $number): array => [
+            'full_number' => $number,
+            'front3' => substr($number, 0, 3),
+            'back3' => substr($number, -3),
+            'back2' => substr($number, -2),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], $numbers));
+    }
+
+    private function insertVirtualProfile(string $gameId, int $totalCapacity): void
+    {
+        DB::table('stock_supply_profiles')->insert([
+            'id' => 'vsp_'.$gameId,
+            'game_id' => $gameId,
+            'status' => 'active',
+            'seed' => 'tenant-reservation-virtual-seed',
+            'base_count' => $totalCapacity,
+            'total_capacity' => $totalCapacity,
+            'set_distribution_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'created_by_admin_id' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function insertVirtualAllocation(string $gameId, string $partnerId, string $tenantId, int $basisPoints, int $allocatedCount): void
+    {
+        DB::table('partner_stock_allocations')->insert([
+            'id' => 'alc_'.substr(sha1($gameId.':'.$partnerId), 0, 20),
+            'partner_id' => $partnerId,
+            'tenant_id' => $tenantId,
+            'game_id' => $gameId,
+            'quota_id' => null,
+            'status' => 'allocated',
+            'requested_count' => $allocatedCount,
+            'allocation_percent_basis_points' => $basisPoints,
+            'allocated_count' => $allocatedCount,
+            'recalled_count' => 0,
+            'supply_layer_ids_json' => json_encode(['vsp_'.$gameId], JSON_THROW_ON_ERROR),
+            'idempotency_key' => 'tenant-reservation-virtual',
+            'payload_hash' => hash('sha256', $gameId.':'.$partnerId.':'.$basisPoints),
+            'created_by_admin_id' => null,
+            'reason' => null,
+            'cancelled_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 }

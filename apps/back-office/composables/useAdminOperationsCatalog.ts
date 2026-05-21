@@ -837,36 +837,6 @@ const tenant: OperationResource[] = [
   },
   {
     scope: 'tenant',
-    slug: 'stock-sync',
-    title: 'Tenant Stock Sync',
-    group: 'Tenant Operations',
-    listEndpoint: '/admin/tenant/stock-sync/batches',
-    detailEndpoint: '/admin/tenant/stock-sync/batches/{batch_id}',
-    idParam: 'batch_id',
-    columns: [
-      { key: 'id', label: 'Batch' },
-      { key: 'status', label: 'Status', type: 'status' },
-      { key: 'source', label: 'Source' },
-      { key: 'created_at', label: 'Created', type: 'datetime' },
-    ],
-    filters: cursorFilters([statusFilter(['pending', 'running', 'completed', 'failed'])]),
-    collectionActions: [{
-      key: 'create_batch',
-      label: 'Create sync batch',
-      endpoint: '/admin/tenant/stock-sync/batches',
-      reason: true,
-      formFields: [
-        {
-          key: 'note',
-          label: 'Operator note',
-          type: 'textarea',
-          placeholder: 'Optional context for this sync run',
-        },
-      ],
-    }],
-  },
-  {
-    scope: 'tenant',
     slug: 'price-rules',
     title: 'Price Rules',
     group: 'Tenant Store Operations',

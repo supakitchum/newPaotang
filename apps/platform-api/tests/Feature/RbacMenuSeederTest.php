@@ -16,7 +16,7 @@ class RbacMenuSeederTest extends TestCase
         $this->seed(DefaultRbacMenuSeeder::class);
 
         $this->assertSame(42, DB::table('permissions')->where('scope_type', 'central')->count());
-        $this->assertSame(70, DB::table('permissions')->where('scope_type', 'tenant')->count());
+        $this->assertSame(69, DB::table('permissions')->where('scope_type', 'tenant')->count());
 
         $this->assertDatabaseHas('permissions', [
             'scope_type' => 'central',
@@ -38,7 +38,7 @@ class RbacMenuSeederTest extends TestCase
         $this->seed(DefaultRbacMenuSeeder::class);
 
         $this->assertSame(23, DB::table('admin_menus')->where('scope_type', 'central')->count());
-        $this->assertSame(32, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
+        $this->assertSame(31, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
 
         $this->assertDatabaseHas('admin_menus', [
             'scope_type' => 'central',
@@ -81,7 +81,13 @@ class RbacMenuSeederTest extends TestCase
         $this->assertDatabaseHas('admin_menus', [
             'scope_type' => 'tenant',
             'code' => 'local_stock',
+            'label' => 'Tenant Stock',
             'route' => '/admin/tenant/stock',
+        ]);
+
+        $this->assertDatabaseMissing('admin_menus', [
+            'scope_type' => 'tenant',
+            'code' => 'stock_sync',
         ]);
     }
 
@@ -137,6 +143,44 @@ class RbacMenuSeederTest extends TestCase
         $this->assertDatabaseMissing('admin_menus', [
             'scope_type' => 'central',
             'code' => 'stock_recall',
+        ]);
+    }
+
+    public function test_reseeding_removes_retired_tenant_stock_sync_menu_and_permission(): void
+    {
+        DB::table('permissions')->insert([
+            'id' => 'per_retired_stock_sync',
+            'scope_type' => 'tenant',
+            'code' => 'stock.sync',
+            'name' => 'Run or view stock sync',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('admin_menus')->insert([
+            'id' => 'men_retired_stock_sync',
+            'scope_type' => 'tenant',
+            'parent_id' => null,
+            'code' => 'stock_sync',
+            'label' => 'Stock Sync',
+            'route' => '/admin/tenant/stock-sync',
+            'required_permission_code' => 'stock.sync',
+            'sort_order' => 999,
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->seed(DefaultRbacMenuSeeder::class);
+
+        $this->assertDatabaseMissing('admin_menus', [
+            'scope_type' => 'tenant',
+            'code' => 'stock_sync',
+        ]);
+        $this->assertDatabaseMissing('permissions', [
+            'scope_type' => 'tenant',
+            'code' => 'stock.sync',
         ]);
     }
 }

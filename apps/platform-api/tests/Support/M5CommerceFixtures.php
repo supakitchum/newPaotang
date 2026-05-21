@@ -22,7 +22,7 @@ trait M5CommerceFixtures
         $this->seedDefaultRbac();
         $this->insertActivePartnerTenantWithDomain($partnerId, $tenantId, $host);
         $this->insertGame($gameId, 'open');
-        $localIds = $this->syncAllocatedStockToLocal($partnerId, $tenantId, $gameId, 2, 'alloc-'.$tenantId.'-'.$stockStart, $stockStart);
+        $this->insertVirtualCartSupply($partnerId, $tenantId, $gameId, $stockStart);
 
         $auth = $this->postJson('http://'.$host.'/api/v1/customer/auth/register', [
             'name' => 'M5 Customer',
@@ -37,12 +37,16 @@ trait M5CommerceFixtures
         $reservation = $this->withToken($auth['token'])
             ->postJson('http://'.$host.'/api/v1/customer/reservations', [
                 'game_id' => $gameId,
-                'local_stock_item_ids' => [$localIds[0]],
+                'local_stock_item_ids' => [$this->firstVirtualStockRef($host, $gameId, $stockStart)],
             ], [
                 'Idempotency-Key' => 'reserve-'.$tenantId,
             ])
             ->assertCreated()
             ->json();
+        $localIds = array_values(array_map(
+            fn (array $item): string => (string) $item['id'],
+            $reservation['items'] ?? [],
+        ));
 
         $walletId = DB::table('wallets')
             ->where('tenant_id', $tenantId)
@@ -115,5 +119,70 @@ trait M5CommerceFixtures
             'adm_'.substr($suffix, 0, 8).'_'.substr(sha1(implode(',', $permissions).$world['tenant_id']), 0, 8),
             $suffix.'-'.$world['tenant_id'].'@example.test',
         );
+    }
+
+    private function insertVirtualCartSupply(string $partnerId, string $tenantId, string $gameId, int $stockStart): void
+    {
+        $numbers = [
+            str_pad((string) $stockStart, 6, '0', STR_PAD_LEFT),
+            str_pad((string) ($stockStart + 1), 6, '0', STR_PAD_LEFT),
+        ];
+        $now = now();
+
+        DB::table('base_lottery_numbers')->insert(array_map(fn (string $number): array => [
+            'full_number' => $number,
+            'front3' => substr($number, 0, 3),
+            'back3' => substr($number, -3),
+            'back2' => substr($number, -2),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], $numbers));
+
+        DB::table('stock_supply_profiles')->insert([
+            'id' => 'vsp_'.$gameId,
+            'game_id' => $gameId,
+            'status' => 'active',
+            'seed' => 'm5-commerce-virtual-seed',
+            'base_count' => count($numbers),
+            'total_capacity' => count($numbers),
+            'set_distribution_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'created_by_admin_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('partner_stock_allocations')->insert([
+            'id' => 'alc_'.substr(sha1($gameId.':'.$partnerId), 0, 20),
+            'partner_id' => $partnerId,
+            'tenant_id' => $tenantId,
+            'game_id' => $gameId,
+            'quota_id' => null,
+            'status' => 'allocated',
+            'requested_count' => count($numbers),
+            'allocation_percent_basis_points' => 10000,
+            'allocated_count' => count($numbers),
+            'recalled_count' => 0,
+            'supply_layer_ids_json' => json_encode(['vsp_'.$gameId], JSON_THROW_ON_ERROR),
+            'idempotency_key' => 'm5-commerce-virtual-'.$tenantId,
+            'payload_hash' => hash('sha256', $gameId.':'.$partnerId.':m5-commerce-virtual'),
+            'created_by_admin_id' => null,
+            'reason' => null,
+            'cancelled_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+
+    private function firstVirtualStockRef(string $host, string $gameId, int $stockStart): string
+    {
+        $number = str_pad((string) $stockStart, 6, '0', STR_PAD_LEFT);
+
+        return (string) $this->getJson('http://'.$host.'/api/v1/public/stock/search?'.http_build_query([
+            'game_id' => $gameId,
+            'number' => $number,
+            'limit' => 1,
+        ]))
+            ->assertOk()
+            ->json('data.0.id');
     }
 }

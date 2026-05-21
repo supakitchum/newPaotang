@@ -392,6 +392,33 @@ class PrepareK6BaselineCommand extends Command
             'updated_at' => $now,
         ]);
 
+        $baseRows = [];
+        for ($offset = 0; $offset < $stockCount; $offset++) {
+            $fullNumber = str_pad((string) (100000 + $offset), 6, '0', STR_PAD_LEFT);
+            $baseRows[] = [
+                'full_number' => $fullNumber,
+                'front3' => substr($fullNumber, 0, 3),
+                'back3' => substr($fullNumber, -3),
+                'back2' => substr($fullNumber, -2),
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+        DB::table('base_lottery_numbers')->insertOrIgnore($baseRows);
+
+        DB::table('stock_supply_profiles')->insert([
+            'id' => 'vsp_'.$gameId,
+            'game_id' => $gameId,
+            'status' => 'active',
+            'seed' => 'k6-virtual-'.$runId,
+            'base_count' => $stockCount,
+            'total_capacity' => $stockCount,
+            'set_distribution_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'created_by_admin_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
         PartnerStockAllocation::query()->insert([
             'id' => $allocationId,
             'partner_id' => $partnerId,
@@ -400,8 +427,10 @@ class PrepareK6BaselineCommand extends Command
             'quota_id' => null,
             'status' => 'allocated',
             'requested_count' => $stockCount,
+            'allocation_percent_basis_points' => 10000,
             'allocated_count' => $stockCount,
             'idempotency_key' => 'k6-allocation-'.$runId,
+            'supply_layer_ids_json' => json_encode(['vsp_'.$gameId], JSON_THROW_ON_ERROR),
             'created_by_admin_id' => null,
             'reason' => 'K6 local/dev baseline fixture',
             'cancelled_at' => null,
@@ -417,6 +446,7 @@ class PrepareK6BaselineCommand extends Command
             $fullNumber = str_pad((string) (100000 + $offset), 6, '0', STR_PAD_LEFT);
             $stockItemId = 'stk_k6_'.$runId.'_'.str_pad((string) $offset, 3, '0', STR_PAD_LEFT);
             $localStockItemId = 'lsi_k6_'.$runId.'_'.str_pad((string) $offset, 3, '0', STR_PAD_LEFT);
+            $virtualStockRef = 'vstock:'.$tenantId.':'.$gameId.':'.$fullNumber.':0';
 
             $stockRows[] = [
                 'id' => $stockItemId,
@@ -430,6 +460,8 @@ class PrepareK6BaselineCommand extends Command
                 'partner_id' => $partnerId,
                 'tenant_id' => $tenantId,
                 'allocation_id' => $allocationId,
+                'virtual_stock_ref' => $virtualStockRef,
+                'virtual_copy_index' => 0,
                 'recall_reason' => null,
                 'recalled_at' => null,
                 'created_at' => $now,
@@ -459,6 +491,8 @@ class PrepareK6BaselineCommand extends Command
                 'front3' => substr($fullNumber, 0, 3),
                 'back3' => substr($fullNumber, -3),
                 'back2' => substr($fullNumber, -2),
+                'virtual_stock_ref' => $virtualStockRef,
+                'virtual_copy_index' => 0,
                 'image_url' => null,
                 'image_thumb_url' => null,
                 'status' => $offset === 1 ? 'reserved' : 'available',
