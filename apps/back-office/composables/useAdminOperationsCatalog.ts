@@ -152,7 +152,7 @@ export type OperationResource = {
   confirmContextFields?: string[]
   reportKeys?: string[]
   detailJsonEditor?: boolean
-  detailRenderer?: 'reward' | 'price-rule'
+  detailRenderer?: 'reward' | 'price-rule' | 'partner'
   defaultQuery?: Record<string, any>
   stockGrouped?: boolean
   stockSummaryEndpoint?: string
@@ -1658,6 +1658,7 @@ const central: OperationResource[] = [
     updateEndpoint: '/admin/central/partners/{partner_id}',
     idParam: 'partner_id',
     idKey: 'id',
+    detailRenderer: 'partner',
     columns: [
       { key: 'id', label: 'Partner' },
       { key: 'code', label: 'Code' },
@@ -1701,6 +1702,7 @@ const central: OperationResource[] = [
     detailEndpoint: '/admin/central/partners/{partner_id}',
     idParam: 'partner_id',
     idKey: 'id',
+    detailRenderer: 'partner',
     columns: [
       { key: 'id', label: 'Partner' },
       { key: 'code', label: 'Code' },

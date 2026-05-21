@@ -254,6 +254,11 @@
         :record="detailDisplayRecord"
         :loading="loading && !detailGap"
       />
+      <AdminPartnerDetail
+        v-else-if="resource.detailRenderer === 'partner'"
+        :record="detailDisplayRecord"
+        :loading="loading && !detailGap"
+      />
       <AdminDetailSection v-else :title="`${resource.title} detail`" :record="detailDisplayRecord" :loading="loading && !detailGap" />
       <AdminRewardPrizes
         v-if="resource.detailRenderer === 'reward' && !detailGap && detail"

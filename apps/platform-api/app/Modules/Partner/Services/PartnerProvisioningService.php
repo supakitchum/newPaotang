@@ -203,6 +203,15 @@ class PartnerProvisioningService
 
             Partner::query()->where('id', $partnerId)->update($updates);
 
+            if (array_key_exists('name', $updates)) {
+                PartnerTenant::query()
+                    ->where('partner_id', $partnerId)
+                    ->update([
+                        'name' => $updates['name'],
+                        'updated_at' => $updates['updated_at'],
+                    ]);
+            }
+
             $this->auditPartnerChange($actor, $request, $partnerId, 'updated', $payload);
 
             return $this->findPartner($partnerId);

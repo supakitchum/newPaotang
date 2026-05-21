@@ -279,7 +279,13 @@ class PartnerProvisioningTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('name', 'Acme Partner Suspended')
+            ->assertJsonPath('tenants.0.name', 'Acme Partner Suspended')
             ->assertJsonPath('status', 'suspended');
+
+        $this->assertDatabaseHas('partner_tenants', [
+            'id' => $tenantId,
+            'name' => 'Acme Partner Suspended',
+        ]);
 
         $this->getJson('http://acme.example.test/api/v1/public/site-config')
             ->assertConflict()
