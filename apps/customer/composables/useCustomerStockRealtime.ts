@@ -41,7 +41,6 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
   const shouldSubscribe = computed(() => Boolean(import.meta.client && enabled.value && gameId.value && tenantId.value && channelNames.value.length))
 
   let socket: WebSocket | null = null
-  let salePriceStream: EventSource | null = null
   let socketId = ''
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
   let hasConnectedOnce = false
@@ -75,7 +74,6 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
 
     stopReconnectTimer()
     cleanupSocket()
-    cleanupSalePriceStream()
     error.value = ''
     status.value = reconnecting ? 'reconnecting' : 'connecting'
 
@@ -90,7 +88,6 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
 
     const activeSocket = socket
     socketConnectionMarked = false
-    connectSalePriceStream()
     activeSocket.addEventListener('message', (event) => {
       if (activeSocket === socket) {
         void handleMessage(activeSocket, event.data)
@@ -179,34 +176,6 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
     }
   }
 
-  function connectSalePriceStream() {
-    if (!import.meta.client || typeof EventSource === 'undefined' || !gameId.value) {
-      cleanupSalePriceStream()
-      return
-    }
-
-    cleanupSalePriceStream()
-    const activeStream = new EventSource(buildSalePriceStreamUrl(gameId.value))
-    salePriceStream = activeStream
-
-    const handlePrice = (event: MessageEvent) => {
-      if (activeStream !== salePriceStream) {
-        return
-      }
-
-      lastEventAt.value = new Date().toISOString()
-      options.onPrice?.(parseRealtimeData(event.data))
-    }
-
-    activeStream.addEventListener('stock.price.updated', handlePrice)
-    activeStream.onmessage = handlePrice
-    activeStream.onerror = () => {
-      if (activeStream === salePriceStream && status.value !== 'connected') {
-        status.value = 'reconnecting'
-      }
-    }
-  }
-
   function scheduleReconnect() {
     if (!import.meta.client || reconnectTimer !== null || !shouldSubscribe.value || !isConfigured.value) {
       return
@@ -222,7 +191,6 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
   function disconnect(finalStatus: CustomerRealtimeStatus = 'idle') {
     stopReconnectTimer()
     cleanupSocket(true)
-    cleanupSalePriceStream()
     socketId = ''
     socketConnectionMarked = false
     status.value = finalStatus
@@ -242,15 +210,6 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
     }
 
     activeSocket.close()
-  }
-
-  function cleanupSalePriceStream() {
-    const activeStream = salePriceStream
-    salePriceStream = null
-
-    if (activeStream) {
-      activeStream.close()
-    }
   }
 
   function stopReconnectTimer() {
@@ -316,14 +275,6 @@ const buildRealtimeSocketUrl = (baseUrl: string, key: string) => {
   }
 
   return `${url}${separator}protocol=7&client=newpaotang-customer&version=1.0&flash=false`
-}
-
-const buildSalePriceStreamUrl = (gameId: string) => {
-  const url = new URL('/api/v1/public/sale-price/stream', window.location.origin)
-  url.searchParams.set('game_id', gameId)
-  url.searchParams.set('set_size', '1')
-
-  return url.toString()
 }
 
 const tenantIdFromUser = (user: Record<string, unknown> | null | undefined) => {

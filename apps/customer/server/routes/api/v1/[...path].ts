@@ -13,11 +13,8 @@ const forwardHeaders = [
 
 const responseHeaders = [
   'content-type',
-  'cache-control',
-  'connection',
   'date',
   'retry-after',
-  'x-accel-buffering',
   'x-request-id',
   'ratelimit-limit',
   'ratelimit-remaining',
@@ -64,43 +61,6 @@ const requestPlatformApi = (
   proxyRequest.end()
 })
 
-const streamPlatformApi = (
-  event: any,
-  targetUrl: URL,
-  method: string,
-  headers: Record<string, string>,
-  body?: Buffer | string
-) => new Promise<void>((resolve, reject) => {
-  const request = targetUrl.protocol === 'https:' ? httpsRequest : httpRequest
-  const proxyRequest = request(targetUrl, { method, headers }, (response) => {
-    setResponseStatus(event, response.statusCode || 502, response.statusMessage || 'Bad Gateway')
-    setHeader(event, 'vary', 'Host')
-
-    for (const headerName of responseHeaders) {
-      const value = response.headers[headerName]
-
-      if (value) {
-        setHeader(event, headerName, value)
-      }
-    }
-
-    response.on('error', reject)
-    response.on('end', resolve)
-    response.pipe(event.node.res)
-  })
-
-  proxyRequest.on('error', reject)
-  event.node.req.on('close', () => {
-    proxyRequest.destroy()
-  })
-
-  if (body) {
-    proxyRequest.write(body)
-  }
-
-  proxyRequest.end()
-})
-
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const requestUrl = getRequestURL(event)
@@ -132,11 +92,6 @@ export default defineEventHandler(async (event) => {
 
   const method = getMethod(event)
   const body = ['GET', 'HEAD'].includes(method) ? undefined : await readRawBody(event, false)
-
-  if (path === 'public/sale-price/stream') {
-    await streamPlatformApi(event, targetUrl, method, headers, body)
-    return
-  }
 
   const response = await requestPlatformApi(targetUrl, method, headers, body)
 
