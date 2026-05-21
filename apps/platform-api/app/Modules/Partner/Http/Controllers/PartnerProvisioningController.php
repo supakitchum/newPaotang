@@ -110,6 +110,42 @@ class PartnerProvisioningController extends Controller
             : response()->json($partner);
     }
 
+    public function updateProfile(Request $request, string $partner_id): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'partner.update');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        if ($this->partners->findPartner($partner_id) === null) {
+            return ApiErrorResponse::notFound($request);
+        }
+
+        $payload = $request->all();
+        $errors = $this->partners->validatePartnerTenantProfilePayload($partner_id, $payload);
+
+        if ($errors !== []) {
+            return ApiErrorResponse::validationFailed($request, $errors);
+        }
+
+        if ($this->partners->partnerTenantProfileConflictErrors($partner_id, $payload) !== []) {
+            return ApiErrorResponse::resourceConflict($request);
+        }
+
+        $partner = $this->partners->updatePartnerTenantProfile($partner_id, $payload, $context, $request);
+
+        return $partner === null
+            ? ApiErrorResponse::notFound($request)
+            : response()->json($partner);
+    }
+
     public function provision(Request $request, string $partner_id): JsonResponse
     {
         $context = $this->authorizedContext($request, 'partner.provision');

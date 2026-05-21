@@ -22,6 +22,7 @@
     "/admin/central/menu-management": ["get", "put"],
     "/admin/central/partners": ["get", "post"],
     "/admin/central/partners/{partner_id}": ["get", "patch"],
+    "/admin/central/partners/{partner_id}/profile": ["patch"],
     "/admin/central/partners/{partner_id}/provision": ["post"],
     "/admin/central/partners/{partner_id}/suspend": ["post"],
     "/admin/central/partner-quotas": ["get"],

@@ -258,6 +258,7 @@
         v-else-if="resource.detailRenderer === 'partner'"
         :record="detailDisplayRecord"
         :loading="loading && !detailGap"
+        @saved="handlePartnerDetailSaved"
       />
       <AdminDetailSection v-else :title="`${resource.title} detail`" :record="detailDisplayRecord" :loading="loading && !detailGap" />
       <AdminRewardPrizes
@@ -2062,6 +2063,11 @@ const loadStockNumberDetail = async () => {
 const handleStockCoverageSettingsSaved = (record: Record<string, any>) => {
   detail.value = record
   settingsDraft.value = JSON.stringify(record || {}, null, 2)
+}
+
+const handlePartnerDetailSaved = (record: Record<string, any>) => {
+  detail.value = record
+  detailDraft.value = JSON.stringify(record || {}, null, 2)
 }
 
 const openStockTicketAction = (action: OperationAction, row: any) => {

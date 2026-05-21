@@ -38,7 +38,17 @@ class PartnerProvisioningService
     private const PARTNER_STATUSES = ['draft', 'active', 'suspended', 'closed'];
     private const TENANT_STATUSES = ['provisioning', 'active', 'maintenance', 'suspended', 'closed'];
     private const DOMAIN_TYPES = ['subdomain', 'custom_domain'];
+    private const DOMAIN_STATUSES = ['pending_verification', 'active', 'failed', 'disabled', 'suspended'];
     private const API_CLIENT_STATUSES = ['active', 'suspended', 'revoked'];
+    private const PROFILE_SECTIONS = ['partner', 'tenant', 'domain', 'settings', 'theme', 'owner'];
+    private const MAINTENANCE_MODES = [
+        'full_site',
+        'customer_web_only',
+        'admin_only',
+        'checkout_payment_only',
+        'read_only',
+        'scheduled',
+    ];
     private const MAX_PERCENT_BASIS_POINTS = 10000;
 
     public function __construct(private readonly AuditLogger $auditLogger)
@@ -216,6 +226,420 @@ class PartnerProvisioningService
 
             return $this->findPartner($partnerId);
         });
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    public function validatePartnerTenantProfilePayload(string $partnerId, array $payload): array
+    {
+        $section = trim((string) ($payload['section'] ?? ''));
+
+        if (! in_array($section, self::PROFILE_SECTIONS, true)) {
+            return [
+                'section' => ['The section field must be one of partner, tenant, domain, settings, theme, or owner.'],
+            ];
+        }
+
+        if (! is_array($payload[$section] ?? null)) {
+            return [
+                $section => ['The '.$section.' field must be an object.'],
+            ];
+        }
+
+        $sectionPayload = $payload[$section];
+
+        return match ($section) {
+            'partner' => $this->validatePartnerPayload($sectionPayload, false),
+            'tenant' => $this->validateTenantProfilePayload($sectionPayload),
+            'domain' => $this->validateDomainProfilePayload($partnerId, $sectionPayload),
+            'settings' => $this->validateSettingsProfilePayload($sectionPayload),
+            'theme' => $this->validateThemeProfilePayload($sectionPayload),
+            'owner' => $this->validateOwnerProfilePayload($sectionPayload),
+        };
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    public function partnerTenantProfileConflictErrors(string $partnerId, array $payload): array
+    {
+        $section = trim((string) ($payload['section'] ?? ''));
+        $sectionPayload = is_array($payload[$section] ?? null) ? $payload[$section] : [];
+
+        if ($section === 'partner') {
+            return $this->partnerConflictErrors($sectionPayload, $partnerId);
+        }
+
+        $tenantId = PartnerTenant::query()
+            ->where('partner_id', $partnerId)
+            ->orderBy('code')
+            ->value('id');
+
+        if ($section === 'tenant' && array_key_exists('code', $sectionPayload)) {
+            $tenantCode = trim((string) $sectionPayload['code']);
+
+            if (
+                $tenantCode !== ''
+                && PartnerTenant::query()
+                    ->where('code', $tenantCode)
+                    ->when($tenantId !== null, fn ($query) => $query->where('id', '!=', $tenantId))
+                    ->exists()
+            ) {
+                return ['code' => ['The tenant code already exists.']];
+            }
+        }
+
+        if ($section === 'domain' && array_key_exists('host', $sectionPayload)) {
+            $host = $this->normalizeHost((string) $sectionPayload['host']);
+
+            if (
+                $host !== ''
+                && PartnerTenantDomain::query()
+                    ->where('host', $host)
+                    ->where('partner_id', '!=', $partnerId)
+                    ->exists()
+            ) {
+                return ['host' => ['The domain host already exists.']];
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>|null
+     */
+    public function updatePartnerTenantProfile(string $partnerId, array $payload, AdminSessionContext $actor, Request $request): ?array
+    {
+        return DB::transaction(function () use ($partnerId, $payload, $actor, $request): ?array {
+            $partner = Partner::query()->where('id', $partnerId)->lockForUpdate()->first();
+
+            if ($partner === null) {
+                return null;
+            }
+
+            $section = trim((string) $payload['section']);
+            $sectionPayload = $payload[$section];
+            $now = now();
+
+            if ($section === 'partner') {
+                $this->applyPartnerProfileUpdates($partnerId, $sectionPayload, $now);
+                $this->auditPartnerChange($actor, $request, $partnerId, 'profile.partner.updated', $payload);
+
+                return $this->findPartner($partnerId);
+            }
+
+            $tenant = PartnerTenant::query()
+                ->where('partner_id', $partnerId)
+                ->orderBy('code')
+                ->lockForUpdate()
+                ->first();
+
+            if ($tenant === null) {
+                return null;
+            }
+
+            match ($section) {
+                'tenant' => $this->applyTenantProfileUpdates($tenant, $sectionPayload, $now),
+                'domain' => $this->applyDomainProfileUpdates($partnerId, $tenant, $sectionPayload, $now),
+                'settings' => $this->applySettingsProfileUpdates($tenant, $sectionPayload, $now),
+                'theme' => $this->applyThemeProfileUpdates($tenant, $sectionPayload, $now),
+                'owner' => $this->ensureTenantScopeAndOwner($partnerId, (string) $tenant->id, (string) $tenant->name, $sectionPayload, $now),
+                default => null,
+            };
+
+            $this->auditPartnerChange($actor, $request, $partnerId, 'profile.'.$section.'.updated', $payload);
+
+            return $this->findPartner($partnerId);
+        });
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    private function validateTenantProfilePayload(array $payload): array
+    {
+        $errors = [];
+
+        if (array_key_exists('code', $payload)) {
+            $code = trim((string) $payload['code']);
+
+            if ($code === '' || ! preg_match('/^[a-z0-9][a-z0-9_-]*$/', $code)) {
+                $errors['code'][] = 'The tenant code must use lowercase letters, numbers, underscores, or hyphens.';
+            }
+        }
+
+        if (array_key_exists('name', $payload) && trim((string) $payload['name']) === '') {
+            $errors['name'][] = 'The tenant name field is required.';
+        }
+
+        if (array_key_exists('status', $payload) && ! in_array($payload['status'], self::TENANT_STATUSES, true)) {
+            $errors['status'][] = 'The tenant status field is invalid.';
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    private function validateDomainProfilePayload(string $partnerId, array $payload): array
+    {
+        $errors = [];
+
+        if (! PartnerTenantDomain::query()->where('partner_id', $partnerId)->exists() && ! array_key_exists('host', $payload)) {
+            $errors['host'][] = 'The host field is required when this partner has no domain yet.';
+        }
+
+        if (array_key_exists('host', $payload) && $this->normalizeHost((string) $payload['host']) === '') {
+            $errors['host'][] = 'The host field must be a non-empty host name.';
+        }
+
+        if (array_key_exists('type', $payload) && ! in_array($payload['type'], self::DOMAIN_TYPES, true)) {
+            $errors['type'][] = 'The domain type field is invalid.';
+        }
+
+        if (array_key_exists('status', $payload) && ! in_array($payload['status'], self::DOMAIN_STATUSES, true)) {
+            $errors['status'][] = 'The domain status field is invalid.';
+        }
+
+        if (array_key_exists('is_primary', $payload) && ! is_bool($payload['is_primary'])) {
+            $errors['is_primary'][] = 'The is_primary field must be true or false.';
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    private function validateSettingsProfilePayload(array $payload): array
+    {
+        $errors = [];
+        $updates = $this->settingsUpdates($payload);
+
+        if (array_key_exists('site_name', $updates) && trim((string) $updates['site_name']) === '') {
+            $errors['site_name'][] = 'The site_name field must be a non-empty string.';
+        }
+
+        if (array_key_exists('support_email', $updates)) {
+            $email = trim((string) $updates['support_email']);
+
+            if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+                $errors['support_email'][] = 'The support_email field must be a valid email address.';
+            }
+        }
+
+        if (array_key_exists('default_keywords_json', $updates) && ! is_array($updates['default_keywords_json'])) {
+            $errors['default_keywords'][] = 'The default_keywords field must be an array of strings.';
+        }
+
+        foreach (['sitemap_enabled', 'robots_enabled', 'maintenance_active'] as $field) {
+            if (array_key_exists($field, $updates) && ! is_bool($updates[$field])) {
+                $errors[$field][] = 'The '.$field.' field must be true or false.';
+            }
+        }
+
+        if (
+            array_key_exists('maintenance_mode', $updates)
+            && $updates['maintenance_mode'] !== null
+            && ! in_array($updates['maintenance_mode'], self::MAINTENANCE_MODES, true)
+        ) {
+            $errors['maintenance_mode'][] = 'The maintenance_mode field is invalid.';
+        }
+
+        foreach (['maintenance_allowed_routes_json', 'maintenance_blocked_route_patterns_json'] as $field) {
+            if (array_key_exists($field, $updates) && ! is_array($updates[$field])) {
+                $errors[$field][] = 'The '.$field.' field must be an array of strings.';
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    private function validateThemeProfilePayload(array $payload): array
+    {
+        $errors = [];
+        $updates = $this->themeUpdates($payload);
+
+        foreach (['primary_color', 'secondary_color', 'accent_color', 'background_color', 'text_color'] as $field) {
+            if (
+                array_key_exists($field, $updates)
+                && (! is_string($updates[$field]) || preg_match('/^#[0-9a-fA-F]{6}$/', $updates[$field]) !== 1)
+            ) {
+                $errors[$field][] = 'The '.$field.' field must be a 6-digit hex color.';
+            }
+        }
+
+        foreach (['logo_url', 'favicon_url', 'og_image_url'] as $field) {
+            if (array_key_exists($field, $updates) && $updates[$field] !== null && trim((string) $updates[$field]) === '') {
+                $errors[$field][] = 'The '.$field.' field must not be blank.';
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    private function validateOwnerProfilePayload(array $payload): array
+    {
+        $errors = [];
+
+        if (! array_key_exists('owner_email', $payload) || filter_var((string) $payload['owner_email'], FILTER_VALIDATE_EMAIL) === false) {
+            $errors['owner_email'][] = 'The owner_email field must be a valid email address.';
+        }
+
+        if (array_key_exists('owner_name', $payload) && trim((string) $payload['owner_name']) === '') {
+            $errors['owner_name'][] = 'The owner_name field must not be blank.';
+        }
+
+        if (array_key_exists('owner_password', $payload) && $payload['owner_password'] !== null && $payload['owner_password'] !== '' && strlen((string) $payload['owner_password']) < 8) {
+            $errors['owner_password'][] = 'The owner_password field must be at least 8 characters.';
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function applyPartnerProfileUpdates(string $partnerId, array $payload, mixed $now): void
+    {
+        $updates = ['updated_at' => $now];
+
+        foreach (['code', 'name', 'type', 'status'] as $field) {
+            if (array_key_exists($field, $payload)) {
+                $updates[$field] = is_string($payload[$field]) ? trim($payload[$field]) : $payload[$field];
+            }
+        }
+
+        if (array_key_exists('stock_percent', $payload) || array_key_exists('stock_percent_basis_points', $payload)) {
+            $updates['stock_percent_basis_points'] = $this->percentBasisPointsFrom($payload['stock_percent'] ?? null, $payload['stock_percent_basis_points'] ?? null) ?? 0;
+        }
+
+        Partner::query()->where('id', $partnerId)->update($updates);
+
+        if (array_key_exists('name', $updates)) {
+            PartnerTenant::query()
+                ->where('partner_id', $partnerId)
+                ->update([
+                    'name' => $updates['name'],
+                    'updated_at' => $now,
+                ]);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function applyTenantProfileUpdates(object $tenant, array $payload, mixed $now): void
+    {
+        $updates = ['updated_at' => $now];
+
+        foreach (['code', 'name', 'status'] as $field) {
+            if (array_key_exists($field, $payload)) {
+                $updates[$field] = is_string($payload[$field]) ? trim($payload[$field]) : $payload[$field];
+            }
+        }
+
+        PartnerTenant::query()->where('id', $tenant->id)->update($updates);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function applyDomainProfileUpdates(string $partnerId, object $tenant, array $payload, mixed $now): void
+    {
+        $domain = PartnerTenantDomain::query()
+            ->where('tenant_id', $tenant->id)
+            ->orderByDesc('is_primary')
+            ->orderBy('host')
+            ->lockForUpdate()
+            ->first();
+        $host = array_key_exists('host', $payload)
+            ? $this->normalizeHost((string) $payload['host'])
+            : (string) $domain?->host;
+        $isPrimary = array_key_exists('is_primary', $payload)
+            ? (bool) $payload['is_primary']
+            : (bool) ($domain?->is_primary ?? true);
+
+        if ($isPrimary) {
+            PartnerTenantDomain::query()
+                ->where('tenant_id', $tenant->id)
+                ->update(['is_primary' => false, 'updated_at' => $now]);
+        }
+
+        $values = [
+            'partner_id' => $partnerId,
+            'tenant_id' => (string) $tenant->id,
+            'host' => $host,
+            'type' => $payload['type'] ?? ($domain?->type ?? 'subdomain'),
+            'status' => $payload['status'] ?? ($domain?->status ?? 'active'),
+            'is_primary' => $isPrimary,
+            'updated_at' => $now,
+        ];
+
+        if ($domain === null) {
+            PartnerTenantDomain::query()->insert(array_merge($values, [
+                'id' => $this->stableId('dom', $host),
+                'created_at' => $now,
+            ]));
+
+            return;
+        }
+
+        PartnerTenantDomain::query()->where('id', $domain->id)->update($values);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function applySettingsProfileUpdates(object $tenant, array $payload, mixed $now): void
+    {
+        $settings = $this->ensureProfileSettings($tenant, $now);
+        $updates = $this->settingsUpdates($payload);
+
+        if ($updates === []) {
+            return;
+        }
+
+        $updates = $this->serializeSettingsUpdates($updates);
+        $updates['config_version'] = ((int) $settings->config_version) + 1;
+        $updates['updated_at'] = $now;
+
+        PartnerTenantSetting::query()->where('tenant_id', $tenant->id)->update($updates);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function applyThemeProfileUpdates(object $tenant, array $payload, mixed $now): void
+    {
+        $theme = $this->ensureProfileTheme($tenant, $now);
+        $updates = $this->themeUpdates($payload);
+
+        if ($updates === []) {
+            return;
+        }
+
+        $updates['config_version'] = ((int) $theme->config_version) + 1;
+        $updates['updated_at'] = $now;
+
+        PartnerTenantTheme::query()->where('tenant_id', $tenant->id)->update($updates);
     }
 
     /**
@@ -951,6 +1375,16 @@ class PartnerProvisioningService
             ->get()
             ->all();
         $primaryTenantId = $tenants[0]->id ?? null;
+        $primaryTenant = $tenants[0] ?? null;
+        $settings = $primaryTenant === null
+            ? null
+            : PartnerTenantSetting::query()->forTenant((string) $primaryTenant->id)->first();
+        $theme = $primaryTenant === null
+            ? null
+            : PartnerTenantTheme::query()->forTenant((string) $primaryTenant->id)->first();
+        $owner = $primaryTenant === null
+            ? null
+            : $this->ownerResourceForTenant((string) $primaryTenant->id);
 
         return [
             'id' => (string) $partner->id,
@@ -982,12 +1416,435 @@ class PartnerProvisioningService
                 'created_at' => $domain->created_at,
                 'updated_at' => $domain->updated_at,
             ], $domains),
+            'tenant_settings' => $primaryTenant === null ? null : $this->settingsResourceForTenant($primaryTenant, $settings),
+            'tenant_theme' => $primaryTenant === null ? null : $this->themeResourceForTenant($primaryTenant, $theme),
+            'owner_admin' => $owner,
             'runtime' => [
                 'api_clients_total' => PartnerApiClient::where('partner_id', $partner->id)->count(),
                 'monitoring_status' => PartnerMonitoringProfile::where('partner_id', $partner->id)->value('status'),
                 'billing_status' => PartnerBillingPlanBinding::where('partner_id', $partner->id)->value('status'),
             ],
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function settingsResourceForTenant(object $tenant, ?object $settings): array
+    {
+        $settings ??= $this->settingsDefaultForTenant($tenant);
+        $host = $this->primaryHostForTenant((string) $tenant->id);
+
+        return [
+            'id' => (string) $settings->id,
+            'tenant_id' => (string) $tenant->id,
+            'status' => (string) $tenant->status,
+            'created_at' => $settings->created_at,
+            'updated_at' => $settings->updated_at,
+            'site' => $this->sitePayload($settings),
+            'seo' => $this->seoPayload($settings, $host),
+            'maintenance' => $this->maintenancePayload($settings, (string) $tenant->status),
+            'api' => $this->apiPayload($settings),
+            'config_version' => (int) $settings->config_version,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function themeResourceForTenant(object $tenant, ?object $theme): array
+    {
+        $theme ??= $this->themeDefaultForTenant($tenant);
+
+        return [
+            'id' => (string) $theme->id,
+            'tenant_id' => (string) $tenant->id,
+            'status' => (string) $tenant->status,
+            'created_at' => $theme->created_at,
+            'updated_at' => $theme->updated_at,
+            'brand' => $this->brandPayload($theme),
+            'theme' => $this->themePayload($theme),
+            'config_version' => (int) $theme->config_version,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function ownerResourceForTenant(string $tenantId): ?array
+    {
+        $owner = AdminUser::query()
+            ->join('admin_user_roles', 'admin_user_roles.admin_user_id', '=', 'admin_users.id')
+            ->where('admin_user_roles.scope_id', $this->tenantScopeId($tenantId))
+            ->where('admin_user_roles.role_id', $this->stableId('rol', 'tenant:'.$tenantId.':owner'))
+            ->select('admin_users.*')
+            ->orderBy('admin_users.email')
+            ->first();
+
+        if ($owner === null) {
+            return null;
+        }
+
+        return [
+            'id' => (string) $owner->id,
+            'name' => $owner->name,
+            'email' => (string) $owner->email,
+            'phone' => $owner->phone,
+            'status' => (string) $owner->status,
+            'updated_at' => $owner->updated_at,
+        ];
+    }
+
+    private function ensureProfileSettings(object $tenant, mixed $now): object
+    {
+        $settings = PartnerTenantSetting::query()->forTenant((string) $tenant->id)->first();
+
+        if ($settings !== null) {
+            return $settings;
+        }
+
+        PartnerTenantSetting::query()->create([
+            'id' => $this->stableId('pts', (string) $tenant->id),
+            'tenant_id' => (string) $tenant->id,
+            'site_name' => (string) $tenant->name,
+            'display_name' => null,
+            'locale' => 'th-TH',
+            'timezone' => 'Asia/Bangkok',
+            'support_email' => null,
+            'support_phone' => null,
+            'default_title' => (string) $tenant->name,
+            'title_template' => null,
+            'default_description' => null,
+            'default_keywords_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'robots_default' => 'index,follow',
+            'sitemap_enabled' => true,
+            'robots_enabled' => true,
+            'maintenance_active' => false,
+            'maintenance_mode' => null,
+            'maintenance_message' => null,
+            'maintenance_expected_end_at' => null,
+            'maintenance_retry_after_seconds' => null,
+            'maintenance_allowed_routes_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'maintenance_blocked_route_patterns_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'api_base_url' => '/api/v1',
+            'realtime_url' => null,
+            'asset_cdn_base_url' => $this->canonicalUrl($this->primaryHostForTenant((string) $tenant->id)),
+            'config_version' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return PartnerTenantSetting::query()->forTenant((string) $tenant->id)->first();
+    }
+
+    private function ensureProfileTheme(object $tenant, mixed $now): object
+    {
+        $theme = PartnerTenantTheme::query()->forTenant((string) $tenant->id)->first();
+
+        if ($theme !== null) {
+            return $theme;
+        }
+
+        PartnerTenantTheme::query()->create([
+            'id' => $this->stableId('ptt', (string) $tenant->id),
+            'tenant_id' => (string) $tenant->id,
+            'logo_url' => null,
+            'favicon_url' => null,
+            'og_image_url' => null,
+            'primary_color' => '#0F766E',
+            'secondary_color' => '#2563EB',
+            'accent_color' => '#F59E0B',
+            'background_color' => '#FFFFFF',
+            'text_color' => '#111827',
+            'font_family' => 'Inter, sans-serif',
+            'config_version' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return PartnerTenantTheme::query()->forTenant((string) $tenant->id)->first();
+    }
+
+    private function settingsDefaultForTenant(object $tenant): object
+    {
+        $now = now();
+
+        return (object) [
+            'id' => $this->stableId('pts', (string) $tenant->id),
+            'tenant_id' => (string) $tenant->id,
+            'site_name' => (string) $tenant->name,
+            'display_name' => null,
+            'locale' => 'th-TH',
+            'timezone' => 'Asia/Bangkok',
+            'support_email' => null,
+            'support_phone' => null,
+            'default_title' => (string) $tenant->name,
+            'title_template' => null,
+            'default_description' => null,
+            'default_keywords_json' => '[]',
+            'robots_default' => 'index,follow',
+            'sitemap_enabled' => true,
+            'robots_enabled' => true,
+            'maintenance_active' => false,
+            'maintenance_mode' => null,
+            'maintenance_message' => null,
+            'maintenance_expected_end_at' => null,
+            'maintenance_retry_after_seconds' => null,
+            'maintenance_allowed_routes_json' => '[]',
+            'maintenance_blocked_route_patterns_json' => '[]',
+            'api_base_url' => '/api/v1',
+            'realtime_url' => null,
+            'asset_cdn_base_url' => $this->canonicalUrl($this->primaryHostForTenant((string) $tenant->id)),
+            'config_version' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ];
+    }
+
+    private function themeDefaultForTenant(object $tenant): object
+    {
+        $now = now();
+
+        return (object) [
+            'id' => $this->stableId('ptt', (string) $tenant->id),
+            'tenant_id' => (string) $tenant->id,
+            'logo_url' => null,
+            'favicon_url' => null,
+            'og_image_url' => null,
+            'primary_color' => '#0F766E',
+            'secondary_color' => '#2563EB',
+            'accent_color' => '#F59E0B',
+            'background_color' => '#FFFFFF',
+            'text_color' => '#111827',
+            'font_family' => 'Inter, sans-serif',
+            'config_version' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function sitePayload(object $settings): array
+    {
+        return [
+            'site_name' => (string) $settings->site_name,
+            'display_name' => $settings->display_name,
+            'locale' => (string) $settings->locale,
+            'timezone' => (string) $settings->timezone,
+            'support_email' => $settings->support_email,
+            'support_phone' => $settings->support_phone,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function seoPayload(object $settings, string $host): array
+    {
+        return [
+            'default_title' => $settings->default_title ?: $settings->site_name,
+            'title_template' => $settings->title_template,
+            'default_description' => $settings->default_description,
+            'default_keywords' => $this->decodeJsonList($settings->default_keywords_json),
+            'robots_default' => (string) $settings->robots_default,
+            'canonical_base_url' => $this->canonicalUrl($host),
+            'sitemap_enabled' => (bool) $settings->sitemap_enabled,
+            'robots_enabled' => (bool) $settings->robots_enabled,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function maintenancePayload(object $settings, string $tenantStatus): array
+    {
+        return [
+            'active' => (bool) $settings->maintenance_active || $tenantStatus === 'maintenance',
+            'mode' => $settings->maintenance_mode,
+            'message' => $settings->maintenance_message,
+            'expected_end_at' => $settings->maintenance_expected_end_at,
+            'retry_after_seconds' => $settings->maintenance_retry_after_seconds,
+            'allowed_routes' => $this->decodeJsonList($settings->maintenance_allowed_routes_json),
+            'blocked_route_patterns' => $this->decodeJsonList($settings->maintenance_blocked_route_patterns_json),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function apiPayload(object $settings): array
+    {
+        return [
+            'base_url' => $settings->api_base_url,
+            'realtime_url' => $settings->realtime_url,
+            'asset_cdn_base_url' => $settings->asset_cdn_base_url,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function brandPayload(object $theme): array
+    {
+        return [
+            'logo_url' => $theme->logo_url,
+            'favicon_url' => $theme->favicon_url,
+            'og_image_url' => $theme->og_image_url,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function themePayload(object $theme): array
+    {
+        return [
+            'primary_color' => (string) $theme->primary_color,
+            'secondary_color' => (string) $theme->secondary_color,
+            'accent_color' => (string) $theme->accent_color,
+            'background_color' => (string) $theme->background_color,
+            'text_color' => (string) $theme->text_color,
+            'font_family' => (string) $theme->font_family,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function settingsUpdates(array $payload): array
+    {
+        $updates = [];
+        $site = is_array($payload['site'] ?? null) ? $payload['site'] : [];
+        $seo = is_array($payload['seo'] ?? null) ? $payload['seo'] : [];
+        $maintenance = is_array($payload['maintenance'] ?? null) ? $payload['maintenance'] : [];
+        $api = is_array($payload['api'] ?? null) ? $payload['api'] : [];
+
+        foreach (['site_name', 'display_name', 'locale', 'timezone', 'support_email', 'support_phone'] as $field) {
+            if (array_key_exists($field, $payload) || array_key_exists($field, $site)) {
+                $updates[$field] = $payload[$field] ?? $site[$field];
+            }
+        }
+
+        foreach (['default_title', 'title_template', 'default_description', 'robots_default', 'sitemap_enabled', 'robots_enabled'] as $field) {
+            if (array_key_exists($field, $payload) || array_key_exists($field, $seo)) {
+                $updates[$field] = $payload[$field] ?? $seo[$field];
+            }
+        }
+
+        if (array_key_exists('default_keywords', $payload) || array_key_exists('default_keywords', $seo)) {
+            $updates['default_keywords_json'] = $payload['default_keywords'] ?? $seo['default_keywords'];
+        }
+
+        $maintenanceMap = [
+            'active' => 'maintenance_active',
+            'mode' => 'maintenance_mode',
+            'message' => 'maintenance_message',
+            'expected_end_at' => 'maintenance_expected_end_at',
+            'retry_after_seconds' => 'maintenance_retry_after_seconds',
+            'allowed_routes' => 'maintenance_allowed_routes_json',
+            'blocked_route_patterns' => 'maintenance_blocked_route_patterns_json',
+        ];
+
+        foreach ($maintenanceMap as $input => $column) {
+            if (array_key_exists($input, $maintenance)) {
+                $updates[$column] = $maintenance[$input];
+            }
+        }
+
+        foreach ($maintenanceMap as $input => $column) {
+            if (array_key_exists($column, $payload)) {
+                $updates[$column] = $payload[$column];
+            } elseif (array_key_exists($input, $payload)) {
+                $updates[$column] = $payload[$input];
+            }
+        }
+
+        $apiMap = [
+            'base_url' => 'api_base_url',
+            'realtime_url' => 'realtime_url',
+            'asset_cdn_base_url' => 'asset_cdn_base_url',
+        ];
+
+        foreach ($apiMap as $input => $column) {
+            if (array_key_exists($input, $api)) {
+                $updates[$column] = $api[$input];
+            }
+        }
+
+        foreach ($apiMap as $input => $column) {
+            if (array_key_exists($column, $payload)) {
+                $updates[$column] = $payload[$column];
+            } elseif (array_key_exists($input, $payload)) {
+                $updates[$column] = $payload[$input];
+            }
+        }
+
+        return $updates;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function themeUpdates(array $payload): array
+    {
+        $updates = [];
+        $brand = is_array($payload['brand'] ?? null) ? $payload['brand'] : [];
+        $theme = is_array($payload['theme'] ?? null) ? $payload['theme'] : [];
+
+        foreach (['logo_url', 'favicon_url', 'og_image_url'] as $field) {
+            if (array_key_exists($field, $payload) || array_key_exists($field, $brand)) {
+                $updates[$field] = $payload[$field] ?? $brand[$field];
+            }
+        }
+
+        foreach (['primary_color', 'secondary_color', 'accent_color', 'background_color', 'text_color', 'font_family'] as $field) {
+            if (array_key_exists($field, $payload) || array_key_exists($field, $theme)) {
+                $updates[$field] = $payload[$field] ?? $theme[$field];
+            }
+        }
+
+        return $updates;
+    }
+
+    /**
+     * @param array<string, mixed> $updates
+     * @return array<string, mixed>
+     */
+    private function serializeSettingsUpdates(array $updates): array
+    {
+        foreach (['default_keywords_json', 'maintenance_allowed_routes_json', 'maintenance_blocked_route_patterns_json'] as $jsonField) {
+            if (array_key_exists($jsonField, $updates)) {
+                $updates[$jsonField] = json_encode($this->normalizedStringList($updates[$jsonField]), JSON_THROW_ON_ERROR);
+            }
+        }
+
+        return $updates;
+    }
+
+    private function primaryHostForTenant(string $tenantId): string
+    {
+        $host = PartnerTenantDomain::query()
+            ->forTenant($tenantId)
+            ->orderByDesc('is_primary')
+            ->orderBy('host')
+            ->value('host');
+
+        if ($host !== null) {
+            return (string) $host;
+        }
+
+        $tenantCode = PartnerTenant::whereKey($tenantId)->value('code');
+
+        return ($tenantCode ?: $tenantId).'.newpaotang.test';
+    }
+
+    private function canonicalUrl(string $host): string
+    {
+        return 'https://'.$this->normalizeHost($host);
     }
 
     private function percentBasisPointsFrom(mixed $percent, mixed $basisPoints = null): ?int

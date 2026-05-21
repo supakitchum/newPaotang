@@ -48,7 +48,7 @@ class DefaultRbacMenuSeeder extends Seeder
 
         AdminMenu::query()
             ->where('scope_type', 'central')
-            ->whereIn('code', ['master_stock', 'stock_recall'])
+            ->whereIn('code', ['master_stock', 'stock_recall', 'partner_provisioning'])
             ->delete();
 
         AdminMenu::query()
@@ -200,7 +200,6 @@ class DefaultRbacMenuSeeder extends Seeder
                 'stock_generation' => 'stock.generate',
                 'stock_settings' => 'stock.generate',
                 'partners' => 'partner.view',
-                'partner_provisioning' => 'partner.provision',
                 'partner_quotas' => 'partner.quota.manage',
                 'partner_monitoring' => 'partner.monitoring.view',
                 'partner_usage' => 'partner.usage.view',
@@ -306,7 +305,6 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:stock_generation' => '/admin/central/stock',
             'central:stock_settings' => '/admin/central/stock-settings',
             'central:partners',
-            'central:partner_provisioning',
             'central:partner_quotas',
             'central:partner_monitoring',
             'central:partner_usage',
@@ -372,6 +370,10 @@ class DefaultRbacMenuSeeder extends Seeder
             return 'Tenant Stock';
         }
 
+        if ($code === 'partners') {
+            return 'Partner/Tenant';
+        }
+
         return str($code)->replace('_', ' ')->title()->toString();
     }
 
@@ -389,7 +391,6 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:stock_settings',
             'central:allocations' => 'Lottery Operations',
             'central:partners',
-            'central:partner_provisioning',
             'central:partner_quotas',
             'central:partner_monitoring',
             'central:partner_usage',

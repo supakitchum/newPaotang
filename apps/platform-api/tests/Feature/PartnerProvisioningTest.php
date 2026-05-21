@@ -68,6 +68,161 @@ class PartnerProvisioningTest extends TestCase
             ->assertJsonPath('error.details.fields.stock_percent.0', 'The stock_percent field must be between 0 and 100.');
     }
 
+    public function test_PartnerProvisioning_central_profile_updates_partner_tenant_domain_settings_theme_and_owner(): void
+    {
+        $this->seedDefaultRbac();
+        $login = $this->createCentralSession([
+            'partner.view',
+            'partner.create',
+            'partner.update',
+            'partner.provision',
+        ], 'adm_profile', 'profile-manager@example.test');
+
+        $partner = $this->createPartnerViaApi($login, 'profile_partner', 'Profile Partner');
+        $provisioned = $this->provisionViaApi($login, $partner['id'], [
+            'tenant_code' => 'profile_partner',
+            'tenant_name' => 'Profile Partner',
+            'domain_host' => 'profile.example.test',
+            'owner_email' => 'owner@profile.test',
+            'owner_name' => 'Profile Owner',
+            'owner_password' => 'owner-password',
+            'site_name' => 'Profile Site',
+        ]);
+        $tenantId = $provisioned['tenants'][0]['id'];
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/partners/'.$partner['id'].'/profile', [
+                'section' => 'tenant',
+                'tenant' => [
+                    'code' => 'profile_tenant',
+                    'name' => 'Profile Tenant Updated',
+                    'status' => 'maintenance',
+                ],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'tenant-profile-update',
+            ])
+            ->assertOk()
+            ->assertJsonPath('tenants.0.code', 'profile_tenant')
+            ->assertJsonPath('tenants.0.name', 'Profile Tenant Updated')
+            ->assertJsonPath('tenants.0.status', 'maintenance');
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/partners/'.$partner['id'].'/profile', [
+                'section' => 'domain',
+                'domain' => [
+                    'host' => 'profile-updated.example.test',
+                    'type' => 'custom_domain',
+                    'status' => 'active',
+                    'is_primary' => true,
+                ],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'domain-profile-update',
+            ])
+            ->assertOk()
+            ->assertJsonPath('domains.0.host', 'profile-updated.example.test')
+            ->assertJsonPath('domains.0.type', 'custom_domain')
+            ->assertJsonPath('domains.0.status', 'active');
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/partners/'.$partner['id'].'/profile', [
+                'section' => 'settings',
+                'settings' => [
+                    'site' => [
+                        'site_name' => 'Profile Shop',
+                        'display_name' => 'Profile Shop BO',
+                        'support_email' => 'support@profile.test',
+                    ],
+                    'seo' => [
+                        'default_title' => 'Profile SEO',
+                        'default_keywords' => ['vip', 'lottery'],
+                    ],
+                    'maintenance' => [
+                        'active' => true,
+                        'mode' => 'read_only',
+                        'message' => 'Read only window',
+                    ],
+                    'api' => [
+                        'asset_cdn_base_url' => 'https://cdn.profile.test',
+                    ],
+                ],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'settings-profile-update',
+            ])
+            ->assertOk()
+            ->assertJsonPath('tenant_settings.site.site_name', 'Profile Shop')
+            ->assertJsonPath('tenant_settings.site.display_name', 'Profile Shop BO')
+            ->assertJsonPath('tenant_settings.seo.default_keywords', ['lottery', 'vip'])
+            ->assertJsonPath('tenant_settings.maintenance.active', true)
+            ->assertJsonPath('tenant_settings.api.asset_cdn_base_url', 'https://cdn.profile.test');
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/partners/'.$partner['id'].'/profile', [
+                'section' => 'theme',
+                'theme' => [
+                    'brand' => [
+                        'logo_url' => 'https://cdn.profile.test/logo.webp',
+                        'favicon_url' => 'https://cdn.profile.test/favicon.webp',
+                    ],
+                    'theme' => [
+                        'primary_color' => '#123ABC',
+                        'secondary_color' => '#456DEF',
+                        'accent_color' => '#F59E0B',
+                        'background_color' => '#FFFFFF',
+                        'text_color' => '#111827',
+                        'font_family' => 'Prompt, sans-serif',
+                    ],
+                ],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'theme-profile-update',
+            ])
+            ->assertOk()
+            ->assertJsonPath('tenant_theme.brand.logo_url', 'https://cdn.profile.test/logo.webp')
+            ->assertJsonPath('tenant_theme.theme.primary_color', '#123ABC');
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/partners/'.$partner['id'].'/profile', [
+                'section' => 'owner',
+                'owner' => [
+                    'owner_email' => 'new-owner@profile.test',
+                    'owner_name' => 'Profile Owner Updated',
+                    'owner_password' => 'new-owner-password',
+                ],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'owner-profile-update',
+            ])
+            ->assertOk()
+            ->assertJsonPath('owner_admin.email', 'new-owner@profile.test')
+            ->assertJsonPath('owner_admin.name', 'Profile Owner Updated');
+
+        $this->assertDatabaseHas('partner_tenants', [
+            'id' => $tenantId,
+            'code' => 'profile_tenant',
+            'name' => 'Profile Tenant Updated',
+            'status' => 'maintenance',
+        ]);
+        $this->assertDatabaseHas('partner_tenant_domains', [
+            'tenant_id' => $tenantId,
+            'host' => 'profile-updated.example.test',
+            'type' => 'custom_domain',
+            'status' => 'active',
+        ]);
+        $this->assertDatabaseHas('partner_tenant_settings', [
+            'tenant_id' => $tenantId,
+            'site_name' => 'Profile Shop',
+            'support_email' => 'support@profile.test',
+        ]);
+        $this->assertDatabaseHas('partner_tenant_themes', [
+            'tenant_id' => $tenantId,
+            'logo_url' => 'https://cdn.profile.test/logo.webp',
+            'primary_color' => '#123ABC',
+        ]);
+    }
+
     public function test_PartnerProvisioning_central_admin_can_create_provision_idempotently_login_owner_and_suspend(): void
     {
         $this->seedDefaultRbac();

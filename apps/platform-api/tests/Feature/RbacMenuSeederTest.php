@@ -37,7 +37,7 @@ class RbacMenuSeederTest extends TestCase
     {
         $this->seed(DefaultRbacMenuSeeder::class);
 
-        $this->assertSame(23, DB::table('admin_menus')->where('scope_type', 'central')->count());
+        $this->assertSame(22, DB::table('admin_menus')->where('scope_type', 'central')->count());
         $this->assertSame(31, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
 
         $this->assertDatabaseHas('admin_menus', [
@@ -75,7 +75,13 @@ class RbacMenuSeederTest extends TestCase
         $this->assertDatabaseHas('admin_menus', [
             'scope_type' => 'central',
             'code' => 'partners',
+            'label' => 'Partner/Tenant',
             'route' => '/admin/central/partners',
+        ]);
+
+        $this->assertDatabaseMissing('admin_menus', [
+            'scope_type' => 'central',
+            'code' => 'partner_provisioning',
         ]);
 
         $this->assertDatabaseHas('admin_menus', [

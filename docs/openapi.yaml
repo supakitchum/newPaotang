@@ -1573,6 +1573,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminResource"
+  /admin/central/partners/{partner_id}/profile:
+    patch:
+      tags: [Central Admin]
+      summary: Update partner, tenant, domain, site settings, theme, or owner profile section
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: partner_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/AdminPatchRequest"
+                - type: object
+                  required: [section]
+                  properties:
+                    section:
+                      type: string
+                      enum: [partner, tenant, domain, settings, theme, owner]
+      responses:
+        "200":
+          description: Partner tenant profile section updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
   /admin/central/partners/{partner_id}/provision:
     post:
       tags: [Central Admin]

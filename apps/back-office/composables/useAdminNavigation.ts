@@ -24,7 +24,6 @@ const scopedRouteOverrides: Record<string, string> = {
   'central:lottery-images': '/admin/central/lottery-images',
   'central:reports': '/admin/central/reports',
   'central:settlement': '/admin/central/settlements',
-  'central:partner_provisioning': '/admin/central/partner-provisioning',
   'central:partner_monitoring': '/admin/central/partner-monitoring',
   'central:partner_usage': '/admin/central/partner-usage',
   'central:billing_plans': '/admin/central/billing-plans',
@@ -174,7 +173,7 @@ const buildMenuTree = (items: AdminMenuItem[]) => {
   return groups
 }
 
-const retiredCentralMenuKeys = new Set(['master_stock', 'partner_quotas', 'stock_recall'])
+const retiredCentralMenuKeys = new Set(['master_stock', 'partner_quotas', 'stock_recall', 'partner_provisioning'])
 const retiredTenantMenuKeys = new Set(['stock_sync'])
 
 const hideRetiredMenus = (scope: string, items: AdminMenuItem[]): AdminMenuItem[] => {
@@ -184,7 +183,7 @@ const hideRetiredMenus = (scope: string, items: AdminMenuItem[]): AdminMenuItem[
     .filter((item) => item.key !== 'prize_checking' && !retiredKeys.has(item.key))
     .map((item) => ({
       ...item,
-      label: item.key === 'stock_generation' ? 'Stock Manager' : item.key === 'local_stock' ? 'Tenant Stock' : item.label,
+      label: item.key === 'stock_generation' ? 'Stock Manager' : item.key === 'local_stock' ? 'Tenant Stock' : item.key === 'partners' ? 'Partner/Tenant' : item.label,
       children: Array.isArray(item.children) ? hideRetiredMenus(scope, item.children) : [],
     }))
 }

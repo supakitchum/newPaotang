@@ -192,6 +192,8 @@ Route::get('/admin/central/partners/{partner_id}', [PartnerProvisioningControlle
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::patch('/admin/central/partners/{partner_id}', [PartnerProvisioningController::class, 'update'])
     ->middleware(['admin.auth', 'admin.scope:central']);
+Route::patch('/admin/central/partners/{partner_id}/profile', [PartnerProvisioningController::class, 'updateProfile'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/partners/{partner_id}/lottery-branding-assets', [PartnerLotteryBrandingAssetController::class, 'show'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::put('/admin/central/partners/{partner_id}/lottery-branding-assets', [PartnerLotteryBrandingAssetController::class, 'update'])

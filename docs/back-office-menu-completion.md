@@ -19,8 +19,7 @@ Status legend:
 | central:rewards | /admin/central/rewards | /admin/central/rewards | Complete | Catalog uses central rewards list/detail/actions. |
 | central:prize_checking | /admin/central/rewards | /admin/central/rewards | Shared accepted | Prize checking shares the rewards verification workflow. |
 | central:stock_generation | /admin/central/stock | /admin/central/stock-generation | Shared accepted | Renamed to Stock Manager and consolidated as the single stock operations entry for generated supply, grouped stock counts, import/export, top-up progress, and stock actions. |
-| central:partners | /admin/central/partners | /admin/central/partners | Complete | Catalog uses central partners list/detail/provision/suspend actions. |
-| central:partner_provisioning | /admin/central/partners | /admin/central/partner-provisioning | Complete | Dedicated BO route backed by partners API and provisioning actions. |
+| central:partners | /admin/central/partners | /admin/central/partners | Complete | Partner/Tenant consolidates partner detail, tenant profile editing, provisioning, lottery branding, and suspend actions. |
 | central:partner_quotas | /admin/central/partners | /admin/central/partner-quotas | Complete | Dedicated BO route backed by registered partner quota API. |
 | central:partner_monitoring | /admin/central/partners | /admin/central/partner-monitoring | Complete | Catalog now calls registered partner monitoring list/detail APIs with `partner.monitoring.view`. |
 | central:partner_usage | /admin/central/partners | /admin/central/partner-usage | Complete | Catalog now calls registered partner usage list/detail APIs with `partner.usage.view` and date filters for recent summaries. |

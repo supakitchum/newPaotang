@@ -298,6 +298,7 @@ auditor
 | `POST /admin/central/partners` | central | partner.create |
 | `GET /admin/central/partners/{partner_id}` | central | partner.view |
 | `PATCH /admin/central/partners/{partner_id}` | central | partner.update |
+| `PATCH /admin/central/partners/{partner_id}/profile` | central | partner.update |
 | `POST /admin/central/partners/{partner_id}/provision` | central | partner.provision |
 | `POST /admin/central/partners/{partner_id}/suspend` | central | partner.suspend |
 | `GET /admin/central/partner-quotas` | central | partner.quota.manage |
