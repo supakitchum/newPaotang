@@ -33,7 +33,8 @@ expect('site-config state is host-scoped', siteConfigComposable.includes('site_c
 expect('site-config promise cache is host-scoped', siteConfigComposable.includes('siteConfigPromises'))
 expect('site-config no longer replaces API base with site-config api.base_url', !siteConfigComposable.includes('runtimeApiBaseUrl.value = siteConfig.api.base_url'))
 expect('customer stock realtime can resolve tenant from site-config', stockRealtimeComposable.includes('tenantIdFromSiteConfig(siteConfig.value)'))
-expect('customer stock realtime uses public stock channel subscription', stockRealtimeComposable.includes('subscribePublicChannel') && stockRealtimeComposable.includes('customer.tenant.${tenantId.value}.stock.game.${gameId.value}') && !stockRealtimeComposable.includes('private-customer.tenant.${tenantId.value}.stock.game.${gameId.value}'))
+expect('customer stock realtime uses public stock channel subscription', stockRealtimeComposable.includes('subscribePublicChannels') && stockRealtimeComposable.includes('customer.tenant.${tenantId.value}.stock.game.${gameId.value}') && !stockRealtimeComposable.includes('private-customer.tenant.${tenantId.value}.stock.game.${gameId.value}'))
+expect('customer sale price realtime uses tenant-wide public channel fallback', stockRealtimeComposable.includes('customer.tenant.${tenantId.value}.sale-price'))
 
 const failed = checks.filter((check) => !check.condition)
 

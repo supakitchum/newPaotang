@@ -110,7 +110,7 @@ useCustomerStockRealtime({
   gameId: currentGameId,
   enabled: computed(() => Boolean(currentGameId.value)),
   onAvailability: (payload) => applyAvailabilityUpdate(payload),
-  onPrice: (payload) => applyPriceUpdateToTickets(tickets, payload),
+  onPrice: (payload) => applyPriceUpdateToTickets(tickets, payload, { gameId: currentGameId }),
 })
 
 const goBack = () => {

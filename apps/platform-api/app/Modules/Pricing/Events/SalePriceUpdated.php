@@ -35,10 +35,12 @@ class SalePriceUpdated implements ShouldBroadcastNow
         }
 
         $channel = 'customer.tenant.'.$tenantId.'.stock.game.'.$gameId;
+        $tenantSalePriceChannel = 'customer.tenant.'.$tenantId.'.sale-price';
 
         return [
             new PrivateChannel($channel),
             new Channel($channel),
+            new Channel($tenantSalePriceChannel),
         ];
     }
 

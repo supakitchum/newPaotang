@@ -123,7 +123,7 @@ useCustomerStockRealtime({
   gameId: currentGameId,
   enabled: computed(() => Boolean(currentGameId.value)),
   onAvailability: (payload) => applyAvailabilityUpdate(payload),
-  onPrice: (payload) => applyPriceUpdateToTickets(lotteries, payload),
+  onPrice: (payload) => applyPriceUpdateToTickets(lotteries, payload, { gameId: currentGameId }),
 })
 
 const handleDigitsUpdate = (digits: string[]) => {

@@ -23,22 +23,31 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
   const gameId = computed(() => readRealtimeValue(options.gameId).trim())
   const enabled = computed(() => options.enabled === undefined ? true : Boolean(readRealtimeValue(options.enabled)))
   const tenantId = computed(() => tenantIdFromUser(user.value) || tenantIdFromSiteConfig(siteConfig.value))
-  const channelName = computed(() => {
+  const stockChannelName = computed(() => {
     if (!gameId.value || !tenantId.value) {
       return ''
     }
 
     return `customer.tenant.${tenantId.value}.stock.game.${gameId.value}`
   })
-  const shouldSubscribe = computed(() => Boolean(import.meta.client && enabled.value && gameId.value && tenantId.value && channelName.value))
+  const salePriceChannelName = computed(() => {
+    if (!tenantId.value) {
+      return ''
+    }
+
+    return `customer.tenant.${tenantId.value}.sale-price`
+  })
+  const channelNames = computed(() => [stockChannelName.value, salePriceChannelName.value].filter(Boolean))
+  const shouldSubscribe = computed(() => Boolean(import.meta.client && enabled.value && gameId.value && tenantId.value && channelNames.value.length))
 
   let socket: WebSocket | null = null
   let socketId = ''
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
   let hasConnectedOnce = false
+  let socketConnectionMarked = false
 
   watch(
-    () => [shouldSubscribe.value, isConfigured.value, channelName.value, realtimeKey.value],
+    () => [shouldSubscribe.value, isConfigured.value, channelNames.value.join('|'), realtimeKey.value],
     () => {
       if (!shouldSubscribe.value) {
         disconnect('idle')
@@ -78,6 +87,7 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
     }
 
     const activeSocket = socket
+    socketConnectionMarked = false
     activeSocket.addEventListener('message', (event) => {
       if (activeSocket === socket) {
         void handleMessage(activeSocket, event.data)
@@ -96,6 +106,7 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
 
       socket = null
       socketId = ''
+      socketConnectionMarked = false
       if (shouldSubscribe.value && isConfigured.value) {
         scheduleReconnect()
       } else {
@@ -110,7 +121,7 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
     if (message.event === 'pusher:connection_established') {
       const data = parseRealtimeData(message.data)
       socketId = String(data?.socket_id || '').trim()
-      subscribePublicChannel(activeSocket)
+      subscribePublicChannels(activeSocket)
       return
     }
 
@@ -135,20 +146,27 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
     }
   }
 
-  function subscribePublicChannel(activeSocket: WebSocket) {
-    if (activeSocket !== socket || activeSocket.readyState !== WebSocket.OPEN || !channelName.value) {
+  function subscribePublicChannels(activeSocket: WebSocket) {
+    if (activeSocket !== socket || activeSocket.readyState !== WebSocket.OPEN || !channelNames.value.length) {
       return
     }
 
-    sendRealtime(activeSocket, {
-      event: 'pusher:subscribe',
-      data: {
-        channel: channelName.value,
-      },
-    })
+    for (const channel of channelNames.value) {
+      sendRealtime(activeSocket, {
+        event: 'pusher:subscribe',
+        data: {
+          channel,
+        },
+      })
+    }
   }
 
   function markConnected() {
+    if (socketConnectionMarked) {
+      return
+    }
+
+    socketConnectionMarked = true
     const wasReconnect = hasConnectedOnce
     hasConnectedOnce = true
     status.value = 'connected'
@@ -174,6 +192,7 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
     stopReconnectTimer()
     cleanupSocket(true)
     socketId = ''
+    socketConnectionMarked = false
     status.value = finalStatus
   }
 
@@ -184,8 +203,10 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
       return
     }
 
-    if (sendUnsubscribe && activeSocket.readyState === WebSocket.OPEN && channelName.value) {
-      sendRealtime(activeSocket, { event: 'pusher:unsubscribe', data: { channel: channelName.value } })
+    if (sendUnsubscribe && activeSocket.readyState === WebSocket.OPEN) {
+      for (const channel of channelNames.value) {
+        sendRealtime(activeSocket, { event: 'pusher:unsubscribe', data: { channel } })
+      }
     }
 
     activeSocket.close()
