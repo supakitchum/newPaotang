@@ -5,6 +5,7 @@ const legacyLoginRedirect = () => ({ path: '/login' })
 
 export default defineNuxtRouteMiddleware((to) => {
   const session = useAdminSession()
+  const hostMode = useAdminHostMode()
 
   if (!to.path.startsWith('/admin')) {
     return
@@ -39,6 +40,17 @@ export default defineNuxtRouteMiddleware((to) => {
 
   if (!session.isAuthenticated.value) {
     return navigateTo(loginRedirect(to.fullPath))
+  }
+
+  if (hostMode.isPartnerBoHost.value && !session.ensurePartnerTenantSession()) {
+    session.rememberAuthNotice('This partner Back Office requires a tenant admin account for this domain.')
+    session.clear()
+    return navigateTo(loginRedirect('/admin/tenant/dashboard'))
+  }
+
+  if (hostMode.isPartnerBoHost.value && to.path.startsWith('/admin/central')) {
+    session.rememberAuthNotice('Partner Back Office only supports tenant admin pages for this domain.')
+    return navigateTo('/admin/tenant/dashboard')
   }
 
   if (!session.alignScopeForPath(to.path)) {

@@ -10,10 +10,10 @@ type ApiOptions = {
 }
 
 export const useAdminApi = () => {
-  const config = useRuntimeConfig()
   const session = useAdminSession()
+  const hostMode = useAdminHostMode()
   const { showSuccessAlert } = useAdminSuccessAlert()
-  const apiBase = computed(() => String(config.public.adminApiBase || '').replace(/\/$/, ''))
+  const apiBase = computed(() => hostMode.adminApiBase.value)
 
   const requestId = () => `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
   const idempotencyKey = () => `idk_${Date.now().toString(36)}_${cryptoSafeRandom()}`
@@ -92,16 +92,26 @@ export const useAdminApi = () => {
 
   const login = async (payload: { email: string, password: string, scope?: string, tenant_id?: string | null }) => {
     session.clear()
+    const partnerMode = hostMode.isPartnerBoHost.value
+    const scope = partnerMode || payload.scope === 'tenant' ? 'tenant' : 'central'
+    const tenantId = partnerMode ? null : payload.tenant_id
+    const body = partnerMode
+      ? {
+          email: payload.email,
+          password: payload.password,
+          scope: 'tenant',
+        }
+      : payload
 
     const response = await apiFetch('/auth/admin/login', {
       method: 'POST',
-      body: payload,
-      scope: payload.scope === 'tenant' ? 'tenant' : 'central',
-      tenantId: payload.tenant_id,
+      body,
+      scope,
+      tenantId,
       successMessage: false,
       auth: false,
     })
-    session.applyAuthPayload(response, payload.scope as 'central' | 'tenant', payload.tenant_id)
+    session.applyAuthPayload(response, scope, tenantId)
     return response
   }
 

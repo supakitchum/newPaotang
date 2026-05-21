@@ -42,6 +42,7 @@ const emptySession = (): AdminSessionState => ({
 export const useAdminSession = () => {
   const session = useState<AdminSessionState>('admin-session', emptySession)
   const toast = useState<{ type: string, message: string } | null>('admin-toast', () => null)
+  const hostMode = useAdminHostMode()
 
   const isAuthenticated = computed(() => Boolean(session.value.accessToken))
   const currentScope = computed(() => session.value.activeScope)
@@ -110,7 +111,8 @@ export const useAdminSession = () => {
 
   const applyAuthPayload = (payload: any, requestedScope?: 'central' | 'tenant', requestedTenantId?: string | null) => {
     const scopes = Array.isArray(payload?.scopes) ? payload.scopes : []
-    const activeScope = (payload?.active_scope || requestedScope || firstUsableScope(scopes)?.scope || 'central') as 'central' | 'tenant'
+    const resolvedRequestedScope = hostMode.isPartnerBoHost.value ? 'tenant' : requestedScope
+    const activeScope = (payload?.active_scope || resolvedRequestedScope || firstUsableScope(scopes)?.scope || 'central') as 'central' | 'tenant'
     const activeTenantId = payload?.active_tenant_id || requestedTenantId || firstTenantId(scopes, activeScope)
 
     session.value = {
@@ -133,6 +135,10 @@ export const useAdminSession = () => {
 
   const alignScopeForPath = (path: string) => {
     if (path.startsWith('/admin/central')) {
+      if (hostMode.isPartnerBoHost.value) {
+        return false
+      }
+
       if (!hasScope('central')) {
         return false
       }
@@ -149,6 +155,20 @@ export const useAdminSession = () => {
       return true
     }
 
+    return true
+  }
+
+  const ensurePartnerTenantSession = () => {
+    if (!hostMode.isPartnerBoHost.value) {
+      return true
+    }
+
+    const tenantId = session.value.activeTenantId || firstTenantId(session.value.scopes, 'tenant')
+    if (!tenantId || !hasScope('tenant', tenantId)) {
+      return false
+    }
+
+    setScope('tenant', tenantId)
     return true
   }
 
@@ -201,6 +221,7 @@ export const useAdminSession = () => {
     applyAuthPayload,
     setScope,
     alignScopeForPath,
+    ensurePartnerTenantSession,
     hasPermission,
     hasScope,
     clear,

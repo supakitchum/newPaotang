@@ -40,6 +40,17 @@ export default defineNuxtConfig({
       adminRealtimeKey: process.env.VITE_ADMIN_REALTIME_KEY || process.env.NUXT_PUBLIC_ADMIN_REALTIME_KEY || 'newpaotang-admin',
     },
   },
+  vite: {
+    server: {
+      allowedHosts: ['.test'],
+      proxy: {
+        '/api/v1': {
+          target: 'http://platform-api:8000',
+          changeOrigin: false,
+        },
+      },
+    },
+  },
   typescript: {
     strict: false,
   },

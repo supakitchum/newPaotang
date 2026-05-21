@@ -7,19 +7,20 @@
             <div class="row g-0">
               <div class="col-lg-6 d-none d-lg-flex np-login-media text-white p-5 align-items-end">
                 <div>
-                  <h1 class="fw-semibold mb-3">NewPaotang Back Office</h1>
-                  <p class="mb-0 opacity-75">Central and tenant operations, rendered through backend RBAC menus and Meno dashboard patterns.</p>
+                  <h1 class="fw-semibold mb-3">{{ loginHeroTitle }}</h1>
+                  <p class="mb-0 opacity-75">{{ loginHeroSubtitle }}</p>
                 </div>
               </div>
               <div class="col-lg-6">
                 <div class="card-body p-4 p-lg-5">
                   <div class="mb-4">
-                    <img src="/admin-template/assets/images/brand-logos/desktop-logo.png" alt="NewPaotang" height="34" class="mb-3" />
-                    <h4 class="mb-1">Admin sign in</h4>
-                    <p class="text-muted mb-0">Use an approved central or tenant admin account.</p>
+                    <img :src="loginLogoUrl" :alt="loginLogoAlt" height="34" class="mb-3" data-partner-login-brand-logo />
+                    <h4 class="mb-1" data-partner-login-brand-name>{{ loginTitle }}</h4>
+                    <p class="text-muted mb-0">{{ loginSubtitle }}</p>
                   </div>
                   <AdminAlert v-if="notice" type="warning" :message="notice" dismissible @dismiss="notice = ''" />
                   <AdminAlert v-if="error" type="danger" :message="error.message" :details="error.details" dismissible @dismiss="error = null" />
+                  <AdminAlert v-if="isPartnerBoMode && siteConfigError" type="warning" message="Unable to load partner branding. You can still sign in." dismissible @dismiss="siteConfigError = null" />
                   <form @submit.prevent="submit">
                     <div class="mb-3">
                       <label class="form-label">Email</label>
@@ -29,7 +30,7 @@
                       <label class="form-label">Password</label>
                       <input v-model="form.password" type="password" class="form-control" autocomplete="current-password" required />
                     </div>
-                    <div class="row g-2">
+                    <div v-if="!isPartnerBoMode" class="row g-2" data-central-login-scope-controls>
                       <div class="col-sm-5">
                         <label class="form-label">Scope</label>
                         <select v-model="form.scope" class="form-select">
@@ -41,6 +42,10 @@
                         <label class="form-label">Tenant ID</label>
                         <input v-model="form.tenant_id" class="form-control" :disabled="form.scope === 'central'" placeholder="Required for tenant login" />
                       </div>
+                    </div>
+                    <div v-else class="alert alert-primary d-flex align-items-center mb-0" data-partner-login-tenant-only>
+                      <i class="ri-building-line me-2" />
+                      <span>Tenant admin access for {{ partnerDisplayName }}</span>
                     </div>
                     <button class="btn btn-primary btn-wave w-100 mt-4" type="submit" :disabled="loading">
                       <span v-if="loading" class="spinner-border spinner-border-sm me-2" />
@@ -66,10 +71,35 @@ definePageMeta({ layout: false })
 
 const api = useAdminApi()
 const session = useAdminSession()
+const hostMode = useAdminHostMode()
+const adminSiteConfig = useAdminSiteConfig()
 const route = useRoute()
 const loading = ref(false)
 const error = ref<any>(null)
 const notice = ref('')
+const isPartnerBoMode = computed(() => hostMode.isPartnerBoHost.value)
+const partnerDisplayName = computed(() => adminSiteConfig.displayName.value || 'Partner Back Office')
+const loginHeroTitle = computed(() => isPartnerBoMode.value ? partnerDisplayName.value : 'NewPaotang Back Office')
+const loginHeroSubtitle = computed(() => (
+  isPartnerBoMode.value
+    ? 'Secure tenant operations for this partner domain.'
+    : 'Central and tenant operations, rendered through backend RBAC menus and Meno dashboard patterns.'
+))
+const loginTitle = computed(() => isPartnerBoMode.value ? `${partnerDisplayName.value} sign in` : 'Admin sign in')
+const loginSubtitle = computed(() => (
+  isPartnerBoMode.value
+    ? 'Use an approved tenant admin account.'
+    : 'Use an approved central or tenant admin account.'
+))
+const defaultLoginLogoUrl = '/admin-template/assets/images/brand-logos/desktop-logo.png'
+const loginLogoUrl = computed(() => isPartnerBoMode.value ? adminSiteConfig.logoUrl.value || defaultLoginLogoUrl : defaultLoginLogoUrl)
+const loginLogoAlt = computed(() => isPartnerBoMode.value ? partnerDisplayName.value : 'NewPaotang')
+const siteConfigError = computed({
+  get: () => adminSiteConfig.error.value,
+  set: (value) => {
+    adminSiteConfig.error.value = value
+  },
+})
 const form = reactive({
   email: '',
   password: '',
@@ -78,6 +108,12 @@ const form = reactive({
 })
 
 onMounted(async () => {
+  if (isPartnerBoMode.value) {
+    form.scope = 'tenant'
+    form.tenant_id = ''
+    await adminSiteConfig.load()
+  }
+
   session.restore()
   notice.value = session.consumeAuthNotice()
 
@@ -85,13 +121,19 @@ onMounted(async () => {
     return
   }
 
+  if (isPartnerBoMode.value && !session.ensurePartnerTenantSession()) {
+    session.clear()
+    notice.value = notice.value || 'This partner Back Office requires a tenant admin account for this domain.'
+    return
+  }
+
   try {
     await api.apiFetch('/auth/admin/me', {
-      scope: session.currentScope.value,
+      scope: isPartnerBoMode.value ? 'tenant' : session.currentScope.value,
       tenantId: session.currentTenantId.value,
       successMessage: false,
     })
-    navigateTo(afterLoginPath(session.currentScope.value))
+    navigateTo(afterLoginPath(isPartnerBoMode.value ? 'tenant' : session.currentScope.value))
   } catch {
     session.clear()
     notice.value = notice.value || 'Session expired. Please sign in again.'
@@ -103,13 +145,14 @@ const submit = async () => {
   error.value = null
 
   try {
+    const scope = isPartnerBoMode.value ? 'tenant' : form.scope as 'central' | 'tenant'
     await api.login({
       email: form.email,
       password: form.password,
-      scope: form.scope,
-      tenant_id: form.scope === 'tenant' ? form.tenant_id : null,
+      scope,
+      tenant_id: isPartnerBoMode.value ? null : scope === 'tenant' ? form.tenant_id : null,
     })
-    await navigateTo(afterLoginPath(form.scope as 'central' | 'tenant'))
+    await navigateTo(afterLoginPath(scope))
   } catch (err) {
     error.value = err
   } finally {
@@ -119,6 +162,10 @@ const submit = async () => {
 
 const afterLoginPath = (scope: 'central' | 'tenant') => {
   const target = safeRedirectTarget(route.query.redirect, scope)
+  if (isPartnerBoMode.value) {
+    return target || '/admin/tenant/dashboard'
+  }
+
   return target || (scope === 'tenant' ? '/admin/tenant/dashboard' : '/admin/central/dashboard')
 }
 
@@ -126,6 +173,10 @@ const safeRedirectTarget = (value: unknown, scope: 'central' | 'tenant') => {
   const target = Array.isArray(value) ? value[0] : value
   if (typeof target !== 'string' || target.startsWith('//') || !isRoutableAdminPath(target)) {
     return ''
+  }
+
+  if (isPartnerBoMode.value) {
+    return isScopePath(target, 'tenant') ? target : ''
   }
 
   if (isScopePath(target, 'central') && scope !== 'central') {
