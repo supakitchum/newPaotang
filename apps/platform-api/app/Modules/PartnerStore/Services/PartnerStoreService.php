@@ -223,6 +223,18 @@ class PartnerStoreService
             }
         }
 
+        foreach (range(1, 6) as $position) {
+            $field = 'd'.$position;
+
+            if (($queryParams[$field] ?? null) !== null && trim((string) $queryParams[$field]) !== '') {
+                $value = trim((string) $queryParams[$field]);
+
+                if (! preg_match('/^[0-9]$/', $value)) {
+                    $errors[$field][] = 'The '.$field.' field must be a single digit.';
+                }
+            }
+        }
+
         if (($queryParams['number'] ?? null) !== null && trim((string) $queryParams['number']) !== '') {
             $number = trim((string) $queryParams['number']);
 

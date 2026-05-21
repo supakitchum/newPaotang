@@ -733,8 +733,9 @@ class VirtualStockService
         $front3 = preg_replace('/\D+/', '', (string) ($queryParams['front3'] ?? '')) ?? '';
         $back3 = preg_replace('/\D+/', '', (string) ($queryParams['back3'] ?? '')) ?? '';
         $back2 = preg_replace('/\D+/', '', (string) ($queryParams['back2'] ?? '')) ?? '';
+        $positionalPattern = $this->positionalNumberPattern($queryParams);
 
-        if (strlen($number) >= 6) {
+        if ($positionalPattern === null && strlen($number) >= 6) {
             $fullNumber = substr($number, 0, 6);
             $exists = DB::table('base_lottery_numbers')
                 ->where('full_number', $fullNumber)
@@ -764,7 +765,9 @@ class VirtualStockService
             $query->where('back2', substr($back2, 0, 2));
         }
 
-        if ($number !== '') {
+        if ($positionalPattern !== null) {
+            $query->where('full_number', 'like', $positionalPattern);
+        } elseif ($number !== '') {
             $this->applyNumberSuffixFilter($query, $number);
         }
 
@@ -780,6 +783,26 @@ class VirtualStockService
         foreach ($query->offset(max(0, $cursor))->limit(50001)->get() as $row) {
             yield (string) $row->full_number;
         }
+    }
+
+    private function positionalNumberPattern(array $queryParams): ?string
+    {
+        $pattern = [];
+        $hasDigit = false;
+
+        foreach (range(1, 6) as $position) {
+            $value = trim((string) ($queryParams['d'.$position] ?? ''));
+
+            if (preg_match('/^[0-9]$/', $value) === 1) {
+                $pattern[] = $value;
+                $hasDigit = true;
+                continue;
+            }
+
+            $pattern[] = '_';
+        }
+
+        return $hasDigit ? implode('', $pattern) : null;
     }
 
     private function applyNumberSuffixFilter($query, string $number): void

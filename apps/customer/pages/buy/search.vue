@@ -130,27 +130,7 @@ const handleDigitsUpdate = (digits: string[]) => {
   searchDigits.value = digits.slice(0, 6)
 }
 
-const buildSearchPayload = () => {
-  const number = searchNumber.value
-  const full_number = number.map((digit) => digit ?? '').join('')
-
-  const payload: Record<string, string | Array<string | null> | null> = {
-    number,
-    full_number,
-    n1: number[0],
-    n2: number[1],
-    n3: number[2],
-    n4: number[3],
-    n5: number[4],
-    n6: number[5]
-  }
-
-  if (storeId.value) {
-    payload.store_id = storeId.value
-  }
-
-  return payload
-}
+const buildSearchDigits = () => searchNumber.value.slice(0, 6)
 
 const getTicketNumber = (ticket: Partial<LotteryTicket>) => {
   const value = ticket.number || ticket.full_number || ticket.lottery_number || ''
@@ -200,7 +180,7 @@ const search = async () => {
 
   try {
     const response = await platformApi.searchStockLegacy({
-      number: String(buildSearchPayload().full_number || ''),
+      digits: buildSearchDigits(),
       storeId: storeId.value || undefined
     })
 
@@ -223,7 +203,7 @@ const loadNextPage = async () => {
 
   try {
     const response = await platformApi.searchStockLegacy({
-      number: String(buildSearchPayload().full_number || ''),
+      digits: buildSearchDigits(),
       storeId: storeId.value || undefined,
       cursor: pagination.value?.seed || null,
       page: currentPage.value + 1

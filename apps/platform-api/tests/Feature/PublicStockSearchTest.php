@@ -287,6 +287,47 @@ class PublicStockSearchTest extends TestCase
         $this->assertTrue(collect($numbers)->every(fn (string $number): bool => str_ends_with($number, '22')));
     }
 
+    public function test_PublicStockSearch_supports_positional_digit_matching(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_positional_virtual', 'ten_positional_virtual', 'positional-virtual.newpaotang.test');
+        $this->insertGame('gam_positional_virtual', 'open');
+        $this->insertBaseLotteryNumbers(['003020', '123420', '993929', '000223', '000032']);
+        $this->insertVirtualProfile('gam_positional_virtual', 5, 5);
+        $this->insertPartnerDistribution('gam_positional_virtual', 'par_positional_virtual', 'ten_positional_virtual', 10000, 5);
+
+        $rows = $this->getJson('http://positional-virtual.newpaotang.test/api/v1/public/stock/search?game_id=gam_positional_virtual&d3=3&d5=2&limit=10')
+            ->assertOk()
+            ->json('data');
+
+        $numbers = array_values(array_map(fn (array $row): string => (string) $row['full_number'], $rows));
+        $this->assertSame(['003020', '123420', '993929'], $numbers);
+        $this->assertTrue(collect($numbers)->every(fn (string $number): bool => preg_match('/^..3.2.$/', $number) === 1));
+        $this->assertNotContains('000223', $numbers);
+
+        $this->getJson('http://positional-virtual.newpaotang.test/api/v1/public/stock/search?game_id=gam_positional_virtual&d1=0&d2=0&d3=3&d4=0&d5=2&d6=0')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.full_number', '003020');
+    }
+
+    public function test_PublicStockSearch_validates_positional_digits(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_positional_invalid', 'ten_positional_invalid', 'positional-invalid.newpaotang.test');
+        $this->insertGame('gam_positional_invalid', 'open');
+
+        $this->getJson('http://positional-invalid.newpaotang.test/api/v1/public/stock/search?game_id=gam_positional_invalid&d3=12')
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.fields.d3.0', 'The d3 field must be a single digit.');
+
+        $this->getJson('http://positional-invalid.newpaotang.test/api/v1/public/stock/search?game_id=gam_positional_invalid&d5=a')
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.fields.d5.0', 'The d5 field must be a single digit.');
+    }
+
     public function test_PublicStockSearch_virtual_preview_image_url_is_deterministic_lazy_and_renders_on_demand(): void
     {
         config([

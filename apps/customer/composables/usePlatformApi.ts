@@ -406,6 +406,7 @@ export const usePlatformApi = () => {
 
   const searchStockLegacy = async (input: {
     number?: string
+    digits?: Array<string | null>
     cursor?: string | null
     storeId?: string
     mode?: 'search' | 'browse' | 'random'
@@ -426,11 +427,24 @@ export const usePlatformApi = () => {
     }
 
     const number = String(input.number || '').replace(/\D/g, '').slice(0, 6)
+    const digitParams = (input.digits || []).slice(0, 6).reduce((params, digit, index) => {
+      const value = String(digit || '').replace(/\D/g, '').slice(0, 1)
+
+      if (value) {
+        params[`d${index + 1}`] = value
+      }
+
+      return params
+    }, {} as Record<string, string>)
+    const hasPositionalDigits = Object.keys(digitParams).length > 0
+    const mode = input.mode || (number || hasPositionalDigits ? 'search' : (input.storeId ? 'browse' : 'random'))
     const response = await axios.get('/public/stock/search', {
       params: {
         game_id: gameId,
         ...(number ? { number } : {}),
-        ...(input.storeId ? { store_id: input.storeId, mode: input.mode || 'browse' } : { mode: input.mode || (number ? 'search' : 'random') }),
+        ...digitParams,
+        ...(input.storeId ? { store_id: input.storeId } : {}),
+        mode,
         ...(input.cursor ? { cursor: input.cursor } : {}),
         limit: input.limit || 20
       }
