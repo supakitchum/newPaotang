@@ -393,6 +393,91 @@ class VirtualStockService
     }
 
     /**
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}|null
+     */
+    public function listTenantStock(string $tenantId, string $partnerId, array $queryParams, int $limit): ?array
+    {
+        $gameId = trim((string) ($queryParams['game_id'] ?? ''));
+        $gameId = $gameId !== '' ? $gameId : $this->defaultTenantStockGameId($tenantId, $partnerId);
+        $profile = $this->activeProfile($gameId);
+
+        if ($profile === null) {
+            return null;
+        }
+
+        $cursor = $this->decodeTenantStockCursor($queryParams['cursor'] ?? null);
+        $number = preg_replace('/\D+/', '', trim((string) ($queryParams['number'] ?? ''))) ?? '';
+        $mode = (string) ($queryParams['mode'] ?? 'search');
+        $rows = [];
+        $numberOffset = $cursor['number_offset'];
+        $firstCandidate = true;
+
+        foreach ($this->candidateNumbers($queryParams, $number, $mode, $numberOffset) as $candidate) {
+            $copyOffset = $firstCandidate ? $cursor['copy_offset'] : 0;
+            $assignedCopyIndexes = $this->availableAssignedCopyIndexes($partnerId, $gameId, $candidate, $profile);
+            $firstCandidate = false;
+
+            foreach (array_slice($assignedCopyIndexes, $copyOffset) as $localCopyPosition => $copyIndex) {
+                $nextCopyOffset = $copyOffset + $localCopyPosition + 1;
+                $nextCursor = $nextCopyOffset < count($assignedCopyIndexes)
+                    ? ['number_offset' => $numberOffset, 'copy_offset' => $nextCopyOffset]
+                    : ['number_offset' => $numberOffset + 1, 'copy_offset' => 0];
+
+                $rows[] = [
+                    'resource' => $this->tenantVirtualStockResource($tenantId, $partnerId, $gameId, $candidate, $copyIndex),
+                    'cursor' => $this->encodeTenantStockCursor($nextCursor),
+                ];
+
+                if (count($rows) >= $limit + 1) {
+                    break 2;
+                }
+            }
+
+            $numberOffset++;
+        }
+
+        $hasMore = count($rows) > $limit;
+        $rows = array_slice($rows, 0, $limit);
+        $lastRow = $rows === [] ? null : $rows[array_key_last($rows)];
+
+        return [
+            'data' => array_map(fn (array $row): array => $row['resource'], $rows),
+            'meta' => [
+                'game_id' => $gameId,
+                'stock_mode' => 'virtual',
+                'allocated_count' => $this->allocatedCountForPartner($gameId, $partnerId, $tenantId),
+                'used_count' => $this->usedCountForPartner($gameId, $partnerId),
+                'next_cursor' => $hasMore && $lastRow !== null ? (string) $lastRow['cursor'] : null,
+                'has_more' => $hasMore,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function findTenantStock(string $tenantId, string $partnerId, string $stockItemId): ?array
+    {
+        $ref = $this->parseVirtualRef($stockItemId);
+
+        if ($ref === null || $ref['tenant_id'] !== $tenantId) {
+            return null;
+        }
+
+        $profile = $this->activeProfile($ref['game_id']);
+
+        if ($profile === null) {
+            return null;
+        }
+
+        $copyIndexes = $this->availableAssignedCopyIndexes($partnerId, $ref['game_id'], $ref['full_number'], $profile);
+
+        return in_array($ref['copy_index'], $copyIndexes, true)
+            ? $this->tenantVirtualStockResource($tenantId, $partnerId, $ref['game_id'], $ref['full_number'], $ref['copy_index'])
+            : null;
+    }
+
+    /**
      * @return array{resource?: array<string, mixed>, error?: string}|null
      */
     public function createReservation(string $tenantId, string $partnerId, CustomerSessionContext $customer, array $payload, Request $request): ?array
@@ -662,6 +747,8 @@ class VirtualStockService
         if ($mode === 'random') {
             $randomSeed = trim((string) ($queryParams['random_seed'] ?? $queryParams['game_id'] ?? 'virtual-stock'));
             $query->orderByRaw('md5(full_number || ?)', [$randomSeed]);
+        } elseif (($queryParams['sort_by'] ?? null) === 'full_number' && strtolower((string) ($queryParams['sort_dir'] ?? 'asc')) === 'desc') {
+            $query->orderByDesc('full_number');
         } else {
             $query->orderBy('full_number');
         }
@@ -725,6 +812,17 @@ class VirtualStockService
         $copyIndexes = array_values($availability['partner_copy_indexes']);
 
         return array_slice($copyIndexes, $skip, $remaining);
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function availableAssignedCopyIndexes(string $partnerId, string $gameId, string $fullNumber, array $profile): array
+    {
+        $copyIndexes = $this->partnerCopyIndexes($partnerId, $gameId, $fullNumber, $profile);
+        $used = $this->counterUsed($gameId, 'partner', $partnerId, 'full_number', $fullNumber);
+
+        return array_slice(array_values($copyIndexes), $used);
     }
 
     private function materializeVirtualStock(string $tenantId, string $partnerId, string $gameId, string $fullNumber, int $copyIndex, string $stockRef, mixed $now): string
@@ -1023,6 +1121,82 @@ class VirtualStockService
         }
 
         return $rowsByLayer;
+    }
+
+    private function defaultTenantStockGameId(string $tenantId, string $partnerId): string
+    {
+        $gameId = DB::table('partner_stock_allocations')
+            ->join('stock_supply_profiles', 'stock_supply_profiles.game_id', '=', 'partner_stock_allocations.game_id')
+            ->join('games', 'games.id', '=', 'partner_stock_allocations.game_id')
+            ->where('partner_stock_allocations.partner_id', $partnerId)
+            ->where('partner_stock_allocations.tenant_id', $tenantId)
+            ->whereIn('partner_stock_allocations.status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->where('partner_stock_allocations.allocated_count', '>', 0)
+            ->where('stock_supply_profiles.status', 'active')
+            ->where('games.status', 'open')
+            ->orderByDesc('partner_stock_allocations.created_at')
+            ->orderByDesc('partner_stock_allocations.id')
+            ->value('partner_stock_allocations.game_id');
+
+        return $gameId === null ? '' : (string) $gameId;
+    }
+
+    private function allocatedCountForPartner(string $gameId, string $partnerId, string $tenantId): int
+    {
+        return (int) DB::table('partner_stock_allocations')
+            ->where('game_id', $gameId)
+            ->where('partner_id', $partnerId)
+            ->where('tenant_id', $tenantId)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->sum('allocated_count');
+    }
+
+    private function usedCountForPartner(string $gameId, string $partnerId): int
+    {
+        return (int) DB::table('virtual_stock_counters')
+            ->where('game_id', $gameId)
+            ->where('scope_type', 'partner')
+            ->where('scope_id', $partnerId)
+            ->where('dimension', 'full_number')
+            ->selectRaw('COALESCE(SUM(reserved_count + sold_count), 0) as used_count')
+            ->value('used_count');
+    }
+
+    /**
+     * @return array{number_offset: int, copy_offset: int}
+     */
+    private function decodeTenantStockCursor(mixed $cursor): array
+    {
+        if ($cursor === null || trim((string) $cursor) === '') {
+            return ['number_offset' => 0, 'copy_offset' => 0];
+        }
+
+        if (ctype_digit((string) $cursor)) {
+            return ['number_offset' => max(0, (int) $cursor), 'copy_offset' => 0];
+        }
+
+        try {
+            $decoded = json_decode((string) base64_decode((string) $cursor, true), true, flags: JSON_THROW_ON_ERROR);
+        } catch (\Throwable) {
+            return ['number_offset' => 0, 'copy_offset' => 0];
+        }
+
+        if (! is_array($decoded)) {
+            return ['number_offset' => 0, 'copy_offset' => 0];
+        }
+
+        return [
+            'number_offset' => max(0, (int) ($decoded['number_offset'] ?? 0)),
+            'copy_offset' => max(0, (int) ($decoded['copy_offset'] ?? 0)),
+        ];
+    }
+
+    /**
+     * @param array{number_offset: int, copy_offset: int} $cursor
+     */
+    private function encodeTenantStockCursor(array $cursor): string
+    {
+        return base64_encode(json_encode($cursor, JSON_THROW_ON_ERROR));
     }
 
     /**
@@ -1675,6 +1849,46 @@ class VirtualStockService
             'image_url' => null,
             'image_status' => $preview['status'],
             'image_error' => $preview['error'],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function tenantVirtualStockResource(string $tenantId, string $partnerId, string $gameId, string $fullNumber, int $copyIndex): array
+    {
+        $stockRef = $this->virtualRef($tenantId, $gameId, $fullNumber, $copyIndex);
+        $preview = $this->virtualImages->previewDescriptor($tenantId, $partnerId, $gameId, $fullNumber, $copyIndex);
+        $now = now()->toISOString();
+
+        return [
+            'id' => $stockRef,
+            'game_id' => $gameId,
+            'full_number' => $fullNumber,
+            'front3' => substr($fullNumber, 0, 3),
+            'back3' => substr($fullNumber, -3),
+            'back2' => substr($fullNumber, -2),
+            'status' => 'available',
+            'stock_ref' => $stockRef,
+            'stock_mode' => 'virtual',
+            'virtual_copy_index' => $copyIndex,
+            'remaining_count' => 1,
+            'availability_status' => 'available',
+            'price' => ['amount' => 0, 'currency' => 'THB'],
+            'price_rule_summary' => null,
+            'image_thumb_url' => $preview['url'],
+            'image_url' => null,
+            'preview_image_url' => $preview['url'],
+            'image_status' => $preview['status'],
+            'image_error' => $preview['error'],
+            'tenant_id' => $tenantId,
+            'partner_id' => $partnerId,
+            'stock_item_id' => $stockRef,
+            'allocation_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+            'synced_at' => $now,
+            'reserved_at' => null,
         ];
     }
 

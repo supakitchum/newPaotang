@@ -283,6 +283,17 @@ class PartnerStoreService
     public function listTenantStock(string $tenantId, array $queryParams): array
     {
         $limit = $this->limit($queryParams['limit'] ?? null);
+        $partnerId = $this->partnerIdForTenant($tenantId);
+        $status = trim((string) ($queryParams['status'] ?? ''));
+
+        if ($partnerId !== null && ($status === '' || $status === 'available')) {
+            $virtualResult = $this->virtualStock->listTenantStock($tenantId, $partnerId, $queryParams, $limit);
+
+            if ($virtualResult !== null) {
+                return $virtualResult;
+            }
+        }
+
         $sort = $this->resolveTenantStockSort($queryParams);
         $query = LocalStockItem::query()->forTenant($tenantId)->limit($limit + 1);
 
@@ -434,10 +445,19 @@ class PartnerStoreService
     {
         $stock = LocalStockItem::query()
             ->forTenant($tenantId)
-            ->where('id', $stockItemId)
+            ->where(function ($query) use ($stockItemId): void {
+                $query->where('id', $stockItemId)
+                    ->orWhere('virtual_stock_ref', $stockItemId);
+            })
             ->first();
 
-        return $stock === null ? null : $this->tenantStockResource($stock);
+        if ($stock !== null) {
+            return $this->tenantStockResource($stock);
+        }
+
+        $partnerId = $this->partnerIdForTenant($tenantId);
+
+        return $partnerId === null ? null : $this->virtualStock->findTenantStock($tenantId, $partnerId, $stockItemId);
     }
 
     /**

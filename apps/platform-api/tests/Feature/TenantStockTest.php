@@ -142,4 +142,119 @@ class TenantStockTest extends TestCase
             ->value('payload_redacted_json'), true, flags: JSON_THROW_ON_ERROR);
         $this->assertSame('[REDACTED]', $auditPayload['payload']['api_secret']);
     }
+
+    public function test_TenantStock_lists_virtual_allocation_without_materializing_local_stock(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_virtual_tenant_stock', 'ten_virtual_tenant_stock', 'tenant-virtual-stock.newpaotang.test');
+        $this->insertGame('gam_virtual_tenant_stock', 'open');
+        $this->insertBaseLotteryNumbers(['123456', '123457']);
+        $this->insertVirtualProfile('gam_virtual_tenant_stock', 2);
+        $this->insertVirtualAllocation('gam_virtual_tenant_stock', 'par_virtual_tenant_stock', 'ten_virtual_tenant_stock', 10000, 2);
+
+        $stockAdmin = $this->createTenantSession(
+            'ten_virtual_tenant_stock',
+            'par_virtual_tenant_stock',
+            ['stock.view'],
+            'adm_virtual_stock_view',
+            'virtual-stock-view@example.test',
+        );
+
+        $stock = $this->withToken($stockAdmin['access_token'])
+            ->getJson('/api/v1/admin/tenant/stock?limit=1', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_virtual_tenant_stock',
+            ])
+            ->assertOk()
+            ->assertJsonPath('meta.stock_mode', 'virtual')
+            ->assertJsonPath('meta.game_id', 'gam_virtual_tenant_stock')
+            ->assertJsonPath('meta.allocated_count', 2)
+            ->assertJsonPath('data.0.stock_mode', 'virtual')
+            ->assertJsonPath('data.0.tenant_id', 'ten_virtual_tenant_stock')
+            ->assertJsonPath('data.0.partner_id', 'par_virtual_tenant_stock')
+            ->assertJsonPath('data.0.status', 'available')
+            ->assertJsonPath('meta.has_more', true)
+            ->json();
+
+        $this->assertSame(0, DB::table('local_stock_items')->where('tenant_id', 'ten_virtual_tenant_stock')->count());
+        $this->assertSame(0, DB::table('stock_items')->where('game_id', 'gam_virtual_tenant_stock')->count());
+
+        $this->withToken($stockAdmin['access_token'])
+            ->getJson('/api/v1/admin/tenant/stock/'.$stock['data'][0]['id'], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_virtual_tenant_stock',
+            ])
+            ->assertOk()
+            ->assertJsonPath('id', $stock['data'][0]['id'])
+            ->assertJsonPath('stock_mode', 'virtual')
+            ->assertJsonPath('status', 'available');
+
+        $this->withToken($stockAdmin['access_token'])
+            ->getJson('/api/v1/admin/tenant/stock?'.http_build_query([
+                'game_id' => 'gam_virtual_tenant_stock',
+                'number' => '123457',
+                'limit' => 5,
+            ]), [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_virtual_tenant_stock',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.0.full_number', '123457')
+            ->assertJsonPath('data.0.stock_mode', 'virtual');
+    }
+
+    /**
+     * @param array<int, string> $numbers
+     */
+    private function insertBaseLotteryNumbers(array $numbers): void
+    {
+        DB::table('base_lottery_numbers')->insert(array_map(fn (string $number): array => [
+            'full_number' => $number,
+            'front3' => substr($number, 0, 3),
+            'back3' => substr($number, -3),
+            'back2' => substr($number, -2),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], $numbers));
+    }
+
+    private function insertVirtualProfile(string $gameId, int $totalCapacity): void
+    {
+        DB::table('stock_supply_profiles')->insert([
+            'id' => 'vsp_'.$gameId,
+            'game_id' => $gameId,
+            'status' => 'active',
+            'seed' => 'tenant-virtual-stock-seed',
+            'base_count' => $totalCapacity,
+            'total_capacity' => $totalCapacity,
+            'set_distribution_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'created_by_admin_id' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function insertVirtualAllocation(string $gameId, string $partnerId, string $tenantId, int $basisPoints, int $allocatedCount): void
+    {
+        DB::table('partner_stock_allocations')->insert([
+            'id' => 'alc_'.substr(sha1($gameId.':'.$partnerId), 0, 20),
+            'partner_id' => $partnerId,
+            'tenant_id' => $tenantId,
+            'game_id' => $gameId,
+            'quota_id' => null,
+            'status' => 'allocated',
+            'requested_count' => $allocatedCount,
+            'allocation_percent_basis_points' => $basisPoints,
+            'allocated_count' => $allocatedCount,
+            'recalled_count' => 0,
+            'supply_layer_ids_json' => json_encode(['vsp_'.$gameId], JSON_THROW_ON_ERROR),
+            'idempotency_key' => 'tenant-virtual-stock',
+            'payload_hash' => hash('sha256', $gameId.':'.$partnerId.':'.$basisPoints),
+            'created_by_admin_id' => null,
+            'reason' => null,
+            'cancelled_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
 }
