@@ -26,7 +26,7 @@ export default defineNuxtPlugin({
     }
 
     refreshTimer = setInterval(async () => {
-      await refreshAppInit()
+      await ensureAppInit()
       await applyRedirect()
     }, APP_INIT_TTL_MS)
 

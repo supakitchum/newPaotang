@@ -20,7 +20,7 @@ class CustomerCheckoutTest extends TestCase
             ->getJson('http://'.$world['host'].'/api/v1/customer/cart')
             ->assertOk()
             ->assertJsonPath('item_count', 1)
-            ->assertJsonPath('total.amount', 10000);
+            ->assertJsonPath('total.amount', 8000);
 
         DB::table('local_stock_items')->where('id', $world['local_ids'][0])->update([
             'image_url' => 'https://cdn.lottery.test/lotteries/gam_checkout/batch/partners/par_checkout/stk_checkout.webp',
@@ -48,10 +48,19 @@ class CustomerCheckoutTest extends TestCase
             'tenant_id' => 'ten_checkout',
             'wallet_id' => $world['wallet_id'],
             'entry_type' => 'debit',
-            'amount' => -10000,
+            'amount' => -8000,
             'reference_id' => $order['id'],
             'idempotency_key' => 'checkout-wallet-main',
         ]);
+        $this->assertDatabaseHas('order_items', [
+            'tenant_id' => 'ten_checkout',
+            'order_id' => $order['id'],
+            'price_amount' => 8000,
+            'currency' => 'THB',
+        ]);
+        $snapshot = json_decode((string) DB::table('order_items')->where('order_id', $order['id'])->value('sale_price_rule_snapshot_json'), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame(8000, $snapshot['effective_amount']['amount'] ?? null);
+        $this->assertSame('central', $snapshot['source'] ?? null);
         $this->assertDatabaseHas('sync_outbox', [
             'event_type' => 'order.paid.v1',
             'aggregate_id' => $order['id'],
@@ -101,5 +110,44 @@ class CustomerCheckoutTest extends TestCase
             ->assertJsonPath('data.0.id', $order['tickets'][0]['id'])
             ->assertJsonPath('data.0.image_url', 'https://cdn.lottery.test/lotteries/gam_checkout/batch/partners/par_checkout/stk_checkout.webp')
             ->assertJsonPath('data.0.image_thumb_url', 'https://cdn.lottery.test/lotteries/gam_checkout/batch/partners/par_checkout/thumbs/stk_checkout.webp');
+    }
+
+    public function test_CustomerCheckout_uses_sale_price_rule_for_cart_checkout_and_order_item_snapshot(): void
+    {
+        $world = $this->prepareReservedCart('par_checkout_price', 'ten_checkout_price', 'checkout-price.m5.test', 'gam_checkout_price', '0802003001', 710101);
+
+        DB::table('game_sale_price_rules')->insert([
+            'id' => 'gsp_checkout_price',
+            'game_id' => 'gam_checkout_price',
+            'set_size' => 1,
+            'price_amount' => 12300,
+            'currency' => 'THB',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/cart')
+            ->assertOk()
+            ->assertJsonPath('reservations.0.items.0.price.amount', 12300)
+            ->assertJsonPath('total.amount', 12300);
+
+        $order = $this->checkoutWallet($world, 'checkout-sale-price-rule');
+        $this->assertSame(12300, $order['total']['amount']);
+        $this->assertDatabaseHas('orders', [
+            'id' => $order['id'],
+            'total_amount' => 12300,
+            'currency' => 'THB',
+        ]);
+        $this->assertDatabaseHas('order_items', [
+            'tenant_id' => 'ten_checkout_price',
+            'order_id' => $order['id'],
+            'price_amount' => 12300,
+            'currency' => 'THB',
+        ]);
+        $snapshot = json_decode((string) DB::table('order_items')->where('order_id', $order['id'])->value('sale_price_rule_snapshot_json'), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('gsp_checkout_price', $snapshot['central_rule_id'] ?? null);
+        $this->assertSame(12300, $snapshot['effective_amount']['amount'] ?? null);
     }
 }

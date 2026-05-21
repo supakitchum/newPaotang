@@ -2,6 +2,7 @@ import { ticketPrice } from '~/data/lottery'
 import type { CartLottery } from '~/composables/useCart'
 
 type AnyRecord = Record<string, any>
+const CURRENT_GAME_TTL_MS = 5 * 60 * 1000
 
 const normalizeResponse = <T = AnyRecord>(response: any): T => response?.data ?? response
 
@@ -102,7 +103,6 @@ const normalizeStockItem = (item: AnyRecord, reservationId?: string): CartLotter
       token: String(item.id || item.token || ''),
       local_stock_item_id: String(item.id || item.local_stock_item_id || item.token || ''),
       stock_ref: item.stock_ref || item.id || item.local_stock_item_id || item.token || '',
-      stock_mode: item.stock_mode || 'physical',
       remaining_count: Number.isFinite(Number(item.remaining_count)) ? Number(item.remaining_count) : null,
       availability_status: item.availability_status || item.status || 'available',
       reservation_id: reservationId || item.reservation_id,
@@ -328,17 +328,23 @@ export const usePlatformApi = () => {
   const { token } = useAuth()
   const { config: siteConfig, fetchSiteConfig, setSiteConfig, isWriteBlockedByMaintenance } = useSiteConfig()
   const currentGameState = useState<AnyRecord | null>('platform_current_game', () => null)
+  const currentGameFetchedAt = useState<number>('platform_current_game_fetched_at', () => 0)
   const serverCartState = useState<AnyRecord | null>('platform_server_cart', () => null)
 
   const idempotencyHeaders = (scope: string) => ({
     'Idempotency-Key': createIdempotencyKey(scope)
   })
 
-  const getCurrentGame = async () => {
+  const getCurrentGame = async (options: { force?: boolean } = {}) => {
+    if (!options.force && currentGameState.value?.id && Date.now() - currentGameFetchedAt.value < CURRENT_GAME_TTL_MS) {
+      return currentGameState.value
+    }
+
     const response = await axios.get('/public/games/current')
     const game = unwrapData<AnyRecord>(response)
 
     currentGameState.value = game
+    currentGameFetchedAt.value = Date.now()
 
     return game
   }
@@ -373,7 +379,7 @@ export const usePlatformApi = () => {
 
   const loadAppInit = async () => {
     const [configResult, gameResult, cartResult] = await Promise.allSettled([
-      fetchSiteConfig({ force: true }),
+      fetchSiteConfig(),
       getCurrentGame(),
       token.value ? loadCart() : Promise.resolve(null)
     ])
@@ -438,7 +444,6 @@ export const usePlatformApi = () => {
         lotteries,
         pagination: normalizePagination(payload.meta, input.page || 1, input.limit || 20),
         game_id: payload.meta?.game_id || gameId,
-        stock_mode: payload.meta?.stock_mode || null,
         seller: lotteries[0]?.store_name ? { name: lotteries[0].store_name } : null,
         bet_status: 1
       }

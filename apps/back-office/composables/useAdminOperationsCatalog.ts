@@ -37,7 +37,7 @@ export type OperationOption = string | {
   close_at?: string
   server_time?: string
 }
-export type OperationOptionSource = 'central-games' | 'central-partners' | 'central-billing-plans' | 'allocation-partners' | 'allocation-tenants' | 'allocation-games' | 'tenant-stock-games' | 'tenant-price-rule-games'
+export type OperationOptionSource = 'central-games' | 'central-sale-price-games' | 'central-partners' | 'central-billing-plans' | 'allocation-partners' | 'allocation-tenants' | 'allocation-games' | 'tenant-stock-games' | 'tenant-price-rule-games' | 'tenant-sale-price-games'
 
 export type OperationColumn = {
   key: string
@@ -426,6 +426,7 @@ const alertEventActionContext = ['id', 'partner_id', 'partner.name', 'policy_key
 const rewardActionContext = ['id', 'game_id', 'status', 'version', 'checked_at', 'verified_at', 'published_at']
 const settlementActionContext = ['id', 'partner_id', 'tenant_id', 'status', 'sales_amount.amount', 'commission_amount.amount', 'payout_amount.amount', 'net_amount.amount', 'period_from', 'period_to']
 const priceRuleActionContext = ['game_id', 'prize_type', 'prize_label', 'prize_count', 'central_reward_amount.amount', 'partner_payout_amount.amount', 'adjustment_amount.amount', 'source', 'updated_at']
+const salePriceRuleActionContext = ['game_id', 'game_name', 'set_size', 'central_price.amount', 'partner_price.amount', 'price.amount', 'source', 'status', 'updated_at']
 const memberActionContext = ['id', 'tenant_id', 'member_no', 'name', 'phone', 'email', 'status', 'order_count', 'lifetime_spend.amount', 'updated_at']
 const agentActionContext = ['id', 'tenant_id', 'partner_id', 'code', 'name', 'phone', 'email', 'store_id', 'status', 'metadata', 'updated_at']
 const agentQuotaActionContext = ['id', 'tenant_id', 'code', 'name', 'store_id', 'status', 'quotas.0.game_id', 'quotas.0.quota_count', 'quotas.0.used_count', 'quotas.0.status', 'updated_at']
@@ -553,6 +554,22 @@ const priceRuleUpdateFields: OperationFormField[] = [
     help: 'Final payout for this prize in the selected game. The backend stores only the delta from Central Reward for reports.',
   },
 ]
+const centralSalePriceRuleFields: OperationFormField[] = [
+  { key: 'game_id', label: 'Game', type: 'select', optionSource: 'central-sale-price-games', hideEmptyOption: true, required: true, defaultValueSource: 'current-game' },
+  { key: 'set_size', label: 'Set size', type: 'number', min: 1, max: 99, step: 1, required: true },
+  { key: 'price_amount', label: 'Sale price (minor units)', type: 'number', sourceKey: 'price.amount', min: 1, step: 1, required: true },
+  { key: 'currency', label: 'Currency', type: 'select', options: currencyOptions, defaultValue: 'THB', required: true },
+  { key: 'status', label: 'Status', type: 'select', options: ['active', 'inactive', 'archived'], defaultValue: 'active', required: true },
+]
+const centralSalePriceRuleUpdateFields: OperationFormField[] = centralSalePriceRuleFields.map((field) => ({ ...field, required: false }))
+const tenantSalePriceRuleFields: OperationFormField[] = [
+  { key: 'game_id', label: 'Game', type: 'select', optionSource: 'tenant-sale-price-games', hideEmptyOption: true, required: true, defaultValueSource: 'current-game' },
+  { key: 'set_size', label: 'Set size', type: 'number', min: 1, max: 99, step: 1, required: true },
+  { key: 'price_amount', label: 'Partner sale price (minor units)', type: 'number', sourceKey: 'price.amount', min: 1, step: 1, required: true, help: 'Must be greater than or equal to the central sale price.' },
+  { key: 'currency', label: 'Currency', type: 'select', options: currencyOptions, defaultValue: 'THB', required: true },
+  { key: 'status', label: 'Status', type: 'select', options: ['active', 'inactive', 'archived'], defaultValue: 'active', required: true },
+]
+const tenantSalePriceRuleUpdateFields: OperationFormField[] = tenantSalePriceRuleFields.map((field) => ({ ...field, required: false }))
 const memberCreateFields: OperationFormField[] = [
   { key: 'name', label: 'Name', required: true, placeholder: 'Tenant Member' },
   { key: 'phone', label: 'Phone', required: true, placeholder: '0811111111' },
@@ -846,7 +863,7 @@ const tenant: OperationResource[] = [
       { key: 'source', label: 'Source' },
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
     ],
-    filters: cursorFilters([{ key: 'game_id', label: 'Game', type: 'select', optionSource: 'tenant-price-rule-games', hideEmptyOption: true, emptyOptionLabel: 'No open game' }]),
+    filters: cursorFilters([{ key: 'game_id', label: 'Game', type: 'select', optionSource: 'tenant-sale-price-games', hideEmptyOption: true, emptyOptionLabel: 'No open game' }]),
     confirmContextFields: priceRuleActionContext,
     detailRenderer: 'price-rule',
     actions: [
@@ -860,6 +877,45 @@ const tenant: OperationResource[] = [
         formFields: priceRuleUpdateFields,
       },
     ],
+  },
+  {
+    scope: 'tenant',
+    slug: 'sale-price-rules',
+    title: 'Sale Price Rules',
+    group: 'Tenant Store Operations',
+    listEndpoint: '/admin/tenant/sale-price-rules',
+    detailEndpoint: '/admin/tenant/sale-price-rules/{sale_price_rule_id}',
+    updateEndpoint: '/admin/tenant/sale-price-rules/{sale_price_rule_id}',
+    idParam: 'sale_price_rule_id',
+    idKey: 'id',
+    columns: [
+      { key: 'game_name', label: 'Game', fallbackKeys: ['game_code', 'game_id'] },
+      { key: 'set_size', label: 'Set size', type: 'number' },
+      { key: 'central_price', label: 'Central price', type: 'money' },
+      { key: 'partner_price', label: 'Partner price', type: 'money' },
+      { key: 'source', label: 'Source' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ],
+    filters: cursorFilters([{ key: 'game_id', label: 'Game', type: 'select', optionSource: 'tenant-price-rule-games', hideEmptyOption: true, emptyOptionLabel: 'No open game' }]),
+    confirmContextFields: salePriceRuleActionContext,
+    actions: [
+      {
+        key: 'update',
+        label: 'Set sale price',
+        method: 'PATCH',
+        endpoint: '/admin/tenant/sale-price-rules/{sale_price_rule_id}',
+        variant: 'primary',
+        contextFields: salePriceRuleActionContext,
+        formFields: tenantSalePriceRuleUpdateFields,
+      },
+    ],
+    collectionActions: [{
+      key: 'create',
+      label: 'Create override',
+      endpoint: '/admin/tenant/sale-price-rules',
+      formFields: tenantSalePriceRuleFields,
+    }],
   },
   {
     scope: 'tenant',
@@ -1980,6 +2036,46 @@ const central: OperationResource[] = [
       label: 'Create game',
       endpoint: '/admin/central/games',
       formFields: gameCreateFields,
+    }],
+  },
+  {
+    scope: 'central',
+    slug: 'sale-price-rules',
+    title: 'Sale Price Rules',
+    group: 'Central Games',
+    listEndpoint: '/admin/central/sale-price-rules',
+    detailEndpoint: '/admin/central/sale-price-rules/{sale_price_rule_id}',
+    updateEndpoint: '/admin/central/sale-price-rules/{sale_price_rule_id}',
+    idParam: 'sale_price_rule_id',
+    idKey: 'id',
+    columns: [
+      { key: 'game_name', label: 'Game', fallbackKeys: ['game_code', 'game_id'] },
+      { key: 'set_size', label: 'Set size', type: 'number' },
+      { key: 'price', label: 'Sale price', type: 'money' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ],
+    filters: cursorFilters([
+      { key: 'game_id', label: 'Game', type: 'select', optionSource: 'central-sale-price-games', hideEmptyOption: true, emptyOptionLabel: 'No open game' },
+      statusFilter(['active', 'inactive', 'archived']),
+    ]),
+    confirmContextFields: salePriceRuleActionContext,
+    actions: [
+      {
+        key: 'update',
+        label: 'Update',
+        method: 'PATCH',
+        endpoint: '/admin/central/sale-price-rules/{sale_price_rule_id}',
+        variant: 'primary',
+        contextFields: salePriceRuleActionContext,
+        formFields: centralSalePriceRuleUpdateFields,
+      },
+    ],
+    collectionActions: [{
+      key: 'create',
+      label: 'Create sale price',
+      endpoint: '/admin/central/sale-price-rules',
+      formFields: centralSalePriceRuleFields,
     }],
   },
   {

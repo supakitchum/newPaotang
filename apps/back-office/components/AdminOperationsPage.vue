@@ -746,6 +746,7 @@ const stockTickets = reactive<{
 })
 const optionSourceOptions = reactive<Record<OperationOptionSource, OperationOption[]>>({
   'central-games': [],
+  'central-sale-price-games': [],
   'central-partners': [],
   'central-billing-plans': [],
   'allocation-partners': [],
@@ -753,9 +754,11 @@ const optionSourceOptions = reactive<Record<OperationOptionSource, OperationOpti
   'allocation-games': [],
   'tenant-stock-games': [],
   'tenant-price-rule-games': [],
+  'tenant-sale-price-games': [],
 })
 const optionSourceLoading = reactive<Record<OperationOptionSource, boolean>>({
   'central-games': false,
+  'central-sale-price-games': false,
   'central-partners': false,
   'central-billing-plans': false,
   'allocation-partners': false,
@@ -763,6 +766,7 @@ const optionSourceLoading = reactive<Record<OperationOptionSource, boolean>>({
   'allocation-games': false,
   'tenant-stock-games': false,
   'tenant-price-rule-games': false,
+  'tenant-sale-price-games': false,
 })
 const stockSettingsDefaults = ref<any[]>([])
 const stockSettingsLoading = ref(false)
@@ -786,6 +790,7 @@ const isStockPatternCoverageRoute = computed(() => props.scope === 'central' && 
 const isAllocationsRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'allocations')
 const isTenantStockRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'stock')
 const isPriceRulesRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'price-rules')
+const isSalePriceRulesRoute = computed(() => resource.value?.slug === 'sale-price-rules')
 const showStockSummaryWidgets = computed(() => Boolean(resource.value?.stockSummaryEndpoint && mode.value === 'list'))
 const showAllocationSummaryWidgets = computed(() => Boolean(isAllocationsRoute.value && mode.value === 'list'))
 const showStockGenerationProgress = computed(() => Boolean(isStockGenerationRoute.value && mode.value === 'list'))
@@ -984,9 +989,11 @@ const tenantStockRealtimePanelMessage = computed(() => {
   return 'Preparing tenant stock realtime for this game.'
 })
 const currentCentralGameOption = computed(() => singleCurrentGameOption(optionSourceOptions['central-games'] || []))
+const currentCentralSalePriceGameOption = computed(() => latestDefaultOrCurrentGameOption(optionSourceOptions['central-sale-price-games'] || []))
 const currentAllocationGameOption = computed(() => latestCurrentGameOption(optionSourceOptions['allocation-games'] || []))
 const currentTenantStockGameOption = computed(() => latestTenantStockGameOption(optionSourceOptions['tenant-stock-games'] || []))
 const currentTenantPriceRuleGameOption = computed(() => latestTenantPriceRuleGameOption(optionSourceOptions['tenant-price-rule-games'] || []))
+const currentTenantSalePriceGameOption = computed(() => latestDefaultOrCurrentGameOption(optionSourceOptions['tenant-sale-price-games'] || []))
 const allocationSummaryCards = computed(() => {
   const game = currentAllocationGameOption.value
   const isLoading = optionSourceLoading['allocation-games']
@@ -1283,9 +1290,7 @@ const hydrateFilters = (items: OperationFilter[]) => items.map((item) => {
 
 const hydrateFields = (fields: OperationFormField[] = []) => fields.map((field) => {
   const sourceOptions = field.optionSource ? hydratedOptions(field.optionSource, field.options) : field.options
-  const currentGame = field.optionSource === 'allocation-games'
-    ? currentAllocationGameOption.value
-    : currentCentralGameOption.value
+  const currentGame = currentGameOptionForSource(field.optionSource)
   const options = field.currentOnly && (field.optionSource === 'central-games' || field.optionSource === 'allocation-games')
     ? currentGame ? [currentGame] : []
     : sourceOptions
@@ -1301,6 +1306,23 @@ const hydrateFields = (fields: OperationFormField[] = []) => fields.map((field) 
         : field.defaultValue,
   }
 })
+
+const currentGameOptionForSource = (source?: OperationOptionSource) => {
+  if (source === 'allocation-games') {
+    return currentAllocationGameOption.value
+  }
+  if (source === 'central-sale-price-games') {
+    return currentCentralSalePriceGameOption.value
+  }
+  if (source === 'tenant-sale-price-games') {
+    return currentTenantSalePriceGameOption.value
+  }
+  if (source === 'tenant-price-rule-games') {
+    return currentTenantPriceRuleGameOption.value
+  }
+
+  return currentCentralGameOption.value
+}
 
 const hydrateActions = (actions: OperationAction[] = []) => actions.map((action) => {
   const hydrated = {
@@ -1440,6 +1462,11 @@ const loadOptionSource = async (source: OperationOptionSource) => {
         }
       }
       optionSourceOptions[source] = options
+    } else if (source === 'central-sale-price-games') {
+      const response = await api.apiFetch('/admin/central/sale-price-games', {
+        scope: 'central',
+      })
+      optionSourceOptions[source] = normalizeGameOptions(extractItems(response))
     } else if (source === 'central-partners') {
       const response = await api.apiFetch('/admin/central/partners', {
         scope: 'central',
@@ -1482,6 +1509,12 @@ const loadOptionSource = async (source: OperationOptionSource) => {
         tenantId: session.currentTenantId.value,
       })
       optionSourceOptions[source] = normalizeTenantPriceRuleGameOptions(extractItems(response))
+    } else if (source === 'tenant-sale-price-games') {
+      const response = await api.apiFetch('/admin/tenant/sale-price-games', {
+        scope: 'tenant',
+        tenantId: session.currentTenantId.value,
+      })
+      optionSourceOptions[source] = normalizeGameOptions(extractItems(response))
     }
   } catch {
     optionSourceOptions[source] = []
@@ -1501,6 +1534,7 @@ const gameOption = (game: any): OperationOption => {
     label: `${name}${code}${currentLabel}`,
     status,
     isCurrent: status === 'open',
+    isDefault: Boolean(game?.is_default),
     sale_start_at: game?.sale_start_at,
     draw_at: game?.draw_at,
     close_at: game?.close_at,
@@ -1746,12 +1780,18 @@ const latestTenantPriceRuleGameOption = (options: OperationOption[]) => options.
   && option.isDefault
 )) || latestCurrentGameOption(options) || options[0] || null
 
+const latestDefaultOrCurrentGameOption = (options: OperationOption[]) => options.find((option) => (
+  typeof option === 'object'
+  && option !== null
+  && option.isDefault
+)) || latestCurrentGameOption(options) || options[0] || null
+
 const applyCurrentGameFilterDefault = () => {
   filters.value = routeFiltersWithCurrentGame(filters.value)
 }
 
 const routeFiltersWithCurrentGame = (next: Record<string, any>) => (
-  priceRuleFiltersWithCurrentGame(tenantStockFiltersWithCurrentGame(allocationFiltersWithCurrentGame(stockGenerationFiltersWithCurrentGame(next))))
+  salePriceRuleFiltersWithCurrentGame(priceRuleFiltersWithCurrentGame(tenantStockFiltersWithCurrentGame(allocationFiltersWithCurrentGame(stockGenerationFiltersWithCurrentGame(next)))))
 )
 
 const stockGenerationFiltersWithCurrentGame = (next: Record<string, any>) => {
@@ -1800,6 +1840,20 @@ const priceRuleFiltersWithCurrentGame = (next: Record<string, any>) => {
   }
 
   const currentGame = currentTenantPriceRuleGameOption.value
+  return {
+    ...next,
+    game_id: currentGame ? optionValue(currentGame) : '',
+  }
+}
+
+const salePriceRuleFiltersWithCurrentGame = (next: Record<string, any>) => {
+  if (!isSalePriceRulesRoute.value || !isBlank(next.game_id)) {
+    return next
+  }
+
+  const currentGame = props.scope === 'central'
+    ? currentCentralSalePriceGameOption.value
+    : currentTenantSalePriceGameOption.value
   return {
     ...next,
     game_id: currentGame ? optionValue(currentGame) : '',

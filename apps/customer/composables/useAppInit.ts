@@ -3,7 +3,7 @@ import type { CartLottery } from '~/composables/useCart'
 import { toSerializableError, type SerializableError } from '~/utils/serializableError'
 import { formatDrawDateText } from '~/utils/formatDrawDate'
 
-export const APP_INIT_TTL_MS = 60 * 1000
+export const APP_INIT_TTL_MS = 5 * 60 * 1000
 
 export interface AppInitGame {
   id?: number | string

@@ -34,6 +34,7 @@ use App\Modules\Reward\Http\Controllers\PublicRewardController;
 use App\Modules\PublicSite\Http\Controllers\PublicSiteConfigController;
 use App\Modules\PartnerStore\Http\Controllers\PublicStockImageController;
 use App\Modules\PartnerStore\Http\Controllers\PublicStockSearchController;
+use App\Modules\Pricing\Http\Controllers\AdminSalePriceRuleController;
 use App\Modules\Growth\Http\Controllers\ReportController;
 use App\Modules\Tenancy\Http\Controllers\TenantConfigurationController;
 use App\Modules\Commerce\Http\Controllers\TenantCommerceController;
@@ -175,6 +176,16 @@ Route::get('/admin/central/webhook-logs', [BoMenuCompletionController::class, 'w
 Route::get('/admin/central/webhook-logs/{webhook_log_id}', [BoMenuCompletionController::class, 'webhookLogsShow'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/sync-logs', [BoMenuCompletionController::class, 'centralSyncLogs'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/sale-price-games', [AdminSalePriceRuleController::class, 'gameOptions'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/sale-price-rules', [AdminSalePriceRuleController::class, 'centralIndex'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/sale-price-rules', [AdminSalePriceRuleController::class, 'centralStore'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/sale-price-rules/{sale_price_rule_id}', [AdminSalePriceRuleController::class, 'centralShow'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::patch('/admin/central/sale-price-rules/{sale_price_rule_id}', [AdminSalePriceRuleController::class, 'centralUpdate'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/assets/uploads', [AssetController::class, 'centralUpload'])
     ->middleware(['admin.auth', 'admin.scope:central']);
@@ -468,6 +479,16 @@ Route::get('/admin/tenant/price-rules/{price_rule_id}', [BoMenuCompletionControl
 Route::patch('/admin/tenant/price-rules/{price_rule_id}', [BoMenuCompletionController::class, 'priceRulesUpdate'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::delete('/admin/tenant/price-rules/{price_rule_id}', [BoMenuCompletionController::class, 'priceRulesDestroy'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/sale-price-games', [AdminSalePriceRuleController::class, 'gameOptions'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/sale-price-rules', [AdminSalePriceRuleController::class, 'tenantIndex'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/sale-price-rules', [AdminSalePriceRuleController::class, 'tenantStore'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/sale-price-rules/{sale_price_rule_id}', [AdminSalePriceRuleController::class, 'tenantShow'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::patch('/admin/tenant/sale-price-rules/{sale_price_rule_id}', [AdminSalePriceRuleController::class, 'tenantUpdate'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/domains', [BoMenuCompletionController::class, 'domainsIndex'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);

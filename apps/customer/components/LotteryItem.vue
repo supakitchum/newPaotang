@@ -17,6 +17,7 @@
       <div class="lottery-main-row">
         <div class="lottery-display-grid">
           <LotteryImage
+            v-if="showImage"
             :src="ticket.image_url || ticket.image"
             :thumb-src="ticket.image_thumb_url"
             :status="ticket.image_status"
@@ -26,18 +27,6 @@
           />
           <div class="ticket-data-grid">
             <LotteryNumber :number="ticketNumber" :highlight="ticket.highlight" :highlight-digits="ticket.highlightDigits" />
-            <div class="ticket-meta-column">
-              <span>
-                <span class="tiny-label">งวดที่</span>
-                <span class="tiny-value">{{ drawNumber }}</span>
-              </span>
-            </div>
-            <div class="ticket-meta-column">
-              <span>
-                <span class="tiny-label">ชุดที่</span>
-                <span class="tiny-value">{{ setNumber }}</span>
-              </span>
-            </div>
           </div>
         </div>
         <button
@@ -122,6 +111,7 @@ const props = defineProps<{
     image_thumb_url?: string | null
     image_status?: string | null
     image_error?: string | null
+    price?: number | string
     remaining_count?: number | null
     availability_status?: string | null
     status?: string | null
@@ -129,6 +119,7 @@ const props = defineProps<{
   confirmRemove?: boolean
   loading?: boolean
   bookingDisabled?: boolean
+  showImage?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -142,7 +133,6 @@ const route = useRoute()
 const { isAuthenticated } = useAuth()
 const { items, addBookedLottery, removeLottery, setCartItems } = useCart()
 const { showAlert } = useAppAlert()
-const price = ticketPrice
 const isBooking = ref(false)
 const isCancelling = ref(false)
 const showUnavailableModal = ref(false)
@@ -161,6 +151,12 @@ const isUnavailable = computed(() => {
   return (hasRemainingCount && Number(props.ticket.remaining_count) <= 0) || ['sold_out', 'sold', 'reserved', 'unavailable'].includes(status)
 })
 const bookingDisabled = computed(() => Boolean(props.bookingDisabled))
+const showImage = computed(() => props.showImage !== false)
+const price = computed(() => {
+  const value = Number(props.ticket.price)
+
+  return Number.isFinite(value) && value > 0 ? value : ticketPrice
+})
 const selectButtonText = computed(() => {
   if (isUnavailable.value) {
     return 'ขายหมดแล้ว'
@@ -180,13 +176,6 @@ const cartItem = computed(() => {
   return items.value.find((item) => item.number === ticketNumber.value) || null
 })
 const isInCart = computed(() => props.ticket.selected || Boolean(cartItem.value))
-const drawNumber = computed(() => props.ticket.draw ?? props.ticket.draw_no ?? props.ticket.game_no ?? 43)
-const setNumber = computed(() => {
-  const rawValue = props.ticket.set ?? props.ticket.sort_order ?? ''
-  const value = String(rawValue)
-
-  return value.length > 2 ? value.slice(-2) : value
-})
 const sellerName = computed(() => props.ticket.store_name ?? props.ticket.seller ?? '')
 
 const openUnavailableModal = (shouldRemove = true) => {

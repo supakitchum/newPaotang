@@ -23,7 +23,7 @@
       <FilterPills/>
       <LotteryItem
           v-for="(ticket, index) in lotteries"
-          :key="`${ticket.number}-${ticket.sort_order ?? ticket.set ?? index}`"
+          :key="ticketKey(ticket, index)"
           :ticket="ticket"
           @booking-unavailable="removeLottery"
       />
@@ -55,6 +55,7 @@ import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
 
 interface LotteryTicket {
   token?: string
+  local_stock_item_id?: string
   number: string
   full_number?: string
   lottery_number?: string
@@ -87,6 +88,7 @@ definePageMeta({
 
 const platformApi = usePlatformApi()
 const route = useRoute()
+const { isAuthenticated } = useAuth()
 const { currentDrawDate: displayDrawDate } = useAppInit()
 const searchDigits = ref<string[]>(['', '', '', '', '', ''])
 const lotteries = ref<LotteryTicket[]>([])
@@ -119,11 +121,6 @@ const realtime = useCustomerStockRealtime({
   gameId: currentGameId,
   enabled: computed(() => Boolean(currentGameId.value)),
   onAvailability: (payload) => applyAvailabilityUpdate(payload),
-  onReconnect: () => {
-    if (hasSearched.value) {
-      void search()
-    }
-  }
 })
 
 const handleDigitsUpdate = (digits: string[]) => {
@@ -198,12 +195,12 @@ const startAvailabilityPolling = () => {
   }
 
   availabilityPollTimer = setInterval(() => {
-    if (realtime.status.value === 'connected' || isSearching.value || isLoadingMore.value || !hasSearched.value) {
+    if (!isAuthenticated.value || !['unavailable', 'error'].includes(realtime.status.value) || isSearching.value || isLoadingMore.value || !hasSearched.value) {
       return
     }
 
     void search()
-  }, 30000)
+  }, 120000)
 }
 
 const search = async () => {
@@ -281,6 +278,8 @@ const removeLottery = (ticket: LotteryTicket) => {
     return `${item.number}-${item.sort_order ?? item.set ?? ''}` !== `${ticket.number}-${ticket.sort_order ?? ticket.set ?? ''}`
   })
 }
+
+const ticketKey = (ticket: LotteryTicket, index: number) => String(ticket.token || ticket.local_stock_item_id || `${ticket.number}-${ticket.sort_order ?? ticket.set ?? index}`)
 
 onMounted(() => {
   scrollContainer = document.querySelector('.app-scroll')

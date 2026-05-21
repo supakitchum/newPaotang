@@ -19,8 +19,6 @@
       <TicketStub
         v-else-if="selectedTicket"
         :number="ticketNumber"
-        :draw="getTicketDraw(selectedTicket, selectedGame)"
-        :set="getTicketSet(selectedTicket)"
         :status="getTicketStatusText(selectedTicket)"
         :image-url="selectedTicket.image_url || selectedTicket.image"
         :image-thumb-url="selectedTicket.image_thumb_url"
@@ -78,8 +76,6 @@ const {
   getGameDate,
   getTicketNumber,
   getTicketCount,
-  getTicketDraw,
-  getTicketSet,
   getTicketImageUrl,
   getTicketStatusText
 } = useUserTickets()

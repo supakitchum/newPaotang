@@ -23,6 +23,7 @@ use App\Shared\Auth\AdminSessionContext;
 use App\Modules\Auth\Services\CustomerAuthService;
 use App\Modules\PartnerStore\Services\VirtualLotteryImageService;
 use App\Modules\PartnerStore\Services\VirtualStockService;
+use App\Modules\Pricing\Services\LotterySalePriceService;
 use App\Shared\Auth\CustomerSessionContext;
 use App\Shared\Idempotency\IdempotencyService;
 use Illuminate\Http\Request;
@@ -32,14 +33,13 @@ use Illuminate\Support\Str;
 
 class CommerceService
 {
-    private const UNIT_PRICE_AMOUNT = 10000;
-
     public function __construct(
         private readonly AuditLogger $auditLogger,
         private readonly CustomerAuthService $customerAuth,
         private readonly IdempotencyService $idempotency,
         private readonly VirtualStockService $virtualStock,
         private readonly VirtualLotteryImageService $virtualImages,
+        private readonly LotterySalePriceService $salePrices,
     ) {
     }
 
@@ -59,7 +59,7 @@ class CommerceService
 
         $resources = array_map(fn (object $reservation): array => $this->reservationResource($reservation), $reservations);
         $itemCount = array_sum(array_map(fn (array $reservation): int => count($reservation['items']), $resources));
-        $total = $itemCount * self::UNIT_PRICE_AMOUNT;
+        $total = array_sum(array_map(fn (array $reservation): int => (int) ($reservation['total']['amount'] ?? 0), $resources));
 
         return [
             'server_time' => now()->toISOString(),
@@ -164,12 +164,13 @@ class CommerceService
                 }
             }
 
-            $totalAmount = count($stockRows) * self::UNIT_PRICE_AMOUNT;
+            $pricing = $this->salePrices->allocatePricesForStockRows((string) $tenant['tenant_id'], $stockRows);
+            $totalAmount = (int) $pricing['total_amount'];
 
             if ($normalized['payment_method'] === 'wallet') {
-                $order = $this->createPaidWalletOrder($tenant, $customer, $reservation, $stockRows, $totalAmount, $idempotencyKey, $request);
+                $order = $this->createPaidWalletOrder($tenant, $customer, $reservation, $stockRows, $pricing, $totalAmount, $idempotencyKey, $request);
             } else {
-                $order = $this->createPendingExternalOrder($tenant, $customer, $reservation, $stockRows, $totalAmount, $idempotencyKey, $request);
+                $order = $this->createPendingExternalOrder($tenant, $customer, $reservation, $stockRows, $pricing, $totalAmount, $idempotencyKey, $request);
             }
 
             if (isset($order['error'])) {
@@ -1073,7 +1074,7 @@ class CommerceService
      * @param array<int, object> $stockRows
      * @return array<string, mixed>
      */
-    private function createPaidWalletOrder(array $tenant, CustomerSessionContext $customer, object $reservation, array $stockRows, int $totalAmount, string $idempotencyKey, Request $request): array
+    private function createPaidWalletOrder(array $tenant, CustomerSessionContext $customer, object $reservation, array $stockRows, array $pricing, int $totalAmount, string $idempotencyKey, Request $request): array
     {
         $walletId = $this->customerAuth->ensurePrimaryWallet((string) $tenant['tenant_id'], $customer->customerId());
         $wallet = Wallet::query()
@@ -1093,7 +1094,7 @@ class CommerceService
         $now = now();
         $orderId = 'ord_'.Str::ulid()->toBase32();
         $order = $this->insertOrder($orderId, $tenant, $customer, $reservation, 'wallet', 'paid', 'paid', $totalAmount, $walletId, $idempotencyKey, $now);
-        $tickets = $this->createSoldOrderItemsAndTickets((string) $tenant['tenant_id'], $customer, $orderId, $stockRows, $now);
+        $tickets = $this->createSoldOrderItemsAndTickets((string) $tenant['tenant_id'], $customer, $orderId, $stockRows, $pricing, $now);
         $ledger = $this->postLedger((string) $tenant['tenant_id'], $walletId, $customer->customerId(), 'debit', $totalAmount, 'order', $orderId, $idempotencyKey);
 
         StockReservation::query()->where('id', $reservation->id)->update([
@@ -1130,11 +1131,12 @@ class CommerceService
      * @param array<int, object> $stockRows
      * @return array<string, mixed>
      */
-    private function createPendingExternalOrder(array $tenant, CustomerSessionContext $customer, object $reservation, array $stockRows, int $totalAmount, string $idempotencyKey, Request $request): array
+    private function createPendingExternalOrder(array $tenant, CustomerSessionContext $customer, object $reservation, array $stockRows, array $pricing, int $totalAmount, string $idempotencyKey, Request $request): array
     {
         $now = now();
         $orderId = 'ord_'.Str::ulid()->toBase32();
         $order = $this->insertOrder($orderId, $tenant, $customer, $reservation, 'external_payment', 'pending_payment', 'pending', $totalAmount, null, $idempotencyKey, $now);
+        $this->createPendingOrderItems((string) $tenant['tenant_id'], $orderId, $stockRows, $pricing, $now);
         $paymentId = 'pay_'.Str::ulid()->toBase32();
         $reference = 'PAY-'.Str::upper(Str::random(10));
         $redirectUrl = 'https://payments.example.test/orders/'.$orderId;
@@ -1205,9 +1207,33 @@ class CommerceService
 
     /**
      * @param array<int, object> $stockRows
+     */
+    private function createPendingOrderItems(string $tenantId, string $orderId, array $stockRows, array $pricing, Carbon $now): void
+    {
+        foreach ($stockRows as $stock) {
+            $price = $pricing['items'][(string) $stock->id] ?? null;
+
+            OrderItem::query()->insert([
+                'id' => 'oit_'.Str::ulid()->toBase32(),
+                'tenant_id' => $tenantId,
+                'order_id' => $orderId,
+                'local_stock_item_id' => $stock->id,
+                'ticket_id' => null,
+                'status' => 'reserved',
+                'price_amount' => (int) ($price['amount'] ?? 0),
+                'currency' => (string) ($price['currency'] ?? 'THB'),
+                'sale_price_rule_snapshot_json' => json_encode($price['snapshot'] ?? [], JSON_THROW_ON_ERROR),
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+    }
+
+    /**
+     * @param array<int, object> $stockRows
      * @return array<int, array<string, mixed>>
      */
-    private function createSoldOrderItemsAndTickets(string $tenantId, CustomerSessionContext $customer, string $orderId, array $stockRows, Carbon $now): array
+    private function createSoldOrderItemsAndTickets(string $tenantId, CustomerSessionContext $customer, string $orderId, array $stockRows, array $pricing, Carbon $now): array
     {
         $tickets = [];
 
@@ -1232,18 +1258,33 @@ class CommerceService
                 'updated_at' => $now,
             ]);
 
-            OrderItem::query()->insert([
-                'id' => $orderItemId,
-                'tenant_id' => $tenantId,
-                'order_id' => $orderId,
-                'local_stock_item_id' => $stock->id,
-                'ticket_id' => $ticketId,
-                'status' => 'sold',
-                'price_amount' => self::UNIT_PRICE_AMOUNT,
-                'currency' => 'THB',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
+            $existingOrderItem = OrderItem::query()
+                ->where('tenant_id', $tenantId)
+                ->where('order_id', $orderId)
+                ->where('local_stock_item_id', $stock->id)
+                ->first();
+
+            if ($existingOrderItem === null) {
+                OrderItem::query()->insert([
+                    'id' => $orderItemId,
+                    'tenant_id' => $tenantId,
+                    'order_id' => $orderId,
+                    'local_stock_item_id' => $stock->id,
+                    'ticket_id' => $ticketId,
+                    'status' => 'sold',
+                    'price_amount' => (int) ($pricing['items'][(string) $stock->id]['amount'] ?? 0),
+                    'currency' => (string) ($pricing['items'][(string) $stock->id]['currency'] ?? 'THB'),
+                    'sale_price_rule_snapshot_json' => json_encode($pricing['items'][(string) $stock->id]['snapshot'] ?? [], JSON_THROW_ON_ERROR),
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            } else {
+                OrderItem::query()->where('id', $existingOrderItem->id)->update([
+                    'ticket_id' => $ticketId,
+                    'status' => 'sold',
+                    'updated_at' => $now,
+                ]);
+            }
 
             $tickets[] = ['id' => $ticketId, 'stock' => $stock];
         }
@@ -1405,7 +1446,8 @@ class CommerceService
             customer: ['id' => (string) $order->customer_id, 'tenant_id' => (string) $order->tenant_id],
         );
 
-        $tickets = $this->createSoldOrderItemsAndTickets((string) $order->tenant_id, $customer, (string) $order->id, $stockRows, now());
+        $pricing = $this->salePrices->allocatePricesForStockRows((string) $order->tenant_id, $stockRows);
+        $tickets = $this->createSoldOrderItemsAndTickets((string) $order->tenant_id, $customer, (string) $order->id, $stockRows, $pricing, now());
         Order::query()->where('id', $order->id)->update([
             'status' => 'paid',
             'payment_status' => 'paid',
@@ -1562,13 +1604,16 @@ class CommerceService
             ->get()
             ->all();
 
+        $pricing = $this->salePrices->allocatePricesForStockRows((string) $reservation->tenant_id, $items);
+
         return [
             'id' => (string) $reservation->id,
             'game_id' => (string) $reservation->game_id,
             'status' => (string) $reservation->status,
             'expires_at' => $reservation->expires_at,
             'server_time' => now()->toISOString(),
-            'items' => array_map(fn (object $stock): array => $this->localStockResource($stock), $items),
+            'items' => array_map(fn (object $stock): array => $this->localStockResource($stock, $pricing['items'][(string) $stock->id] ?? null), $items),
+            'total' => $this->money((int) $pricing['total_amount'], (string) $pricing['currency']),
         ];
     }
 
@@ -1734,8 +1779,17 @@ class CommerceService
         ];
     }
 
-    private function localStockResource(object $stock): array
+    private function localStockResource(object $stock, ?array $pricing = null): array
     {
+        if ($pricing === null) {
+            $price = $this->salePrices->effectivePrice((string) $stock->tenant_id, (string) $stock->game_id, 1);
+            $pricing = [
+                'amount' => (int) $price['amount'],
+                'currency' => (string) $price['currency'],
+                'summary' => $this->salePrices->summary($price),
+            ];
+        }
+
         return [
             'id' => (string) $stock->id,
             'game_id' => (string) $stock->game_id,
@@ -1744,8 +1798,8 @@ class CommerceService
             'back3' => $stock->back3,
             'back2' => $stock->back2,
             'status' => (string) $stock->status,
-            'price' => $this->money(self::UNIT_PRICE_AMOUNT),
-            'price_rule_summary' => null,
+            'price' => $this->money((int) $pricing['amount'], (string) $pricing['currency']),
+            'price_rule_summary' => $pricing['summary'] ?? null,
             'image_thumb_url' => $stock->image_thumb_url,
             'image_url' => $stock->image_url,
         ];

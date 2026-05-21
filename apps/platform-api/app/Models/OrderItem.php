@@ -20,12 +20,14 @@ class OrderItem extends BaseModel
         'status',
         'price_amount',
         'currency',
+        'sale_price_rule_snapshot_json',
         'created_at',
         'updated_at',
     ];
 
     protected $casts = [
         'price_amount' => 'integer',
+        'sale_price_rule_snapshot_json' => 'array',
     ];
 
     public function order(): BelongsTo

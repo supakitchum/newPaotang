@@ -2747,6 +2747,104 @@ paths:
           $ref: "#/components/responses/PermissionDenied"
         "409":
           $ref: "#/components/responses/ResourceConflict"
+  /admin/central/sale-price-rules:
+    get:
+      tags: [Central Admin]
+      summary: List central lottery sale price rules
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: game_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Central sale price rules
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResourceListResponse"
+    post:
+      tags: [Central Admin]
+      summary: Create or update a central lottery sale price rule
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCreateRequest"
+      responses:
+        "201":
+          description: Central sale price rule saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
+  /admin/central/sale-price-rules/{sale_price_rule_id}:
+    get:
+      tags: [Central Admin]
+      summary: View central lottery sale price rule
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: sale_price_rule_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Central sale price rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Central Admin]
+      summary: Update central lottery sale price rule
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: sale_price_rule_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminPatchRequest"
+      responses:
+        "200":
+          description: Central sale price rule updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /admin/central/allocations:
     get:
       tags: [Central Admin]
@@ -6228,6 +6326,103 @@ paths:
       responses:
         "204":
           description: Tenant price rule archived
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /admin/tenant/sale-price-rules:
+    get:
+      tags: [Tenant Admin]
+      summary: List tenant lottery sale price overrides
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: game_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Tenant sale price rules
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResourceListResponse"
+    post:
+      tags: [Tenant Admin]
+      summary: Create or update tenant lottery sale price override
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCreateRequest"
+      responses:
+        "201":
+          description: Tenant sale price override saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
+  /admin/tenant/sale-price-rules/{sale_price_rule_id}:
+    get:
+      tags: [Tenant Admin]
+      summary: View tenant lottery sale price override
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: sale_price_rule_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tenant sale price rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Tenant Admin]
+      summary: Update tenant lottery sale price override
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+        - name: sale_price_rule_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminPatchRequest"
+      responses:
+        "200":
+          description: Tenant sale price override updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
         "404":
           $ref: "#/components/responses/NotFound"
   /admin/tenant/stock-sync/batches:

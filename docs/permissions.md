@@ -382,6 +382,10 @@ auditor
 | `GET /admin/central/webhook-logs/{webhook_log_id}` | central | audit.view |
 | `GET /admin/central/audit-logs` | central | audit.view |
 | `GET /admin/central/sync-logs` | central | audit.view |
+| `GET /admin/central/sale-price-rules` | central | price_rule.view |
+| `POST /admin/central/sale-price-rules` | central | price_rule.manage |
+| `GET /admin/central/sale-price-rules/{sale_price_rule_id}` | central | price_rule.view |
+| `PATCH /admin/central/sale-price-rules/{sale_price_rule_id}` | central | price_rule.manage |
 | `GET /admin/tenant/admin-users` | tenant | admin_user.manage |
 | `POST /admin/tenant/admin-users` | tenant | admin_user.manage |
 | `GET /admin/tenant/admin-users/{admin_user_id}` | tenant | admin_user.manage |
@@ -419,6 +423,10 @@ auditor
 | `GET /admin/tenant/price-rules/{price_rule_id}` | tenant | price_rule.view |
 | `PATCH /admin/tenant/price-rules/{price_rule_id}` | tenant | price_rule.manage |
 | `DELETE /admin/tenant/price-rules/{price_rule_id}` | tenant | price_rule.manage |
+| `GET /admin/tenant/sale-price-rules` | tenant | price_rule.view |
+| `POST /admin/tenant/sale-price-rules` | tenant | price_rule.manage |
+| `GET /admin/tenant/sale-price-rules/{sale_price_rule_id}` | tenant | price_rule.view |
+| `PATCH /admin/tenant/sale-price-rules/{sale_price_rule_id}` | tenant | price_rule.manage |
 | `GET /admin/tenant/topups` | tenant | topup.view |
 | `GET /admin/tenant/topups/{topup_id}` | tenant | topup.view |
 | `POST /admin/tenant/topups/{topup_id}/approve` | tenant | topup.approve |

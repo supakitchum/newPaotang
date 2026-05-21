@@ -11,6 +11,7 @@ use App\Models\StockReservation;
 use App\Models\StockReservationItem;
 use App\Modules\CentralStock\Services\StockCoverageRealtimeService;
 use App\Modules\PartnerStore\Events\StockAvailabilityUpdated;
+use App\Modules\Pricing\Services\LotterySalePriceService;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Auth\CustomerSessionContext;
@@ -30,6 +31,7 @@ class VirtualStockService
         private readonly StockCoverageRealtimeService $coverageRealtime,
         private readonly AuditLogger $auditLogger,
         private readonly VirtualLotteryImageService $virtualImages,
+        private readonly LotterySalePriceService $salePrices,
     ) {
     }
 
@@ -347,6 +349,7 @@ class VirtualStockService
         $cursor = max(0, (int) preg_replace('/\D+/', '', (string) ($queryParams['cursor'] ?? '0')));
         $mode = (string) ($queryParams['mode'] ?? 'search');
         $rows = [];
+        $deferredRandomRows = [];
         $visited = 0;
         $offset = $cursor;
 
@@ -365,8 +368,15 @@ class VirtualStockService
 
             $copyIndexes = $this->availableCopyIndexes($partnerId, $candidate, $availability);
 
-            foreach ($copyIndexes as $copyIndex) {
-                $rows[] = $this->virtualStockResource($tenantId, $partnerId, $gameId, $candidate, $copyIndex, $availability);
+            foreach ($copyIndexes as $copyIndexOffset => $copyIndex) {
+                $resource = $this->virtualStockResource($tenantId, $partnerId, $gameId, $candidate, $copyIndex, $availability);
+
+                if ($mode === 'random' && $copyIndexOffset > 0) {
+                    $deferredRandomRows[] = $resource;
+                    continue;
+                }
+
+                $rows[] = $resource;
 
                 if (count($rows) >= $limit + 1) {
                     break 2;
@@ -379,13 +389,16 @@ class VirtualStockService
         }
 
         $hasMore = count($rows) > $limit;
+        if ($mode === 'random') {
+            $hasMore = $hasMore || $deferredRandomRows !== [];
+            $rows = $this->interleaveAdjacentFullNumbers([...$rows, ...$deferredRandomRows]);
+        }
         $rows = array_slice($rows, 0, $limit);
 
         return [
             'data' => $rows,
             'meta' => [
                 'game_id' => $gameId,
-                'stock_mode' => 'virtual',
                 'next_cursor' => $hasMore ? (string) $offset : null,
                 'has_more' => $hasMore,
             ],
@@ -756,6 +769,59 @@ class VirtualStockService
         foreach ($query->offset(max(0, $cursor))->limit(50001)->get() as $row) {
             yield (string) $row->full_number;
         }
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function interleaveAdjacentFullNumbers(array $rows): array
+    {
+        $groups = [];
+        $order = [];
+
+        foreach ($rows as $row) {
+            $fullNumber = (string) ($row['full_number'] ?? '');
+
+            if (! array_key_exists($fullNumber, $groups)) {
+                $groups[$fullNumber] = [];
+                $order[] = $fullNumber;
+            }
+
+            $groups[$fullNumber][] = $row;
+        }
+
+        if (count($groups) < 2) {
+            return $rows;
+        }
+
+        $result = [];
+        $lastNumber = null;
+
+        while (count($result) < count($rows)) {
+            $nextNumber = null;
+
+            foreach ($order as $number) {
+                if ($number === $lastNumber || ($groups[$number] ?? []) === []) {
+                    continue;
+                }
+
+                if ($nextNumber === null || count($groups[$number]) > count($groups[$nextNumber])) {
+                    $nextNumber = $number;
+                }
+            }
+
+            $nextNumber ??= collect($order)->first(fn (string $number): bool => ($groups[$number] ?? []) !== []);
+
+            if ($nextNumber === null) {
+                break;
+            }
+
+            $result[] = array_shift($groups[$nextNumber]);
+            $lastNumber = $nextNumber;
+        }
+
+        return $result;
     }
 
     /**
@@ -1826,13 +1892,13 @@ class VirtualStockService
     {
         $stockRef = $this->virtualRef($tenantId, $gameId, $fullNumber, $copyIndex);
         $preview = $this->virtualImages->previewDescriptor($tenantId, $partnerId, $gameId, $fullNumber, $copyIndex);
+        $price = $this->salePrices->effectivePrice($tenantId, $gameId, 1);
 
         return [
             'id' => $stockRef,
             'token' => $stockRef,
             'local_stock_item_id' => $stockRef,
             'stock_ref' => $stockRef,
-            'stock_mode' => 'virtual',
             'game_id' => $gameId,
             'full_number' => $fullNumber,
             'front3' => substr($fullNumber, 0, 3),
@@ -1842,8 +1908,8 @@ class VirtualStockService
             'remaining_count' => (int) $availability['remaining_count'],
             'availability_status' => (string) $availability['availability_status'],
             'status' => (string) $availability['availability_status'],
-            'price' => ['amount' => 0, 'currency' => 'THB'],
-            'price_rule_summary' => null,
+            'price' => ['amount' => (int) $price['amount'], 'currency' => (string) $price['currency']],
+            'price_rule_summary' => $this->salePrices->summary($price),
             'preview_image_url' => $preview['url'],
             'image_thumb_url' => $preview['url'],
             'image_url' => null,
@@ -2002,6 +2068,7 @@ class VirtualStockService
             ->select('local_stock_items.*')
             ->get()
             ->all();
+        $pricing = $this->salePrices->allocatePricesForStockRows((string) $reservation->tenant_id, $items);
 
         return [
             'id' => (string) $reservation->id,
@@ -2009,7 +2076,8 @@ class VirtualStockService
             'status' => (string) $reservation->status,
             'expires_at' => $reservation->expires_at,
             'server_time' => now()->toISOString(),
-            'items' => array_map(fn (object $stock): array => $this->reservationItemResource($stock), $items),
+            'items' => array_map(fn (object $stock): array => $this->reservationItemResource($stock, $pricing['items'][(string) $stock->id] ?? null), $items),
+            'total' => ['amount' => (int) $pricing['total_amount'], 'currency' => (string) $pricing['currency']],
             'tenant_id' => (string) $reservation->tenant_id,
             'customer_id' => (string) $reservation->customer_id,
             'created_at' => $reservation->created_at,
@@ -2020,9 +2088,10 @@ class VirtualStockService
     /**
      * @return array<string, mixed>
      */
-    private function reservationItemResource(object $stock): array
+    private function reservationItemResource(object $stock, ?array $pricing = null): array
     {
         $preview = ['url' => null, 'status' => $stock->image_generation_status, 'error' => $stock->image_generation_error];
+        $price = $pricing === null ? $this->salePrices->effectivePrice((string) $stock->tenant_id, (string) $stock->game_id, 1) : null;
 
         if ($stock->virtual_stock_ref !== null && $stock->image_thumb_url === null) {
             $preview = $this->virtualImages->previewDescriptor(
@@ -2043,11 +2112,13 @@ class VirtualStockService
             'back2' => $stock->back2,
             'status' => (string) $stock->status,
             'stock_ref' => $stock->virtual_stock_ref,
-            'stock_mode' => $stock->virtual_stock_ref === null ? 'physical' : 'virtual',
             'remaining_count' => null,
             'availability_status' => (string) $stock->status,
-            'price' => ['amount' => 0, 'currency' => 'THB'],
-            'price_rule_summary' => null,
+            'price' => [
+                'amount' => (int) ($pricing['amount'] ?? $price['amount']),
+                'currency' => (string) ($pricing['currency'] ?? $price['currency']),
+            ],
+            'price_rule_summary' => $pricing['summary'] ?? $this->salePrices->summary($price),
             'preview_image_url' => $stock->image_thumb_url ?? $preview['url'],
             'image_thumb_url' => $stock->image_thumb_url ?? $preview['url'],
             'image_url' => $stock->image_url,

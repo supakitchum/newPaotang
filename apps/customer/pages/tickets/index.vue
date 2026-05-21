@@ -46,8 +46,6 @@
         >
           <TicketStub
             :number="getTicketNumber(ticket)"
-            :draw="getTicketDraw(ticket, currentGame)"
-            :set="getTicketSet(ticket)"
             :status="getTicketStatusText(ticket)"
             :image-url="ticket.image_url || ticket.image"
             :image-thumb-url="ticket.image_thumb_url"
@@ -95,8 +93,6 @@ const {
   getGameDate,
   getTicketNumber,
   getTicketCount,
-  getTicketDraw,
-  getTicketSet,
   getTicketStatusText
 } = useUserTickets()
 const { currentDrawDate } = useAppInit()

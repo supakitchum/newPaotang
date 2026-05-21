@@ -754,12 +754,14 @@ class VirtualStockRealtimeTest extends TestCase
 
         Event::fake([StockAvailabilityUpdated::class, StockCoverageUpdated::class, StockTableUpdated::class]);
 
-        $search = $this->getJson('http://virtual.newpaotang.test/api/v1/public/stock/search?game_id=gam_virtual&number=123456&limit=5')
+        $searchResponse = $this->getJson('http://virtual.newpaotang.test/api/v1/public/stock/search?game_id=gam_virtual&number=123456&limit=5')
             ->assertOk()
-            ->assertJsonPath('meta.stock_mode', 'virtual')
             ->assertJsonPath('data.0.full_number', '123456')
-            ->assertJsonPath('data.0.remaining_count', 1)
-            ->json('data.0');
+            ->assertJsonPath('data.0.remaining_count', 1);
+        $searchJson = $searchResponse->json();
+        $this->assertArrayNotHasKey('stock_mode', $searchJson['meta']);
+        $this->assertArrayNotHasKey('stock_mode', $searchJson['data'][0]);
+        $search = $searchJson['data'][0];
 
         $customerToken = $this->issueCustomerToken('ten_virtual', 'cus_virtual');
         $reservation = $this->withToken($customerToken)
@@ -769,8 +771,8 @@ class VirtualStockRealtimeTest extends TestCase
             ], ['Idempotency-Key' => 'virtual-reserve-1'])
             ->assertCreated()
             ->assertJsonPath('items.0.full_number', '123456')
-            ->assertJsonPath('items.0.stock_mode', 'virtual')
             ->json();
+        $this->assertArrayNotHasKey('stock_mode', $reservation['items'][0]);
 
         $this->assertSame(0, DB::table('stock_items')->where('game_id', 'gam_virtual')->whereNull('virtual_stock_ref')->count());
         $this->assertSame(1, DB::table('stock_items')->where('game_id', 'gam_virtual')->whereNotNull('virtual_stock_ref')->count());

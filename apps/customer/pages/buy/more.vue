@@ -15,7 +15,7 @@
       </div>
       <LotteryItem
         v-for="(ticket, index) in tickets"
-        :key="`${ticket.number}-${ticket.sort_order ?? ticket.set ?? index}`"
+        :key="ticketKey(ticket, index)"
         :ticket="ticket"
         @booking-unavailable="removeLottery"
       />
@@ -47,6 +47,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 interface MoreNumberTicket {
   token?: string
+  local_stock_item_id?: string
   number: string
   full_number?: string
   lottery_number?: string
@@ -79,6 +80,7 @@ definePageMeta({
 const route = useRoute()
 const router = useRouter()
 const platformApi = usePlatformApi()
+const { isAuthenticated } = useAuth()
 const tickets = ref<MoreNumberTicket[]>([])
 const pagination = ref<MorePagination | null>(null)
 const currentGameId = ref('')
@@ -106,7 +108,6 @@ const realtime = useCustomerStockRealtime({
   gameId: currentGameId,
   enabled: computed(() => Boolean(currentGameId.value)),
   onAvailability: (payload) => applyAvailabilityUpdate(payload),
-  onReconnect: () => { void search(false) }
 })
 
 const goBack = () => {
@@ -180,12 +181,12 @@ const startAvailabilityPolling = () => {
   }
 
   availabilityPollTimer = setInterval(() => {
-    if (realtime.status.value === 'connected' || isLoadingInitial.value || isLoadingMore.value || !selectedNumber.value) {
+    if (!isAuthenticated.value || !['unavailable', 'error'].includes(realtime.status.value) || isLoadingInitial.value || isLoadingMore.value || !selectedNumber.value) {
       return
     }
 
     void search(false)
-  }, 30000)
+  }, 120000)
 }
 
 const search = async (append = false) => {
@@ -243,6 +244,8 @@ const removeLottery = (ticket: MoreNumberTicket) => {
     return `${item.number}-${item.sort_order ?? item.set ?? ''}` !== `${ticket.number}-${ticket.sort_order ?? ticket.set ?? ''}`
   })
 }
+
+const ticketKey = (ticket: MoreNumberTicket, index: number) => String(ticket.token || ticket.local_stock_item_id || `${ticket.number}-${ticket.sort_order ?? ticket.set ?? index}`)
 
 onMounted(async () => {
   isLoadingInitial.value = true

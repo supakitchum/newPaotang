@@ -13,6 +13,7 @@ use App\Models\StockReservationItem;
 use App\Models\SupportImpersonationSession;
 use App\Models\SyncOutbox;
 use App\Models\TenantStockExportJob;
+use App\Modules\Pricing\Services\LotterySalePriceService;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Auth\CustomerSessionContext;
@@ -31,6 +32,7 @@ class PartnerStoreService
         private readonly AuditLogger $auditLogger,
         private readonly MaintenanceService $maintenance,
         private readonly VirtualStockService $virtualStock,
+        private readonly LotterySalePriceService $salePrices,
     ) {
     }
 
@@ -274,7 +276,6 @@ class PartnerStoreService
             'data' => [],
             'meta' => [
                 'game_id' => $gameId,
-                'stock_mode' => 'virtual',
                 'next_cursor' => null,
                 'has_more' => false,
             ],
@@ -883,9 +884,10 @@ class PartnerStoreService
     /**
      * @return array<string, mixed>
      */
-    private function localStockResource(object $stock): array
+    private function localStockResource(object $stock, bool $includeStockMode = true): array
     {
-        return [
+        $price = $this->salePrices->effectivePrice((string) $stock->tenant_id, (string) $stock->game_id, 1);
+        $resource = [
             'id' => (string) $stock->id,
             'game_id' => (string) $stock->game_id,
             'full_number' => (string) $stock->full_number,
@@ -894,15 +896,20 @@ class PartnerStoreService
             'back2' => $stock->back2,
             'status' => (string) $stock->status,
             'stock_ref' => $stock->virtual_stock_ref,
-            'stock_mode' => $stock->virtual_stock_ref === null ? 'physical' : 'virtual',
             'virtual_copy_index' => $stock->virtual_copy_index,
             'remaining_count' => null,
             'availability_status' => (string) $stock->status,
-            'price' => ['amount' => 0, 'currency' => 'THB'],
-            'price_rule_summary' => null,
+            'price' => ['amount' => (int) $price['amount'], 'currency' => (string) $price['currency']],
+            'price_rule_summary' => $this->salePrices->summary($price),
             'image_thumb_url' => $stock->image_thumb_url,
             'image_url' => $stock->image_url,
         ];
+
+        if ($includeStockMode) {
+            $resource['stock_mode'] = $stock->virtual_stock_ref === null ? 'physical' : 'virtual';
+        }
+
+        return $resource;
     }
 
     /**
@@ -1003,7 +1010,7 @@ class PartnerStoreService
             'status' => (string) $reservation->status,
             'expires_at' => $reservation->expires_at,
             'server_time' => now()->toISOString(),
-            'items' => array_map(fn (object $stock): array => $this->localStockResource($stock), $items),
+            'items' => array_map(fn (object $stock): array => $this->localStockResource($stock, false), $items),
             'tenant_id' => (string) $reservation->tenant_id,
             'customer_id' => (string) $reservation->customer_id,
             'created_at' => $reservation->created_at,

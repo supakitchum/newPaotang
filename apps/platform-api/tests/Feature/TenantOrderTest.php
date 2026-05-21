@@ -52,7 +52,7 @@ class TenantOrderTest extends TestCase
 
         $this->withToken($manager['access_token'])
             ->postJson('/api/v1/admin/tenant/orders/'.$order['id'].'/refund', [
-                'amount' => ['amount' => 10000, 'currency' => 'THB'],
+                'amount' => ['amount' => 8000, 'currency' => 'THB'],
                 'reason' => 'customer refund',
             ], [
                 'X-Admin-Scope' => 'tenant',
@@ -65,7 +65,7 @@ class TenantOrderTest extends TestCase
 
         $this->withToken($manager['access_token'])
             ->postJson('/api/v1/admin/tenant/orders/'.$order['id'].'/refund', [
-                'amount' => ['amount' => 10000, 'currency' => 'THB'],
+                'amount' => ['amount' => 8000, 'currency' => 'THB'],
                 'reason' => 'customer refund',
             ], [
                 'X-Admin-Scope' => 'tenant',

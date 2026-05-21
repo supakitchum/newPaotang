@@ -29,8 +29,9 @@
 
       <LotteryItem
         v-for="(ticket, index) in lotteries"
-        :key="`${ticket.number}-${ticket.sort_order ?? ticket.set ?? index}`"
+        :key="ticketKey(ticket, index)"
         :ticket="ticket"
+        :show-image="false"
         :booking-disabled="!canBuyLottery"
         @booking-unavailable="removeLottery"
       />
@@ -59,7 +60,10 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 interface LotteryTicket {
   token?: string
+  local_stock_item_id?: string
   number: string
+  full_number?: string
+  lottery_number?: string
   seller?: string
   store_name?: string
   draw?: number | string
@@ -76,16 +80,17 @@ interface LotteryTicket {
 
 const platformApi = usePlatformApi()
 const { isAuthenticated, clearAuthToken } = useAuth()
-const { currentDrawDate: drawDate } = useAppInit()
-const lotteries = ref<LotteryTicket[]>([])
-const seed = ref<string | null>(null)
-const nextCursor = ref<string | null>(null)
-const currentGameId = ref('')
+const { currentDrawDate: drawDate, currentGame } = useAppInit()
+const lotteries = useState<LotteryTicket[]>('buy_browse_lotteries', () => [])
+const seed = useState<string | null>('buy_browse_seed', () => null)
+const nextCursor = useState<string | null>('buy_browse_next_cursor', () => null)
+const currentGameId = useState<string>('buy_browse_game_id', () => '')
+const cachedScrollTop = useState<number>('buy_browse_scroll_top', () => 0)
 const isLoadingInitial = ref(false)
 const isRefreshing = ref(false)
 const isLoadingMore = ref(false)
 const cooldownSeconds = ref(0)
-const canBuyLottery = ref(true)
+const canBuyLottery = useState<boolean>('buy_browse_can_buy', () => true)
 let cooldownTimer: ReturnType<typeof setInterval> | null = null
 let availabilityPollTimer: ReturnType<typeof setInterval> | null = null
 let scrollContainer: HTMLElement | null = null
@@ -121,8 +126,10 @@ const realtime = useCustomerStockRealtime({
   gameId: currentGameId,
   enabled: computed(() => Boolean(currentGameId.value)),
   onAvailability: (payload) => applyAvailabilityUpdate(payload),
-  onReconnect: () => { void getData() }
 })
+
+const currentAppGameId = computed(() => String(currentGame.value?.id || ''))
+const hasReusableBrowseState = computed(() => lotteries.value.length > 0 && (!currentAppGameId.value || !currentGameId.value || currentGameId.value === currentAppGameId.value))
 
 const startCooldown = () => {
   cooldownSeconds.value = 10
@@ -197,12 +204,12 @@ const startAvailabilityPolling = () => {
   }
 
   availabilityPollTimer = setInterval(() => {
-    if (realtime.status.value === 'connected' || isLoadingInitial.value || isRefreshing.value || isLoadingMore.value) {
+    if (!isAuthenticated.value || !['unavailable', 'error'].includes(realtime.status.value) || isLoadingInitial.value || isRefreshing.value || isLoadingMore.value) {
       return
     }
 
     void getData()
-  }, 30000)
+  }, 120000)
 }
 
 const loadNextPage = async () => {
@@ -235,6 +242,7 @@ const handleRefresh = async () => {
   isRefreshing.value = true
   seed.value = null
   nextCursor.value = null
+  cachedScrollTop.value = 0
   lotteries.value = []
   await getData()
   isRefreshing.value = false
@@ -251,16 +259,33 @@ const removeLottery = (ticket: LotteryTicket) => {
   })
 }
 
+const ticketKey = (ticket: LotteryTicket, index: number) => String(ticket.token || ticket.local_stock_item_id || `${ticket.number}-${ticket.sort_order ?? ticket.set ?? index}`)
+
 onMounted(async () => {
-  isLoadingInitial.value = true
-  await getData()
-  isLoadingInitial.value = false
+  if (!hasReusableBrowseState.value) {
+    isLoadingInitial.value = true
+    seed.value = null
+    nextCursor.value = null
+    lotteries.value = []
+    await getData()
+    isLoadingInitial.value = false
+  }
+
   startAvailabilityPolling()
   scrollContainer = document.querySelector('.app-scroll')
   scrollContainer?.addEventListener('scroll', handleScroll, { passive: true })
+  requestAnimationFrame(() => {
+    if (scrollContainer && cachedScrollTop.value > 0) {
+      scrollContainer.scrollTop = cachedScrollTop.value
+    }
+  })
 })
 
 onBeforeUnmount(() => {
+  if (scrollContainer) {
+    cachedScrollTop.value = scrollContainer.scrollTop
+  }
+
   if (cooldownTimer) {
     clearInterval(cooldownTimer)
   }

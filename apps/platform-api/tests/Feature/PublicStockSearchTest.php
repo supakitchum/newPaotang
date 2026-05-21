@@ -214,20 +214,21 @@ class PublicStockSearchTest extends TestCase
 
         $this->getJson('http://virtual-public.newpaotang.test/api/v1/public/stock/search?game_id=gam_virtual_public&number=123456')
             ->assertOk()
-            ->assertJsonPath('meta.stock_mode', 'virtual')
             ->assertJsonCount(0, 'data');
 
         $this->insertPartnerDistribution('gam_virtual_public', 'par_virtual_public', 'ten_virtual_public', 10000);
 
-        $stock = $this->getJson('http://virtual-public.newpaotang.test/api/v1/public/stock/search?game_id=gam_virtual_public&number=123456')
+        $search = $this->getJson('http://virtual-public.newpaotang.test/api/v1/public/stock/search?game_id=gam_virtual_public&number=123456')
             ->assertOk()
-            ->assertJsonPath('meta.stock_mode', 'virtual')
-            ->assertJsonPath('data.0.stock_mode', 'virtual')
             ->assertJsonPath('data.0.full_number', '123456')
-            ->json('data.0');
+            ->assertJsonPath('data.0.price.amount', 8000)
+            ->json();
+        $this->assertArrayNotHasKey('stock_mode', $search['meta']);
+        $this->assertArrayNotHasKey('stock_mode', $search['data'][0]);
+        $stock = $search['data'][0];
 
         $customerToken = $this->issueCustomerToken('ten_virtual_public', 'cus_virtual_public');
-        $this->withToken($customerToken)
+        $reservation = $this->withToken($customerToken)
             ->postJson('http://virtual-public.newpaotang.test/api/v1/customer/reservations', [
                 'game_id' => 'gam_virtual_public',
                 'local_stock_item_ids' => [$stock['id']],
@@ -235,11 +236,35 @@ class PublicStockSearchTest extends TestCase
                 'Idempotency-Key' => 'reserve-virtual-public',
             ])
             ->assertCreated()
-            ->assertJsonPath('items.0.stock_mode', 'virtual')
-            ->assertJsonPath('items.0.full_number', '123456');
+            ->assertJsonPath('items.0.full_number', '123456')
+            ->assertJsonPath('items.0.price.amount', 8000)
+            ->json();
+        $this->assertArrayNotHasKey('stock_mode', $reservation['items'][0]);
 
         $this->assertSame(1, DB::table('stock_items')->where('game_id', 'gam_virtual_public')->whereNotNull('virtual_stock_ref')->count());
         $this->assertSame(1, DB::table('local_stock_items')->where('tenant_id', 'ten_virtual_public')->whereNotNull('virtual_stock_ref')->count());
+    }
+
+    public function test_PublicStockSearch_random_virtual_results_interleave_duplicate_copy_numbers(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_random_virtual', 'ten_random_virtual', 'random-virtual.newpaotang.test');
+        $this->insertGame('gam_random_virtual', 'open');
+        $this->insertBaseLotteryNumbers(['111111', '222222', '333333']);
+        $this->insertVirtualProfile('gam_random_virtual', 3, 9, [[
+            'set_size' => 3,
+            'percent_basis_points' => 10000,
+        ]]);
+        $this->insertPartnerDistribution('gam_random_virtual', 'par_random_virtual', 'ten_random_virtual', 10000, 9);
+
+        $rows = $this->getJson('http://random-virtual.newpaotang.test/api/v1/public/stock/search?game_id=gam_random_virtual&mode=random&limit=6')
+            ->assertOk()
+            ->assertJsonCount(6, 'data')
+            ->json('data');
+
+        for ($index = 1; $index < count($rows); $index++) {
+            $this->assertNotSame($rows[$index - 1]['full_number'], $rows[$index]['full_number']);
+        }
     }
 
     public function test_PublicStockSearch_virtual_preview_image_url_is_deterministic_lazy_and_renders_on_demand(): void
@@ -368,24 +393,29 @@ class PublicStockSearchTest extends TestCase
         DB::table('base_lottery_numbers')->insert($rows);
     }
 
-    private function insertVirtualProfile(string $gameId): void
+    /**
+     * @param array<int, array{set_size: int, percent_basis_points: int}> $distribution
+     */
+    private function insertVirtualProfile(string $gameId, int $baseCount = 1, int $totalCapacity = 1, array $distribution = []): void
     {
         DB::table('stock_supply_profiles')->insert([
             'id' => 'vsp_'.$gameId,
             'game_id' => $gameId,
             'status' => 'active',
             'seed' => 'virtual-public-seed',
-            'base_count' => 1,
-            'total_capacity' => 1,
-            'set_distribution_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'base_count' => $baseCount,
+            'total_capacity' => $totalCapacity,
+            'set_distribution_json' => json_encode($distribution, JSON_THROW_ON_ERROR),
             'created_by_admin_id' => null,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
     }
 
-    private function insertPartnerDistribution(string $gameId, string $partnerId, string $tenantId, int $basisPoints): void
+    private function insertPartnerDistribution(string $gameId, string $partnerId, string $tenantId, int $basisPoints, ?int $allocatedCount = null): void
     {
+        $allocatedCount ??= (int) floor(((int) DB::table('stock_supply_profiles')->where('id', 'vsp_'.$gameId)->value('total_capacity') * $basisPoints) / 10000);
+
         DB::table('stock_partner_distributions')->insert([
             'id' => 'spd_'.substr(sha1($gameId.':'.$partnerId), 0, 20),
             'game_id' => $gameId,
@@ -404,10 +434,10 @@ class PublicStockSearchTest extends TestCase
             'game_id' => $gameId,
             'quota_id' => null,
             'status' => 'allocated',
-            'requested_count' => (int) floor($basisPoints / 10000),
+            'requested_count' => $allocatedCount,
             'allocation_percent_basis_points' => $basisPoints,
             'supply_layer_ids_json' => json_encode(['vsp_'.$gameId], JSON_THROW_ON_ERROR),
-            'allocated_count' => (int) floor($basisPoints / 10000),
+            'allocated_count' => $allocatedCount,
             'recalled_count' => 0,
             'idempotency_key' => 'fixture-'.$gameId.'-'.$partnerId,
             'payload_hash' => hash('sha256', $gameId.':'.$partnerId),

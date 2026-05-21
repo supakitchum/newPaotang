@@ -15,6 +15,16 @@ class PaymentWebhookTest extends TestCase
     public function test_PaymentWebhook_finalizes_external_payment_and_dedupes_provider_callback(): void
     {
         $world = $this->prepareReservedCart('par_payment_webhook', 'ten_payment_webhook', 'payment-webhook.m5.test', 'gam_payment_webhook', '0808009000', 770001);
+        DB::table('game_sale_price_rules')->insert([
+            'id' => 'gsp_payment_webhook',
+            'game_id' => 'gam_payment_webhook',
+            'set_size' => 1,
+            'price_amount' => 11100,
+            'currency' => 'THB',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         $order = $this->withToken($world['auth']['token'])
             ->postJson('http://'.$world['host'].'/api/v1/customer/checkout', [
@@ -25,7 +35,19 @@ class PaymentWebhookTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('status', 'pending_payment')
+            ->assertJsonPath('total.amount', 11100)
             ->json();
+        $this->assertDatabaseHas('order_items', [
+            'tenant_id' => 'ten_payment_webhook',
+            'order_id' => $order['id'],
+            'status' => 'reserved',
+            'price_amount' => 11100,
+        ]);
+
+        DB::table('game_sale_price_rules')->where('id', 'gsp_payment_webhook')->update([
+            'price_amount' => 12900,
+            'updated_at' => now(),
+        ]);
 
         $this->assertDatabaseHas('local_stock_items', [
             'id' => $world['local_ids'][0],
@@ -53,6 +75,15 @@ class PaymentWebhookTest extends TestCase
             'id' => $world['local_ids'][0],
             'status' => 'sold',
         ]);
+        $this->assertDatabaseHas('order_items', [
+            'tenant_id' => 'ten_payment_webhook',
+            'order_id' => $order['id'],
+            'status' => 'sold',
+            'price_amount' => 11100,
+        ]);
+        $snapshot = json_decode((string) DB::table('order_items')->where('order_id', $order['id'])->value('sale_price_rule_snapshot_json'), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('gsp_payment_webhook', $snapshot['central_rule_id'] ?? null);
+        $this->assertSame(11100, $snapshot['effective_amount']['amount'] ?? null);
         $this->assertSame(1, DB::table('tickets')->where('order_id', $order['id'])->count());
 
         $this->postJson('/api/v1/webhooks/payments/external_payment', [
