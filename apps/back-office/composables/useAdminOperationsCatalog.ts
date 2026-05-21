@@ -37,7 +37,7 @@ export type OperationOption = string | {
   close_at?: string
   server_time?: string
 }
-export type OperationOptionSource = 'central-games' | 'central-partners' | 'allocation-partners' | 'allocation-tenants' | 'allocation-games' | 'tenant-stock-games' | 'tenant-price-rule-games'
+export type OperationOptionSource = 'central-games' | 'central-partners' | 'central-billing-plans' | 'allocation-partners' | 'allocation-tenants' | 'allocation-games' | 'tenant-stock-games' | 'tenant-price-rule-games'
 
 export type OperationColumn = {
   key: string
@@ -701,7 +701,7 @@ const partnerProvisionFields: OperationFormField[] = [
   { key: 'owner_name', label: 'Owner name', placeholder: 'Tenant owner' },
   { key: 'owner_password', label: 'Owner password', type: 'password', placeholder: 'Leave blank to keep generated/default handling' },
   { key: 'site_name', label: 'Site name', placeholder: 'Public shop name' },
-  { key: 'billing_plan_code', label: 'Billing plan code', placeholder: 'starter' },
+  { key: 'billing_plan_code', label: 'Billing plan', type: 'select', optionSource: 'central-billing-plans', options: [{ value: 'starter', label: 'Starter' }], defaultValue: 'starter', hideEmptyOption: true, emptyOptionLabel: 'No billing plans available' },
   { key: 'deployment_mode', label: 'Deployment mode', type: 'select', options: deploymentModeOptions, defaultValue: 'shared' },
   { key: 'features.affiliate', label: 'Affiliate feature', type: 'checkbox', defaultValue: false },
   { key: 'features.custom_domain', label: 'Custom domain feature', type: 'checkbox', defaultValue: false },

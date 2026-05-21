@@ -747,6 +747,7 @@ const stockTickets = reactive<{
 const optionSourceOptions = reactive<Record<OperationOptionSource, OperationOption[]>>({
   'central-games': [],
   'central-partners': [],
+  'central-billing-plans': [],
   'allocation-partners': [],
   'allocation-tenants': [],
   'allocation-games': [],
@@ -756,6 +757,7 @@ const optionSourceOptions = reactive<Record<OperationOptionSource, OperationOpti
 const optionSourceLoading = reactive<Record<OperationOptionSource, boolean>>({
   'central-games': false,
   'central-partners': false,
+  'central-billing-plans': false,
   'allocation-partners': false,
   'allocation-tenants': false,
   'allocation-games': false,
@@ -1444,6 +1446,12 @@ const loadOptionSource = async (source: OperationOptionSource) => {
         query: { limit: 100 },
       })
       optionSourceOptions[source] = normalizePartnerOptions(extractItems(response))
+    } else if (source === 'central-billing-plans') {
+      const response = await api.apiFetch('/admin/central/billing-plans', {
+        scope: 'central',
+        query: { status: 'active', limit: 100 },
+      })
+      optionSourceOptions[source] = normalizeBillingPlanOptions(extractItems(response))
     } else if (source === 'allocation-partners') {
       const response = await api.apiFetch('/admin/central/allocation-options/partners', {
         scope: 'central',
@@ -1517,6 +1525,25 @@ const partnerOption = (partner: any): OperationOption => {
 
 const normalizePartnerOptions = (items: any[]) => items
   .map(partnerOption)
+  .filter((option) => !isBlank(optionValue(option)))
+
+const billingPlanOption = (plan: any): OperationOption => {
+  const code = plan?.code || plan?.billing_plan_code || plan?.id
+  const name = plan?.name || code
+  const suffix = code && code !== name ? ` (${code})` : ''
+
+  return {
+    value: code,
+    label: `${name}${suffix}`,
+    code,
+    name,
+    status: String(plan?.status || '').toLowerCase(),
+    disabled: String(plan?.status || '').toLowerCase() !== 'active',
+  }
+}
+
+const normalizeBillingPlanOptions = (items: any[]) => items
+  .map(billingPlanOption)
   .filter((option) => !isBlank(optionValue(option)))
 
 const allocationPartnerOption = (partner: any): OperationOption => {
