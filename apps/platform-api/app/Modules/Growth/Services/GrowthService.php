@@ -18,6 +18,7 @@ use App\Models\LocalStockItem;
 use App\Models\Order;
 use App\Models\PartnerSettlement;
 use App\Models\PartnerTenant;
+use App\Models\PartnerTenantDomain;
 use App\Models\RewardClaim;
 use App\Models\ReportExportJob;
 use App\Models\StockItem;
@@ -26,6 +27,7 @@ use App\Models\Ticket;
 use App\Models\WalletLedger;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
+use App\Shared\Auth\CustomerSessionContext;
 use App\Shared\Idempotency\IdempotencyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -39,6 +41,9 @@ class GrowthService
     private const EXPORT_FORMATS = ['csv', 'xlsx', 'pdf'];
     private const PAYOUT_METHODS = ['bank_transfer', 'manual_cash', 'wallet_credit'];
     private const RULE_TYPES = ['fixed_per_order', 'percent_sales', 'per_ticket'];
+    private const AFFILIATE_CODE_LENGTH = 6;
+    private const AFFILIATE_CODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    private const AFFILIATE_ATTRIBUTION_TTL_DAYS = 30;
 
     public function __construct(
         private readonly AuditLogger $auditLogger,
@@ -253,7 +258,12 @@ class GrowthService
     public function createAffiliateAccount(string $tenantId, AdminSessionContext $actor, array $payload, Request $request): array
     {
         $normalized = $this->normalizeAffiliatePayload($payload, true);
+        unset($normalized['code']);
         $errors = $this->basicNameErrors($normalized, 'name');
+
+        if (($normalized['customer_id'] ?? null) === null) {
+            $errors['customer_id'][] = 'The customer_id field is required for affiliate accounts.';
+        }
 
         if ($errors !== []) {
             return ['error' => 'validation_failed', 'errors' => $errors];
@@ -267,14 +277,18 @@ class GrowthService
             'affiliate.create',
             $normalized,
             function () use ($tenantId, $actor, $request, $normalized): array {
-                if ($this->tenantCodeExists('affiliate_accounts', $tenantId, $normalized['code'])) {
-                    return ['error' => 'resource_conflict'];
-                }
-
                 if ($normalized['customer_id'] !== null && ! Customer::where('tenant_id', $tenantId)->where('id', $normalized['customer_id'])->exists()) {
                     return ['error' => 'not_found'];
                 }
 
+                if ($normalized['customer_id'] !== null && $this->customerAffiliateAccount($tenantId, $normalized['customer_id']) !== null) {
+                    return ['error' => 'resource_conflict'];
+                }
+
+                $normalizedForWrite = [
+                    ...$normalized,
+                    'code' => $this->randomAffiliateCode($tenantId),
+                ];
                 $affiliateId = 'aff_'.Str::ulid()->toBase32();
                 $now = now();
 
@@ -282,7 +296,7 @@ class GrowthService
                     'id' => $affiliateId,
                     'tenant_id' => $tenantId,
                     'customer_id' => $normalized['customer_id'],
-                    'code' => $normalized['code'],
+                    'code' => $normalizedForWrite['code'],
                     'name' => $normalized['name'],
                     'phone' => $normalized['phone'],
                     'email' => $normalized['email'],
@@ -296,7 +310,7 @@ class GrowthService
                     'updated_at' => $now,
                 ]);
 
-                $this->auditAdmin($actor, $request, 'affiliate.created', 'affiliate_account', $affiliateId, $normalized, $tenantId);
+                $this->auditAdmin($actor, $request, 'affiliate.created', 'affiliate_account', $affiliateId, $normalizedForWrite, $tenantId);
 
                 return ['resource' => $this->affiliateAccount($tenantId, $affiliateId) ?? [], 'status' => 201];
             },
@@ -310,6 +324,16 @@ class GrowthService
     public function updateAffiliateAccount(string $tenantId, AdminSessionContext $actor, string $affiliateId, array $payload, Request $request): array
     {
         $normalized = $this->normalizeAffiliatePayload($payload, false);
+        unset($normalized['code']);
+        $errors = [];
+
+        if (array_key_exists('customer_id', $normalized) && $normalized['customer_id'] === null) {
+            $errors['customer_id'][] = 'The customer_id field is required for affiliate accounts.';
+        }
+
+        if ($errors !== []) {
+            return ['error' => 'validation_failed', 'errors' => $errors];
+        }
 
         return $this->tenantIdempotentWrite(
             $tenantId,
@@ -325,15 +349,15 @@ class GrowthService
                     return ['error' => 'not_found'];
                 }
 
-                if (isset($normalized['code']) && $normalized['code'] !== $row->code && $this->tenantCodeExists('affiliate_accounts', $tenantId, $normalized['code'], $affiliateId)) {
-                    return ['error' => 'resource_conflict'];
-                }
-
                 if (isset($normalized['customer_id']) && $normalized['customer_id'] !== null && ! Customer::where('tenant_id', $tenantId)->where('id', $normalized['customer_id'])->exists()) {
                     return ['error' => 'not_found'];
                 }
 
-                $updates = $this->onlyPresent($normalized, ['customer_id', 'code', 'name', 'phone', 'email', 'status', 'currency']);
+                if (isset($normalized['customer_id']) && $normalized['customer_id'] !== (string) $row->customer_id && $this->customerAffiliateAccount($tenantId, $normalized['customer_id']) !== null) {
+                    return ['error' => 'resource_conflict'];
+                }
+
+                $updates = $this->onlyPresent($normalized, ['customer_id', 'name', 'phone', 'email', 'status', 'currency']);
 
                 foreach (['payout_profile' => 'payout_profile_json', 'metadata' => 'metadata_json'] as $source => $target) {
                     if (array_key_exists($source, $normalized)) {
@@ -493,6 +517,7 @@ class GrowthService
     public function createAffiliateLink(string $tenantId, AdminSessionContext $actor, array $payload, Request $request): array
     {
         $normalized = $this->normalizeLinkPayload($payload, true);
+        unset($normalized['code'], $normalized['url']);
         $errors = [];
 
         if ($normalized['affiliate_account_id'] === '') {
@@ -511,26 +536,28 @@ class GrowthService
             'affiliate_link.manage',
             $normalized,
             function () use ($tenantId, $actor, $request, $normalized): array {
-                if ($this->tenantCodeExists('affiliate_links', $tenantId, $normalized['code'])) {
-                    return ['error' => 'resource_conflict'];
-                }
-
                 $relations = $this->validAffiliateLinkRelations($tenantId, $normalized);
 
                 if ($relations !== null) {
                     return ['error' => $relations];
                 }
 
+                $code = $this->randomAffiliateCode($tenantId);
                 $linkId = 'afl_'.Str::ulid()->toBase32();
                 $now = now();
+                $normalizedForWrite = [
+                    ...$normalized,
+                    'code' => $code,
+                    'url' => $this->affiliateUrl($tenantId, $code),
+                ];
 
                 AffiliateLink::query()->insert([
                     'id' => $linkId,
                     'tenant_id' => $tenantId,
                     'affiliate_account_id' => $normalized['affiliate_account_id'],
                     'affiliate_program_id' => $normalized['affiliate_program_id'],
-                    'code' => $normalized['code'],
-                    'url' => $normalized['url'] ?? $this->affiliateUrl($normalized['code']),
+                    'code' => $code,
+                    'url' => $normalizedForWrite['url'],
                     'status' => $normalized['status'],
                     'metadata_json' => $this->jsonOrNull($normalized['metadata']),
                     'created_by_admin_id' => $actor->adminUser['id'],
@@ -538,7 +565,7 @@ class GrowthService
                     'updated_at' => $now,
                 ]);
 
-                $this->auditAdmin($actor, $request, 'affiliate_link.created', 'affiliate_link', $linkId, $normalized, $tenantId);
+                $this->auditAdmin($actor, $request, 'affiliate_link.created', 'affiliate_link', $linkId, $normalizedForWrite, $tenantId);
 
                 return ['resource' => $this->affiliateLink($tenantId, $linkId) ?? [], 'status' => 201];
             },
@@ -552,6 +579,7 @@ class GrowthService
     public function updateAffiliateLink(string $tenantId, AdminSessionContext $actor, string $linkId, array $payload, Request $request): array
     {
         $normalized = $this->normalizeLinkPayload($payload, false);
+        unset($normalized['code'], $normalized['url']);
 
         return $this->tenantIdempotentWrite(
             $tenantId,
@@ -572,17 +600,13 @@ class GrowthService
                     'affiliate_program_id' => $row->affiliate_program_id === null ? null : (string) $row->affiliate_program_id,
                 ], $normalized);
 
-                if (isset($normalized['code']) && $normalized['code'] !== $row->code && $this->tenantCodeExists('affiliate_links', $tenantId, $normalized['code'], $linkId)) {
-                    return ['error' => 'resource_conflict'];
-                }
-
                 $relations = $this->validAffiliateLinkRelations($tenantId, $merged);
 
                 if ($relations !== null) {
                     return ['error' => $relations];
                 }
 
-                $updates = $this->onlyPresent($normalized, ['affiliate_account_id', 'affiliate_program_id', 'code', 'url', 'status']);
+                $updates = $this->onlyPresent($normalized, ['affiliate_account_id', 'affiliate_program_id', 'status']);
 
                 if (array_key_exists('metadata', $normalized)) {
                     $updates['metadata_json'] = $this->jsonOrNull($normalized['metadata']);
@@ -625,6 +649,334 @@ class GrowthService
         $row = AffiliateAttribution::where('tenant_id', $tenantId)->where('id', $attributionId)->first();
 
         return $row === null ? null : $this->affiliateAttributionResource($row);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function customerAffiliateOverview(string $tenantId, CustomerSessionContext $customer): array
+    {
+        $affiliate = $this->customerAffiliateAccount($tenantId, $customer->customerId());
+
+        if ($affiliate === null) {
+            return [
+                'is_affiliate' => false,
+                'affiliate' => null,
+                'links' => [],
+                'stats' => $this->emptyCustomerAffiliateStats(),
+                'commissions' => [],
+                'payouts' => [],
+            ];
+        }
+
+        return [
+            'is_affiliate' => true,
+            'affiliate' => $this->customerAffiliateAccountResource($affiliate),
+            'links' => $this->customerAffiliateLinks((string) $affiliate->tenant_id, (string) $affiliate->id),
+            'stats' => $this->customerAffiliateStats($affiliate),
+            'commissions' => $this->customerAffiliateCommissionRows((string) $affiliate->tenant_id, (string) $affiliate->id, 5),
+            'payouts' => $this->customerAffiliatePayoutRows((string) $affiliate->tenant_id, (string) $affiliate->id, 5),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string, errors?: array<string, array<int, string>>}
+     */
+    public function registerCustomerAffiliate(string $tenantId, CustomerSessionContext $customer, array $payload, Request $request): array
+    {
+        $customerRow = Customer::query()->forTenant($tenantId)->where('id', $customer->customerId())->first();
+
+        if ($customerRow === null) {
+            return ['error' => 'not_found'];
+        }
+
+        $existing = $this->customerAffiliateAccount($tenantId, $customer->customerId());
+
+        if ($existing !== null) {
+            $this->ensureCustomerAffiliateLink($tenantId, $existing);
+
+            return ['resource' => $this->customerAffiliateOverview($tenantId, $customer), 'status' => 200];
+        }
+
+        $normalized = [
+            'customer_id' => $customer->customerId(),
+            'name' => trim((string) ($payload['name'] ?? $customerRow->name ?? 'Affiliate')),
+            'phone' => $this->nullableString($payload['phone'] ?? $customerRow->phone ?? null),
+            'email' => $this->nullableString($payload['email'] ?? $customerRow->email ?? null),
+            'status' => 'active',
+            'currency' => 'THB',
+            'payout_profile' => is_array($payload['payout_profile'] ?? null) ? $payload['payout_profile'] : [],
+            'metadata' => is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [],
+        ];
+        $errors = $this->basicNameErrors($normalized, 'name');
+
+        if ($errors !== []) {
+            return ['error' => 'validation_failed', 'errors' => $errors];
+        }
+
+        return $this->customerIdempotentWrite(
+            $tenantId,
+            $customer->customerId(),
+            $request,
+            'customer.affiliate.register',
+            $normalized,
+            function () use ($tenantId, $customer, $normalized): array {
+                if ($this->customerAffiliateAccount($tenantId, $customer->customerId()) !== null) {
+                    return ['resource' => $this->customerAffiliateOverview($tenantId, $customer), 'status' => 200];
+                }
+
+                $affiliateId = 'aff_'.Str::ulid()->toBase32();
+                $code = $this->randomAffiliateCode($tenantId);
+                $now = now();
+
+                AffiliateAccount::query()->insert([
+                    'id' => $affiliateId,
+                    'tenant_id' => $tenantId,
+                    'customer_id' => $normalized['customer_id'],
+                    'code' => $code,
+                    'name' => $normalized['name'],
+                    'phone' => $normalized['phone'],
+                    'email' => $normalized['email'],
+                    'status' => $normalized['status'],
+                    'wallet_balance_amount' => 0,
+                    'currency' => $normalized['currency'],
+                    'payout_profile_json' => $this->jsonOrNull($normalized['payout_profile']),
+                    'metadata_json' => $this->jsonOrNull($normalized['metadata']),
+                    'created_by_admin_id' => null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+
+                $affiliate = AffiliateAccount::query()->where('tenant_id', $tenantId)->where('id', $affiliateId)->first();
+
+                if ($affiliate !== null) {
+                    $this->ensureCustomerAffiliateLink($tenantId, $affiliate);
+                }
+
+                return ['resource' => $this->customerAffiliateOverview($tenantId, $customer), 'status' => 201];
+            },
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string, errors?: array<string, array<int, string>>}
+     */
+    public function applyCustomerReferral(string $tenantId, CustomerSessionContext $customer, array $payload, Request $request): array
+    {
+        $code = trim((string) ($payload['ref'] ?? $payload['code'] ?? ''));
+        $errors = [];
+
+        if (! $this->isAffiliateCode($code)) {
+            $errors['ref'][] = 'The ref field must be a 6-character Base62 affiliate code.';
+        }
+
+        if ($errors !== []) {
+            return ['error' => 'validation_failed', 'errors' => $errors];
+        }
+
+        return DB::transaction(function () use ($tenantId, $customer, $code): array {
+            if (! Customer::query()->where('tenant_id', $tenantId)->where('id', $customer->customerId())->where('status', 'active')->exists()) {
+                return ['error' => 'not_found'];
+            }
+
+            $resolved = $this->resolveAffiliateReferralCode($tenantId, $code);
+
+            if ($resolved === null) {
+                return ['error' => 'not_found'];
+            }
+
+            $now = now();
+            $expiresAt = $now->copy()->addDays(self::AFFILIATE_ATTRIBUTION_TTL_DAYS);
+            $metadata = [
+                'source' => 'ref',
+                'ref_code' => $code,
+                'resolved_from' => $resolved['source'],
+                'ttl_days' => self::AFFILIATE_ATTRIBUTION_TTL_DAYS,
+                'expires_at' => $expiresAt->toISOString(),
+                'canonical_url' => $this->affiliateUrl($tenantId, $code),
+            ];
+            $attribution = AffiliateAttribution::query()
+                ->where('tenant_id', $tenantId)
+                ->where('customer_id', $customer->customerId())
+                ->where('status', 'pending')
+                ->orderByDesc('attributed_at')
+                ->orderByDesc('created_at')
+                ->lockForUpdate()
+                ->first();
+            $status = 200;
+
+            if ($attribution === null) {
+                $attributionId = 'aat_'.Str::ulid()->toBase32();
+                $status = 201;
+
+                AffiliateAttribution::query()->insert([
+                    'id' => $attributionId,
+                    'tenant_id' => $tenantId,
+                    'affiliate_account_id' => $resolved['affiliate_account_id'],
+                    'affiliate_link_id' => $resolved['affiliate_link_id'],
+                    'affiliate_program_id' => $resolved['affiliate_program_id'],
+                    'customer_id' => $customer->customerId(),
+                    'order_id' => null,
+                    'status' => 'pending',
+                    'attributed_at' => $now,
+                    'converted_at' => null,
+                    'metadata_json' => $this->jsonOrNull($metadata),
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            } else {
+                $attributionId = (string) $attribution->id;
+
+                AffiliateAttribution::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('id', $attributionId)
+                    ->update([
+                        'affiliate_account_id' => $resolved['affiliate_account_id'],
+                        'affiliate_link_id' => $resolved['affiliate_link_id'],
+                        'affiliate_program_id' => $resolved['affiliate_program_id'],
+                        'order_id' => null,
+                        'status' => 'pending',
+                        'attributed_at' => $now,
+                        'converted_at' => null,
+                        'metadata_json' => $this->jsonOrNull($metadata),
+                        'updated_at' => $now,
+                    ]);
+            }
+
+            return [
+                'resource' => [
+                    'applied' => true,
+                    'ref' => $code,
+                    'expires_at' => $expiresAt->toISOString(),
+                    'attribution' => $this->affiliateAttribution($tenantId, $attributionId) ?? [],
+                ],
+                'status' => $status,
+            ];
+        });
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     * @return array<string, mixed>
+     */
+    public function customerAffiliateCommissions(string $tenantId, CustomerSessionContext $customer, array $queryParams): array
+    {
+        $affiliate = $this->customerAffiliateAccount($tenantId, $customer->customerId());
+
+        if ($affiliate === null) {
+            return ['data' => [], 'meta' => ['next_cursor' => null, 'has_more' => false]];
+        }
+
+        $query = CommissionTransaction::query()
+            ->where('tenant_id', $tenantId)
+            ->where('affiliate_account_id', $affiliate->id);
+
+        foreach (['status', 'transaction_type', 'order_id'] as $field) {
+            if (($queryParams[$field] ?? null) !== null && trim((string) $queryParams[$field]) !== '') {
+                $query->where($field, trim((string) $queryParams[$field]));
+            }
+        }
+
+        return $this->paginated($query, $queryParams, fn (object $row): array => $this->commissionTransactionResource($row));
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     * @return array<string, mixed>
+     */
+    public function customerAffiliatePayouts(string $tenantId, CustomerSessionContext $customer, array $queryParams): array
+    {
+        $affiliate = $this->customerAffiliateAccount($tenantId, $customer->customerId());
+
+        if ($affiliate === null) {
+            return ['data' => [], 'meta' => ['next_cursor' => null, 'has_more' => false]];
+        }
+
+        $query = AffiliatePayout::query()
+            ->where('tenant_id', $tenantId)
+            ->where('affiliate_account_id', $affiliate->id);
+
+        if (($queryParams['status'] ?? null) !== null && trim((string) $queryParams['status']) !== '') {
+            $query->where('status', trim((string) $queryParams['status']));
+        }
+
+        return $this->paginated($query, $queryParams, fn (object $row): array => $this->payoutResource($row));
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string, errors?: array<string, array<int, string>>}
+     */
+    public function createCustomerAffiliatePayout(string $tenantId, CustomerSessionContext $customer, array $payload, Request $request): array
+    {
+        $affiliate = $this->customerAffiliateAccount($tenantId, $customer->customerId());
+
+        if ($affiliate === null) {
+            return ['error' => 'not_found'];
+        }
+
+        $normalized = [
+            'affiliate_account_id' => (string) $affiliate->id,
+            'amount' => $this->moneyAmount($payload['amount'] ?? 0),
+            'currency' => $this->moneyCurrency($payload['amount'] ?? null),
+            'payout_method' => (string) ($payload['payout_method'] ?? 'bank_transfer'),
+            'bank_account' => is_array($payload['bank_account'] ?? null) ? $payload['bank_account'] : [],
+            'admin_note' => $this->nullableString($payload['note'] ?? null),
+        ];
+        $errors = [];
+
+        if ($normalized['amount'] <= 0) {
+            $errors['amount'][] = 'The amount field must be greater than zero.';
+        }
+
+        if (! in_array($normalized['payout_method'], ['bank_transfer', 'wallet_credit'], true)) {
+            $errors['payout_method'][] = 'The payout_method field is invalid.';
+        }
+
+        $available = (int) $this->customerAffiliateStats($affiliate)['available_balance']['amount'];
+
+        if ($normalized['amount'] > $available) {
+            $errors['amount'][] = 'The amount field exceeds available affiliate balance.';
+        }
+
+        if ($errors !== []) {
+            return ['error' => 'validation_failed', 'errors' => $errors];
+        }
+
+        return $this->customerIdempotentWrite(
+            $tenantId,
+            $customer->customerId(),
+            $request,
+            'customer.affiliate.payouts.store',
+            $normalized,
+            function () use ($tenantId, $affiliate, $normalized): array {
+                $payoutId = 'pyo_'.Str::ulid()->toBase32();
+                $now = now();
+
+                AffiliatePayout::query()->insert([
+                    'id' => $payoutId,
+                    'tenant_id' => $tenantId,
+                    'affiliate_account_id' => $normalized['affiliate_account_id'],
+                    'status' => 'pending',
+                    'payout_method' => $normalized['payout_method'],
+                    'amount' => $normalized['amount'],
+                    'currency' => $normalized['currency'],
+                    'bank_account_json' => $this->jsonOrNull($normalized['bank_account']),
+                    'admin_note' => $normalized['admin_note'],
+                    'idempotency_key' => null,
+                    'payload_hash' => null,
+                    'requested_by_admin_id' => null,
+                    'approved_by_admin_id' => null,
+                    'approved_at' => null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+
+                return ['resource' => $this->payoutResource(AffiliatePayout::query()->where('tenant_id', $tenantId)->where('id', $payoutId)->first()), 'status' => 201];
+            },
+        );
     }
 
     /**
@@ -1282,23 +1634,7 @@ class GrowthService
                 return 0;
             }
 
-            $attribution = AffiliateAttribution::query()
-                ->where('tenant_id', $lockedOrder->tenant_id)
-                ->where('order_id', $lockedOrder->id)
-                ->where('status', 'pending')
-                ->lockForUpdate()
-                ->first();
-
-            if ($attribution === null) {
-                $attribution = AffiliateAttribution::query()
-                    ->where('tenant_id', $lockedOrder->tenant_id)
-                    ->where('customer_id', $lockedOrder->customer_id)
-                    ->where('status', 'pending')
-                    ->orderByDesc('attributed_at')
-                    ->orderByDesc('created_at')
-                    ->lockForUpdate()
-                    ->first();
-            }
+            $attribution = $this->pendingAttributionForPaidOrder($lockedOrder);
 
             if ($attribution === null) {
                 return 0;
@@ -1445,6 +1781,78 @@ class GrowthService
         ]);
     }
 
+    private function pendingAttributionForPaidOrder(object $order): ?object
+    {
+        $orderAttributions = AffiliateAttribution::query()
+            ->where('tenant_id', $order->tenant_id)
+            ->where('order_id', $order->id)
+            ->where('status', 'pending')
+            ->orderByDesc('attributed_at')
+            ->orderByDesc('created_at')
+            ->lockForUpdate()
+            ->get()
+            ->all();
+        $attribution = $this->firstUnexpiredAttribution($orderAttributions);
+
+        if ($attribution !== null) {
+            return $attribution;
+        }
+
+        if ($order->customer_id === null || $order->customer_id === '') {
+            return null;
+        }
+
+        $customerAttributions = AffiliateAttribution::query()
+            ->where('tenant_id', $order->tenant_id)
+            ->where('customer_id', $order->customer_id)
+            ->where('status', 'pending')
+            ->orderByDesc('attributed_at')
+            ->orderByDesc('created_at')
+            ->lockForUpdate()
+            ->get()
+            ->all();
+
+        return $this->firstUnexpiredAttribution($customerAttributions);
+    }
+
+    /**
+     * @param array<int, object> $attributions
+     */
+    private function firstUnexpiredAttribution(array $attributions): ?object
+    {
+        foreach ($attributions as $attribution) {
+            if (! $this->attributionExpired($attribution)) {
+                return $attribution;
+            }
+
+            AffiliateAttribution::query()
+                ->where('tenant_id', $attribution->tenant_id)
+                ->where('id', $attribution->id)
+                ->where('status', 'pending')
+                ->update([
+                    'status' => 'expired',
+                    'updated_at' => now(),
+                ]);
+        }
+
+        return null;
+    }
+
+    private function attributionExpired(object $attribution): bool
+    {
+        $expiresAt = $this->decodeJson($attribution->metadata_json)['expires_at'] ?? null;
+
+        if ($expiresAt === null || $expiresAt === '') {
+            return false;
+        }
+
+        try {
+            return Carbon::parse((string) $expiresAt)->lte(now());
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
     private function commissionAmount(object $rule, object $order): int
     {
         return match ((string) $rule->rule_type) {
@@ -1513,6 +1921,40 @@ class GrowthService
                 ],
             );
         }
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @param callable(): array{resource?: array<string, mixed>|null, status?: int, error?: string, errors?: array<string, array<int, string>>} $mutator
+     * @return array{resource?: array<string, mixed>|null, status?: int, error?: string, errors?: array<string, array<int, string>>}
+     */
+    private function customerIdempotentWrite(string $tenantId, string $customerId, Request $request, string $routeKey, array $payload, callable $mutator): array
+    {
+        $idempotencyKey = (string) $request->header('Idempotency-Key');
+
+        return DB::transaction(function () use ($tenantId, $customerId, $routeKey, $idempotencyKey, $payload, $mutator): array {
+            $replay = $this->idempotency->replayOrConflict($tenantId, 'customer', $customerId, $routeKey, $idempotencyKey, $payload, null, true);
+
+            if (is_array($replay)) {
+                return ['resource' => $replay['body'], 'status' => $replay['status']];
+            }
+
+            if ($replay === 'idempotency_conflict' || $replay === 'resource_conflict') {
+                return ['error' => $replay];
+            }
+
+            $result = $mutator();
+
+            if (($result['error'] ?? null) !== null) {
+                return $result;
+            }
+
+            $status = (int) ($result['status'] ?? 200);
+            $body = $result['resource'] ?? null;
+            $this->idempotency->storeResponse($tenantId, 'customer', $customerId, $routeKey, $idempotencyKey, $payload, $status, is_array($body) ? $body : null);
+
+            return $result;
+        });
     }
 
     /**
@@ -1649,6 +2091,75 @@ class GrowthService
         return $query->exists();
     }
 
+    private function uniqueTenantCode(string $table, string $tenantId, mixed $source, string $fallback): string
+    {
+        $base = $this->code($source);
+
+        if ($base === 'resource') {
+            $base = $fallback;
+        }
+
+        $candidate = $base;
+        $suffix = 2;
+
+        while ($this->tenantCodeExists($table, $tenantId, $candidate)) {
+            $candidate = $base.'_'.$suffix;
+            $suffix++;
+        }
+
+        return $candidate;
+    }
+
+    private function randomTenantCode(string $table, string $tenantId, string $prefix): string
+    {
+        do {
+            $candidate = $prefix.'_'.Str::lower(Str::random(10));
+        } while ($this->tenantCodeExists($table, $tenantId, $candidate));
+
+        return $candidate;
+    }
+
+    private function randomAffiliateCode(string $tenantId): string
+    {
+        do {
+            $candidate = $this->randomBase62(self::AFFILIATE_CODE_LENGTH);
+        } while ($this->tenantAffiliateCodeExists($tenantId, $candidate));
+
+        return $candidate;
+    }
+
+    private function randomBase62(int $length): string
+    {
+        $alphabetLength = strlen(self::AFFILIATE_CODE_ALPHABET) - 1;
+        $value = '';
+
+        for ($index = 0; $index < $length; $index++) {
+            $value .= self::AFFILIATE_CODE_ALPHABET[random_int(0, $alphabetLength)];
+        }
+
+        return $value;
+    }
+
+    private function tenantAffiliateCodeExists(string $tenantId, string $code): bool
+    {
+        return $this->whereCodeEquals(AffiliateAccount::query()->where('tenant_id', $tenantId), $code)->exists()
+            || $this->whereCodeEquals(AffiliateLink::query()->where('tenant_id', $tenantId), $code)->exists();
+    }
+
+    private function isAffiliateCode(string $code): bool
+    {
+        return preg_match('/\A[A-Za-z0-9]{'.self::AFFILIATE_CODE_LENGTH.'}\z/', $code) === 1;
+    }
+
+    private function whereCodeEquals(mixed $query, string $code): mixed
+    {
+        if (in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'], true)) {
+            return $query->whereRaw('BINARY code = ?', [$code]);
+        }
+
+        return $query->where('code', $code);
+    }
+
     /**
      * @param array<string, mixed> $payload
      * @return array<string, array<int, string>>
@@ -1686,6 +2197,58 @@ class GrowthService
         }
 
         return null;
+    }
+
+    /**
+     * @return array{source: string, affiliate_account_id: string, affiliate_link_id: string|null, affiliate_program_id: string|null}|null
+     */
+    private function resolveAffiliateReferralCode(string $tenantId, string $code): ?array
+    {
+        $linkQuery = AffiliateLink::query()
+            ->where('tenant_id', $tenantId)
+            ->where('status', 'active');
+        $link = $this->whereCodeEquals($linkQuery, $code)->first();
+
+        if ($link !== null) {
+            $affiliate = AffiliateAccount::query()
+                ->where('tenant_id', $tenantId)
+                ->where('id', $link->affiliate_account_id)
+                ->where('status', 'active')
+                ->first();
+
+            if ($affiliate === null) {
+                return null;
+            }
+
+            $programId = $link->affiliate_program_id === null ? null : (string) $link->affiliate_program_id;
+
+            if ($programId !== null && ! AffiliateProgram::query()->where('tenant_id', $tenantId)->where('id', $programId)->where('status', 'active')->exists()) {
+                return null;
+            }
+
+            return [
+                'source' => 'affiliate_link',
+                'affiliate_account_id' => (string) $affiliate->id,
+                'affiliate_link_id' => (string) $link->id,
+                'affiliate_program_id' => $programId,
+            ];
+        }
+
+        $affiliateQuery = AffiliateAccount::query()
+            ->where('tenant_id', $tenantId)
+            ->where('status', 'active');
+        $affiliate = $this->whereCodeEquals($affiliateQuery, $code)->first();
+
+        if ($affiliate === null) {
+            return null;
+        }
+
+        return [
+            'source' => 'affiliate_account',
+            'affiliate_account_id' => (string) $affiliate->id,
+            'affiliate_link_id' => null,
+            'affiliate_program_id' => null,
+        ];
     }
 
     /**
@@ -2159,6 +2722,170 @@ class GrowthService
         return $resource;
     }
 
+    private function customerAffiliateAccount(string $tenantId, string $customerId): ?object
+    {
+        return AffiliateAccount::query()
+            ->forTenant($tenantId)
+            ->where('customer_id', $customerId)
+            ->where('status', '!=', 'archived')
+            ->orderBy('created_at')
+            ->first();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function customerAffiliateAccountResource(object $row): array
+    {
+        return $this->affiliateAccountResource($row, true) + [
+            'links' => $this->customerAffiliateLinks((string) $row->tenant_id, (string) $row->id),
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function customerAffiliateLinks(string $tenantId, string $affiliateId, int $limit = 5): array
+    {
+        return AffiliateLink::query()
+            ->where('tenant_id', $tenantId)
+            ->where('affiliate_account_id', $affiliateId)
+            ->where('status', 'active')
+            ->orderBy('id')
+            ->limit($limit)
+            ->get()
+            ->map(fn (object $row): array => $this->affiliateLinkResource($row))
+            ->all();
+    }
+
+    private function ensureCustomerAffiliateLink(string $tenantId, object $affiliate): ?array
+    {
+        $existing = AffiliateLink::query()
+            ->where('tenant_id', $tenantId)
+            ->where('affiliate_account_id', $affiliate->id)
+            ->where('status', 'active')
+            ->orderBy('id')
+            ->first();
+
+        if ($existing !== null) {
+            return $this->affiliateLinkResource($existing);
+        }
+
+        $code = $this->randomAffiliateCode($tenantId);
+        $linkId = 'afl_'.Str::ulid()->toBase32();
+        $now = now();
+
+        AffiliateLink::query()->insert([
+            'id' => $linkId,
+            'tenant_id' => $tenantId,
+            'affiliate_account_id' => $affiliate->id,
+            'affiliate_program_id' => null,
+            'code' => $code,
+            'url' => $this->affiliateUrl($tenantId, $code),
+            'status' => 'active',
+            'metadata_json' => $this->jsonOrNull(['source' => 'customer_self_service']),
+            'created_by_admin_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $created = AffiliateLink::query()->where('tenant_id', $tenantId)->where('id', $linkId)->first();
+
+        return $created === null ? null : $this->affiliateLinkResource($created);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function emptyCustomerAffiliateStats(): array
+    {
+        return [
+            'total_commission' => $this->money(0),
+            'approved_commission' => $this->money(0),
+            'pending_commission' => $this->money(0),
+            'requested_payout' => $this->money(0),
+            'available_balance' => $this->money(0),
+            'converted_count' => 0,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function customerAffiliateStats(object $affiliate): array
+    {
+        $tenantId = (string) $affiliate->tenant_id;
+        $affiliateId = (string) $affiliate->id;
+        $currency = (string) $affiliate->currency;
+        $total = (int) CommissionTransaction::query()
+            ->where('tenant_id', $tenantId)
+            ->where('affiliate_account_id', $affiliateId)
+            ->sum('amount');
+        $approved = (int) CommissionTransaction::query()
+            ->where('tenant_id', $tenantId)
+            ->where('affiliate_account_id', $affiliateId)
+            ->where(function ($query): void {
+                $query->where('status', 'approved')->orWhere('transaction_type', 'reversal');
+            })
+            ->sum('amount');
+        $pending = (int) CommissionTransaction::query()
+            ->where('tenant_id', $tenantId)
+            ->where('affiliate_account_id', $affiliateId)
+            ->where('status', 'calculated')
+            ->sum('amount');
+        $requested = (int) AffiliatePayout::query()
+            ->where('tenant_id', $tenantId)
+            ->where('affiliate_account_id', $affiliateId)
+            ->whereIn('status', ['pending', 'approved', 'paid'])
+            ->sum('amount');
+        $converted = (int) AffiliateAttribution::query()
+            ->where('tenant_id', $tenantId)
+            ->where('affiliate_account_id', $affiliateId)
+            ->where('status', 'converted')
+            ->count();
+
+        return [
+            'total_commission' => $this->money($total, $currency),
+            'approved_commission' => $this->money($approved, $currency),
+            'pending_commission' => $this->money($pending, $currency),
+            'requested_payout' => $this->money($requested, $currency),
+            'available_balance' => $this->money(max(0, $approved - $requested), $currency),
+            'converted_count' => $converted,
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function customerAffiliateCommissionRows(string $tenantId, string $affiliateId, int $limit): array
+    {
+        return CommissionTransaction::query()
+            ->where('tenant_id', $tenantId)
+            ->where('affiliate_account_id', $affiliateId)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get()
+            ->map(fn (object $row): array => $this->commissionTransactionResource($row))
+            ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function customerAffiliatePayoutRows(string $tenantId, string $affiliateId, int $limit): array
+    {
+        return AffiliatePayout::query()
+            ->where('tenant_id', $tenantId)
+            ->where('affiliate_account_id', $affiliateId)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get()
+            ->map(fn (object $row): array => $this->payoutResource($row))
+            ->all();
+    }
+
     private function affiliateAccountResource(object $row, bool $includeCounts = false): array
     {
         $resource = [
@@ -2166,6 +2893,8 @@ class GrowthService
             'tenant_id' => (string) $row->tenant_id,
             'customer_id' => $row->customer_id,
             'code' => (string) $row->code,
+            'referral_url' => $this->affiliateUrl((string) $row->tenant_id, (string) $row->code),
+            'canonical_url' => $this->affiliateUrl((string) $row->tenant_id, (string) $row->code),
             'name' => (string) $row->name,
             'phone' => $row->phone,
             'email' => $row->email,
@@ -2203,6 +2932,8 @@ class GrowthService
 
     private function affiliateLinkResource(object $row): array
     {
+        $canonicalUrl = $this->affiliateUrl((string) $row->tenant_id, (string) $row->code);
+
         return [
             'id' => (string) $row->id,
             'tenant_id' => (string) $row->tenant_id,
@@ -2210,7 +2941,9 @@ class GrowthService
             'affiliate_account_id' => (string) $row->affiliate_account_id,
             'affiliate_program_id' => $row->affiliate_program_id,
             'code' => (string) $row->code,
-            'url' => $row->url,
+            'url' => $canonicalUrl,
+            'canonical_url' => $canonicalUrl,
+            'legacy_url' => $row->url !== null && $row->url !== $canonicalUrl ? $row->url : null,
             'status' => (string) $row->status,
             'metadata' => $this->decodeJson($row->metadata_json),
             'created_at' => $this->iso($row->created_at),
@@ -2357,9 +3090,25 @@ class GrowthService
         ];
     }
 
-    private function affiliateUrl(string $code): string
+    private function affiliateUrl(string $tenantId, string $code): string
     {
-        return 'https://newpaotang.local/a/'.$code;
+        return $this->storefrontRootUrl($tenantId).'/?ref='.rawurlencode($code);
+    }
+
+    private function storefrontRootUrl(string $tenantId): string
+    {
+        $host = PartnerTenantDomain::query()
+            ->where('tenant_id', $tenantId)
+            ->where('status', 'active')
+            ->orderByDesc('is_primary')
+            ->orderBy('id')
+            ->value('host');
+
+        if ($host === null || trim((string) $host) === '') {
+            return 'https://newpaotang.local';
+        }
+
+        return 'https://'.trim((string) $host, '/');
     }
 
     private function iso(mixed $value): ?string

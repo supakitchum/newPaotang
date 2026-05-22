@@ -193,12 +193,14 @@ trait M8GrowthFixtures
         $linkId = 'afl_m8_'.$key;
         $attributionId = 'aat_m8_'.$key;
         $ruleId = 'cmr_m8_'.$key;
+        $affiliateCode = 'A'.substr($key, 0, 5);
+        $linkCode = 'L'.substr($key, 0, 5);
 
         DB::table('affiliate_accounts')->insert([
             'id' => $affiliateId,
             'tenant_id' => $world['tenant_id'],
-            'customer_id' => null,
-            'code' => 'aff_'.$key,
+            'customer_id' => $world['customer_id'],
+            'code' => $affiliateCode,
             'name' => 'Affiliate '.$suffix,
             'phone' => null,
             'email' => null,
@@ -231,8 +233,8 @@ trait M8GrowthFixtures
             'tenant_id' => $world['tenant_id'],
             'affiliate_account_id' => $affiliateId,
             'affiliate_program_id' => $programId,
-            'code' => 'link_'.$key,
-            'url' => 'https://newpaotang.local/a/link_'.$key,
+            'code' => $linkCode,
+            'url' => 'https://newpaotang.local/?ref='.$linkCode,
             'status' => 'active',
             'metadata_json' => null,
             'created_by_admin_id' => null,

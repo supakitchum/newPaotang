@@ -650,6 +650,172 @@ paths:
                 $ref: "#/components/schemas/CustomerProfile"
         "401":
           $ref: "#/components/responses/AuthenticationRequired"
+  /customer/affiliate:
+    get:
+      tags: [Customer Affiliate]
+      security:
+        - bearerAuth: []
+      summary: Load current customer's affiliate self-service overview
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      responses:
+        "200":
+          description: Customer affiliate overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerAffiliateOverview"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+    post:
+      tags: [Customer Affiliate]
+      security:
+        - bearerAuth: []
+      summary: Register current customer as an affiliate
+      description: Server generates the 6-character Base62 affiliate code and ignores any supplied code.
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerAffiliateRegisterRequest"
+      responses:
+        "201":
+          description: Customer affiliate registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerAffiliateOverview"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
+  /customer/affiliate/referrals/apply:
+    post:
+      tags: [Customer Affiliate]
+      security:
+        - bearerAuth: []
+      summary: Apply a tenant-scoped referral code for the current customer
+      description: Resolves active affiliate links first, then active affiliate accounts in the current tenant only, and stores a pending last-click attribution for 30 days.
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AffiliateReferralApplyRequest"
+      responses:
+        "200":
+          description: Existing pending attribution updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AffiliateReferralApplyResponse"
+        "201":
+          description: Pending attribution created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AffiliateReferralApplyResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /customer/affiliate/commissions:
+    get:
+      tags: [Customer Affiliate]
+      security:
+        - bearerAuth: []
+      summary: List current customer's affiliate commission transactions
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Customer affiliate commissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AffiliateCommissionListResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+  /customer/affiliate/payouts:
+    get:
+      tags: [Customer Affiliate]
+      security:
+        - bearerAuth: []
+      summary: List current customer's affiliate payout requests
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitQuery"
+      responses:
+        "200":
+          description: Customer affiliate payouts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AffiliatePayoutListResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+    post:
+      tags: [Customer Affiliate]
+      security:
+        - bearerAuth: []
+      summary: Request payout from current customer's affiliate balance
+      parameters:
+        - $ref: "#/components/parameters/TenantHostHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - $ref: "#/components/parameters/IdempotencyKeyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAffiliatePayoutRequest"
+      responses:
+        "201":
+          description: Customer affiliate payout requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AffiliatePayout"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
   /customer/auth/line/login:
     post:
       tags: [Customer Auth]
@@ -6908,6 +7074,7 @@ paths:
     post:
       tags: [Tenant Admin]
       summary: Create tenant affiliate link
+      description: Server generates the case-sensitive 6-character Base62 code and canonical tenant storefront URL `/?ref={CODE}`; supplied code/url values are ignored.
       parameters:
         - $ref: "#/components/parameters/TenantAdminScopeHeader"
         - $ref: "#/components/parameters/TenantIdHeader"
@@ -6951,6 +7118,7 @@ paths:
     patch:
       tags: [Tenant Admin]
       summary: Update tenant affiliate link
+      description: Supplied code/url values are ignored; existing/generated codes remain server-owned.
       parameters:
         - $ref: "#/components/parameters/TenantAdminScopeHeader"
         - $ref: "#/components/parameters/TenantIdHeader"
@@ -7076,6 +7244,7 @@ paths:
     post:
       tags: [Tenant Admin]
       summary: Create tenant affiliate account
+      description: Server generates the case-sensitive 6-character Base62 affiliate code; supplied code values are ignored.
       parameters:
         - $ref: "#/components/parameters/TenantAdminScopeHeader"
         - $ref: "#/components/parameters/TenantIdHeader"
@@ -7117,6 +7286,7 @@ paths:
     patch:
       tags: [Tenant Admin]
       summary: Update tenant affiliate account
+      description: Supplied code values are ignored; affiliate codes remain server-owned.
       parameters:
         - $ref: "#/components/parameters/TenantAdminScopeHeader"
         - $ref: "#/components/parameters/TenantIdHeader"
@@ -8239,6 +8409,12 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
     ResourceConflict:
       description: Resource conflict
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ValidationFailed:
+      description: Validation failed
       content:
         application/json:
           schema:
@@ -9996,6 +10172,345 @@ components:
         avatar_url:
           type: string
           format: uri
+          nullable: true
+    CustomerAffiliateRegisterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        payout_profile:
+          type: object
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+    AffiliateReferralApplyRequest:
+      type: object
+      required: [ref]
+      properties:
+        ref:
+          type: string
+          minLength: 6
+          maxLength: 6
+          pattern: "^[A-Za-z0-9]{6}$"
+          description: Case-sensitive 6-character Base62 affiliate code from ?ref=.
+    AffiliateReferralApplyResponse:
+      type: object
+      required: [applied, ref, expires_at, attribution]
+      properties:
+        applied:
+          type: boolean
+        ref:
+          type: string
+          minLength: 6
+          maxLength: 6
+          pattern: "^[A-Za-z0-9]{6}$"
+        expires_at:
+          type: string
+          format: date-time
+        attribution:
+          $ref: "#/components/schemas/AffiliateAttribution"
+    CustomerAffiliateOverview:
+      type: object
+      required: [is_affiliate, affiliate, links, stats, commissions, payouts]
+      properties:
+        is_affiliate:
+          type: boolean
+        affiliate:
+          oneOf:
+            - $ref: "#/components/schemas/CustomerAffiliateAccount"
+            - type: "null"
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/AffiliateLink"
+        stats:
+          $ref: "#/components/schemas/CustomerAffiliateStats"
+        commissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AffiliateCommission"
+        payouts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AffiliatePayout"
+    CustomerAffiliateAccount:
+      type: object
+      required: [id, tenant_id, customer_id, code, status, referral_url]
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        customer_id:
+          type: string
+          nullable: true
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          pattern: "^[A-Za-z0-9]{6}$"
+        referral_url:
+          type: string
+          format: uri
+          description: Canonical tenant storefront URL in the form /?ref={CODE}.
+        canonical_url:
+          type: string
+          format: uri
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, inactive, suspended, archived]
+        wallet_balance:
+          $ref: "#/components/schemas/Money"
+        payout_profile:
+          type: object
+          additionalProperties: true
+        links_count:
+          type: integer
+          nullable: true
+        commission_total:
+          $ref: "#/components/schemas/Money"
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/AffiliateLink"
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+      additionalProperties: true
+    AffiliateLink:
+      type: object
+      required: [id, tenant_id, affiliate_account_id, code, url, status]
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        affiliate_id:
+          type: string
+        affiliate_account_id:
+          type: string
+        affiliate_program_id:
+          type: string
+          nullable: true
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          pattern: "^[A-Za-z0-9]{6}$"
+        url:
+          type: string
+          format: uri
+          description: Canonical tenant storefront URL in the form /?ref={CODE}.
+        canonical_url:
+          type: string
+          format: uri
+        legacy_url:
+          type: string
+          format: uri
+          nullable: true
+        status:
+          type: string
+          enum: [active, inactive, suspended, archived]
+        metadata:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+    AffiliateAttribution:
+      type: object
+      required: [id, tenant_id, affiliate_account_id, status]
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        affiliate_id:
+          type: string
+        affiliate_account_id:
+          type: string
+        affiliate_link_id:
+          type: string
+          nullable: true
+        affiliate_program_id:
+          type: string
+          nullable: true
+        customer_id:
+          type: string
+          nullable: true
+        order_id:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, converted, expired, cancelled]
+        attributed_at:
+          type: string
+          format: date-time
+          nullable: true
+        converted_at:
+          type: string
+          format: date-time
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+    CustomerAffiliateStats:
+      type: object
+      required: [total_commission, approved_commission, pending_commission, requested_payout, available_balance, converted_count]
+      properties:
+        total_commission:
+          $ref: "#/components/schemas/Money"
+        approved_commission:
+          $ref: "#/components/schemas/Money"
+        pending_commission:
+          $ref: "#/components/schemas/Money"
+        requested_payout:
+          $ref: "#/components/schemas/Money"
+        available_balance:
+          $ref: "#/components/schemas/Money"
+        converted_count:
+          type: integer
+    AffiliateCommission:
+      type: object
+      required: [id, tenant_id, affiliate_account_id, order_id, amount, status]
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        affiliate_id:
+          type: string
+        affiliate_account_id:
+          type: string
+        affiliate_attribution_id:
+          type: string
+          nullable: true
+        order_id:
+          type: string
+        commission_rule_id:
+          type: string
+        transaction_type:
+          type: string
+          enum: [commission, reversal]
+        status:
+          type: string
+          enum: [calculated, approved, reversed]
+        amount:
+          $ref: "#/components/schemas/Money"
+        calculated_at:
+          type: string
+          format: date-time
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+    AffiliateCommissionListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AffiliateCommission"
+        meta:
+          $ref: "#/components/schemas/CursorMeta"
+    AffiliatePayout:
+      type: object
+      required: [id, tenant_id, affiliate_account_id, status, payout_method, amount]
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        affiliate_id:
+          type: string
+        affiliate_account_id:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, paid, cancelled]
+        payout_method:
+          type: string
+          enum: [bank_transfer, wallet_credit]
+        amount:
+          $ref: "#/components/schemas/Money"
+        bank_account:
+          type: object
+          additionalProperties: true
+        admin_note:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+      additionalProperties: true
+    AffiliatePayoutListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AffiliatePayout"
+        meta:
+          $ref: "#/components/schemas/CursorMeta"
+    CreateAffiliatePayoutRequest:
+      type: object
+      required: [amount, payout_method]
+      properties:
+        amount:
+          $ref: "#/components/schemas/Money"
+        payout_method:
+          type: string
+          enum: [bank_transfer, wallet_credit]
+        bank_account:
+          type: object
+          additionalProperties: true
+        note:
+          type: string
           nullable: true
     StoreListResponse:
       type: object

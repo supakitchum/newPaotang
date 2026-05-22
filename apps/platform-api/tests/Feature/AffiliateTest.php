@@ -35,10 +35,16 @@ class AffiliateTest extends TestCase
             ->postJson('/api/v1/admin/tenant/affiliates', [
                 'code' => 'aff_m8_api',
                 'name' => 'API Affiliate',
+                'customer_id' => $world['customer_id'],
             ], $headers + ['Idempotency-Key' => 'affiliate-create-main'])
             ->assertCreated()
             ->assertJsonPath('tenant_id', $world['tenant_id'])
+            ->assertJsonPath('customer_id', $world['customer_id'])
             ->json();
+
+        $this->assertMatchesRegularExpression('/^[A-Za-z0-9]{6}$/', $affiliate['code']);
+        $this->assertNotSame('aff_m8_api', $affiliate['code']);
+        $this->assertSame('https://newpaotang.local/?ref='.$affiliate['code'], $affiliate['referral_url']);
 
         $program = $this->withToken($admin['access_token'])
             ->postJson('/api/v1/admin/tenant/affiliate-programs', [
@@ -57,6 +63,11 @@ class AffiliateTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('affiliate_id', $affiliate['id'])
             ->json();
+
+        $this->assertMatchesRegularExpression('/^[A-Za-z0-9]{6}$/', $link['code']);
+        $this->assertNotSame('api-link', $link['code']);
+        $this->assertSame('https://newpaotang.local/?ref='.$link['code'], $link['url']);
+        $this->assertSame($link['url'], $link['canonical_url']);
 
         DB::table('affiliate_attributions')->insert([
             'id' => 'aat_affiliate_api_main',

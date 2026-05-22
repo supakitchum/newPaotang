@@ -20,6 +20,7 @@ use App\Modules\CentralStock\Http\Controllers\CentralStockController;
 use App\Modules\Auth\Http\Controllers\CustomerAuthController;
 use App\Modules\Auth\Http\Controllers\CustomerLineAuthController;
 use App\Modules\Commerce\Http\Controllers\CustomerCommerceController;
+use App\Modules\Growth\Http\Controllers\CustomerAffiliateController;
 use App\Modules\PartnerStore\Http\Controllers\CustomerReservationController;
 use App\Modules\Reward\Http\Controllers\CustomerRewardController;
 use App\Modules\Health\Http\Controllers\HealthController;
@@ -88,6 +89,12 @@ Route::post('/customer/topups', [CustomerCommerceController::class, 'createTopup
 Route::post('/customer/topups/credit', [CustomerCommerceController::class, 'createCreditTopup'])->middleware('customer.auth');
 Route::get('/customer/topups/{topup_id}', [CustomerCommerceController::class, 'topup'])->middleware('customer.auth');
 Route::delete('/customer/topups/{topup_id}', [CustomerCommerceController::class, 'cancelTopup'])->middleware('customer.auth');
+Route::get('/customer/affiliate', [CustomerAffiliateController::class, 'overview'])->middleware('customer.auth');
+Route::post('/customer/affiliate', [CustomerAffiliateController::class, 'register'])->middleware('customer.auth');
+Route::post('/customer/affiliate/referrals/apply', [CustomerAffiliateController::class, 'applyReferral'])->middleware('customer.auth');
+Route::get('/customer/affiliate/commissions', [CustomerAffiliateController::class, 'commissions'])->middleware('customer.auth');
+Route::get('/customer/affiliate/payouts', [CustomerAffiliateController::class, 'payouts'])->middleware('customer.auth');
+Route::post('/customer/affiliate/payouts', [CustomerAffiliateController::class, 'createPayout'])->middleware('customer.auth');
 Route::post('/customer/reservations', [CustomerReservationController::class, 'store'])
     ->middleware('customer.auth');
 Route::post('/customer/reservations/{reservation_id}/release', [CustomerReservationController::class, 'release'])
