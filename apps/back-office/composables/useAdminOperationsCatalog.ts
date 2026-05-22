@@ -37,7 +37,7 @@ export type OperationOption = string | {
   close_at?: string
   server_time?: string
 }
-export type OperationOptionSource = 'central-games' | 'central-sale-price-games' | 'central-partners' | 'central-billing-plans' | 'allocation-partners' | 'allocation-tenants' | 'allocation-games' | 'tenant-stock-games' | 'tenant-price-rule-games' | 'tenant-sale-price-games'
+export type OperationOptionSource = 'central-games' | 'central-sale-price-games' | 'central-partners' | 'central-billing-plans' | 'allocation-partners' | 'allocation-tenants' | 'allocation-games' | 'tenant-stock-games' | 'tenant-price-rule-games' | 'tenant-sale-price-games' | 'tenant-customers' | 'tenant-affiliates' | 'tenant-affiliate-programs'
 
 export type OperationColumn = {
   key: string
@@ -150,6 +150,7 @@ export type OperationResource = {
   secondarySettings?: OperationSettingsPanel[]
   settingsFields?: OperationFormField[]
   confirmContextFields?: string[]
+  detailFields?: OperationColumn[]
   reportKeys?: string[]
   detailJsonEditor?: boolean
   detailRenderer?: 'reward' | 'price-rule' | 'partner'
@@ -365,6 +366,25 @@ const moneyFields = (prefix = 'amount', label = 'Amount', required = true): Oper
   },
 ]
 
+const bahtMoneyFields = (prefix = 'amount', label = 'Amount', required = true): OperationFormField[] => [
+  {
+    key: `${prefix}.amount`,
+    label: `${label} (THB)`,
+    type: 'money',
+    required,
+    min: 0.01,
+    step: 0.01,
+    help: 'Enter baht, for example 100.00.',
+  },
+  {
+    key: `${prefix}.currency`,
+    label: 'Currency',
+    type: 'select',
+    options: currencyOptions,
+    defaultValue: 'THB',
+  },
+]
+
 const stockActionContext = ['id', 'game_id', 'full_number', 'front3', 'back3', 'back2', 'status', 'partner_id', 'tenant_id', 'allocation_id']
 const moneyActionContext = ['id', 'reference', 'customer_id', 'status', 'payment_status', 'total.amount', 'amount.amount', 'balance.amount']
 const orderActionContext = [
@@ -430,10 +450,10 @@ const salePriceRuleActionContext = ['game_id', 'game_name', 'set_size', 'central
 const memberActionContext = ['id', 'tenant_id', 'member_no', 'name', 'phone', 'email', 'status', 'order_count', 'lifetime_spend.amount', 'updated_at']
 const agentActionContext = ['id', 'tenant_id', 'partner_id', 'code', 'name', 'phone', 'email', 'store_id', 'status', 'metadata', 'updated_at']
 const agentQuotaActionContext = ['id', 'tenant_id', 'code', 'name', 'store_id', 'status', 'quotas.0.game_id', 'quotas.0.quota_count', 'quotas.0.used_count', 'quotas.0.status', 'updated_at']
-const affiliateProgramActionContext = ['id', 'tenant_id', 'code', 'name', 'status', 'starts_at', 'ends_at', 'metadata', 'updated_at']
-const affiliateAccountActionContext = ['id', 'tenant_id', 'customer_id', 'code', 'name', 'phone', 'email', 'status', 'wallet_balance.amount', 'wallet_balance.currency', 'payout_profile', 'metadata', 'updated_at']
-const affiliateLinkActionContext = ['id', 'tenant_id', 'affiliate_account_id', 'affiliate_program_id', 'code', 'url', 'status', 'metadata', 'updated_at']
-const commissionRuleActionContext = ['id', 'tenant_id', 'affiliate_program_id', 'affiliate_account_id', 'code', 'name', 'rule_type', 'amount.amount', 'amount.currency', 'rate_bps', 'status', 'metadata', 'updated_at']
+const affiliateProgramActionContext = ['id', 'tenant_id', 'code', 'name', 'status', 'starts_at', 'ends_at', 'updated_at']
+const affiliateAccountActionContext = ['id', 'tenant_id', 'customer_id', 'code', 'canonical_url', 'referral_url', 'name', 'phone', 'email', 'status', 'wallet_balance.amount', 'wallet_balance.currency', 'updated_at']
+const affiliateLinkActionContext = ['id', 'tenant_id', 'affiliate_account_id', 'affiliate_program_id', 'code', 'canonical_url', 'url', 'legacy_url', 'status', 'updated_at']
+const commissionRuleActionContext = ['id', 'tenant_id', 'affiliate_program_id', 'affiliate_account_id', 'code', 'name', 'rule_type', 'amount.amount', 'amount.currency', 'rate_bps', 'status', 'updated_at']
 const commissionTransactionActionContext = ['id', 'tenant_id', 'affiliate_account_id', 'order_id', 'commission_rule_id', 'transaction_type', 'status', 'amount.amount', 'amount.currency', 'calculated_at', 'approved_at']
 const seoPageActionContext = ['id', 'tenant_id', 'path', 'title', 'status', 'robots', 'canonical_url', 'og_image_url', 'metadata', 'updated_at']
 const redirectActionContext = ['id', 'tenant_id', 'source_path', 'target_url', 'status_code', 'status', 'metadata', 'updated_at']
@@ -621,47 +641,151 @@ const updateFields = (fields: OperationFormField[], sourceKeys: Record<string, s
   delete updateField.defaultValue
   return updateField
 })
+const customerSelectField = (overrides: Partial<OperationFormField> = {}): OperationFormField => ({
+  key: 'customer_id',
+  label: 'Customer',
+  type: 'select',
+  optionSource: 'tenant-customers',
+  hideEmptyOption: true,
+  emptyOptionLabel: 'No customers available',
+  required: true,
+  ...overrides,
+})
+const affiliateSelectField = (overrides: Partial<OperationFormField> = {}): OperationFormField => ({
+  key: 'affiliate_account_id',
+  label: 'Affiliate',
+  type: 'select',
+  optionSource: 'tenant-affiliates',
+  hideEmptyOption: true,
+  emptyOptionLabel: 'No affiliates available',
+  required: true,
+  ...overrides,
+})
+const affiliateProgramSelectField = (overrides: Partial<OperationFormField> = {}): OperationFormField => ({
+  key: 'affiliate_program_id',
+  label: 'Affiliate program',
+  type: 'select',
+  optionSource: 'tenant-affiliate-programs',
+  emptyOptionLabel: 'No program',
+  ...overrides,
+})
+const affiliatePayoutProfileFields: OperationFormField[] = [
+  { key: 'payout_profile.method', label: 'Payout method', type: 'select', options: ['bank_transfer', 'manual_cash', 'wallet_credit'], defaultValue: 'bank_transfer' },
+  { key: 'payout_profile.bank_account.bank_name', label: 'Bank name' },
+  { key: 'payout_profile.bank_account.account_name', label: 'Account name' },
+  { key: 'payout_profile.bank_account.account_number', label: 'Account number' },
+  { key: 'payout_profile.bank_account.branch', label: 'Branch' },
+]
+const affiliateProgramDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Program' },
+  { key: 'code', label: 'Code' },
+  { key: 'name', label: 'Name' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'starts_at', label: 'Starts', type: 'datetime' },
+  { key: 'ends_at', label: 'Ends', type: 'datetime' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+]
+const affiliateAccountDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Affiliate' },
+  { key: 'customer_id', label: 'Customer' },
+  { key: 'code', label: 'Generated code' },
+  { key: 'canonical_url', label: 'Referral URL', fallbackKeys: ['referral_url', 'url'] },
+  { key: 'name', label: 'Name' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'email', label: 'Email' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'wallet_balance.amount', label: 'Wallet', type: 'money' },
+  { key: 'payout_profile.method', label: 'Payout method' },
+  { key: 'payout_profile.bank_account.bank_name', label: 'Bank' },
+  { key: 'payout_profile.bank_account.account_number', label: 'Account number' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+]
+const affiliateLinkDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Link' },
+  { key: 'affiliate_account_id', label: 'Affiliate' },
+  { key: 'affiliate_program_id', label: 'Program' },
+  { key: 'code', label: 'Generated code' },
+  { key: 'canonical_url', label: 'Referral URL', fallbackKeys: ['url'] },
+  { key: 'legacy_url', label: 'Legacy URL' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+]
+const affiliateAttributionDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Attribution' },
+  { key: 'affiliate_account_id', label: 'Affiliate' },
+  { key: 'affiliate_link_id', label: 'Link' },
+  { key: 'customer_id', label: 'Customer' },
+  { key: 'order_id', label: 'Order' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'expires_at', label: 'Expires', type: 'datetime' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+]
+const commissionRuleDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Rule' },
+  { key: 'affiliate_account_id', label: 'Affiliate' },
+  { key: 'affiliate_program_id', label: 'Program' },
+  { key: 'code', label: 'Code' },
+  { key: 'name', label: 'Name' },
+  { key: 'rule_type', label: 'Rule type' },
+  { key: 'amount.amount', label: 'Amount', type: 'money' },
+  { key: 'rate_bps', label: 'Rate BPS', type: 'number' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+]
+const commissionTransactionDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Commission' },
+  { key: 'affiliate_account_id', label: 'Affiliate' },
+  { key: 'order_id', label: 'Order' },
+  { key: 'commission_rule_id', label: 'Rule' },
+  { key: 'transaction_type', label: 'Type' },
+  { key: 'amount.amount', label: 'Amount', type: 'money' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'calculated_at', label: 'Calculated', type: 'datetime' },
+  { key: 'approved_at', label: 'Approved', type: 'datetime' },
+]
+const payoutDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Payout' },
+  { key: 'affiliate_id', label: 'Affiliate', fallbackKeys: ['affiliate_account_id'] },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'amount.amount', label: 'Amount', type: 'money' },
+  { key: 'payout_method', label: 'Payout method' },
+  { key: 'bank_account.bank_name', label: 'Bank' },
+  { key: 'bank_account.account_number', label: 'Account number' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
+]
 const affiliateProgramCreateFields: OperationFormField[] = [
   { key: 'code', label: 'Code', placeholder: 'program_may_2026', help: 'Unique within the active tenant. Backend derives one from name if blank.' },
   { key: 'name', label: 'Name', required: true, placeholder: 'May 2026 Program' },
   { key: 'status', label: 'Status', type: 'select', options: affiliateStatusOptions, defaultValue: 'active' },
   { key: 'starts_at', label: 'Starts at', type: 'datetime-local' },
   { key: 'ends_at', label: 'Ends at', type: 'datetime-local' },
-  { key: 'metadata', label: 'Metadata JSON', type: 'json', defaultValue: '{}', placeholder: '{"source":"bo"}', help: 'Must be a JSON object or array.' },
 ]
 const affiliateProgramUpdateFields = updateFields(affiliateProgramCreateFields)
 const affiliateAccountCreateFields: OperationFormField[] = [
-  { key: 'customer_id', label: 'Customer ID', placeholder: 'Optional same-tenant customer ID' },
-  { key: 'code', label: 'Code', placeholder: 'affiliate_alpha', help: 'Unique within the active tenant. Backend derives one from name if blank.' },
+  customerSelectField(),
   { key: 'name', label: 'Name', required: true, placeholder: 'Affiliate Alpha' },
   { key: 'phone', label: 'Phone' },
   { key: 'email', label: 'Email', placeholder: 'affiliate@example.test' },
   { key: 'status', label: 'Status', type: 'select', options: affiliateStatusOptions, defaultValue: 'active' },
   { key: 'currency', label: 'Currency', type: 'select', options: currencyOptions, defaultValue: 'THB' },
-  { key: 'payout_profile', label: 'Payout profile JSON', type: 'json', defaultValue: '{}', placeholder: '{"method":"bank_transfer"}', help: 'Stored as payout_profile_json. Must be a JSON object or array.' },
-  { key: 'metadata', label: 'Metadata JSON', type: 'json', defaultValue: '{}', placeholder: '{"source":"bo"}', help: 'Must be a JSON object or array.' },
+  ...affiliatePayoutProfileFields,
 ]
 const affiliateAccountUpdateFields = updateFields(affiliateAccountCreateFields)
 const affiliateLinkCreateFields: OperationFormField[] = [
-  { key: 'affiliate_account_id', label: 'Affiliate account ID', required: true },
-  { key: 'affiliate_program_id', label: 'Affiliate program ID', placeholder: 'Optional same-tenant program ID' },
-  { key: 'code', label: 'Code', defaultValue: 'link', placeholder: 'Unique link code' },
-  { key: 'url', label: 'URL', placeholder: 'Optional; backend defaults from code' },
+  affiliateSelectField(),
+  affiliateProgramSelectField({ required: false }),
   { key: 'status', label: 'Status', type: 'select', options: affiliateStatusOptions, defaultValue: 'active' },
-  { key: 'metadata', label: 'Metadata JSON', type: 'json', defaultValue: '{}', placeholder: '{"source":"bo"}', help: 'Must be a JSON object or array.' },
 ]
 const affiliateLinkUpdateFields = updateFields(affiliateLinkCreateFields)
 const commissionRuleCreateFields: OperationFormField[] = [
-  { key: 'affiliate_program_id', label: 'Affiliate program ID', placeholder: 'Optional same-tenant program ID' },
-  { key: 'affiliate_account_id', label: 'Affiliate account ID', placeholder: 'Optional same-tenant affiliate account ID' },
-  { key: 'code', label: 'Code', placeholder: 'commission_rule_alpha', help: 'Unique within the active tenant. Backend derives one from name if blank.' },
+  affiliateProgramSelectField({ required: false }),
+  affiliateSelectField({ required: false, hideEmptyOption: false, emptyOptionLabel: 'All affiliates' }),
   { key: 'name', label: 'Name', required: true, placeholder: 'Commission Rule Alpha' },
   { key: 'rule_type', label: 'Rule type', type: 'select', options: commissionRuleTypeOptions, defaultValue: 'fixed_per_order', required: true },
-  { key: 'amount.amount', label: 'Amount (minor units)', type: 'number', min: 0, step: 1, defaultValue: 100, help: 'Required for fixed_per_order and per_ticket. Use the smallest currency unit.' },
+  ...bahtMoneyFields('amount', 'Fixed/per-ticket amount', false),
   { key: 'rate_bps', label: 'Rate (basis points)', type: 'number', min: 0, step: 1, defaultValue: 0, help: 'Required when rule_type is percent_sales. 100 bps = 1%.' },
-  { key: 'amount.currency', label: 'Currency', type: 'select', options: currencyOptions, defaultValue: 'THB' },
   { key: 'status', label: 'Status', type: 'select', options: affiliateStatusOptions, defaultValue: 'active' },
-  { key: 'metadata', label: 'Metadata JSON', type: 'json', defaultValue: '{}', placeholder: '{"source":"bo"}', help: 'Must be a JSON object or array.' },
 ]
 const commissionRuleUpdateFields = updateFields(commissionRuleCreateFields, {
   'amount.amount': 'amount.amount',
@@ -1208,6 +1332,7 @@ const tenant: OperationResource[] = [
     updateEndpoint: '/admin/tenant/affiliate-programs/{affiliate_program_id}',
     idParam: 'affiliate_program_id',
     idKey: 'id',
+    detailFields: affiliateProgramDetailFields,
     columns: [
       { key: 'id', label: 'Program' },
       { key: 'code', label: 'Code' },
@@ -1256,16 +1381,20 @@ const tenant: OperationResource[] = [
     updateEndpoint: '/admin/tenant/affiliate-links/{affiliate_link_id}',
     idParam: 'affiliate_link_id',
     idKey: 'id',
+    detailFields: affiliateLinkDetailFields,
     columns: [
       { key: 'id', label: 'Link' },
       { key: 'affiliate_account_id', label: 'Affiliate' },
       { key: 'affiliate_program_id', label: 'Program' },
       { key: 'code', label: 'Code' },
-      { key: 'url', label: 'URL' },
+      { key: 'canonical_url', label: 'Referral URL', fallbackKeys: ['url'] },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
     ],
-    filters: cursorFilters([statusFilter(affiliateStatusOptions), { key: 'affiliate_id', label: 'Affiliate ID' }]),
+    filters: cursorFilters([
+      statusFilter(affiliateStatusOptions),
+      { key: 'affiliate_id', label: 'Affiliate', type: 'select', optionSource: 'tenant-affiliates', emptyOptionLabel: 'All affiliates' },
+    ]),
     confirmContextFields: affiliateLinkActionContext,
     actions: [
       {
@@ -1294,7 +1423,22 @@ const tenant: OperationResource[] = [
       formFields: affiliateLinkCreateFields,
     }],
   },
-  resource('tenant', 'growth/attributions', 'Affiliate Attributions', 'Tenant Growth', '/admin/tenant/affiliate-attributions', '/admin/tenant/affiliate-attributions/{attribution_id}', 'attribution_id', growthColumns(), cursorFilters([statusFilter()])),
+  {
+    ...resource('tenant', 'growth/attributions', 'Affiliate Attributions', 'Tenant Growth', '/admin/tenant/affiliate-attributions', '/admin/tenant/affiliate-attributions/{attribution_id}', 'attribution_id', [
+      { key: 'id', label: 'Attribution' },
+      { key: 'affiliate_account_id', label: 'Affiliate' },
+      { key: 'affiliate_link_id', label: 'Link' },
+      { key: 'customer_id', label: 'Customer' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'expires_at', label: 'Expires', type: 'datetime' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ], cursorFilters([
+      statusFilter(),
+      { key: 'affiliate_account_id', label: 'Affiliate', type: 'select', optionSource: 'tenant-affiliates', emptyOptionLabel: 'All affiliates' },
+      { key: 'customer_id', label: 'Customer', type: 'select', optionSource: 'tenant-customers', emptyOptionLabel: 'All customers' },
+    ])),
+    detailFields: affiliateAttributionDetailFields,
+  },
   {
     scope: 'tenant',
     slug: 'growth/affiliates',
@@ -1305,16 +1449,21 @@ const tenant: OperationResource[] = [
     updateEndpoint: '/admin/tenant/affiliates/{affiliate_id}',
     idParam: 'affiliate_id',
     idKey: 'id',
+    detailFields: affiliateAccountDetailFields,
     columns: [
       { key: 'id', label: 'Affiliate' },
       { key: 'customer_id', label: 'Customer' },
       { key: 'code', label: 'Code' },
+      { key: 'canonical_url', label: 'Referral URL', fallbackKeys: ['referral_url', 'url'] },
       { key: 'name', label: 'Name' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'wallet_balance.amount', label: 'Wallet', type: 'money' },
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
     ],
-    filters: cursorFilters([statusFilter(affiliateStatusOptions), { key: 'customer_id', label: 'Customer ID' }]),
+    filters: cursorFilters([
+      statusFilter(affiliateStatusOptions),
+      { key: 'customer_id', label: 'Customer', type: 'select', optionSource: 'tenant-customers', emptyOptionLabel: 'All customers' },
+    ]),
     confirmContextFields: affiliateAccountActionContext,
     actions: [{
       key: 'update',
@@ -1342,6 +1491,7 @@ const tenant: OperationResource[] = [
     updateEndpoint: '/admin/tenant/commission-rules/{commission_rule_id}',
     idParam: 'commission_rule_id',
     idKey: 'id',
+    detailFields: commissionRuleDetailFields,
     columns: [
       { key: 'id', label: 'Rule' },
       { key: 'affiliate_account_id', label: 'Affiliate' },
@@ -1354,7 +1504,11 @@ const tenant: OperationResource[] = [
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
     ],
-    filters: cursorFilters([statusFilter(affiliateStatusOptions), { key: 'affiliate_account_id', label: 'Affiliate account ID' }]),
+    filters: cursorFilters([
+      statusFilter(affiliateStatusOptions),
+      { key: 'affiliate_account_id', label: 'Affiliate', type: 'select', optionSource: 'tenant-affiliates', emptyOptionLabel: 'All affiliates' },
+      { key: 'affiliate_program_id', label: 'Program', type: 'select', optionSource: 'tenant-affiliate-programs', emptyOptionLabel: 'All programs' },
+    ]),
     confirmContextFields: commissionRuleActionContext,
     actions: [
       {
@@ -1390,6 +1544,7 @@ const tenant: OperationResource[] = [
     group: 'Tenant Growth',
     listEndpoint: '/admin/tenant/commission-transactions',
     idParam: 'commission_id',
+    detailFields: commissionTransactionDetailFields,
     columns: [
       { key: 'id', label: 'Commission' },
       { key: 'affiliate_account_id', label: 'Affiliate' },
@@ -1401,7 +1556,10 @@ const tenant: OperationResource[] = [
       { key: 'calculated_at', label: 'Calculated', type: 'datetime' },
       { key: 'approved_at', label: 'Approved', type: 'datetime' },
     ],
-    filters: cursorFilters([statusFilter(['calculated', 'approved', 'reversed'])]),
+    filters: cursorFilters([
+      statusFilter(['calculated', 'approved', 'reversed']),
+      { key: 'affiliate_account_id', label: 'Affiliate', type: 'select', optionSource: 'tenant-affiliates', emptyOptionLabel: 'All affiliates' },
+    ]),
     confirmContextFields: commissionTransactionActionContext,
     actions: [{
       key: 'approve',
@@ -1420,6 +1578,7 @@ const tenant: OperationResource[] = [
     group: 'Tenant Growth',
     listEndpoint: '/admin/tenant/payouts',
     idParam: 'payout_id',
+    detailFields: payoutDetailFields,
     columns: [
       { key: 'id', label: 'Payout' },
       { key: 'status', label: 'Status', type: 'status' },
@@ -1435,11 +1594,13 @@ const tenant: OperationResource[] = [
       endpoint: '/admin/tenant/payouts',
       reason: true,
       formFields: [
-        { key: 'affiliate_id', label: 'Affiliate ID', required: true },
-        ...moneyFields('amount', 'Payout amount'),
+        affiliateSelectField({ key: 'affiliate_id', label: 'Affiliate' }),
+        ...bahtMoneyFields('amount', 'Payout amount'),
         { key: 'payout_method', label: 'Payout method', type: 'select', options: ['bank_transfer', 'manual_cash', 'wallet_credit'], defaultValue: 'bank_transfer', required: true },
         { key: 'bank_account.bank_name', label: 'Bank name', placeholder: 'Required for bank transfer' },
+        { key: 'bank_account.account_name', label: 'Account name', placeholder: 'Required for bank transfer' },
         { key: 'bank_account.account_number', label: 'Account number', placeholder: 'Required for bank transfer' },
+        { key: 'bank_account.branch', label: 'Branch' },
       ],
     }],
   },

@@ -234,6 +234,17 @@ if (!detailPage.includes('oneTimeToken') || detailPage.includes('localStorage.se
 const operationsCatalog = existsSync(join(root, 'composables/useAdminOperationsCatalog.ts'))
   ? readFileSync(join(root, 'composables/useAdminOperationsCatalog.ts'), 'utf8')
   : ''
+const sliceBetween = (source, start, end) => {
+  const startIndex = source.indexOf(start)
+  if (startIndex === -1) {
+    return ''
+  }
+
+  const endIndex = source.indexOf(end, startIndex + start.length)
+  return endIndex === -1
+    ? source.slice(startIndex)
+    : source.slice(startIndex, endIndex)
+}
 const menuCompletionDocPath = join(root, '..', '..', 'docs', 'back-office-menu-completion.md')
 const menuCompletionDoc = existsSync(menuCompletionDocPath)
   ? readFileSync(menuCompletionDocPath, 'utf8')
@@ -329,11 +340,38 @@ for (const requiredResource of [
   "'stock-pattern-coverage'",
   "'price-rules'",
   "'customers'",
+  "'growth/affiliate-programs'",
+  "'growth/affiliate-links'",
+  "'growth/attributions'",
+  "'growth/affiliates'",
+  "'growth/commission-rules'",
+  "'growth/commission-transactions'",
+  "'growth/payouts'",
   "'monitoring'",
   "'usage'",
 ]) {
   if (!operationsCatalog.includes(requiredResource)) {
     failures.push(`Menu completion catalog route missing ${requiredResource}`)
+  }
+}
+
+const affiliateAccountForm = sliceBetween(operationsCatalog, 'const affiliateAccountCreateFields', 'const affiliateAccountUpdateFields')
+const affiliateLinkForm = sliceBetween(operationsCatalog, 'const affiliateLinkCreateFields', 'const affiliateLinkUpdateFields')
+const commissionRuleForm = sliceBetween(operationsCatalog, 'const commissionRuleCreateFields', 'const commissionRuleUpdateFields')
+const payoutResource = sliceBetween(operationsCatalog, "slug: 'growth/payouts'", "summaryResource('tenant', 'monitoring'")
+for (const evidence of [
+  ['affiliate account form uses customer selector', affiliateAccountForm.includes('customerSelectField()') && operationsCatalog.includes("optionSource: 'tenant-customers'")],
+  ['affiliate account form omits generated code/json inputs', !affiliateAccountForm.includes("key: 'code'") && !affiliateAccountForm.includes("type: 'json'") && !affiliateAccountForm.includes('Payout profile JSON') && !affiliateAccountForm.includes('Metadata JSON')],
+  ['affiliate account form uses payout method and bank fields', affiliateAccountForm.includes('affiliatePayoutProfileFields') && operationsCatalog.includes('payout_profile.bank_account.bank_name') && operationsCatalog.includes('payout_profile.bank_account.account_number')],
+  ['affiliate link form uses selectors and omits generated code/url/json inputs', affiliateLinkForm.includes('affiliateSelectField()') && affiliateLinkForm.includes('affiliateProgramSelectField') && !affiliateLinkForm.includes("key: 'code'") && !affiliateLinkForm.includes("key: 'url'") && !affiliateLinkForm.includes("type: 'json'")],
+  ['commission rule form uses selectors enums and baht amount', commissionRuleForm.includes('affiliateProgramSelectField') && commissionRuleForm.includes('affiliateSelectField') && commissionRuleForm.includes("key: 'rule_type'") && commissionRuleForm.includes('commissionRuleTypeOptions') && commissionRuleForm.includes("bahtMoneyFields('amount'") && !commissionRuleForm.includes("type: 'json'") && !commissionRuleForm.includes('Amount (minor units)')],
+  ['affiliate detail views use curated fields', operationsCatalog.includes('detailFields: affiliateProgramDetailFields') && operationsCatalog.includes('detailFields: affiliateAccountDetailFields') && operationsCatalog.includes('detailFields: affiliateLinkDetailFields') && operationsCatalog.includes('detailFields: affiliateAttributionDetailFields') && operationsCatalog.includes('detailFields: commissionRuleDetailFields') && operationsCatalog.includes('detailFields: commissionTransactionDetailFields') && operationsCatalog.includes('detailFields: payoutDetailFields') && operationsPage.includes('detailSectionRecord')],
+  ['affiliate generated referral URL rendered readonly', operationsCatalog.includes("canonical_url', label: 'Referral URL'") && operationsCatalog.includes("fallbackKeys: ['referral_url', 'url']") && operationsCatalog.includes("fallbackKeys: ['url']") && !operationsCatalog.includes('/a/{CODE}')],
+  ['affiliate option source loaders present', operationsCatalog.includes("'tenant-customers'") && operationsCatalog.includes("'tenant-affiliates'") && operationsCatalog.includes("'tenant-affiliate-programs'") && operationsPage.includes("api.apiFetch('/admin/tenant/members'") && operationsPage.includes("api.apiFetch('/admin/tenant/affiliates'") && operationsPage.includes("api.apiFetch('/admin/tenant/affiliate-programs'")],
+  ['affiliate payout form uses baht amount method select and bank fields', payoutResource.includes("bahtMoneyFields('amount', 'Payout amount'") && payoutResource.includes("key: 'payout_method'") && payoutResource.includes("type: 'select'") && payoutResource.includes('bank_account.bank_name') && payoutResource.includes('bank_account.account_number') && !payoutResource.includes("type: 'json'")],
+]) {
+  if (!evidence[1]) {
+    failures.push(`Affiliate BO usability guardrail missing: ${evidence[0]}`)
   }
 }
 

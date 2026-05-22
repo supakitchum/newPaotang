@@ -260,7 +260,7 @@
         :loading="loading && !detailGap"
         @saved="handlePartnerDetailSaved"
       />
-      <AdminDetailSection v-else :title="`${resource.title} detail`" :record="detailDisplayRecord" :loading="loading && !detailGap" />
+      <AdminDetailSection v-else :title="`${resource.title} detail`" :record="detailSectionRecord" :loading="loading && !detailGap" />
       <AdminRewardPrizes
         v-if="resource.detailRenderer === 'reward' && !detailGap && detail"
         :prizes="detail?.prizes || []"
@@ -755,6 +755,9 @@ const optionSourceOptions = reactive<Record<OperationOptionSource, OperationOpti
   'tenant-stock-games': [],
   'tenant-price-rule-games': [],
   'tenant-sale-price-games': [],
+  'tenant-customers': [],
+  'tenant-affiliates': [],
+  'tenant-affiliate-programs': [],
 })
 const optionSourceLoading = reactive<Record<OperationOptionSource, boolean>>({
   'central-games': false,
@@ -767,6 +770,9 @@ const optionSourceLoading = reactive<Record<OperationOptionSource, boolean>>({
   'tenant-stock-games': false,
   'tenant-price-rule-games': false,
   'tenant-sale-price-games': false,
+  'tenant-customers': false,
+  'tenant-affiliates': false,
+  'tenant-affiliate-programs': false,
 })
 const stockSettingsDefaults = ref<any[]>([])
 const stockSettingsLoading = ref(false)
@@ -1077,6 +1083,17 @@ const detailDisplayRecord = computed(() => {
 
   const { prizes, ...record } = detail.value
   return record
+})
+const detailSectionRecord = computed(() => {
+  const fields = resource.value?.detailFields || []
+  if (!fields.length || !detail.value) {
+    return detailDisplayRecord.value
+  }
+
+  return Object.fromEntries(fields.map((field) => [
+    field.label,
+    formatValue(getFirstPath(detail.value, [field.key, ...(field.fallbackKeys || [])]), field.type),
+  ]))
 })
 const hasSettingsForm = computed(() => Boolean(resource.value?.settingsFields?.length))
 const isMenuManagement = computed(() => resource.value?.slug === 'menu-management')
@@ -1524,6 +1541,27 @@ const loadOptionSource = async (source: OperationOptionSource) => {
         tenantId: session.currentTenantId.value,
       })
       optionSourceOptions[source] = normalizeGameOptions(extractItems(response))
+    } else if (source === 'tenant-customers') {
+      const response = await api.apiFetch('/admin/tenant/members', {
+        scope: 'tenant',
+        tenantId: session.currentTenantId.value,
+        query: { limit: 500 },
+      })
+      optionSourceOptions[source] = normalizeCustomerOptions(extractItems(response))
+    } else if (source === 'tenant-affiliates') {
+      const response = await api.apiFetch('/admin/tenant/affiliates', {
+        scope: 'tenant',
+        tenantId: session.currentTenantId.value,
+        query: { status: 'active', limit: 500 },
+      })
+      optionSourceOptions[source] = normalizeAffiliateOptions(extractItems(response))
+    } else if (source === 'tenant-affiliate-programs') {
+      const response = await api.apiFetch('/admin/tenant/affiliate-programs', {
+        scope: 'tenant',
+        tenantId: session.currentTenantId.value,
+        query: { status: 'active', limit: 500 },
+      })
+      optionSourceOptions[source] = normalizeAffiliateProgramOptions(extractItems(response))
     }
   } catch {
     optionSourceOptions[source] = []
@@ -1587,6 +1625,64 @@ const billingPlanOption = (plan: any): OperationOption => {
 
 const normalizeBillingPlanOptions = (items: any[]) => items
   .map(billingPlanOption)
+  .filter((option) => !isBlank(optionValue(option)))
+
+const customerOption = (customer: any): OperationOption => {
+  const id = customer?.id || customer?.customer_id || customer?.member_id || customer?.uuid
+  const memberNo = customer?.member_no || customer?.member_code || ''
+  const name = customer?.name || customer?.display_name || customer?.phone || id
+  const phone = customer?.phone ? ` - ${customer.phone}` : ''
+  const memberLabel = memberNo ? `${memberNo} - ` : ''
+
+  return {
+    value: id,
+    label: `${memberLabel}${name}${phone}`,
+    status: String(customer?.status || '').toLowerCase(),
+  }
+}
+
+const normalizeCustomerOptions = (items: any[]) => items
+  .map(customerOption)
+  .filter((option) => !isBlank(optionValue(option)))
+
+const affiliateOption = (affiliate: any): OperationOption => {
+  const id = affiliate?.id || affiliate?.affiliate_id || affiliate?.affiliate_account_id || affiliate?.uuid
+  const code = affiliate?.code || ''
+  const name = affiliate?.name || affiliate?.email || affiliate?.phone || id
+  const suffix = code && code !== name ? ` (${code})` : ''
+
+  return {
+    value: id,
+    label: `${name}${suffix}`,
+    code,
+    name,
+    status: String(affiliate?.status || '').toLowerCase(),
+    disabled: String(affiliate?.status || '').toLowerCase() === 'archived',
+  }
+}
+
+const normalizeAffiliateOptions = (items: any[]) => items
+  .map(affiliateOption)
+  .filter((option) => !isBlank(optionValue(option)))
+
+const affiliateProgramOption = (program: any): OperationOption => {
+  const id = program?.id || program?.affiliate_program_id || program?.uuid || program?.code
+  const code = program?.code || ''
+  const name = program?.name || code || id
+  const suffix = code && code !== name ? ` (${code})` : ''
+
+  return {
+    value: id,
+    label: `${name}${suffix}`,
+    code,
+    name,
+    status: String(program?.status || '').toLowerCase(),
+    disabled: String(program?.status || '').toLowerCase() === 'archived',
+  }
+}
+
+const normalizeAffiliateProgramOptions = (items: any[]) => items
+  .map(affiliateProgramOption)
   .filter((option) => !isBlank(optionValue(option)))
 
 const allocationPartnerOption = (partner: any): OperationOption => {
