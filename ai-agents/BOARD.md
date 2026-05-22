@@ -13,11 +13,11 @@ affiliate-bo-usability-ref-links
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
 | Coordinator | dispatched | affiliate-bo-usability-ref-links | ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-orchestrator.md |
-| Orchestrator | completed | affiliate-bo-usability-ref-links-bo-customer-dispatch | ai-agents/handoffs/20260522-affiliate-bo-usability-ref-links-orchestrator-bo-customer-dispatch-handoff.md |
+| Orchestrator | completed | affiliate-bo-usability-ref-links-qa-dispatch | ai-agents/handoffs/20260522-affiliate-bo-usability-ref-links-orchestrator-qa-dispatch-handoff.md |
 | Backend Develop | completed | affiliate-bo-usability-ref-links-backend | ai-agents/handoffs/20260522-affiliate-bo-usability-ref-links-backend-handoff.md |
 | BO Develop | completed | affiliate-bo-usability-ref-links-bo | ai-agents/handoffs/20260522-affiliate-bo-usability-ref-links-bo-handoff.md |
-| Customer Develop | pending | affiliate-bo-usability-ref-links-customer | ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-customer.md |
-| QA Tester | waiting-implementation | affiliate-bo-usability-ref-links-qa | ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-qa.md |
+| Customer Develop | completed | affiliate-bo-usability-ref-links-customer | ai-agents/handoffs/20260522-affiliate-bo-usability-ref-links-customer-handoff.md |
+| QA Tester | pending | affiliate-bo-usability-ref-links-qa | ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-qa.md |
 
 ## Open Questions
 
@@ -28,11 +28,11 @@ The canonical worktree has pre-existing dirty implementation files from prior Ho
 ## Latest Decision
 
 ```text
-ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-customer.md
+ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-qa.md
 ```
 
 ## Next Instruction
 
 ```text
-Next Agent: Customer Develop. Customer must complete ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-customer.md before Orchestrator can dispatch QA.
+Next Agent: QA Tester. QA must validate Backend, BO, and Customer together from ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-qa.md.
 ```

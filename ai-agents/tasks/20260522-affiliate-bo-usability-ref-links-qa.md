@@ -51,6 +51,34 @@ apps/platform-api/.phpunit.result.cache
 
 Do not stage it.
 
+## Commits Under Test
+
+Backend:
+
+```text
+implementation: c060d1e875d93cf1ba7c7a1b9ce93066baf9c817
+handoff: 3b27043cc7753b7fe0d2fb8703396b121f40db0d
+```
+
+BO:
+
+```text
+implementation + handoff: d73320dd9cc2dd47099d68593c6eddcb01c877ef
+```
+
+Customer:
+
+```text
+implementation: 6168ca08135c785c36e5fd26343790cd9b704d24
+handoff: 72557bf8b1215a1ea767342dda45ea30af2d52e0
+```
+
+QA must test latest pushed `origin/develop` at or after:
+
+```text
+72557bf8b1215a1ea767342dda45ea30af2d52e0
+```
+
 ## Source Of Truth
 
 Read before QA:
@@ -111,6 +139,12 @@ stored ref does not leak across tenants
 login/register/checkout apply path creates or updates backend attribution where fixtures allow
 /affiliate shows server-provided 6-character code and /?ref= link
 no new /a/{CODE} canonical flow
+```
+
+Known Customer handoff limitation:
+
+```text
+Customer Develop did not run a logged-in end-to-end affiliate apply smoke because no safe seeded customer credentials were provided. QA should validate the login/register/checkout apply path where fixtures allow, or document the authenticated-data blocker while still validating public ref capture and backend API behavior.
 ```
 
 ## Required Commands
