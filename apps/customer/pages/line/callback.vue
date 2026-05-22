@@ -32,6 +32,7 @@ definePageMeta({
 const route = useRoute()
 const platformApi = usePlatformApi()
 const {lineRedirect, isAuthenticated, setAuthToken, setAuthUser, clearLineRedirect} = useAuth()
+const { applyStoredRef } = useAffiliateReferral()
 const {refreshAppInit} = useAppInit()
 const statusText = ref('กรุณารอสักครู่ ระบบกำลังยืนยันข้อมูลจาก LINE')
 
@@ -51,6 +52,7 @@ onMounted(async () => {
   if (isAuthenticated.value) {
     const redirectTo = getSafeRedirect(lineRedirect.value)
     clearLineRedirect()
+    await applyStoredRef()
     await refreshAppInit()
     await navigateTo(redirectTo)
     return
@@ -62,6 +64,7 @@ onMounted(async () => {
     if (response.code === 0) {
       setAuthToken(response.token)
       setAuthUser(response.user)
+      await applyStoredRef()
       await refreshAppInit(response.token)
 
       if (response?.order_id) {

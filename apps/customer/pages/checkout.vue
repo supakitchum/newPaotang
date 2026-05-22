@@ -106,6 +106,7 @@ interface WalletItem {
 
 const platformApi = usePlatformApi()
 const { items, count, amount, timer, clearCart } = useCart()
+const { applyStoredRef } = useAffiliateReferral()
 const { data, waiting, ensureAppInit, refreshAppInit } = useAppInit()
 const { showAlert } = useAppAlert()
 const successOrder = useState<CheckoutOrder | null>('checkout_success_order', () => null)
@@ -317,6 +318,7 @@ const handleConfirmPayment = async () => {
   isPaying.value = true
 
   try {
+    await applyStoredRef()
     const response = await platformApi.checkoutLegacy(order.value.id)
 
     const paidOrder = response.data?.result?.order || order.value

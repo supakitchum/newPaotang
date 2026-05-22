@@ -12,10 +12,16 @@
     <section class="content-sheet">
       <section v-for="section in menuSections" :key="section.title" class="mb-4">
         <h2 class="fs-6 fw-medium muted-text mb-3">{{ section.title }}</h2>
-        <div v-for="item in section.items" :key="item" class="menu-row">
-          <span class="fw-semibold flex-grow-1 fs-6">{{ item }}</span>
-          <i class="bi bi-chevron-right fs-3 text-secondary" />
-        </div>
+        <template v-for="item in section.items" :key="menuItemKey(item)">
+          <NuxtLink v-if="menuItemTo(item)" class="menu-row menu-row-link" :to="menuItemTo(item)">
+            <span class="fw-semibold flex-grow-1 fs-6">{{ menuItemLabel(item) }}</span>
+            <i class="bi bi-chevron-right fs-3 text-secondary" />
+          </NuxtLink>
+          <div v-else class="menu-row">
+            <span class="fw-semibold flex-grow-1 fs-6">{{ menuItemLabel(item) }}</span>
+            <i class="bi bi-chevron-right fs-3 text-secondary" />
+          </div>
+        </template>
       </section>
     </section>
   </MobileShell>
@@ -34,6 +40,9 @@ const profile = ref<Record<string, any> | null>(user.value)
 
 const displayName = computed(() => profile.value?.name || profile.value?.full_name || 'ผู้ใช้งาน')
 const phoneText = computed(() => profile.value?.phone || profile.value?.username || 'ผู้ใช้ทั่วไป')
+const menuItemLabel = (item: string | { label: string }) => typeof item === 'string' ? item : item.label
+const menuItemTo = (item: string | { to?: string }) => typeof item === 'string' ? '' : item.to || ''
+const menuItemKey = (item: string | { label: string, to?: string }) => `${menuItemLabel(item)}:${menuItemTo(item)}`
 
 onMounted(async () => {
   try {

@@ -93,19 +93,25 @@ const normalizeImageFields = (item: AnyRecord) => {
   }
 }
 
-const normalizeStockItem = (item: AnyRecord, reservationId?: string): CartLottery & AnyRecord => {
+const normalizeStockItem = (item: AnyRecord, reservationContext?: string | AnyRecord): CartLottery & AnyRecord => {
+  const reservation = typeof reservationContext === 'string'
+    ? { id: reservationContext }
+    : (reservationContext || {})
+  const reservationId = reservation?.id ? String(reservation.id) : ''
   const number = String(item.full_number || item.number || item.lottery_number || '')
   const price = moneyToDisplayNumber(item.price)
   const imageFields = normalizeImageFields(item)
 
-    return {
-      ...item,
-      token: String(item.id || item.token || ''),
-      local_stock_item_id: String(item.id || item.local_stock_item_id || item.token || ''),
-      stock_ref: item.stock_ref || item.id || item.local_stock_item_id || item.token || '',
-      remaining_count: Number.isFinite(Number(item.remaining_count)) ? Number(item.remaining_count) : null,
-      availability_status: item.availability_status || item.status || 'available',
-      reservation_id: reservationId || item.reservation_id,
+  return {
+    ...item,
+    token: String(item.id || item.token || ''),
+    local_stock_item_id: String(item.id || item.local_stock_item_id || item.token || ''),
+    stock_ref: item.stock_ref || item.id || item.local_stock_item_id || item.token || '',
+    remaining_count: Number.isFinite(Number(item.remaining_count)) ? Number(item.remaining_count) : null,
+    availability_status: item.availability_status || item.status || 'available',
+    reservation_id: reservationId || item.reservation_id,
+    reservation_expires_at: item.reservation_expires_at || item.expires_at || reservation?.expires_at || null,
+    server_time: item.server_time || reservation?.server_time || null,
     number,
     full_number: number,
     lottery_number: number,
@@ -118,10 +124,8 @@ const normalizeStockItem = (item: AnyRecord, reservationId?: string): CartLotter
 }
 
 const normalizeReservationItems = (reservation: AnyRecord | null | undefined) => {
-  const reservationId = reservation?.id ? String(reservation.id) : ''
-
   return Array.isArray(reservation?.items)
-    ? reservation.items.map((item: AnyRecord) => normalizeStockItem(item, reservationId))
+    ? reservation.items.map((item: AnyRecord) => normalizeStockItem(item, reservation || {}))
     : []
 }
 
@@ -149,6 +153,7 @@ const normalizeCartOrder = (cart: AnyRecord | null | undefined) => {
     id: reservation?.id || lotteries[0]?.reservation_id || '',
     reservation_id: reservation?.id || lotteries[0]?.reservation_id || '',
     exp: reservation?.expires_at || null,
+    server_time: reservation?.server_time || cart?.server_time,
     created_at: reservation?.server_time || cart?.server_time,
     updated_at: reservation?.server_time || cart?.server_time,
     lotteries,
@@ -205,6 +210,48 @@ const normalizeTopup = (topup: AnyRecord | null | undefined) => {
     qr_code: topup.payment?.qr_code || '',
     redirect_url: topup.payment?.redirect_url || '',
     message: topup.payment?.message || ''
+  }
+}
+
+const normalizeAffiliatePayout = (payout: AnyRecord | null | undefined) => {
+  if (!payout) {
+    return null
+  }
+
+  return {
+    ...payout,
+    amount: moneyToDisplayNumber(payout.amount)
+  }
+}
+
+const normalizeAffiliateCommission = (commission: AnyRecord | null | undefined) => {
+  if (!commission) {
+    return null
+  }
+
+  return {
+    ...commission,
+    amount: moneyToDisplayNumber(commission.amount)
+  }
+}
+
+const normalizeAffiliateOverview = (payload: AnyRecord | null | undefined) => {
+  const stats = payload?.stats || {}
+
+  return {
+    is_affiliate: Boolean(payload?.is_affiliate),
+    affiliate: payload?.affiliate || null,
+    links: Array.isArray(payload?.links) ? payload.links : [],
+    stats: {
+      total_commission: moneyToDisplayNumber(stats.total_commission),
+      approved_commission: moneyToDisplayNumber(stats.approved_commission),
+      pending_commission: moneyToDisplayNumber(stats.pending_commission),
+      requested_payout: moneyToDisplayNumber(stats.requested_payout),
+      available_balance: moneyToDisplayNumber(stats.available_balance),
+      converted_count: Number(stats.converted_count || 0)
+    },
+    commissions: Array.isArray(payload?.commissions) ? payload.commissions.map(normalizeAffiliateCommission).filter(Boolean) : [],
+    payouts: Array.isArray(payload?.payouts) ? payload.payouts.map(normalizeAffiliatePayout).filter(Boolean) : []
   }
 }
 
@@ -593,7 +640,7 @@ export const usePlatformApi = () => {
     })
     const reservation = unwrapData<AnyRecord>(response)
     const reservedItems = normalizeReservationItems(reservation)
-    const reservedTicket = reservedItems[0] || normalizeStockItem(ticket, reservation.id)
+    const reservedTicket = reservedItems[0] || normalizeStockItem(ticket, reservation)
 
     await loadCart()
 
@@ -607,7 +654,8 @@ export const usePlatformApi = () => {
           selected: true
         }
       },
-      exp: reservation.expires_at || null
+      exp: reservation.expires_at || reservedTicket.reservation_expires_at || null,
+      server_time: reservation.server_time || reservedTicket.server_time || null
     })
   }
 
@@ -630,6 +678,7 @@ export const usePlatformApi = () => {
     return withLegacyData({
       code: 0,
       carts: normalizeCartItems(cart),
+      server_time: cart?.server_time || null,
       result: {
         cart_order: normalizeCartOrder(cart)
       }
@@ -776,6 +825,46 @@ export const usePlatformApi = () => {
     })
   }
 
+  const affiliateOverview = async () => normalizeAffiliateOverview(unwrapData<AnyRecord>(await axios.get('/customer/affiliate')))
+
+  const registerAffiliate = async (payload: AnyRecord = {}) => normalizeAffiliateOverview(unwrapData<AnyRecord>(await axios.post('/customer/affiliate', payload, {
+    headers: idempotencyHeaders('customer-affiliate-register')
+  })))
+
+  const applyAffiliateReferral = async (ref: string) => unwrapData<AnyRecord>(await axios.post('/customer/affiliate/referrals/apply', {
+    ref
+  }))
+
+  const affiliateCommissions = async (params: AnyRecord = {}) => {
+    const response = await axios.get('/customer/affiliate/commissions', { params })
+    const payload = normalizeResponse(response)
+
+    return {
+      data: Array.isArray(payload.data) ? payload.data.map(normalizeAffiliateCommission).filter(Boolean) : [],
+      meta: payload.meta || null
+    }
+  }
+
+  const affiliatePayouts = async (params: AnyRecord = {}) => {
+    const response = await axios.get('/customer/affiliate/payouts', { params })
+    const payload = normalizeResponse(response)
+
+    return {
+      data: Array.isArray(payload.data) ? payload.data.map(normalizeAffiliatePayout).filter(Boolean) : [],
+      meta: payload.meta || null
+    }
+  }
+
+  const createAffiliatePayout = async (payload: AnyRecord) => normalizeAffiliatePayout(unwrapData<AnyRecord>(await axios.post('/customer/affiliate/payouts', {
+    ...payload,
+    amount: {
+      amount: displayAmountToMinor(payload.amount),
+      currency: 'THB'
+    }
+  }, {
+    headers: idempotencyHeaders('customer-affiliate-payout')
+  })))
+
   return {
     loadAppInit,
     loadCart,
@@ -804,6 +893,12 @@ export const usePlatformApi = () => {
     createTopupLegacy,
     createCreditTopupLegacy,
     cancelTopupLegacy,
+    affiliateOverview,
+    registerAffiliate,
+    applyAffiliateReferral,
+    affiliateCommissions,
+    affiliatePayouts,
+    createAffiliatePayout,
     moneyToDisplayNumber
   }
 }

@@ -99,6 +99,7 @@ const isSubmitting = ref(false)
 const route = useRoute()
 const platformApi = usePlatformApi()
 const {setAuthSession, setLineRedirect} = useAuth()
+const { applyStoredRef } = useAffiliateReferral()
 const {refreshAppInit} = useAppInit()
 const {showAlert} = useAppAlert()
 
@@ -142,6 +143,7 @@ const handleSubmit = async () => {
 
     if (response?.token) {
       setAuthSession(response)
+      await applyStoredRef()
       await refreshAppInit(response.token)
       await navigateTo(getSafeRedirect())
     }

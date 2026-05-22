@@ -78,7 +78,7 @@ export const banks = [
 export const menuSections = [
   {
     title: 'ประวัติ',
-    items: ['ประวัติการซื้อสลากฯ', 'ประวัติขึ้นเงินรางวัลสลากดิจิทัล']
+    items: ['ประวัติการซื้อสลากฯ', 'ประวัติขึ้นเงินรางวัลสลากดิจิทัล', { label: 'Affiliate ของฉัน', to: '/affiliate' }]
   },
   {
     title: 'ตั้งค่ารับเงินรางวัล',

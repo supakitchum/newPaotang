@@ -133,6 +133,7 @@ const showConfirmPassword = ref(false)
 const isSubmitting = ref(false)
 const platformApi = usePlatformApi()
 const { setAuthToken, setAuthUser } = useAuth()
+const { applyStoredRef } = useAffiliateReferral()
 const { refreshAppInit } = useAppInit()
 const { showAlert } = useAppAlert()
 
@@ -188,6 +189,7 @@ const handleSubmit = async () => {
     if (response?.token) {
       setAuthToken(response.token)
       setAuthUser(response.user || response.customer || {})
+      await applyStoredRef()
       await refreshAppInit(response.token)
       await navigateTo('/')
     }
