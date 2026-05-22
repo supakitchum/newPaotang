@@ -18,6 +18,13 @@ Do not start until Backend Develop has completed and pushed:
 ai-agents/handoffs/20260522-affiliate-bo-usability-ref-links-backend-handoff.md
 ```
 
+Backend handoff/commit to consume:
+
+```text
+backend implementation: c060d1e875d93cf1ba7c7a1b9ce93066baf9c817
+backend handoff: 3b27043cc7753b7fe0d2fb8703396b121f40db0d
+```
+
 ## Canonical Worktree Start Gate
 
 Use only:
@@ -111,6 +118,7 @@ Referral apply flow:
 
 ```text
 Submit/apply the stored ref after login/register or before checkout so backend can create/update pending attribution.
+Use POST /api/v1/customer/affiliate/referrals/apply for the apply step.
 Do not leak stored ref across tenant hosts.
 Preserve existing checkout/cart UI flow.
 Customer writes must keep Idempotency-Key where required.

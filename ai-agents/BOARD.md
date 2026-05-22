@@ -13,10 +13,10 @@ affiliate-bo-usability-ref-links
 | Agent | Status | Current Task | Last Handoff |
 | --- | --- | --- | --- |
 | Coordinator | dispatched | affiliate-bo-usability-ref-links | ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-orchestrator.md |
-| Orchestrator | completed | affiliate-bo-usability-ref-links | ai-agents/handoffs/20260522-affiliate-bo-usability-ref-links-orchestrator-handoff.md |
-| Backend Develop | pending | affiliate-bo-usability-ref-links-backend | ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-backend.md |
-| BO Develop | waiting-backend | affiliate-bo-usability-ref-links-bo | ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-bo.md |
-| Customer Develop | waiting-backend | affiliate-bo-usability-ref-links-customer | ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-customer.md |
+| Orchestrator | completed | affiliate-bo-usability-ref-links-bo-customer-dispatch | ai-agents/handoffs/20260522-affiliate-bo-usability-ref-links-orchestrator-bo-customer-dispatch-handoff.md |
+| Backend Develop | completed | affiliate-bo-usability-ref-links-backend | ai-agents/handoffs/20260522-affiliate-bo-usability-ref-links-backend-handoff.md |
+| BO Develop | pending | affiliate-bo-usability-ref-links-bo | ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-bo.md |
+| Customer Develop | pending | affiliate-bo-usability-ref-links-customer | ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-customer.md |
 | QA Tester | waiting-implementation | affiliate-bo-usability-ref-links-qa | ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-qa.md |
 
 ## Open Questions
@@ -28,11 +28,11 @@ The canonical worktree has pre-existing dirty implementation files from prior Ho
 ## Latest Decision
 
 ```text
-ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-backend.md
+ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-bo.md
 ```
 
 ## Next Instruction
 
 ```text
-Next Agent: Backend Develop. Backend must start from ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-backend.md.
+Next Agents: BO Develop and Customer Develop. BO starts from ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-bo.md; Customer starts from ai-agents/tasks/20260522-affiliate-bo-usability-ref-links-customer.md.
 ```

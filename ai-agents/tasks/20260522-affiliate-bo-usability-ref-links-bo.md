@@ -18,6 +18,13 @@ Do not start until Backend Develop has completed and pushed:
 ai-agents/handoffs/20260522-affiliate-bo-usability-ref-links-backend-handoff.md
 ```
 
+Backend handoff/commit to consume:
+
+```text
+backend implementation: c060d1e875d93cf1ba7c7a1b9ce93066baf9c817
+backend handoff: 3b27043cc7753b7fe0d2fb8703396b121f40db0d
+```
+
 ## Canonical Worktree Start Gate
 
 Use only:
@@ -113,6 +120,8 @@ Use separate fields for bank account data instead of raw JSON where practical.
 Add option sources or practical selectors for customers, affiliates, and affiliate programs so operators avoid copying raw IDs when practical.
 Remove editable code/url fields where backend generates affiliate codes and canonical /?ref= links.
 Show server-generated affiliate code/referral URL as read-only output where useful.
+Use the backend canonical URL /?ref={CODE} as the primary referral link display.
+Do not show legacy /a/{CODE} as the primary referral link; legacy data may appear only as historical/secondary context if needed.
 Preserve existing admin authorization behavior.
 ```
 
