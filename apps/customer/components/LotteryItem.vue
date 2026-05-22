@@ -7,7 +7,7 @@
           <span>สลากกินแบ่งรัฐบาล</span>
         </div>
         <NuxtLink
-          v-if="showMoreLink"
+          v-if="shouldShowMoreLink"
           class="blue-link"
           :to="{ path: '/buy/more', query: { number: ticketNumber } }"
         >
@@ -134,6 +134,7 @@ const props = defineProps<{
   loading?: boolean
   bookingDisabled?: boolean
   showImage?: boolean
+  showMoreLink?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -153,7 +154,7 @@ const showUnavailableModal = ref(false)
 const shouldRemoveUnavailableTicket = ref(false)
 const getTicketNumber = (ticket: Partial<CartLottery>) => getCartLotteryNumber(ticket)
 const ticketNumber = computed(() => getTicketNumber(props.ticket))
-const showMoreLink = computed(() => route.path !== '/buy/more')
+const shouldShowMoreLink = computed(() => props.showMoreLink !== false && route.path !== '/buy/more')
 const cartItem = computed(() => {
   const ticketKeys = getCartLotteryIdentityKeys(props.ticket)
 

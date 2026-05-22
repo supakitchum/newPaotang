@@ -22,8 +22,10 @@ export interface CartLottery {
   set?: number | string
   sort_order?: number | string
   selected?: boolean
-  highlight?: string
-  highlightDigits?: Array<string | null>
+  highlight?: string | null
+  highlightDigits?: Array<string | null> | null
+  priceTrend?: 'up' | 'down' | null
+  priceFlashKey?: number | null
   image?: string | null
   image_url?: string | null
   image_thumb_url?: string | null
@@ -99,11 +101,21 @@ const toNumber = (value: unknown, fallback = 0) => {
   return Number.isFinite(number) ? number : fallback
 }
 
-const normalizeCartLottery = (ticket: CartLottery): CartLottery => ({
-  ...ticket,
-  number: getCartLotteryNumber(ticket),
-  selected: true
-})
+const normalizeCartLottery = (ticket: CartLottery): CartLottery => {
+  const {
+    highlight,
+    highlightDigits,
+    priceTrend,
+    priceFlashKey,
+    ...cartTicket
+  } = ticket
+
+  return {
+    ...cartTicket,
+    number: getCartLotteryNumber(ticket),
+    selected: true
+  }
+}
 
 export const useCart = () => {
   const items = useState<CartLottery[]>('cart_items', () => [])

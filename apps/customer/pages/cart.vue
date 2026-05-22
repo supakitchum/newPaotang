@@ -9,10 +9,11 @@
 
     <section class="content-sheet cart-sheet">
       <LotteryItem
-        v-for="ticket in items"
+        v-for="ticket in cartTickets"
         :key="`${ticket.token ?? ticket.number}-${ticket.sort_order ?? ticket.set ?? ''}`"
         :ticket="ticket"
         confirm-remove
+        :show-more-link="false"
         @remove="openRemoveConfirm(ticket)"
       />
       <p class="text-center muted-text fw-semibold fs-6 px-4 mt-4">
@@ -65,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import type { CartLottery } from '~/composables/useCart'
 
 definePageMeta({
@@ -79,22 +80,25 @@ const { showAlert } = useAppAlert()
 const showRemoveConfirm = ref(false)
 const selectedTicket = ref<CartLottery | null>(null)
 const isRemoving = ref(false)
+const cartTickets = computed<CartLottery[]>(() => items.value.map((ticket) => ({
+  ...ticket,
+  highlight: '',
+  highlightDigits: null,
+  priceTrend: null,
+  priceFlashKey: null
+})))
 
 const openRemoveConfirm = (ticket: CartLottery) => {
   selectedTicket.value = ticket
   showRemoveConfirm.value = true
 }
 
-const getTicketToken = (ticket: CartLottery) => {
-  const value = ticket.token || ''
+const leaveEmptyCart = async () => {
+  if (hasItems.value) {
+    return
+  }
 
-  return String(value)
-}
-
-const getTicketNumber = (ticket: CartLottery) => {
-  const value = ticket.full_number || ticket.number || ticket.lottery_number || ''
-
-  return String(value)
+  await navigateTo('/buy', { replace: true })
 }
 
 const showRemoveError = () => {
@@ -128,6 +132,8 @@ const confirmRemove = async () => {
 
     selectedTicket.value = null
     showRemoveConfirm.value = false
+    await nextTick()
+    await leaveEmptyCart()
   } catch (e) {
     console.log(e)
     showRemoveError()
