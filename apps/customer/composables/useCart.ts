@@ -2,10 +2,16 @@ import { computed } from 'vue'
 import { ticketPrice } from '~/data/lottery'
 
 export interface CartLottery {
+  id?: string | number
   token?: string
   number: string
   full_number?: string
   lottery_number?: string
+  local_stock_item_id?: string | number
+  stock_ref?: string | number
+  reservation_id?: string | number
+  order_id?: string | number
+  game_id?: string | number
   count?: number | string
   price?: number | string
   seller?: string
@@ -23,6 +29,9 @@ export interface CartLottery {
   image_thumb_url?: string | null
   image_status?: string | null
   image_error?: string | null
+  remaining_count?: number | null
+  availability_status?: string | null
+  status?: string | null
 }
 
 let timerInterval: ReturnType<typeof setInterval> | null = null
@@ -55,10 +64,33 @@ const formatTimer = (milliseconds: number) => {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
-const getTicketNumber = (ticket: Partial<CartLottery>) => {
+export const getCartLotteryNumber = (ticket: Partial<CartLottery>) => {
   const value = ticket.number || ticket.full_number || ticket.lottery_number || ''
 
   return String(value)
+}
+
+const normalizeIdentityValue = (value: unknown) => {
+  const text = String(value ?? '').trim()
+
+  return text && text !== 'null' && text !== 'undefined' ? text : ''
+}
+
+export const getCartLotteryIdentityKeys = (ticket: Partial<CartLottery>) => [
+  ticket.token,
+  ticket.local_stock_item_id,
+  ticket.stock_ref,
+  ticket.id
+].map(normalizeIdentityValue).filter(Boolean)
+
+const hasCartIdentityMatch = (item: Partial<CartLottery>, targetKeys: string[]) => {
+  if (targetKeys.length === 0) {
+    return false
+  }
+
+  const itemKeys = getCartLotteryIdentityKeys(item)
+
+  return itemKeys.some((key) => targetKeys.includes(key))
 }
 
 const toNumber = (value: unknown, fallback = 0) => {
@@ -69,7 +101,7 @@ const toNumber = (value: unknown, fallback = 0) => {
 
 const normalizeCartLottery = (ticket: CartLottery): CartLottery => ({
   ...ticket,
-  number: getTicketNumber(ticket),
+  number: getCartLotteryNumber(ticket),
   selected: true
 })
 
@@ -121,14 +153,18 @@ export const useCart = () => {
     const bookedTicket = {
       ...normalizeCartLottery(ticket)
     }
+    const bookedKeys = getCartLotteryIdentityKeys(bookedTicket)
 
-    if (bookedTicket.token) {
+    if (bookedKeys.length > 0) {
       items.value = [
-        ...items.value.filter((item) => item.token !== bookedTicket.token),
+        ...items.value.filter((item) => !hasCartIdentityMatch(item, bookedKeys)),
         bookedTicket
       ]
     } else {
-      items.value = [...items.value, bookedTicket]
+      items.value = [
+        ...items.value.filter((item) => getCartLotteryNumber(item) !== bookedTicket.number),
+        bookedTicket
+      ]
     }
 
     exp.value = bookingExp
@@ -136,15 +172,15 @@ export const useCart = () => {
   }
 
   const removeLottery = (ticket: CartLottery) => {
-    const ticketToken = ticket.token ? String(ticket.token) : ''
-    const ticketNumber = getTicketNumber(ticket)
+    const targetKeys = getCartLotteryIdentityKeys(ticket)
+    const ticketNumber = getCartLotteryNumber(ticket)
 
     items.value = items.value.filter((item) => {
-      if (ticketToken && item.token) {
-        return String(item.token) !== ticketToken
+      if (targetKeys.length > 0) {
+        return !hasCartIdentityMatch(item, targetKeys)
       }
 
-      return getTicketNumber(item) !== ticketNumber
+      return getCartLotteryNumber(item) !== ticketNumber
     })
 
     if (items.value.length === 0) {

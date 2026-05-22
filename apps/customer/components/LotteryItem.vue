@@ -93,13 +93,21 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { ticketPrice } from '~/data/lottery'
+import { getCartLotteryIdentityKeys, getCartLotteryNumber } from '~/composables/useCart'
+import type { CartLottery } from '~/composables/useCart'
 
 const props = defineProps<{
   ticket: {
+    id?: string | number
     token?: string
     number: string
     full_number?: string
     lottery_number?: string
+    local_stock_item_id?: string | number
+    stock_ref?: string | number
+    reservation_id?: string | number
+    order_id?: string | number
+    game_id?: string | number
     seller?: string
     store_name?: string
     draw?: number | string
@@ -143,14 +151,31 @@ const isBooking = ref(false)
 const isCancelling = ref(false)
 const showUnavailableModal = ref(false)
 const shouldRemoveUnavailableTicket = ref(false)
-const getTicketNumber = (ticket: typeof props.ticket) => {
-  const value = ticket.number || ticket.full_number || ticket.lottery_number || ''
-
-  return String(value)
-}
+const getTicketNumber = (ticket: Partial<CartLottery>) => getCartLotteryNumber(ticket)
 const ticketNumber = computed(() => getTicketNumber(props.ticket))
 const showMoreLink = computed(() => route.path !== '/buy/more')
+const cartItem = computed(() => {
+  const ticketKeys = getCartLotteryIdentityKeys(props.ticket)
+
+  if (ticketKeys.length > 0) {
+    const keySet = new Set(ticketKeys)
+    const matchedItem = items.value.find((item) => getCartLotteryIdentityKeys(item).some((key) => keySet.has(key)))
+
+    if (matchedItem) {
+      return matchedItem
+    }
+  }
+
+  const matchingNumberItems = items.value.filter((item) => getTicketNumber(item) === ticketNumber.value)
+
+  return matchingNumberItems.length === 1 ? matchingNumberItems[0] : null
+})
+const isInCart = computed(() => props.ticket.selected || Boolean(cartItem.value))
 const isUnavailable = computed(() => {
+  if (isInCart.value) {
+    return false
+  }
+
   const status = String(props.ticket.availability_status || props.ticket.status || '').toLowerCase()
   const hasRemainingCount = props.ticket.remaining_count !== null && props.ticket.remaining_count !== undefined
 
@@ -179,14 +204,6 @@ const selectButtonText = computed(() => {
 
   return isBooking.value ? 'กำลังจอง' : 'เลือก'
 })
-const cartItem = computed(() => {
-  if (props.ticket.token) {
-    return items.value.find((item) => item.token === props.ticket.token) || null
-  }
-
-  return items.value.find((item) => item.number === ticketNumber.value) || null
-})
-const isInCart = computed(() => props.ticket.selected || Boolean(cartItem.value))
 const sellerName = computed(() => props.ticket.store_name ?? props.ticket.seller ?? '')
 
 const openUnavailableModal = (shouldRemove = true) => {
@@ -210,12 +227,6 @@ const showCancelError = () => {
     message: 'กรุณาลองใหม่อีกครั้ง',
     variant: 'error'
   })
-}
-
-const getTicketToken = () => {
-  const value = cartItem.value?.token || props.ticket.token || ''
-
-  return String(value)
 }
 
 const handleCancelBooking = async () => {
