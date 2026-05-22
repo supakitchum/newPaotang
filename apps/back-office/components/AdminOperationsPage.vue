@@ -1113,6 +1113,10 @@ type StockTableRealtimePayload = {
   row?: Record<string, any>
 }
 
+type LoadOptions = {
+  silent?: boolean
+}
+
 const stockTableRealtimeCountKeys = [
   'available_count',
   'allocated_count',
@@ -1189,7 +1193,7 @@ const applyRelatedFilters = (related: OperationRelatedList, next: Record<string,
   loadRelatedList(related)
 }
 
-async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previous' | 'current' = 'reset') {
+async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previous' | 'current' = 'reset', options: LoadOptions = {}) {
   if (!session.isAuthenticated.value) {
     return
   }
@@ -1202,7 +1206,10 @@ async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previo
     return
   }
 
-  loading.value = true
+  const shouldShowLoading = !options.silent
+  if (shouldShowLoading) {
+    loading.value = true
+  }
   error.value = null
   try {
     if (mode.value === 'detail') {
@@ -1245,7 +1252,9 @@ async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previo
   } catch (err) {
     error.value = err
   } finally {
-    loading.value = false
+    if (shouldShowLoading) {
+      loading.value = false
+    }
   }
 }
 
@@ -2351,7 +2360,7 @@ async function reloadTenantStockFromRealtime() {
 
   tenantStockRealtimeReloading.value = true
   try {
-    await load(pageState.cursors[pageState.index] || null, 'current')
+    await load(pageState.cursors[pageState.index] || null, 'current', { silent: true })
     tenantStockCoverageRefreshKey.value += 1
   } finally {
     tenantStockRealtimeReloading.value = false

@@ -111,6 +111,10 @@ const meta = reactive({ next_cursor: null as string | null, has_more: false })
 const pageState = reactive({ cursors: [null] as Array<string | null>, index: 0 })
 let reloadTimer: ReturnType<typeof setTimeout> | null = null
 
+type LoadOptions = {
+  silent?: boolean
+}
+
 const columns = [
   { key: 'number', label: 'Pattern' },
   { key: 'generated_count', label: 'Generated', type: 'number' as const },
@@ -176,14 +180,17 @@ function applySort(next: { key: string, direction: 'asc' | 'desc' }) {
   void loadCoverage()
 }
 
-async function loadCoverage(cursor?: string | null, pageMode: 'reset' | 'next' | 'previous' | 'current' = 'reset') {
+async function loadCoverage(cursor?: string | null, pageMode: 'reset' | 'next' | 'previous' | 'current' = 'reset', options: LoadOptions = {}) {
   if (!props.gameId || !session.isAuthenticated.value) {
     rows.value = []
     summary.value = null
     return
   }
 
-  loading.value = true
+  const shouldShowLoading = !options.silent
+  if (shouldShowLoading) {
+    loading.value = true
+  }
   error.value = null
   try {
     const response = await api.apiFetch('/admin/tenant/stock/coverage', {
@@ -208,7 +215,9 @@ async function loadCoverage(cursor?: string | null, pageMode: 'reset' | 'next' |
   } catch (err) {
     error.value = err
   } finally {
-    loading.value = false
+    if (shouldShowLoading) {
+      loading.value = false
+    }
   }
 }
 
@@ -243,7 +252,7 @@ function scheduleReload() {
 
   reloadTimer = window.setTimeout(() => {
     reloadTimer = null
-    void loadCoverage(pageState.cursors[pageState.index] || null, 'current')
+    void loadCoverage(pageState.cursors[pageState.index] || null, 'current', { silent: true })
   }, 300)
 }
 
@@ -273,6 +282,7 @@ function updatePageState(cursor: string | null, mode: 'reset' | 'next' | 'previo
 function normalizeRows(items: any[]) {
   return items.map((row) => ({
     ...row,
+    __id: coverageRowId(row),
     generated_count: formatNumber(row.generated_count),
     reserved_count: formatNumber(row.reserved_count),
     sold_count: formatNumber(row.sold_count),
@@ -280,6 +290,16 @@ function normalizeRows(items: any[]) {
     sellable_remaining_count: formatNumber(row.sellable_remaining_count),
     updated_at: row.updated_at ? formatDateTime(String(row.updated_at)) : '-',
   }))
+}
+
+function coverageRowId(row: any) {
+  return [
+    row.game_id || props.gameId,
+    row.scope_type || 'tenant',
+    row.scope_id || session.currentTenantId.value || '',
+    row.dimension || filters.dimension,
+    row.number || '',
+  ].map((value) => String(value ?? '').trim()).join(':')
 }
 
 function coverageRealtimeBadge(status: string, configured: boolean) {

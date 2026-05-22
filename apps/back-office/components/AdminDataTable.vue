@@ -36,7 +36,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in rows" :key="row.id || row.__id || JSON.stringify(row)">
+            <tr v-for="(row, rowIndex) in rows" :key="rowKey(row, rowIndex)">
               <td v-if="selectable" class="np-select-col">
                 <input
                   class="form-check-input"
@@ -110,6 +110,22 @@ const someVisibleSelected = computed(() => visibleIds.value.some((id) => selecte
 
 const rowId = (row: any): string => String(row?.[props.rowIdKey] || row?.id || row?.__id || '')
 const isSelected = (row: any) => selectedSet.value.has(rowId(row))
+const rowKey = (row: any, rowIndex: number) => {
+  const stableKey = row?.[props.rowIdKey]
+    || row?.id
+    || row?.__id
+    || row?.stock_ref
+    || row?.stock_item_id
+    || [
+      row?.game_id,
+      row?.full_number,
+      row?.virtual_copy_index,
+      row?.dimension,
+      row?.number,
+    ].filter((value) => value !== undefined && value !== null && value !== '').join(':')
+
+  return stableKey ? String(stableKey) : `row-${rowIndex}`
+}
 
 const toggleAllVisible = () => {
   const next = new Set(props.selectedIds)
