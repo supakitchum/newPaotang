@@ -1,0 +1,43 @@
+# Triggers
+
+Trigger files are the written instruction that opens work for a target agent.
+
+Naming:
+
+```text
+YYYYMMDD-<task-key>-<agent>-trigger.md
+```
+
+Status values:
+
+```text
+PENDING
+RUNNING
+DONE
+BLOCKED
+CANCELLED
+```
+
+Rules:
+
+```text
+Coordinator may trigger Orchestrator only.
+Orchestrator may trigger dev-agents and QA Tester.
+Coordinator may trigger GitOps only after QA PASS is accepted.
+```
+
+Status ownership:
+
+```text
+AUTO Mode: background runner owns trigger status.
+MANUAL Mode: target agent/operator may update trigger status.
+Agents write requested final status in handoff/report.
+```
+
+AUTO runner must use claim and heartbeat files under:
+
+```text
+ai-sub-agents/runner/claims/
+ai-sub-agents/runner/heartbeats/
+ai-sub-agents/runner/logs/
+```
