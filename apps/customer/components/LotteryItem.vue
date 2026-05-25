@@ -27,10 +27,11 @@
           />
           <div class="ticket-data-grid">
             <LotteryNumber :number="ticketNumber" :highlight="ticket.highlight" :highlight-digits="ticket.highlightDigits" />
+            <span v-if="ticketCount > 1" class="ticket-count-badge">จำนวน {{ ticketCount }} ใบ</span>
           </div>
         </div>
         <button
-          v-if="ticket.selected && confirmRemove"
+          v-if="isSelectedInCartContext"
           class="remove-pill px-4 py-2"
           type="button"
           @click="$emit('remove')"
@@ -96,7 +97,7 @@ import { ticketPrice } from '~/data/lottery'
 import { getCartLotteryIdentityKeys, getCartLotteryNumber } from '~/composables/useCart'
 import type { CartLottery } from '~/composables/useCart'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   ticket: {
     id?: string | number
     token?: string
@@ -108,6 +109,8 @@ const props = defineProps<{
     reservation_id?: string | number
     order_id?: string | number
     game_id?: string | number
+    count?: number | string
+    group_count?: number | string
     seller?: string
     store_name?: string
     draw?: number | string
@@ -135,7 +138,13 @@ const props = defineProps<{
   bookingDisabled?: boolean
   showImage?: boolean
   showMoreLink?: boolean
-}>()
+}>(), {
+  bookingDisabled: false,
+  confirmRemove: false,
+  loading: false,
+  showImage: true,
+  showMoreLink: true
+})
 
 const emit = defineEmits<{
   remove: []
@@ -167,11 +176,10 @@ const cartItem = computed(() => {
     }
   }
 
-  const matchingNumberItems = items.value.filter((item) => getTicketNumber(item) === ticketNumber.value)
-
-  return matchingNumberItems.length === 1 ? matchingNumberItems[0] : null
+  return null
 })
-const isInCart = computed(() => props.ticket.selected || Boolean(cartItem.value))
+const isSelectedInCartContext = computed(() => Boolean(props.confirmRemove && props.ticket.selected))
+const isInCart = computed(() => isSelectedInCartContext.value || Boolean(cartItem.value))
 const isUnavailable = computed(() => {
   if (isInCart.value) {
     return false
@@ -188,6 +196,11 @@ const price = computed(() => {
   const value = Number(props.ticket.price)
 
   return Number.isFinite(value) && value > 0 ? value : ticketPrice
+})
+const ticketCount = computed(() => {
+  const value = Number(props.ticket.group_count ?? props.ticket.count ?? 1)
+
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 1
 })
 const priceTrend = computed(() => props.ticket.priceTrend || null)
 const priceTrendClass = computed(() => ({
@@ -246,7 +259,7 @@ const handleCancelBooking = async () => {
     }
 
     if (Array.isArray(response.data.carts)) {
-      setCartItems(response.data.carts)
+      setCartItems(response.data.carts, response.data.result?.cart_order?.exp || null, response.data.server_time || response.data.result?.cart_order?.created_at || null)
     } else {
       removeLottery(cartItem.value || props.ticket)
     }
@@ -293,7 +306,7 @@ const handleBooking = async () => {
       })
     }
 
-    addBookedLottery(bookedTicket, response.data.exp)
+    addBookedLottery(bookedTicket, response.data.exp, response.data.server_time || response.data.result?.reservation?.server_time || null)
     emit('booked', bookedTicket)
   } catch (e) {
     console.log(e)
@@ -311,6 +324,20 @@ const handleBooking = async () => {
   gap: 2px;
   min-width: 72px;
   justify-content: flex-end;
+}
+
+.ticket-count-badge {
+  align-self: flex-start;
+  background: #eaf4ff;
+  border-radius: 999px;
+  color: #0d6efd;
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  margin-top: 8px;
+  padding: 6px 10px;
+  white-space: nowrap;
 }
 
 .price-trend-icon {

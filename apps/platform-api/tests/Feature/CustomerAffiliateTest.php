@@ -23,6 +23,19 @@ class CustomerAffiliateTest extends TestCase
         $this->insertActivePartnerTenantWithDomain($partnerId, $tenantId, $host);
         $token = $this->issueCustomerToken($tenantId, $customerId);
 
+        $this->withToken($token)
+            ->patchJson('http://'.$host.'/api/v1/customer/profile', [
+                'reward_payout_bank_account' => [
+                    'bank_name' => 'Example Bank',
+                    'account_name' => 'Customer Affiliate',
+                    'account_number' => '1234567890',
+                ],
+            ], [
+                'Idempotency-Key' => 'customer-affiliate-bank-profile',
+            ])
+            ->assertOk()
+            ->assertJsonPath('reward_payout_bank_account.bank_name', 'Example Bank');
+
         $registered = $this->withToken($token)
             ->postJson('http://'.$host.'/api/v1/customer/affiliate', [
                 'code' => 'lucky customer',
@@ -32,6 +45,8 @@ class CustomerAffiliateTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('is_affiliate', true)
             ->assertJsonPath('affiliate.customer_id', $customerId)
+            ->assertJsonPath('profile.reward_payout_bank_account.account_number', '1234567890')
+            ->assertJsonPath('payout_policy.minimum_payout.amount', 30000)
             ->json();
 
         $affiliateId = $registered['affiliate']['id'];
@@ -39,6 +54,8 @@ class CustomerAffiliateTest extends TestCase
         $this->assertNotSame('lucky_customer', $registered['affiliate']['code']);
         $this->assertMatchesRegularExpression('/^[A-Za-z0-9]{6}$/', $registered['links'][0]['code'] ?? '');
         $this->assertSame('https://'.$host.'/?ref='.$registered['links'][0]['code'], $registered['links'][0]['url']);
+        $this->assertSame($registered['links'][0]['url'], $registered['affiliate']['canonical_url']);
+        $this->assertSame($registered['links'][0]['id'], $registered['affiliate']['primary_link']['id']);
 
         $gameId = 'gam_customer_affiliate';
         $reservationId = 'res_customer_affiliate';
@@ -97,7 +114,7 @@ class CustomerAffiliateTest extends TestCase
             'code' => 'customer_affiliate_rule',
             'name' => 'Customer Affiliate Rule',
             'rule_type' => 'fixed_per_order',
-            'amount' => 1500,
+            'amount' => 30000,
             'rate_bps' => 0,
             'currency' => 'THB',
             'status' => 'active',
@@ -116,7 +133,7 @@ class CustomerAffiliateTest extends TestCase
             'original_commission_id' => null,
             'transaction_type' => 'commission',
             'status' => 'approved',
-            'amount' => 1500,
+            'amount' => 30000,
             'currency' => 'THB',
             'idempotency_key' => 'commission-aff-customer',
             'payload_hash' => hash('sha256', 'commission-aff-customer'),
@@ -131,26 +148,38 @@ class CustomerAffiliateTest extends TestCase
         $this->withToken($token)
             ->getJson('http://'.$host.'/api/v1/customer/affiliate')
             ->assertOk()
-            ->assertJsonPath('stats.available_balance.amount', 1500)
+            ->assertJsonPath('stats.available_balance.amount', 30000)
+            ->assertJsonPath('payout_policy.minimum_payout.amount', 30000)
             ->assertJsonPath('commissions.0.id', $commissionId);
 
         $this->withToken($token)
             ->postJson('http://'.$host.'/api/v1/customer/affiliate/payouts', [
                 'amount' => ['amount' => 500, 'currency' => 'THB'],
                 'payout_method' => 'bank_transfer',
-                'bank_account' => ['bank_name' => 'Example Bank', 'account_number' => '1234567890'],
+            ], [
+                'Idempotency-Key' => 'customer-affiliate-payout-too-low',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.amount.0', 'The amount field must be at least the affiliate program minimum payout amount.');
+
+        $this->withToken($token)
+            ->postJson('http://'.$host.'/api/v1/customer/affiliate/payouts', [
+                'amount' => ['amount' => 30000, 'currency' => 'THB'],
+                'payout_method' => 'bank_transfer',
             ], [
                 'Idempotency-Key' => 'customer-affiliate-payout',
             ])
             ->assertCreated()
             ->assertJsonPath('affiliate_account_id', $affiliateId)
             ->assertJsonPath('status', 'pending')
-            ->assertJsonPath('amount.amount', 500);
+            ->assertJsonPath('amount.amount', 30000)
+            ->assertJsonPath('bank_account.bank_name', 'Example Bank')
+            ->assertJsonPath('bank_account.account_number', '1234567890');
 
         $this->withToken($token)
             ->getJson('http://'.$host.'/api/v1/customer/affiliate/payouts')
             ->assertOk()
-            ->assertJsonPath('data.0.amount.amount', 500);
+            ->assertJsonPath('data.0.amount.amount', 30000);
     }
 
     public function test_Customer_referral_apply_is_tenant_scoped_last_click_and_commission_source(): void
@@ -173,9 +202,28 @@ class CustomerAffiliateTest extends TestCase
             ->json();
         $link = $registered['links'][0];
 
+        $this->postJson('http://'.$host.'/api/v1/public/affiliate/referrals/click', [
+            'ref' => $link['code'],
+            'visitor_id' => 'visitor-referral-apply',
+            'landing_url' => 'https://'.$host.'/?ref='.$link['code'],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('tracked', true)
+            ->assertJsonPath('affiliate_account_id', $registered['affiliate']['id']);
+
+        $this->postJson('http://'.$host.'/api/v1/public/affiliate/referrals/click', [
+            'ref' => $link['code'],
+            'visitor_id' => 'visitor-referral-apply',
+            'landing_url' => 'https://'.$host.'/?ref='.$link['code'],
+        ])
+            ->assertOk()
+            ->assertJsonPath('tracked', true);
+
         $applied = $this->withToken($buyerToken)
             ->postJson('http://'.$host.'/api/v1/customer/affiliate/referrals/apply', [
                 'ref' => $link['code'],
+                'visitor_id' => 'visitor-referral-apply',
+                'registered' => true,
             ])
             ->assertCreated()
             ->assertJsonPath('applied', true)
@@ -188,6 +236,39 @@ class CustomerAffiliateTest extends TestCase
         $this->assertTrue($expiresAt->between(now()->addDays(29), now()->addDays(31)));
         $this->assertSame($link['code'], $applied['attribution']['metadata']['ref_code']);
         $this->assertSame('affiliate_link', $applied['attribution']['metadata']['resolved_from']);
+        $this->assertDatabaseHas('affiliate_referral_visits', [
+            'tenant_id' => $tenantId,
+            'affiliate_account_id' => $registered['affiliate']['id'],
+            'affiliate_link_id' => $link['id'],
+            'visitor_key' => 'visitor-referral-apply',
+            'customer_id' => $buyerId,
+            'click_count' => 2,
+        ]);
+
+        $this->withToken($affiliateToken)
+            ->getJson('http://'.$host.'/api/v1/customer/affiliate')
+            ->assertOk()
+            ->assertJsonPath('stats.visitor_count', 1)
+            ->assertJsonPath('stats.registered_count', 1);
+
+        $affiliateList = app(GrowthService::class)->listAffiliateAccounts($tenantId, [
+            'sort_by' => 'visitor_count',
+            'sort_dir' => 'desc',
+        ]);
+        $this->assertSame($registered['affiliate']['id'], $affiliateList['data'][0]['id']);
+        $this->assertSame('Customer '.$affiliateCustomerId, $affiliateList['data'][0]['customer_name']);
+        $this->assertSame(1, $affiliateList['data'][0]['visitor_count']);
+        $this->assertSame(1, $affiliateList['data'][0]['registered_count']);
+
+        $this->withToken($buyerToken)
+            ->postJson('http://'.$host.'/api/v1/customer/affiliate/referrals/apply', [
+                'ref' => $registered['affiliate']['code'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('attribution.id', $attributionId)
+            ->assertJsonPath('attribution.affiliate_account_id', $registered['affiliate']['id'])
+            ->assertJsonPath('attribution.affiliate_link_id', $link['id'])
+            ->assertJsonPath('attribution.metadata.resolved_from', 'affiliate_account_primary_link');
 
         $secondAffiliateCustomerId = 'cus_referral_second_affiliate';
         $this->issueCustomerToken($tenantId, $secondAffiliateCustomerId);

@@ -3,6 +3,7 @@
 namespace App\Modules\AdminOperations\Services;
 
 use App\Models\Customer;
+use App\Models\CustomerAuthSession;
 use App\Models\Game;
 use App\Models\Order;
 use App\Models\Partner;
@@ -26,6 +27,7 @@ use App\Modules\Reward\Services\TenantRewardPriceRuleService;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Tenancy\TenantHostNormalizer;
+use App\Support\CustomerNo;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -834,9 +836,31 @@ class BoMenuCompletionService
     public function listMembers(string $tenantId, array $queryParams): array
     {
         $query = Customer::query()
+            ->select('customers.*')
+            ->selectSub(
+                CustomerAuthSession::query()
+                    ->selectRaw('MAX(last_used_at)')
+                    ->whereColumn('customer_auth_sessions.tenant_id', 'customers.tenant_id')
+                    ->whereColumn('customer_auth_sessions.customer_id', 'customers.id'),
+                'last_online_at',
+            )
+            ->selectSub(
+                Order::query()
+                    ->selectRaw('COUNT(*)')
+                    ->whereColumn('orders.tenant_id', 'customers.tenant_id')
+                    ->whereColumn('orders.customer_id', 'customers.id'),
+                'order_count_sort',
+            )
+            ->selectSub(
+                Order::query()
+                    ->selectRaw('COALESCE(SUM(total_amount), 0)')
+                    ->whereColumn('orders.tenant_id', 'customers.tenant_id')
+                    ->whereColumn('orders.customer_id', 'customers.id')
+                    ->where('status', 'paid'),
+                'lifetime_spend_sort',
+            )
             ->forTenant($tenantId)
-            ->with('wallets')
-            ->orderBy('id');
+            ->with('wallets');
 
         $q = trim((string) ($queryParams['q'] ?? ''));
 
@@ -845,6 +869,7 @@ class BoMenuCompletionService
                 $nested->where('name', 'like', '%'.$q.'%')
                     ->orWhere('phone', 'like', '%'.$q.'%')
                     ->orWhere('email', 'like', '%'.$q.'%')
+                    ->orWhere('customer_no', 'like', '%'.strtoupper($q).'%')
                     ->orWhere('id', 'like', '%'.$q.'%');
             });
         }
@@ -858,6 +883,8 @@ class BoMenuCompletionService
         if (is_string($queryParams['registered_to'] ?? null) && trim((string) $queryParams['registered_to']) !== '') {
             $query->whereDate('created_at', '<=', (string) $queryParams['registered_to']);
         }
+
+        $this->applyMemberSort($query, $queryParams);
 
         return $this->paginate($query, $queryParams, fn (object $row): array => $this->memberResource($row));
     }
@@ -898,6 +925,7 @@ class BoMenuCompletionService
             Customer::query()->create(array_merge($normalized, [
                 'id' => $id,
                 'tenant_id' => $tenantId,
+                'customer_no' => $this->newCustomerNo($tenantId),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]));
@@ -1364,6 +1392,38 @@ class BoMenuCompletionService
         ];
     }
 
+    /**
+     * @param array<string, mixed> $queryParams
+     */
+    private function applyMemberSort(Builder $query, array $queryParams): void
+    {
+        $sortBy = (string) ($queryParams['sort_by'] ?? 'id');
+        $direction = strtolower((string) ($queryParams['sort_dir'] ?? 'asc')) === 'desc' ? 'desc' : 'asc';
+        $columns = [
+            'id' => 'customers.id',
+            'customer_no' => 'customers.customer_no',
+            'member_no' => 'customers.customer_no',
+            'name' => 'customers.name',
+            'phone' => 'customers.phone',
+            'email' => 'customers.email',
+            'status' => 'customers.status',
+            'online_status' => 'last_online_at',
+            'last_online_at' => 'last_online_at',
+            'last_login_at' => 'customers.last_login_at',
+            'order_count' => 'order_count_sort',
+            'lifetime_spend.amount' => 'lifetime_spend_sort',
+            'created_at' => 'customers.created_at',
+            'updated_at' => 'customers.updated_at',
+        ];
+        $column = $columns[$sortBy] ?? 'customers.id';
+
+        $query->reorder($column, $direction);
+
+        if ($column !== 'customers.id') {
+            $query->orderBy('customers.id');
+        }
+    }
+
     private function whereString(Builder $query, string $column, mixed $value): void
     {
         if (is_string($value) && trim($value) !== '') {
@@ -1756,15 +1816,31 @@ class BoMenuCompletionService
             ->where('customer_id', $member->id)
             ->where('status', 'paid')
             ->sum('total_amount');
+        $onlineCutoff = now()->subMinutes(2);
+        $lastOnlineAt = $member->last_online_at ?? CustomerAuthSession::query()
+            ->forTenant((string) $member->tenant_id)
+            ->where('customer_id', $member->id)
+            ->max('last_used_at');
+        $isOnline = CustomerAuthSession::query()
+            ->forTenant((string) $member->tenant_id)
+            ->where('customer_id', $member->id)
+            ->whereNull('revoked_at')
+            ->where('access_expires_at', '>', now())
+            ->where('last_used_at', '>=', $onlineCutoff)
+            ->exists();
 
         return [
             'id' => (string) $member->id,
             'tenant_id' => (string) $member->tenant_id,
-            'member_no' => 'M'.strtoupper(substr(sha1((string) $member->id), 0, 8)),
+            'customer_no' => CustomerNo::display($member->customer_no ?? null, (string) $member->id),
+            'member_no' => CustomerNo::display($member->customer_no ?? null, (string) $member->id),
             'name' => (string) $member->name,
             'phone' => (string) $member->phone,
             'email' => $member->email,
             'status' => (string) $member->status,
+            'is_online' => $isOnline,
+            'online_status' => $isOnline ? 'online' : 'offline',
+            'last_online_at' => $lastOnlineAt,
             'wallets' => collect($wallets)->map(fn (object $wallet): array => [
                 'id' => (string) $wallet->id,
                 'tenant_id' => (string) $wallet->tenant_id,
@@ -2208,6 +2284,17 @@ class BoMenuCompletionService
         $updates['tenant_id'] = $tenantId;
 
         return $updates;
+    }
+
+    private function newCustomerNo(string $tenantId): string
+    {
+        $tenantCode = PartnerTenant::query()->where('id', $tenantId)->value('code');
+
+        do {
+            $customerNo = CustomerNo::generate(is_string($tenantCode) ? $tenantCode : null, $tenantId);
+        } while (Customer::query()->where('customer_no', $customerNo)->exists());
+
+        return $customerNo;
     }
 
     /**

@@ -131,6 +131,7 @@ useCustomerStockRealtime({
   gameId: currentGameId,
   onAvailability: (payload) => applyAvailabilityUpdate(payload),
   onPrice: (payload) => applyPriceUpdateToTickets(lotteries, payload, { gameId: currentGameId }),
+  includePresence: true,
 })
 
 const startCooldown = () => {

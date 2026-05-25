@@ -52,9 +52,12 @@ expect('affiliate ref capture uses a 30-day TTL', affiliateReferralComposable.in
 expect('affiliate ref storage is tenant-host scoped', affiliateReferralComposable.includes('affiliate_ref_${scope}') && affiliateReferralComposable.includes('tenantHostScope'))
 expect('affiliate ref capture runs before route handling', affiliateReferralMiddleware.includes('captureRefFromRoute(to)'))
 expect('affiliate referral apply posts customer endpoint', platformApiComposable.includes("'/customer/affiliate/referrals/apply'"))
-expect('affiliate referral apply is wired after login/register/line auth', [loginPage, registerPage, lineCallbackPage].every((page) => page.includes('applyStoredRef()')))
+expect('affiliate referral visit click posts public endpoint', platformApiComposable.includes("'/public/affiliate/referrals/click'") && affiliateReferralComposable.includes('trackAffiliateReferralClick'))
+expect('affiliate referral apply is wired after login/register/line auth', loginPage.includes('applyStoredRef()') && registerPage.includes('applyStoredRef({ registered: true })') && lineCallbackPage.includes('applyStoredRef()'))
 expect('affiliate referral apply is wired before checkout', checkoutPage.includes('await applyStoredRef()') && checkoutPage.indexOf('await applyStoredRef()') < checkoutPage.indexOf('checkoutLegacy'))
 expect('customer affiliate page displays canonical ?ref link', affiliatePage.includes('/?ref=${encodeURIComponent(referralCode.value)}') && affiliatePage.includes("!value.includes('/a/')"))
+expect('customer affiliate page prefers active affiliate link code', affiliatePage.includes('primaryLink.value?.code || overview.value.affiliate?.code'))
+expect('customer affiliate page shows visitor and registered widgets', affiliatePage.includes('visitor_count') && affiliatePage.includes('registered_count'))
 
 const failed = checks.filter((check) => !check.condition)
 

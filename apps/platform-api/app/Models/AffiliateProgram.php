@@ -18,6 +18,7 @@ class AffiliateProgram extends BaseModel
         'code',
         'name',
         'status',
+        'minimum_payout_amount',
         'starts_at',
         'ends_at',
         'metadata_json',

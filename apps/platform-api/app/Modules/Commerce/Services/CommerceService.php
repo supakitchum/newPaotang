@@ -2,6 +2,7 @@
 
 namespace App\Modules\Commerce\Services;
 
+use App\Jobs\GenerateSoldTicketImageJob;
 use App\Models\Customer;
 use App\Models\LocalStockItem;
 use App\Models\Order;
@@ -13,22 +14,31 @@ use App\Models\StockReservation;
 use App\Models\StockReservationItem;
 use App\Models\SyncInbox;
 use App\Models\SyncOutbox;
+use App\Models\TenantPaymentSetting;
 use App\Models\Ticket;
 use App\Models\TopupRequest;
 use App\Models\Wallet;
 use App\Models\WalletLedger;
 use App\Models\WebhookCallback;
+use App\Modules\Commerce\Events\CustomerTopupUpdated;
+use App\Modules\Commerce\Events\TopupUpdated;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Modules\Auth\Services\CustomerAuthService;
+use App\Modules\Growth\Services\GrowthService;
 use App\Modules\PartnerStore\Services\VirtualLotteryImageService;
 use App\Modules\PartnerStore\Services\VirtualStockService;
 use App\Modules\Pricing\Services\LotterySalePriceService;
 use App\Shared\Auth\CustomerSessionContext;
 use App\Shared\Idempotency\IdempotencyService;
+use App\Support\CustomerNo;
+use App\Support\PublicUrl;
+use App\Support\ThaiBankCatalog;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class CommerceService
@@ -40,6 +50,7 @@ class CommerceService
         private readonly VirtualStockService $virtualStock,
         private readonly VirtualLotteryImageService $virtualImages,
         private readonly LotterySalePriceService $salePrices,
+        private readonly GrowthService $growth,
     ) {
     }
 
@@ -57,9 +68,12 @@ class CommerceService
             ->get()
             ->all();
 
-        $resources = array_map(fn (object $reservation): array => $this->reservationResource($reservation), $reservations);
-        $itemCount = array_sum(array_map(fn (array $reservation): int => count($reservation['items']), $resources));
-        $total = array_sum(array_map(fn (array $reservation): int => (int) ($reservation['total']['amount'] ?? 0), $resources));
+        $reservationIds = array_map(fn (object $reservation): string => (string) $reservation->id, $reservations);
+        $cartRows = $this->reservationStockRowsForPricing($reservationIds, $tenantId);
+        $cartPricing = $this->salePrices->pricesForReservationStockRows($tenantId, $cartRows);
+        $resources = array_map(fn (object $reservation): array => $this->reservationResource($reservation, $cartPricing), $reservations);
+        $itemCount = count($cartRows);
+        $total = (int) $cartPricing['total_amount'];
 
         return [
             'server_time' => now()->toISOString(),
@@ -98,8 +112,15 @@ class CommerceService
     {
         $errors = [];
 
-        if (trim((string) ($payload['reservation_id'] ?? '')) === '') {
+        $reservationIds = $payload['reservation_ids'] ?? null;
+        $hasReservationIds = is_array($reservationIds) && array_values(array_filter($reservationIds, fn (mixed $id): bool => trim((string) $id) !== '')) !== [];
+
+        if (trim((string) ($payload['reservation_id'] ?? '')) === '' && ! $hasReservationIds) {
             $errors['reservation_id'][] = 'The reservation_id field is required.';
+        }
+
+        if ($reservationIds !== null && ! is_array($reservationIds)) {
+            $errors['reservation_ids'][] = 'The reservation_ids field must be an array.';
         }
 
         if (! in_array((string) ($payload['payment_method'] ?? ''), ['wallet', 'external_payment'], true)) {
@@ -116,8 +137,10 @@ class CommerceService
      */
     public function checkout(array $tenant, CustomerSessionContext $customer, array $payload, Request $request): array
     {
+        $reservationIds = $this->checkoutReservationIds($payload);
         $normalized = [
-            'reservation_id' => trim((string) $payload['reservation_id']),
+            'reservation_id' => $reservationIds[0] ?? '',
+            'reservation_ids' => $reservationIds,
             'payment_method' => (string) $payload['payment_method'],
         ];
         $idempotencyKey = (string) $request->header('Idempotency-Key');
@@ -133,28 +156,43 @@ class CommerceService
                 return ['error' => $replay];
             }
 
-            $reservation = StockReservation::query()
+            $reservationsById = StockReservation::query()
                 ->where('tenant_id', $tenant['tenant_id'])
                 ->where('customer_id', $customer->customerId())
-                ->where('id', $normalized['reservation_id'])
+                ->whereIn('id', $normalized['reservation_ids'])
                 ->lockForUpdate()
-                ->first();
+                ->get()
+                ->keyBy('id');
 
-            if ($reservation === null) {
+            if ($reservationsById->count() !== count($normalized['reservation_ids'])) {
                 return ['error' => 'not_found'];
             }
 
-            if ($reservation->status !== 'active') {
+            $reservations = array_map(fn (string $reservationId): object => $reservationsById->get($reservationId), $normalized['reservation_ids']);
+            $reservation = $reservations[0];
+
+            foreach ($reservations as $cartReservation) {
+                if ($cartReservation->status !== 'active' || (string) $cartReservation->game_id !== (string) $reservation->game_id) {
+                    return ['error' => 'resource_conflict'];
+                }
+
+                if (Carbon::parse((string) $cartReservation->expires_at)->isPast()) {
+                    return ['error' => 'reservation_expired'];
+                }
+            }
+
+            $stockRows = $this->lockedReservationStockRows($normalized['reservation_ids'], (string) $tenant['tenant_id']);
+
+            if ($stockRows === []) {
                 return ['error' => 'resource_conflict'];
             }
 
-            if (Carbon::parse((string) $reservation->expires_at)->isPast()) {
-                return ['error' => 'reservation_expired'];
-            }
+            $stockReservationIds = array_values(array_unique(array_map(
+                fn (object $stock): string => (string) ($stock->reservation_item_reservation_id ?? ''),
+                $stockRows,
+            )));
 
-            $stockRows = $this->lockedReservationStockRows((string) $reservation->id, (string) $tenant['tenant_id']);
-
-            if ($stockRows === []) {
+            if (array_values(array_diff($normalized['reservation_ids'], $stockReservationIds)) !== []) {
                 return ['error' => 'resource_conflict'];
             }
 
@@ -168,9 +206,9 @@ class CommerceService
             $totalAmount = (int) $pricing['total_amount'];
 
             if ($normalized['payment_method'] === 'wallet') {
-                $order = $this->createPaidWalletOrder($tenant, $customer, $reservation, $stockRows, $pricing, $totalAmount, $idempotencyKey, $request);
+                $order = $this->createPaidWalletOrder($tenant, $customer, $reservation, $stockRows, $pricing, $totalAmount, $idempotencyKey, $request, $normalized['reservation_ids']);
             } else {
-                $order = $this->createPendingExternalOrder($tenant, $customer, $reservation, $stockRows, $pricing, $totalAmount, $idempotencyKey, $request);
+                $order = $this->createPendingExternalOrder($tenant, $customer, $reservation, $stockRows, $pricing, $totalAmount, $idempotencyKey, $request, $normalized['reservation_ids']);
             }
 
             if (isset($order['error'])) {
@@ -207,6 +245,7 @@ class CommerceService
         $query = Ticket::query()
             ->forTenant($tenantId)
             ->where('customer_id', $customer->customerId())
+            ->with('localStockItem')
             ->orderBy('id')
             ->limit($limit + 1);
 
@@ -246,6 +285,7 @@ class CommerceService
             ->forTenant($tenantId)
             ->where('customer_id', $customer->customerId())
             ->where('id', $ticketId)
+            ->with('localStockItem')
             ->first();
 
         return $ticket === null ? null : $this->ticketDetailResource($ticket);
@@ -272,11 +312,7 @@ class CommerceService
             ->first();
 
         return [
-            'bank' => [
-                'bank_name' => 'NewPaotang Bank',
-                'account_name' => 'Tenant Wallet',
-                'account_number' => '000-000-0000',
-            ],
+            'bank' => $this->tenantTopupBank($tenantId),
             'waiting' => $waiting === null ? null : $this->topupResource($waiting),
             'histories' => array_map(fn (object $topup): array => $this->topupResource($topup), $rows),
             'meta' => [
@@ -294,11 +330,21 @@ class CommerceService
      */
     public function createCustomerTopup(string $tenantId, CustomerSessionContext $customer, array $payload, Request $request, bool $credit = false): array
     {
+        $slipFile = $request->file('slip');
+        $slip = $this->topupSlipUpload($slipFile instanceof UploadedFile ? $slipFile : null);
+
+        if (($slip['error'] ?? null) === 'validation_failed') {
+            return ['error' => 'validation_failed'];
+        }
+
         $normalized = [
             'channel' => $credit ? 'credit_card' : (string) ($payload['channel'] ?? ''),
             'amount' => (int) ($payload['amount'] ?? 0),
             'transfer_at' => (string) ($payload['transfer_at'] ?? ''),
         ];
+        if ($slip !== null) {
+            $normalized['slip_sha256'] = $slip['checksum'];
+        }
         $idempotencyKey = (string) $request->header('Idempotency-Key');
 
         if ($normalized['amount'] < ($credit ? 400 : 1)) {
@@ -309,7 +355,7 @@ class CommerceService
             return ['error' => 'validation_failed'];
         }
 
-        return DB::transaction(function () use ($tenantId, $customer, $normalized, $idempotencyKey, $credit): array {
+        return DB::transaction(function () use ($tenantId, $customer, $normalized, $idempotencyKey, $credit, $slip): array {
             $replay = $this->idempotency->replayOrConflict($tenantId, 'customer', $customer->customerId(), $credit ? 'customer.topups.credit' : 'customer.topups.create', $idempotencyKey, $normalized, lock: true);
 
             if (is_array($replay)) {
@@ -325,6 +371,7 @@ class CommerceService
             $topupId = 'top_'.Str::ulid()->toBase32();
             $paymentId = null;
             $reference = 'TOP-'.Str::upper(Str::random(10));
+            $slipAsset = $slip === null ? null : $this->storeTopupSlipAsset($tenantId, $topupId, $slip);
 
             if ($credit) {
                 $paymentId = 'pay_'.Str::ulid()->toBase32();
@@ -365,7 +412,11 @@ class CommerceService
                 'currency' => 'THB',
                 'reference' => $reference,
                 'transfer_at' => $normalized['transfer_at'] === '' ? null : Carbon::parse($normalized['transfer_at']),
-                'slip_url' => null,
+                'slip_url' => $slipAsset['url'] ?? null,
+                'slip_thumb_url' => $slipAsset['thumb_url'] ?? null,
+                'slip_storage_path' => $slipAsset['storage_path'] ?? null,
+                'slip_thumb_storage_path' => $slipAsset['thumb_storage_path'] ?? null,
+                'slip_expires_at' => $slipAsset['expires_at'] ?? null,
                 'idempotency_key' => $idempotencyKey,
                 'payload_hash' => $this->idempotency->payloadHash($normalized),
                 'reviewed_by_admin_id' => null,
@@ -382,6 +433,7 @@ class CommerceService
 
             $resource = $this->topupResource(TopupRequest::where('id', $topupId)->first());
             $this->idempotency->storeResponse($tenantId, 'customer', $customer->customerId(), $credit ? 'customer.topups.credit' : 'customer.topups.create', $idempotencyKey, $normalized, 201, $resource);
+            $this->queueTopupUpdatedBroadcast($tenantId, $topupId);
 
             return ['resource' => $resource, 'status' => 201];
         });
@@ -399,6 +451,87 @@ class CommerceService
             ->first();
 
         return $topup === null ? null : $this->topupResource($topup);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string}
+     */
+    public function uploadCustomerTopupSlip(string $tenantId, CustomerSessionContext $customer, string $topupId, array $payload, Request $request): array
+    {
+        $slipFile = $request->file('slip');
+        $slip = $this->topupSlipUpload($slipFile instanceof UploadedFile ? $slipFile : null);
+
+        if (! is_array($slip) || ($slip['error'] ?? null) === 'validation_failed') {
+            return ['error' => 'validation_failed'];
+        }
+
+        $normalized = [
+            'topup_id' => $topupId,
+            'slip_sha256' => $slip['checksum'],
+            'transfer_at' => (string) ($payload['transfer_at'] ?? ''),
+        ];
+        $idempotencyKey = (string) $request->header('Idempotency-Key');
+
+        return DB::transaction(function () use ($tenantId, $customer, $topupId, $normalized, $idempotencyKey, $slip): array {
+            $replay = $this->idempotency->replayOrConflict($tenantId, 'customer', $customer->customerId(), 'customer.topups.slip:'.$topupId, $idempotencyKey, $normalized, lock: true);
+
+            if (is_array($replay)) {
+                return ['resource' => $replay['body'] ?? [], 'status' => $replay['status']];
+            }
+
+            if ($replay !== null) {
+                return ['error' => $replay];
+            }
+
+            $topup = TopupRequest::query()
+                ->where('tenant_id', $tenantId)
+                ->where('customer_id', $customer->customerId())
+                ->where('id', $topupId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($topup === null) {
+                return ['error' => 'not_found'];
+            }
+
+            if (! in_array((string) $topup->status, ['pending', 'processing'], true)) {
+                return ['error' => 'resource_conflict'];
+            }
+
+            $oldPaths = [
+                trim((string) ($topup->slip_storage_path ?? '')),
+                trim((string) ($topup->slip_thumb_storage_path ?? '')),
+            ];
+            $slipAsset = $this->storeTopupSlipAsset($tenantId, $topupId, $slip);
+            $updates = [
+                'slip_url' => $slipAsset['url'],
+                'slip_thumb_url' => $slipAsset['thumb_url'],
+                'slip_storage_path' => $slipAsset['storage_path'],
+                'slip_thumb_storage_path' => $slipAsset['thumb_storage_path'],
+                'slip_expires_at' => $slipAsset['expires_at'],
+                'updated_at' => now(),
+            ];
+
+            if ($normalized['transfer_at'] !== '') {
+                $updates['transfer_at'] = Carbon::parse($normalized['transfer_at']);
+            }
+
+            TopupRequest::query()->where('id', $topupId)->update($updates);
+
+            $disk = Storage::disk((string) config('lottery_images.disk', 'lottery_images'));
+            foreach ($oldPaths as $path) {
+                if ($path !== '') {
+                    $disk->delete($path);
+                }
+            }
+
+            $resource = $this->topupResource(TopupRequest::where('id', $topupId)->first());
+            $this->idempotency->storeResponse($tenantId, 'customer', $customer->customerId(), 'customer.topups.slip:'.$topupId, $idempotencyKey, $normalized, 200, $resource);
+            $this->queueTopupUpdatedBroadcast($tenantId, $topupId);
+
+            return ['resource' => $resource, 'status' => 200];
+        });
     }
 
     /**
@@ -460,6 +593,7 @@ class CommerceService
 
             $resource = $this->topupResource(TopupRequest::where('id', $topupId)->first());
             $this->idempotency->storeResponse($tenantId, 'customer', $customer->customerId(), 'customer.topups.cancel:'.$topupId, $idempotencyKey, $normalized, 200, $resource);
+            $this->queueTopupUpdatedBroadcast($tenantId, $topupId);
 
             return ['resource' => $resource, 'status' => 200];
         });
@@ -471,17 +605,31 @@ class CommerceService
     public function adminOrders(string $tenantId, array $queryParams): array
     {
         $limit = $this->limit($queryParams['limit'] ?? null);
-        $query = Order::query()->forTenant($tenantId)->orderBy('id')->limit($limit + 1);
+        $query = Order::query()
+            ->select('orders.*')
+            ->leftJoin('customers', function ($join) use ($tenantId): void {
+                $join->on('customers.id', '=', 'orders.customer_id')
+                    ->where('customers.tenant_id', '=', $tenantId);
+            })
+            ->forTenant($tenantId);
 
         foreach (['status', 'payment_status', 'game_id', 'customer_id'] as $field) {
             if (($queryParams[$field] ?? null) !== null && trim((string) $queryParams[$field]) !== '') {
-                $query->where($field, trim((string) $queryParams[$field]));
+                $query->where('orders.'.$field, trim((string) $queryParams[$field]));
             }
         }
 
-        if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
-            $query->where('id', '>', trim((string) $queryParams['cursor']));
+        $customerNo = trim((string) ($queryParams['customer_no'] ?? $queryParams['member_no'] ?? ''));
+        if ($customerNo !== '') {
+            $query->where('customers.customer_no', 'like', '%'.strtoupper($customerNo).'%');
         }
+
+        if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
+            $query->where('orders.id', '>', trim((string) $queryParams['cursor']));
+        }
+
+        $this->applyAdminOrderSort($query, $queryParams);
+        $query->limit($limit + 1);
 
         $rows = $query->get()->all();
         $hasMore = count($rows) > $limit;
@@ -501,6 +649,32 @@ class CommerceService
         $order = Order::query()->forTenant($tenantId)->where('id', $orderId)->first();
 
         return $order === null ? null : $this->adminOrderDetailResource($order);
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     */
+    private function applyAdminOrderSort(mixed $query, array $queryParams): void
+    {
+        $sortBy = (string) ($queryParams['sort_by'] ?? 'id');
+        $direction = strtolower((string) ($queryParams['sort_dir'] ?? 'asc')) === 'desc' ? 'desc' : 'asc';
+        $columns = [
+            'id' => 'orders.id',
+            'order_id' => 'orders.id',
+            'customer_no' => 'customers.customer_no',
+            'member_no' => 'customers.customer_no',
+            'customer_name' => 'customers.name',
+            'total.amount' => 'orders.total_amount',
+            'status' => 'orders.status',
+            'created_at' => 'orders.created_at',
+        ];
+        $column = $columns[$sortBy] ?? 'orders.id';
+
+        $query->reorder($column, $direction);
+
+        if ($column !== 'orders.id') {
+            $query->orderBy('orders.id');
+        }
     }
 
     /**
@@ -649,15 +823,30 @@ class CommerceService
     public function adminWallets(string $tenantId, array $queryParams): array
     {
         $limit = $this->limit($queryParams['limit'] ?? null);
-        $query = Wallet::query()->forTenant($tenantId)->orderBy('id')->limit($limit + 1);
+        $query = Wallet::query()
+            ->select('wallets.*')
+            ->leftJoin('customers', function ($join) use ($tenantId): void {
+                $join->on('customers.id', '=', 'wallets.customer_id')
+                    ->where('customers.tenant_id', '=', $tenantId);
+            })
+            ->with('customer')
+            ->forTenant($tenantId);
 
         if (($queryParams['customer_id'] ?? null) !== null && trim((string) $queryParams['customer_id']) !== '') {
-            $query->where('customer_id', trim((string) $queryParams['customer_id']));
+            $query->where('wallets.customer_id', trim((string) $queryParams['customer_id']));
+        }
+
+        if (($queryParams['customer_no'] ?? $queryParams['member_no'] ?? null) !== null && trim((string) ($queryParams['customer_no'] ?? $queryParams['member_no'])) !== '') {
+            $customerNo = strtoupper(trim((string) ($queryParams['customer_no'] ?? $queryParams['member_no'])));
+            $query->where('customers.customer_no', 'like', '%'.$customerNo.'%');
         }
 
         if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
-            $query->where('id', '>', trim((string) $queryParams['cursor']));
+            $query->where('wallets.id', '>', trim((string) $queryParams['cursor']));
         }
+
+        $this->applyWalletSort($query, $queryParams);
+        $query->limit($limit + 1);
 
         $rows = $query->get()->all();
         $hasMore = count($rows) > $limit;
@@ -674,7 +863,7 @@ class CommerceService
 
     public function adminWallet(string $tenantId, string $walletId): ?array
     {
-        $wallet = Wallet::query()->forTenant($tenantId)->where('id', $walletId)->first();
+        $wallet = Wallet::query()->with('customer')->forTenant($tenantId)->where('id', $walletId)->first();
 
         return $wallet === null ? null : $this->adminWalletResource($wallet);
     }
@@ -691,13 +880,26 @@ class CommerceService
         $limit = $this->limit($queryParams['limit'] ?? null);
         $query = WalletLedger::query()
             ->forTenant($tenantId)
-            ->where('wallet_id', $walletId)
-            ->orderBy('id')
-            ->limit($limit + 1);
+            ->where('wallet_id', $walletId);
+
+        if (($queryParams['entry_type'] ?? null) !== null && trim((string) $queryParams['entry_type']) !== '') {
+            $query->where('entry_type', trim((string) $queryParams['entry_type']));
+        }
+
+        if (($queryParams['created_from'] ?? null) !== null && trim((string) $queryParams['created_from']) !== '') {
+            $query->where('created_at', '>=', Carbon::parse((string) $queryParams['created_from']));
+        }
+
+        if (($queryParams['created_to'] ?? null) !== null && trim((string) $queryParams['created_to']) !== '') {
+            $query->where('created_at', '<=', Carbon::parse((string) $queryParams['created_to']));
+        }
 
         if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
             $query->where('id', '>', trim((string) $queryParams['cursor']));
         }
+
+        $this->applyWalletLedgerSort($query, $queryParams);
+        $query->limit($limit + 1);
 
         $rows = $query->get()->all();
         $hasMore = count($rows) > $limit;
@@ -718,9 +920,18 @@ class CommerceService
      */
     public function adjustAdminWallet(string $tenantId, AdminSessionContext $actor, string $walletId, array $payload, Request $request): array
     {
-        $amount = $this->moneyAmount($payload['amount'] ?? null, (int) ($payload['amount'] ?? 0));
+        $amount = $this->moneyAmount($payload['amount'] ?? null, 0);
+        $transactionType = (string) ($payload['transaction_type'] ?? '');
+
+        if ($transactionType === 'withdraw') {
+            $amount = -abs($amount);
+        } elseif ($transactionType === 'deposit') {
+            $amount = abs($amount);
+        }
+
         $normalized = [
             'amount' => $amount,
+            'transaction_type' => $transactionType,
             'reason' => (string) ($payload['reason'] ?? ''),
             'note' => (string) ($payload['note'] ?? ''),
         ];
@@ -753,26 +964,135 @@ class CommerceService
     }
 
     /**
+     * @param array<string, mixed> $queryParams
+     */
+    private function applyWalletSort(mixed $query, array $queryParams): void
+    {
+        $sortBy = (string) ($queryParams['sort_by'] ?? 'customer_no');
+        $direction = strtolower((string) ($queryParams['sort_dir'] ?? 'asc')) === 'desc' ? 'desc' : 'asc';
+        $columns = [
+            'id' => 'wallets.id',
+            'customer_no' => 'customers.customer_no',
+            'member_no' => 'customers.customer_no',
+            'customer_name' => 'customers.name',
+            'balance' => 'wallets.balance_amount',
+            'balance.amount' => 'wallets.balance_amount',
+            'status' => 'wallets.status',
+            'created_at' => 'wallets.created_at',
+            'updated_at' => 'wallets.updated_at',
+        ];
+        $column = $columns[$sortBy] ?? 'customers.customer_no';
+
+        $query->reorder($column, $direction);
+
+        if ($column !== 'wallets.id') {
+            $query->orderBy('wallets.id');
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     */
+    private function applyWalletLedgerSort(mixed $query, array $queryParams): void
+    {
+        $sortBy = (string) ($queryParams['sort_by'] ?? 'created_at');
+        $defaultDirection = $sortBy === 'created_at' ? 'desc' : 'asc';
+        $direction = strtolower((string) ($queryParams['sort_dir'] ?? $defaultDirection)) === 'desc' ? 'desc' : 'asc';
+        $columns = [
+            'id' => 'id',
+            'entry_type' => 'entry_type',
+            'status' => 'status',
+            'amount.amount' => 'amount',
+            'balance_after.amount' => 'balance_after',
+            'reference_type' => 'reference_type',
+            'created_at' => 'created_at',
+        ];
+        $column = $columns[$sortBy] ?? 'created_at';
+
+        $query->reorder($column, $direction);
+
+        if ($column !== 'id') {
+            $query->orderBy('id', $direction);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     */
+    private function applyTopupSort(mixed $query, array $queryParams): string
+    {
+        $sortBy = (string) ($queryParams['sort_by'] ?? 'created_at');
+        $defaultDirection = in_array($sortBy, ['id', 'created_at', 'updated_at'], true) ? 'desc' : 'asc';
+        $direction = strtolower((string) ($queryParams['sort_dir'] ?? $defaultDirection)) === 'desc' ? 'desc' : 'asc';
+        $columns = [
+            'id' => 'topup_requests.id',
+            'customer_no' => 'customers.customer_no',
+            'customer.customer_no' => 'customers.customer_no',
+            'member_no' => 'customers.customer_no',
+            'customer_name' => 'customers.name',
+            'customer.name' => 'customers.name',
+            'amount' => 'topup_requests.amount',
+            'amount.amount' => 'topup_requests.amount',
+            'status' => 'topup_requests.status',
+            'channel' => 'topup_requests.channel',
+            'created_at' => 'topup_requests.created_at',
+            'updated_at' => 'topup_requests.updated_at',
+        ];
+        $column = $columns[$sortBy] ?? 'topup_requests.created_at';
+
+        $query->reorder($column, $direction);
+
+        if ($column !== 'topup_requests.id') {
+            $query->orderBy('topup_requests.id', $direction);
+        }
+
+        return $direction;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function adminTopups(string $tenantId, array $queryParams): array
     {
         $limit = $this->limit($queryParams['limit'] ?? null);
-        $query = TopupRequest::query()->forTenant($tenantId)->orderBy('id')->limit($limit + 1);
+        $query = TopupRequest::query()
+            ->select('topup_requests.*')
+            ->leftJoin('customers', function ($join) use ($tenantId): void {
+                $join->on('customers.id', '=', 'topup_requests.customer_id')
+                    ->where('customers.tenant_id', '=', $tenantId);
+            })
+            ->forTenant($tenantId);
 
         foreach (['customer_id', 'channel'] as $field) {
             if (($queryParams[$field] ?? null) !== null && trim((string) $queryParams[$field]) !== '') {
-                $query->where($field, trim((string) $queryParams[$field]));
+                $query->where('topup_requests.'.$field, trim((string) $queryParams[$field]));
             }
         }
 
-        if (($queryParams['status'] ?? null) !== null && trim((string) $queryParams['status']) !== '') {
-            $query->whereIn('status', $this->storedTopupStatusesForPresentation(trim((string) $queryParams['status'])));
+        $customerNo = trim((string) ($queryParams['customer_no'] ?? $queryParams['member_no'] ?? ''));
+        if ($customerNo !== '') {
+            $query->where('customers.customer_no', 'like', '%'.strtoupper($customerNo).'%');
         }
 
-        if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
-            $query->where('id', '>', trim((string) $queryParams['cursor']));
+        if (($queryParams['status'] ?? null) !== null && trim((string) $queryParams['status']) !== '') {
+            $query->whereIn('topup_requests.status', $this->storedTopupStatusesForPresentation(trim((string) $queryParams['status'])));
         }
+
+        $section = trim((string) ($queryParams['section'] ?? ''));
+        if ($section === 'pending') {
+            $query->whereIn('topup_requests.status', ['pending', 'processing']);
+        } elseif ($section === 'history') {
+            $query->whereNotIn('topup_requests.status', ['pending', 'processing']);
+        }
+
+        $sortDirection = $this->applyTopupSort($query, $queryParams);
+
+        if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
+            $operator = $sortDirection === 'desc' ? '<' : '>';
+            $query->where('topup_requests.id', $operator, trim((string) $queryParams['cursor']));
+        }
+
+        $query->limit($limit + 1);
 
         $rows = $query->get()->all();
         $hasMore = count($rows) > $limit;
@@ -801,12 +1121,9 @@ class CommerceService
     public function approveAdminTopup(string $tenantId, AdminSessionContext $actor, string $topupId, array $payload, Request $request): array
     {
         return $this->adminTopupWrite($tenantId, $actor, $topupId, $payload, $request, 'admin.tenant.topups.approve', 'topup.approve', function (object $topup) use ($payload, $request, $actor): void {
-            if ($topup->status === 'succeeded') {
-                return;
-            }
-
-            $amount = $this->moneyAmount($payload['approved_amount'] ?? null, (int) $topup->amount);
+            $amount = (int) $topup->amount;
             $bonus = $this->moneyAmount($payload['bonus_amount'] ?? null, (int) $topup->bonus_amount);
+            $adminNote = $this->optionalAdminNote($payload);
 
             $ledger = $this->postLedger((string) $topup->tenant_id, (string) $topup->wallet_id, (string) $topup->customer_id, 'credit', $amount + $bonus, 'topup', (string) $topup->id, (string) $request->header('Idempotency-Key'), $actor->adminUser['id'], $payload);
 
@@ -815,7 +1132,7 @@ class CommerceService
                 'bonus_amount' => $bonus,
                 'reviewed_by_admin_id' => $actor->adminUser['id'],
                 'reviewed_at' => now(),
-                'admin_note' => $payload['reason'] ?? null,
+                'admin_note' => $adminNote,
                 'updated_at' => now(),
             ]);
 
@@ -839,15 +1156,11 @@ class CommerceService
     public function rejectAdminTopup(string $tenantId, AdminSessionContext $actor, string $topupId, array $payload, Request $request): array
     {
         return $this->adminTopupWrite($tenantId, $actor, $topupId, $payload, $request, 'admin.tenant.topups.reject', 'topup.reject', function (object $topup) use ($payload, $actor): void {
-            if ($topup->status === 'succeeded') {
-                return;
-            }
-
             TopupRequest::query()->where('id', $topup->id)->update([
                 'status' => 'failed',
                 'reviewed_by_admin_id' => $actor->adminUser['id'],
                 'reviewed_at' => now(),
-                'admin_note' => $payload['reason'] ?? null,
+                'admin_note' => $this->optionalAdminNote($payload),
                 'updated_at' => now(),
             ]);
         }, 'topup.rejected');
@@ -860,15 +1173,11 @@ class CommerceService
     public function cancelAdminTopup(string $tenantId, AdminSessionContext $actor, string $topupId, array $payload, Request $request): array
     {
         return $this->adminTopupWrite($tenantId, $actor, $topupId, $payload, $request, 'admin.tenant.topups.cancel', 'topup.cancel', function (object $topup) use ($payload, $actor): void {
-            if ($topup->status === 'succeeded') {
-                return;
-            }
-
             TopupRequest::query()->where('id', $topup->id)->update([
                 'status' => 'cancelled',
                 'reviewed_by_admin_id' => $actor->adminUser['id'],
                 'reviewed_at' => now(),
-                'admin_note' => $payload['reason'] ?? null,
+                'admin_note' => $this->optionalAdminNote($payload),
                 'updated_at' => now(),
             ]);
         }, 'topup.cancelled');
@@ -899,10 +1208,15 @@ class CommerceService
                 return ['error' => 'not_found'];
             }
 
+            if (in_array((string) $topup->status, ['succeeded', 'failed', 'cancelled', 'expired', 'reversed'], true)) {
+                return ['error' => 'resource_conflict'];
+            }
+
             $mutator($topup);
             $resource = $this->adminTopupDetailResource(TopupRequest::where('id', $topupId)->first());
             $this->idempotency->storeResponse($tenantId, 'tenant_admin', $actor->adminUser['id'], $routeKey.':'.$topupId, $idempotencyKey, $payload, 200, $resource, $permissionCode);
             $this->auditAdmin($actor, $request, $auditAction, 'topup_request', $topupId, $payload, $tenantId);
+            $this->queueTopupUpdatedBroadcast($tenantId, $topupId);
 
             return ['resource' => $resource, 'status' => 200];
         });
@@ -998,6 +1312,44 @@ class CommerceService
         return $processed;
     }
 
+    public function pruneExpiredTopupSlips(int $limit = 100): int
+    {
+        $rows = TopupRequest::query()
+            ->whereNotNull('slip_expires_at')
+            ->where('slip_expires_at', '<=', now())
+            ->orderBy('slip_expires_at')
+            ->limit(max(1, min(500, $limit)))
+            ->get()
+            ->all();
+        $disk = Storage::disk((string) config('lottery_images.disk', 'lottery_images'));
+        $pruned = 0;
+
+        foreach ($rows as $row) {
+            foreach ([$row->slip_storage_path, $row->slip_thumb_storage_path] as $path) {
+                $path = trim((string) $path);
+
+                if ($path !== '') {
+                    $disk->delete($path);
+                }
+            }
+
+            TopupRequest::query()
+                ->where('id', $row->id)
+                ->update([
+                    'slip_url' => null,
+                    'slip_thumb_url' => null,
+                    'slip_storage_path' => null,
+                    'slip_thumb_storage_path' => null,
+                    'slip_expires_at' => null,
+                    'updated_at' => now(),
+                ]);
+
+            $pruned++;
+        }
+
+        return $pruned;
+    }
+
     private function processSoldEvent(object $event): bool
     {
         return DB::transaction(function () use ($event): bool {
@@ -1074,7 +1426,7 @@ class CommerceService
      * @param array<int, object> $stockRows
      * @return array<string, mixed>
      */
-    private function createPaidWalletOrder(array $tenant, CustomerSessionContext $customer, object $reservation, array $stockRows, array $pricing, int $totalAmount, string $idempotencyKey, Request $request): array
+    private function createPaidWalletOrder(array $tenant, CustomerSessionContext $customer, object $reservation, array $stockRows, array $pricing, int $totalAmount, string $idempotencyKey, Request $request, array $reservationIds): array
     {
         $walletId = $this->customerAuth->ensurePrimaryWallet((string) $tenant['tenant_id'], $customer->customerId());
         $wallet = Wallet::query()
@@ -1097,12 +1449,12 @@ class CommerceService
         $tickets = $this->createSoldOrderItemsAndTickets((string) $tenant['tenant_id'], $customer, $orderId, $stockRows, $pricing, $now);
         $ledger = $this->postLedger((string) $tenant['tenant_id'], $walletId, $customer->customerId(), 'debit', $totalAmount, 'order', $orderId, $idempotencyKey);
 
-        StockReservation::query()->where('id', $reservation->id)->update([
+        StockReservation::query()->whereIn('id', $reservationIds)->update([
             'status' => 'converted',
             'converted_at' => $now,
             'updated_at' => $now,
         ]);
-        StockReservationItem::query()->where('reservation_id', $reservation->id)->update([
+        StockReservationItem::query()->whereIn('reservation_id', $reservationIds)->update([
             'status' => 'converted',
             'updated_at' => $now,
         ]);
@@ -1123,6 +1475,7 @@ class CommerceService
         );
 
         $this->insertPaidOrderEvents($tenant, $customer, $orderId, (string) $reservation->game_id, $stockRows, $tickets, $totalAmount, $ledger, $idempotencyKey, $request);
+        $this->calculateAffiliateCommissionForOrder($orderId, (string) $tenant['tenant_id']);
 
         return $this->orderResource(Order::where('id', $order->id)->first());
     }
@@ -1131,7 +1484,7 @@ class CommerceService
      * @param array<int, object> $stockRows
      * @return array<string, mixed>
      */
-    private function createPendingExternalOrder(array $tenant, CustomerSessionContext $customer, object $reservation, array $stockRows, array $pricing, int $totalAmount, string $idempotencyKey, Request $request): array
+    private function createPendingExternalOrder(array $tenant, CustomerSessionContext $customer, object $reservation, array $stockRows, array $pricing, int $totalAmount, string $idempotencyKey, Request $request, array $reservationIds): array
     {
         $now = now();
         $orderId = 'ord_'.Str::ulid()->toBase32();
@@ -1154,7 +1507,7 @@ class CommerceService
             'reference' => $reference,
             'redirect_url' => $redirectUrl,
             'idempotency_key' => $idempotencyKey,
-            'payload_hash' => $this->idempotency->payloadHash(['order_id' => $orderId, 'reservation_id' => $reservation->id]),
+            'payload_hash' => $this->idempotency->payloadHash(['order_id' => $orderId, 'reservation_ids' => $reservationIds]),
             'provider_event_id' => null,
             'provider_reference' => $reference,
             'provider_payload_json' => null,
@@ -1240,7 +1593,7 @@ class CommerceService
         foreach ($stockRows as $stock) {
             $ticketId = 'tic_'.Str::ulid()->toBase32();
             $orderItemId = 'oit_'.Str::ulid()->toBase32();
-            $image = $this->virtualImages->renderSoldTicketImages($ticketId, $stock);
+            $image = $this->queuedSoldTicketImage($ticketId, $stock, $now);
 
             Ticket::query()->insert([
                 'id' => $ticketId,
@@ -1257,6 +1610,7 @@ class CommerceService
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
+            $this->dispatchSoldTicketImageGeneration($ticketId, $stock);
 
             $existingOrderItem = OrderItem::query()
                 ->where('tenant_id', $tenantId)
@@ -1290,6 +1644,38 @@ class CommerceService
         }
 
         return $tickets;
+    }
+
+    /**
+     * @return array{image_url: ?string, image_thumb_url: ?string, snapshot: array<string, mixed>}
+     */
+    private function queuedSoldTicketImage(string $ticketId, object $stock, Carbon $now): array
+    {
+        $isVirtual = ($stock->virtual_stock_ref ?? null) !== null;
+
+        return [
+            'image_url' => PublicUrl::normalizeAssetUrl($stock->image_url ?? null),
+            'image_thumb_url' => PublicUrl::normalizeAssetUrl($stock->image_thumb_url ?? null),
+            'snapshot' => $isVirtual
+                ? [
+                    'ticket_id' => $ticketId,
+                    'virtual_stock_ref' => (string) ($stock->virtual_stock_ref ?? ''),
+                    'render_status' => 'queued',
+                    'queued_at' => $now->toISOString(),
+                ]
+                : [],
+        ];
+    }
+
+    private function dispatchSoldTicketImageGeneration(string $ticketId, object $stock): void
+    {
+        if (($stock->virtual_stock_ref ?? null) === null) {
+            return;
+        }
+
+        DB::afterCommit(static function () use ($ticketId): void {
+            GenerateSoldTicketImageJob::dispatch($ticketId);
+        });
     }
 
     /**
@@ -1352,22 +1738,75 @@ class CommerceService
     /**
      * @return array<int, object>
      */
-    private function lockedReservationStockRows(string $reservationId, string $tenantId): array
+    private function checkoutReservationIds(array $payload): array
     {
+        $ids = is_array($payload['reservation_ids'] ?? null) ? $payload['reservation_ids'] : [];
+
+        if (array_values(array_filter($ids, fn (mixed $id): bool => trim((string) $id) !== '')) === []) {
+            $ids = [$payload['reservation_id'] ?? null];
+        }
+
+        return array_values(array_unique(array_values(array_filter(
+            array_map(fn (mixed $id): string => trim((string) $id), $ids),
+            fn (string $id): bool => $id !== '',
+        ))));
+    }
+
+    /**
+     * @param string|array<int, string> $reservationIds
+     * @return array<int, object>
+     */
+    private function lockedReservationStockRows(string|array $reservationIds, string $tenantId): array
+    {
+        $ids = is_array($reservationIds) ? array_values($reservationIds) : [$reservationIds];
+
         return StockReservationItem::query()
             ->join('local_stock_items', 'local_stock_items.id', '=', 'stock_reservation_items.local_stock_item_id')
             ->where('stock_reservation_items.tenant_id', $tenantId)
-            ->where('stock_reservation_items.reservation_id', $reservationId)
+            ->whereIn('stock_reservation_items.reservation_id', $ids)
             ->where('stock_reservation_items.status', 'active')
             ->whereNotNull('local_stock_items.virtual_stock_ref')
+            ->orderBy('stock_reservation_items.reservation_id')
             ->orderBy('local_stock_items.id')
             ->select(
                 'local_stock_items.*',
+                'stock_reservation_items.reservation_id as reservation_item_reservation_id',
                 'stock_reservation_items.price_amount as reservation_price_amount',
                 'stock_reservation_items.currency as reservation_currency',
                 'stock_reservation_items.sale_price_rule_snapshot_json as reservation_sale_price_rule_snapshot_json',
             )
             ->lockForUpdate()
+            ->get()
+            ->all();
+    }
+
+    /**
+     * @param array<int, string> $reservationIds
+     * @return array<int, object>
+     */
+    private function reservationStockRowsForPricing(array $reservationIds, string $tenantId): array
+    {
+        $ids = array_values(array_filter($reservationIds, fn (string $id): bool => $id !== ''));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        return StockReservationItem::query()
+            ->join('local_stock_items', 'local_stock_items.id', '=', 'stock_reservation_items.local_stock_item_id')
+            ->where('stock_reservation_items.tenant_id', $tenantId)
+            ->whereIn('stock_reservation_items.reservation_id', $ids)
+            ->where('stock_reservation_items.status', 'active')
+            ->whereNotNull('local_stock_items.virtual_stock_ref')
+            ->orderBy('stock_reservation_items.reservation_id')
+            ->orderBy('local_stock_items.id')
+            ->select(
+                'local_stock_items.*',
+                'stock_reservation_items.reservation_id as reservation_item_reservation_id',
+                'stock_reservation_items.price_amount as reservation_price_amount',
+                'stock_reservation_items.currency as reservation_currency',
+                'stock_reservation_items.sale_price_rule_snapshot_json as reservation_sale_price_rule_snapshot_json',
+            )
             ->get()
             ->all();
     }
@@ -1491,6 +1930,16 @@ class CommerceService
             (string) $payment->reference,
             $request,
         );
+        $this->calculateAffiliateCommissionForOrder((string) $order->id, (string) $order->tenant_id);
+    }
+
+    private function calculateAffiliateCommissionForOrder(string $orderId, string $tenantId): void
+    {
+        try {
+            $this->growth->calculateCommissions($orderId, $tenantId, 1);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 
     private function finalizeCreditTopup(object $topup, Request $request): void
@@ -1514,6 +1963,7 @@ class CommerceService
             'currency' => 'THB',
             'posted_balance' => $ledger['balance_after'],
         ]);
+        $this->queueTopupUpdatedBroadcast((string) $topup->tenant_id, (string) $topup->id);
     }
 
     private function paymentForWebhook(string $domain, string $provider, array $payload): ?object
@@ -1598,7 +2048,7 @@ class CommerceService
         ]);
     }
 
-    private function reservationResource(object $reservation): array
+    private function reservationResource(object $reservation, ?array $cartPricing = null): array
     {
         $items = StockReservationItem::query()
             ->join('local_stock_items', 'local_stock_items.id', '=', 'stock_reservation_items.local_stock_item_id')
@@ -1614,17 +2064,40 @@ class CommerceService
             ->get()
             ->all();
 
-        $pricing = $this->salePrices->pricesForReservationStockRows((string) $reservation->tenant_id, $items);
+        $pricing = $cartPricing ?? $this->salePrices->pricesForReservationStockRows((string) $reservation->tenant_id, $items);
+        $reservationTotal = array_sum(array_map(
+            fn (object $stock): int => (int) ($pricing['items'][(string) $stock->id]['amount'] ?? 0),
+            $items,
+        ));
 
         return [
             'id' => (string) $reservation->id,
             'game_id' => (string) $reservation->game_id,
             'status' => (string) $reservation->status,
-            'expires_at' => $reservation->expires_at,
+            'expires_at' => $this->dateTimeIso($reservation->expires_at),
+            'expires_in_seconds' => $this->remainingSeconds($reservation->expires_at),
             'server_time' => now()->toISOString(),
             'items' => array_map(fn (object $stock): array => $this->localStockResource($stock, $pricing['items'][(string) $stock->id] ?? null), $items),
-            'total' => $this->money((int) $pricing['total_amount'], (string) $pricing['currency']),
+            'total' => $this->money((int) $reservationTotal, (string) $pricing['currency']),
         ];
+    }
+
+    private function dateTimeIso(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return Carbon::parse((string) $value)->toISOString();
+    }
+
+    private function remainingSeconds(mixed $expiresAt): int
+    {
+        if ($expiresAt === null || $expiresAt === '') {
+            return 0;
+        }
+
+        return max(0, Carbon::parse((string) $expiresAt)->getTimestamp() - now()->getTimestamp());
     }
 
     private function orderResource(object $order): array
@@ -1688,8 +2161,11 @@ class CommerceService
             'status' => $this->topupPresentationStatus($topup),
             'transfer_at' => $topup->transfer_at,
             'created_at' => $topup->created_at,
+            'slip' => $this->topupSlipResource($topup),
+            'slip_url' => PublicUrl::normalizeAssetUrl($topup->slip_url ?? null),
+            'slip_thumb_url' => PublicUrl::normalizeAssetUrl($topup->slip_thumb_url ?? null),
             'payment' => [
-                'qr_code' => $topup->channel === 'qr' ? 'stub-qr-'.$topup->reference : null,
+                'qr_code' => in_array((string) $topup->channel, ['qr', 'credit_card'], true) ? 'stub-qr-'.$topup->reference : null,
                 'redirect_url' => $payment?->redirect_url,
                 'message' => null,
             ],
@@ -1714,11 +2190,174 @@ class CommerceService
     {
         return $this->adminTopupSummaryResource($topup) + [
             'wallet' => $this->walletResource(Wallet::where('id', $topup->wallet_id)->first()),
-            'slip_url' => $topup->slip_url,
+            'slip_url' => PublicUrl::normalizeAssetUrl($topup->slip_url ?? null),
+            'slip_thumb_url' => PublicUrl::normalizeAssetUrl($topup->slip_thumb_url ?? null),
+            'slip_expires_at' => $topup->slip_expires_at,
             'provider_payload' => $this->decodeJsonObject($topup->provider_payload_json),
             'admin_note' => $topup->admin_note,
             'audit' => [],
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function tenantTopupBank(string $tenantId): array
+    {
+        $settings = TenantPaymentSetting::query()->forTenant($tenantId)->first();
+        $config = is_array($settings?->config_json) ? $settings->config_json : [];
+        $bankConfig = is_array($config['bank_transfer'] ?? null) ? $config['bank_transfer'] : $config;
+        $bankCode = trim((string) ($bankConfig['bank_code'] ?? ''));
+        $bankName = trim((string) ($bankConfig['bank_name'] ?? ''));
+        $catalogBank = ThaiBankCatalog::findByCodeOrName($bankCode !== '' ? $bankCode : $bankName);
+        $name = $catalogBank['name'] ?? ($bankName !== '' ? $bankName : 'ธนาคารกสิกรไทย');
+        $code = $catalogBank['code'] ?? ($bankCode !== '' ? $bankCode : 'kbank');
+        $icon = (string) ($bankConfig['bank_icon'] ?? ($catalogBank['icon'] ?? 'bi-bank'));
+        $accountName = (string) ($bankConfig['account_name'] ?? 'Tenant Wallet');
+        $accountNumber = (string) ($bankConfig['account_number'] ?? '000-000-0000');
+
+        return [
+            'bank_code' => $code,
+            'bank_name' => $name,
+            'bank_icon' => $icon,
+            'account_name' => $accountName,
+            'account_number' => $accountNumber,
+            'bank_deposit_name' => $accountName,
+            'bank_deposit_number' => $accountNumber,
+            'bank' => [
+                'code' => $code,
+                'name' => $name,
+                'icon' => $icon,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function topupSlipResource(object $topup): ?array
+    {
+        $url = PublicUrl::normalizeAssetUrl($topup->slip_url ?? null);
+
+        if ($url === null) {
+            return null;
+        }
+
+        return [
+            'url' => $url,
+            'full_url' => $url,
+            'thumb_url' => PublicUrl::normalizeAssetUrl($topup->slip_thumb_url ?? null) ?? $url,
+            'expires_at' => $topup->slip_expires_at,
+        ];
+    }
+
+    /**
+     * @return array{bytes: string, thumb_bytes: string, checksum: string, source_name: string, source_type: string}|array{error: string}|null
+     */
+    private function topupSlipUpload(?UploadedFile $file): ?array
+    {
+        if (! $file instanceof UploadedFile) {
+            return null;
+        }
+
+        if (! $file->isValid()) {
+            return ['error' => 'validation_failed'];
+        }
+
+        $mime = (string) ($file->getMimeType() ?: $file->getClientMimeType());
+        if (! in_array($mime, ['image/webp', 'image/png', 'image/jpeg'], true)) {
+            return ['error' => 'validation_failed'];
+        }
+
+        if ((int) $file->getSize() > 5 * 1024 * 1024) {
+            return ['error' => 'validation_failed'];
+        }
+
+        $sourceBytes = file_get_contents($file->getRealPath()) ?: '';
+        $fullBytes = $this->topupSlipWebpBytes($sourceBytes, null, 82)
+            ?? ($mime === 'image/webp' ? $sourceBytes : null);
+        $thumbBytes = $this->topupSlipWebpBytes($sourceBytes, 360, 72)
+            ?? $fullBytes;
+
+        if ($fullBytes === null || $fullBytes === '') {
+            return ['error' => 'validation_failed'];
+        }
+
+        return [
+            'bytes' => $fullBytes,
+            'thumb_bytes' => $thumbBytes,
+            'checksum' => hash('sha256', $sourceBytes),
+            'source_name' => (string) $file->getClientOriginalName(),
+            'source_type' => $mime,
+        ];
+    }
+
+    /**
+     * @param array{bytes: string, thumb_bytes: string, checksum: string, source_name: string, source_type: string} $slip
+     * @return array{url: string, thumb_url: string, storage_path: string, thumb_storage_path: string, expires_at: Carbon}
+     */
+    private function storeTopupSlipAsset(string $tenantId, string $topupId, array $slip): array
+    {
+        $token = Str::lower(Str::ulid()->toBase32());
+        $basePath = 'tenants/'.$tenantId.'/topup-slips';
+        $storagePath = $basePath.'/'.$topupId.'-'.$token.'.webp';
+        $thumbStoragePath = $basePath.'/'.$topupId.'-'.$token.'-thumb.webp';
+        $disk = Storage::disk((string) config('lottery_images.disk', 'lottery_images'));
+
+        $disk->put($storagePath, $slip['bytes'], ['ContentType' => 'image/webp']);
+        $disk->put($thumbStoragePath, $slip['thumb_bytes'], ['ContentType' => 'image/webp']);
+
+        return [
+            'url' => PublicUrl::asset($storagePath),
+            'thumb_url' => PublicUrl::asset($thumbStoragePath),
+            'storage_path' => $storagePath,
+            'thumb_storage_path' => $thumbStoragePath,
+            'expires_at' => now()->addDays(30),
+        ];
+    }
+
+    private function topupSlipWebpBytes(string $sourceBytes, ?int $maxWidth, int $quality): ?string
+    {
+        if (! extension_loaded('gd') || ! function_exists('imagecreatefromstring') || ! function_exists('imagewebp')) {
+            return null;
+        }
+
+        $source = @imagecreatefromstring($sourceBytes);
+
+        if ($source === false) {
+            return null;
+        }
+
+        $target = $source;
+
+        try {
+            imagepalettetotruecolor($source);
+            imagealphablending($source, true);
+            imagesavealpha($source, true);
+
+            $width = imagesx($source);
+            $height = imagesy($source);
+
+            if ($maxWidth !== null && $width > $maxWidth) {
+                $targetHeight = max(1, (int) round($height * ($maxWidth / $width)));
+                $target = imagecreatetruecolor($maxWidth, $targetHeight);
+                imagealphablending($target, true);
+                imagesavealpha($target, true);
+                imagecopyresampled($target, $source, 0, 0, 0, 0, $maxWidth, $targetHeight, $width, $height);
+            }
+
+            ob_start();
+            $ok = imagewebp($target, null, $quality);
+            $bytes = ob_get_clean();
+
+            return $ok && is_string($bytes) && $bytes !== '' ? $bytes : null;
+        } finally {
+            if ($target !== $source) {
+                imagedestroy($target);
+            }
+
+            imagedestroy($source);
+        }
     }
 
     private function walletResource(?object $wallet): ?array
@@ -1737,9 +2376,29 @@ class CommerceService
 
     private function adminWalletResource(object $wallet): array
     {
+        $customer = $wallet->relationLoaded('customer')
+            ? $wallet->customer
+            : Customer::query()->forTenant((string) $wallet->tenant_id)->where('id', $wallet->customer_id)->first();
+
         return $this->walletResource($wallet) + [
             'tenant_id' => (string) $wallet->tenant_id,
             'customer_id' => (string) $wallet->customer_id,
+            'customer_no' => $customer === null
+                ? CustomerNo::legacyMemberNo((string) $wallet->customer_id)
+                : CustomerNo::display($customer->customer_no ?? null, (string) $customer->id),
+            'member_no' => $customer === null
+                ? CustomerNo::legacyMemberNo((string) $wallet->customer_id)
+                : CustomerNo::display($customer->customer_no ?? null, (string) $customer->id),
+            'customer_name' => (string) ($customer->name ?? ''),
+            'customer' => $customer === null ? null : [
+                'id' => (string) $customer->id,
+                'customer_no' => CustomerNo::display($customer->customer_no ?? null, (string) $customer->id),
+                'member_no' => CustomerNo::display($customer->customer_no ?? null, (string) $customer->id),
+                'name' => (string) $customer->name,
+                'phone' => (string) $customer->phone,
+                'email' => $customer->email,
+                'status' => (string) $customer->status,
+            ],
             'status' => (string) $wallet->status,
             'created_at' => $wallet->created_at,
             'updated_at' => $wallet->updated_at,
@@ -1748,6 +2407,12 @@ class CommerceService
 
     private function ledgerResource(object $ledger): array
     {
+        $metadata = is_array($ledger->metadata_json)
+            ? $ledger->metadata_json
+            : (is_string($ledger->metadata_json) && $ledger->metadata_json !== '' ? json_decode($ledger->metadata_json, true) : []);
+        $metadata = is_array($metadata) ? $metadata : [];
+        $reason = (string) ($metadata['reason'] ?? $metadata['note'] ?? '');
+
         return [
             'id' => (string) $ledger->id,
             'tenant_id' => (string) $ledger->tenant_id,
@@ -1757,6 +2422,7 @@ class CommerceService
             'status' => (string) $ledger->status,
             'amount' => $this->money((int) $ledger->amount, (string) $ledger->currency),
             'balance_after' => $this->money((int) $ledger->balance_after, (string) $ledger->currency),
+            'reason' => $reason,
             'reference_type' => $ledger->reference_type,
             'reference_id' => $ledger->reference_id,
             'created_at' => $ledger->created_at,
@@ -1765,13 +2431,81 @@ class CommerceService
 
     private function ticketResource(object $ticket): array
     {
+        $image = $this->ticketImageResource($ticket);
+
         return [
             'id' => (string) $ticket->id,
             'game_id' => (string) $ticket->game_id,
             'full_number' => (string) $ticket->full_number,
             'status' => (string) $ticket->status,
-            'image_thumb_url' => $ticket->image_thumb_url,
-            'image_url' => $ticket->image_url,
+            'image_thumb_url' => $image['image_thumb_url'],
+            'image_url' => $image['image_url'],
+            'preview_image_url' => $image['preview_image_url'],
+            'image_status' => $image['image_status'],
+            'image_error' => $image['image_error'],
+        ];
+    }
+
+    /**
+     * @return array{image_url: ?string, image_thumb_url: ?string, preview_image_url: ?string, image_status: string, image_error: ?string}
+     */
+    private function ticketImageResource(object $ticket): array
+    {
+        $imageUrl = PublicUrl::normalizeAssetUrl($ticket->image_url ?? null);
+        $thumbUrl = PublicUrl::normalizeAssetUrl($ticket->image_thumb_url ?? null);
+        $previewUrl = $thumbUrl;
+        $status = ($imageUrl || $thumbUrl) ? 'ready' : 'missing';
+        $error = null;
+
+        if (! $thumbUrl && ! $imageUrl) {
+            $stock = method_exists($ticket, 'relationLoaded') && $ticket->relationLoaded('localStockItem')
+                ? $ticket->localStockItem
+                : LocalStockItem::query()->whereKey((string) ($ticket->local_stock_item_id ?? ''))->first();
+
+            if ($stock !== null && ($stock->virtual_stock_ref ?? null) !== null) {
+                $thumbPreview = $this->virtualImages->previewDescriptor(
+                    (string) $stock->tenant_id,
+                    (string) $stock->partner_id,
+                    (string) $stock->game_id,
+                    (string) $stock->full_number,
+                    (int) ($stock->virtual_copy_index ?? 0),
+                    'thumb',
+                );
+                $fullPreview = $this->virtualImages->previewDescriptor(
+                    (string) $stock->tenant_id,
+                    (string) $stock->partner_id,
+                    (string) $stock->game_id,
+                    (string) $stock->full_number,
+                    (int) ($stock->virtual_copy_index ?? 0),
+                    'full',
+                );
+                $imageUrl = $fullPreview['url'];
+                $thumbUrl = $thumbPreview['url'];
+                $previewUrl = $thumbPreview['url'];
+                $status = $imageUrl || $thumbUrl ? 'ready' : (string) ($fullPreview['status'] ?? $thumbPreview['status']);
+                $error = $fullPreview['error'] ?: $thumbPreview['error'];
+            }
+        }
+
+        if (! $thumbUrl && ! $imageUrl) {
+            $snapshot = is_array($ticket->image_render_snapshot_json ?? null)
+                ? $ticket->image_render_snapshot_json
+                : [];
+            $renderStatus = (string) ($snapshot['render_status'] ?? '');
+
+            if ($renderStatus !== '') {
+                $status = $renderStatus;
+            }
+
+            $error = $error ?: (($snapshot['render_error'] ?? null) === null ? null : (string) $snapshot['render_error']);
+        }
+
+        return [
+            'image_url' => $imageUrl,
+            'image_thumb_url' => $thumbUrl,
+            'preview_image_url' => $previewUrl,
+            'image_status' => $status,
+            'image_error' => $error,
         ];
     }
 
@@ -1810,8 +2544,8 @@ class CommerceService
             'status' => (string) $stock->status,
             'price' => $this->money((int) $pricing['amount'], (string) $pricing['currency']),
             'price_rule_summary' => $pricing['summary'] ?? null,
-            'image_thumb_url' => $stock->image_thumb_url,
-            'image_url' => $stock->image_url,
+            'image_thumb_url' => PublicUrl::normalizeAssetUrl($stock->image_thumb_url ?? null),
+            'image_url' => PublicUrl::normalizeAssetUrl($stock->image_url ?? null),
         ];
     }
 
@@ -1820,6 +2554,8 @@ class CommerceService
         return [
             'id' => (string) $customer->id,
             'tenant_id' => (string) $customer->tenant_id,
+            'customer_no' => CustomerNo::display($customer->customer_no ?? null, (string) $customer->id),
+            'member_no' => CustomerNo::display($customer->customer_no ?? null, (string) $customer->id),
             'name' => $customer->name,
             'phone' => $customer->phone,
             'email' => $customer->email ?? null,
@@ -1844,6 +2580,53 @@ class CommerceService
         }
 
         return $default;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function optionalAdminNote(array $payload): ?string
+    {
+        $reason = $payload['reason'] ?? null;
+
+        if (! is_string($reason)) {
+            return null;
+        }
+
+        $reason = trim($reason);
+
+        return $reason === '' ? null : $reason;
+    }
+
+    private function queueTopupUpdatedBroadcast(string $tenantId, string $topupId): void
+    {
+        DB::afterCommit(function () use ($tenantId, $topupId): void {
+            $topup = TopupRequest::query()
+                ->forTenant($tenantId)
+                ->where('id', $topupId)
+                ->first();
+
+            if ($topup === null) {
+                return;
+            }
+
+            TopupUpdated::dispatch([
+                'event_type' => 'topup.updated',
+                'tenant_id' => $tenantId,
+                'topup_id' => $topupId,
+                'topup' => $this->adminTopupSummaryResource($topup),
+                'updated_at' => now()->toISOString(),
+            ]);
+
+            CustomerTopupUpdated::dispatch([
+                'event_type' => 'topup.updated',
+                'tenant_id' => $tenantId,
+                'customer_id' => (string) $topup->customer_id,
+                'topup_id' => $topupId,
+                'topup' => $this->topupResource($topup),
+                'updated_at' => now()->toISOString(),
+            ]);
+        });
     }
 
     private function topupPresentationStatus(object $topup): string

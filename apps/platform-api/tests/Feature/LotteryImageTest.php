@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\GenerateLotteryImageJob;
 use App\Jobs\GeneratePartnerLotteryImageJob;
 use App\Modules\CentralStock\Services\LotteryImageGenerator;
+use App\Support\PublicUrl;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
@@ -63,7 +64,7 @@ class LotteryImageTest extends TestCase
         $this->assertSame(['charity' => 100, 'even' => 450, 'odd' => 450], $counts);
         $this->assertSame('generated', $generated->image_generation_status);
         $this->assertStringStartsWith('lotteries/gam_lottery_mix/'.$batchId.'/central/', $generated->image_storage_path);
-        $this->assertStringStartsWith('https://cdn.lottery.test/lotteries/gam_lottery_mix/'.$batchId.'/central/', $generated->image_url);
+        $this->assertStringStartsWith('http://localhost:8000/api/v1/public/assets/lotteries/gam_lottery_mix/'.$batchId.'/central/', $generated->image_url);
 
         $bytes = Storage::disk('lottery_images')->get((string) $generated->image_storage_path);
         $thumbBytes = Storage::disk('lottery_images')->get((string) $generated->image_thumb_storage_path);
@@ -73,6 +74,31 @@ class LotteryImageTest extends TestCase
         $this->assertStringNotContainsString('metadata_webp_container_placeholder', $bytes);
         $this->assertStringNotContainsString('"scope":"central"', $bytes);
         $this->assertStringNotContainsString('logo_qr_storage_path', $bytes);
+    }
+
+    public function test_LotteryImageGeneration_serves_local_asset_urls_over_http_in_non_production(): void
+    {
+        config([
+            'app.env' => 'local',
+            'app.url' => 'https://localhost:8000',
+            'lottery_images.cdn_base_url' => 'https://local-assets.newpaotang.test',
+            'lottery_images.local_public_base_url' => 'https://localhost:8000/api/v1/public/assets',
+        ]);
+
+        /** @var LotteryImageGenerator $images */
+        $images = app(LotteryImageGenerator::class);
+        $key = 'lotteries/gam_local/sold-tickets/tic_local/full.webp';
+        $bytes = $this->fixtureWebp('odd');
+
+        Storage::disk('lottery_images')->put($key, $bytes);
+
+        $this->assertSame('http://localhost:8000/api/v1/public/assets/'.$key, $images->publicUrl($key));
+        $this->assertSame('http://localhost:8000/api/v1/public/assets/'.$key, PublicUrl::normalizeAssetUrl('https://local-assets.newpaotang.test/'.$key));
+
+        $this->get('/api/v1/public/assets/'.$key)
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/webp')
+            ->assertContent($bytes);
     }
 
     public function test_LotteryImagePendingBackgroundCommand_generates_rows_once_their_set_is_ready(): void
@@ -181,8 +207,7 @@ class LotteryImageTest extends TestCase
 
         $this->getJson('http://lottery-image.newpaotang.test/api/v1/public/stock/search?game_id=gam_lottery_partner&number='.$localStock->full_number)
             ->assertOk()
-            ->assertJsonPath('data.0.image_url', $localStock->image_url)
-            ->assertJsonPath('data.0.image_thumb_url', $localStock->image_thumb_url);
+            ->assertJsonPath('data.0.image_url', null);
     }
 
     private function putAllBackgroundSets(string $gameId): void

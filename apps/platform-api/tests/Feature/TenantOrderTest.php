@@ -27,6 +27,37 @@ class TenantOrderTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.id', $order['id']);
 
+        DB::table('orders')->insert([
+            'id' => 'ord_sort_high',
+            'tenant_id' => 'ten_tenant_order',
+            'customer_id' => $world['auth']['user']['id'],
+            'reservation_id' => $world['reservation']['id'],
+            'game_id' => $world['game_id'],
+            'wallet_id' => $world['wallet_id'],
+            'payment_method' => 'wallet',
+            'status' => 'paid',
+            'payment_status' => 'paid',
+            'total_amount' => 200000,
+            'currency' => 'THB',
+            'reference' => 'sort-high',
+            'admin_note' => null,
+            'idempotency_key' => 'order-sort-high',
+            'payload_hash' => hash('sha256', 'order-sort-high'),
+            'paid_at' => now(),
+            'cancelled_at' => null,
+            'refunded_at' => null,
+            'created_at' => now()->addMinute(),
+            'updated_at' => now()->addMinute(),
+        ]);
+
+        $this->withToken($viewer['access_token'])
+            ->getJson('/api/v1/admin/tenant/orders?sort_by=total.amount&sort_dir=desc', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_tenant_order',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.0.id', 'ord_sort_high');
+
         $this->withToken($viewer['access_token'])
             ->patchJson('/api/v1/admin/tenant/orders/'.$order['id'], [
                 'status' => 'paid',

@@ -12,6 +12,7 @@ use App\Console\Commands\PlatformObservabilityReportCommand;
 use App\Console\Commands\PlatformRuntimeReadinessCommand;
 use App\Console\Commands\PlatformSmokeCommand;
 use App\Console\Commands\PrepareK6BaselineCommand;
+use App\Console\Commands\PruneTopupSlipsCommand;
 use App\Console\Commands\ProcessRewardCheckCommand;
 use App\Console\Commands\ProcessSoldSyncCommand;
 use App\Console\Commands\SeedBaseLotteryNumbersCommand;
@@ -50,6 +51,7 @@ return Application::configure(basePath: dirname(__DIR__))
         PrepareK6BaselineCommand::class,
         CheckPendingLotteryBackgroundsCommand::class,
         LotteryImageReadinessCommand::class,
+        PruneTopupSlipsCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(NormalizeRequestHost::class);

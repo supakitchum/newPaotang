@@ -25,6 +25,7 @@
           v-for="(ticket, index) in lotteries"
           :key="ticketKey(ticket, index)"
           :ticket="ticket"
+          :show-image="false"
           @booking-unavailable="removeLottery"
       />
       <template v-if="showSkeletonItems">
@@ -32,6 +33,7 @@
             v-for="item in skeletonItems"
             :key="`search-loading-${item}`"
             :ticket="skeletonTicket"
+            :show-image="false"
             loading
         />
       </template>
@@ -40,6 +42,7 @@
             v-for="item in skeletonItems"
             :key="`search-loading-more-${item}`"
             :ticket="skeletonTicket"
+            :show-image="false"
             loading
         />
       </template>
@@ -123,6 +126,7 @@ useCustomerStockRealtime({
   gameId: currentGameId,
   onAvailability: (payload) => applyAvailabilityUpdate(payload),
   onPrice: (payload) => applyPriceUpdateToTickets(lotteries, payload, { gameId: currentGameId }),
+  includePresence: true,
 })
 
 const handleDigitsUpdate = (digits: string[]) => {
@@ -137,6 +141,24 @@ const getTicketNumber = (ticket: Partial<LotteryTicket>) => {
   return String(value)
 }
 
+const ticketNumberKey = (ticket: Partial<LotteryTicket>) => getTicketNumber(ticket).replace(/\D/g, '').slice(0, 6)
+
+const uniqueByNumber = (tickets: LotteryTicket[]) => {
+  const seenNumbers = new Set<string>()
+
+  return tickets.filter((ticket) => {
+    const number = ticketNumberKey(ticket)
+
+    if (!number || seenNumbers.has(number)) {
+      return false
+    }
+
+    seenNumbers.add(number)
+
+    return true
+  })
+}
+
 const withHighlight = (ticket: LotteryTicket): LotteryTicket => ({
   ...ticket,
   number: getTicketNumber(ticket),
@@ -147,7 +169,7 @@ const updateSearchResult = (responseData: any, append = false) => {
   const result = responseData.result || {}
   const nextLotteries = (result.lotteries || []).map(withHighlight)
 
-  lotteries.value = append ? [...lotteries.value, ...nextLotteries] : nextLotteries
+  lotteries.value = uniqueByNumber(append ? [...lotteries.value, ...nextLotteries] : nextLotteries)
   pagination.value = result.pagination || null
   currentGameId.value = String(result.game_id || currentGameId.value || '')
 }
@@ -160,7 +182,7 @@ const applyAvailabilityUpdate = (payload: any) => {
   }
 
   lotteries.value = lotteries.value.map((ticket) => (
-    getTicketNumber(ticket) === fullNumber
+    ticketNumberKey(ticket) === fullNumber
       ? {
           ...ticket,
           remaining_count: Number(payload.remaining_count || 0),

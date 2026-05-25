@@ -4,9 +4,11 @@ namespace App\Modules\Auth\Services;
 
 use App\Models\Customer;
 use App\Models\CustomerAuthSession;
+use App\Models\PartnerTenant;
 use App\Models\Wallet;
 use App\Shared\Auth\CustomerSessionContext;
 use App\Shared\Idempotency\IdempotencyService;
+use App\Support\CustomerNo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -54,11 +56,13 @@ class CustomerAuthService
 
         return DB::transaction(function () use ($tenant, $payload, $request, $normalized, $idempotencyKey, $actorId): array {
             $customerId = 'cus_'.Str::ulid()->toBase32();
+            $customerNo = $this->newCustomerNo((string) $tenant['tenant_id']);
             $now = now();
 
             Customer::query()->insert([
                 'id' => $customerId,
                 'tenant_id' => $tenant['tenant_id'],
+                'customer_no' => $customerNo,
                 'phone' => $normalized['phone'],
                 'email' => $normalized['email'],
                 'password_hash' => Hash::make((string) $payload['password']),
@@ -210,6 +214,14 @@ class CustomerAuthService
             'email' => array_key_exists('email', $payload) ? $this->nullableLower($payload['email']) : null,
             'avatar_url' => array_key_exists('avatar_url', $payload) ? ($payload['avatar_url'] ?: null) : null,
         ], fn (mixed $value): bool => $value !== null);
+
+        if (array_key_exists('reward_payout_bank_account', $payload) || array_key_exists('bank_account', $payload)) {
+            $bankAccount = $this->normalizeBankAccount($payload['reward_payout_bank_account'] ?? $payload['bank_account'] ?? null);
+            $normalized['reward_payout_bank_account_json'] = $bankAccount === []
+                ? null
+                : json_encode($bankAccount, JSON_THROW_ON_ERROR);
+        }
+
         $idempotencyKey = (string) $request->header('Idempotency-Key');
         $replay = $this->idempotency->replayOrConflict($context->tenantId(), 'customer', $context->customerId(), 'customer.profile.patch', $idempotencyKey, $normalized);
 
@@ -319,6 +331,47 @@ class CustomerAuthService
     }
 
     /**
+     * @return array<string, string>
+     */
+    private function normalizeBankAccount(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $bankName = trim((string) ($value['bank_name'] ?? $value['bank'] ?? ''));
+        $accountName = trim((string) ($value['account_name'] ?? $value['bank_deposit_name'] ?? ''));
+        $accountNumber = trim((string) ($value['account_number'] ?? $value['account_no'] ?? $value['bank_account_no'] ?? $value['bank_deposit_number'] ?? ''));
+        $branch = trim((string) ($value['branch'] ?? ''));
+        $normalized = [
+            'bank_name' => $bankName,
+            'account_name' => $accountName,
+            'account_number' => $accountNumber,
+            'branch' => $branch,
+        ];
+
+        return array_filter($normalized, fn (string $field): bool => $field !== '');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function decodedBankAccount(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (! is_string($value) || trim($value) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($value, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function customerProfile(object $customer): array
@@ -326,6 +379,8 @@ class CustomerAuthService
         return [
             'id' => (string) $customer->id,
             'tenant_id' => (string) $customer->tenant_id,
+            'customer_no' => CustomerNo::display($customer->customer_no ?? null, (string) $customer->id),
+            'member_no' => CustomerNo::display($customer->customer_no ?? null, (string) $customer->id),
             'name' => $customer->name,
             'first_name' => $customer->first_name ?? null,
             'last_name' => $customer->last_name ?? null,
@@ -333,6 +388,18 @@ class CustomerAuthService
             'email' => $customer->email ?? null,
             'status' => $customer->status ?? null,
             'avatar_url' => $customer->avatar_url ?? null,
+            'reward_payout_bank_account' => $this->decodedBankAccount($customer->reward_payout_bank_account_json ?? null),
         ];
+    }
+
+    private function newCustomerNo(string $tenantId): string
+    {
+        $tenantCode = PartnerTenant::query()->where('id', $tenantId)->value('code');
+
+        do {
+            $customerNo = CustomerNo::generate(is_string($tenantCode) ? $tenantCode : null, $tenantId);
+        } while (Customer::query()->where('customer_no', $customerNo)->exists());
+
+        return $customerNo;
     }
 }

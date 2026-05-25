@@ -15,7 +15,9 @@ use App\Modules\Pricing\Services\LotterySalePriceService;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Auth\CustomerSessionContext;
+use App\Support\PublicUrl;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -537,8 +539,16 @@ class VirtualStockService
             }
 
             $now = now();
+            $firstActiveReservation = StockReservation::query()
+                ->where('tenant_id', $tenantId)
+                ->where('customer_id', $customer->customerId())
+                ->where('status', 'active')
+                ->where('expires_at', '>', $now)
+                ->orderBy('expires_at')
+                ->lockForUpdate()
+                ->first(['expires_at']);
             $reservationId = 'res_'.Str::ulid()->toBase32();
-            $expiresAt = $now->copy()->addMinutes(15);
+            $expiresAt = $firstActiveReservation?->expires_at ?? $now->copy()->addMinutes(15);
             $localIds = [];
             $events = [];
 
@@ -613,10 +623,57 @@ class VirtualStockService
                 'updated_at' => $now,
             ], $localIds));
 
+            $this->refreshActiveCartSalePriceSnapshots($tenantId, $customer->customerId(), $gameId, $now);
             $this->broadcastAfterCommit($events);
 
             return ['resource' => $this->reservationResourceById($reservationId)];
         });
+    }
+
+    private function refreshActiveCartSalePriceSnapshots(string $tenantId, string $customerId, string $gameId, mixed $now): void
+    {
+        $stockRows = StockReservationItem::query()
+            ->join('stock_reservations', 'stock_reservations.id', '=', 'stock_reservation_items.reservation_id')
+            ->join('local_stock_items', 'local_stock_items.id', '=', 'stock_reservation_items.local_stock_item_id')
+            ->where('stock_reservation_items.tenant_id', $tenantId)
+            ->where('stock_reservation_items.game_id', $gameId)
+            ->where('stock_reservation_items.status', 'active')
+            ->where('stock_reservations.customer_id', $customerId)
+            ->where('stock_reservations.status', 'active')
+            ->where('stock_reservations.expires_at', '>', $now)
+            ->whereNotNull('local_stock_items.virtual_stock_ref')
+            ->orderBy('stock_reservation_items.reservation_id')
+            ->orderBy('local_stock_items.id')
+            ->select(
+                'local_stock_items.*',
+                'stock_reservation_items.reservation_id as reservation_item_reservation_id',
+            )
+            ->get()
+            ->all();
+
+        if ($stockRows === []) {
+            return;
+        }
+
+        $pricing = $this->salePrices->allocatePricesForStockRows($tenantId, $stockRows);
+
+        foreach ($stockRows as $stock) {
+            $price = $pricing['items'][(string) $stock->id] ?? null;
+
+            if ($price === null) {
+                continue;
+            }
+
+            StockReservationItem::query()
+                ->where('reservation_id', (string) $stock->reservation_item_reservation_id)
+                ->where('local_stock_item_id', (string) $stock->id)
+                ->update([
+                    'price_amount' => (int) ($price['amount'] ?? 0),
+                    'currency' => (string) ($price['currency'] ?? 'THB'),
+                    'sale_price_rule_snapshot_json' => json_encode($price['snapshot'] ?? [], JSON_THROW_ON_ERROR),
+                    'updated_at' => $now,
+                ]);
+        }
     }
 
     public function releaseReservationCounters(object $reservation, string $tenantId, string $partnerId, ?string $customerId = null): void
@@ -2128,7 +2185,8 @@ class VirtualStockService
             'id' => (string) $reservation->id,
             'game_id' => (string) $reservation->game_id,
             'status' => (string) $reservation->status,
-            'expires_at' => $reservation->expires_at,
+            'expires_at' => $this->dateTimeIso($reservation->expires_at),
+            'expires_in_seconds' => $this->remainingSeconds($reservation->expires_at),
             'server_time' => now()->toISOString(),
             'items' => array_map(fn (object $stock): array => $this->reservationItemResource($stock, $pricing['items'][(string) $stock->id] ?? null), $items),
             'total' => ['amount' => (int) $pricing['total_amount'], 'currency' => (string) $pricing['currency']],
@@ -2137,6 +2195,24 @@ class VirtualStockService
             'created_at' => $reservation->created_at,
             'updated_at' => $reservation->updated_at,
         ];
+    }
+
+    private function dateTimeIso(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return Carbon::parse((string) $value)->toISOString();
+    }
+
+    private function remainingSeconds(mixed $expiresAt): int
+    {
+        if ($expiresAt === null || $expiresAt === '') {
+            return 0;
+        }
+
+        return max(0, Carbon::parse((string) $expiresAt)->getTimestamp() - now()->getTimestamp());
     }
 
     /**
@@ -2173,9 +2249,9 @@ class VirtualStockService
                 'currency' => (string) ($pricing['currency'] ?? $price['currency']),
             ],
             'price_rule_summary' => $pricing['summary'] ?? $this->salePrices->summary($price),
-            'preview_image_url' => $stock->image_thumb_url ?? $preview['url'],
-            'image_thumb_url' => $stock->image_thumb_url ?? $preview['url'],
-            'image_url' => $stock->image_url,
+            'preview_image_url' => PublicUrl::normalizeAssetUrl($stock->image_thumb_url ?? $preview['url']),
+            'image_thumb_url' => PublicUrl::normalizeAssetUrl($stock->image_thumb_url ?? $preview['url']),
+            'image_url' => PublicUrl::normalizeAssetUrl($stock->image_url),
             'image_status' => $stock->image_generation_status ?? $preview['status'],
             'image_error' => $stock->image_generation_error ?? $preview['error'],
         ];

@@ -42,6 +42,8 @@ class PartnerProvisioningService
     private const DOMAIN_STATUSES = ['pending_verification', 'active', 'failed', 'disabled', 'suspended'];
     private const API_CLIENT_STATUSES = ['active', 'suspended', 'revoked'];
     private const PROFILE_SECTIONS = ['partner', 'tenant', 'domain', 'settings', 'theme', 'owner'];
+    private const DEFAULT_AFFILIATE_MINIMUM_PAYOUT_AMOUNT = 30000;
+    private const DEFAULT_AFFILIATE_RULE_AMOUNT = 1000;
     private const MAINTENANCE_MODES = [
         'full_site',
         'customer_web_only',
@@ -1331,6 +1333,55 @@ class PartnerProvisioningService
             ],
             $now,
         );
+
+        $this->ensureStarterAffiliateDefaults($tenantId, $now);
+    }
+
+    private function ensureStarterAffiliateDefaults(string $tenantId, mixed $now): void
+    {
+        $programId = $this->stableId('afp', $tenantId.':basic');
+
+        DB::table('affiliate_programs')->insertOrIgnore([
+            'id' => $programId,
+            'tenant_id' => $tenantId,
+            'code' => 'basic',
+            'name' => 'Basic Affiliate',
+            'status' => 'active',
+            'minimum_payout_amount' => self::DEFAULT_AFFILIATE_MINIMUM_PAYOUT_AMOUNT,
+            'starts_at' => null,
+            'ends_at' => null,
+            'metadata_json' => json_encode(['source' => 'starter_default'], JSON_THROW_ON_ERROR),
+            'created_by_admin_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $resolvedProgramId = DB::table('affiliate_programs')
+            ->where('tenant_id', $tenantId)
+            ->where('code', 'basic')
+            ->value('id');
+
+        if ($resolvedProgramId === null) {
+            return;
+        }
+
+        DB::table('commission_rules')->insertOrIgnore([
+            'id' => $this->stableId('cmr', $tenantId.':basic_com'),
+            'tenant_id' => $tenantId,
+            'affiliate_program_id' => (string) $resolvedProgramId,
+            'affiliate_account_id' => null,
+            'code' => 'basic_com',
+            'name' => 'BasicCom',
+            'rule_type' => 'per_ticket',
+            'amount' => self::DEFAULT_AFFILIATE_RULE_AMOUNT,
+            'rate_bps' => 0,
+            'currency' => 'THB',
+            'status' => 'active',
+            'metadata_json' => json_encode(['source' => 'starter_default'], JSON_THROW_ON_ERROR),
+            'created_by_admin_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
     }
 
     /**

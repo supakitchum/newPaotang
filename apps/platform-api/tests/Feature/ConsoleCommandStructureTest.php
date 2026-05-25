@@ -12,6 +12,7 @@ use App\Console\Commands\PlatformObservabilityReportCommand;
 use App\Console\Commands\PlatformRuntimeReadinessCommand;
 use App\Console\Commands\PlatformSmokeCommand;
 use App\Console\Commands\PrepareK6BaselineCommand;
+use App\Console\Commands\PruneTopupSlipsCommand;
 use App\Console\Commands\ProcessRewardCheckCommand;
 use App\Console\Commands\ProcessSoldSyncCommand;
 use App\Modules\Commerce\Services\CommerceService;
@@ -41,6 +42,7 @@ class ConsoleCommandStructureTest extends TestCase
             'stock:sold:sync' => ProcessSoldSyncCommand::class,
             'reward:check' => ProcessRewardCheckCommand::class,
             'commission:calculate' => CalculateCommissionsCommand::class,
+            'topups:slips:prune' => PruneTopupSlipsCommand::class,
             'load-tests:k6:prepare' => PrepareK6BaselineCommand::class,
         ];
 
@@ -70,6 +72,7 @@ class ConsoleCommandStructureTest extends TestCase
         $this->assertFalse($commissionDefinition->getArgument('order_id')->isRequired());
         $this->assertNull($commissionDefinition->getOption('tenant_id')->getDefault());
         $this->assertSame('100', (string) $commissionDefinition->getOption('limit')->getDefault());
+        $this->assertSame('100', (string) $commands['topups:slips:prune']->getDefinition()->getOption('limit')->getDefault());
 
         $k6Definition = $commands['load-tests:k6:prepare']->getDefinition();
         $this->assertTrue($k6Definition->hasOption('output-json'));
@@ -98,6 +101,14 @@ class ConsoleCommandStructureTest extends TestCase
 
         $this->artisan('stock:sold:sync', ['--limit' => 8])
             ->expectsOutput('Processed sold events: 4')
+            ->assertExitCode(SymfonyCommand::SUCCESS);
+
+        $this->mock(CommerceService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('pruneExpiredTopupSlips')->once()->with(11)->andReturn(6);
+        });
+
+        $this->artisan('topups:slips:prune', ['--limit' => 11])
+            ->expectsOutput('Pruned topup slips: 6')
             ->assertExitCode(SymfonyCommand::SUCCESS);
 
         $this->mock(RewardService::class, function (MockInterface $mock): void {

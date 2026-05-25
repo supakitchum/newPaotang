@@ -2,6 +2,7 @@
 
 namespace App\Modules\PartnerStore\Services;
 
+use App\Models\Customer;
 use App\Models\CustomerAuthSession;
 use App\Models\Game;
 use App\Models\LocalStockItem;
@@ -19,6 +20,8 @@ use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Auth\CustomerSessionContext;
 use App\Modules\Maintenance\Services\MaintenanceService;
 use App\Shared\Tenancy\TenantHostNormalizer;
+use App\Support\CustomerNo;
+use App\Support\PublicUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -633,17 +636,32 @@ class PartnerStoreService
     public function listReservations(string $tenantId, array $queryParams): array
     {
         $limit = $this->limit($queryParams['limit'] ?? null);
-        $query = StockReservation::query()->forTenant($tenantId)->orderBy('id')->limit($limit + 1);
+        $query = StockReservation::query()
+            ->select('stock_reservations.*')
+            ->leftJoin('customers', function ($join) use ($tenantId): void {
+                $join->on('customers.id', '=', 'stock_reservations.customer_id')
+                    ->where('customers.tenant_id', '=', $tenantId);
+            })
+            ->forTenant($tenantId);
 
         foreach (['status', 'customer_id'] as $field) {
             if (($queryParams[$field] ?? null) !== null && trim((string) $queryParams[$field]) !== '') {
-                $query->where($field, trim((string) $queryParams[$field]));
+                $query->where('stock_reservations.'.$field, trim((string) $queryParams[$field]));
             }
         }
 
-        if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
-            $query->where('id', '>', trim((string) $queryParams['cursor']));
+        $customerNo = trim((string) ($queryParams['customer_no'] ?? $queryParams['member_no'] ?? ''));
+
+        if ($customerNo !== '') {
+            $query->where('customers.customer_no', 'ilike', '%'.$customerNo.'%');
         }
+
+        if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
+            $query->where('stock_reservations.id', '>', trim((string) $queryParams['cursor']));
+        }
+
+        $this->applyReservationSort($query, $queryParams);
+        $query->limit($limit + 1);
 
         $rows = $query->get()->all();
         $hasMore = count($rows) > $limit;
@@ -656,6 +674,46 @@ class PartnerStoreService
                 'has_more' => $hasMore,
             ],
         ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function adminReservation(string $tenantId, string $reservationId): ?array
+    {
+        $reservation = StockReservation::query()
+            ->where('tenant_id', $tenantId)
+            ->where('id', $reservationId)
+            ->first();
+
+        return $reservation === null ? null : $this->adminReservationResource($reservation);
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     */
+    private function applyReservationSort(mixed $query, array $queryParams): void
+    {
+        $sortBy = (string) ($queryParams['sort_by'] ?? 'created_at');
+        $defaultDirection = $sortBy === 'created_at' ? 'desc' : 'asc';
+        $direction = strtolower((string) ($queryParams['sort_dir'] ?? $defaultDirection)) === 'desc' ? 'desc' : 'asc';
+        $columns = [
+            'id' => 'stock_reservations.id',
+            'customer_no' => 'customers.customer_no',
+            'member_no' => 'customers.customer_no',
+            'customer_id' => 'stock_reservations.customer_id',
+            'status' => 'stock_reservations.status',
+            'created_at' => 'stock_reservations.created_at',
+            'expires_at' => 'stock_reservations.expires_at',
+            'expires' => 'stock_reservations.expires_at',
+        ];
+        $column = $columns[$sortBy] ?? 'stock_reservations.created_at';
+
+        $query->reorder($column, $direction);
+
+        if ($column !== 'stock_reservations.id') {
+            $query->orderBy('stock_reservations.id', $direction);
+        }
     }
 
     /**
@@ -712,6 +770,29 @@ class PartnerStoreService
     public function expireReservations(int $limit = 100): int
     {
         $reservationIds = StockReservation::query()
+            ->where('status', 'active')
+            ->where('expires_at', '<=', now())
+            ->orderBy('expires_at')
+            ->limit(max(1, min(500, $limit)))
+            ->pluck('id')
+            ->all();
+
+        $expired = 0;
+
+        foreach ($reservationIds as $reservationId) {
+            if ($this->expireReservation((string) $reservationId)) {
+                $expired++;
+            }
+        }
+
+        return $expired;
+    }
+
+    public function expireCustomerReservations(string $tenantId, string $customerId, int $limit = 100): int
+    {
+        $reservationIds = StockReservation::query()
+            ->where('tenant_id', $tenantId)
+            ->where('customer_id', $customerId)
             ->where('status', 'active')
             ->where('expires_at', '<=', now())
             ->orderBy('expires_at')
@@ -914,8 +995,8 @@ class PartnerStoreService
             'availability_status' => (string) $stock->status,
             'price' => ['amount' => (int) $price['amount'], 'currency' => (string) $price['currency']],
             'price_rule_summary' => $this->salePrices->summary($price),
-            'image_thumb_url' => $stock->image_thumb_url,
-            'image_url' => $stock->image_url,
+            'image_thumb_url' => PublicUrl::normalizeAssetUrl($stock->image_thumb_url),
+            'image_url' => PublicUrl::normalizeAssetUrl($stock->image_url),
         ];
 
         if ($includeStockMode) {
@@ -1016,19 +1097,51 @@ class PartnerStoreService
             ->select('local_stock_items.*')
             ->get()
             ->all();
+        $customerNo = $this->customerNoForId((string) $reservation->tenant_id, (string) $reservation->customer_id);
 
         return [
             'id' => (string) $reservation->id,
             'game_id' => (string) $reservation->game_id,
             'status' => (string) $reservation->status,
-            'expires_at' => $reservation->expires_at,
+            'expires_at' => $this->dateTimeIso($reservation->expires_at),
+            'expires_in_seconds' => $this->remainingSeconds($reservation->expires_at),
             'server_time' => now()->toISOString(),
             'items' => array_map(fn (object $stock): array => $this->localStockResource($stock, false), $items),
             'tenant_id' => (string) $reservation->tenant_id,
             'customer_id' => (string) $reservation->customer_id,
+            'customer_no' => $customerNo,
+            'member_no' => $customerNo,
             'created_at' => $reservation->created_at,
             'updated_at' => $reservation->updated_at,
         ];
+    }
+
+    private function dateTimeIso(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return Carbon::parse((string) $value)->toISOString();
+    }
+
+    private function customerNoForId(string $tenantId, string $customerId): ?string
+    {
+        $customer = Customer::query()
+            ->where('tenant_id', $tenantId)
+            ->where('id', $customerId)
+            ->first(['id', 'customer_no']);
+
+        return $customer === null ? null : CustomerNo::display($customer->customer_no ?? null, (string) $customer->id);
+    }
+
+    private function remainingSeconds(mixed $expiresAt): int
+    {
+        if ($expiresAt === null || $expiresAt === '') {
+            return 0;
+        }
+
+        return max(0, Carbon::parse((string) $expiresAt)->getTimestamp() - now()->getTimestamp());
     }
 
     /**

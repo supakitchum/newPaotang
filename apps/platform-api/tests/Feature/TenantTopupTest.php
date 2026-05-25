@@ -41,6 +41,23 @@ class TenantTopupTest extends TestCase
             ->assertJsonCount(3, 'data');
 
         $this->withToken($viewer['access_token'])
+            ->getJson('/api/v1/admin/tenant/topups?section=pending&sort_by=created_at&sort_dir=desc', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_tenant_topup',
+            ])
+            ->assertOk()
+            ->assertJsonCount(3, 'data')
+            ->assertJsonPath('data.0.id', $topups['cancel']['id']);
+
+        $this->withToken($viewer['access_token'])
+            ->getJson('/api/v1/admin/tenant/topups?section=history&sort_by=created_at&sort_dir=desc', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_tenant_topup',
+            ])
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->withToken($viewer['access_token'])
             ->postJson('/api/v1/admin/tenant/topups/'.$topups['approve']['id'].'/approve', [
                 'reason' => 'viewer cannot approve',
             ], [
@@ -52,7 +69,32 @@ class TenantTopupTest extends TestCase
 
         $this->withToken($manager['access_token'])
             ->postJson('/api/v1/admin/tenant/topups/'.$topups['approve']['id'].'/approve', [
-                'reason' => 'transfer verified',
+                'reason' => '',
+                'approved_amount' => ['amount' => 999999, 'currency' => 'THB'],
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_tenant_topup',
+                'Idempotency-Key' => 'topup-approve-main',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'approved');
+
+        $this->assertDatabaseHas('wallet_ledger', [
+            'tenant_id' => 'ten_tenant_topup',
+            'wallet_id' => $world['wallet_id'],
+            'reference_type' => 'topup',
+            'reference_id' => $topups['approve']['id'],
+            'amount' => 10000,
+        ]);
+        $this->assertDatabaseHas('topup_requests', [
+            'id' => $topups['approve']['id'],
+            'admin_note' => null,
+        ]);
+
+        $this->withToken($manager['access_token'])
+            ->postJson('/api/v1/admin/tenant/topups/'.$topups['approve']['id'].'/approve', [
+                'reason' => '',
+                'approved_amount' => ['amount' => 999999, 'currency' => 'THB'],
             ], [
                 'X-Admin-Scope' => 'tenant',
                 'X-Tenant-Id' => 'ten_tenant_topup',
@@ -63,18 +105,29 @@ class TenantTopupTest extends TestCase
 
         $this->withToken($manager['access_token'])
             ->postJson('/api/v1/admin/tenant/topups/'.$topups['approve']['id'].'/approve', [
-                'reason' => 'transfer verified',
+                'reason' => 'duplicate approval',
             ], [
                 'X-Admin-Scope' => 'tenant',
                 'X-Tenant-Id' => 'ten_tenant_topup',
-                'Idempotency-Key' => 'topup-approve-main',
+                'Idempotency-Key' => 'topup-approve-duplicate',
             ])
-            ->assertOk()
-            ->assertJsonPath('status', 'approved');
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'resource_conflict');
 
         $this->withToken($manager['access_token'])
             ->postJson('/api/v1/admin/tenant/topups/'.$topups['reject']['id'].'/reject', [
-                'reason' => 'bad slip',
+                'reason' => '',
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_tenant_topup',
+                'Idempotency-Key' => 'topup-reject-missing-reason',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.reason.0', 'The reason field is required.');
+
+        $this->withToken($manager['access_token'])
+            ->postJson('/api/v1/admin/tenant/topups/'.$topups['reject']['id'].'/reject', [
+                'reason' => 'invalid transfer proof',
             ], [
                 'X-Admin-Scope' => 'tenant',
                 'X-Tenant-Id' => 'ten_tenant_topup',
@@ -93,6 +146,32 @@ class TenantTopupTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('status', 'cancelled');
+
+        $this->withToken($viewer['access_token'])
+            ->getJson('/api/v1/admin/tenant/topups?section=pending&sort_by=created_at&sort_dir=desc', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_tenant_topup',
+            ])
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->withToken($viewer['access_token'])
+            ->getJson('/api/v1/admin/tenant/topups?section=history&sort_by=created_at&sort_dir=desc', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_tenant_topup',
+            ])
+            ->assertOk()
+            ->assertJsonCount(3, 'data')
+            ->assertJsonPath('data.0.id', $topups['cancel']['id']);
+
+        $this->withToken($viewer['access_token'])
+            ->getJson('/api/v1/admin/tenant/topups?section=history&status=approved', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_tenant_topup',
+            ])
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $topups['approve']['id']);
 
         $this->assertSame(2, DB::table('wallet_ledger')->where('wallet_id', $world['wallet_id'])->count());
         $this->assertDatabaseHas('sync_outbox', [

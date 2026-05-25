@@ -80,11 +80,18 @@ class CustomerAuthTest extends TestCase
             ->patchJson('http://auth.m5.test/api/v1/customer/profile', [
                 'name' => 'Customer Updated',
                 'avatar_url' => 'https://cdn.example.test/avatar.png',
+                'reward_payout_bank_account' => [
+                    'bank_name' => 'Example Bank',
+                    'account_name' => 'Customer Updated',
+                    'account_number' => '1234567890',
+                ],
             ], [
                 'Idempotency-Key' => 'profile-update-m5',
             ])
             ->assertOk()
-            ->assertJsonPath('name', 'Customer Updated');
+            ->assertJsonPath('name', 'Customer Updated')
+            ->assertJsonPath('reward_payout_bank_account.bank_name', 'Example Bank')
+            ->assertJsonPath('reward_payout_bank_account.account_number', '1234567890');
 
         $this->withToken($refreshed['token'])
             ->postJson('http://auth.m5.test/api/v1/customer/auth/logout', [], [

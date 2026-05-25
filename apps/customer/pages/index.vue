@@ -38,6 +38,27 @@
         </NuxtLink>
       </div>
 
+      <section v-if="isAuthenticated" class="home-wallet-panel mb-4">
+        <div>
+          <div class="home-wallet-label">Wallet ของฉัน</div>
+          <strong v-if="isWalletLoading">กำลังโหลด...</strong>
+          <strong v-else>{{ formatMoney(walletBalance) }} บาท</strong>
+          <p>{{ customerNoLabel }}</p>
+        </div>
+        <NuxtLink class="home-wallet-action" to="/topup">เติมเงิน</NuxtLink>
+      </section>
+
+      <section v-else class="home-guest-panel mb-4">
+        <div>
+          <h2>เริ่มซื้อสลากดิจิทัล</h2>
+          <p>เข้าสู่ระบบหรือสมัครสมาชิกก่อนเลือกสลากและชำระเงิน</p>
+        </div>
+        <div class="home-guest-actions">
+          <NuxtLink to="/login">เข้าสู่ระบบ</NuxtLink>
+          <NuxtLink to="/register">สมัครสมาชิก</NuxtLink>
+        </div>
+      </section>
+
       <section v-if="isRewardLoading" class="result-card mb-3 text-center muted-text">
         กำลังโหลดผลรางวัล
       </section>
@@ -91,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { luckyDigits } from '~/data/lottery'
 import type { LotteryRewardGame } from '~/composables/useLotteryReward'
 
@@ -112,10 +133,14 @@ const platformApi = usePlatformApi()
 const config = useRuntimeConfig()
 const { toSummary } = useLotteryReward()
 const { currentDrawDate: drawDate } = useAppInit()
+const { isAuthenticated, user, restoreAuthState } = useAuth()
+const { formatMoney, toNumber } = useTopup()
 const latestGame = ref<LotteryRewardGame | null>(null)
 const historyGames = ref<LotteryRewardGame[]>([])
 const isRewardLoading = ref(true)
 const newsItems = ref<NewsItem[]>([])
+const wallets = ref<Array<Record<string, any>>>([])
+const isWalletLoading = ref(false)
 const activeNewsIndex = ref(0)
 let newsTimer: ReturnType<typeof setInterval> | null = null
 
@@ -162,6 +187,15 @@ const currentNewsCover = computed(() => {
 })
 const currentNewsLink = computed(() => currentNews.value?.url || '#')
 const currentNewsLinkTarget = computed(() => /^https?:\/\//i.test(currentNewsLink.value) ? '_blank' : '_self')
+const primaryWallet = computed(() => (
+  wallets.value.find((wallet) => Number(wallet.type) === 1) || wallets.value[0] || null
+))
+const walletBalance = computed(() => toNumber(primaryWallet.value?.balance))
+const customerNoLabel = computed(() => {
+  const customerNo = user.value?.customer_no || user.value?.member_no || user.value?.id || ''
+
+  return customerNo ? `รหัสสมาชิก : ${customerNo}` : 'รหัสสมาชิก : -'
+})
 
 const handleNewsClick = (event: MouseEvent) => {
   if (currentNewsLink.value === '#') {
@@ -235,15 +269,129 @@ const fetchNews = async () => {
   }
 }
 
+const fetchWallet = async () => {
+  if (!isAuthenticated.value) {
+    wallets.value = []
+    return
+  }
+
+  isWalletLoading.value = true
+
+  try {
+    if (!user.value) {
+      await restoreAuthState()
+    }
+
+    const response = await platformApi.walletLegacy()
+    wallets.value = Array.isArray(response.data?.result) ? response.data.result : []
+  } catch (error) {
+    console.log(error)
+    wallets.value = []
+  } finally {
+    isWalletLoading.value = false
+  }
+}
+
+watch(isAuthenticated, (authenticated) => {
+  if (authenticated) {
+    void fetchWallet()
+    return
+  }
+
+  wallets.value = []
+})
+
 onMounted(() => {
   fetchReward()
   fetchNews()
+  void fetchWallet()
 })
 
 onBeforeUnmount(stopNewsTimer)
 </script>
 
 <style scoped>
+.home-wallet-panel,
+.home-guest-panel {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid #dbe7f5;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(33, 55, 85, .08);
+}
+
+.home-wallet-label,
+.home-guest-panel p {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.home-wallet-panel strong {
+  display: block;
+  margin-top: 2px;
+  color: #075ec9;
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+.home-wallet-panel p,
+.home-guest-panel h2,
+.home-guest-panel p {
+  margin: 0;
+}
+
+.home-wallet-panel p {
+  margin-top: 6px;
+  color: #3b5b84;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.home-wallet-action,
+.home-guest-actions a {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0 16px;
+  color: #fff;
+  background: #0b69dc;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.home-guest-panel {
+  align-items: start;
+}
+
+.home-guest-panel h2 {
+  color: #17335f;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.home-guest-panel p {
+  margin-top: 4px;
+  line-height: 1.45;
+}
+
+.home-guest-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.home-guest-actions a:last-child {
+  color: #075ec9;
+  background: #eaf5ff;
+}
+
 .home-news-slider {
   position: relative;
   overflow: hidden;
@@ -346,5 +494,21 @@ onBeforeUnmount(stopNewsTimer)
 .home-news-dots span.active {
   width: 18px;
   background: #fff;
+}
+
+@media (max-width: 520px) {
+  .home-wallet-panel,
+  .home-guest-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .home-wallet-action,
+  .home-guest-actions a {
+    width: 100%;
+  }
+
+  .home-guest-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>

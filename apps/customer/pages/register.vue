@@ -108,7 +108,7 @@
 
       <div class="login-register">
         <span>มีบัญชีอยู่แล้ว?</span>
-        <NuxtLink to="/login">เข้าสู่ระบบ</NuxtLink>
+        <NuxtLink :to="loginTo">เข้าสู่ระบบ</NuxtLink>
       </div>
     </form>
   </section>
@@ -132,10 +132,31 @@ const showPassword = ref(false)
 const showConfirmPassword = ref(false)
 const isSubmitting = ref(false)
 const platformApi = usePlatformApi()
+const route = useRoute()
 const { setAuthToken, setAuthUser } = useAuth()
 const { applyStoredRef } = useAffiliateReferral()
 const { refreshAppInit } = useAppInit()
 const { showAlert } = useAppAlert()
+
+const getSafeRedirect = () => {
+  if (typeof route.query.redirect !== 'string') {
+    return '/'
+  }
+
+  if (!route.query.redirect.startsWith('/') || route.query.redirect.startsWith('//')) {
+    return '/'
+  }
+
+  return route.query.redirect
+}
+
+const loginTo = computed(() => {
+  const redirect = getSafeRedirect()
+
+  return redirect === '/'
+    ? '/login'
+    : { path: '/login', query: { redirect } }
+})
 
 const allowDigitsOnly = (event: InputEvent) => {
   if (event.data && !/^\d+$/.test(event.data)) {
@@ -189,9 +210,9 @@ const handleSubmit = async () => {
     if (response?.token) {
       setAuthToken(response.token)
       setAuthUser(response.user || response.customer || {})
-      await applyStoredRef()
+      await applyStoredRef({ registered: true })
       await refreshAppInit(response.token)
-      await navigateTo('/')
+      await navigateTo(getSafeRedirect())
     }
   } catch (error: any) {
     showAlert({

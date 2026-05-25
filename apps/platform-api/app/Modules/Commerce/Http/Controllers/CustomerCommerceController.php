@@ -30,6 +30,8 @@ class CustomerCommerceController extends Controller
             return $error;
         }
 
+        $this->partnerStore->expireCustomerReservations($tenant['tenant_id'], $customer->customerId());
+
         return response()->json($this->commerce->cartForCustomer($tenant['tenant_id'], $customer));
     }
 
@@ -134,7 +136,9 @@ class CustomerCommerceController extends Controller
             return ApiErrorResponse::validationFailed($request, $headerErrors);
         }
 
-        $payloadErrors = $this->validator->customerTopupErrors($request->all());
+        $slipFile = $request->file('slip');
+        $payloadErrors = $this->validator->customerTopupErrors($request->all())
+            + $this->validator->topupSlipErrors($slipFile instanceof \Illuminate\Http\UploadedFile ? $slipFile : null);
 
         if ($payloadErrors !== []) {
             return ApiErrorResponse::validationFailed($request, $payloadErrors);
@@ -157,7 +161,9 @@ class CustomerCommerceController extends Controller
             return ApiErrorResponse::validationFailed($request, $headerErrors);
         }
 
-        $payloadErrors = $this->validator->customerTopupErrors($request->all(), true);
+        $slipFile = $request->file('slip');
+        $payloadErrors = $this->validator->customerTopupErrors($request->all(), true)
+            + $this->validator->topupSlipErrors($slipFile instanceof \Illuminate\Http\UploadedFile ? $slipFile : null);
 
         if ($payloadErrors !== []) {
             return ApiErrorResponse::validationFailed($request, $payloadErrors);
@@ -177,6 +183,25 @@ class CustomerCommerceController extends Controller
         $topup = $this->commerce->customerTopup($tenant['tenant_id'], $customer, $topup_id);
 
         return $topup === null ? ApiErrorResponse::notFound($request) : response()->json($topup);
+    }
+
+    public function uploadTopupSlip(Request $request, string $topup_id): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request, 'payment_write');
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        $slipFile = $request->file('slip');
+        $errors = $this->headers->idempotencyKeyErrors($request)
+            + $this->validator->requiredTopupSlipErrors($slipFile instanceof \Illuminate\Http\UploadedFile ? $slipFile : null);
+
+        if ($errors !== []) {
+            return ApiErrorResponse::validationFailed($request, $errors);
+        }
+
+        return $this->writeResult($request, $this->commerce->uploadCustomerTopupSlip($tenant['tenant_id'], $customer, $topup_id, $request->all(), $request));
     }
 
     public function cancelTopup(Request $request, string $topup_id): JsonResponse

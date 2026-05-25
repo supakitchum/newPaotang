@@ -25,6 +25,7 @@ trait M8GrowthFixtures
         $stockId = 'stk_m8_'.$key;
         $localStockId = 'lsi_m8_'.$key;
         $ticketId = 'tic_m8_'.$key;
+        $customerNo = strtoupper((string) preg_replace('/[^A-Za-z0-9]+/', '', $tenantId)).'ABCDEF23';
 
         $this->insertActivePartnerTenant($partnerId, $tenantId);
         $this->insertGame($gameId, 'open');
@@ -32,6 +33,7 @@ trait M8GrowthFixtures
         DB::table('customers')->insert([
             'id' => $customerId,
             'tenant_id' => $tenantId,
+            'customer_no' => $customerNo,
             'phone' => '080'.substr($key, 0, 7),
             'name' => 'M8 Customer '.$suffix,
             'email' => $suffix.'@m8.example.test',
@@ -148,6 +150,7 @@ trait M8GrowthFixtures
             'tenant_id' => $tenantId,
             'game_id' => $gameId,
             'customer_id' => $customerId,
+            'customer_no' => $customerNo,
             'order_id' => $orderId,
             'ticket_id' => $ticketId,
             'suffix' => $suffix,

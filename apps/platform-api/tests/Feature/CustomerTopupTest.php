@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\UploadedFile;
 use Tests\Support\M5CommerceFixtures;
 use Tests\TestCase;
 
@@ -50,6 +52,7 @@ class CustomerTopupTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('status', 'pending_payment')
+            ->assertJsonPath('payment.qr_code', fn (?string $value): bool => is_string($value) && $value !== '')
             ->json();
 
         $this->assertDatabaseHas('payments', [
@@ -98,5 +101,101 @@ class CustomerTopupTest extends TestCase
             ->assertJsonPath('id', $topup['id']);
 
         $this->assertSame(2, DB::table('topup_requests')->where('tenant_id', 'ten_cust_topup')->count());
+    }
+
+    public function test_CustomerTopup_accepts_slip_uploads_and_exposes_admin_preview_metadata(): void
+    {
+        $disk = (string) config('lottery_images.disk', 'lottery_images');
+        Storage::fake($disk);
+
+        $world = $this->prepareReservedCart('par_cust_slip', 'ten_cust_slip', 'customer-slip.m5.test', 'gam_cust_slip', '0804005111', 730101);
+        $transferAt = now()->toISOString();
+
+        $topup = $this->withToken($world['auth']['token'])
+            ->post('http://'.$world['host'].'/api/v1/customer/topups', [
+                'channel' => 'bank_transfer',
+                'amount' => 20000,
+                'transfer_at' => $transferAt,
+                'slip' => $this->uploadedSlip(),
+            ], [
+                'Idempotency-Key' => 'customer-topup-slip',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('status', 'pending_review')
+            ->assertJsonPath('slip.expires_at', fn (?string $value): bool => $value !== null)
+            ->json();
+
+        $row = DB::table('topup_requests')->where('id', $topup['id'])->first();
+
+        $this->assertNotNull($row?->slip_storage_path);
+        $this->assertNotNull($row?->slip_thumb_storage_path);
+        $this->assertNotNull($row?->slip_expires_at);
+        Storage::disk($disk)->assertExists((string) $row->slip_storage_path);
+        Storage::disk($disk)->assertExists((string) $row->slip_thumb_storage_path);
+
+        $manager = $this->tenantAdmin($world, ['topup.view'], 'topupslipview');
+
+        $this->withToken($manager['access_token'])
+            ->getJson('/api/v1/admin/tenant/topups/'.$topup['id'], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_cust_slip',
+            ])
+            ->assertOk()
+            ->assertJsonPath('slip.expires_at', fn (?string $value): bool => $value !== null)
+            ->assertJsonPath('slip_thumb_url', fn (?string $value): bool => $value !== null);
+
+        $qrTopup = $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/topups', [
+                'channel' => 'qr',
+                'amount' => 15000,
+            ], [
+                'Idempotency-Key' => 'customer-topup-qr-before-slip',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('payment.qr_code', fn (?string $value): bool => is_string($value) && $value !== '')
+            ->assertJsonPath('slip', null)
+            ->json();
+
+        $updated = $this->withToken($world['auth']['token'])
+            ->post('http://'.$world['host'].'/api/v1/customer/topups/'.$qrTopup['id'].'/slip', [
+                'slip' => $this->uploadedSlip(),
+            ], [
+                'Idempotency-Key' => 'customer-topup-qr-slip-later',
+            ])
+            ->assertOk()
+            ->assertJsonPath('id', $qrTopup['id'])
+            ->assertJsonPath('slip.expires_at', fn (?string $value): bool => $value !== null)
+            ->json();
+
+        $this->assertNotNull($updated['slip_thumb_url'] ?? null);
+    }
+
+    public function test_CustomerTopup_realtime_auth_allows_only_the_current_customer_topup_channel(): void
+    {
+        $world = $this->prepareReservedCart('par_cust_topup_rt', 'ten_cust_topup_rt', 'customer-topup-rt.m5.test', 'gam_cust_topup_rt', '0804005222', 730201);
+        $customerId = (string) $world['auth']['user']['id'];
+
+        $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/realtime/auth', [
+                'socket_id' => '123.456',
+                'channel_name' => 'private-customer.tenant.ten_cust_topup_rt.customer.'.$customerId.'.topups',
+            ])
+            ->assertOk()
+            ->assertJsonPath('auth', fn (?string $value): bool => is_string($value) && str_contains($value, ':'));
+
+        $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/realtime/auth', [
+                'socket_id' => '123.456',
+                'channel_name' => 'private-customer.tenant.ten_cust_topup_rt.customer.cus_other.topups',
+            ])
+            ->assertForbidden();
+    }
+
+    private function uploadedSlip(): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'topup-slip-').'.webp';
+        file_put_contents($path, base64_decode('UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA'));
+
+        return new UploadedFile($path, 'customer-slip.webp', 'image/webp', null, true);
     }
 }

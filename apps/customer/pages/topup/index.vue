@@ -8,7 +8,7 @@
           :key="channel.value"
           class="topup-channel"
           type="button"
-          :disabled="Boolean(waitingDeposit)"
+          :disabled="hasBlockingWaitingTopup"
           @click="openTopupModal(channel.value)"
         >
           <i class="bi" :class="channel.icon" />
@@ -29,7 +29,7 @@
           <div class="topup-waiting-label">รายการเติมเงินที่ยังไม่เสร็จ</div>
           <h2>รายการ #{{ waitingDeposit.id || '-' }}</h2>
         </div>
-        <span class="topup-waiting-status">{{ waitingStatusText }}</span>
+        <span class="topup-waiting-status" :class="waitingStatusClass">{{ waitingStatusText }}</span>
       </div>
 
       <div class="topup-waiting-amount">
@@ -49,16 +49,33 @@
       <div v-if="isWaitingPaymentLoading" class="topup-waiting-loading">
         กำลังโหลดช่องทางชำระเงิน...
       </div>
+      <div v-else-if="isWaitingTopupTerminal" class="topup-waiting-note" :class="waitingTerminalClass">
+        {{ waitingTerminalMessage }}
+      </div>
       <div v-else-if="waitingQrCode" class="topup-waiting-payment">
         <h3>สแกน QR Code เพื่อชำระเงิน</h3>
         <img :src="waitingQrCode" alt="QR Code สำหรับชำระรายการเติมเงินค้างอยู่">
-        <p>หลังชำระสำเร็จ ระบบจะเติมเงินเข้า G-Wallet อัตโนมัติ</p>
+        <p>หลังชำระเงินแล้วให้อัพโหลดสลิปเพื่อส่งตรวจสอบ</p>
       </div>
       <div v-else class="topup-waiting-note">
         {{ waitingPaymentMessage || 'รายการนี้รอทีมงานตรวจสอบ' }}
       </div>
 
-      <button class="topup-cancel-button" type="button" :disabled="isCancelingTopup" @click="cancelWaitingTopup">
+      <div v-if="!isWaitingTopupTerminal" class="topup-waiting-slip">
+        <div class="topup-waiting-slip-head">
+          <div>
+            <h3>สลิปชำระเงิน</h3>
+            <p>{{ waitingHasSlip ? 'ได้รับสลิปแล้ว สามารถอัพโหลดใหม่ได้หากต้องแก้ไข' : 'อัพโหลดสลิปหลังจากชำระเงินรายการนี้' }}</p>
+          </div>
+          <span :class="{ 'is-ready': waitingHasSlip }">{{ waitingHasSlip ? 'ส่งแล้ว' : 'รอสลิป' }}</span>
+        </div>
+        <input :key="waitingSlipInputKey" class="topup-control" type="file" accept="image/*" @change="handleWaitingSlipChange">
+        <button class="primary-pill w-100" type="button" :disabled="!waitingSlipFile || isUploadingWaitingSlip" @click="uploadWaitingSlip">
+          {{ isUploadingWaitingSlip ? 'กำลังอัพโหลด...' : waitingHasSlip ? 'อัพโหลดสลิปใหม่' : 'อัพโหลดสลิป' }}
+        </button>
+      </div>
+
+      <button v-if="!isWaitingTopupTerminal" class="topup-cancel-button" type="button" :disabled="isCancelingTopup" @click="openCancelTopupConfirm">
         {{ isCancelingTopup ? 'กำลังยกเลิก...' : 'ยกเลิกรายการเติมเงินนี้' }}
       </button>
     </div>
@@ -92,21 +109,32 @@
         </div>
 
         <div v-if="activeChannel === 'qr'" class="topup-method">
+          <div class="topup-deferred-slip-note">
+            <i class="bi bi-info-circle" />
+            <span>สร้าง QR Code ก่อน แล้วอัพโหลดสลิปจากรายการที่รอชำระภายหลัง</span>
+          </div>
           <button class="primary-pill w-100" type="button" :disabled="isSubmitting" @click="createQrTopup">
             {{ isSubmitting ? 'กำลังสร้าง QR...' : 'สร้าง QR Code' }}
           </button>
         </div>
 
         <div v-else-if="activeChannel === 'credit'" class="topup-method">
+          <div class="topup-deferred-slip-note">
+            <i class="bi bi-info-circle" />
+            <span>ช่องทางนี้จะแสดงเป็น QR Code เช่นกัน และอัพโหลดสลิปหลังชำระเงินได้</span>
+          </div>
           <button class="primary-pill w-100" type="button" :disabled="isSubmitting" @click="createCreditTopup">
-            {{ isSubmitting ? 'กำลังเตรียมช่องทาง...' : 'เติมเงินผ่าน Credit Card' }}
+            {{ isSubmitting ? 'กำลังสร้าง QR...' : 'สร้าง QR Code' }}
           </button>
         </div>
 
         <form v-else class="topup-method" @submit.prevent="submitBankTransfer">
           <div v-if="bankInfo" class="topup-bank-box">
             <div class="muted-text">บัญชีรับโอน</div>
-            <strong>{{ bankInfo.bank?.name || 'ธนาคาร' }}</strong>
+            <div class="topup-bank-name">
+              <i class="bi" :class="bankInfo.bank?.icon || bankInfo.bank_icon || 'bi-bank'" />
+              <strong>{{ bankInfo.bank?.name || bankInfo.bank_name || 'ธนาคาร' }}</strong>
+            </div>
             <div>{{ bankInfo.bank_deposit_name || '-' }}</div>
             <div class="topup-bank-number">{{ bankInfo.bank_deposit_number || '-' }}</div>
           </div>
@@ -129,6 +157,30 @@
         </div>
       </div>
     </div>
+
+    <div v-if="showCancelConfirm" class="topup-confirm-backdrop" @click.self="closeCancelTopupConfirm">
+      <section class="topup-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="topup-cancel-title">
+        <div class="topup-confirm-icon">
+          <i class="bi bi-exclamation-triangle" />
+        </div>
+        <h2 id="topup-cancel-title">ยกเลิกรายการเติมเงินนี้?</h2>
+        <p>
+          รายการ #{{ waitingDeposit?.id || '-' }} จะถูกยกเลิก และคุณสามารถสร้างรายการเติมเงินใหม่ได้ทันที
+        </p>
+        <div class="topup-confirm-amount">
+          <span>ยอดเติมเงิน</span>
+          <strong>{{ formatMoney(toNumber(waitingDeposit?.amount)) }} บาท</strong>
+        </div>
+        <div class="topup-confirm-actions">
+          <button class="topup-confirm-secondary" type="button" :disabled="isCancelingTopup" @click="closeCancelTopupConfirm">
+            ไม่ยกเลิก
+          </button>
+          <button class="topup-confirm-danger" type="button" :disabled="isCancelingTopup" @click="cancelWaitingTopup">
+            {{ isCancelingTopup ? 'กำลังยกเลิก...' : 'ยืนยันยกเลิก' }}
+          </button>
+        </div>
+      </section>
+    </div>
   </MobileShell>
 </template>
 
@@ -144,16 +196,17 @@ import type { DepositHistory, WebsiteBank } from '~/composables/useTopup'
 const platformApi = usePlatformApi()
 const { showAlert } = useAppAlert()
 const { toNumber, formatMoney, formatDate } = useTopup()
+const { isAuthenticated } = useAuth()
 
 const channels: Array<{ value: TopupChannel, label: string, icon: string }> = [
   { value: 'qr', label: 'QR Code', icon: 'bi-qr-code' },
-  { value: 'credit', label: 'Credit Card', icon: 'bi-credit-card-2-front' },
+  { value: 'credit', label: 'Credit Card QR', icon: 'bi-qr-code-scan' },
   { value: 'bank_transfer', label: 'โอนธนาคาร', icon: 'bi-bank' }
 ]
 const quickAmounts = [100, 300, 500, 1000, 2000, 5000]
 const channelDescriptions: Record<TopupChannel, string> = {
   qr: 'สร้าง QR สำหรับเติมเงินเข้า wallet โดยตรง',
-  credit: 'ขั้นต่ำ 400 บาท และเติมเข้า wallet หลังระบบชำระเงินยืนยัน',
+  credit: 'ขั้นต่ำ 400 บาท ระบบจะสร้าง QR Code จากผู้ให้บริการภายนอก',
   bank_transfer: 'โอนเข้าบัญชีบริษัทแล้วแนบสลิปเพื่อให้แอดมินตรวจสอบ'
 }
 
@@ -166,26 +219,94 @@ const waitingQrCode = ref('')
 const waitingPaymentMessage = ref('')
 const transferAt = ref('')
 const slipFile = ref<File | null>(null)
+const waitingSlipFile = ref<File | null>(null)
+const waitingSlipInputKey = ref(0)
 const isSubmitting = ref(false)
 const isModalOpen = ref(false)
 const isWaitingPaymentLoading = ref(false)
 const isCancelingTopup = ref(false)
+const isUploadingWaitingSlip = ref(false)
+const showCancelConfirm = ref(false)
 
 const currentChannel = computed(() => (
   channels.find((channel) => channel.value === activeChannel.value) || channels[0]
 ))
 const modalTitle = computed(() => currentChannel.value.label)
 const modalDescription = computed(() => channelDescriptions[activeChannel.value])
+const waitingStatusRaw = computed(() => topupStatusRaw(waitingDeposit.value))
+const isWaitingTopupTerminal = computed(() => isTerminalTopupStatus(waitingDeposit.value))
+const hasBlockingWaitingTopup = computed(() => Boolean(waitingDeposit.value && !isWaitingTopupTerminal.value))
 const waitingStatusText = computed(() => {
+  if (waitingStatusRaw.value === 'approved') {
+    return 'อนุมัติแล้ว'
+  }
+
+  if (waitingStatusRaw.value === 'rejected') {
+    return 'ไม่อนุมัติ'
+  }
+
+  if (waitingStatusRaw.value === 'cancelled') {
+    return 'ยกเลิกแล้ว'
+  }
+
+  if (waitingStatusRaw.value === 'expired') {
+    return 'หมดอายุ'
+  }
+
   if (isWaitingPaymentLoading.value) {
     return 'กำลังโหลด'
   }
 
-  return waitingQrCode.value ? 'รอชำระ' : 'รอตรวจสอบ'
+  if (waitingStatusRaw.value === 'pending_review') {
+    return 'รอตรวจสอบ'
+  }
+
+  return waitingQrCode.value || waitingStatusRaw.value === 'pending_payment' ? 'รอชำระ' : 'รอตรวจสอบ'
+})
+const waitingStatusClass = computed(() => ({
+  'is-success': waitingStatusRaw.value === 'approved',
+  'is-danger': waitingStatusRaw.value === 'rejected',
+  'is-muted': ['cancelled', 'expired'].includes(waitingStatusRaw.value),
+  'is-payment': waitingStatusRaw.value === 'pending_payment',
+}))
+const waitingTerminalClass = computed(() => ({
+  'is-success': waitingStatusRaw.value === 'approved',
+  'is-danger': waitingStatusRaw.value === 'rejected',
+  'is-muted': ['cancelled', 'expired'].includes(waitingStatusRaw.value),
+}))
+const waitingTerminalMessage = computed(() => {
+  if (waitingStatusRaw.value === 'approved') {
+    return 'รายการนี้อนุมัติแล้ว ยอดเงินถูกเติมเข้า wallet เรียบร้อย'
+  }
+
+  if (waitingStatusRaw.value === 'rejected') {
+    return 'รายการนี้ไม่ผ่านการตรวจสอบ กรุณาสร้างรายการใหม่หรือติดต่อทีมงาน'
+  }
+
+  if (waitingStatusRaw.value === 'cancelled') {
+    return 'รายการนี้ถูกยกเลิกแล้ว สามารถสร้างรายการเติมเงินใหม่ได้'
+  }
+
+  if (waitingStatusRaw.value === 'expired') {
+    return 'รายการนี้หมดอายุแล้ว กรุณาสร้างรายการเติมเงินใหม่'
+  }
+
+  return 'สถานะรายการเติมเงินถูกอัปเดตแล้ว'
+})
+const waitingHasSlip = computed(() => Boolean(
+  waitingDeposit.value?.slip_url
+  || waitingDeposit.value?.slip_thumb_url
+  || waitingDeposit.value?.slip
+))
+
+useCustomerStockRealtime({
+  enabled: isAuthenticated,
+  onTopup: (payload) => applyRealtimeTopupUpdate(payload),
+  includePresence: true,
 })
 
 const openTopupModal = (channel: TopupChannel) => {
-  if (waitingDeposit.value) {
+  if (hasBlockingWaitingTopup.value) {
     showAlert({
       title: 'มีรายการเติมเงินค้างอยู่',
       message: 'กรุณาชำระหรือยกเลิกรายการเดิมก่อนสร้างรายการใหม่',
@@ -196,6 +317,7 @@ const openTopupModal = (channel: TopupChannel) => {
 
   activeChannel.value = channel
   qrCode.value = ''
+  slipFile.value = null
   isModalOpen.value = true
 }
 
@@ -205,6 +327,7 @@ const closeTopupModal = (force = false) => {
   }
 
   isModalOpen.value = false
+  slipFile.value = null
 }
 
 const setDefaultTransferAt = () => {
@@ -228,6 +351,28 @@ const validateAmount = (minimum = 1) => {
   return value
 }
 
+const buildTopupPayload = (channel: TopupChannel, value: number, transferAtValue = '') => {
+  if (!slipFile.value) {
+    return {
+      channel,
+      amount: value,
+      ...(transferAtValue ? { transfer_at: transferAtValue } : {})
+    }
+  }
+
+  const formData = new FormData()
+  formData.append('channel', channel)
+  formData.append('amount', String(value))
+
+  if (transferAtValue) {
+    formData.append('transfer_at', transferAtValue)
+  }
+
+  formData.append('slip', slipFile.value)
+
+  return formData
+}
+
 const fetchTopupInfo = async () => {
   try {
     const result = await platformApi.topupOverviewLegacy()
@@ -235,6 +380,8 @@ const fetchTopupInfo = async () => {
     waitingDeposit.value = result.waiting || null
     waitingQrCode.value = ''
     waitingPaymentMessage.value = ''
+    waitingSlipFile.value = null
+    waitingSlipInputKey.value += 1
 
     if (waitingDeposit.value?.id) {
       await fetchWaitingPayment(waitingDeposit.value.id)
@@ -277,15 +424,13 @@ const createQrTopup = async () => {
   qrCode.value = ''
 
   try {
-    const response = await platformApi.createTopupLegacy({
-      channel: 'qr',
-      amount: value
-    })
+    const response = await platformApi.createTopupLegacy(buildTopupPayload('qr', value))
 
     qrCode.value = response.qr_code || response.result?.slip || ''
     waitingQrCode.value = response.qr_code || ''
     waitingPaymentMessage.value = 'สแกน QR Code เพื่อชำระเงินรายการนี้'
     waitingDeposit.value = response.result || null
+    slipFile.value = null
     await fetchTopupInfo()
     closeTopupModal(true)
   } catch (error: any) {
@@ -309,12 +454,15 @@ const createCreditTopup = async () => {
   qrCode.value = ''
 
   try {
-    const response = await platformApi.createCreditTopupLegacy(value)
+    const response = await platformApi.createCreditTopupLegacy(
+      value
+    )
 
     qrCode.value = response.qr_code || response.result?.qr_code || response.result?.slip || ''
     waitingQrCode.value = response.qr_code || response.result?.qr_code || ''
     waitingPaymentMessage.value = 'สแกน QR Code เพื่อชำระเงินรายการนี้'
     waitingDeposit.value = response.result || null
+    slipFile.value = null
     await fetchTopupInfo()
     closeTopupModal(true)
   } catch (error: any) {
@@ -333,6 +481,47 @@ const handleSlipChange = (event: Event) => {
   slipFile.value = target.files?.[0] || null
 }
 
+const handleWaitingSlipChange = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  waitingSlipFile.value = target.files?.[0] || null
+}
+
+const uploadWaitingSlip = async () => {
+  if (!waitingDeposit.value?.id || !waitingSlipFile.value || isUploadingWaitingSlip.value) {
+    return
+  }
+
+  const formData = new FormData()
+  formData.append('slip', waitingSlipFile.value)
+
+  if (transferAt.value) {
+    formData.append('transfer_at', transferAt.value)
+  }
+
+  isUploadingWaitingSlip.value = true
+
+  try {
+    const response = await platformApi.uploadTopupSlipLegacy(waitingDeposit.value.id, formData)
+    waitingDeposit.value = response.result || response.deposit || waitingDeposit.value
+    waitingSlipFile.value = null
+    waitingSlipInputKey.value += 1
+    showAlert({
+      title: 'อัพโหลดสลิปสำเร็จ',
+      message: 'ระบบส่งสลิปให้ตรวจสอบแล้ว',
+      variant: 'info'
+    })
+    await fetchTopupInfo()
+  } catch (error: any) {
+    showAlert({
+      title: 'อัพโหลดสลิปไม่สำเร็จ',
+      message: error?.response?.data?.message || 'กรุณาลองใหม่อีกครั้ง',
+      variant: 'error'
+    })
+  } finally {
+    isUploadingWaitingSlip.value = false
+  }
+}
+
 const submitBankTransfer = async () => {
   const value = validateAmount()
   if (!value) {
@@ -348,18 +537,11 @@ const submitBankTransfer = async () => {
     return
   }
 
-  const formData = new FormData()
-  formData.append('topup', '1')
-  formData.append('channel', 'bank_transfer')
-  formData.append('amount', String(value))
-  formData.append('transfer_at', transferAt.value)
-  formData.append('slip', slipFile.value)
-
   isSubmitting.value = true
   qrCode.value = ''
 
   try {
-    const response = await platformApi.createTopupLegacy(formData)
+    const response = await platformApi.createTopupLegacy(buildTopupPayload('bank_transfer', value, transferAt.value))
     waitingDeposit.value = response.result || null
     slipFile.value = null
     showAlert({
@@ -380,12 +562,24 @@ const submitBankTransfer = async () => {
   }
 }
 
-const cancelWaitingTopup = async () => {
+const openCancelTopupConfirm = () => {
   if (!waitingDeposit.value?.id || isCancelingTopup.value) {
     return
   }
 
-  if (process.client && !window.confirm('ยืนยันยกเลิกรายการเติมเงินนี้?')) {
+  showCancelConfirm.value = true
+}
+
+const closeCancelTopupConfirm = () => {
+  if (isCancelingTopup.value) {
+    return
+  }
+
+  showCancelConfirm.value = false
+}
+
+const cancelWaitingTopup = async () => {
+  if (!waitingDeposit.value?.id || isCancelingTopup.value) {
     return
   }
 
@@ -396,7 +590,10 @@ const cancelWaitingTopup = async () => {
     waitingDeposit.value = null
     waitingQrCode.value = ''
     waitingPaymentMessage.value = ''
+    waitingSlipFile.value = null
+    waitingSlipInputKey.value += 1
     qrCode.value = ''
+    showCancelConfirm.value = false
     showAlert({
       title: 'ยกเลิกรายการสำเร็จ',
       message: response.message || 'สามารถสร้างรายการเติมเงินใหม่ได้แล้ว',
@@ -414,8 +611,47 @@ const cancelWaitingTopup = async () => {
   }
 }
 
+const topupStatusRaw = (topup?: DepositHistory | null) => (
+  String(topup?.presentation_status || topup?.status_raw || '').toLowerCase()
+)
+
+const isTerminalTopupStatus = (topup?: DepositHistory | null) => (
+  ['approved', 'rejected', 'cancelled', 'expired'].includes(topupStatusRaw(topup))
+)
+
+const applyRealtimeTopupUpdate = (payload: any) => {
+  const payloadTopup = payload?.topup || payload?.data || payload
+  const topupId = String(payload?.topup_id || payloadTopup?.id || '').trim()
+  const waitingId = String(waitingDeposit.value?.id || '').trim()
+
+  if (!topupId || !waitingId || topupId !== waitingId) {
+    return
+  }
+
+  const normalizedTopup = platformApi.normalizeTopupLegacy(payloadTopup) as DepositHistory | null
+
+  if (!normalizedTopup) {
+    return
+  }
+
+  waitingDeposit.value = {
+    ...waitingDeposit.value,
+    ...normalizedTopup,
+  }
+  waitingQrCode.value = normalizedTopup.qr_code || waitingQrCode.value
+  waitingPaymentMessage.value = normalizedTopup.message || waitingPaymentMessage.value
+
+  if (isTerminalTopupStatus(normalizedTopup)) {
+    qrCode.value = ''
+    waitingSlipFile.value = null
+    waitingSlipInputKey.value += 1
+    showCancelConfirm.value = false
+  }
+}
+
 watch(activeChannel, () => {
   qrCode.value = ''
+  slipFile.value = null
 })
 
 onMounted(() => {
@@ -568,11 +804,13 @@ onMounted(() => {
 }
 
 .topup-waiting-card {
+  position: relative;
+  z-index: 2;
   width: calc(100% - 32px);
   max-width: var(--content-max);
   display: grid;
   gap: 12px;
-  margin: -32px auto 18px;
+  margin: -14px auto 18px;
   padding: 16px;
   border: 1px solid #dbe7f5;
   border-radius: 16px;
@@ -612,6 +850,26 @@ onMounted(() => {
   font-size: 12px;
   font-weight: 900;
   white-space: nowrap;
+}
+
+.topup-waiting-status.is-payment {
+  color: #075ec9;
+  background: #eaf5ff;
+}
+
+.topup-waiting-status.is-success {
+  color: #047857;
+  background: #e6f8ef;
+}
+
+.topup-waiting-status.is-danger {
+  color: #b42318;
+  background: #fff5f5;
+}
+
+.topup-waiting-status.is-muted {
+  color: #475569;
+  background: #eef2f7;
 }
 
 .topup-waiting-amount {
@@ -665,6 +923,21 @@ onMounted(() => {
   text-align: center;
 }
 
+.topup-waiting-note.is-success {
+  color: #047857;
+  background: #e6f8ef;
+}
+
+.topup-waiting-note.is-danger {
+  color: #b42318;
+  background: #fff5f5;
+}
+
+.topup-waiting-note.is-muted {
+  color: #475569;
+  background: #eef2f7;
+}
+
 .topup-waiting-payment {
   border: 1px solid #e2e8f0;
   border-radius: 14px;
@@ -693,6 +966,68 @@ onMounted(() => {
   color: #64748b;
   font-size: 13px;
   font-weight: 700;
+}
+
+.topup-waiting-slip,
+.topup-deferred-slip-note {
+  border: 1px solid #dbe7f5;
+  border-radius: 14px;
+  padding: 14px;
+  background: #f8fbff;
+}
+
+.topup-waiting-slip-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.topup-waiting-slip-head h3 {
+  margin: 0 0 2px;
+  color: #17335f;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.topup-waiting-slip-head p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.topup-waiting-slip-head span {
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #8b5b00;
+  background: #fff1c7;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.topup-waiting-slip-head span.is-ready {
+  color: #047857;
+  background: #e6f8ef;
+}
+
+.topup-deferred-slip-note {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+  color: #3b5b84;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.topup-deferred-slip-note i {
+  color: #0b69dc;
+  font-size: 18px;
 }
 
 .topup-cancel-button {
@@ -769,6 +1104,19 @@ onMounted(() => {
   background: #f8fbff;
 }
 
+.topup-bank-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  color: #17335f;
+}
+
+.topup-bank-name i {
+  color: #0b69dc;
+  font-size: 18px;
+}
+
 .topup-bank-number {
   font-size: 22px;
   font-weight: 800;
@@ -785,6 +1133,110 @@ onMounted(() => {
   object-fit: contain;
   margin: 12px auto;
   display: block;
+}
+
+.topup-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1120;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(4, 20, 43, .62);
+  backdrop-filter: blur(3px);
+}
+
+.topup-confirm-modal {
+  width: min(100%, 360px);
+  padding: 28px 22px 22px;
+  border-radius: 20px;
+  border: 1px solid rgba(219, 231, 245, .9);
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(5, 34, 77, .28);
+  text-align: center;
+  color: #17335f;
+}
+
+.topup-confirm-icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 14px;
+  border-radius: 20px;
+  color: #b42318;
+  background: #fff5f5;
+  font-size: 30px;
+}
+
+.topup-confirm-modal h2 {
+  margin: 0;
+  color: #17335f;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.28;
+}
+
+.topup-confirm-modal p {
+  margin: 10px 0 16px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.topup-confirm-amount {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f5f9ff;
+}
+
+.topup-confirm-amount span {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.topup-confirm-amount strong {
+  color: #075ec9;
+  font-size: 19px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.topup-confirm-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.topup-confirm-actions button {
+  min-height: 48px;
+  border-radius: 999px;
+  font-weight: 900;
+}
+
+.topup-confirm-secondary {
+  border: 1px solid #cfe1f6;
+  color: #075ec9;
+  background: #fff;
+}
+
+.topup-confirm-danger {
+  border: 0;
+  color: #fff;
+  background: linear-gradient(135deg, #ef4444 0%, #b42318 100%);
+  box-shadow: 0 10px 22px rgba(180, 35, 24, .25);
+}
+
+.topup-confirm-actions button:disabled {
+  opacity: .68;
+  cursor: not-allowed;
 }
 
 </style>

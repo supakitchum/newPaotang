@@ -64,7 +64,7 @@ class LotterySalePriceService
         $groups = [];
 
         foreach ($stockRows as $stock) {
-            $key = (string) $stock->game_id.':'.(string) $stock->full_number;
+            $key = $this->stockGroupKey($stock);
             $groups[$key][] = $stock;
         }
 
@@ -109,6 +109,7 @@ class LotterySalePriceService
         $items = $pricing['items'];
         $total = 0;
         $currency = (string) ($pricing['currency'] ?? self::DEFAULT_CURRENCY);
+        $groupSetSizes = $this->groupSetSizes($stockRows);
 
         foreach ($stockRows as $stock) {
             $stockId = (string) $stock->id;
@@ -116,14 +117,19 @@ class LotterySalePriceService
 
             if ($snapshotAmount !== null) {
                 $snapshot = $this->snapshotFromMixed($stock->reservation_sale_price_rule_snapshot_json ?? null);
-                $amount = (int) $snapshotAmount;
-                $rowCurrency = strtoupper(trim((string) ($stock->reservation_currency ?? self::DEFAULT_CURRENCY))) ?: self::DEFAULT_CURRENCY;
-                $items[$stockId] = [
-                    'amount' => $amount,
-                    'currency' => $rowCurrency,
-                    'summary' => $this->summaryFromSnapshot($snapshot, $amount, $rowCurrency),
-                    'snapshot' => $snapshot,
-                ];
+                $snapshotSetSize = max(1, (int) ($snapshot['set_size'] ?? 1));
+                $currentSetSize = $groupSetSizes[$this->stockGroupKey($stock)] ?? 1;
+
+                if ($snapshotSetSize === $currentSetSize) {
+                    $amount = (int) $snapshotAmount;
+                    $rowCurrency = strtoupper(trim((string) ($stock->reservation_currency ?? self::DEFAULT_CURRENCY))) ?: self::DEFAULT_CURRENCY;
+                    $items[$stockId] = [
+                        'amount' => $amount,
+                        'currency' => $rowCurrency,
+                        'summary' => $this->summaryFromSnapshot($snapshot, $amount, $rowCurrency),
+                        'snapshot' => $snapshot,
+                    ];
+                }
             }
 
             $total += (int) ($items[$stockId]['amount'] ?? 0);
@@ -580,6 +586,27 @@ class LotterySalePriceService
     private function syntheticTenantRuleId(string $gameId, int $setSize): string
     {
         return 'eff:'.$gameId.':'.$setSize;
+    }
+
+    private function stockGroupKey(object $stock): string
+    {
+        return (string) $stock->game_id.':'.(string) $stock->full_number;
+    }
+
+    /**
+     * @param array<int, object> $stockRows
+     * @return array<string, int>
+     */
+    private function groupSetSizes(array $stockRows): array
+    {
+        $sizes = [];
+
+        foreach ($stockRows as $stock) {
+            $key = $this->stockGroupKey($stock);
+            $sizes[$key] = ($sizes[$key] ?? 0) + 1;
+        }
+
+        return $sizes;
     }
 
     /**

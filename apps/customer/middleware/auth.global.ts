@@ -1,3 +1,5 @@
+import { isPublicCustomerRoute } from '~/utils/customerAuthRoutes'
+
 const getSafeRedirect = (value: unknown) => {
   if (typeof value !== 'string') {
     return '/'
@@ -11,7 +13,7 @@ const getSafeRedirect = (value: unknown) => {
 }
 
 export default defineNuxtRouteMiddleware((to) => {
-  const requiresAuth = to.meta.requiresAuth === true
+  const requiresAuth = !isPublicCustomerRoute(to.path)
   const guestOnly = to.meta.guestOnly === true
   const { isAuthenticated } = useAuth()
 

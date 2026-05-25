@@ -77,7 +77,7 @@
 
       <div class="login-register">
         <span>ยังไม่มีบัญชี?</span>
-        <NuxtLink to="/register">สมัครใช้งาน</NuxtLink>
+        <NuxtLink :to="registerTo">สมัครใช้งาน</NuxtLink>
       </div>
     </form>
   </section>
@@ -114,6 +114,14 @@ const getSafeRedirect = () => {
 
   return route.query.redirect
 }
+
+const registerTo = computed(() => {
+  const redirect = getSafeRedirect()
+
+  return redirect === '/'
+    ? '/register'
+    : { path: '/register', query: { redirect } }
+})
 
 const allowDigitsOnly = (event: InputEvent) => {
   if (event.data && !/^\d+$/.test(event.data)) {

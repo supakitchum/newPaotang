@@ -118,9 +118,15 @@ class AdminOperationsService
     public function requiredRealtimePermission(string $scopeType, string $channelName): ?string
     {
         if ($scopeType === 'tenant') {
-            return $this->isTenantStockChannel($channelName) || $this->isTenantStockCoverageChannel($channelName)
-                ? 'stock.view'
-                : null;
+            if ($this->isTenantStockChannel($channelName) || $this->isTenantStockCoverageChannel($channelName)) {
+                return 'stock.view';
+            }
+
+            if ($this->isTenantTopupsChannel($channelName)) {
+                return 'topup.view';
+            }
+
+            return null;
         }
 
         if ($this->isCentralStockGenerationChannel($channelName)) {
@@ -260,7 +266,8 @@ class AdminOperationsService
             'private-admin.tenant.'.$tenantId.'.admin.'.$adminUserId,
             'presence-admin.tenant.'.$tenantId.'.admin.'.$adminUserId,
         ], true) || $this->isTenantStockChannel($channelName, $tenantId)
-            || $this->isTenantStockCoverageChannel($channelName, $tenantId);
+            || $this->isTenantStockCoverageChannel($channelName, $tenantId)
+            || $this->isTenantTopupsChannel($channelName, $tenantId);
     }
 
     private function isCentralStockGenerationChannel(string $channelName): bool
@@ -296,6 +303,15 @@ class AdminOperationsService
             : preg_quote($tenantId, '/');
 
         return preg_match('/^private-admin\.tenant\.'.$tenantPattern.'\.stock\.coverage\.game\.[A-Za-z0-9_-]+$/', $channelName) === 1;
+    }
+
+    private function isTenantTopupsChannel(string $channelName, ?string $tenantId = null): bool
+    {
+        $tenantPattern = $tenantId === null || $tenantId === ''
+            ? '[A-Za-z0-9_-]+'
+            : preg_quote($tenantId, '/');
+
+        return preg_match('/^private-admin\.tenant\.'.$tenantPattern.'\.topups$/', $channelName) === 1;
     }
 
     private function limit(mixed $value): int

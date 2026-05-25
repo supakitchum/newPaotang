@@ -6,6 +6,7 @@ use App\Models\LocalStockItem;
 use App\Models\PartnerLotteryBrandingAssetSet;
 use App\Models\StockItem;
 use App\Modules\CentralStock\Services\LotteryImageGenerator;
+use App\Support\PublicUrl;
 use Illuminate\Support\Facades\Storage;
 
 class VirtualLotteryImageService
@@ -20,10 +21,14 @@ class VirtualLotteryImageService
     /**
      * @return array{url: ?string, status: string, error: ?string}
      */
-    public function previewDescriptor(string $tenantId, string $partnerId, string $gameId, string $fullNumber, int $copyIndex): array
+    public function previewDescriptor(string $tenantId, string $partnerId, string $gameId, string $fullNumber, int $copyIndex, string $variant = 'thumb'): array
     {
         if (! $this->images->enabled()) {
             return ['url' => null, 'status' => 'skipped', 'error' => 'lottery_image_generation_disabled'];
+        }
+
+        if (! in_array($variant, self::VARIANTS, true)) {
+            return ['url' => null, 'status' => 'failed', 'error' => 'lottery_image_variant_unknown:'.$variant];
         }
 
         $context = $this->renderContext($tenantId, $partnerId, $gameId, $fullNumber, $copyIndex);
@@ -33,7 +38,7 @@ class VirtualLotteryImageService
         }
 
         return [
-            'url' => $this->publicRouteUrl($this->signedToken($this->imagePayload($context, 'preview', 'thumb'))),
+            'url' => $this->publicRouteUrl($this->signedToken($this->imagePayload($context, 'preview', $variant))),
             'status' => 'ready',
             'error' => null,
         ];
@@ -128,8 +133,8 @@ class VirtualLotteryImageService
             $fullKey = $this->soldObjectKey((string) $localStock->game_id, $ticketId, 'full');
             $thumbKey = $this->soldObjectKey((string) $localStock->game_id, $ticketId, 'thumb');
 
-            $this->images->storeObject($fullKey, $this->renderBytes($context, 'full'));
-            $this->images->storeObject($thumbKey, $this->renderBytes($context, 'thumb'));
+            $this->images->storeObject($fullKey, $this->renderBytes($context, 'full', soldWatermark: true));
+            $this->images->storeObject($thumbKey, $this->renderBytes($context, 'thumb', soldWatermark: true));
 
             $result = [
                 'image_url' => $this->images->publicUrl($fullKey),
@@ -211,13 +216,14 @@ class VirtualLotteryImageService
     /**
      * @param array<string, mixed> $context
      */
-    private function renderBytes(array $context, string $variant): string
+    private function renderBytes(array $context, string $variant, bool $soldWatermark = false): string
     {
         return $this->images->renderPartnerImage(
             $this->localModel($context),
             $this->stockModel($context),
             $context['asset_set'],
             $variant,
+            soldWatermark: $soldWatermark,
         );
     }
 
@@ -357,7 +363,7 @@ class VirtualLotteryImageService
 
     private function publicRouteUrl(string $token): string
     {
-        return rtrim((string) config('app.url', 'http://localhost'), '/').'/api/v1/public/stock/images/'.$token.'.webp';
+        return PublicUrl::absolute(rtrim((string) config('app.url', 'http://localhost'), '/').'/api/v1/public/stock/images/'.$token.'.webp');
     }
 
     /**

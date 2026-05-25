@@ -131,6 +131,85 @@ class CustomerReservationTest extends TestCase
         ]);
     }
 
+    public function test_CustomerReservation_uses_first_cart_expiry_and_cart_endpoint_expires_due_items(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_cart_window', 'ten_cart_window', 'cart-window.newpaotang.test');
+        $this->insertGame('gam_cart_window', 'open');
+        $this->insertBaseLotteryNumbers(['654330', '654331']);
+        $this->insertVirtualProfile('gam_cart_window', 2);
+        $this->insertVirtualAllocation('gam_cart_window', 'par_cart_window', 'ten_cart_window', 10000, 2);
+        $customerToken = $this->issueCustomerToken('ten_cart_window', 'cus_cart_window');
+        $firstStock = $this->getJson('http://cart-window.newpaotang.test/api/v1/public/stock/search?game_id=gam_cart_window&number=654330')
+            ->assertOk()
+            ->json('data.0');
+        $secondStock = $this->getJson('http://cart-window.newpaotang.test/api/v1/public/stock/search?game_id=gam_cart_window&number=654331')
+            ->assertOk()
+            ->json('data.0');
+
+        $firstReservation = $this->withToken($customerToken)
+            ->postJson('http://cart-window.newpaotang.test/api/v1/customer/reservations', [
+                'game_id' => 'gam_cart_window',
+                'local_stock_item_ids' => [$firstStock['id']],
+            ], [
+                'Idempotency-Key' => 'cart-window-first',
+            ])
+            ->assertCreated()
+            ->json();
+
+        $this->assertGreaterThan(0, $firstReservation['expires_in_seconds']);
+        $this->assertLessThanOrEqual(900, $firstReservation['expires_in_seconds']);
+
+        $secondReservation = $this->withToken($customerToken)
+            ->postJson('http://cart-window.newpaotang.test/api/v1/customer/reservations', [
+                'game_id' => 'gam_cart_window',
+                'local_stock_item_ids' => [$secondStock['id']],
+            ], [
+                'Idempotency-Key' => 'cart-window-second',
+            ])
+            ->assertCreated()
+            ->json();
+
+        $this->assertSame($firstReservation['expires_at'], $secondReservation['expires_at']);
+        $this->assertGreaterThan(0, $secondReservation['expires_in_seconds']);
+        $this->assertLessThanOrEqual(900, $secondReservation['expires_in_seconds']);
+
+        $cart = $this->withToken($customerToken)
+            ->getJson('http://cart-window.newpaotang.test/api/v1/customer/cart')
+            ->assertOk()
+            ->assertJsonPath('item_count', 2)
+            ->json();
+
+        $this->assertGreaterThan(0, $cart['reservations'][0]['expires_in_seconds']);
+        $this->assertLessThanOrEqual(900, $cart['reservations'][0]['expires_in_seconds']);
+
+        DB::table('stock_reservations')->whereIn('id', [$firstReservation['id'], $secondReservation['id']])->update([
+            'expires_at' => now()->subMinute(),
+            'updated_at' => now(),
+        ]);
+
+        $this->withToken($customerToken)
+            ->getJson('http://cart-window.newpaotang.test/api/v1/customer/cart')
+            ->assertOk()
+            ->assertJsonPath('item_count', 0)
+            ->assertJsonCount(0, 'reservations');
+
+        foreach ([$firstReservation, $secondReservation] as $reservation) {
+            $this->assertDatabaseHas('stock_reservations', [
+                'id' => $reservation['id'],
+                'status' => 'expired',
+            ]);
+            $this->assertDatabaseHas('local_stock_items', [
+                'id' => $reservation['items'][0]['id'],
+                'status' => 'available',
+            ]);
+            $this->assertDatabaseHas('sync_outbox', [
+                'event_type' => 'reservation.expired.v1',
+                'aggregate_id' => $reservation['id'],
+            ]);
+        }
+    }
+
     /**
      * @param array<int, string> $numbers
      */

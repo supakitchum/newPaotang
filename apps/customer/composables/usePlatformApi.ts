@@ -93,6 +93,31 @@ const normalizeImageFields = (item: AnyRecord) => {
   }
 }
 
+const parseTimestampMs = (value: unknown) => {
+  if (!value) {
+    return null
+  }
+
+  if (typeof value === 'number') {
+    return value < 1000000000000 ? value * 1000 : value
+  }
+
+  const parsed = Date.parse(String(value))
+
+  return Number.isNaN(parsed) ? null : parsed
+}
+
+const expirationFromServerDuration = (reservation: AnyRecord | null | undefined) => {
+  const seconds = Number(reservation?.expires_in_seconds)
+  const serverTime = parseTimestampMs(reservation?.server_time)
+
+  if (Number.isFinite(seconds) && serverTime !== null) {
+    return new Date(serverTime + Math.max(0, seconds) * 1000).toISOString()
+  }
+
+  return reservation?.expires_at || null
+}
+
 const normalizeStockItem = (item: AnyRecord, reservationContext?: string | AnyRecord): CartLottery & AnyRecord => {
   const reservation = typeof reservationContext === 'string'
     ? { id: reservationContext }
@@ -101,6 +126,7 @@ const normalizeStockItem = (item: AnyRecord, reservationContext?: string | AnyRe
   const number = String(item.full_number || item.number || item.lottery_number || '')
   const price = moneyToDisplayNumber(item.price)
   const imageFields = normalizeImageFields(item)
+  const reservationExpiresAt = expirationFromServerDuration(reservation)
 
   return {
     ...item,
@@ -110,7 +136,7 @@ const normalizeStockItem = (item: AnyRecord, reservationContext?: string | AnyRe
     remaining_count: Number.isFinite(Number(item.remaining_count)) ? Number(item.remaining_count) : null,
     availability_status: item.availability_status || item.status || 'available',
     reservation_id: reservationId || item.reservation_id,
-    reservation_expires_at: item.reservation_expires_at || item.expires_at || reservation?.expires_at || null,
+    reservation_expires_at: item.reservation_expires_at || item.expires_at || reservationExpiresAt,
     server_time: item.server_time || reservation?.server_time || null,
     number,
     full_number: number,
@@ -141,9 +167,20 @@ const getFirstActiveReservation = (cart: AnyRecord | null | undefined) => {
   return reservations.find((reservation: AnyRecord) => String(reservation.status || 'active') === 'active') || reservations[0] || null
 }
 
+const getCartReservationIds = (cart: AnyRecord | null | undefined) => {
+  const reservations = Array.isArray(cart?.reservations) ? cart.reservations : []
+
+  return reservations
+    .filter((reservation: AnyRecord) => String(reservation.status || 'active') === 'active')
+    .map((reservation: AnyRecord) => String(reservation.id || '').trim())
+    .filter(Boolean)
+}
+
 const normalizeCartOrder = (cart: AnyRecord | null | undefined) => {
   const reservation = getFirstActiveReservation(cart)
   const lotteries = normalizeCartItems(cart)
+  const expiresAt = expirationFromServerDuration(reservation)
+  const reservationIds = getCartReservationIds(cart)
 
   if (!reservation && lotteries.length === 0) {
     return null
@@ -152,7 +189,10 @@ const normalizeCartOrder = (cart: AnyRecord | null | undefined) => {
   return {
     id: reservation?.id || lotteries[0]?.reservation_id || '',
     reservation_id: reservation?.id || lotteries[0]?.reservation_id || '',
-    exp: reservation?.expires_at || null,
+    reservation_ids: reservationIds.length > 0
+      ? reservationIds
+      : Array.from(new Set(lotteries.map((item: CartLottery) => String(item.reservation_id || '').trim()).filter(Boolean))),
+    exp: expiresAt,
     server_time: reservation?.server_time || cart?.server_time,
     created_at: reservation?.server_time || cart?.server_time,
     updated_at: reservation?.server_time || cart?.server_time,
@@ -202,11 +242,18 @@ const normalizeTopup = (topup: AnyRecord | null | undefined) => {
     return null
   }
 
+  const presentationStatus = String(topup.status || '')
+
   return {
     ...topup,
     amount: moneyToDisplayNumber(topup.amount),
     bonus_amount: moneyToDisplayNumber(topup.bonus_amount),
-    status: topupStatusToLegacy(topup.status),
+    status: topupStatusToLegacy(presentationStatus),
+    status_raw: presentationStatus,
+    presentation_status: presentationStatus,
+    slip: topup.slip || null,
+    slip_url: topup.slip_url || topup.slip?.url || topup.slip?.full_url || '',
+    slip_thumb_url: topup.slip_thumb_url || topup.slip?.thumb_url || topup.slip?.url || '',
     qr_code: topup.payment?.qr_code || '',
     redirect_url: topup.payment?.redirect_url || '',
     message: topup.payment?.message || ''
@@ -237,18 +284,27 @@ const normalizeAffiliateCommission = (commission: AnyRecord | null | undefined) 
 
 const normalizeAffiliateOverview = (payload: AnyRecord | null | undefined) => {
   const stats = payload?.stats || {}
+  const payoutPolicy = payload?.payout_policy || {}
 
   return {
     is_affiliate: Boolean(payload?.is_affiliate),
     affiliate: payload?.affiliate || null,
     links: Array.isArray(payload?.links) ? payload.links : [],
+    profile: payload?.profile || {},
+    payout_policy: {
+      ...payoutPolicy,
+      minimum_payout: moneyToDisplayNumber(payoutPolicy.minimum_payout, 300),
+      minimum_payout_amount: moneyToDisplayNumber(payoutPolicy.minimum_payout_amount || payoutPolicy.minimum_payout, 300)
+    },
     stats: {
       total_commission: moneyToDisplayNumber(stats.total_commission),
       approved_commission: moneyToDisplayNumber(stats.approved_commission),
       pending_commission: moneyToDisplayNumber(stats.pending_commission),
       requested_payout: moneyToDisplayNumber(stats.requested_payout),
       available_balance: moneyToDisplayNumber(stats.available_balance),
-      converted_count: Number(stats.converted_count || 0)
+      converted_count: Number(stats.converted_count || 0),
+      visitor_count: Number(stats.visitor_count || 0),
+      registered_count: Number(stats.registered_count || 0)
     },
     commissions: Array.isArray(payload?.commissions) ? payload.commissions.map(normalizeAffiliateCommission).filter(Boolean) : [],
     payouts: Array.isArray(payload?.payouts) ? payload.payouts.map(normalizeAffiliatePayout).filter(Boolean) : []
@@ -264,8 +320,12 @@ const normalizeBank = (bank: AnyRecord | null | undefined) => {
     ...bank,
     bank_deposit_name: bank.bank_deposit_name || bank.account_name,
     bank_deposit_number: bank.bank_deposit_number || bank.account_number,
+    bank_name: bank.bank_name || bank.bank?.name || 'ธนาคาร',
+    bank_icon: bank.bank_icon || bank.bank?.icon || 'bi-bank',
     bank: {
-      name: bank.bank?.name || bank.bank_name || 'ธนาคาร'
+      code: bank.bank?.code || bank.bank_code || '',
+      name: bank.bank?.name || bank.bank_name || 'ธนาคาร',
+      icon: bank.bank?.icon || bank.bank_icon || 'bi-bank'
     }
   }
 }
@@ -424,6 +484,19 @@ export const usePlatformApi = () => {
     return cart
   }
 
+  const loadCartLegacy = async () => {
+    const cart = await loadCart()
+
+    return withLegacyData({
+      code: 0,
+      carts: normalizeCartItems(cart),
+      server_time: cart?.server_time || null,
+      result: {
+        cart_order: normalizeCartOrder(cart)
+      }
+    })
+  }
+
   const loadAppInit = async () => {
     const [configResult, gameResult, cartResult] = await Promise.allSettled([
       fetchSiteConfig(),
@@ -457,6 +530,7 @@ export const usePlatformApi = () => {
     cursor?: string | null
     storeId?: string
     mode?: 'search' | 'browse' | 'random'
+    randomSeed?: string | null
     limit?: number
     page?: number
   } = {}) => {
@@ -493,6 +567,7 @@ export const usePlatformApi = () => {
         ...(input.storeId ? { store_id: input.storeId } : {}),
         mode,
         ...(input.cursor ? { cursor: input.cursor } : {}),
+        ...(input.randomSeed ? { random_seed: input.randomSeed } : {}),
         limit: input.limit || 20
       }
     })
@@ -695,9 +770,39 @@ export const usePlatformApi = () => {
     })
   }
 
-  const checkoutLegacy = async (reservationId: string | number) => {
+  const normalizeCheckoutReservationIds = (input: string | number | Array<string | number> | AnyRecord | null | undefined) => {
+    if (Array.isArray(input)) {
+      return input.map((id) => String(id || '').trim()).filter(Boolean)
+    }
+
+    if (input && typeof input === 'object') {
+      const explicitIds = Array.isArray(input.reservation_ids)
+        ? input.reservation_ids.map((id: unknown) => String(id || '').trim()).filter(Boolean)
+        : []
+
+      if (explicitIds.length > 0) {
+        return explicitIds
+      }
+
+      const lotteryIds = Array.isArray(input.lotteries)
+        ? Array.from(new Set(input.lotteries.map((item: AnyRecord) => String(item.reservation_id || '').trim()).filter(Boolean)))
+        : []
+
+      if (lotteryIds.length > 0) {
+        return lotteryIds
+      }
+
+      return [String(input.reservation_id || input.id || '').trim()].filter(Boolean)
+    }
+
+    return [String(input || '').trim()].filter(Boolean)
+  }
+
+  const checkoutLegacy = async (reservationInput: string | number | Array<string | number> | AnyRecord) => {
+    const reservationIds = normalizeCheckoutReservationIds(reservationInput)
     const response = await axios.post('/customer/checkout', {
-      reservation_id: String(reservationId),
+      reservation_id: reservationIds[0] || '',
+      reservation_ids: reservationIds,
       payment_method: 'wallet'
     }, {
       headers: idempotencyHeaders('customer-checkout')
@@ -774,7 +879,7 @@ export const usePlatformApi = () => {
     }
   }
 
-  const createTopupLegacy = async (payload: AnyRecord) => {
+  const createTopupLegacy = async (payload: AnyRecord | FormData) => {
     const isFormData = typeof FormData !== 'undefined' && payload instanceof FormData
     const body = isFormData ? payload : {
       channel: payload.channel || 'qr',
@@ -800,9 +905,16 @@ export const usePlatformApi = () => {
   }
 
   const createCreditTopupLegacy = async (amount: unknown) => {
-    const topup = normalizeTopup(unwrapData<AnyRecord>(await axios.post('/customer/topups/credit', {
+    const isFormData = typeof FormData !== 'undefined' && amount instanceof FormData
+    const body = isFormData ? amount : {
       amount: displayAmountToMinor(amount)
-    }, {
+    }
+
+    if (isFormData) {
+      amount.set('amount', String(displayAmountToMinor(amount.get('amount'))))
+    }
+
+    const topup = normalizeTopup(unwrapData<AnyRecord>(await axios.post('/customer/topups/credit', body, {
       headers: idempotencyHeaders('customer-credit-topup')
     })))
 
@@ -810,6 +922,19 @@ export const usePlatformApi = () => {
       code: 0,
       result: topup,
       qr_code: topup?.qr_code || ''
+    })
+  }
+
+  const uploadTopupSlipLegacy = async (id: string | number, payload: FormData) => {
+    const topup = normalizeTopup(unwrapData<AnyRecord>(await axios.post(`/customer/topups/${id}/slip`, payload, {
+      headers: idempotencyHeaders('customer-topup-slip')
+    })))
+
+    return withLegacyData({
+      code: 0,
+      result: topup,
+      deposit: topup,
+      message: 'อัพโหลดสลิปสำเร็จ'
     })
   }
 
@@ -825,13 +950,18 @@ export const usePlatformApi = () => {
     })
   }
 
+  const normalizeTopupLegacy = (topup: AnyRecord | null | undefined) => normalizeTopup(topup)
+
   const affiliateOverview = async () => normalizeAffiliateOverview(unwrapData<AnyRecord>(await axios.get('/customer/affiliate')))
 
   const registerAffiliate = async (payload: AnyRecord = {}) => normalizeAffiliateOverview(unwrapData<AnyRecord>(await axios.post('/customer/affiliate', payload, {
     headers: idempotencyHeaders('customer-affiliate-register')
   })))
 
-  const applyAffiliateReferral = async (ref: string) => unwrapData<AnyRecord>(await axios.post('/customer/affiliate/referrals/apply', {
+  const trackAffiliateReferralClick = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/public/affiliate/referrals/click', payload))
+
+  const applyAffiliateReferral = async (ref: string, payload: AnyRecord = {}) => unwrapData<AnyRecord>(await axios.post('/customer/affiliate/referrals/apply', {
+    ...payload,
     ref
   }))
 
@@ -868,6 +998,7 @@ export const usePlatformApi = () => {
   return {
     loadAppInit,
     loadCart,
+    loadCartLegacy,
     searchStockLegacy,
     storesLegacy,
     newsLegacy,
@@ -892,9 +1023,12 @@ export const usePlatformApi = () => {
     topupDetailLegacy,
     createTopupLegacy,
     createCreditTopupLegacy,
+    uploadTopupSlipLegacy,
     cancelTopupLegacy,
+    normalizeTopupLegacy,
     affiliateOverview,
     registerAffiliate,
+    trackAffiliateReferralClick,
     applyAffiliateReferral,
     affiliateCommissions,
     affiliatePayouts,

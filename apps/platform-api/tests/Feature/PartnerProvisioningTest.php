@@ -90,6 +90,22 @@ class PartnerProvisioningTest extends TestCase
         ]);
         $tenantId = $provisioned['tenants'][0]['id'];
 
+        $this->assertDatabaseHas('affiliate_programs', [
+            'tenant_id' => $tenantId,
+            'code' => 'basic',
+            'name' => 'Basic Affiliate',
+            'status' => 'active',
+            'minimum_payout_amount' => 30000,
+        ]);
+        $this->assertDatabaseHas('commission_rules', [
+            'tenant_id' => $tenantId,
+            'code' => 'basic_com',
+            'name' => 'BasicCom',
+            'rule_type' => 'per_ticket',
+            'amount' => 1000,
+            'status' => 'active',
+        ]);
+
         $this->withToken($login['access_token'])
             ->patchJson('/api/v1/admin/central/partners/'.$partner['id'].'/profile', [
                 'section' => 'tenant',

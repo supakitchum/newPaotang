@@ -148,6 +148,11 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
                 'allow_external_payment' => true,
                 'config' => [
                     'display_name' => 'Gateway',
+                    'bank_transfer' => [
+                        'bank_code' => 'scb',
+                        'account_name' => 'Alpha Co',
+                        'account_number' => '123-4-56789-0',
+                    ],
                     'secret_token' => 'super-secret',
                     'nested' => ['api_key' => 'secret-key'],
                 ],
@@ -156,6 +161,10 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
             ->assertJsonPath('production_provider_ready', false)
             ->assertJsonPath('payment_provider_status', 'blocked_external')
             ->assertJsonPath('config.display_name', 'Gateway')
+            ->assertJsonPath('config.bank_transfer.bank_code', 'scb')
+            ->assertJsonPath('config.bank_transfer.account_name', 'Alpha Co')
+            ->assertJsonPath('bank_transfer.bank_name', 'ธนาคารไทยพาณิชย์')
+            ->assertJsonPath('bank_transfer.bank_icon', 'bi-bank')
             ->assertJsonPath('secret_status.secret_token', '[CONFIGURED]')
             ->assertJsonPath('secret_status.nested.api_key', '[CONFIGURED]')
             ->json();

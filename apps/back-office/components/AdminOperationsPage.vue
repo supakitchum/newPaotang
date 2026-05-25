@@ -74,7 +74,7 @@
                 <label class="form-label" :for="fieldId(`settings-${field.key}`)">{{ field.label }}</label>
                 <select v-if="field.type === 'select'" :id="fieldId(`settings-${field.key}`)" v-model="settingsForm[field.key]" class="form-select">
                   <option value="">Select</option>
-                  <option v-for="option in field.options || []" :key="option" :value="option">{{ option }}</option>
+                  <option v-for="option in field.options || []" :key="optionValue(option)" :value="optionValue(option)">{{ optionLabel(option) }}</option>
                 </select>
                 <div v-else-if="field.type === 'stock-set-distribution'" class="border rounded p-3">
                   <div class="d-grid gap-2">
@@ -189,7 +189,7 @@
                 <label class="form-label" :for="fieldId(`secondary-${panel.key}-${field.key}`)">{{ field.label }}</label>
                 <select v-if="field.type === 'select'" :id="fieldId(`secondary-${panel.key}-${field.key}`)" v-model="secondaryForms[panel.key][field.key]" class="form-select">
                   <option value="">Select</option>
-                  <option v-for="option in field.options || []" :key="option" :value="option">{{ option }}</option>
+                  <option v-for="option in field.options || []" :key="optionValue(option)" :value="optionValue(option)">{{ optionLabel(option) }}</option>
                 </select>
                 <textarea
                   v-else-if="field.type === 'textarea' || field.type === 'json' || field.type === 'lines'"
@@ -260,7 +260,33 @@
         :loading="loading && !detailGap"
         @saved="handlePartnerDetailSaved"
       />
-      <AdminDetailSection v-else :title="`${resource.title} detail`" :record="detailSectionRecord" :loading="loading && !detailGap" />
+      <AdminCustomerDetail
+        v-else-if="resource.detailRenderer === 'customer'"
+        :record="detailDisplayRecord"
+        :loading="loading && !detailGap"
+      />
+      <AdminWalletDetail
+        v-else-if="resource.detailRenderer === 'wallet'"
+        :record="detailDisplayRecord"
+        :loading="loading && !detailGap"
+      />
+      <AdminOrderDetail
+        v-else-if="resource.detailRenderer === 'order'"
+        :record="detailDisplayRecord"
+        :loading="loading && !detailGap"
+      />
+      <AdminTopupDetail
+        v-else-if="resource.detailRenderer === 'topup'"
+        :record="detailDisplayRecord"
+        :loading="loading && !detailGap"
+      />
+      <AdminDetailSection
+        v-else
+        :title="`${resource.title} detail`"
+        :record="detailSectionRecord"
+        :fields="resource.detailFields || []"
+        :loading="loading && !detailGap"
+      />
       <AdminRewardPrizes
         v-if="resource.detailRenderer === 'reward' && !detailGap && detail"
         :prizes="detail?.prizes || []"
@@ -285,7 +311,7 @@
     </template>
 
     <template v-else>
-      <AdminFilterBar v-if="resource.filters?.length" :filters="hydratedFilters" :model-value="filters" @apply="applyFilters" />
+      <AdminFilterBar v-if="!showListSections && resource.filters?.length" :filters="hydratedFilters" :model-value="filters" @apply="applyFilters" />
       <AdminApiState v-if="stockGenerateCurrentGameMessage" :message="stockGenerateCurrentGameMessage" />
       <AdminStockSummaryWidgets
         v-if="showStockSummaryWidgets"
@@ -323,13 +349,14 @@
       <AdminExportPanel :actions="hydratedCollectionActions" @run="openCollectionAction" />
       <AdminApiState :error="error" />
       <AdminDataTable
+        v-if="!showListSections"
         :title="resource.title"
         :columns="tableColumns"
-        :rows="rows"
+        :rows="tableRows"
         :loading="loading"
         :sort-key="sortState.key"
         :sort-direction="sortState.direction"
-        :sortable="Boolean(resource.apiSort)"
+        :sortable="Boolean(resource.apiSort || resource.clientSort)"
         :empty-title="`No ${resource.title.toLowerCase()}`"
         empty-message="No records were returned from the approved back-office API."
         @sort-change="applySort"
@@ -394,7 +421,8 @@
         </template>
         <template v-for="column in tableColumns" #[`cell-${column.key}`]="{ row }">
           <AdminStatusBadge v-if="column.type === 'status'" :status="row[column.key]" />
-          <span v-else>{{ row[column.key] ?? '-' }}</span>
+          <AdminImagePreview v-else-if="column.type === 'image'" :image="row[column.key]" :label="column.label" />
+          <span v-else>{{ formattedCellValue(row, column) }}</span>
         </template>
         <template #rowActions="{ row }">
           <div class="d-flex justify-content-end gap-1">
@@ -414,7 +442,7 @@
             >
               View number
             </button>
-            <template v-for="action in isStockGrouped ? [] : hydratedActions" :key="action.key">
+            <template v-for="action in isStockGrouped ? [] : rowActionsForRow(row)" :key="action.key">
               <NuxtLink
                 v-if="action.route"
                 :to="actionRoute(action, row)"
@@ -437,6 +465,7 @@
         </template>
       </AdminDataTable>
       <AdminPagination
+        v-if="!showListSections"
         :next-cursor="meta.next_cursor"
         :has-previous="pageState.index > 0"
         :loading="loading"
@@ -453,10 +482,10 @@
     </template>
 
     <template v-if="showRelatedLists">
-      <div v-for="related in resource.relatedLists || []" :key="related.key">
+      <div v-for="related in activeRelatedLists" :key="related.key">
         <AdminFilterBar
           v-if="related.filters?.length"
-          :filters="related.filters"
+          :filters="hydrateFilters(related.filters || [])"
           :model-value="relatedFilters[related.key] || {}"
           @apply="applyRelatedFilters(related, $event)"
         />
@@ -467,14 +496,19 @@
           :columns="related.columns || []"
           :rows="relatedRows[related.key] || []"
           :loading="relatedLoading[related.key]"
+          :sort-key="relatedSortState[related.key]?.key || ''"
+          :sort-direction="relatedSortState[related.key]?.direction || 'asc'"
+          :sortable="Boolean(related.apiSort)"
           :empty-title="related.emptyTitle || `No ${related.title.toLowerCase()}`"
           :empty-message="related.emptyMessage || 'No related records were returned from the approved back-office API.'"
+          @sort-change="applyRelatedSort(related, $event)"
         >
           <template v-for="column in related.columns || []" #[`cell-${column.key}`]="{ row }">
             <AdminStatusBadge v-if="column.type === 'status'" :status="row[column.key]" />
-            <span v-else>{{ row[column.key] ?? '-' }}</span>
+            <AdminImagePreview v-else-if="column.type === 'image'" :image="row[column.key]" :label="column.label" />
+            <span v-else>{{ formattedCellValue(row, column) }}</span>
           </template>
-          <template #rowActions="{ row }">
+          <template v-if="hasRelatedRowActions(related)" #rowActions="{ row }">
             <div class="d-flex justify-content-end gap-1">
               <button
                 v-if="related.detailEndpoint"
@@ -485,10 +519,12 @@
                 Detail
               </button>
               <button
-                v-for="action in related.actions || []"
+                v-for="action in relatedRowActionsForRow(related, row)"
                 :key="action.key"
                 type="button"
                 :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
+                :disabled="isActionDisabled(action, row)"
+                :title="actionDisabledReason(action, row)"
                 @click="openRelatedRowAction(related, action, row)"
               >
                 {{ action.label }}
@@ -599,6 +635,7 @@
       :title="confirm.title"
       :message="confirm.message"
       :requires-reason="confirm.action?.reason"
+      :optional-reason="confirm.action?.optionalReason"
       :requires-payload="Boolean(confirm.action?.payloadTemplate) && !confirm.action?.formFields?.length"
       :payload-template="confirm.action?.payloadTemplate"
       :form-fields="confirm.action?.formFields || []"
@@ -611,7 +648,18 @@
 
     <AdminModal v-model="relatedDetail.open" :title="relatedDetail.title">
       <AdminApiState :error="relatedDetail.error" />
-      <AdminDetailSection title="Detail" :record="relatedDetail.record" :loading="relatedDetail.loading" />
+      <AdminTopupDetail
+        v-if="relatedDetail.renderer === 'topup'"
+        :record="relatedDetail.record"
+        :loading="relatedDetail.loading"
+      />
+      <AdminDetailSection
+        v-else
+        title="Detail"
+        :record="relatedDetailSectionRecord"
+        :fields="relatedDetail.detailFields"
+        :loading="relatedDetail.loading"
+      />
       <template #footer>
         <button class="btn btn-light btn-wave" type="button" @click="relatedDetail.open = false">Close</button>
       </template>
@@ -620,11 +668,15 @@
 </template>
 
 <script setup lang="ts">
-import type { OperationAction, OperationFilter, OperationFormField, OperationOption, OperationOptionSource, OperationRelatedList, OperationResource, OperationSettingsPanel } from '~/composables/useAdminOperationsCatalog'
+import type { OperationAction, OperationColumn, OperationFilter, OperationFormField, OperationOption, OperationOptionSource, OperationRelatedList, OperationResource, OperationSettingsPanel } from '~/composables/useAdminOperationsCatalog'
+import AdminCustomerDetail from '~/components/AdminCustomerDetail.vue'
+import AdminOrderDetail from '~/components/AdminOrderDetail.vue'
 import AdminPartnerDetail from '~/components/AdminPartnerDetail.vue'
 import AdminTenantStockCoverage from '~/components/AdminTenantStockCoverage.vue'
 import AdminTenantStockDetail from '~/components/AdminTenantStockDetail.vue'
-import { formatDateTime, titleize } from '~/utils/format'
+import AdminTopupDetail from '~/components/AdminTopupDetail.vue'
+import AdminWalletDetail from '~/components/AdminWalletDetail.vue'
+import { formatAdminValue, formatDateTime, formatMoney, titleize } from '~/utils/format'
 
 const props = defineProps<{
   scope: 'tenant' | 'central'
@@ -666,6 +718,7 @@ const relatedLoading = reactive<Record<string, boolean>>({})
 const relatedErrors = reactive<Record<string, any>>({})
 const relatedMeta = reactive<Record<string, { next_cursor: string | null, has_more: boolean }>>({})
 const relatedPageState = reactive<Record<string, { cursors: Array<string | null>, index: number }>>({})
+const relatedSortState = reactive<Record<string, { key: string, direction: 'asc' | 'desc' }>>({})
 const confirm = reactive<{
   open: boolean
   title: string
@@ -687,12 +740,16 @@ const relatedDetail = reactive<{
   loading: boolean
   error: any
   record: any
+  renderer: string
+  detailFields: OperationColumn[]
 }>({
   open: false,
   title: '',
   loading: false,
   error: null,
   record: null,
+  renderer: '',
+  detailFields: [],
 })
 const stockNumberDetail = reactive<{
   open: boolean
@@ -749,6 +806,8 @@ const optionSourceOptions = reactive<Record<OperationOptionSource, OperationOpti
   'central-sale-price-games': [],
   'central-partners': [],
   'central-billing-plans': [],
+  'central-admin-roles': [],
+  'tenant-admin-roles': [],
   'allocation-partners': [],
   'allocation-tenants': [],
   'allocation-games': [],
@@ -764,6 +823,8 @@ const optionSourceLoading = reactive<Record<OperationOptionSource, boolean>>({
   'central-sale-price-games': false,
   'central-partners': false,
   'central-billing-plans': false,
+  'central-admin-roles': false,
+  'tenant-admin-roles': false,
   'allocation-partners': false,
   'allocation-tenants': false,
   'allocation-games': false,
@@ -780,6 +841,11 @@ const stockSettingsLoading = ref(false)
 const slugParts = computed(() => normalizeSlug(route.params.slug))
 const resolved = computed(() => catalog.resolve(props.scope, slugParts.value))
 const resource = computed(() => resolved.value.resource)
+const tableRows = computed(() => (
+  resource.value?.clientSort
+    ? sortRows(rows.value, sortState.key, sortState.direction)
+    : rows.value
+))
 const mode = computed(() => resolved.value.mode)
 const recordId = computed(() => resolved.value.id)
 const scopeLabel = computed(() => props.scope === 'tenant' ? 'Tenant' : 'Central')
@@ -787,16 +853,19 @@ const scopeBasePath = computed(() => `/admin/${props.scope}`)
 const pageTitle = computed(() => mode.value === 'detail' ? `${resource.value?.title || 'Detail'} detail` : resource.value?.title || 'Operations')
 const listPath = computed(() => resource.value ? `${scopeBasePath.value}/${resource.value.slug}` : scopeBasePath.value)
 const canReload = computed(() => Boolean(resource.value && mode.value !== 'report-index' && !resource.value.apiGap && !detailGap.value && !isStockPatternCoverageRoute.value))
-const hasDetailRoute = computed(() => Boolean(resource.value?.detailEndpoint || resource.value?.detailApiGap))
-const detailGap = computed(() => mode.value === 'detail' && !resource.value?.detailEndpoint ? resource.value?.detailApiGap || 'No documented detail GET endpoint is available for this route.' : '')
+const hasDetailRoute = computed(() => Boolean(resource.value?.detailEndpoint || resource.value?.detailFromList || resource.value?.detailApiGap))
+const detailGap = computed(() => mode.value === 'detail' && !resource.value?.detailEndpoint && !resource.value?.detailFromList ? resource.value?.detailApiGap || 'No documented detail GET endpoint is available for this route.' : '')
 const isStockGrouped = computed(() => Boolean(resource.value?.stockGrouped))
 const isStockGenerationRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-generation')
 const isStockSettingsRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-settings')
 const isStockPatternCoverageRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-pattern-coverage')
 const isAllocationsRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'allocations')
 const isTenantStockRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'stock')
+const isTenantTopupsRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'topups')
 const isPriceRulesRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'price-rules')
 const isSalePriceRulesRoute = computed(() => resource.value?.slug === 'sale-price-rules')
+const showListSections = computed(() => Boolean(resource.value?.listSections?.length && mode.value === 'list'))
+const activeRelatedLists = computed(() => showListSections.value ? (resource.value?.listSections || []) : (resource.value?.relatedLists || []))
 const showStockSummaryWidgets = computed(() => Boolean(resource.value?.stockSummaryEndpoint && mode.value === 'list'))
 const showAllocationSummaryWidgets = computed(() => Boolean(isAllocationsRoute.value && mode.value === 'list'))
 const showStockGenerationProgress = computed(() => Boolean(isStockGenerationRoute.value && mode.value === 'list'))
@@ -994,6 +1063,22 @@ const tenantStockRealtimePanelMessage = computed(() => {
   }
   return 'Preparing tenant stock realtime for this game.'
 })
+const tenantTopupsRealtimeChannelName = computed(() => (
+  isTenantTopupsRoute.value && session.currentTenantId.value
+    ? `private-admin.tenant.${session.currentTenantId.value}.topups`
+    : ''
+))
+const tenantTopupsRealtimeEnabled = computed(() => Boolean(
+  isTenantTopupsRoute.value
+  && showListSections.value
+  && session.isAuthenticated.value,
+))
+useAdminRealtimeSubscription({
+  channelName: tenantTopupsRealtimeChannelName,
+  eventName: 'topup.updated',
+  enabled: tenantTopupsRealtimeEnabled,
+  onEvent: handleTenantTopupRealtimeEvent,
+})
 const currentCentralGameOption = computed(() => singleCurrentGameOption(optionSourceOptions['central-games'] || []))
 const currentCentralSalePriceGameOption = computed(() => latestDefaultOrCurrentGameOption(optionSourceOptions['central-sale-price-games'] || []))
 const currentAllocationGameOption = computed(() => latestCurrentGameOption(optionSourceOptions['allocation-games'] || []))
@@ -1067,7 +1152,16 @@ const stockGenerateCurrentGameMessage = computed(() => {
 const hydratedFilters = computed(() => hydrateFilters(resource.value?.filters || []))
 const hydratedCollectionActions = computed(() => hydrateActions(resource.value?.collectionActions || []))
 const hydratedActions = computed(() => hydrateActions(resource.value?.actions || []))
-const detailActions = computed(() => hydratedActions.value)
+const detailActions = computed(() => {
+  const row = detail.value ? { ...detail.value, __id: recordId.value } : null
+  if (!row) {
+    return hydratedActions.value
+  }
+
+  return hydratedActions.value
+    .map((action) => rowSpecificAction(action, row))
+    .filter((action) => !(action.hideWhenDisabled && isActionDisabled(action, row)))
+})
 const tableColumns = computed(() => {
   const columns = resource.value?.columns || []
   if (!isStockGenerationRoute.value) {
@@ -1085,21 +1179,16 @@ const detailDisplayRecord = computed(() => {
   return record
 })
 const detailSectionRecord = computed(() => {
-  const fields = resource.value?.detailFields || []
-  if (!fields.length || !detail.value) {
-    return detailDisplayRecord.value
-  }
-
-  return Object.fromEntries(fields.map((field) => [
-    field.label,
-    formatValue(getFirstPath(detail.value, [field.key, ...(field.fallbackKeys || [])]), field.type),
-  ]))
+  return detailDisplayRecord.value
+})
+const relatedDetailSectionRecord = computed(() => {
+  return relatedDetail.record
 })
 const hasSettingsForm = computed(() => Boolean(resource.value?.settingsFields?.length))
 const isMenuManagement = computed(() => resource.value?.slug === 'menu-management')
 const showRelatedLists = computed(() => Boolean(
-  resource.value?.relatedLists?.length
-  && (mode.value === 'detail' || mode.value === 'settings')
+  activeRelatedLists.value.length
+  && (showListSections.value || mode.value === 'detail' || mode.value === 'settings')
   && !resource.value.apiGap
   && !detailGap.value,
 ))
@@ -1183,9 +1272,14 @@ const resetFilters = () => {
     ...defaultFilterValues(resource.value?.filters || []),
     ...routeFilterValues(resource.value?.filters || []),
   }
-  sortState.key = ''
-  sortState.direction = 'asc'
+  applyResourceDefaultSort()
   resetRelatedFilters()
+}
+
+function applyResourceDefaultSort() {
+  const next = (resource.value?.apiSort || resource.value?.clientSort) ? resource.value.defaultSort : null
+  sortState.key = next?.key || ''
+  sortState.direction = next?.direction || 'asc'
 }
 
 const applyFilters = (next: Record<string, any>) => {
@@ -1196,17 +1290,28 @@ const applyFilters = (next: Record<string, any>) => {
 }
 
 const applySort = (next: { key: string, direction: 'asc' | 'desc' }) => {
-  if (!resource.value?.apiSort) {
+  if (!resource.value?.apiSort && !resource.value?.clientSort) {
     return
   }
 
   sortState.key = next.key
   sortState.direction = next.direction
-  load(null, 'reset')
+  if (resource.value.apiSort) {
+    load(null, 'reset')
+  }
 }
 
 const applyRelatedFilters = (related: OperationRelatedList, next: Record<string, any>) => {
   relatedFilters[related.key] = { ...defaultFilterValues(related.filters || []), ...next }
+  loadRelatedList(related)
+}
+
+const applyRelatedSort = (related: OperationRelatedList, next: { key: string, direction: 'asc' | 'desc' }) => {
+  if (!related.apiSort) {
+    return
+  }
+
+  relatedSortState[related.key] = { key: next.key, direction: next.direction }
   loadRelatedList(related)
 }
 
@@ -1230,8 +1335,12 @@ async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previo
   error.value = null
   try {
     if (mode.value === 'detail') {
-      const response = await api.apiFetch(interpolate(resource.value.detailEndpoint || '', recordId.value), apiOptions())
-      detail.value = extractData(response)
+      if (resource.value.detailFromList) {
+        detail.value = await loadDetailFromList()
+      } else {
+        const response = await api.apiFetch(interpolate(resource.value.detailEndpoint || '', recordId.value), apiOptions())
+        detail.value = extractData(response)
+      }
       detailDraft.value = JSON.stringify(detail.value || {}, null, 2)
       await loadRelatedLists()
       return
@@ -1258,6 +1367,16 @@ async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previo
       return
     }
 
+    if (showListSections.value) {
+      rows.value = []
+      meta.next_cursor = null
+      meta.has_more = false
+      pageState.cursors = [null]
+      pageState.index = 0
+      await loadRelatedLists()
+      return
+    }
+
     const pageCursor = cursor || null
     const response = await api.apiFetch(resource.value.listEndpoint || '', apiOptions({ query: queryWithCursor(pageCursor) }))
     const nextRows = normalizeRows(response, resource.value)
@@ -1273,6 +1392,23 @@ async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previo
       loading.value = false
     }
   }
+}
+
+async function loadDetailFromList() {
+  if (!resource.value?.listEndpoint || !recordId.value) {
+    return null
+  }
+
+  const response = await api.apiFetch(resource.value.listEndpoint, apiOptions({ query: { limit: 500 } }))
+  const idKey = resource.value.idKey || 'id'
+  const targetId = String(recordId.value)
+  const match = extractItems(response).find((row: any) => String(row?.[idKey] || row?.id || row?.uuid || '') === targetId)
+
+  if (!match) {
+    throw new Error('Record was not found in the current list response.')
+  }
+
+  return match
 }
 
 const loadNextPage = () => {
@@ -1505,6 +1641,19 @@ const loadOptionSource = async (source: OperationOptionSource) => {
         query: { status: 'active', limit: 100 },
       })
       optionSourceOptions[source] = normalizeBillingPlanOptions(extractItems(response))
+    } else if (source === 'central-admin-roles') {
+      const response = await api.apiFetch('/admin/central/roles', {
+        scope: 'central',
+        query: { limit: 500 },
+      })
+      optionSourceOptions[source] = normalizeRoleOptions(extractItems(response))
+    } else if (source === 'tenant-admin-roles') {
+      const response = await api.apiFetch('/admin/tenant/roles', {
+        scope: 'tenant',
+        tenantId: session.currentTenantId.value,
+        query: { limit: 500 },
+      })
+      optionSourceOptions[source] = normalizeRoleOptions(extractItems(response))
     } else if (source === 'allocation-partners') {
       const response = await api.apiFetch('/admin/central/allocation-options/partners', {
         scope: 'central',
@@ -1627,16 +1776,37 @@ const normalizeBillingPlanOptions = (items: any[]) => items
   .map(billingPlanOption)
   .filter((option) => !isBlank(optionValue(option)))
 
-const customerOption = (customer: any): OperationOption => {
-  const id = customer?.id || customer?.customer_id || customer?.member_id || customer?.uuid
-  const memberNo = customer?.member_no || customer?.member_code || ''
-  const name = customer?.name || customer?.display_name || customer?.phone || id
-  const phone = customer?.phone ? ` - ${customer.phone}` : ''
-  const memberLabel = memberNo ? `${memberNo} - ` : ''
+const roleOption = (role: any): OperationOption => {
+  const id = role?.id || role?.role_id || role?.uuid || role?.code
+  const code = role?.code || ''
+  const name = role?.name || code || id
+  const status = String(role?.status || '').toLowerCase()
+  const suffix = code && code !== name ? ` (${code})` : ''
 
   return {
     value: id,
-    label: `${memberLabel}${name}${phone}`,
+    label: `${name}${suffix}`,
+    code,
+    name,
+    status,
+    disabled: status !== '' && status !== 'active',
+  }
+}
+
+const normalizeRoleOptions = (items: any[]) => items
+  .map(roleOption)
+  .filter((option) => !isBlank(optionValue(option)))
+
+const customerOption = (customer: any): OperationOption => {
+  const id = customer?.id || customer?.customer_id || customer?.member_id || customer?.uuid
+  const customerNo = customer?.customer_no || customer?.member_no || customer?.member_code || ''
+  const name = customer?.name || customer?.display_name || customer?.phone || id
+  const phone = customer?.phone ? ` - ${customer.phone}` : ''
+  const customerLabel = customerNo ? `${customerNo} - ` : ''
+
+  return {
+    value: id,
+    label: `${customerLabel}${name}${phone}`,
     status: String(customer?.status || '').toLowerCase(),
   }
 }
@@ -2150,7 +2320,15 @@ const openRowAction = (action: OperationAction, row: any) => {
 const actionRoute = (action: OperationAction, row: any) => interpolate(action.route || '', row)
 
 const openDetailAction = (action: OperationAction) => {
-  openRowAction(action, { ...(detail.value || {}), __id: recordId.value })
+  const row = { ...(detail.value || {}), __id: recordId.value }
+  const nextAction = rowSpecificAction(action, row)
+
+  if (nextAction.route) {
+    navigateTo(actionRoute(nextAction, row))
+    return
+  }
+
+  openRowAction(nextAction, row)
 }
 
 const openCollectionAction = (action: OperationAction) => {
@@ -2320,6 +2498,8 @@ const openRelatedDetail = async (related: OperationRelatedList, row: any) => {
   relatedDetail.loading = true
   relatedDetail.error = null
   relatedDetail.record = null
+  relatedDetail.renderer = related.detailRenderer || ''
+  relatedDetail.detailFields = related.detailFields || []
   try {
     const response = await api.apiFetch(interpolate(related.detailEndpoint, row.__id), apiOptions())
     relatedDetail.record = extractData(response)
@@ -2433,6 +2613,35 @@ function handleTenantStockRealtimeReconnect() {
   }
 
   void reloadTenantStockFromRealtime()
+}
+
+function handleTenantTopupRealtimeEvent(payload: any) {
+  if (!tenantTopupsRealtimeEnabled.value || !payload || typeof payload !== 'object') {
+    return
+  }
+
+  const row = payload.topup || payload.row || payload
+  const payloadTenantId = String(payload.tenant_id || row?.tenant_id || '').trim()
+  if (payloadTenantId && payloadTenantId !== String(session.currentTenantId.value || '')) {
+    return
+  }
+
+  const topupId = String(row?.id || payload.topup_id || '').trim()
+  if (!topupId) {
+    return
+  }
+
+  for (const section of activeRelatedLists.value) {
+    if (!String(section.listEndpoint || '').includes('/topups')) {
+      continue
+    }
+
+    if (topupBelongsToSection(section, row) && topupMatchesSectionFilters(section, row)) {
+      upsertRelatedRow(section, row)
+    } else {
+      removeRelatedRow(section.key, topupId)
+    }
+  }
 }
 
 async function reloadStockTableFromRealtime() {
@@ -2556,7 +2765,7 @@ function mergeStockTableRealtimeRow(row: Record<string, any>, payload: StockTabl
 }
 
 const loadRelatedLists = async () => {
-  const lists = resource.value?.relatedLists || []
+  const lists = activeRelatedLists.value
   if (!lists.length) return
 
   await Promise.all(lists.map((related) => loadRelatedList(related)))
@@ -2569,8 +2778,11 @@ const loadRelatedList = async (related: OperationRelatedList, cursor?: string | 
     const pageCursor = cursor || null
     const endpoint = interpolate(related.listEndpoint, recordId.value)
     const relatedQuery = cleanQuery({
+      ...(related.defaultQuery || {}),
       ...ensureRelatedFilters(related),
       cursor: pageCursor || relatedFilters[related.key]?.cursor || undefined,
+      sort_by: related.apiSort && relatedSortState[related.key]?.key ? relatedSortState[related.key].key : undefined,
+      sort_dir: related.apiSort && relatedSortState[related.key]?.key ? relatedSortState[related.key].direction : undefined,
     })
 
     if (!relatedQuery.limit) {
@@ -2602,6 +2814,138 @@ const loadRelatedList = async (related: OperationRelatedList, cursor?: string | 
     relatedLoading[related.key] = false
   }
 }
+
+function topupBelongsToSection(section: OperationRelatedList, row: any) {
+  const status = String((row?.__raw || row)?.status || '').toLowerCase()
+  const pending = ['pending', 'processing', 'pending_review', 'pending_payment'].includes(status)
+  const sectionName = String(section.defaultQuery?.section || '').toLowerCase()
+
+  if (sectionName === 'pending') {
+    return pending
+  }
+
+  if (sectionName === 'history') {
+    return !pending
+  }
+
+  return true
+}
+
+function topupMatchesSectionFilters(section: OperationRelatedList, row: any) {
+  const filtersForSection = cleanQuery(relatedFilters[section.key] || {})
+  const source = row?.__raw || row || {}
+  const status = String(source.status || '').toLowerCase()
+  const channel = String(source.channel || '').toLowerCase()
+  const customerNo = String(getPath(source, 'customer.customer_no') || source.customer_no || source.member_no || '').toUpperCase()
+
+  if (filtersForSection.status && status !== String(filtersForSection.status).toLowerCase()) {
+    return false
+  }
+
+  if (filtersForSection.channel && channel !== String(filtersForSection.channel).toLowerCase()) {
+    return false
+  }
+
+  if (filtersForSection.customer_no && !customerNo.includes(String(filtersForSection.customer_no).toUpperCase())) {
+    return false
+  }
+
+  return true
+}
+
+function upsertRelatedRow(section: OperationRelatedList, row: any) {
+  const normalized = normalizeRows({ data: [row] }, relatedResource(section))[0]
+  if (!normalized?.__id) {
+    return
+  }
+
+  const currentRows = relatedRows[section.key] || []
+  const existingIndex = currentRows.findIndex((entry) => String(entry.__id) === String(normalized.__id))
+  if (existingIndex < 0 && ((relatedPageState[section.key]?.index || 0) > 0 || !isBlank(relatedFilters[section.key]?.cursor))) {
+    return
+  }
+
+  const nextRows = [...currentRows]
+  if (existingIndex >= 0) {
+    nextRows[existingIndex] = { ...nextRows[existingIndex], ...normalized }
+  } else {
+    nextRows.unshift(normalized)
+  }
+
+  const limit = Number(relatedFilters[section.key]?.limit || 20)
+  relatedRows[section.key] = sortRelatedRows(section, nextRows).slice(0, Number.isFinite(limit) && limit > 0 ? limit : 20)
+}
+
+function removeRelatedRow(sectionKey: string, rowId: string) {
+  relatedRows[sectionKey] = (relatedRows[sectionKey] || []).filter((entry) => String(entry.__id) !== rowId)
+}
+
+function sortRelatedRows(section: OperationRelatedList, nextRows: any[]) {
+  const sortKey = relatedSortState[section.key]?.key || section.defaultSort?.key || ''
+  if (!sortKey) {
+    return nextRows
+  }
+
+  const direction = relatedSortState[section.key]?.direction || section.defaultSort?.direction || 'asc'
+  return sortRows(nextRows, sortKey, direction)
+}
+
+function sortRows(nextRows: any[], sortKey: string, direction: 'asc' | 'desc' = 'asc') {
+  if (!sortKey) {
+    return nextRows
+  }
+
+  const multiplier = direction === 'desc' ? -1 : 1
+
+  return [...nextRows].sort((left, right) => compareSortValues(sortValue(left, sortKey), sortValue(right, sortKey)) * multiplier)
+}
+
+function sortValue(row: any, key: string) {
+  const source = row?.__raw || row || {}
+  const value = getFirstPath(source, [key, `${key}.amount`])
+
+  if (value && typeof value === 'object' && 'amount' in value) {
+    return Number(value.amount)
+  }
+
+  return value
+}
+
+function compareSortValues(left: any, right: any) {
+  const leftDate = Date.parse(String(left || ''))
+  const rightDate = Date.parse(String(right || ''))
+  if (!Number.isNaN(leftDate) && !Number.isNaN(rightDate)) {
+    return leftDate - rightDate
+  }
+
+  const leftNumber = Number(left)
+  const rightNumber = Number(right)
+  if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
+    return leftNumber - rightNumber
+  }
+
+  return String(left ?? '').localeCompare(String(right ?? ''), 'th')
+}
+
+function relatedResource(related: OperationRelatedList): OperationResource {
+  return {
+    scope: resource.value?.scope || props.scope,
+    slug: related.key,
+    title: related.title,
+    group: resource.value?.group || '',
+    idParam: related.idParam,
+    idKey: related.idKey || 'id',
+    columns: related.columns,
+  }
+}
+
+const hasRelatedRowActions = (related: OperationRelatedList) => Boolean(
+  related.detailEndpoint || related.actions?.length
+)
+
+const relatedRowActionsForRow = (related: OperationRelatedList, row: any) => hydrateActions(related.actions || [])
+  .map((action) => rowSpecificAction(action, row))
+  .filter((action) => !action.hideWhenDisabled || !isActionDisabled(action, row))
 
 const loadNextRelatedPage = (related: OperationRelatedList) => {
   const nextCursor = relatedMeta[related.key]?.next_cursor || null
@@ -2687,6 +3031,32 @@ const normalizeStockGenerationPayload = (payload: Record<string, any>) => {
 const normalizePayloadField = (field: OperationFormField, value: any) => {
   if (field.type === 'checkbox') {
     return Boolean(value)
+  }
+
+  if (field.submitAsArray) {
+    if (value === '' || value === undefined || value === null) {
+      return field.emptyValue === 'array' ? [] : undefined
+    }
+
+    const values = Array.isArray(value) ? value : [value]
+    const normalized = values
+      .map((entry) => String(entry || '').trim())
+      .filter(Boolean)
+
+    if (!normalized.length) {
+      return field.emptyValue === 'array' ? [] : undefined
+    }
+
+    return normalized
+  }
+
+  if (field.type === 'checkbox-group') {
+    const values = Array.isArray(value) ? value : []
+    const normalized = values
+      .map((entry) => String(entry || '').trim())
+      .filter(Boolean)
+
+    return normalized.length || field.emptyValue === 'array' ? normalized : undefined
   }
 
   if (field.type === 'money') {
@@ -2873,6 +3243,10 @@ const normalizeInitialFieldValue = (field: OperationFormField, value: any) => {
     return formatJsonFieldValue(value)
   }
 
+  if (field.type === 'money') {
+    return minorUnitToMajor(value)
+  }
+
   if (field.type === 'stock-set-distribution') {
     return normalizeStockSetDistribution(value, field)
   }
@@ -2985,6 +3359,15 @@ const resetRelatedFilters = () => {
   for (const key of Object.keys(relatedPageState)) {
     delete relatedPageState[key]
   }
+  for (const key of Object.keys(relatedSortState)) {
+    delete relatedSortState[key]
+  }
+  for (const related of activeRelatedLists.value) {
+    const next = related.apiSort ? related.defaultSort : null
+    if (next) {
+      relatedSortState[related.key] = { key: next.key, direction: next.direction }
+    }
+  }
 }
 
 const ensureRelatedFilters = (related: OperationRelatedList) => {
@@ -3094,7 +3477,7 @@ const getFirstPath = (value: any, paths: string[]) => {
 const fieldId = (key: string) => `admin-operation-${key.replace(/[^a-z0-9_-]/gi, '-')}`
 
 const inputType = (field: OperationFormField) => {
-  if (field.type === 'number') return 'number'
+  if (field.type === 'number' || field.type === 'money') return 'number'
   if (field.type === 'datetime-local') return 'datetime-local'
   if (field.type === 'date') return 'date'
   if (field.type === 'password') return 'password'
@@ -3103,13 +3486,17 @@ const inputType = (field: OperationFormField) => {
 }
 
 const formatValue = (value: any, type?: string) => {
+  if (type === 'image') return value || null
   if (value === undefined || value === null || value === '') return '-'
   if (type === 'customer') return formatCustomerValue(value)
-  if (type === 'datetime') return formatDateTime(String(value))
-  if (type === 'number') return new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 }).format(Number(value || 0))
-  if (type === 'money') return formatMoneyValue(value)
-  if (type === 'json' || typeof value === 'object') return JSON.stringify(value)
-  return value
+  if (type === 'customer_name') return formatCustomerNameValue(value)
+  if (type === 'money') return formatMoney(value)
+  return formatAdminValue(value, type, '')
+}
+
+const formattedCellValue = (row: Record<string, any>, column: OperationColumn) => {
+  const value = row[column.key]
+  return value === undefined || value === null || value === '' ? '-' : String(value)
 }
 
 const isActionDisabled = (action: OperationAction, row: any) => {
@@ -3129,6 +3516,33 @@ const actionDisabledReason = (action: OperationAction, row: any) => (
   isActionDisabled(action, row) ? action.disabledReason || 'This action is not available for the current row state.' : undefined
 )
 
+const rowActionsForRow = (row: any) => hydratedActions.value
+  .map((action) => rowSpecificAction(action, row))
+  .filter((action) => !action.hideWhenDisabled || !isActionDisabled(action, row))
+
+const rowSpecificAction = (action: OperationAction, row: any): OperationAction => {
+  if (resource.value?.scope === 'central' && resource.value.slug === 'partners' && action.key === 'provision' && partnerHasTenant(row)) {
+    return {
+      ...action,
+      key: 'edit-tenant',
+      label: 'Edit tenant info',
+      route: '/admin/central/partners/{id}',
+      endpoint: undefined,
+      reason: false,
+      optionalReason: false,
+      formFields: [],
+      variant: 'primary',
+    }
+  }
+
+  return action
+}
+
+const partnerHasTenant = (row: any) => {
+  const source = row?.__raw || row || {}
+  return Boolean(source.tenant_id || source.primary_tenant_id || (Array.isArray(source.tenants) && source.tenants.length > 0))
+}
+
 const numberOrNull = (value: any) => {
   if (value === undefined || value === null || value === '') {
     return null
@@ -3142,12 +3556,19 @@ const formatCustomerValue = (value: any) => {
   if (value === undefined || value === null || value === '') return '-'
   if (typeof value !== 'object') return String(value)
 
-  const id = value.id || value.customer_id || value.member_id || value.member_no
+  const id = value.customer_no || value.member_no || value.id || value.customer_id || value.member_id
   const name = value.display_name || value.name || value.full_name
   const contact = value.phone || value.email
   const parts = [name, contact, id].filter((part, index, all) => part && all.indexOf(part) === index)
 
-  return parts.length ? parts.join(' | ') : JSON.stringify(value)
+  return parts.length ? parts.join(' | ') : formatAdminValue(value, 'object-summary')
+}
+
+const formatCustomerNameValue = (value: any) => {
+  if (value === undefined || value === null || value === '') return '-'
+  if (typeof value !== 'object') return String(value)
+
+  return String(value.display_name || value.name || value.full_name || value.phone || value.email || value.id || '-')
 }
 
 const formatMoneyValue = (value: any) => {
@@ -3163,6 +3584,16 @@ const formatMoneyValue = (value: any) => {
   }).format(Number(amount || 0) / 100)
 
   return `${formatted} ${currency === 'THB' ? 'บาท' : currency}`
+}
+
+const minorUnitToMajor = (value: any) => {
+  const amount = typeof value === 'object' && value !== null ? value.amount : value
+  if (amount === undefined || amount === null || amount === '') {
+    return ''
+  }
+
+  const parsed = Number(amount)
+  return Number.isFinite(parsed) ? parsed / 100 : ''
 }
 
 const formatDateTimeLocalValue = (value: any) => {

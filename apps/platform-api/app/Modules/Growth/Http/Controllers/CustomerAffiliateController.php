@@ -31,6 +31,17 @@ class CustomerAffiliateController extends Controller
         return response()->json($this->growth->customerAffiliateOverview($tenant['tenant_id'], $customer));
     }
 
+    public function trackReferralVisit(Request $request): JsonResponse
+    {
+        $result = $this->partnerStore->tenantContextForRequest($request, true);
+
+        if (isset($result['error'])) {
+            return $this->tenantError($request, $result['error']);
+        }
+
+        return $this->writeResult($request, $this->growth->trackAffiliateReferralVisit((string) $result['context']['tenant_id'], $request->all(), $request), 201);
+    }
+
     public function register(Request $request): JsonResponse
     {
         [$tenant, $customer, $error] = $this->tenantCustomer($request, 'customer_write');

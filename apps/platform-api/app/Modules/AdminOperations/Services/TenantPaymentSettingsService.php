@@ -7,6 +7,7 @@ use App\Models\TenantPaymentChannel;
 use App\Models\TenantPaymentSetting;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
+use App\Support\ThaiBankCatalog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -14,6 +15,14 @@ use Illuminate\Support\Str;
 class TenantPaymentSettingsService
 {
     private const CHANNEL_STATUSES = ['draft', 'active', 'inactive', 'disabled', 'archived', 'blocked_external'];
+    private const PUBLIC_PAYMENT_CONFIG_KEYS = [
+        'bank_transfer',
+        'bank_code',
+        'bank_name',
+        'bank_icon',
+        'account_name',
+        'account_number',
+    ];
     private const SENSITIVE_KEYS = [
         'secret',
         'token',
@@ -254,6 +263,13 @@ class TenantPaymentSettingsService
             'config_json' => [
                 'storage_boundary' => 'local_config_only',
                 'production_provider_ready' => false,
+                'bank_transfer' => [
+                    'bank_code' => 'kbank',
+                    'bank_name' => 'ธนาคารกสิกรไทย',
+                    'bank_icon' => 'bi-bank',
+                    'account_name' => 'Tenant Wallet',
+                    'account_number' => '000-000-0000',
+                ],
             ],
             'secret_status_json' => [],
             'created_at' => now(),
@@ -421,7 +437,7 @@ class TenantPaymentSettingsService
         $secrets = [];
 
         foreach ($config as $key => $value) {
-            if ($this->isSensitiveKey((string) $key)) {
+            if ($this->isSensitiveKey((string) $key) && ! $this->isPublicPaymentConfigKey((string) $key)) {
                 $secrets[$key] = $value === null || $value === '' ? null : '[CONFIGURED]';
                 continue;
             }
@@ -441,6 +457,11 @@ class TenantPaymentSettingsService
         }
 
         return ['config' => $safe, 'secrets' => $secrets];
+    }
+
+    private function isPublicPaymentConfigKey(string $key): bool
+    {
+        return in_array($key, self::PUBLIC_PAYMENT_CONFIG_KEYS, true);
     }
 
     private function isSensitiveKey(string $key): bool
@@ -473,8 +494,30 @@ class TenantPaymentSettingsService
             'allow_external_payment' => (bool) $settings->allow_external_payment,
             'payment_provider_status' => (string) $settings->payment_provider_status,
             'config' => $settings->config_json ?? [],
+            'bank_transfer' => $this->bankTransferResource(is_array($settings->config_json) ? $settings->config_json : []),
+            'bank_catalog' => ThaiBankCatalog::all(),
             'secret_status' => $settings->secret_status_json ?? [],
             'production_provider_ready' => false,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     * @return array<string, mixed>
+     */
+    private function bankTransferResource(array $config): array
+    {
+        $bankConfig = is_array($config['bank_transfer'] ?? null) ? $config['bank_transfer'] : $config;
+        $bankCode = trim((string) ($bankConfig['bank_code'] ?? ''));
+        $bankName = trim((string) ($bankConfig['bank_name'] ?? ''));
+        $catalogBank = ThaiBankCatalog::findByCodeOrName($bankCode !== '' ? $bankCode : $bankName);
+
+        return [
+            'bank_code' => $catalogBank['code'] ?? ($bankCode !== '' ? $bankCode : 'kbank'),
+            'bank_name' => $catalogBank['name'] ?? ($bankName !== '' ? $bankName : 'ธนาคารกสิกรไทย'),
+            'bank_icon' => (string) ($bankConfig['bank_icon'] ?? ($catalogBank['icon'] ?? 'bi-bank')),
+            'account_name' => (string) ($bankConfig['account_name'] ?? 'Tenant Wallet'),
+            'account_number' => (string) ($bankConfig['account_number'] ?? '000-000-0000'),
         ];
     }
 

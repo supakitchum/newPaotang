@@ -185,6 +185,11 @@ class TenantGrowthController extends Controller
             : $context;
     }
 
+    public function commissionTransaction(Request $request, string $commission_id): JsonResponse
+    {
+        return $this->tenantShow($request, 'commission.view', fn (AdminSessionContext $context): ?array => $this->growth->commissionTransaction((string) $context->activeTenantId(), $commission_id));
+    }
+
     public function approveCommissionTransaction(Request $request, string $commission_id): JsonResponse
     {
         return $this->tenantWrite(

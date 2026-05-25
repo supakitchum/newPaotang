@@ -34,11 +34,14 @@ class CommissionTest extends TestCase
             ->where('tenant_id', $world['tenant_id'])
             ->where('order_id', $world['order_id'])
             ->first();
+        $customerNo = $world['customer_no'];
 
         $this->assertNotNull($commission);
         $this->assertSame($graph['affiliate_id'], $commission->affiliate_account_id);
         $this->assertSame($graph['rule_id'], $commission->commission_rule_id);
         $this->assertSame(1500, (int) $commission->amount);
+        $this->assertSame('approved', $commission->status);
+        $this->assertNotNull($commission->approved_at);
         $this->assertDatabaseHas('affiliate_attributions', [
             'id' => $graph['attribution_id'],
             'status' => 'converted',
@@ -50,6 +53,32 @@ class CommissionTest extends TestCase
             'aggregate_id' => $commission->id,
         ]);
 
+        $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/tenant/commission-transactions/'.$commission->id, [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => $world['tenant_id'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('id', $commission->id)
+            ->assertJsonPath('status', 'approved')
+            ->assertJsonPath('amount.amount', 1500)
+            ->assertJsonPath('receiver_customer.id', $world['customer_id'])
+            ->assertJsonPath('buyer_customer.id', $world['customer_id'])
+            ->assertJsonPath('receiver_customer_no', $customerNo)
+            ->assertJsonPath('buyer_customer_no', $customerNo);
+
+        $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/tenant/commission-transactions?receiver_customer_no='.$customerNo.'&buyer_customer_no='.$customerNo.'&sort_by=calculated_at&sort_dir=desc', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => $world['tenant_id'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $commission->id)
+            ->assertJsonPath('data.0.receiver_customer.id', $world['customer_id'])
+            ->assertJsonPath('data.0.buyer_customer.id', $world['customer_id'])
+            ->assertJsonPath('data.0.receiver_customer_no', $customerNo)
+            ->assertJsonPath('data.0.buyer_customer_no', $customerNo);
+
         Artisan::call('commission:calculate', [
             'order_id' => $world['order_id'],
             '--tenant_id' => $world['tenant_id'],
@@ -58,9 +87,7 @@ class CommissionTest extends TestCase
         $this->assertSame(1, DB::table('commission_transactions')->where('order_id', $world['order_id'])->where('transaction_type', 'commission')->count());
 
         $this->withToken($admin['access_token'])
-            ->postJson('/api/v1/admin/tenant/commission-transactions/'.$commission->id.'/approve', [
-                'reason' => 'ready for payout',
-            ], [
+            ->postJson('/api/v1/admin/tenant/commission-transactions/'.$commission->id.'/approve', [], [
                 'X-Admin-Scope' => 'tenant',
                 'X-Tenant-Id' => $world['tenant_id'],
                 'Idempotency-Key' => 'commission-approve-main',

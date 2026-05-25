@@ -47,14 +47,38 @@ class TenantReservationTest extends TestCase
             ->assertJsonPath('error.code', 'permission_denied');
 
         $viewer = $this->createTenantSession('ten_admin_res', 'par_admin_res', ['reservation.view'], 'adm_res_view', 'res-view@example.test');
+        $customerNo = (string) DB::table('customers')->where('id', 'cus_admin_res')->value('customer_no');
+        DB::table('stock_reservations')->insert([
+            'id' => 'res_admin_res_older',
+            'tenant_id' => 'ten_admin_res',
+            'customer_id' => 'cus_admin_res',
+            'game_id' => 'gam_admin_res',
+            'status' => 'active',
+            'expires_at' => now()->addMinutes(15),
+            'idempotency_key' => 'admin-reserve-older',
+            'payload_hash' => hash('sha256', 'admin-reserve-older'),
+            'created_at' => now()->subHour(),
+            'updated_at' => now()->subHour(),
+        ]);
+
         $this->withToken($viewer['access_token'])
-            ->getJson('/api/v1/admin/tenant/reservations?status=active&customer_id=cus_admin_res', [
+            ->getJson('/api/v1/admin/tenant/reservations?status=active&customer_no='.$customerNo, [
                 'X-Admin-Scope' => 'tenant',
                 'X-Tenant-Id' => 'ten_admin_res',
             ])
             ->assertOk()
             ->assertJsonPath('data.0.id', $reservation['id'])
-            ->assertJsonPath('data.0.customer_id', 'cus_admin_res');
+            ->assertJsonPath('data.0.customer_id', 'cus_admin_res')
+            ->assertJsonPath('data.0.customer_no', $customerNo);
+
+        $this->withToken($viewer['access_token'])
+            ->getJson('/api/v1/admin/tenant/reservations/'.$reservation['id'], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_admin_res',
+            ])
+            ->assertOk()
+            ->assertJsonPath('id', $reservation['id'])
+            ->assertJsonPath('customer_no', $customerNo);
 
         $canceller = $this->createTenantSession(
             'ten_admin_res',

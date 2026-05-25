@@ -17,6 +17,7 @@
         v-for="(ticket, index) in tickets"
         :key="ticketKey(ticket, index)"
         :ticket="ticket"
+        :show-image="false"
         @booking-unavailable="removeLottery"
       />
       <div v-if="showEmptyState" class="empty-lottery-state">
@@ -110,6 +111,7 @@ useCustomerStockRealtime({
   gameId: currentGameId,
   onAvailability: (payload) => applyAvailabilityUpdate(payload),
   onPrice: (payload) => applyPriceUpdateToTickets(tickets, payload, { gameId: currentGameId }),
+  includePresence: true,
 })
 
 const goBack = () => {

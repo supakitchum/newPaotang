@@ -27,6 +27,7 @@ use App\Models\RoleMenu;
 use App\Models\RolePermission;
 use App\Shared\Observability\ObservabilityCatalog;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class DemoTenantSeeder extends Seeder
@@ -181,6 +182,7 @@ class DemoTenantSeeder extends Seeder
         $this->syncRoleMenus($roleId, 'tenant', $now);
         $this->seedTenantConfig($tenant, $now);
         $this->seedRuntimeDefaults($tenant, $now);
+        $this->seedStarterAffiliateDefaults($tenant, $now);
 
         AdminPermissionCacheVersion::updateOrCreate(
             ['admin_user_id' => $tenant['owner_id'], 'scope_id' => $scopeId],
@@ -367,6 +369,57 @@ class DemoTenantSeeder extends Seeder
                 'effective_at' => $now,
             ],
         );
+    }
+
+    /**
+     * @param array<string, mixed> $tenant
+     */
+    private function seedStarterAffiliateDefaults(array $tenant, mixed $now): void
+    {
+        $tenantId = (string) $tenant['tenant_id'];
+        $programId = $this->stableId('afp', $tenantId.':basic');
+
+        DB::table('affiliate_programs')->insertOrIgnore([
+            'id' => $programId,
+            'tenant_id' => $tenantId,
+            'code' => 'basic',
+            'name' => 'Basic Affiliate',
+            'status' => 'active',
+            'minimum_payout_amount' => 30000,
+            'starts_at' => null,
+            'ends_at' => null,
+            'metadata_json' => json_encode(['source' => 'starter_default'], JSON_THROW_ON_ERROR),
+            'created_by_admin_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $resolvedProgramId = DB::table('affiliate_programs')
+            ->where('tenant_id', $tenantId)
+            ->where('code', 'basic')
+            ->value('id');
+
+        if ($resolvedProgramId === null) {
+            return;
+        }
+
+        DB::table('commission_rules')->insertOrIgnore([
+            'id' => $this->stableId('cmr', $tenantId.':basic_com'),
+            'tenant_id' => $tenantId,
+            'affiliate_program_id' => (string) $resolvedProgramId,
+            'affiliate_account_id' => null,
+            'code' => 'basic_com',
+            'name' => 'BasicCom',
+            'rule_type' => 'per_ticket',
+            'amount' => 1000,
+            'rate_bps' => 0,
+            'currency' => 'THB',
+            'status' => 'active',
+            'metadata_json' => json_encode(['source' => 'starter_default'], JSON_THROW_ON_ERROR),
+            'created_by_admin_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
     }
 
     private function syncRolePermissions(string $roleId, string $scopeType, mixed $now): void

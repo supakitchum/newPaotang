@@ -20,7 +20,7 @@
             v-else
             v-model="draft[filter.key]"
             class="form-control"
-            :type="filter.type === 'number' ? 'number' : filter.type === 'date' ? 'date' : 'text'"
+            :type="filter.type === 'number' ? 'number' : filter.type === 'date' ? 'date' : filter.type === 'datetime-local' ? 'datetime-local' : 'text'"
             :min="filter.type === 'number' ? 1 : undefined"
           />
         </div>

@@ -79,6 +79,7 @@
 </template>
 
 <script setup lang="ts">
+import { moneyToDisplayNumber } from '~/composables/usePlatformApi'
 import { ticketPrice } from '~/data/lottery'
 import type { CartLottery } from '~/composables/useCart'
 
@@ -105,7 +106,7 @@ interface WalletItem {
 }
 
 const platformApi = usePlatformApi()
-const { items, count, amount, timer, clearCart } = useCart()
+const { items, count, amount, timer, clearCart, setCartItems } = useCart()
 const { applyStoredRef } = useAffiliateReferral()
 const { data, waiting, ensureAppInit, refreshAppInit } = useAppInit()
 const { showAlert } = useAppAlert()
@@ -118,11 +119,7 @@ const isWalletLoading = ref(false)
 const isPaying = ref(false)
 const prepareError = ref('')
 
-const toNumber = (value: unknown, fallback = 0) => {
-  const number = Number(value)
-
-  return Number.isFinite(number) ? number : fallback
-}
+const toNumber = (value: unknown, fallback = 0) => moneyToDisplayNumber(value, fallback)
 
 const isFilledObject = (value: unknown) => (
   Boolean(value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value as Record<string, unknown>).length > 0)
@@ -162,6 +159,18 @@ const withCurrentCartItems = (value: CheckoutOrder) => ({
 
 const setCheckoutOrder = (value: CheckoutOrder | null) => {
   order.value = value ? withCurrentCartItems(value) : null
+}
+
+const applyCartPayload = (payload: Record<string, any> | null | undefined) => {
+  if (Array.isArray(payload?.carts)) {
+    setCartItems(
+      payload.carts,
+      payload.result?.cart_order?.exp || null,
+      payload.server_time || payload.result?.cart_order?.created_at || null
+    )
+  }
+
+  return extractOrder(payload?.result?.cart_order)
 }
 
 const getOrderLotteries = (value: CheckoutOrder | null) => (
@@ -271,6 +280,19 @@ const prepareOrder = async () => {
 
   await ensureAppInit()
 
+  try {
+    const response = await platformApi.loadCartLegacy()
+    const freshCartOrder = applyCartPayload(response.data)
+
+    if (freshCartOrder) {
+      setCheckoutOrder(freshCartOrder)
+      isPreparing.value = false
+      return
+    }
+  } catch (error) {
+    console.log(error)
+  }
+
   const waitingOrder = getWaitingOrder()
 
   if (waitingOrder) {
@@ -319,7 +341,7 @@ const handleConfirmPayment = async () => {
 
   try {
     await applyStoredRef()
-    const response = await platformApi.checkoutLegacy(order.value.id)
+    const response = await platformApi.checkoutLegacy(order.value)
 
     const paidOrder = response.data?.result?.order || order.value
     successOrder.value = paidOrder

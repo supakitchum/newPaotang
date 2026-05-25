@@ -31,6 +31,23 @@ class TenantReservationController extends Controller
         return response()->json($this->partnerStore->listReservations((string) $context->activeTenantId(), $request->query()));
     }
 
+    public function show(Request $request, string $reservation_id): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'reservation.view');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $reservation = $this->partnerStore->adminReservation((string) $context->activeTenantId(), $reservation_id);
+
+        if ($reservation === null) {
+            return ApiErrorResponse::notFound($request);
+        }
+
+        return response()->json($reservation);
+    }
+
     public function cancel(Request $request, string $reservation_id): JsonResponse
     {
         $context = $this->authorizedContext($request, 'reservation.cancel');

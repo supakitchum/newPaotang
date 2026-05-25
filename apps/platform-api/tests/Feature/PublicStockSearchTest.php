@@ -267,6 +267,35 @@ class PublicStockSearchTest extends TestCase
         }
     }
 
+    public function test_PublicStockSearch_random_seed_changes_and_repeats_virtual_browse_order(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_random_seed', 'ten_random_seed', 'random-seed.newpaotang.test');
+        $this->insertGame('gam_random_seed', 'open');
+        $this->insertBaseLotteryNumbers(['100001', '100002', '100003', '100004', '100005', '100006', '100007', '100008', '100009', '100010']);
+        $this->insertVirtualProfile('gam_random_seed', 10, 10);
+        $this->insertPartnerDistribution('gam_random_seed', 'par_random_seed', 'ten_random_seed', 10000, 10);
+
+        $first = $this->getJson('http://random-seed.newpaotang.test/api/v1/public/stock/search?game_id=gam_random_seed&mode=random&random_seed=seed-a&limit=10')
+            ->assertOk()
+            ->assertJsonCount(10, 'data')
+            ->json('data');
+        $repeat = $this->getJson('http://random-seed.newpaotang.test/api/v1/public/stock/search?game_id=gam_random_seed&mode=random&random_seed=seed-a&limit=10')
+            ->assertOk()
+            ->json('data');
+        $second = $this->getJson('http://random-seed.newpaotang.test/api/v1/public/stock/search?game_id=gam_random_seed&mode=random&random_seed=seed-b&limit=10')
+            ->assertOk()
+            ->assertJsonCount(10, 'data')
+            ->json('data');
+
+        $firstNumbers = array_values(array_map(fn (array $row): string => (string) $row['full_number'], $first));
+        $repeatNumbers = array_values(array_map(fn (array $row): string => (string) $row['full_number'], $repeat));
+        $secondNumbers = array_values(array_map(fn (array $row): string => (string) $row['full_number'], $second));
+
+        $this->assertSame($firstNumbers, $repeatNumbers);
+        $this->assertNotSame($firstNumbers, $secondNumbers);
+    }
+
     public function test_PublicStockSearch_short_number_uses_suffix_matching(): void
     {
         $this->seedDefaultRbac();

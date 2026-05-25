@@ -52,7 +52,15 @@ class AffiliateTest extends TestCase
                 'name' => 'API Program',
             ], $headers + ['Idempotency-Key' => 'program-create-main'])
             ->assertCreated()
+            ->assertJsonPath('minimum_payout.amount', 30000)
             ->json();
+
+        $this->withToken($admin['access_token'])
+            ->patchJson('/api/v1/admin/tenant/affiliate-programs/'.$program['id'], [
+                'minimum_payout' => ['amount' => 45000, 'currency' => 'THB'],
+            ], $headers + ['Idempotency-Key' => 'program-update-minimum-payout'])
+            ->assertOk()
+            ->assertJsonPath('minimum_payout.amount', 45000);
 
         $link = $this->withToken($admin['access_token'])
             ->postJson('/api/v1/admin/tenant/affiliate-links', [

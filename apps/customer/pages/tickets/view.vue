@@ -20,43 +20,21 @@
         v-else-if="selectedTicket"
         :number="ticketNumber"
         :status="getTicketStatusText(selectedTicket)"
-        :image-url="selectedTicket.image_url || selectedTicket.image"
-        :image-thumb-url="selectedTicket.image_thumb_url"
-        :image-status="selectedTicket.image_status"
-        :image-error="selectedTicket.image_error"
       />
 
       <div v-else class="empty-lottery-state">
         ไม่พบสลากฯ
       </div>
     </section>
-    <div v-if="selectedTicket" class="modal-overlay">
-      <section class="ticket-modal">
-        <div class="d-flex justify-content-center align-items-start mb-3">
-          <div class="d-flex align-items-center gap-3">
-            <BrandLogo />
-            <span class="lottery-six fs-2">L6</span>
-          </div>
-          <button class="icon-back-button ms-auto text-dark fs-2" type="button" aria-label="กลับ" @click="goBack">
-            <i class="bi bi-x-lg" />
-          </button>
-        </div>
-        <LotteryImage
-          :src="ticketImageUrl"
-          :thumb-src="selectedTicket.image_thumb_url"
-          :status="selectedTicket.image_status"
-          :error-message="selectedTicket.image_error"
-          :number="ticketNumber"
-          variant="preview"
-        />
-        <div class="d-flex align-items-center gap-3 p-3 mt-3" style="background:#edf8ff;margin:0 -18px;border-radius:0 0 12px 12px;">
-          <div class="rounded-3 d-grid place-center text-white fw-bold" style="width:44px;height:44px;background:#1298d7">เป๋าตัง</div>
-          <div class="fw-semibold">
-            สลากฯ ใบนี้ขายที่บริการ ‘สลากหกหลัก’<br>บนแอปฯ เป๋าตังเท่านั้น
-          </div>
-        </div>
-      </section>
-    </div>
+    <TicketImageModal
+      v-if="selectedTicket"
+      :number="ticketNumber"
+      :image-url="selectedTicket.image_url || ''"
+      :image-thumb-url="selectedTicket.image_thumb_url || ''"
+      :image-status="selectedTicket.image_status || ''"
+      :image-error="selectedTicket.image_error || ''"
+      @close="goBack"
+    />
   </MobileShell>
 </template>
 
@@ -76,7 +54,6 @@ const {
   getGameDate,
   getTicketNumber,
   getTicketCount,
-  getTicketImageUrl,
   getTicketStatusText
 } = useUserTickets()
 const selectedTicket = ref<UserTicket | null>(null)
@@ -105,7 +82,6 @@ const requestedGameId = computed(() => {
 const ticketNumber = computed(() => getTicketNumber(selectedTicket.value))
 const ticketCount = computed(() => selectedTicket.value ? getTicketCount(selectedTicket.value) : 0)
 const drawDate = computed(() => getGameDate(selectedGame.value) || currentDrawDate.value)
-const ticketImageUrl = computed(() => getTicketImageUrl(selectedTicket.value))
 
 const goBack = () => {
   if (process.client && window.history.length > 1) {

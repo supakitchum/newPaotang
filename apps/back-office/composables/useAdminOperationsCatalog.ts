@@ -3,6 +3,7 @@ export type OperationMode = 'list' | 'detail' | 'report-index' | 'report-detail'
 export type OperationOption = string | {
   value: string | number
   label: string
+  icon?: string
   disabled?: boolean
   status?: string
   code?: string
@@ -37,19 +38,25 @@ export type OperationOption = string | {
   close_at?: string
   server_time?: string
 }
-export type OperationOptionSource = 'central-games' | 'central-sale-price-games' | 'central-partners' | 'central-billing-plans' | 'allocation-partners' | 'allocation-tenants' | 'allocation-games' | 'tenant-stock-games' | 'tenant-price-rule-games' | 'tenant-sale-price-games' | 'tenant-customers' | 'tenant-affiliates' | 'tenant-affiliate-programs'
+export type OperationOptionSource = 'central-games' | 'central-sale-price-games' | 'central-partners' | 'central-billing-plans' | 'central-admin-roles' | 'tenant-admin-roles' | 'allocation-partners' | 'allocation-tenants' | 'allocation-games' | 'tenant-stock-games' | 'tenant-price-rule-games' | 'tenant-sale-price-games' | 'tenant-customers' | 'tenant-affiliates' | 'tenant-affiliate-programs'
 
 export type OperationColumn = {
   key: string
   label: string
-  type?: 'text' | 'status' | 'datetime' | 'money' | 'json' | 'customer' | 'number'
+  type?: 'text' | 'status' | 'datetime' | 'money' | 'json' | 'customer' | 'customer_name' | 'number' | 'image' | 'boolean' | 'percent' | 'array' | 'object-summary' | 'permission-list'
   fallbackKeys?: string[]
+  options?: OperationOption[]
+}
+
+export type OperationSort = {
+  key: string
+  direction: 'asc' | 'desc'
 }
 
 export type OperationFilter = {
   key: string
   label: string
-  type?: 'text' | 'number' | 'date' | 'select'
+  type?: 'text' | 'number' | 'date' | 'datetime-local' | 'select'
   options?: OperationOption[]
   optionSource?: OperationOptionSource
   dependsOn?: string
@@ -60,7 +67,7 @@ export type OperationFilter = {
 export type OperationFormField = {
   key: string
   label: string
-  type?: 'text' | 'number' | 'money' | 'textarea' | 'json' | 'select' | 'checkbox' | 'date' | 'datetime-local' | 'datetime-range' | 'lines' | 'password' | 'color' | 'prize-lines' | 'reward-prize-grid' | 'reward-prize-number-grid' | 'reward-prize-amount-grid' | 'stock-set-distribution' | 'stock-sale-limits' | 'stock-partner-distribution' | 'stock-partner-limits'
+  type?: 'text' | 'number' | 'money' | 'textarea' | 'json' | 'select' | 'checkbox' | 'checkbox-group' | 'date' | 'datetime-local' | 'datetime-range' | 'lines' | 'password' | 'color' | 'prize-lines' | 'reward-prize-grid' | 'reward-prize-number-grid' | 'reward-prize-amount-grid' | 'stock-set-distribution' | 'stock-sale-limits' | 'stock-partner-distribution' | 'stock-partner-limits'
   sourceKey?: string
   rangeStartKey?: string
   rangeEndKey?: string
@@ -86,6 +93,7 @@ export type OperationFormField = {
   step?: number
   itemKey?: string
   emptyValue?: 'array'
+  submitAsArray?: boolean
   partial?: boolean
   visibleForGenerationModes?: string[]
 }
@@ -100,7 +108,9 @@ export type OperationAction = {
   disabled?: boolean
   disabledReason?: string
   enabledStatuses?: string[]
+  hideWhenDisabled?: boolean
   reason?: boolean
+  optionalReason?: boolean
   payloadTemplate?: Record<string, any>
   formFields?: OperationFormField[]
   contextFields?: string[]
@@ -111,6 +121,8 @@ export type OperationRelatedList = {
   title: string
   listEndpoint: string
   detailEndpoint?: string
+  detailRenderer?: 'reward' | 'price-rule' | 'partner' | 'customer' | 'wallet' | 'order' | 'topup'
+  detailFields?: OperationColumn[]
   idParam: string
   idKey?: string
   columns: OperationColumn[]
@@ -119,6 +131,9 @@ export type OperationRelatedList = {
   collectionActions?: OperationAction[]
   emptyTitle?: string
   emptyMessage?: string
+  apiSort?: boolean
+  defaultSort?: OperationSort
+  defaultQuery?: Record<string, any>
 }
 
 export type OperationSettingsPanel = {
@@ -146,6 +161,7 @@ export type OperationResource = {
   filters?: OperationFilter[]
   actions?: OperationAction[]
   collectionActions?: OperationAction[]
+  listSections?: OperationRelatedList[]
   relatedLists?: OperationRelatedList[]
   secondarySettings?: OperationSettingsPanel[]
   settingsFields?: OperationFormField[]
@@ -153,11 +169,14 @@ export type OperationResource = {
   detailFields?: OperationColumn[]
   reportKeys?: string[]
   detailJsonEditor?: boolean
-  detailRenderer?: 'reward' | 'price-rule' | 'partner'
+  detailRenderer?: 'reward' | 'price-rule' | 'partner' | 'customer' | 'wallet' | 'order' | 'topup'
   defaultQuery?: Record<string, any>
   stockGrouped?: boolean
   stockSummaryEndpoint?: string
   apiSort?: boolean
+  clientSort?: boolean
+  detailFromList?: boolean
+  defaultSort?: OperationSort
   apiGap?: string
   detailApiGap?: string
 }
@@ -302,6 +321,7 @@ const adminUserColumns: OperationColumn[] = [
   { key: 'email', label: 'Email' },
   { key: 'roles.0.name', label: 'Primary role' },
   { key: 'status', label: 'Status', type: 'status' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
   { key: 'updated_at', label: 'Updated', type: 'datetime' },
 ]
 
@@ -309,8 +329,8 @@ const roleColumns: OperationColumn[] = [
   { key: 'id', label: 'Role' },
   { key: 'code', label: 'Code' },
   { key: 'name', label: 'Name' },
-  { key: 'permissions', label: 'Permissions', type: 'json' },
   { key: 'status', label: 'Status', type: 'status' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
   { key: 'updated_at', label: 'Updated', type: 'datetime' },
 ]
 
@@ -339,6 +359,24 @@ const centralReportFilters: OperationFilter[] = [
 const tenantReportFilters = baseReportFilters
 
 const currencyOptions = ['THB']
+const thaiBankOptions: OperationOption[] = [
+  { value: 'bbl', label: 'ธนาคารกรุงเทพ', icon: 'bi-bank' },
+  { value: 'kbank', label: 'ธนาคารกสิกรไทย', icon: 'bi-bank' },
+  { value: 'ktb', label: 'ธนาคารกรุงไทย', icon: 'bi-bank' },
+  { value: 'ttb', label: 'ธนาคารทหารไทยธนชาต', icon: 'bi-bank' },
+  { value: 'scb', label: 'ธนาคารไทยพาณิชย์', icon: 'bi-bank' },
+  { value: 'bay', label: 'ธนาคารกรุงศรีอยุธยา', icon: 'bi-bank' },
+  { value: 'gsb', label: 'ธนาคารออมสิน', icon: 'bi-bank' },
+  { value: 'baac', label: 'ธนาคารเพื่อการเกษตรและสหกรณ์การเกษตร', icon: 'bi-bank' },
+  { value: 'ghb', label: 'ธนาคารอาคารสงเคราะห์', icon: 'bi-bank' },
+  { value: 'uob', label: 'ธนาคารยูโอบี', icon: 'bi-bank' },
+  { value: 'cimb', label: 'ธนาคารซีไอเอ็มบีไทย', icon: 'bi-bank' },
+  { value: 'kkp', label: 'ธนาคารเกียรตินาคินภัทร', icon: 'bi-bank' },
+  { value: 'tisco', label: 'ธนาคารทิสโก้', icon: 'bi-bank' },
+  { value: 'lhbank', label: 'ธนาคารแลนด์ แอนด์ เฮ้าส์', icon: 'bi-bank' },
+  { value: 'thai_credit', label: 'ธนาคารไทยเครดิต', icon: 'bi-bank' },
+  { value: 'icbc', label: 'ธนาคารไอซีบีซี (ไทย)', icon: 'bi-bank' },
+]
 const memberStatusOptions = ['active', 'pending_verification', 'suspended', 'disabled']
 const notifyCustomerField: OperationFormField = {
   key: 'notify_customer',
@@ -351,11 +389,12 @@ const notifyCustomerField: OperationFormField = {
 const moneyFields = (prefix = 'amount', label = 'Amount', required = true): OperationFormField[] => [
   {
     key: `${prefix}.amount`,
-    label: `${label} (minor units)`,
-    type: 'number',
+    label: `${label} (THB)`,
+    type: 'money',
     required,
-    step: 1,
-    help: 'Use the smallest currency unit, for example 10000 for THB 100.00.',
+    min: 0.01,
+    step: 0.01,
+    help: 'Enter baht, for example 100.00.',
   },
   {
     key: `${prefix}.currency`,
@@ -386,7 +425,7 @@ const bahtMoneyFields = (prefix = 'amount', label = 'Amount', required = true): 
 ]
 
 const stockActionContext = ['id', 'game_id', 'full_number', 'front3', 'back3', 'back2', 'status', 'partner_id', 'tenant_id', 'allocation_id']
-const moneyActionContext = ['id', 'reference', 'customer_id', 'status', 'payment_status', 'total.amount', 'amount.amount', 'balance.amount']
+const moneyActionContext = ['id', 'reference', 'customer_no', 'customer_name', 'customer_id', 'status', 'payment_status', 'total.amount', 'amount.amount', 'balance.amount']
 const orderActionContext = [
   'id',
   'tenant_id',
@@ -410,10 +449,81 @@ const topupActionContext = [
   'customer.name',
   'customer.phone',
   'status',
-  'amount.amount',
-  'amount.currency',
+  'amount',
+  'bonus_amount',
   'channel',
   'customer.email',
+]
+const topupDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Topup' },
+  { key: 'reference', label: 'Reference' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'amount', label: 'Amount', type: 'money' },
+  { key: 'bonus_amount', label: 'Bonus amount', type: 'money' },
+  { key: 'channel', label: 'Channel' },
+  { key: 'customer.id', label: 'Customer' },
+  { key: 'customer.name', label: 'Customer name', fallbackKeys: ['customer.display_name', 'customer.phone'] },
+  { key: 'customer.phone', label: 'Phone' },
+  { key: 'customer.email', label: 'Email' },
+  { key: 'wallet.id', label: 'Wallet' },
+  { key: 'wallet.balance', label: 'Wallet balance', type: 'money' },
+  { key: 'transfer_at', label: 'Transfer at', type: 'datetime' },
+  { key: 'reviewed_at', label: 'Reviewed at', type: 'datetime' },
+  { key: 'reviewed_by_admin_id', label: 'Reviewed by' },
+  { key: 'admin_note', label: 'Reason' },
+  { key: 'slip', label: 'Slip', type: 'image' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
+]
+const topupColumns: OperationColumn[] = [
+  { key: 'customer.customer_no', label: 'Customer no' },
+  { key: 'customer.name', label: 'Name' },
+  { key: 'amount', label: 'Amount', type: 'money' },
+  { key: 'slip', label: 'Slip', type: 'image' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
+]
+const topupActions: OperationAction[] = [
+  {
+    key: 'approve',
+    label: 'Approve',
+    endpoint: '/admin/tenant/topups/{topup_id}/approve',
+    variant: 'success',
+    enabledStatuses: ['pending_review', 'pending_payment'],
+    hideWhenDisabled: true,
+    reason: true,
+    optionalReason: true,
+    contextFields: topupActionContext,
+    formFields: [
+      {
+        key: 'bonus_amount.amount',
+        label: 'Bonus amount (THB)',
+        type: 'money',
+        required: false,
+        step: 0.01,
+        help: 'Optional bonus amount in baht.',
+      },
+      {
+        key: 'bonus_amount.currency',
+        label: 'Currency',
+        type: 'select',
+        options: currencyOptions,
+        defaultValue: 'THB',
+      },
+      notifyCustomerField,
+    ],
+  },
+  {
+    key: 'reject',
+    label: 'Reject',
+    endpoint: '/admin/tenant/topups/{topup_id}/reject',
+    variant: 'danger',
+    enabledStatuses: ['pending_review', 'pending_payment'],
+    hideWhenDisabled: true,
+    reason: true,
+    optionalReason: false,
+    contextFields: topupActionContext,
+    formFields: [notifyCustomerField],
+  },
 ]
 const partnerStatusOptions = ['draft', 'active', 'suspended', 'closed']
 const partnerTypeOptions = ['partner_store', 'agent_network', 'white_label', 'api_partner', 'internal']
@@ -447,14 +557,14 @@ const rewardActionContext = ['id', 'game_id', 'status', 'version', 'checked_at',
 const settlementActionContext = ['id', 'partner_id', 'tenant_id', 'status', 'sales_amount.amount', 'commission_amount.amount', 'payout_amount.amount', 'net_amount.amount', 'period_from', 'period_to']
 const priceRuleActionContext = ['game_id', 'prize_type', 'prize_label', 'prize_count', 'central_reward_amount.amount', 'partner_payout_amount.amount', 'adjustment_amount.amount', 'source', 'updated_at']
 const salePriceRuleActionContext = ['game_id', 'game_name', 'set_size', 'central_price', 'partner_price', 'price', 'source', 'status', 'updated_at']
-const memberActionContext = ['id', 'tenant_id', 'member_no', 'name', 'phone', 'email', 'status', 'order_count', 'lifetime_spend.amount', 'updated_at']
+const memberActionContext = ['id', 'tenant_id', 'customer_no', 'name', 'phone', 'email', 'status', 'order_count', 'lifetime_spend.amount', 'updated_at']
 const agentActionContext = ['id', 'tenant_id', 'partner_id', 'code', 'name', 'phone', 'email', 'store_id', 'status', 'metadata', 'updated_at']
 const agentQuotaActionContext = ['id', 'tenant_id', 'code', 'name', 'store_id', 'status', 'quotas.0.game_id', 'quotas.0.quota_count', 'quotas.0.used_count', 'quotas.0.status', 'updated_at']
-const affiliateProgramActionContext = ['id', 'tenant_id', 'code', 'name', 'status', 'starts_at', 'ends_at', 'updated_at']
-const affiliateAccountActionContext = ['id', 'tenant_id', 'customer_id', 'code', 'canonical_url', 'referral_url', 'name', 'phone', 'email', 'status', 'wallet_balance.amount', 'wallet_balance.currency', 'updated_at']
+const affiliateProgramActionContext = ['id', 'tenant_id', 'code', 'name', 'status', 'minimum_payout.amount', 'minimum_payout.currency', 'starts_at', 'ends_at', 'updated_at']
+const affiliateAccountActionContext = ['id', 'tenant_id', 'customer_no', 'customer_name', 'customer_id', 'code', 'canonical_url', 'referral_url', 'name', 'phone', 'email', 'visitor_count', 'registered_count', 'status', 'wallet_balance.amount', 'wallet_balance.currency', 'updated_at']
 const affiliateLinkActionContext = ['id', 'tenant_id', 'affiliate_account_id', 'affiliate_program_id', 'code', 'canonical_url', 'url', 'legacy_url', 'status', 'updated_at']
 const commissionRuleActionContext = ['id', 'tenant_id', 'affiliate_program_id', 'affiliate_account_id', 'code', 'name', 'rule_type', 'amount.amount', 'amount.currency', 'rate_bps', 'status', 'updated_at']
-const commissionTransactionActionContext = ['id', 'tenant_id', 'affiliate_account_id', 'order_id', 'commission_rule_id', 'transaction_type', 'status', 'amount.amount', 'amount.currency', 'calculated_at', 'approved_at']
+const commissionTransactionActionContext = ['id', 'tenant_id', 'receiver_customer_no', 'receiver_customer.name', 'buyer_customer_no', 'buyer_customer.name', 'affiliate_account_id', 'order_id', 'commission_rule_id', 'transaction_type', 'status', 'amount.amount', 'amount.currency', 'calculated_at', 'approved_at']
 const seoPageActionContext = ['id', 'tenant_id', 'path', 'title', 'status', 'robots', 'canonical_url', 'og_image_url', 'metadata', 'updated_at']
 const redirectActionContext = ['id', 'tenant_id', 'source_path', 'target_url', 'status_code', 'status', 'metadata', 'updated_at']
 const reportExportContext = ['scope', 'report_key', 'tenant_id', 'date_from', 'date_to', 'group_by', 'filters']
@@ -463,23 +573,156 @@ const roleActionContext = ['id', 'tenant_id', 'code', 'name', 'status', 'permiss
 const domainActionContext = ['id', 'tenant_id', 'host', 'type', 'status', 'is_primary', 'readiness.local_only']
 const rewardPrizeNumberHelp = 'Update winning numbers only. Payout amounts are kept from the current reward template.'
 const rewardPrizeAmountHelp = 'Update payout amounts only. Each amount is edited once per prize group and applied to every row in that group.'
-const roleIdsField = (required = false): OperationFormField => ({
-  key: 'role_ids',
-  label: 'Role IDs',
-  type: 'lines',
-  sourceKey: 'roles',
-  valueKey: 'id',
-  required,
-  placeholder: 'rol_example_one\nrol_example_two',
-  help: 'One role ID per line. Use IDs from the roles page for the same scope.',
+const permissionOptions = (permissions: Record<string, string>): OperationOption[] => Object.entries(permissions)
+  .map(([value, label]) => ({ value, label, code: value }))
+
+const centralPermissionOptions = permissionOptions({
+  'dashboard.view': 'View central dashboard',
+  'game.view': 'View games',
+  'game.create': 'Create games',
+  'game.update': 'Update games',
+  'game.close': 'Close games',
+  'game.reward': 'Manage game reward state',
+  'reward.view': 'View reward results',
+  'reward.create': 'Record reward results',
+  'reward.verify': 'Verify reward summaries',
+  'reward.publish': 'Publish rewards',
+  'reward.correct': 'Correct published rewards through correction flow',
+  'reward.audit': 'View reward audit',
+  'price_rule.view': 'View central sale price rules',
+  'price_rule.manage': 'Manage central sale price rules',
+  'stock.view': 'View stock manager',
+  'stock.generate': 'Generate/import stock manager',
+  'stock.allocate': 'Allocate stock to partners',
+  'stock.recall': 'Recall allocated stock',
+  'stock.export': 'Export stock data',
+  'partner.view': 'View partners',
+  'partner.create': 'Create partners',
+  'partner.update': 'Update partners',
+  'partner.suspend': 'Suspend partners',
+  'partner.api.manage': 'Manage partner API clients',
+  'partner.quota.manage': 'Manage partner quotas',
+  'partner.provision': 'Provision partner tenant defaults',
+  'partner.monitoring.view': 'View partner monitoring profile and health',
+  'partner.monitoring.manage': 'Manage partner monitoring profile',
+  'partner.usage.view': 'View partner usage meters',
+  'partner.usage.manage': 'Manage partner usage meters and limits',
+  'partner.billing.view': 'View partner billing bindings',
+  'partner.billing.manage': 'Manage partner billing plans and bindings',
+  'partner.alert.view': 'View partner alert policies and events',
+  'partner.alert.manage': 'Manage partner alert policies and event states',
+  'settlement.view': 'View settlements',
+  'settlement.approve': 'Approve settlements',
+  'report.view': 'View central reports',
+  'admin_user.manage': 'Manage central admin users',
+  'role.manage': 'Manage central roles',
+  'menu.manage': 'Manage central menus',
+  'audit.view': 'View central audit logs',
+  'system.settings.manage': 'Manage platform settings',
+  'asset.manage': 'Manage central asset upload intents',
+  'support_access.audit': 'View support access audits',
 })
-const permissionsField = (required = false): OperationFormField => ({
-  key: 'permissions',
-  label: 'Permission codes',
-  type: 'lines',
+
+const tenantPermissionOptions = permissionOptions({
+  'dashboard.view': 'View tenant dashboard',
+  'stock.view': 'View tenant virtual stock',
+  'stock.export': 'Export tenant stock',
+  'reservation.view': 'View reservations',
+  'reservation.cancel': 'Cancel reservations',
+  'order.view': 'View orders',
+  'order.update': 'Update orders',
+  'order.cancel': 'Cancel orders',
+  'order.refund': 'Refund orders',
+  'customer.view': 'View customers',
+  'customer.create': 'Create customers',
+  'customer.update': 'Update customers',
+  'customer.suspend': 'Suspend or disable customers',
+  'wallet.view': 'View wallets',
+  'wallet.adjust': 'Adjust wallet through audited ledger flow',
+  'topup.view': 'View topups',
+  'topup.approve': 'Approve topups',
+  'topup.reject': 'Reject topups',
+  'topup.cancel': 'Cancel topups',
+  'ticket.view': 'View tickets',
+  'reward_claim.view': 'View reward cashout claims',
+  'reward_claim.approve': 'Approve reward cashout claims',
+  'reward_claim.reject': 'Reject reward cashout claims',
+  'reward_claim.pay': 'Pay reward cashout claims',
+  'agent.view': 'View agents',
+  'agent.create': 'Create agents',
+  'agent.update': 'Update agents',
+  'agent.quota.manage': 'Manage agent quotas',
+  'price_rule.view': 'View tenant price rules',
+  'price_rule.manage': 'Manage tenant price rules',
+  'payment_settings.view': 'View tenant payment settings and channels',
+  'payment_settings.manage': 'Manage tenant payment settings and channels',
+  'affiliate.view': 'View affiliate data',
+  'affiliate.create': 'Create affiliate records',
+  'affiliate.update': 'Update affiliate records',
+  'affiliate_program.view': 'View affiliate programs',
+  'affiliate_program.manage': 'Manage affiliate programs',
+  'affiliate_link.view': 'View affiliate links',
+  'affiliate_link.manage': 'Manage affiliate links',
+  'affiliate_attribution.view': 'View affiliate attributions',
+  'commission.view': 'View commissions',
+  'commission.approve': 'Approve commissions',
+  'commission_rule.view': 'View commission rules',
+  'commission_rule.manage': 'Manage commission rules',
+  'payout.manage': 'Manage payouts',
+  'report.view': 'View tenant reports',
+  'monitoring.view': 'View tenant monitoring and health',
+  'usage.view': 'View tenant usage meters',
+  'sync_log.view': 'View sync logs',
+  'seo.view': 'View SEO settings',
+  'seo.update': 'Update SEO settings',
+  'seo.redirect.manage': 'Manage tenant redirects',
+  'maintenance.view': 'View maintenance settings',
+  'maintenance.update': 'Update maintenance settings',
+  'maintenance.schedule': 'Schedule maintenance',
+  'maintenance.bypass': 'Bypass maintenance',
+  'support_access.request': 'Request support access',
+  'support_access.approve': 'Approve support access',
+  'support_access.impersonate_customer': 'Impersonate customer with limits',
+  'support_access.impersonate_admin': 'Impersonate tenant admin with approval',
+  'support_access.elevated_action': 'Request or use elevated support action',
+  'support_access.audit': 'View support access audit',
+  'admin_user.manage': 'Manage tenant admin users',
+  'role.manage': 'Manage tenant roles',
+  'menu.manage': 'Manage tenant menus',
+  'settings.view': 'View tenant settings',
+  'settings.manage': 'Manage tenant settings',
+  'asset.manage': 'Manage tenant asset upload intents',
+  'audit.view': 'View tenant audit logs',
+})
+
+const roleOptionSource = (scope: AdminScope): OperationOptionSource => (
+  scope === 'central' ? 'central-admin-roles' : 'tenant-admin-roles'
+)
+
+const permissionOptionsForScope = (scope: AdminScope): OperationOption[] => (
+  scope === 'central' ? centralPermissionOptions : tenantPermissionOptions
+)
+
+const roleIdsField = (scope: AdminScope, required = false): OperationFormField => ({
+  key: 'role_ids',
+  label: 'Role',
+  type: 'select',
+  sourceKey: 'roles.0.id',
+  optionSource: roleOptionSource(scope),
+  hideEmptyOption: required,
+  emptyOptionLabel: 'Select role',
+  submitAsArray: true,
   required,
-  placeholder: 'dashboard.view\norder.view',
-  help: 'One permission code per line. Backend validates codes against the current scope.',
+  help: 'Choose a role by name. The API receives the selected role ID as role_ids.',
+})
+const permissionsField = (scope: AdminScope, required = false): OperationFormField => ({
+  key: 'permissions',
+  label: 'Permissions',
+  type: 'checkbox-group',
+  options: permissionOptionsForScope(scope),
+  required,
+  emptyValue: 'array',
+  help: 'Choose permissions by readable name. The API receives permission codes.',
 })
 const adminUserCreateFields = (scope: AdminScope): OperationFormField[] => [
   { key: 'name', label: 'Name', required: true },
@@ -493,27 +736,131 @@ const adminUserCreateFields = (scope: AdminScope): OperationFormField[] => [
     : [
         { key: 'send_invitation', label: 'Send invitation', type: 'checkbox', defaultValue: true } as OperationFormField,
       ]),
-  roleIdsField(true),
+  roleIdsField(scope, true),
 ]
-const adminUserUpdateFields: OperationFormField[] = [
+const adminUserUpdateFields = (scope: AdminScope): OperationFormField[] => [
   { key: 'name', label: 'Name' },
   { key: 'email', label: 'Email' },
   { key: 'phone', label: 'Phone' },
   { key: 'status', label: 'Status', type: 'select', options: adminUserStatusOptions },
   { key: 'password', label: 'Temporary password', type: 'password', placeholder: 'Leave blank to keep current credential' },
-  roleIdsField(false),
+  roleIdsField(scope, false),
 ]
-const roleCreateFields: OperationFormField[] = [
+const roleCreateFields = (scope: AdminScope): OperationFormField[] => [
   { key: 'name', label: 'Role name', required: true },
   { key: 'code', label: 'Role code', placeholder: 'Optional; backend derives one from the name' },
   { key: 'status', label: 'Status', type: 'select', options: roleStatusOptions, defaultValue: 'active' },
-  permissionsField(true),
+  permissionsField(scope, true),
 ]
-const roleUpdateFields: OperationFormField[] = [
+const roleUpdateFields = (scope: AdminScope): OperationFormField[] => [
   { key: 'name', label: 'Role name' },
   { key: 'code', label: 'Role code' },
   { key: 'status', label: 'Status', type: 'select', options: roleStatusOptions },
-  permissionsField(false),
+  permissionsField(scope, false),
+]
+const adminUserDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Admin user' },
+  { key: 'tenant_id', label: 'Tenant' },
+  { key: 'name', label: 'Name' },
+  { key: 'email', label: 'Email' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'roles', label: 'Roles', type: 'array' },
+  { key: 'permissions', label: 'Permissions', type: 'permission-list' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+]
+const roleDetailFields = (scope: AdminScope): OperationColumn[] => [
+  { key: 'id', label: 'Role' },
+  { key: 'tenant_id', label: 'Tenant' },
+  { key: 'code', label: 'Code' },
+  { key: 'name', label: 'Name' },
+  { key: 'permissions', label: 'Permissions', type: 'permission-list', options: permissionOptionsForScope(scope) },
+  { key: 'system_role', label: 'System role', type: 'boolean' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+]
+const tenantSalePriceRuleDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Sale price rule' },
+  { key: 'game_name', label: 'Game', fallbackKeys: ['game_code', 'game_id'] },
+  { key: 'set_size', label: 'Set size', type: 'number' },
+  { key: 'central_price', label: 'Central price', type: 'money' },
+  { key: 'partner_price', label: 'Partner price', type: 'money' },
+  { key: 'price', label: 'Sale price', type: 'money', fallbackKeys: ['partner_price', 'central_price'] },
+  { key: 'source', label: 'Source' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+]
+const ticketDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Ticket' },
+  { key: 'ticket_no', label: 'Ticket number', fallbackKeys: ['full_number', 'number'] },
+  { key: 'customer_id', label: 'Customer' },
+  { key: 'order_id', label: 'Order' },
+  { key: 'game_id', label: 'Game' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'price.amount', label: 'Price', type: 'money' },
+  { key: 'metadata', label: 'Metadata', type: 'object-summary' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+]
+const rewardClaimDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Reward claim' },
+  { key: 'customer_id', label: 'Customer' },
+  { key: 'ticket_id', label: 'Ticket' },
+  { key: 'reward_result_id', label: 'Reward' },
+  { key: 'amount', label: 'Amount', type: 'money' },
+  { key: 'payout_amount', label: 'Payout amount', type: 'money' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'metadata', label: 'Metadata', type: 'object-summary' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+]
+const agentDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Agent' },
+  { key: 'code', label: 'Code' },
+  { key: 'name', label: 'Name' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'email', label: 'Email' },
+  { key: 'store_id', label: 'Store' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'metadata', label: 'Metadata', type: 'object-summary' },
+  { key: 'quotas', label: 'Quotas', type: 'array' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+]
+const agentQuotaDetailFields: OperationColumn[] = [
+  ...agentDetailFields,
+  { key: 'quotas.0.game_id', label: 'Quota game' },
+  { key: 'quotas.0.quota_count', label: 'Quota count', type: 'number' },
+  { key: 'quotas.0.used_count', label: 'Used count', type: 'number' },
+  { key: 'quotas.0.status', label: 'Quota status', type: 'status' },
+  { key: 'quotas.0.payload', label: 'Quota payload', type: 'object-summary' },
+]
+const tenantDomainDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Domain' },
+  { key: 'host', label: 'Host', fallbackKeys: ['hostname'] },
+  { key: 'type', label: 'Type' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'is_primary', label: 'Primary', type: 'boolean' },
+  { key: 'readiness', label: 'Readiness', type: 'object-summary' },
+  { key: 'metadata', label: 'Metadata', type: 'object-summary' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+]
+const paymentChannelDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Payment channel' },
+  { key: 'code', label: 'Code' },
+  { key: 'name', label: 'Name' },
+  { key: 'provider', label: 'Provider' },
+  { key: 'channel_type', label: 'Channel type' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'provider_status', label: 'Provider status', type: 'status' },
+  { key: 'sort_order', label: 'Sort order', type: 'number' },
+  { key: 'config', label: 'Configuration', type: 'object-summary' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
 ]
 const systemSettingsFields: OperationFormField[] = [
   { key: 'settings.platform_name', label: 'Platform name', sourceKey: 'settings.platform_name' },
@@ -565,11 +912,11 @@ const tenantDomainUpdateFields: OperationFormField[] = tenantDomainCreateFields.
 const priceRuleUpdateFields: OperationFormField[] = [
   {
     key: 'partner_payout_amount',
-    label: 'Partner payout amount (minor units)',
-    type: 'number',
+    label: 'Partner payout amount (THB)',
+    type: 'money',
     sourceKey: 'partner_payout_amount.amount',
     min: 0,
-    step: 1,
+    step: 0.01,
     required: true,
     help: 'Final payout for this prize in the selected game. The backend stores only the delta from Central Reward for reports.',
   },
@@ -681,19 +1028,23 @@ const affiliateProgramDetailFields: OperationColumn[] = [
   { key: 'code', label: 'Code' },
   { key: 'name', label: 'Name' },
   { key: 'status', label: 'Status', type: 'status' },
+  { key: 'minimum_payout.amount', label: 'Minimum withdrawal', type: 'money' },
   { key: 'starts_at', label: 'Starts', type: 'datetime' },
   { key: 'ends_at', label: 'Ends', type: 'datetime' },
   { key: 'updated_at', label: 'Updated', type: 'datetime' },
 ]
 const affiliateAccountDetailFields: OperationColumn[] = [
   { key: 'id', label: 'Affiliate' },
-  { key: 'customer_id', label: 'Customer' },
+  { key: 'customer_no', label: 'Customer no' },
+  { key: 'customer_name', label: 'Customer name' },
   { key: 'code', label: 'Generated code' },
   { key: 'canonical_url', label: 'Referral URL', fallbackKeys: ['referral_url', 'url'] },
   { key: 'name', label: 'Name' },
   { key: 'phone', label: 'Phone' },
   { key: 'email', label: 'Email' },
   { key: 'status', label: 'Status', type: 'status' },
+  { key: 'visitor_count', label: 'Visitor', type: 'number' },
+  { key: 'registered_count', label: 'Registered', type: 'number' },
   { key: 'wallet_balance.amount', label: 'Wallet', type: 'money' },
   { key: 'payout_profile.method', label: 'Payout method' },
   { key: 'payout_profile.bank_account.bank_name', label: 'Bank' },
@@ -714,7 +1065,7 @@ const affiliateAttributionDetailFields: OperationColumn[] = [
   { key: 'id', label: 'Attribution' },
   { key: 'affiliate_account_id', label: 'Affiliate' },
   { key: 'affiliate_link_id', label: 'Link' },
-  { key: 'customer_id', label: 'Customer' },
+  { key: 'customer_no', label: 'Customer no' },
   { key: 'order_id', label: 'Order' },
   { key: 'status', label: 'Status', type: 'status' },
   { key: 'expires_at', label: 'Expires', type: 'datetime' },
@@ -735,6 +1086,8 @@ const commissionRuleDetailFields: OperationColumn[] = [
 ]
 const commissionTransactionDetailFields: OperationColumn[] = [
   { key: 'id', label: 'Commission' },
+  { key: 'receiver_customer_no', label: 'Commission receiver' },
+  { key: 'buyer_customer_no', label: 'Ticket buyer' },
   { key: 'affiliate_account_id', label: 'Affiliate' },
   { key: 'order_id', label: 'Order' },
   { key: 'commission_rule_id', label: 'Rule' },
@@ -758,6 +1111,8 @@ const affiliateProgramCreateFields: OperationFormField[] = [
   { key: 'code', label: 'Code', placeholder: 'program_may_2026', help: 'Unique within the active tenant. Backend derives one from name if blank.' },
   { key: 'name', label: 'Name', required: true, placeholder: 'May 2026 Program' },
   { key: 'status', label: 'Status', type: 'select', options: affiliateStatusOptions, defaultValue: 'active' },
+  { key: 'minimum_payout.amount', label: 'Minimum withdrawal (THB)', type: 'money', required: true, min: 0.01, step: 0.01, defaultValue: 300, help: 'Enter baht. Customer affiliate payout requests below this amount are rejected.' },
+  { key: 'minimum_payout.currency', label: 'Currency', type: 'select', options: currencyOptions, defaultValue: 'THB' },
   { key: 'starts_at', label: 'Starts at', type: 'datetime-local' },
   { key: 'ends_at', label: 'Ends at', type: 'datetime-local' },
 ]
@@ -892,7 +1247,7 @@ const gameUpdateFields: OperationFormField[] = [
 const billingPlanFields: OperationFormField[] = [
   { key: 'code', label: 'Plan code', required: true, placeholder: 'enterprise' },
   { key: 'name', label: 'Plan name', required: true, placeholder: 'Enterprise' },
-  { key: 'monthly_fee_amount', label: 'Monthly fee (minor units)', type: 'number', sourceKey: 'monthly_fee.amount', min: 0, step: 1, required: true },
+  { key: 'monthly_fee_amount', label: 'Monthly fee (THB)', type: 'money', sourceKey: 'monthly_fee.amount', min: 0, step: 0.01, required: true },
   { key: 'currency', label: 'Currency', type: 'select', sourceKey: 'monthly_fee.currency', options: currencyOptions, defaultValue: 'THB', required: true },
   { key: 'status', label: 'Status', type: 'select', options: billingPlanStatusOptions, defaultValue: 'active', required: true },
   { key: 'features.affiliate', label: 'Affiliate included', type: 'checkbox', defaultValue: false },
@@ -905,7 +1260,7 @@ const billingPlanFields: OperationFormField[] = [
 const billingPlanUpdateFields: OperationFormField[] = [
   { key: 'code', label: 'Plan code', placeholder: 'enterprise' },
   { key: 'name', label: 'Plan name', placeholder: 'Enterprise' },
-  { key: 'monthly_fee_amount', label: 'Monthly fee (minor units)', type: 'number', sourceKey: 'monthly_fee.amount', min: 0, step: 1 },
+  { key: 'monthly_fee_amount', label: 'Monthly fee (THB)', type: 'money', sourceKey: 'monthly_fee.amount', min: 0, step: 0.01 },
   { key: 'currency', label: 'Currency', type: 'select', sourceKey: 'monthly_fee.currency', options: currencyOptions },
   { key: 'status', label: 'Status', type: 'select', options: billingPlanStatusOptions },
   { key: 'limits.tenants', label: 'Tenant limit', type: 'number', sourceKey: 'limits.tenants', min: 0, step: 1 },
@@ -923,6 +1278,120 @@ const alertPolicyFields: OperationFormField[] = [
   { key: 'config.description', label: 'Description', type: 'textarea' },
 ]
 const alertPolicyUpdateFields: OperationFormField[] = alertPolicyFields.map((field) => ({ ...field, required: false }))
+const partnerMonitoringDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Profile' },
+  { key: 'partner_id', label: 'Partner' },
+  { key: 'health_status', label: 'Health', type: 'status' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'config', label: 'Configuration', type: 'object-summary' },
+  { key: 'metadata', label: 'Metadata', type: 'object-summary' },
+  { key: 'checked_at', label: 'Checked', type: 'datetime' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+]
+const partnerUsageDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Usage meter' },
+  { key: 'partner_id', label: 'Partner' },
+  { key: 'meter_key', label: 'Meter' },
+  { key: 'value', label: 'Value', type: 'number' },
+  { key: 'limit_value', label: 'Limit', type: 'number' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'metadata', label: 'Metadata', type: 'object-summary' },
+  { key: 'period_from', label: 'From', type: 'datetime' },
+  { key: 'period_to', label: 'To', type: 'datetime' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+]
+const billingPlanDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Billing plan' },
+  { key: 'code', label: 'Code' },
+  { key: 'name', label: 'Name' },
+  { key: 'monthly_fee.amount', label: 'Monthly fee', type: 'money' },
+  { key: 'monthly_fee.currency', label: 'Currency' },
+  { key: 'features', label: 'Features', type: 'object-summary' },
+  { key: 'limits', label: 'Limits', type: 'object-summary' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+]
+const alertPolicyDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Alert policy' },
+  { key: 'partner_id', label: 'Partner' },
+  { key: 'policy_key', label: 'Policy' },
+  { key: 'severity', label: 'Severity', type: 'status' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'config', label: 'Configuration', type: 'object-summary' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+]
+const alertEventDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Alert event' },
+  { key: 'partner_id', label: 'Partner' },
+  { key: 'policy_key', label: 'Policy' },
+  { key: 'severity', label: 'Severity', type: 'status' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'channel', label: 'Channel' },
+  { key: 'title', label: 'Title' },
+  { key: 'payload', label: 'Payload', type: 'object-summary' },
+  { key: 'triggered_at', label: 'Triggered', type: 'datetime' },
+  { key: 'delivered_at', label: 'Delivered', type: 'datetime' },
+]
+const gameDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Game' },
+  { key: 'code', label: 'Code' },
+  { key: 'name', label: 'Name' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'sale_start_at', label: 'Sale start', type: 'datetime' },
+  { key: 'close_at', label: 'Sale close', type: 'datetime' },
+  { key: 'draw_at', label: 'Draw at', type: 'datetime' },
+  { key: 'metadata', label: 'Metadata', type: 'object-summary' },
+]
+const centralSalePriceRuleDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Sale price rule' },
+  { key: 'game_name', label: 'Game', fallbackKeys: ['game_code', 'game_id'] },
+  { key: 'set_size', label: 'Set size', type: 'number' },
+  { key: 'price', label: 'Sale price', type: 'money' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+]
+const allocationDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Allocation' },
+  { key: 'partner_name', label: 'Partner', fallbackKeys: ['partner_code', 'partner_id'] },
+  { key: 'tenant_name', label: 'Tenant', fallbackKeys: ['tenant_code', 'tenant_id'] },
+  { key: 'game_name', label: 'Game', fallbackKeys: ['game_code', 'game_id'] },
+  { key: 'allocation_percent', label: 'Allocation percent', type: 'percent' },
+  { key: 'active_partner_percent', label: 'Active partner percent', type: 'percent' },
+  { key: 'allocated_count', label: 'Allocated', type: 'number' },
+  { key: 'remaining_count', label: 'Remaining', type: 'number' },
+  { key: 'recalled_count', label: 'Recalled', type: 'number' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'metadata', label: 'Metadata', type: 'object-summary' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
+]
+const settlementDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Settlement' },
+  { key: 'partner_id', label: 'Partner' },
+  { key: 'tenant_id', label: 'Tenant' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'sales_amount.amount', label: 'Sales amount', type: 'money' },
+  { key: 'commission_amount.amount', label: 'Commission amount', type: 'money' },
+  { key: 'payout_amount.amount', label: 'Payout amount', type: 'money' },
+  { key: 'net_amount.amount', label: 'Net amount', type: 'money' },
+  { key: 'period_from', label: 'From' },
+  { key: 'period_to', label: 'To' },
+  { key: 'metadata', label: 'Metadata', type: 'object-summary' },
+]
+const webhookLogDetailFields: OperationColumn[] = [
+  { key: 'id', label: 'Webhook log' },
+  { key: 'provider', label: 'Provider' },
+  { key: 'domain', label: 'Domain' },
+  { key: 'status', label: 'Status', type: 'status' },
+  { key: 'callback_key', label: 'Callback' },
+  { key: 'payload_hash', label: 'Payload hash' },
+  { key: 'payload', label: 'Payload', type: 'object-summary' },
+  { key: 'headers', label: 'Headers', type: 'object-summary' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+]
 const rewardCreateFields: OperationFormField[] = [
   { key: 'game_id', label: 'Game ID', required: true },
   { key: 'prizes', label: 'Winning numbers', type: 'reward-prize-number-grid', required: true, help: rewardPrizeNumberHelp },
@@ -1022,6 +1491,7 @@ const tenant: OperationResource[] = [
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
     ],
     filters: cursorFilters([{ key: 'game_id', label: 'Game', type: 'select', optionSource: 'tenant-sale-price-games', hideEmptyOption: true, emptyOptionLabel: 'No open game' }]),
+    detailFields: tenantSalePriceRuleDetailFields,
     confirmContextFields: salePriceRuleActionContext,
     actions: [
       {
@@ -1047,16 +1517,42 @@ const tenant: OperationResource[] = [
     title: 'Reservations',
     group: 'Tenant Orders',
     listEndpoint: '/admin/tenant/reservations',
+    detailEndpoint: '/admin/tenant/reservations/{reservation_id}',
     idParam: 'reservation_id',
+    idKey: 'id',
+    apiSort: true,
+    defaultSort: { key: 'created_at', direction: 'desc' },
     columns: [
-      { key: 'id', label: 'Reservation' },
-      { key: 'customer_id', label: 'Customer' },
+      { key: 'customer_no', label: 'Customer no' },
       { key: 'status', label: 'Status', type: 'status' },
+      { key: 'created_at', label: 'Created', type: 'datetime' },
       { key: 'expires_at', label: 'Expires', type: 'datetime' },
     ],
-    filters: cursorFilters([statusFilter(['pending', 'confirmed', 'expired', 'cancelled']), { key: 'customer_id', label: 'Customer ID' }]),
-    confirmContextFields: ['id', 'customer_id', 'status', 'expires_at'],
-    actions: [{ key: 'cancel', label: 'Cancel', endpoint: '/admin/tenant/reservations/{reservation_id}/cancel', variant: 'warning', reason: true, contextFields: ['id', 'customer_id', 'status', 'expires_at'] }],
+    filters: cursorFilters([statusFilter(['active', 'converted', 'released', 'expired', 'cancelled']), { key: 'customer_no', label: 'Customer no' }]),
+    detailFields: [
+      { key: 'id', label: 'Reservation' },
+      { key: 'customer_no', label: 'Customer no' },
+      { key: 'customer_id', label: 'Customer id' },
+      { key: 'game_id', label: 'Game' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'created_at', label: 'Created', type: 'datetime' },
+      { key: 'expires_at', label: 'Expires', type: 'datetime' },
+      { key: 'converted_at', label: 'Converted', type: 'datetime' },
+      { key: 'released_at', label: 'Released', type: 'datetime' },
+      { key: 'cancelled_at', label: 'Cancelled', type: 'datetime' },
+      { key: 'cancel_reason', label: 'Cancel reason' },
+    ],
+    confirmContextFields: ['id', 'customer_no', 'customer_id', 'status', 'expires_at'],
+    actions: [{
+      key: 'cancel',
+      label: 'Cancel',
+      endpoint: '/admin/tenant/reservations/{reservation_id}/cancel',
+      variant: 'warning',
+      enabledStatuses: ['active'],
+      hideWhenDisabled: true,
+      reason: true,
+      contextFields: ['id', 'customer_no', 'customer_id', 'status', 'expires_at'],
+    }],
   },
   {
     scope: 'tenant',
@@ -1067,14 +1563,20 @@ const tenant: OperationResource[] = [
     detailEndpoint: '/admin/tenant/orders/{order_id}',
     updateEndpoint: '/admin/tenant/orders/{order_id}',
     idParam: 'order_id',
+    idKey: 'id',
+    detailRenderer: 'order',
+    apiSort: true,
     columns: [
-      { key: 'id', label: 'Order' },
-      { key: 'customer', label: 'Customer', type: 'customer', fallbackKeys: ['customer_id', 'member_id'] },
-      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'order_id', label: 'Order', fallbackKeys: ['id'] },
+      { key: 'customer_name', label: 'Customer name', type: 'customer_name', fallbackKeys: ['customer', 'customer.name', 'customer_id', 'member_id'] },
       { key: 'total.amount', label: 'Total', type: 'money' },
+      { key: 'status', label: 'Status', type: 'status' },
       { key: 'created_at', label: 'Created', type: 'datetime' },
     ],
-    filters: cursorFilters([statusFilter(['draft', 'pending_payment', 'paid', 'cancelled', 'expired', 'refunded', 'failed']), { key: 'payment_status', label: 'Payment status', type: 'select', options: ['unpaid', 'pending', 'paid', 'refunded', 'failed'] }, { key: 'game_id', label: 'Game ID' }, { key: 'customer_id', label: 'Customer ID' }]),
+    detailFields: [
+      { key: 'customer', label: 'Customer', type: 'customer' },
+    ],
+    filters: cursorFilters([statusFilter(['draft', 'pending_payment', 'paid', 'cancelled', 'expired', 'refunded', 'failed']), { key: 'payment_status', label: 'Payment status', type: 'select', options: ['unpaid', 'pending', 'paid', 'refunded', 'failed'] }, { key: 'game_id', label: 'Game ID' }, { key: 'customer_no', label: 'Customer no' }]),
     confirmContextFields: orderActionContext,
     actions: [
       {
@@ -1111,7 +1613,7 @@ const tenant: OperationResource[] = [
         reason: true,
         contextFields: orderActionContext,
         formFields: [
-          ...moneyFields('amount', 'Refund amount'),
+          ...bahtMoneyFields('amount', 'Refund amount'),
           { key: 'method', label: 'Refund method', type: 'select', options: ['wallet_refund', 'manual_refund', 'original_payment'], defaultValue: 'wallet_refund' },
           notifyCustomerField,
         ],
@@ -1128,12 +1630,15 @@ const tenant: OperationResource[] = [
     updateEndpoint: '/admin/tenant/members/{member_id}',
     idParam: 'member_id',
     idKey: 'id',
+    detailRenderer: 'customer',
+    apiSort: true,
     columns: [
-      { key: 'id', label: 'Member' },
-      { key: 'member_no', label: 'Member no' },
+      { key: 'customer_no', label: 'Customer no' },
       { key: 'name', label: 'Name' },
       { key: 'phone', label: 'Phone' },
       { key: 'status', label: 'Status', type: 'status' },
+      { key: 'online_status', label: 'Online', type: 'status' },
+      { key: 'last_online_at', label: 'Last online', type: 'datetime' },
       { key: 'order_count', label: 'Orders' },
       { key: 'lifetime_spend.amount', label: 'Lifetime spend', type: 'money' },
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
@@ -1172,12 +1677,15 @@ const tenant: OperationResource[] = [
       formFields: memberCreateFields,
     }],
   },
-  resource('tenant', 'tickets', 'Tickets', 'Tenant Support', '/admin/tenant/tickets', '/admin/tenant/tickets/{ticket_id}', 'ticket_id', [
-    { key: 'id', label: 'Ticket' },
-    { key: 'customer_id', label: 'Customer' },
-    { key: 'status', label: 'Status', type: 'status' },
-    { key: 'created_at', label: 'Created', type: 'datetime' },
-  ], cursorFilters([statusFilter(['active', 'open', 'pending', 'resolved', 'closed'])])),
+  {
+    ...resource('tenant', 'tickets', 'Tickets', 'Tenant Support', '/admin/tenant/tickets', '/admin/tenant/tickets/{ticket_id}', 'ticket_id', [
+      { key: 'id', label: 'Ticket' },
+      { key: 'customer_id', label: 'Customer' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'created_at', label: 'Created', type: 'datetime' },
+    ], cursorFilters([statusFilter(['active', 'open', 'pending', 'resolved', 'closed'])])),
+    detailFields: ticketDetailFields,
+  },
   {
     scope: 'tenant',
     slug: 'wallets',
@@ -1187,13 +1695,15 @@ const tenant: OperationResource[] = [
     detailEndpoint: '/admin/tenant/wallets/{wallet_id}',
     updateEndpoint: '/admin/tenant/wallets/{wallet_id}/adjust',
     idParam: 'wallet_id',
+    detailRenderer: 'wallet',
+    apiSort: true,
     columns: [
-      { key: 'id', label: 'Wallet' },
-      { key: 'customer_id', label: 'Customer' },
+      { key: 'customer_no', label: 'Customer no' },
+      { key: 'customer_name', label: 'Name' },
       { key: 'balance', label: 'Balance', type: 'money' },
       { key: 'status', label: 'Status', type: 'status' },
     ],
-    filters: cursorFilters([{ key: 'customer_id', label: 'Customer ID' }]),
+    filters: cursorFilters([{ key: 'customer_no', label: 'Customer no' }]),
     confirmContextFields: moneyActionContext,
     actions: [{
       key: 'adjust',
@@ -1203,47 +1713,92 @@ const tenant: OperationResource[] = [
       variant: 'warning',
       reason: true,
       contextFields: moneyActionContext,
-      formFields: moneyFields('amount', 'Adjustment amount'),
+      formFields: [
+        { key: 'transaction_type', label: 'Type', type: 'select', options: [{ value: 'deposit', label: 'Deposit' }, { value: 'withdraw', label: 'Withdraw' }], defaultValue: 'deposit', required: true },
+        ...bahtMoneyFields('amount', 'Amount'),
+      ],
     }],
     relatedLists: [{
       key: 'ledger',
       title: 'Wallet Ledger',
       listEndpoint: '/admin/tenant/wallets/{wallet_id}/ledger',
       idParam: 'ledger_id',
+      apiSort: true,
+      defaultSort: { key: 'created_at', direction: 'desc' },
       columns: [
-        { key: 'id', label: 'Ledger' },
         { key: 'entry_type', label: 'Type', type: 'status' },
         { key: 'amount.amount', label: 'Amount', type: 'money' },
         { key: 'balance_after.amount', label: 'Balance after', type: 'money' },
+        { key: 'reason', label: 'Reason' },
         { key: 'reference_type', label: 'Reference' },
         { key: 'created_at', label: 'Created', type: 'datetime' },
       ],
+      filters: cursorFilters([
+        { key: 'entry_type', label: 'Type', type: 'select', options: ['credit', 'debit', 'adjustment', 'reversal', 'hold'] },
+        { key: 'created_from', label: 'Created from', type: 'datetime-local' },
+        { key: 'created_to', label: 'Created to', type: 'datetime-local' },
+      ]),
       emptyTitle: 'No ledger entries',
       emptyMessage: 'No ledger entries were returned for this wallet.',
     }],
   },
-  actionResource('tenant', 'topups', 'Topups', 'Tenant Finance', '/admin/tenant/topups', '/admin/tenant/topups/{topup_id}', 'topup_id', [
-    {
-      key: 'approve',
-      label: 'Approve',
-      endpoint: '/admin/tenant/topups/{topup_id}/approve',
-      variant: 'success',
-      reason: true,
-      contextFields: topupActionContext,
-      formFields: [
-        ...moneyFields('approved_amount', 'Approved amount', false),
-        ...moneyFields('bonus_amount', 'Bonus amount', false),
-        notifyCustomerField,
-      ],
-    },
-    { key: 'reject', label: 'Reject', endpoint: '/admin/tenant/topups/{topup_id}/reject', variant: 'danger', reason: true, contextFields: topupActionContext, formFields: [notifyCustomerField] },
-    { key: 'cancel', label: 'Cancel', endpoint: '/admin/tenant/topups/{topup_id}/cancel', variant: 'warning', reason: true, contextFields: topupActionContext, formFields: [notifyCustomerField] },
-  ]),
-  actionResource('tenant', 'reward-claims', 'Reward Claims', 'Tenant Rewards', '/admin/tenant/reward-claims', '/admin/tenant/reward-claims/{claim_id}', 'claim_id', [
-    { key: 'approve', label: 'Approve', endpoint: '/admin/tenant/reward-claims/{claim_id}/approve', variant: 'success', reason: true },
-    { key: 'reject', label: 'Reject', endpoint: '/admin/tenant/reward-claims/{claim_id}/reject', variant: 'danger', reason: true },
-    { key: 'pay', label: 'Pay', endpoint: '/admin/tenant/reward-claims/{claim_id}/pay', variant: 'primary', reason: true },
-  ]),
+  {
+    ...actionResource('tenant', 'topups', 'Topups', 'Tenant Finance', '/admin/tenant/topups', '/admin/tenant/topups/{topup_id}', 'topup_id', topupActions),
+    columns: topupColumns,
+    filters: [],
+    apiSort: true,
+    defaultSort: { key: 'created_at', direction: 'desc' },
+    listSections: [
+      {
+        key: 'pending-topups',
+        title: 'Pending Topups',
+        listEndpoint: '/admin/tenant/topups',
+        detailEndpoint: '/admin/tenant/topups/{topup_id}',
+        detailRenderer: 'topup',
+        idParam: 'topup_id',
+        columns: topupColumns,
+        filters: cursorFilters([
+          { key: 'customer_no', label: 'Customer no' },
+          { key: 'channel', label: 'Channel', type: 'select', options: ['bank_transfer', 'qr', 'credit_card'] },
+        ]),
+        actions: topupActions,
+        apiSort: true,
+        defaultSort: { key: 'created_at', direction: 'desc' },
+        defaultQuery: { section: 'pending' },
+        emptyTitle: 'No pending topups',
+        emptyMessage: 'No topup requests are waiting for review.',
+      },
+      {
+        key: 'topup-history',
+        title: 'Topup History',
+        listEndpoint: '/admin/tenant/topups',
+        detailEndpoint: '/admin/tenant/topups/{topup_id}',
+        detailRenderer: 'topup',
+        idParam: 'topup_id',
+        columns: topupColumns,
+        filters: cursorFilters([
+          { key: 'status', label: 'Status', type: 'select', options: ['approved', 'rejected', 'cancelled', 'expired'] },
+          { key: 'customer_no', label: 'Customer no' },
+          { key: 'channel', label: 'Channel', type: 'select', options: ['bank_transfer', 'qr', 'credit_card'] },
+        ]),
+        apiSort: true,
+        defaultSort: { key: 'created_at', direction: 'desc' },
+        defaultQuery: { section: 'history' },
+        emptyTitle: 'No topup history',
+        emptyMessage: 'Reviewed, cancelled, and expired topups will appear here.',
+      },
+    ],
+    detailFields: topupDetailFields,
+    detailRenderer: 'topup',
+  },
+  {
+    ...actionResource('tenant', 'reward-claims', 'Reward Claims', 'Tenant Rewards', '/admin/tenant/reward-claims', '/admin/tenant/reward-claims/{claim_id}', 'claim_id', [
+      { key: 'approve', label: 'Approve', endpoint: '/admin/tenant/reward-claims/{claim_id}/approve', variant: 'success', reason: true },
+      { key: 'reject', label: 'Reject', endpoint: '/admin/tenant/reward-claims/{claim_id}/reject', variant: 'danger', reason: true },
+      { key: 'pay', label: 'Pay', endpoint: '/admin/tenant/reward-claims/{claim_id}/pay', variant: 'primary', reason: true },
+    ]),
+    detailFields: rewardClaimDetailFields,
+  },
   {
     scope: 'tenant',
     slug: 'growth/agents',
@@ -1263,6 +1818,7 @@ const tenant: OperationResource[] = [
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
     ],
     filters: cursorFilters([statusFilter(agentStatusOptions)]),
+    detailFields: agentDetailFields,
     confirmContextFields: agentActionContext,
     actions: [
       {
@@ -1310,6 +1866,7 @@ const tenant: OperationResource[] = [
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
     ],
     filters: cursorFilters([statusFilter(agentStatusOptions)]),
+    detailFields: agentQuotaDetailFields,
     confirmContextFields: agentQuotaActionContext,
     actions: [{
       key: 'quotas',
@@ -1338,6 +1895,7 @@ const tenant: OperationResource[] = [
       { key: 'code', label: 'Code' },
       { key: 'name', label: 'Name' },
       { key: 'status', label: 'Status', type: 'status' },
+      { key: 'minimum_payout.amount', label: 'Minimum withdrawal', type: 'money' },
       { key: 'starts_at', label: 'Starts', type: 'datetime' },
       { key: 'ends_at', label: 'Ends', type: 'datetime' },
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
@@ -1428,14 +1986,14 @@ const tenant: OperationResource[] = [
       { key: 'id', label: 'Attribution' },
       { key: 'affiliate_account_id', label: 'Affiliate' },
       { key: 'affiliate_link_id', label: 'Link' },
-      { key: 'customer_id', label: 'Customer' },
+      { key: 'customer_no', label: 'Customer no' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'expires_at', label: 'Expires', type: 'datetime' },
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
     ], cursorFilters([
       statusFilter(),
       { key: 'affiliate_account_id', label: 'Affiliate', type: 'select', optionSource: 'tenant-affiliates', emptyOptionLabel: 'All affiliates' },
-      { key: 'customer_id', label: 'Customer', type: 'select', optionSource: 'tenant-customers', emptyOptionLabel: 'All customers' },
+      { key: 'customer_no', label: 'Customer no' },
     ])),
     detailFields: affiliateAttributionDetailFields,
   },
@@ -1451,18 +2009,18 @@ const tenant: OperationResource[] = [
     idKey: 'id',
     detailFields: affiliateAccountDetailFields,
     columns: [
-      { key: 'id', label: 'Affiliate' },
-      { key: 'customer_id', label: 'Customer' },
       { key: 'code', label: 'Code' },
-      { key: 'canonical_url', label: 'Referral URL', fallbackKeys: ['referral_url', 'url'] },
-      { key: 'name', label: 'Name' },
-      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'customer_no', label: 'Customer no' },
+      { key: 'customer_name', label: 'Customer name' },
+      { key: 'visitor_count', label: 'Visitors', type: 'number' },
+      { key: 'registered_count', label: 'Registered customers', type: 'number' },
       { key: 'wallet_balance.amount', label: 'Wallet', type: 'money' },
-      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+      { key: 'status', label: 'Status', type: 'status' },
     ],
+    apiSort: true,
     filters: cursorFilters([
       statusFilter(affiliateStatusOptions),
-      { key: 'customer_id', label: 'Customer', type: 'select', optionSource: 'tenant-customers', emptyOptionLabel: 'All customers' },
+      { key: 'customer_no', label: 'Customer no' },
     ]),
     confirmContextFields: affiliateAccountActionContext,
     actions: [{
@@ -1543,22 +2101,22 @@ const tenant: OperationResource[] = [
     title: 'Commission Transactions',
     group: 'Tenant Growth',
     listEndpoint: '/admin/tenant/commission-transactions',
+    detailEndpoint: '/admin/tenant/commission-transactions/{commission_id}',
     idParam: 'commission_id',
     detailFields: commissionTransactionDetailFields,
+    apiSort: true,
     columns: [
-      { key: 'id', label: 'Commission' },
-      { key: 'affiliate_account_id', label: 'Affiliate' },
-      { key: 'order_id', label: 'Order' },
-      { key: 'commission_rule_id', label: 'Rule' },
-      { key: 'transaction_type', label: 'Type' },
+      { key: 'receiver_customer_no', label: 'Commission receiver' },
+      { key: 'buyer_customer_no', label: 'Ticket buyer' },
       { key: 'amount', label: 'Amount', type: 'money' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'calculated_at', label: 'Calculated', type: 'datetime' },
-      { key: 'approved_at', label: 'Approved', type: 'datetime' },
     ],
     filters: cursorFilters([
       statusFilter(['calculated', 'approved', 'reversed']),
       { key: 'affiliate_account_id', label: 'Affiliate', type: 'select', optionSource: 'tenant-affiliates', emptyOptionLabel: 'All affiliates' },
+      { key: 'receiver_customer_no', label: 'Receiver customer no' },
+      { key: 'buyer_customer_no', label: 'Buyer customer no' },
     ]),
     confirmContextFields: commissionTransactionActionContext,
     actions: [{
@@ -1566,10 +2124,10 @@ const tenant: OperationResource[] = [
       label: 'Approve',
       endpoint: '/admin/tenant/commission-transactions/{commission_id}/approve',
       variant: 'success',
-      reason: true,
+      enabledStatuses: ['calculated'],
+      hideWhenDisabled: true,
       contextFields: commissionTransactionActionContext,
     }],
-    detailApiGap: 'OpenAPI documents list and approve action, but no commission transaction detail route.',
   },
   {
     scope: 'tenant',
@@ -1634,12 +2192,13 @@ const tenant: OperationResource[] = [
       detailEndpoint: '/admin/tenant/domains/{domain_id}',
       idParam: 'domain_id',
       idKey: 'id',
+      detailFields: tenantDomainDetailFields,
       columns: [
         { key: 'id', label: 'Domain' },
         { key: 'host', label: 'Host' },
         { key: 'type', label: 'Type' },
         { key: 'status', label: 'Status', type: 'status' },
-        { key: 'is_primary', label: 'Primary', type: 'status' },
+        { key: 'is_primary', label: 'Primary', type: 'boolean' },
         { key: 'updated_at', label: 'Updated', type: 'datetime' },
       ],
       collectionActions: [{
@@ -1683,6 +2242,9 @@ const tenant: OperationResource[] = [
       { key: 'allow_external_payment', label: 'Allow external payment', type: 'checkbox', defaultValue: false },
       { key: 'payment_provider_status', label: 'Provider status', type: 'select', options: ['blocked_external', 'local_dev_configured', 'manual_only', 'disabled'], defaultValue: 'manual_only' },
       { key: 'config.display_name', label: 'Display name', placeholder: 'Optional customer-facing payment label' },
+      { key: 'config.bank_transfer.bank_code', label: 'Bank transfer bank', type: 'select', options: thaiBankOptions, defaultValue: 'kbank' },
+      { key: 'config.bank_transfer.account_name', label: 'Bank account name', placeholder: 'Tenant Wallet' },
+      { key: 'config.bank_transfer.account_number', label: 'Bank account number', placeholder: '000-000-0000' },
     ],
     relatedLists: [{
       key: 'payment-channels',
@@ -1690,6 +2252,7 @@ const tenant: OperationResource[] = [
       listEndpoint: '/admin/tenant/payment-channels',
       detailEndpoint: '/admin/tenant/payment-channels/{payment_channel_id}',
       idParam: 'payment_channel_id',
+      detailFields: paymentChannelDetailFields,
       columns: [
         { key: 'id', label: 'Channel' },
         { key: 'code', label: 'Code' },
@@ -1834,15 +2397,18 @@ const tenant: OperationResource[] = [
       },
     ],
   },
-  resource('tenant', 'domains', 'Domains', 'Tenant Settings', '/admin/tenant/domains', '/admin/tenant/domains/{domain_id}', 'domain_id', [
-    { key: 'id', label: 'Domain' },
-    { key: 'hostname', label: 'Hostname' },
-    { key: 'status', label: 'Status', type: 'status' },
-    { key: 'updated_at', label: 'Updated', type: 'datetime' },
-  ], cursorFilters([statusFilter(['pending', 'verified', 'failed', 'disabled'])]), [
-    { key: 'verify', label: 'Verify', endpoint: '/admin/tenant/domains/{domain_id}/verify', variant: 'success', reason: true },
-    { key: 'delete', label: 'Delete', method: 'DELETE', endpoint: '/admin/tenant/domains/{domain_id}', variant: 'danger', reason: true },
-  ]),
+  {
+    ...resource('tenant', 'domains', 'Domains', 'Tenant Settings', '/admin/tenant/domains', '/admin/tenant/domains/{domain_id}', 'domain_id', [
+      { key: 'id', label: 'Domain' },
+      { key: 'hostname', label: 'Hostname' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ], cursorFilters([statusFilter(['pending', 'verified', 'failed', 'disabled'])]), [
+      { key: 'verify', label: 'Verify', endpoint: '/admin/tenant/domains/{domain_id}/verify', variant: 'success', reason: true },
+      { key: 'delete', label: 'Delete', method: 'DELETE', endpoint: '/admin/tenant/domains/{domain_id}', variant: 'danger', reason: true },
+    ]),
+    detailFields: tenantDomainDetailFields,
+  },
   {
     scope: 'tenant',
     slug: 'audit-logs',
@@ -1881,7 +2447,7 @@ const central: OperationResource[] = [
       { key: 'code', label: 'Code' },
       { key: 'name', label: 'Name' },
       { key: 'type', label: 'Type' },
-      { key: 'stock_percent', label: 'Stock %', type: 'number' },
+      { key: 'stock_percent', label: 'Stock %', type: 'percent' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
     ],
@@ -1920,26 +2486,32 @@ const central: OperationResource[] = [
     }],
   },
   apiGapResource('central', 'partner-quotas', 'Partner Quotas', 'Central Partner Operations', 'Partner Quotas is retired for active stock allocation. Use Partners > Edit stock percent and Central Stock > Allocations for virtual distribution workflows.'),
-  resource('central', 'partner-monitoring', 'Partner Monitoring', 'Central Partner Operations', '/admin/central/partner-monitoring', '/admin/central/partner-monitoring/{monitoring_profile_id}', 'monitoring_profile_id', [
-    { key: 'id', label: 'Profile' },
-    { key: 'partner_id', label: 'Partner' },
-    { key: 'health_status', label: 'Health', type: 'status' },
-    { key: 'status', label: 'Status', type: 'status' },
-    { key: 'updated_at', label: 'Updated', type: 'datetime' },
-  ], cursorFilters([{ key: 'partner_id', label: 'Partner ID' }, statusFilter(['active', 'paused', 'archived'])])),
-  resource('central', 'partner-usage', 'Partner Usage', 'Central Partner Operations', '/admin/central/partner-usage', '/admin/central/partner-usage/{usage_meter_id}', 'usage_meter_id', [
-    { key: 'id', label: 'Usage meter' },
-    { key: 'partner_id', label: 'Partner' },
-    { key: 'meter_key', label: 'Meter' },
-    { key: 'value', label: 'Value' },
-    { key: 'limit_value', label: 'Limit' },
-    { key: 'status', label: 'Status', type: 'status' },
-    { key: 'updated_at', label: 'Updated', type: 'datetime' },
-  ], cursorFilters([
-    { key: 'partner_id', label: 'Partner ID' },
-    { key: 'date_from', label: 'From', type: 'date' },
-    { key: 'date_to', label: 'To', type: 'date' },
-  ])),
+  {
+    ...resource('central', 'partner-monitoring', 'Partner Monitoring', 'Central Partner Operations', '/admin/central/partner-monitoring', '/admin/central/partner-monitoring/{monitoring_profile_id}', 'monitoring_profile_id', [
+      { key: 'id', label: 'Profile' },
+      { key: 'partner_id', label: 'Partner' },
+      { key: 'health_status', label: 'Health', type: 'status' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ], cursorFilters([{ key: 'partner_id', label: 'Partner ID' }, statusFilter(['active', 'paused', 'archived'])])),
+    detailFields: partnerMonitoringDetailFields,
+  },
+  {
+    ...resource('central', 'partner-usage', 'Partner Usage', 'Central Partner Operations', '/admin/central/partner-usage', '/admin/central/partner-usage/{usage_meter_id}', 'usage_meter_id', [
+      { key: 'id', label: 'Usage meter' },
+      { key: 'partner_id', label: 'Partner' },
+      { key: 'meter_key', label: 'Meter' },
+      { key: 'value', label: 'Value', type: 'number' },
+      { key: 'limit_value', label: 'Limit', type: 'number' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ], cursorFilters([
+      { key: 'partner_id', label: 'Partner ID' },
+      { key: 'date_from', label: 'From', type: 'date' },
+      { key: 'date_to', label: 'To', type: 'date' },
+    ])),
+    detailFields: partnerUsageDetailFields,
+  },
   {
     scope: 'central',
     slug: 'billing-plans',
@@ -1959,6 +2531,7 @@ const central: OperationResource[] = [
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
     ],
     filters: cursorFilters([statusFilter(billingPlanStatusOptions)]),
+    detailFields: billingPlanDetailFields,
     confirmContextFields: billingPlanActionContext,
     actions: [{
       key: 'update',
@@ -1995,6 +2568,7 @@ const central: OperationResource[] = [
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
     ],
     filters: cursorFilters([{ key: 'partner_id', label: 'Partner ID' }]),
+    detailFields: alertPolicyDetailFields,
     confirmContextFields: alertPolicyActionContext,
     actions: [{
       key: 'update',
@@ -2012,18 +2586,21 @@ const central: OperationResource[] = [
       formFields: alertPolicyFields,
     }],
   },
-  resource('central', 'alert-events', 'Alert Events', 'Central Partner Operations', '/admin/central/alert-events', '/admin/central/alert-events/{alert_event_id}', 'alert_event_id', [
-    { key: 'id', label: 'Alert event' },
-    { key: 'partner_id', label: 'Partner' },
-    { key: 'policy_key', label: 'Policy' },
-    { key: 'severity', label: 'Severity', type: 'status' },
-    { key: 'status', label: 'Status', type: 'status' },
-    { key: 'triggered_at', label: 'Triggered', type: 'datetime' },
-    { key: 'delivered_at', label: 'Delivered', type: 'datetime' },
-  ], cursorFilters([{ key: 'partner_id', label: 'Partner ID' }, statusFilter(alertEventStatusOptions)]), [
-    { key: 'acknowledge', label: 'Acknowledge', endpoint: '/admin/central/alert-events/{alert_event_id}/acknowledge', variant: 'warning', reason: true, contextFields: alertEventActionContext },
-    { key: 'resolve', label: 'Resolve', endpoint: '/admin/central/alert-events/{alert_event_id}/resolve', variant: 'success', reason: true, contextFields: alertEventActionContext },
-  ]),
+  {
+    ...resource('central', 'alert-events', 'Alert Events', 'Central Partner Operations', '/admin/central/alert-events', '/admin/central/alert-events/{alert_event_id}', 'alert_event_id', [
+      { key: 'id', label: 'Alert event' },
+      { key: 'partner_id', label: 'Partner' },
+      { key: 'policy_key', label: 'Policy' },
+      { key: 'severity', label: 'Severity', type: 'status' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'triggered_at', label: 'Triggered', type: 'datetime' },
+      { key: 'delivered_at', label: 'Delivered', type: 'datetime' },
+    ], cursorFilters([{ key: 'partner_id', label: 'Partner ID' }, statusFilter(alertEventStatusOptions)]), [
+      { key: 'acknowledge', label: 'Acknowledge', endpoint: '/admin/central/alert-events/{alert_event_id}/acknowledge', variant: 'warning', reason: true, contextFields: alertEventActionContext },
+      { key: 'resolve', label: 'Resolve', endpoint: '/admin/central/alert-events/{alert_event_id}/resolve', variant: 'success', reason: true, contextFields: alertEventActionContext },
+    ]),
+    detailFields: alertEventDetailFields,
+  },
   {
     scope: 'central',
     slug: 'stock',
@@ -2176,6 +2753,7 @@ const central: OperationResource[] = [
       { key: 'draw_at', label: 'Draw at', type: 'datetime' },
     ],
     filters: cursorFilters([statusFilter(['draft', 'open', 'closed', 'reward_recorded', 'reward_checking', 'reward_verified', 'reward_published', 'archived'])]),
+    detailFields: gameDetailFields,
     confirmContextFields: gameActionContext,
     actions: [
       {
@@ -2220,6 +2798,7 @@ const central: OperationResource[] = [
       { key: 'game_id', label: 'Game', type: 'select', optionSource: 'central-sale-price-games', hideEmptyOption: true, emptyOptionLabel: 'No open game' },
       statusFilter(['active', 'inactive', 'archived']),
     ]),
+    detailFields: centralSalePriceRuleDetailFields,
     confirmContextFields: salePriceRuleActionContext,
     actions: [
       {
@@ -2253,8 +2832,8 @@ const central: OperationResource[] = [
       { key: 'partner_name', label: 'Partner', fallbackKeys: ['partner_code', 'partner_id'] },
       { key: 'tenant_name', label: 'Tenant', fallbackKeys: ['tenant_code', 'tenant_id'] },
       { key: 'game_name', label: 'Game', fallbackKeys: ['game_code', 'game_id'] },
-      { key: 'allocation_percent', label: 'Percent', type: 'number' },
-      { key: 'active_partner_percent', label: 'Active %', type: 'number' },
+      { key: 'allocation_percent', label: 'Percent', type: 'percent' },
+      { key: 'active_partner_percent', label: 'Active %', type: 'percent' },
       { key: 'allocated_count', label: 'Allocated', type: 'number' },
       { key: 'remaining_count', label: 'Remaining', type: 'number' },
       { key: 'recalled_count', label: 'Recalled', type: 'number' },
@@ -2267,6 +2846,7 @@ const central: OperationResource[] = [
       allocationGameFilter(),
       statusFilter(['draft', 'pending', 'processing', 'allocated', 'partially_allocated', 'failed', 'recalled', 'cancelled']),
     ]),
+    detailFields: allocationDetailFields,
     confirmContextFields: allocationActionContext,
     actions: [
       {
@@ -2383,21 +2963,25 @@ const central: OperationResource[] = [
       { key: 'period_to', label: 'To' },
     ],
     filters: cursorFilters([{ key: 'partner_id', label: 'Partner ID' }, { key: 'tenant_id', label: 'Tenant ID' }, statusFilter(['draft', 'pending', 'approved', 'paid', 'failed'])]),
+    detailFields: settlementDetailFields,
     confirmContextFields: settlementActionContext,
     actions: [
       { key: 'approve', label: 'Approve', endpoint: '/admin/central/settlements/{settlement_id}/approve', variant: 'success', reason: true, contextFields: settlementActionContext },
     ],
   },
-  resource('central', 'webhook-logs', 'Webhook Logs', 'Central Administration', '/admin/central/webhook-logs', '/admin/central/webhook-logs/{webhook_log_id}', 'webhook_log_id', [
-    { key: 'id', label: 'Webhook log' },
-    { key: 'provider', label: 'Provider' },
-    { key: 'domain', label: 'Domain' },
-    { key: 'status', label: 'Status', type: 'status' },
-    { key: 'callback_key', label: 'Callback' },
-    { key: 'payload_hash', label: 'Payload hash' },
-    { key: 'created_at', label: 'Created', type: 'datetime' },
-    { key: 'updated_at', label: 'Updated', type: 'datetime' },
-  ], cursorFilters([{ key: 'provider', label: 'Provider' }, statusFilter(['received', 'processed', 'failed', 'ignored'])])),
+  {
+    ...resource('central', 'webhook-logs', 'Webhook Logs', 'Central Administration', '/admin/central/webhook-logs', '/admin/central/webhook-logs/{webhook_log_id}', 'webhook_log_id', [
+      { key: 'id', label: 'Webhook log' },
+      { key: 'provider', label: 'Provider' },
+      { key: 'domain', label: 'Domain' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'callback_key', label: 'Callback' },
+      { key: 'payload_hash', label: 'Payload hash' },
+      { key: 'created_at', label: 'Created', type: 'datetime' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ], cursorFilters([{ key: 'provider', label: 'Provider' }, statusFilter(['received', 'processed', 'failed', 'ignored'])])),
+    detailFields: webhookLogDetailFields,
+  },
   {
     scope: 'central',
     slug: 'audit-logs',
@@ -2626,12 +3210,16 @@ function adminUserResource(scope: AdminScope, filters: OperationFilter[]): Opera
     idKey: 'id',
     columns: adminUserColumns,
     filters,
+    clientSort: true,
+    defaultSort: { key: 'created_at', direction: 'desc' },
+    detailFields: adminUserDetailFields,
     confirmContextFields: adminUserActionContext,
     collectionActions: [{
       key: 'create',
       label: 'Create admin user',
       endpoint: baseEndpoint,
       reason: true,
+      optionalReason: true,
       formFields: adminUserCreateFields(scope),
     }],
     actions: [
@@ -2642,8 +3230,9 @@ function adminUserResource(scope: AdminScope, filters: OperationFilter[]): Opera
         endpoint: detailEndpoint,
         variant: 'primary',
         reason: true,
+        optionalReason: true,
         contextFields: adminUserActionContext,
-        formFields: adminUserUpdateFields,
+        formFields: adminUserUpdateFields(scope),
       },
       {
         key: 'delete',
@@ -2668,17 +3257,22 @@ function roleManagementResource(scope: AdminScope): OperationResource {
     title: 'Roles And Permissions',
     group: scope === 'tenant' ? 'Tenant Administration' : 'Central Administration',
     listEndpoint: baseEndpoint,
+    detailFromList: true,
     idParam: 'role_id',
     idKey: 'id',
     columns: roleColumns,
     filters: cursorFilters(),
+    clientSort: true,
+    defaultSort: { key: 'created_at', direction: 'desc' },
+    detailFields: roleDetailFields(scope),
     confirmContextFields: roleActionContext,
     collectionActions: [{
       key: 'create',
       label: 'Create role',
       endpoint: baseEndpoint,
       reason: true,
-      formFields: roleCreateFields,
+      optionalReason: true,
+      formFields: roleCreateFields(scope),
     }],
     actions: [
       {
@@ -2688,8 +3282,9 @@ function roleManagementResource(scope: AdminScope): OperationResource {
         endpoint: detailEndpoint,
         variant: 'primary',
         reason: true,
+        optionalReason: true,
         contextFields: roleActionContext,
-        formFields: roleUpdateFields,
+        formFields: roleUpdateFields(scope),
       },
       {
         key: 'delete',

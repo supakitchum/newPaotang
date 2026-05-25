@@ -8,6 +8,7 @@ use App\Models\LotteryImageMixSetting;
 use App\Models\PartnerLotteryBrandingAssetSet;
 use App\Models\PlatformSystemSetting;
 use App\Models\StockItem;
+use App\Support\PublicUrl;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
@@ -144,13 +145,7 @@ class LotteryImageGenerator
 
     public function publicUrl(string $key): string
     {
-        $baseUrl = rtrim((string) config('lottery_images.cdn_base_url', ''), '/');
-
-        if ($baseUrl !== '') {
-            return $baseUrl.'/'.ltrim($key, '/');
-        }
-
-        return Storage::disk((string) config('lottery_images.disk', 'lottery_images'))->url($key);
+        return PublicUrl::asset($key);
     }
 
     /**
@@ -177,12 +172,12 @@ class LotteryImageGenerator
         return $this->renderTicketImage($stock, null, null, $variant, $layoutOverride);
     }
 
-    public function renderPartnerImage(LocalStockItem $localStock, StockItem $stock, PartnerLotteryBrandingAssetSet $assetSet, string $variant, ?array $layoutOverride = null): string
+    public function renderPartnerImage(LocalStockItem $localStock, StockItem $stock, PartnerLotteryBrandingAssetSet $assetSet, string $variant, ?array $layoutOverride = null, bool $soldWatermark = false): string
     {
-        return $this->renderTicketImage($stock, $localStock, $assetSet, $variant, $layoutOverride);
+        return $this->renderTicketImage($stock, $localStock, $assetSet, $variant, $layoutOverride, $soldWatermark);
     }
 
-    private function renderTicketImage(StockItem $stock, ?LocalStockItem $localStock, ?PartnerLotteryBrandingAssetSet $assetSet, string $variant, ?array $layoutOverride = null): string
+    private function renderTicketImage(StockItem $stock, ?LocalStockItem $localStock, ?PartnerLotteryBrandingAssetSet $assetSet, string $variant, ?array $layoutOverride = null, bool $soldWatermark = false): string
     {
         $this->assertGdWebpRuntime();
         [$width, $height, $quality] = $this->variantSpec($variant);
@@ -202,6 +197,10 @@ class LotteryImageGenerator
 
             if ($localStock !== null && $assetSet !== null) {
                 $this->drawPartnerBranding($canvas, $localStock, $assetSet, $width, $height, $layout);
+            }
+
+            if ($soldWatermark) {
+                $this->drawSoldWatermark($canvas, $width, $height);
             }
 
             return $this->encodeWebp($canvas, $quality);
@@ -290,6 +289,48 @@ class LotteryImageGenerator
         $this->drawBrandingSlot($canvas, $assetSet->logo_bottom_storage_path, 'logo_bottom', $width, $height, $layout);
         $this->drawBrandingSlot($canvas, $assetSet->logo_qr_storage_path, 'logo_qr', $width, $height, $layout);
         $this->drawBrandingSlot($canvas, $assetSet->right_sidebar_storage_path, 'right_sidebar', $width, $height, $layout);
+    }
+
+    private function drawSoldWatermark(mixed $canvas, int $width, int $height): void
+    {
+        $font = $this->fontAssetPath('Kanit-Regular.ttf') ?? $this->fontPath();
+        $text = 'ขายแล้ว';
+        $angle = -18;
+        $x = (int) round($width * .55);
+        $y = (int) round($height * .52);
+        $color = imagecolorallocatealpha($canvas, 205, 35, 50, 38);
+
+        if ($font !== null && function_exists('imagettftext')) {
+            $marks = [
+                [.20, .24, .080, 54],
+                [.55, .22, .074, 58],
+                [.84, .34, .068, 62],
+                [.28, .53, .074, 58],
+                [.68, .59, .068, 64],
+                [.46, .81, .080, 56],
+            ];
+
+            foreach ($marks as [$mx, $my, $scale, $alpha]) {
+                $fontSize = max(8, (int) round($height * $scale));
+                [$tx, $ty] = $this->alignedTextPoint(
+                    $fontSize,
+                    $angle,
+                    $font,
+                    $text,
+                    (int) round($width * $mx),
+                    (int) round($height * $my),
+                    'center',
+                    'middle',
+                );
+                imagettftext($canvas, $fontSize, $angle, $tx, $ty, imagecolorallocatealpha($canvas, 205, 35, 50, (int) $alpha), $font, $text);
+            }
+
+            return;
+        }
+
+        foreach ([[.20, .24], [.55, .22], [.84, .34], [.28, .53], [.68, .59], [.46, .81]] as [$mx, $my]) {
+            imagestring($canvas, 5, (int) round($width * $mx) - 22, (int) round($height * $my) - 8, 'SOLD', $color);
+        }
     }
 
     /**

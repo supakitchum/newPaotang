@@ -130,6 +130,21 @@ const operationsPage = existsSync(join(root, 'components/AdminOperationsPage.vue
 const adminDataTable = existsSync(join(root, 'components/AdminDataTable.vue'))
   ? readFileSync(join(root, 'components/AdminDataTable.vue'), 'utf8')
   : ''
+const adminConfirmAction = existsSync(join(root, 'components/AdminConfirmAction.vue'))
+  ? readFileSync(join(root, 'components/AdminConfirmAction.vue'), 'utf8')
+  : ''
+const adminDefinitionList = existsSync(join(root, 'components/AdminDefinitionList.vue'))
+  ? readFileSync(join(root, 'components/AdminDefinitionList.vue'), 'utf8')
+  : ''
+const adminDetailSection = existsSync(join(root, 'components/AdminDetailSection.vue'))
+  ? readFileSync(join(root, 'components/AdminDetailSection.vue'), 'utf8')
+  : ''
+const adminReportPanel = existsSync(join(root, 'components/AdminReportPanel.vue'))
+  ? readFileSync(join(root, 'components/AdminReportPanel.vue'), 'utf8')
+  : ''
+const formatUtils = existsSync(join(root, 'utils/format.ts'))
+  ? readFileSync(join(root, 'utils/format.ts'), 'utf8')
+  : ''
 const adminClientReady = existsSync(join(root, 'composables/useAdminClientReady.ts'))
   ? readFileSync(join(root, 'composables/useAdminClientReady.ts'), 'utf8')
   : ''
@@ -245,14 +260,84 @@ const sliceBetween = (source, start, end) => {
     ? source.slice(startIndex)
     : source.slice(startIndex, endIndex)
 }
+const rawStringifyValuePattern = /JSON\.stringify\(\s*value\b/
+const displayFormatterSlices = [
+  ['AdminOperationsPage formatValue', sliceBetween(operationsPage, 'const formatValue =', 'const formattedCellValue')],
+  ['AdminOperationsPage formatCustomerValue', sliceBetween(operationsPage, 'const formatCustomerValue =', 'const formatCustomerNameValue')],
+  ['AdminConfirmAction formatContextValue', sliceBetween(adminConfirmAction, 'const formatContextValue =', 'const contextLabel')],
+  ['AdminReportPanel report formatter', adminReportPanel.includes('formatReportValue')
+    ? sliceBetween(adminReportPanel, 'formatReportValue', '</script>')
+    : adminReportPanel],
+]
 const menuCompletionDocPath = join(root, '..', '..', 'docs', 'back-office-menu-completion.md')
 const menuCompletionDoc = existsSync(menuCompletionDocPath)
   ? readFileSync(menuCompletionDocPath, 'utf8')
   : ''
 
+for (const evidence of [
+  ['AdminReportPanel removed raw payload label', !adminReportPanel.includes('Raw report payload')],
+  ['AdminReportPanel removed raw JSON fallback block', !adminReportPanel.includes('<pre v-else class="np-admin-json')],
+  ['AdminReportPanel removed props.data JSON stringify display', !adminReportPanel.includes('JSON.stringify(props.data')],
+  ['AdminReportPanel uses readable report formatter', adminReportPanel.includes('formatAdminValue(') || adminReportPanel.includes('formatMoney(') || adminReportPanel.includes('formatReportValue(')],
+  ['AdminReportPanel formatter has no raw JSON.stringify(value) fallback', !rawStringifyValuePattern.test(adminReportPanel)],
+  ['AdminDataTable default cell removed raw interpolation', !adminDataTable.includes("{{ row[column.key] ?? '-' }}")],
+  ['AdminDataTable default cell uses readable formatter', adminDataTable.includes('formatAdminValue(') && adminDataTable.includes('formatCell(row, column)')],
+  ['Operations catalog hides minor-unit wording from users', !/minor units|smallest currency unit/i.test(operationsCatalog)],
+  ['AdminOperationsPage money payload conversion stores minor units', operationsPage.includes('Math.round(Number(value) * 100)')],
+  ['AdminOperationsPage or shared formatter displays minor-unit money as baht', (operationsPage.includes('/ 100') && operationsPage.includes('บาท')) || (formatUtils.includes('/ 100') && formatUtils.includes('บาท'))],
+  ['AdminConfirmAction money initial/display converts and labels baht', adminConfirmAction.includes('/ 100') && adminConfirmAction.includes('formatMoney') && (adminConfirmAction.includes('บาท') || formatUtils.includes('บาท'))],
+]) {
+  if (!evidence[1]) {
+    failures.push(`BO readable display guardrail missing: ${evidence[0]}`)
+  }
+}
+
+for (const [sliceName, source] of displayFormatterSlices) {
+  if (rawStringifyValuePattern.test(source)) {
+    failures.push(`BO readable display guardrail failed: ${sliceName} must not use JSON.stringify(value) for read-only display`)
+  }
+}
+
+const priceRuleUpdateFields = sliceBetween(operationsCatalog, 'const priceRuleUpdateFields', 'const centralSalePriceRuleFields')
+const billingPlanCreateFields = sliceBetween(operationsCatalog, 'const billingPlanFields', 'const billingPlanUpdateFields')
+const billingPlanUpdateFields = sliceBetween(operationsCatalog, 'const billingPlanUpdateFields', 'const alertPolicyFields')
+const refundAction = sliceBetween(operationsCatalog, "key: 'refund'", "key: 'customers'")
+const adminUserColumnsSlice = sliceBetween(operationsCatalog, 'const adminUserColumns', 'const roleColumns')
+const roleColumnsSlice = sliceBetween(operationsCatalog, 'const roleColumns', 'const genericColumns')
+const roleIdsFieldSlice = sliceBetween(operationsCatalog, 'const roleIdsField', 'const permissionsField')
+const permissionsFieldSlice = sliceBetween(operationsCatalog, 'const permissionsField', 'const adminUserCreateFields')
+const adminUserResourceSlice = sliceBetween(operationsCatalog, 'function adminUserResource', 'function roleManagementResource')
+const roleManagementResourceSlice = sliceBetween(operationsCatalog, 'function roleManagementResource', 'function growthColumns')
+
+for (const evidence of [
+  ['partner payout amount uses baht money form source', priceRuleUpdateFields.includes("key: 'partner_payout_amount'") && priceRuleUpdateFields.includes("type: 'money'") && priceRuleUpdateFields.includes("sourceKey: 'partner_payout_amount.amount'") && priceRuleUpdateFields.includes('step: 0.01')],
+  ['billing plan create monthly fee uses baht money field', billingPlanCreateFields.includes("key: 'monthly_fee_amount'") && billingPlanCreateFields.includes("type: 'money'") && billingPlanCreateFields.includes('step: 0.01')],
+  ['billing plan update monthly fee uses baht money field', billingPlanUpdateFields.includes("key: 'monthly_fee_amount'") && billingPlanUpdateFields.includes("type: 'money'") && billingPlanUpdateFields.includes('step: 0.01')],
+  ['refund action uses baht money helper', refundAction.includes("bahtMoneyFields('amount', 'Refund amount'") && !refundAction.includes("moneyFields('amount', 'Refund amount'")],
+]) {
+  if (!evidence[1]) {
+    failures.push(`BO money form guardrail missing: ${evidence[0]}`)
+  }
+}
+
+for (const evidence of [
+  ['admin user Role ID field is a role-name select that submits role_ids array', roleIdsFieldSlice.includes("label: 'Role'") && roleIdsFieldSlice.includes("type: 'select'") && roleIdsFieldSlice.includes('optionSource: roleOptionSource(scope)') && roleIdsFieldSlice.includes('submitAsArray: true') && !roleIdsFieldSlice.includes("type: 'lines'")],
+  ['role permissions are checkbox group with readable labels', permissionsFieldSlice.includes("label: 'Permissions'") && permissionsFieldSlice.includes("type: 'checkbox-group'") && permissionsFieldSlice.includes('permissionOptionsForScope(scope)') && !permissionsFieldSlice.includes("type: 'lines'")],
+  ['admin users table supports client sorting by created_at desc', adminUserColumnsSlice.includes("key: 'created_at'") && adminUserResourceSlice.includes('clientSort: true') && adminUserResourceSlice.includes("defaultSort: { key: 'created_at', direction: 'desc' }")],
+  ['roles table supports client sorting by created_at desc', roleColumnsSlice.includes("key: 'created_at'") && roleManagementResourceSlice.includes('clientSort: true') && roleManagementResourceSlice.includes("defaultSort: { key: 'created_at', direction: 'desc' }")],
+  ['roles table hides permissions column and relies on detail view', !roleColumnsSlice.includes("key: 'permissions'") && roleManagementResourceSlice.includes('detailFromList: true') && operationsPage.includes('loadDetailFromList')],
+  ['roles detail renders permissions as readonly checklist from catalog options', operationsCatalog.includes("type?: 'text' | 'status' | 'datetime' | 'money' | 'json' | 'customer' | 'customer_name' | 'number' | 'image' | 'boolean' | 'percent' | 'array' | 'object-summary' | 'permission-list'") && operationsCatalog.includes('options?: OperationOption[]') && operationsCatalog.includes('const roleDetailFields = (scope: AdminScope)') && operationsCatalog.includes("options: permissionOptionsForScope(scope)") && operationsPage.includes(':fields=\"resource.detailFields || []\"') && adminDetailSection.includes('fields?: OperationColumn[]') && adminDefinitionList.includes('np-permission-checklist') && adminDefinitionList.includes('type=\"checkbox\"') && adminDefinitionList.includes('disabled')],
+  ['admin user and role create/update reasons are optional', adminUserResourceSlice.includes('optionalReason: true') && roleManagementResourceSlice.includes('optionalReason: true')],
+  ['admin role option sources load from roles endpoints', operationsCatalog.includes("'central-admin-roles'") && operationsCatalog.includes("'tenant-admin-roles'") && operationsPage.includes("api.apiFetch('/admin/central/roles'") && operationsPage.includes("api.apiFetch('/admin/tenant/roles'") && operationsPage.includes('normalizeRoleOptions')],
+  ['checkbox group form serializes arrays for permissions', adminConfirmAction.includes("field.type === 'checkbox-group'") && operationsPage.includes("field.type === 'checkbox-group'") && operationsPage.includes('submitAsArray')],
+]) {
+  if (!evidence[1]) {
+    failures.push(`Administration BO guardrail missing: ${evidence[0]}`)
+  }
+}
+
 for (const route of [
   "slug: 'stock'",
-  'Affiliate Programs',
   "'payment-settings'",
   "'partners'",
   "'settlements'",
@@ -277,13 +362,6 @@ for (const helper of ['resource', 'editableResource', 'actionResource', 'growthC
 for (const routeSlug of [
   "'growth/agents'",
   "'growth/agent-quotas'",
-  "'growth/affiliate-programs'",
-  "'growth/affiliate-links'",
-  "'growth/attributions'",
-  "'growth/affiliates'",
-  "'growth/commission-rules'",
-  "slug: 'growth/commission-transactions'",
-  "slug: 'growth/payouts'",
 ]) {
   if (!operationsCatalog.includes(routeSlug)) {
     failures.push(`Tenant growth frontend route grouping missing ${routeSlug}`)
@@ -369,6 +447,7 @@ for (const evidence of [
   ['affiliate generated referral URL rendered readonly', operationsCatalog.includes("canonical_url', label: 'Referral URL'") && operationsCatalog.includes("fallbackKeys: ['referral_url', 'url']") && operationsCatalog.includes("fallbackKeys: ['url']") && !operationsCatalog.includes('/a/{CODE}')],
   ['affiliate option source loaders present', operationsCatalog.includes("'tenant-customers'") && operationsCatalog.includes("'tenant-affiliates'") && operationsCatalog.includes("'tenant-affiliate-programs'") && operationsPage.includes("api.apiFetch('/admin/tenant/members'") && operationsPage.includes("api.apiFetch('/admin/tenant/affiliates'") && operationsPage.includes("api.apiFetch('/admin/tenant/affiliate-programs'")],
   ['affiliate payout form uses baht amount method select and bank fields', payoutResource.includes("bahtMoneyFields('amount', 'Payout amount'") && payoutResource.includes("key: 'payout_method'") && payoutResource.includes("type: 'select'") && payoutResource.includes('bank_account.bank_name') && payoutResource.includes('bank_account.account_number') && !payoutResource.includes("type: 'json'")],
+  ['affiliate table is sortable with visitor and registered counts', operationsCatalog.includes("slug: 'growth/affiliates'") && operationsCatalog.includes("apiSort: true") && operationsCatalog.includes("key: 'visitor_count'") && operationsCatalog.includes("key: 'registered_count'") && operationsCatalog.includes("key: 'customer_name'")],
 ]) {
   if (!evidence[1]) {
     failures.push(`Affiliate BO usability guardrail missing: ${evidence[0]}`)
@@ -380,8 +459,8 @@ for (const evidence of [
   ['API gap load guard', operationsPage.includes('resource.value.apiGap')],
   ['summary route render', operationsPage.includes("mode === 'summary'") && operationsCatalog.includes("mode: 'summary'")],
   ['detail JSON update editor', operationsPage.includes('resource.detailJsonEditor') && operationsPage.includes('saveDetailDraft')],
-  ['JSON payload action support', operationsPage.includes('buildActionBody') && operationsCatalog.includes('payloadTemplate') && existsSync(join(root, 'components/AdminConfirmAction.vue')) && readFileSync(join(root, 'components/AdminConfirmAction.vue'), 'utf8').includes('Payload JSON')],
-  ['P1 typed action forms', operationsCatalog.includes('formFields') && operationsPage.includes('buildPayloadFromFields') && readFileSync(join(root, 'components/AdminConfirmAction.vue'), 'utf8').includes('formFields')],
+  ['JSON payload action support', operationsPage.includes('buildActionBody') && operationsCatalog.includes('payloadTemplate') && adminConfirmAction.includes('Payload JSON')],
+  ['P1 typed action forms', operationsCatalog.includes('formFields') && operationsPage.includes('buildPayloadFromFields') && adminConfirmAction.includes('formFields')],
   ['P1 related list support', operationsCatalog.includes('relatedLists') && operationsPage.includes('loadRelatedLists') && operationsPage.includes('openRelatedDetail')],
   ['P1 payment channel workflow', operationsCatalog.includes('/admin/tenant/payment-channels') && operationsCatalog.includes("settingsFields") && operationsCatalog.includes("title: 'Payment Channels'")],
   ['P1 wallet ledger workflow', operationsCatalog.includes('/admin/tenant/wallets/{wallet_id}/ledger') && operationsCatalog.includes("title: 'Wallet Ledger'")],
@@ -394,11 +473,11 @@ for (const evidence of [
   ['central stock table realtime workflow', operationsPage.includes('private-admin.central.stock.table.game') && operationsPage.includes("eventName: 'stock.table.updated'") && operationsPage.includes('showStockTableRealtimePanel') && operationsPage.includes('Stock table realtime') && operationsPage.includes('stockTableRealtimeEnabled') && operationsPage.includes('stockTableRealtimeStatusLabel') && operationsPage.includes('Select a game to show stock summary widgets and enable live table updates.') && operationsPage.includes('<template #beforeTable>') && adminDataTable.includes('<slot name="beforeTable" />') && operationsPage.includes('handleStockTableRealtimeEvent') && operationsPage.includes('handleStockTableRealtimeReconnect') && operationsPage.includes('reloadStockTableFromRealtime') && operationsPage.includes('stockTableRealtimeRowRequiresReload') && operationsPage.includes('mergeStockTableRealtimeRow') && operationsPage.includes('refreshStockSummaryWidgets') && operationsPage.includes('useAdminRealtimeSubscription')],
   ['stock manager consolidated menu workflow', operationsCatalog.includes("'central:stock-generation': { target: 'stock', title: 'Stock Manager' }") && operationsCatalog.includes("'central:master-stock': { target: 'stock', title: 'Stock Manager' }") && adminNavigation.includes("new Set(['master_stock', 'partner_quotas', 'stock_recall', 'partner_provisioning'])") && adminNavigation.includes("item.key === 'stock_generation' ? 'Stock Manager' : item.key === 'local_stock' ? 'Tenant Stock' : item.key === 'partners' ? 'Partner/Tenant' : item.label") && !adminNavigation.includes("'central:master_stock': '/admin/central/master-stock'") && !adminNavigation.includes("'central:stock_recall': '/admin/central/stock-recall'")],
   ['P3 stock coverage settings workflow', operationsCatalog.includes("slug: 'stock-settings'") && operationsCatalog.includes("slug: 'stock-pattern-coverage'") && operationsPage.includes('isStockSettingsRoute') && operationsPage.includes('AdminStockCoverageSettings') && operationsPage.includes('AdminStockPatternCoverage') && readFileSync(join(root, 'components/AdminStockCoverageSettings.vue'), 'utf8').includes('stock_pattern_coverage_default') && readFileSync(join(root, 'components/AdminStockPatternCoverage.vue'), 'utf8').includes('/admin/central/stock/limit-settings') && readFileSync(join(root, 'components/AdminStockPatternCoverage.vue'), 'utf8').includes('/admin/central/stock/limit-overrides')],
-  ['allocation partner percent BO workflow', operationsCatalog.includes("'allocation-partners'") && operationsCatalog.includes('/admin/central/allocations/partner-percent') && operationsCatalog.includes('/admin/central/allocations/{allocation_id}/recall-all') && operationsCatalog.includes('/admin/central/allocations/{allocation_id}/redistribute') && operationsCatalog.includes("enabledStatuses: ['recalled']") && operationsCatalog.includes('allocationPercentField') && operationsPage.includes('/admin/central/allocation-options/partners') && operationsPage.includes('/admin/central/allocation-options/tenants') && operationsPage.includes('/admin/central/allocation-options/games') && operationsPage.includes('routeFilterValues') && readFileSync(join(root, 'components/AdminConfirmAction.vue'), 'utf8').includes('Allocation preview') && readFileSync(join(root, 'components/AdminFilterBar.vue'), 'utf8').includes('visibleOptions(filter)') && readFileSync(join(root, 'components/AdminStockPatternCoverage.vue'), 'utf8').includes('applyRouteDefaults')],
+  ['allocation partner percent BO workflow', operationsCatalog.includes("'allocation-partners'") && operationsCatalog.includes('/admin/central/allocations/partner-percent') && operationsCatalog.includes('/admin/central/allocations/{allocation_id}/recall-all') && operationsCatalog.includes('/admin/central/allocations/{allocation_id}/redistribute') && operationsCatalog.includes("enabledStatuses: ['recalled']") && operationsCatalog.includes('allocationPercentField') && operationsPage.includes('/admin/central/allocation-options/partners') && operationsPage.includes('/admin/central/allocation-options/tenants') && operationsPage.includes('/admin/central/allocation-options/games') && operationsPage.includes('routeFilterValues') && adminConfirmAction.includes('Allocation preview') && readFileSync(join(root, 'components/AdminFilterBar.vue'), 'utf8').includes('visibleOptions(filter)') && readFileSync(join(root, 'components/AdminStockPatternCoverage.vue'), 'utf8').includes('applyRouteDefaults')],
   ['retired physical stock BO workflow', operationsCatalog.includes("apiGapResource('central', 'partner-quotas'") && operationsCatalog.includes('Partner Quotas is retired') && !operationsCatalog.includes("endpoint: '/admin/central/partner-quotas'") && !operationsCatalog.includes("endpoint: '/admin/central/partner-quotas/{quota_id}'") && !operationsCatalog.includes('partnerQuotaCreateFields') && !operationsCatalog.includes('partnerQuotaUpdateFields') && !operationsCatalog.includes('requested_count') && adminNavigation.includes('retiredCentralMenuKeys') && !adminNavigation.includes("'central:partner_quotas':") && apiClient.includes('retired_flow') && adminApiState.includes('retired_flow') && operationsPage.includes("generation_mode: 'virtual_profile'") && operationsPage.includes('delete next.total_count') && operationsPage.includes('delete next.number_digits') && operationsCatalog.includes("route: adminUiRoute('central', 'stock-generation?game_id={game_id}&partner_id={partner_id}&tenant_id={tenant_id}&allocation_id={id}&status=allocated')")],
   ['retired tenant stock sync workflow', adminNavigation.includes("retiredTenantMenuKeys = new Set(['stock_sync'])") && !operationsCatalog.includes("slug: 'stock-sync'") && !operationsCatalog.includes('/admin/tenant/stock-sync/batches')],
   ['P3 API sortable data table', readFileSync(join(root, 'components/AdminDataTable.vue'), 'utf8').includes('sortChange') && readFileSync(join(root, 'components/AdminDataTable.vue'), 'utf8').includes('aria-sort') && readFileSync(join(root, 'components/AdminDataTable.vue'), 'utf8').includes('sortable') && operationsCatalog.includes('apiSort?: boolean') && operationsPage.includes('sort_by') && operationsPage.includes('applySort')],
-  ['P3 reward report log workflows', operationsCatalog.includes("'reward-prize-number-grid'") && operationsCatalog.includes("'reward-prize-amount-grid'") && operationsCatalog.includes('detailRenderer?:') && operationsCatalog.includes("detailRenderer: 'reward'") && operationsCatalog.includes('const rewardCreateFields') && operationsCatalog.includes('const rewardNumberUpdateFields') && operationsCatalog.includes('const rewardPayoutUpdateFields') && operationsCatalog.includes('Update winning numbers') && operationsCatalog.includes('Update payout amounts') && operationsPage.includes('AdminRewardPrizes') && operationsPage.includes('rewardPrizeGroupsToPayload') && readFileSync(join(root, 'components/AdminConfirmAction.vue'), 'utf8').includes('np-reward-prize-editor') && existsSync(join(root, 'components/AdminRewardPrizes.vue')) && operationsCatalog.includes('const settlementActionContext') && operationsCatalog.includes('const reportExportContext') && operationsCatalog.includes('function reportExportFields') && operationsPage.includes('buildCollectionContext') && existsSync(join(root, 'components/AdminReportPanel.vue')) && readFileSync(join(root, 'components/AdminReportPanel.vue'), 'utf8').includes('Report rows')],
+  ['P3 reward report log workflows', operationsCatalog.includes("'reward-prize-number-grid'") && operationsCatalog.includes("'reward-prize-amount-grid'") && operationsCatalog.includes('detailRenderer?:') && operationsCatalog.includes("detailRenderer: 'reward'") && operationsCatalog.includes('const rewardCreateFields') && operationsCatalog.includes('const rewardNumberUpdateFields') && operationsCatalog.includes('const rewardPayoutUpdateFields') && operationsCatalog.includes('Update winning numbers') && operationsCatalog.includes('Update payout amounts') && operationsPage.includes('AdminRewardPrizes') && operationsPage.includes('rewardPrizeGroupsToPayload') && adminConfirmAction.includes('np-reward-prize-editor') && existsSync(join(root, 'components/AdminRewardPrizes.vue')) && operationsCatalog.includes('const settlementActionContext') && operationsCatalog.includes('const reportExportContext') && operationsCatalog.includes('function reportExportFields') && operationsPage.includes('buildCollectionContext') && adminReportPanel.includes('Report rows')],
   ['P3 tenant sync processed filter', operationsCatalog.includes("slug: 'sync-logs'") && operationsCatalog.includes("statusFilter(['pending', 'running', 'completed', 'processed', 'failed'])")],
   ['P4 administration security settings workflows', operationsCatalog.includes('function adminUserResource') && operationsCatalog.includes('function roleManagementResource') && operationsCatalog.includes('const adminUserCreateFields') && operationsCatalog.includes('const roleCreateFields') && operationsCatalog.includes('const tenantSettingsFields') && operationsCatalog.includes('const tenantThemeFields') && operationsCatalog.includes('const tenantDomainCreateFields') && operationsCatalog.includes("secondarySettings") && operationsPage.includes('isMenuManagement') && operationsPage.includes('saveMenuTree') && operationsPage.includes('loadSecondarySettings') && existsSync(join(root, 'components/AdminMenuTreeEditor.vue')) && readFileSync(join(root, 'components/AdminMenuTreeEditor.vue'), 'utf8').includes('Save menu')],
   ['settings update method support', operationsPage.includes('resource.value.updateMethod') && operationsCatalog.includes("updateMethod?: 'PATCH' | 'PUT' | 'POST'")],

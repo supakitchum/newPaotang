@@ -15,6 +15,7 @@ class Customer extends BaseModel
     protected $fillable = [
         'id',
         'tenant_id',
+        'customer_no',
         'phone',
         'name',
         'first_name',
@@ -25,6 +26,7 @@ class Customer extends BaseModel
         'email',
         'password_hash',
         'avatar_url',
+        'reward_payout_bank_account_json',
         'last_login_at',
     ];
 
@@ -34,6 +36,7 @@ class Customer extends BaseModel
 
     protected $casts = [
         'last_login_at' => 'datetime',
+        'reward_payout_bank_account_json' => 'array',
     ];
 
     public function authSessions(): HasMany

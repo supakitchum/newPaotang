@@ -26,7 +26,27 @@ export const useAffiliateReferral = () => {
     maxAge: REF_TTL_SECONDS,
     sameSite: 'lax'
   })
+  const visitorCookie = useCookie<string | null>(`affiliate_visitor_${scope}`, {
+    maxAge: REF_TTL_SECONDS,
+    sameSite: 'lax'
+  })
   const storedRef = useState<string | null>(`affiliate_ref_state_${scope}`, () => extractRefCode(storedRefCookie.value))
+  const visitorState = useState<string | null>(`affiliate_visitor_state_${scope}`, () => visitorCookie.value || null)
+
+  const ensureVisitorId = () => {
+    if (visitorState.value) {
+      return visitorState.value
+    }
+
+    const generated = process.client && typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `v_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`
+
+    visitorState.value = generated
+    visitorCookie.value = generated
+
+    return generated
+  }
 
   const setStoredRef = (ref: string | null) => {
     storedRef.value = ref
@@ -46,10 +66,19 @@ export const useAffiliateReferral = () => {
 
     setStoredRef(nextRef)
 
+    if (process.client) {
+      const landingUrl = window.location.href
+      void usePlatformApi().trackAffiliateReferralClick({
+        ref: nextRef,
+        visitor_id: ensureVisitorId(),
+        landing_url: landingUrl
+      }).catch(() => null)
+    }
+
     return nextRef
   }
 
-  const applyStoredRef = async () => {
+  const applyStoredRef = async (options: { registered?: boolean } = {}) => {
     const ref = extractRefCode(storedRef.value || storedRefCookie.value)
 
     if (!ref) {
@@ -58,7 +87,10 @@ export const useAffiliateReferral = () => {
     }
 
     try {
-      return await usePlatformApi().applyAffiliateReferral(ref)
+      return await usePlatformApi().applyAffiliateReferral(ref, {
+        visitor_id: ensureVisitorId(),
+        registered: Boolean(options.registered)
+      })
     } catch (error: any) {
       const status = Number(error?.response?.status || 0)
 

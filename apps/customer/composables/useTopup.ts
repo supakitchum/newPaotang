@@ -3,17 +3,35 @@ export interface DepositHistory {
   amount?: number | string
   bonus_amount?: number | string
   status?: number | string
+  status_raw?: string
+  presentation_status?: string
   transfer_at?: string
   created_at?: string
+  updated_at?: string
   verified_at?: string
-  slip?: string
+  slip?: string | {
+    url?: string
+    full_url?: string
+    thumb_url?: string
+    expires_at?: string
+  } | null
+  slip_url?: string
+  slip_thumb_url?: string
+  qr_code?: string
+  redirect_url?: string
+  message?: string
 }
 
 export interface WebsiteBank {
+  bank_code?: string
+  bank_name?: string
+  bank_icon?: string
   bank_deposit_name?: string
   bank_deposit_number?: string
   bank?: {
+    code?: string
     name?: string
+    icon?: string
   }
 }
 

@@ -36,20 +36,21 @@
       </div>
 
       <div v-else-if="visibleTickets.length" class="d-grid gap-3">
-        <NuxtLink
+        <div
           v-for="(ticket, index) in visibleTickets"
           :key="getTicketKey(ticket, index)"
-          :to="{ path: '/tickets/view', query: getTicketQuery(ticket) }"
+          class="ticket-card-button"
+          role="button"
+          tabindex="0"
+          @click="openTicketModal(ticket)"
+          @keydown.enter.prevent="openTicketModal(ticket)"
+          @keydown.space.prevent="openTicketModal(ticket)"
         >
           <TicketStub
             :number="getTicketNumber(ticket)"
             :status="getTicketStatusText(ticket)"
-            :image-url="ticket.image_url || ticket.image"
-            :image-thumb-url="ticket.image_thumb_url"
-            :image-status="ticket.image_status"
-            :image-error="ticket.image_error"
           />
-        </NuxtLink>
+        </div>
       </div>
 
       <div v-else-if="showOnlyWinning" class="empty-lottery-state">
@@ -70,6 +71,15 @@
 
       <div ref="loadMoreSentinel" class="ticket-load-sentinel" />
     </section>
+    <TicketImageModal
+      v-if="selectedTicket"
+      :number="getTicketNumber(selectedTicket)"
+      :image-url="selectedTicket.image_url || ''"
+      :image-thumb-url="selectedTicket.image_thumb_url || ''"
+      :image-status="selectedTicket.image_status || ''"
+      :image-error="selectedTicket.image_error || ''"
+      @close="selectedTicket = null"
+    />
   </MobileShell>
 </template>
 
@@ -101,6 +111,7 @@ const showOnlyWinning = ref(false)
 const currentPage = ref(1)
 const lastPage = ref(1)
 const perPage = 20
+const selectedTicket = ref<UserTicket | null>(null)
 const loadMoreSentinel = ref<HTMLElement | null>(null)
 let loadObserver: IntersectionObserver | null = null
 const drawDate = computed(() => getGameDate(historyGame.value))
@@ -119,12 +130,9 @@ const getTicketKey = (ticket: UserTicket, index: number) => (
   `${ticket.id || ticket.order_id || getTicketNumber(ticket)}-${index}`
 )
 
-const getTicketQuery = (ticket: UserTicket) => ({
-  number: getTicketNumber(ticket),
-  game_id: String(ticket.game_id || historyGame.value?.id || ''),
-  order_id: ticket.order_id ? String(ticket.order_id) : undefined,
-  from: 'history'
-})
+const openTicketModal = (ticket: UserTicket) => {
+  selectedTicket.value = ticket
+}
 
 const fetchHistoryPage = async (page = 1) => {
   if (page === 1) {
@@ -202,6 +210,23 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.ticket-card-button {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: block;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.ticket-card-button:focus-visible {
+  border-radius: 14px;
+  outline: 3px solid rgba(13, 110, 253, .35);
+  outline-offset: 3px;
+}
+
 .ticket-load-sentinel {
   height: 1px;
 }

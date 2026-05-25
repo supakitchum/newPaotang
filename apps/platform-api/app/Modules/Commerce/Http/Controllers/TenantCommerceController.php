@@ -198,7 +198,7 @@ class TenantCommerceController extends Controller
         return $this->writeWithIdempotency(
             $request,
             fn (): array => $this->commerce->approveAdminTopup((string) $context->activeTenantId(), $context, $topup_id, $request->all(), $request),
-            $this->validator->reviewReasonErrors($request->all()),
+            $this->validator->optionalReasonErrors($request->all()),
         );
     }
 
@@ -228,7 +228,7 @@ class TenantCommerceController extends Controller
         return $this->writeWithIdempotency(
             $request,
             fn (): array => $this->commerce->cancelAdminTopup((string) $context->activeTenantId(), $context, $topup_id, $request->all(), $request),
-            $this->validator->reviewReasonErrors($request->all()),
+            $this->validator->optionalReasonErrors($request->all()),
         );
     }
 

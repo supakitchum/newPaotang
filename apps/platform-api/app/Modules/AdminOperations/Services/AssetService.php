@@ -6,6 +6,7 @@ use App\Models\PartnerTenant;
 use App\Models\PlatformAsset;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
+use App\Support\PublicUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -61,7 +62,7 @@ class AssetService
         return DB::transaction(function () use ($scopeType, $tenantId, $payload, $normalized, $actor, $request): array {
             $assetId = 'ast_'.Str::ulid()->toBase32();
             $storageKey = $this->storageKey($scopeType, $tenantId, $assetId, $normalized);
-            $uploadUrl = 'https://local-assets.newpaotang.test/'.$storageKey.'?intent='.$assetId;
+            $uploadUrl = PublicUrl::absolute('https://local-assets.newpaotang.test/'.$storageKey.'?intent='.$assetId);
             $expiresAt = now()->addMinutes(15);
 
             PlatformAsset::query()->create([
@@ -522,13 +523,7 @@ class AssetService
 
     private function publicAssetUrl(string $key): string
     {
-        $baseUrl = rtrim((string) config('lottery_images.cdn_base_url', ''), '/');
-
-        if ($baseUrl !== '') {
-            return $baseUrl.'/'.ltrim($key, '/');
-        }
-
-        return Storage::disk((string) config('lottery_images.disk', 'lottery_images'))->url($key);
+        return PublicUrl::asset($key);
     }
 
     /**
@@ -538,7 +533,7 @@ class AssetService
     {
         return [
             'asset_id' => (string) $asset->id,
-            'upload_url' => (string) $asset->upload_url,
+            'upload_url' => PublicUrl::absolute((string) $asset->upload_url),
             'method' => 'PUT',
             'headers' => [
                 'content-type' => (string) $asset->content_type,
@@ -564,7 +559,7 @@ class AssetService
             'status' => (string) $asset->status,
             'content_type' => $asset->content_type,
             'size_bytes' => (int) $asset->size_bytes,
-            'url' => $asset->public_url,
+            'url' => PublicUrl::normalizeAssetUrl($asset->public_url),
             'storage_key' => $asset->storage_key,
             'created_at' => $asset->created_at?->toISOString(),
             'updated_at' => $asset->updated_at?->toISOString(),

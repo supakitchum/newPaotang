@@ -20,6 +20,8 @@ use App\Modules\Auth\Services\CustomerAuthService;
 use App\Shared\Auth\CustomerSessionContext;
 use App\Modules\Commerce\Services\CommerceService;
 use App\Shared\Idempotency\IdempotencyService;
+use App\Support\CustomerNo;
+use App\Support\PublicUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -735,9 +737,14 @@ class RewardService
         $normalized = [
             'ticket_id' => trim((string) ($payload['ticket_id'] ?? '')),
             'payout_method' => trim((string) ($payload['payout_method'] ?? '')),
-            'bank_account' => is_array($payload['bank_account'] ?? null) ? $payload['bank_account'] : null,
+            'bank_account' => $this->normalizeBankAccount($payload['bank_account'] ?? null),
             'note' => trim((string) ($payload['note'] ?? '')),
         ];
+
+        if ($normalized['payout_method'] === 'bank_transfer' && ! $this->hasUsableBankAccount($normalized['bank_account'])) {
+            $normalized['bank_account'] = $this->customerRewardPayoutBankAccount($tenantId, $customer->customerId());
+        }
+
         $idempotencyKey = (string) $request->header('Idempotency-Key');
 
         return DB::transaction(function () use ($tenantId, $customer, $payload, $normalized, $request, $idempotencyKey): array {
@@ -753,6 +760,10 @@ class RewardService
             }
 
             if (! in_array($normalized['payout_method'], ['wallet_credit', 'bank_transfer'], true) || $normalized['ticket_id'] === '') {
+                return ['error' => 'validation_failed'];
+            }
+
+            if ($normalized['payout_method'] === 'bank_transfer' && ! $this->hasUsableBankAccount($normalized['bank_account'])) {
                 return ['error' => 'validation_failed'];
             }
 
@@ -794,6 +805,10 @@ class RewardService
             $now = now();
             $priceRuleSnapshot = $winning->price_rule_snapshot_json;
 
+            if ($normalized['payout_method'] === 'bank_transfer') {
+                $this->storeCustomerRewardPayoutBankAccount($tenantId, $customer->customerId(), $normalized['bank_account']);
+            }
+
             RewardClaim::query()->insert([
                 'id' => $claimId,
                 'tenant_id' => $tenantId,
@@ -811,7 +826,7 @@ class RewardService
                 'tenant_price_rule_id' => $winning->tenant_price_rule_id,
                 'price_rule_snapshot_json' => is_array($priceRuleSnapshot) ? json_encode($priceRuleSnapshot, JSON_THROW_ON_ERROR) : $priceRuleSnapshot,
                 'currency' => (string) $winning->currency,
-                'bank_account_json' => $normalized['bank_account'] === null ? null : json_encode($normalized['bank_account'], JSON_THROW_ON_ERROR),
+                'bank_account_json' => $normalized['bank_account'] === [] ? null : json_encode($normalized['bank_account'], JSON_THROW_ON_ERROR),
                 'customer_note' => $payload['note'] ?? null,
                 'idempotency_key' => $idempotencyKey,
                 'payload_hash' => $this->idempotency->payloadHash($normalized),
@@ -1637,6 +1652,8 @@ class RewardService
         return [
             'id' => (string) $customer->id,
             'tenant_id' => (string) $customer->tenant_id,
+            'customer_no' => CustomerNo::display($customer->customer_no ?? null, (string) $customer->id),
+            'member_no' => CustomerNo::display($customer->customer_no ?? null, (string) $customer->id),
             'name' => $customer->name,
             'phone' => $customer->phone,
             'email' => $customer->email ?? null,
@@ -1652,8 +1669,8 @@ class RewardService
             'game_id' => (string) $ticket->game_id,
             'full_number' => (string) $ticket->full_number,
             'status' => (string) $ticket->status,
-            'image_thumb_url' => $ticket->image_thumb_url,
-            'image_url' => $ticket->image_url,
+            'image_thumb_url' => PublicUrl::normalizeAssetUrl($ticket->image_thumb_url),
+            'image_url' => PublicUrl::normalizeAssetUrl($ticket->image_url),
         ];
     }
 
@@ -1750,5 +1767,60 @@ class RewardService
         $decoded = json_decode((string) $json, true);
 
         return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function normalizeBankAccount(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $normalized = [
+            'bank_name' => trim((string) ($value['bank_name'] ?? $value['bank'] ?? '')),
+            'account_name' => trim((string) ($value['account_name'] ?? $value['bank_deposit_name'] ?? '')),
+            'account_number' => trim((string) ($value['account_number'] ?? $value['account_no'] ?? $value['bank_account_no'] ?? $value['bank_deposit_number'] ?? '')),
+            'branch' => trim((string) ($value['branch'] ?? '')),
+        ];
+
+        return array_filter($normalized, fn (string $field): bool => $field !== '');
+    }
+
+    /**
+     * @param array<string, mixed> $bankAccount
+     */
+    private function hasUsableBankAccount(array $bankAccount): bool
+    {
+        return trim((string) ($bankAccount['bank_name'] ?? '')) !== ''
+            && trim((string) ($bankAccount['account_number'] ?? '')) !== '';
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function customerRewardPayoutBankAccount(string $tenantId, string $customerId): array
+    {
+        $json = Customer::query()
+            ->where('tenant_id', $tenantId)
+            ->where('id', $customerId)
+            ->value('reward_payout_bank_account_json');
+
+        return $this->decodeJsonObject($json);
+    }
+
+    /**
+     * @param array<string, mixed> $bankAccount
+     */
+    private function storeCustomerRewardPayoutBankAccount(string $tenantId, string $customerId, array $bankAccount): void
+    {
+        Customer::query()
+            ->where('tenant_id', $tenantId)
+            ->where('id', $customerId)
+            ->update([
+                'reward_payout_bank_account_json' => $bankAccount === [] ? null : json_encode($bankAccount, JSON_THROW_ON_ERROR),
+                'updated_at' => now(),
+            ]);
     }
 }

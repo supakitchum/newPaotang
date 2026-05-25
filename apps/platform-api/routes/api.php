@@ -22,6 +22,7 @@ use App\Modules\Auth\Http\Controllers\CustomerLineAuthController;
 use App\Modules\Commerce\Http\Controllers\CustomerCommerceController;
 use App\Modules\Growth\Http\Controllers\CustomerAffiliateController;
 use App\Modules\PartnerStore\Http\Controllers\CustomerReservationController;
+use App\Modules\PartnerStore\Http\Controllers\PublicAssetController;
 use App\Modules\Reward\Http\Controllers\CustomerRewardController;
 use App\Modules\Health\Http\Controllers\HealthController;
 use App\Modules\Partner\Http\Controllers\PartnerApiClientController;
@@ -60,6 +61,8 @@ Route::get('/public/stores', [PublicContentController::class, 'stores']);
 Route::get('/public/games/current', [PublicGameController::class, 'current']);
 Route::get('/public/stock/search', [PublicStockSearchController::class, 'index']);
 Route::get('/public/stock/images/{token}.webp', [PublicStockImageController::class, 'show']);
+Route::get('/public/assets/{path}', [PublicAssetController::class, 'show'])->where('path', '.*');
+Route::post('/public/affiliate/referrals/click', [CustomerAffiliateController::class, 'trackReferralVisit']);
 Route::get('/public/results/latest', [PublicRewardController::class, 'latest']);
 Route::get('/public/results/{game_id}', [PublicRewardController::class, 'show']);
 
@@ -87,6 +90,7 @@ Route::get('/customer/reward-claims/{claim_id}', [CustomerRewardController::clas
 Route::get('/customer/topups', [CustomerCommerceController::class, 'topups'])->middleware('customer.auth');
 Route::post('/customer/topups', [CustomerCommerceController::class, 'createTopup'])->middleware('customer.auth');
 Route::post('/customer/topups/credit', [CustomerCommerceController::class, 'createCreditTopup'])->middleware('customer.auth');
+Route::post('/customer/topups/{topup_id}/slip', [CustomerCommerceController::class, 'uploadTopupSlip'])->middleware('customer.auth');
 Route::get('/customer/topups/{topup_id}', [CustomerCommerceController::class, 'topup'])->middleware('customer.auth');
 Route::delete('/customer/topups/{topup_id}', [CustomerCommerceController::class, 'cancelTopup'])->middleware('customer.auth');
 Route::get('/customer/affiliate', [CustomerAffiliateController::class, 'overview'])->middleware('customer.auth');
@@ -473,6 +477,8 @@ Route::get('/admin/tenant/stock/{stock_item_id}', [TenantStockController::class,
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/reservations', [TenantReservationController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/reservations/{reservation_id}', [TenantReservationController::class, 'show'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/reservations/{reservation_id}/cancel', [TenantReservationController::class, 'cancel'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/price-rules', [BoMenuCompletionController::class, 'priceRulesIndex'])
@@ -638,6 +644,8 @@ Route::patch('/admin/tenant/commission-rules/{commission_rule_id}', [TenantGrowt
 Route::delete('/admin/tenant/commission-rules/{commission_rule_id}', [TenantGrowthController::class, 'archiveCommissionRule'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/commission-transactions', [TenantGrowthController::class, 'commissionTransactions'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/commission-transactions/{commission_id}', [TenantGrowthController::class, 'commissionTransaction'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/commission-transactions/{commission_id}/approve', [TenantGrowthController::class, 'approveCommissionTransaction'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);

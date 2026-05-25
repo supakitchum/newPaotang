@@ -43,6 +43,32 @@
               {{ optionLabel(option) }}
             </option>
           </select>
+          <div
+            v-else-if="field.type === 'checkbox-group'"
+            class="np-checkbox-group"
+            :class="{ 'is-invalid': fieldValidationMessages(field).length }"
+          >
+            <div v-if="!visibleOptions(field).length" class="text-muted small">
+              {{ field.emptyOptionLabel || 'No options available' }}
+            </div>
+            <div v-else class="np-checkbox-grid">
+              <label
+                v-for="option in visibleOptions(field)"
+                :key="optionValue(option)"
+                class="form-check np-checkbox-option"
+                :class="{ 'text-muted': fieldDisabled(field) || optionDisabled(option) }"
+              >
+                <input
+                  v-model="formState[field.key]"
+                  class="form-check-input"
+                  type="checkbox"
+                  :value="optionValue(option)"
+                  :disabled="fieldDisabled(field) || optionDisabled(option)"
+                >
+                <span class="form-check-label">{{ optionLabel(option) }}</span>
+              </label>
+            </div>
+          </div>
           <div v-else-if="field.type === 'datetime-range'" class="np-admin-datetime-range">
             <div class="row g-2">
               <div class="col-md-6">
@@ -84,7 +110,7 @@
                       class="form-control"
                       type="number"
                       min="0"
-                      step="1"
+                      :step="field.type === 'reward-prize-amount-grid' ? 0.01 : 1"
                     >
                     <span class="input-group-text">{{ group.currency }}</span>
                   </div>
@@ -243,7 +269,10 @@
 
     <label v-if="requiresPayload" class="form-label">Payload JSON</label>
     <textarea v-if="requiresPayload" v-model="payloadJson" class="form-control np-admin-json-editor mb-3" rows="8" spellcheck="false" />
-    <label v-if="requiresReason" class="form-label">Reason</label>
+    <label v-if="requiresReason" class="form-label">
+      Reason
+      <span v-if="optionalReason" class="text-muted fw-normal">(optional)</span>
+    </label>
     <textarea v-if="requiresReason" v-model="reason" class="form-control" rows="3" />
     <AdminApiState :error="allocationOptionError" />
     <div v-if="allocationOptionLoading" class="np-confirm-progress mb-3">
@@ -276,12 +305,14 @@
 
 <script setup lang="ts">
 import type { OperationFormField, OperationOption } from '~/composables/useAdminOperationsCatalog'
+import { formatAdminValue, formatMoney } from '~/utils/format'
 
 const props = defineProps<{
   modelValue: boolean
   title: string
   message: string
   requiresReason?: boolean
+  optionalReason?: boolean
   requiresPayload?: boolean
   payloadTemplate?: Record<string, any> | null
   formFields?: OperationFormField[]
@@ -309,14 +340,22 @@ let allocationOptionRequestId = 0
 const formFields = computed(() => props.formFields || [])
 const visibleFormFields = computed(() => formFields.value.filter(isFieldVisible))
 const sourceRecord = computed(() => props.recordContext?.__raw || props.recordContext || {})
-const contextItems = computed(() => (props.contextFields || [])
-  .map((key) => ({
-    key,
-    label: labelize(key),
-    value: formatContextValue(getPath(sourceRecord.value, key)),
-  }))
-  .filter((item) => item.value !== '-')
-  .slice(0, 13))
+const contextItems = computed(() => {
+  const fields = props.contextFields || []
+  const moneyAmountRoots = new Set(fields
+    .filter(isMoneyAmountPath)
+    .map((key) => key.slice(0, -'.amount'.length)))
+
+  return fields
+    .filter((key) => !isCurrencyPathForMoneyAmount(key, moneyAmountRoots))
+    .map((key) => ({
+      key,
+      label: contextLabel(key),
+      value: formatContextValue(key, getPath(sourceRecord.value, key)),
+    }))
+    .filter((item) => item.value !== '-')
+    .slice(0, 13)
+})
 const partnerField = computed(() => formFields.value.find((field) => field.key === 'partner_id'))
 const tenantField = computed(() => formFields.value.find((field) => field.key === 'tenant_id'))
 const gameField = computed(() => formFields.value.find((field) => field.key === 'game_id'))
@@ -363,7 +402,7 @@ const allocationPreviewMetrics = computed(() => {
 })
 
 const missingRequired = computed(() => {
-  if (props.requiresReason && reason.value.trim() === '') {
+  if (props.requiresReason && !props.optionalReason && reason.value.trim() === '') {
     return true
   }
 
@@ -728,6 +767,10 @@ const normalizeInitialValue = (field: OperationFormField, value: any) => {
     return Boolean(value)
   }
 
+  if (field.type === 'checkbox-group') {
+    return normalizeCheckboxGroupValue(value, field)
+  }
+
   if (field.type === 'datetime-local') {
     return formatDateTimeLocalValue(value)
   }
@@ -737,7 +780,7 @@ const normalizeInitialValue = (field: OperationFormField, value: any) => {
   }
 
   if (field.type === 'money') {
-    return value === undefined || value === null || value === '' ? '' : Number(value) / 100
+    return minorUnitToMajor(value)
   }
 
   if (field.type === 'stock-set-distribution') {
@@ -765,7 +808,10 @@ const normalizeInitialValue = (field: OperationFormField, value: any) => {
   }
 
   if (isRewardPrizeField(field)) {
-    return normalizeRewardPrizeGroups(value)
+    const groups = normalizeRewardPrizeGroups(value)
+    return field.type === 'reward-prize-amount-grid'
+      ? groups.map((group) => ({ ...group, amount: minorUnitToMajor(group.amount) || 0 }))
+      : groups
   }
 
   if (value === undefined || value === null || typeof value === 'object') {
@@ -780,13 +826,43 @@ const confirm = () => {
     return
   }
 
-  emit('confirm', reason.value, payloadJson.value, { ...formState })
+  emit('confirm', reason.value, payloadJson.value, normalizeSubmitFormValues())
 }
 
 const fieldId = (key: string) => `admin-confirm-${key.replace(/[^a-z0-9_-]/gi, '-')}`
 const rangeStartFormKey = (field: OperationFormField) => `${field.key}.__start`
 const rangeEndFormKey = (field: OperationFormField) => `${field.key}.__end`
 const isBlank = (value: any) => value === undefined || value === null || String(value).trim() === ''
+
+const minorUnitToMajor = (value: any) => {
+  const amount = typeof value === 'object' && value !== null ? value.amount : value
+  if (amount === undefined || amount === null || amount === '') {
+    return ''
+  }
+
+  const parsed = Number(amount)
+  return Number.isFinite(parsed) ? parsed / 100 : ''
+}
+
+const normalizeSubmitFormValues = () => {
+  const values: Record<string, any> = { ...formState }
+
+  for (const field of formFields.value) {
+    if (field.type !== 'reward-prize-amount-grid') {
+      continue
+    }
+
+    values[field.key] = (Array.isArray(formState[field.key]) ? formState[field.key] : []).map((group: any) => {
+      const amount = Number(group?.amount)
+      return {
+        ...group,
+        amount: Number.isFinite(amount) ? Math.round(amount * 100) : 0,
+      }
+    })
+  }
+
+  return values
+}
 
 const displayRewardNumber = (value: any) => {
   const normalized = String(value || '').trim()
@@ -797,6 +873,7 @@ const fieldColumnClass = (field: OperationFormField) => (
   field.type === 'textarea'
   || field.type === 'json'
   || field.type === 'lines'
+  || field.type === 'checkbox-group'
   || field.type === 'prize-lines'
   || field.type === 'stock-set-distribution'
   || field.type === 'stock-sale-limits'
@@ -855,31 +932,38 @@ const numberOrNull = (value: any) => {
 const formatNumber = (value: number) => new Intl.NumberFormat('th-TH', { maximumFractionDigits: 2 }).format(value)
 const formatNumberOrDash = (value: number | null) => value === null ? '-' : formatNumber(value)
 
-const formatContextValue = (value: any) => {
+const formatContextValue = (key: string, value: any) => {
   if (value === undefined || value === null || value === '') return '-'
-  if (isMoneyObject(value)) return formatMoneyValue(value)
-  if (typeof value === 'object') return JSON.stringify(value)
-  return String(value)
+  if (isMoneyAmountPath(key)) {
+    const root = key.slice(0, -'.amount'.length)
+    return formatMoney({
+      amount: value,
+      currency: getPath(sourceRecord.value, `${root}.currency`) || 'THB',
+    })
+  }
+  if (isMoneyObject(value)) return formatMoney(value)
+  return formatAdminValue(value, undefined, key)
 }
+
+const contextLabel = (key: string) => {
+  if (isMoneyAmountPath(key)) {
+    return labelize(key.slice(0, -'.amount'.length))
+  }
+
+  return labelize(key)
+}
+
+const isMoneyAmountPath = (key: string) => key.endsWith('.amount')
+const isCurrencyPathForMoneyAmount = (key: string, moneyAmountRoots: Set<string>) => (
+  key.endsWith('.currency')
+  && moneyAmountRoots.has(key.slice(0, -'.currency'.length))
+)
 
 const isMoneyObject = (value: any) => (
   typeof value === 'object'
   && value !== null
   && Object.prototype.hasOwnProperty.call(value, 'amount')
 )
-
-const formatMoneyValue = (value: any) => {
-  const amount = typeof value === 'object' && value !== null ? value.amount : value
-  const currency = typeof value === 'object' && value !== null && value.currency
-    ? String(value.currency)
-    : 'THB'
-  const formatted = new Intl.NumberFormat('th-TH', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number(amount || 0) / 100)
-
-  return `${formatted} ${currency === 'THB' ? 'บาท' : currency}`
-}
 
 const formatJsonFieldValue = (value: any) => {
   if (value === undefined || value === null || value === '') {
@@ -943,6 +1027,26 @@ const formatLines = (value: any, valueKey?: string) => {
     })
     .filter((entry) => entry !== undefined && entry !== null && entry !== '')
     .join('\n')
+}
+
+const normalizeCheckboxGroupValue = (value: any, field: OperationFormField) => {
+  const entries = Array.isArray(value)
+    ? value
+    : value === undefined || value === null || value === ''
+      ? []
+      : [value]
+  const valueKey = field.valueKey || field.itemKey || 'value'
+
+  return entries
+    .map((entry) => {
+      if (entry && typeof entry === 'object') {
+        return getPath(entry, valueKey) || entry.code || entry.id
+      }
+
+      return entry
+    })
+    .filter((entry) => entry !== undefined && entry !== null && entry !== '')
+    .map((entry) => String(entry))
 }
 
 const normalizeStockSetDistribution = (value: any, field: OperationFormField) => {
@@ -1152,6 +1256,40 @@ watch(() => [props.modelValue, formState.game_id, formState.partner_id, isAlloca
   border: 1px solid var(--default-border);
   border-radius: 6px;
   padding: 1rem;
+}
+
+.np-checkbox-group {
+  border: 1px solid var(--default-border);
+  border-radius: 6px;
+  max-height: 22rem;
+  overflow: auto;
+  padding: .75rem;
+}
+
+.np-checkbox-group.is-invalid {
+  border-color: rgb(var(--danger-rgb));
+}
+
+.np-checkbox-grid {
+  display: grid;
+  gap: .5rem .75rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+.np-checkbox-option {
+  align-items: flex-start;
+  border: 1px solid var(--default-border);
+  border-radius: 6px;
+  display: flex;
+  gap: .5rem;
+  margin: 0;
+  min-height: 2.75rem;
+  padding: .55rem .65rem;
+}
+
+.np-checkbox-option .form-check-input {
+  margin-left: 0;
+  margin-top: .15rem;
 }
 
 .np-allocation-preview {

@@ -22,6 +22,7 @@ use App\Modules\Reward\Services\ThaiGovernmentLotteryRewardTemplate;
 use App\Modules\PartnerStore\Services\VirtualStockService;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
+use App\Support\PublicUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -5886,8 +5887,8 @@ class CentralStockService
                 'allocation_id' => $stock->allocation_id,
                 'virtual_stock_ref' => $stock->virtual_stock_ref,
                 'virtual_copy_index' => $stock->virtual_copy_index === null ? null : (int) $stock->virtual_copy_index,
-                'image_url' => $stock->image_url ?? null,
-                'image_thumb_url' => $stock->image_thumb_url ?? null,
+                'image_url' => PublicUrl::normalizeAssetUrl($stock->image_url ?? null),
+                'image_thumb_url' => PublicUrl::normalizeAssetUrl($stock->image_thumb_url ?? null),
                 'image_generation_status' => $stock->image_generation_status ?? null,
                 'image_generation_error' => $stock->image_generation_error ?? null,
                 'image_generated_at' => $stock->image_generated_at ?? null,
@@ -5930,8 +5931,8 @@ class CentralStockService
                 'back3' => $stock->back3,
                 'back2' => $stock->back2,
                 'status' => (string) $stock->status,
-                'image_url' => $stock->image_url ?? null,
-                'image_thumb_url' => $stock->image_thumb_url ?? null,
+                'image_url' => PublicUrl::normalizeAssetUrl($stock->image_url ?? null),
+                'image_thumb_url' => PublicUrl::normalizeAssetUrl($stock->image_thumb_url ?? null),
                 'image_generation_status' => $stock->image_generation_status ?? null,
                 'image_generation_error' => $stock->image_generation_error ?? null,
                 'image_generated_at' => $stock->image_generated_at ?? null,
@@ -6032,8 +6033,8 @@ class CentralStockService
             'local_stock_item_id' => $local['id'] ?? null,
             'status' => $local['status'] ?? $stock['status'] ?? 'available',
             'materialized' => $materialized,
-            'image_url' => $local['image_url'] ?? $stock['image_url'] ?? null,
-            'image_thumb_url' => $local['image_thumb_url'] ?? $stock['image_thumb_url'] ?? null,
+            'image_url' => PublicUrl::normalizeAssetUrl($local['image_url'] ?? $stock['image_url'] ?? null),
+            'image_thumb_url' => PublicUrl::normalizeAssetUrl($local['image_thumb_url'] ?? $stock['image_thumb_url'] ?? null),
             'image_generation_status' => $local['image_generation_status'] ?? $stock['image_generation_status'] ?? null,
             'image_generation_error' => $local['image_generation_error'] ?? $stock['image_generation_error'] ?? null,
         ];

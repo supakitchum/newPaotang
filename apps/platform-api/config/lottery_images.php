@@ -4,6 +4,7 @@ return [
     'enabled' => env('LOTTERY_IMAGE_ENABLED', true),
     'disk' => env('LOTTERY_IMAGE_DISK', 'lottery_images'),
     'cdn_base_url' => env('LOTTERY_IMAGE_CDN_BASE_URL', env('CDN_BASE_URL', 'https://local-assets.newpaotang.test')),
+    'local_public_base_url' => env('LOTTERY_IMAGE_LOCAL_PUBLIC_BASE_URL', rtrim(env('APP_URL', 'http://localhost:8000'), '/').'/api/v1/public/assets'),
     'object_prefix' => env('LOTTERY_IMAGE_OBJECT_PREFIX', 'lotteries'),
     'asset_root' => env('LOTTERY_IMAGE_ASSET_ROOT', resource_path('lottery-images')),
     'runtime' => env('LOTTERY_IMAGE_RUNTIME', 'gd'),
@@ -40,6 +41,7 @@ return [
     'queues' => [
         'central' => env('LOTTERY_IMAGE_CENTRAL_QUEUE', 'stock-image-generation'),
         'partner' => env('LOTTERY_IMAGE_PARTNER_QUEUE', 'stock-partner-image-generation'),
+        'sold' => env('LOTTERY_IMAGE_SOLD_QUEUE', env('LOTTERY_IMAGE_PARTNER_QUEUE', 'stock-partner-image-generation')),
     ],
     'content_type' => 'image/webp',
     'cache_control' => env('LOTTERY_IMAGE_CACHE_CONTROL', 'public, max-age=31536000, immutable'),

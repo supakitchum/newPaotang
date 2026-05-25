@@ -27,6 +27,10 @@ class TopupRequest extends BaseModel
         'reference',
         'transfer_at',
         'slip_url',
+        'slip_thumb_url',
+        'slip_storage_path',
+        'slip_thumb_storage_path',
+        'slip_expires_at',
         'idempotency_key',
         'payload_hash',
         'reviewed_by_admin_id',
@@ -41,6 +45,7 @@ class TopupRequest extends BaseModel
         'amount' => 'integer',
         'bonus_amount' => 'integer',
         'transfer_at' => 'datetime',
+        'slip_expires_at' => 'datetime',
         'reviewed_at' => 'datetime',
         'provider_payload_json' => 'array',
     ];

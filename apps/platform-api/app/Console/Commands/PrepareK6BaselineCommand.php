@@ -30,6 +30,7 @@ use App\Models\StockReservationItem;
 use App\Models\Wallet;
 use App\Models\WalletLedger;
 use App\Modules\Reward\Services\ThaiGovernmentLotteryRewardTemplate;
+use App\Support\CustomerNo;
 use Database\Seeders\DefaultRbacMenuSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -530,6 +531,10 @@ class PrepareK6BaselineCommand extends Command
         Customer::query()->insert([
             'id' => $customerId,
             'tenant_id' => $tenantId,
+            'customer_no' => CustomerNo::generate(
+                (string) PartnerTenant::query()->where('id', $tenantId)->value('code'),
+                $tenantId,
+            ),
             'phone' => $phone,
             'email' => $customerId.'@load-test.local',
             'password_hash' => Hash::make(Str::random(32)),

@@ -20,6 +20,7 @@ export interface AppInitOrder {
   exp?: string | number | null
   created_at?: string
   updated_at?: string
+  server_time?: string
   status?: number | string
   [key: string]: unknown
 }
@@ -37,20 +38,6 @@ export interface AppInitData {
 
 let initFetchPromise: Promise<AppInitData | null> | null = null
 let initFetchVersion = 0
-
-const addMinutes = (value: unknown, minutes: number) => {
-  if (!value) {
-    return null
-  }
-
-  const timestamp = Date.parse(String(value))
-
-  if (Number.isNaN(timestamp)) {
-    return null
-  }
-
-  return new Date(timestamp + minutes * 60 * 1000).toISOString()
-}
 
 const getTicketNumber = (ticket: Partial<CartLottery>) => {
   const value = ticket.number || ticket.full_number || ticket.lottery_number || ''
@@ -102,6 +89,10 @@ const extractCartItems = (data: AppInitData | null) => {
     return carts.map(normalizeTicket).filter((ticket) => ticket.number)
   }
 
+  if (Array.isArray(carts)) {
+    return []
+  }
+
   const cartOrder = extractOrder(carts) || extractOrder(data.cart_order) || extractOrder(data.orders) || extractOrder(data.order) || extractOrder(data.waiting)
   const lotteries = Array.isArray(cartOrder?.lotteries) ? cartOrder.lotteries : []
 
@@ -109,9 +100,23 @@ const extractCartItems = (data: AppInitData | null) => {
 }
 
 const extractCartExp = (data: AppInitData | null) => {
+  if (Array.isArray(data?.carts) && data.carts.length === 0) {
+    return null
+  }
+
   const cartOrder = extractOrder(data?.cart_order) || extractOrder(data?.orders) || extractOrder(data?.order) || extractOrder(data?.carts) || extractOrder(data?.waiting)
 
-  return cartOrder?.exp || addMinutes(cartOrder?.created_at, 15)
+  return cartOrder?.exp || null
+}
+
+const extractCartServerTime = (data: AppInitData | null) => {
+  if (Array.isArray(data?.carts) && data.carts.length === 0) {
+    return null
+  }
+
+  const cartOrder = extractOrder(data?.cart_order) || extractOrder(data?.orders) || extractOrder(data?.order) || extractOrder(data?.carts) || extractOrder(data?.waiting)
+
+  return cartOrder?.server_time || cartOrder?.updated_at || cartOrder?.created_at || null
 }
 
 const normalizeInitData = (responseData: any): AppInitData => {
@@ -173,7 +178,7 @@ export const useAppInit = () => {
       return
     }
 
-    setCartItems(cartItems, extractCartExp(initData))
+    setCartItems(cartItems, extractCartExp(initData), extractCartServerTime(initData))
   }
 
   const fetchAppInit = async (options: { force?: boolean, token?: string | null } = {}) => {

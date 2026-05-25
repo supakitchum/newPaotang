@@ -375,7 +375,7 @@ a {
 }
 
 .cart-sheet {
-  padding-bottom: 190px;
+  padding-bottom: calc(280px + env(safe-area-inset-bottom));
 }
 
 .login-hero {
@@ -1398,6 +1398,7 @@ a {
   bottom: 0;
   left: 0;
   margin: 0;
+  padding-bottom: calc(28px + env(safe-area-inset-bottom));
 }
 
 .results-index-hero {
@@ -1829,17 +1830,33 @@ a {
 .ticket-stub {
   position: relative;
   display: grid;
-  grid-template-columns: 58px 48px 1fr 67px 45px;
-  gap: 10px;
+  grid-template-columns: 48px minmax(0, 1fr) 72px 45px;
+  gap: 12px;
   align-items: center;
   min-height: 82px;
-  padding: 14px 10px;
+  padding: 14px 10px 14px 14px;
   border-radius: 12px;
   background:
     repeating-linear-gradient(135deg, rgba(22, 122, 218, .06) 0 2px, transparent 2px 7px),
     #fff;
   box-shadow: 0 8px 18px rgba(20, 38, 72, .12);
   overflow: hidden;
+}
+
+.ticket-stub-mark {
+  align-items: center;
+  align-self: stretch;
+  display: grid;
+  justify-items: center;
+  min-width: 0;
+}
+
+.ticket-stub-mark .lottery-six {
+  font-size: 28px;
+}
+
+.ticket-stub-body {
+  min-width: 0;
 }
 
 .checkout-ticket-preview,
@@ -2009,7 +2026,7 @@ a {
 
 .app-alert-overlay {
   position: fixed;
-  z-index: 70;
+  z-index: 1300;
   background: rgba(0, 22, 54, .58);
 }
 

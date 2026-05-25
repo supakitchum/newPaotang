@@ -3,6 +3,7 @@
 namespace App\Modules\Commerce\Http\Requests;
 
 use App\Shared\Validation\RequestPayloadValidator;
+use Illuminate\Http\UploadedFile;
 
 class CommerceRequestValidator
 {
@@ -18,8 +19,15 @@ class CommerceRequestValidator
     {
         $errors = [];
 
-        if (trim((string) ($payload['reservation_id'] ?? '')) === '') {
+        $reservationIds = $payload['reservation_ids'] ?? null;
+        $hasReservationIds = is_array($reservationIds) && array_values(array_filter($reservationIds, fn (mixed $id): bool => trim((string) $id) !== '')) !== [];
+
+        if (trim((string) ($payload['reservation_id'] ?? '')) === '' && ! $hasReservationIds) {
             $errors['reservation_id'][] = 'The reservation_id field is required.';
+        }
+
+        if ($reservationIds !== null && ! is_array($reservationIds)) {
+            $errors['reservation_ids'][] = 'The reservation_ids field must be an array.';
         }
 
         if (! in_array((string) ($payload['payment_method'] ?? ''), ['wallet', 'external_payment'], true)) {
@@ -52,6 +60,45 @@ class CommerceRequestValidator
     }
 
     /**
+     * @return array<string, array<int, string>>
+     */
+    public function topupSlipErrors(?UploadedFile $file): array
+    {
+        if (! $file instanceof UploadedFile) {
+            return [];
+        }
+
+        $errors = [];
+
+        if (! $file->isValid()) {
+            $errors['slip'][] = 'The slip file could not be uploaded.';
+        }
+
+        $mime = (string) ($file->getMimeType() ?: $file->getClientMimeType());
+        if (! in_array($mime, ['image/webp', 'image/png', 'image/jpeg'], true)) {
+            $errors['slip'][] = 'The slip file must be a webp, png, or jpeg image.';
+        }
+
+        if ((int) $file->getSize() > 5 * 1024 * 1024) {
+            $errors['slip'][] = 'The slip file must not be larger than 5 MB.';
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    public function requiredTopupSlipErrors(?UploadedFile $file): array
+    {
+        if (! $file instanceof UploadedFile) {
+            return ['slip' => ['The slip field is required.']];
+        }
+
+        return $this->topupSlipErrors($file);
+    }
+
+    /**
      * @param array<string, mixed> $payload
      * @return array<string, array<int, string>>
      */
@@ -76,10 +123,19 @@ class CommerceRequestValidator
      */
     public function walletAdjustmentErrors(array $payload): array
     {
-        return $this->payloads->merge(
+        $errors = $this->payloads->merge(
             $this->payloads->moneyAmount($payload, 'amount', true, true),
             $this->payloads->requiredString($payload, 'reason'),
         );
+
+        if (
+            array_key_exists('transaction_type', $payload)
+            && ! in_array((string) $payload['transaction_type'], ['deposit', 'withdraw'], true)
+        ) {
+            $errors['transaction_type'][] = 'The transaction_type field must be deposit or withdraw.';
+        }
+
+        return $errors;
     }
 
     /**

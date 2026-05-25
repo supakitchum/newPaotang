@@ -8,6 +8,7 @@ use App\Models\PartnerLotteryBrandingAssetSet;
 use App\Models\PlatformAsset;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
+use App\Support\PublicUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -301,7 +302,7 @@ class PartnerLotteryBrandingAssetService
             'content_type' => $asset->content_type,
             'size_bytes' => (int) $asset->size_bytes,
             'storage_path' => $asset->storage_key,
-            'url' => $asset->public_url,
+            'url' => PublicUrl::normalizeAssetUrl($asset->public_url),
             'status' => (string) $asset->status,
         ];
     }

@@ -5864,6 +5864,23 @@ paths:
           required: false
           schema:
             type: string
+        - name: customer_no
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: sort_by
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [customer_no, status, created_at, expires_at]
+        - name: sort_dir
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
         - name: cursor
           in: query
           required: false
@@ -6684,6 +6701,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminResourceListResponse"
+  /admin/tenant/reservations/{reservation_id}:
+    get:
+      tags: [Tenant Admin]
+      summary: Get tenant reservation detail
+      parameters:
+        - $ref: "#/components/parameters/TenantAdminScopeHeader"
+        - $ref: "#/components/parameters/TenantIdHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: reservation_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tenant reservation detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminResource"
   /admin/tenant/reservations/{reservation_id}/cancel:
     post:
       tags: [Tenant Admin]

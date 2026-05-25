@@ -18,11 +18,12 @@ trait M5CommerceFixtures
         string $gameId = 'gam_m5',
         string $customerPhone = '0805550001',
         int $stockStart = 700001,
+        array $setDistribution = [],
     ): array {
         $this->seedDefaultRbac();
         $this->insertActivePartnerTenantWithDomain($partnerId, $tenantId, $host);
         $this->insertGame($gameId, 'open');
-        $this->insertVirtualCartSupply($partnerId, $tenantId, $gameId, $stockStart);
+        $this->insertVirtualCartSupply($partnerId, $tenantId, $gameId, $stockStart, $setDistribution);
 
         $auth = $this->postJson('http://'.$host.'/api/v1/customer/auth/register', [
             'name' => 'M5 Customer',
@@ -121,13 +122,19 @@ trait M5CommerceFixtures
         );
     }
 
-    private function insertVirtualCartSupply(string $partnerId, string $tenantId, string $gameId, int $stockStart): void
+    private function insertVirtualCartSupply(string $partnerId, string $tenantId, string $gameId, int $stockStart, array $setDistribution = []): void
     {
         $numbers = [
             str_pad((string) $stockStart, 6, '0', STR_PAD_LEFT),
             str_pad((string) ($stockStart + 1), 6, '0', STR_PAD_LEFT),
         ];
         $now = now();
+        $capacitySizes = array_map(
+            fn (array $row): int => max(1, (int) ($row['set_size'] ?? 1)),
+            array_values(array_filter($setDistribution, 'is_array')),
+        );
+        $capacityPerNumber = $capacitySizes === [] ? 1 : max(1, ...$capacitySizes);
+        $totalCapacity = count($numbers) * $capacityPerNumber;
 
         DB::table('base_lottery_numbers')->insert(array_map(fn (string $number): array => [
             'full_number' => $number,
@@ -144,8 +151,8 @@ trait M5CommerceFixtures
             'status' => 'active',
             'seed' => 'm5-commerce-virtual-seed',
             'base_count' => count($numbers),
-            'total_capacity' => count($numbers),
-            'set_distribution_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'total_capacity' => $totalCapacity,
+            'set_distribution_json' => json_encode($setDistribution, JSON_THROW_ON_ERROR),
             'created_by_admin_id' => null,
             'created_at' => $now,
             'updated_at' => $now,
@@ -158,9 +165,9 @@ trait M5CommerceFixtures
             'game_id' => $gameId,
             'quota_id' => null,
             'status' => 'allocated',
-            'requested_count' => count($numbers),
+            'requested_count' => $totalCapacity,
             'allocation_percent_basis_points' => 10000,
-            'allocated_count' => count($numbers),
+            'allocated_count' => $totalCapacity,
             'recalled_count' => 0,
             'supply_layer_ids_json' => json_encode(['vsp_'.$gameId], JSON_THROW_ON_ERROR),
             'idempotency_key' => 'm5-commerce-virtual-'.$tenantId,

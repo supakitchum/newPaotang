@@ -1,12 +1,15 @@
+import { requiresCustomerAuth } from '~/utils/customerAuthRoutes'
+
 export default defineNuxtRouteMiddleware(async (to) => {
   const { fetchSiteConfig, isRouteBlockedByMaintenance } = useSiteConfig()
   const { ensureAppInit, getInitRedirectTarget } = useAppInit()
   const { token, user, restoreAuthState } = useAuth()
+  const isPrivatePage = requiresCustomerAuth(to.path)
 
   await fetchSiteConfig()
   useTenantSeo({
     path: to.path,
-    privatePage: to.meta.requiresAuth === true
+    privatePage: isPrivatePage
   })
 
   if (to.path !== '/maintenance' && isRouteBlockedByMaintenance(to.path)) {
@@ -15,7 +18,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   await ensureAppInit()
 
-  if (to.meta.requiresAuth === true && token.value && !user.value) {
+  if ((isPrivatePage || to.path === '/') && token.value && !user.value) {
     try {
       await restoreAuthState()
     } catch {

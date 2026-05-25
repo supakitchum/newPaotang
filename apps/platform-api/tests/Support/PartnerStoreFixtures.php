@@ -61,6 +61,7 @@ trait PartnerStoreFixtures
         DB::table('customers')->insert([
             'id' => $customerId,
             'tenant_id' => $tenantId,
+            'customer_no' => strtoupper((string) preg_replace('/[^A-Za-z0-9]+/', '', $tenantId)).strtoupper(substr(sha1($customerId), 0, 8)),
             'phone' => '080'.substr(sha1($customerId), 0, 7),
             'name' => 'Customer '.$customerId,
             'status' => 'active',

@@ -26,6 +26,11 @@ Schedule::command('commission:calculate --limit=100')
     ->withoutOverlapping()
     ->description('Calculate pending affiliate commissions in bounded chunks.');
 
+Schedule::command('topups:slips:prune --limit=100')
+    ->daily()
+    ->withoutOverlapping()
+    ->description('Delete expired topup slip images after the 30-day retention window.');
+
 Schedule::command('platform:alerts:check --dry-run --format=json')
     ->everyFiveMinutes()
     ->withoutOverlapping()

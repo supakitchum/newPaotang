@@ -47,8 +47,8 @@
                 >
               </td>
               <td v-for="column in columns" :key="column.key">
-                <slot :name="`cell-${column.key}`" :row="row" :value="row[column.key]">
-                  {{ row[column.key] ?? '-' }}
+                <slot :name="`cell-${column.key}`" :row="row" :value="cellValue(row, column)">
+                  {{ formatCell(row, column) }}
                 </slot>
               </td>
               <td v-if="$slots.rowActions" class="text-end text-nowrap">
@@ -63,6 +63,8 @@
 </template>
 
 <script setup lang="ts">
+import { formatAdminValue } from '~/utils/format'
+
 type DataTableColumn = {
   key: string
   label: string
@@ -173,6 +175,10 @@ const ariaSort = (key: string) => {
 
   return props.sortDirection === 'asc' ? 'ascending' : 'descending'
 }
+
+const cellValue = (row: any, column: DataTableColumn) => row?.[column.key]
+
+const formatCell = (row: any, column: DataTableColumn) => formatAdminValue(cellValue(row, column), column.type, column.key)
 </script>
 
 <style scoped>
