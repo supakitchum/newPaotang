@@ -348,8 +348,13 @@ class VirtualStockService
         }
 
         $number = preg_replace('/\D+/', '', trim((string) ($queryParams['number'] ?? ''))) ?? '';
-        $cursor = max(0, (int) preg_replace('/\D+/', '', (string) ($queryParams['cursor'] ?? '0')));
         $mode = (string) ($queryParams['mode'] ?? 'search');
+
+        if ($mode !== 'random') {
+            return $this->searchLocalStockCopyAware($tenantId, $partnerId, $gameId, $profile, $queryParams, $number, $mode, $limit);
+        }
+
+        $cursor = max(0, (int) preg_replace('/\D+/', '', (string) ($queryParams['cursor'] ?? '0')));
         $rows = [];
         $deferredRandomRows = [];
         $visited = 0;
@@ -402,6 +407,68 @@ class VirtualStockService
             'meta' => [
                 'game_id' => $gameId,
                 'next_cursor' => $hasMore ? (string) $offset : null,
+                'has_more' => $hasMore,
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $profile
+     * @param array<string, mixed> $queryParams
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
+     */
+    private function searchLocalStockCopyAware(
+        string $tenantId,
+        string $partnerId,
+        string $gameId,
+        array $profile,
+        array $queryParams,
+        string $number,
+        string $mode,
+        int $limit,
+    ): array {
+        $cursor = $this->decodeTenantStockCursor($queryParams['cursor'] ?? null);
+        $rows = [];
+        $numberOffset = $cursor['number_offset'];
+        $firstCandidate = true;
+
+        foreach ($this->candidateNumbers($queryParams, $number, $mode, $numberOffset) as $candidate) {
+            $copyOffset = $firstCandidate ? $cursor['copy_offset'] : 0;
+            $availability = $this->availabilityForNumber($tenantId, $partnerId, $gameId, $candidate, $profile);
+            $copyIndexes = $availability['remaining_count'] > 0
+                ? $this->availableCopyIndexes($partnerId, $candidate, $availability)
+                : [];
+            $copyCount = count($copyIndexes);
+            $firstCandidate = false;
+
+            foreach (array_slice($copyIndexes, $copyOffset) as $localCopyPosition => $copyIndex) {
+                $nextCopyOffset = $copyOffset + $localCopyPosition + 1;
+                $nextCursor = $nextCopyOffset < $copyCount
+                    ? ['number_offset' => $numberOffset, 'copy_offset' => $nextCopyOffset]
+                    : ['number_offset' => $numberOffset + 1, 'copy_offset' => 0];
+
+                $rows[] = [
+                    'resource' => $this->virtualStockResource($tenantId, $partnerId, $gameId, $candidate, $copyIndex, $availability),
+                    'cursor' => $this->encodeTenantStockCursor($nextCursor),
+                ];
+
+                if (count($rows) >= $limit + 1) {
+                    break 2;
+                }
+            }
+
+            $numberOffset++;
+        }
+
+        $hasMore = count($rows) > $limit;
+        $rows = array_slice($rows, 0, $limit);
+        $lastRow = $rows === [] ? null : $rows[array_key_last($rows)];
+
+        return [
+            'data' => array_map(fn (array $row): array => $row['resource'], $rows),
+            'meta' => [
+                'game_id' => $gameId,
+                'next_cursor' => $hasMore && $lastRow !== null ? (string) $lastRow['cursor'] : null,
                 'has_more' => $hasMore,
             ],
         ];
@@ -794,6 +861,10 @@ class VirtualStockService
 
         if ($positionalPattern === null && strlen($number) >= 6) {
             $fullNumber = substr($number, 0, 6);
+            if ($cursor > 0) {
+                return;
+            }
+
             $exists = DB::table('base_lottery_numbers')
                 ->where('full_number', $fullNumber)
                 ->when($front3 !== '', fn ($query) => $query->where('front3', substr($front3, 0, 3)))

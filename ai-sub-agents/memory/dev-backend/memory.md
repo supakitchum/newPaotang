@@ -19,6 +19,7 @@ docker compose -p newpaotang exec -T platform-api env APP_ENV=testing DB_DATABAS
 
 - API contract source of truth is `docs/openapi.yaml` when task explicitly requires contract updates.
 - Authorization and tenant isolation must be enforced in backend, not only through frontend visibility.
+- `VirtualStockService` uses an opaque base64 cursor shaped like `{number_offset, copy_offset}` for copy-aware virtual stock pagination; numeric cursors are legacy number offsets.
 
 ## Gotchas
 
@@ -29,6 +30,7 @@ docker compose -p newpaotang exec -T platform-api env APP_ENV=testing DB_DATABAS
 ## Last Useful Findings
 
 - GitOps owns local runtime DB migrate after Coordinator approval; backend dev only validates on test env/test DB.
+- Exact-six public virtual stock search must paginate duplicate copies by `copy_offset` so one `full_number` with many copies does not repeat ids across pages.
 
 ## Do Not Trust Without Rechecking
 

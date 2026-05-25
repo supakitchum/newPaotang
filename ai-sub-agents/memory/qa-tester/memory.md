@@ -35,6 +35,7 @@ Use task-specific Docker commands for BO/customer validation.
 ## Last Useful Findings
 
 - Runtime DB migration belongs to GitOps after Coordinator approval, not QA.
+- For customer browser QA, a temporary visible Chrome profile with `--remote-debugging-port` can prove the browser reached the test-wired Nuxt route, but a clean PASS still needs rendered UI result evidence; if the DOM assertion times out, report BLOCKED or PASS WITH RISK rather than inferring success from backend API proof alone.
 
 ## Do Not Trust Without Rechecking
 

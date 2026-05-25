@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "nuxt dev",
     "lint": "node scripts/check-tenant-domain-integration.mjs",
-    "test": "node scripts/check-tenant-domain-integration.mjs",
+    "test": "node scripts/check-tenant-domain-integration.mjs && node scripts/check-exact-six-search-identity.mjs",
     "build": "nuxt build",
     "generate": "nuxt generate",
     "preview": "nuxt preview"

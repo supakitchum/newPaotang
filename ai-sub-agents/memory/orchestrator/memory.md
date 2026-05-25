@@ -24,6 +24,8 @@ Memory is cache, not source of truth. Trust current Coordinator decision, tasks,
 - Trigger files live in `ai-sub-agents/triggers/YYYYMMDD-<task-key>-<agent>-trigger.md`.
 - Shared locks live in `ai-sub-agents/locks/YYYYMMDD-<task-key>-<agent>-lock.md`.
 - Frontend triggers depending on backend API changes should depend_on backend handoff and contract evidence.
+- If backend work only fixes behavior under an already stable opaque-cursor API contract, frontend and backend tasks can run parallel; QA should depend on both dev handoffs.
+- Completion handoffs should carry any non-blocking adjacent validation failure into the QA task with command, failing assertion, and scope assessment.
 
 ## Gotchas
 

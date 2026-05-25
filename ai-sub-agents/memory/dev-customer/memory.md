@@ -33,6 +33,8 @@ Use only scripts that actually exist in `apps/customer/package.json`.
 ## Last Useful Findings
 
 - QA browser acceptance for customer flow changes needs visible Google Chrome evidence.
+- Exact-six customer stock search uses `apps/customer/utils/stockSearchIdentity.js`: six filled digit boxes map to `number=<six_digits>`, partial boxes keep positional `d1..d6`, and exact duplicate result rows should be merged by item identity (`token`, `local_stock_item_id`, `stock_ref`, `id`) instead of `full_number`.
+- Customer script-level tests can be added under `apps/customer/scripts/**` and wired into `npm test`; run through Docker with `docker compose -p newpaotang exec -T customer npm test`.
 
 ## Do Not Trust Without Rechecking
 

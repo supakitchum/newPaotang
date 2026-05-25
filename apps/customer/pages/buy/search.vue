@@ -55,10 +55,19 @@
 
 <script setup lang="ts">
 import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
+import {
+  getStockSearchTicketIdentity,
+  getStockSearchTicketNumber,
+  getStockSearchTicketNumberKey,
+  isExactSixDigitSearch as hasExactSixDigitSearch,
+  mergeStockSearchTickets
+} from '~/utils/stockSearchIdentity.js'
 
 interface LotteryTicket {
+  id?: string | number
   token?: string
   local_stock_item_id?: string
+  stock_ref?: string | number
   number: string
   full_number?: string
   lottery_number?: string
@@ -120,6 +129,7 @@ const searchTitle = computed(() => isStoreSearch.value ? 'ค้นหาเล�
 const currentPage = computed(() => pagination.value?.current_page ?? pagination.value?.page ?? 1)
 const totalPage = computed(() => pagination.value?.total_page ?? 1)
 const hasNextPage = computed(() => Boolean(pagination.value?.seed) && currentPage.value < totalPage.value)
+const isExactSearch = computed(() => hasExactSixDigitSearch(searchDigits.value))
 const showSkeletonItems = computed(() => isSearching.value && lotteries.value.length === 0)
 const showEmptyState = computed(() => hasSearched.value && !isSearching.value && !isLoadingMore.value && lotteries.value.length === 0)
 useCustomerStockRealtime({
@@ -135,29 +145,9 @@ const handleDigitsUpdate = (digits: string[]) => {
 
 const buildSearchDigits = () => searchNumber.value.slice(0, 6)
 
-const getTicketNumber = (ticket: Partial<LotteryTicket>) => {
-  const value = ticket.number || ticket.full_number || ticket.lottery_number || ''
+const getTicketNumber = (ticket: Partial<LotteryTicket>) => getStockSearchTicketNumber(ticket)
 
-  return String(value)
-}
-
-const ticketNumberKey = (ticket: Partial<LotteryTicket>) => getTicketNumber(ticket).replace(/\D/g, '').slice(0, 6)
-
-const uniqueByNumber = (tickets: LotteryTicket[]) => {
-  const seenNumbers = new Set<string>()
-
-  return tickets.filter((ticket) => {
-    const number = ticketNumberKey(ticket)
-
-    if (!number || seenNumbers.has(number)) {
-      return false
-    }
-
-    seenNumbers.add(number)
-
-    return true
-  })
-}
+const ticketNumberKey = (ticket: Partial<LotteryTicket>) => getStockSearchTicketNumberKey(ticket)
 
 const withHighlight = (ticket: LotteryTicket): LotteryTicket => ({
   ...ticket,
@@ -165,11 +155,13 @@ const withHighlight = (ticket: LotteryTicket): LotteryTicket => ({
   highlightDigits: searchNumber.value
 })
 
-const updateSearchResult = (responseData: any, append = false) => {
+const updateSearchResult = (responseData: any, append = false, preserveDuplicateFullNumbers = isExactSearch.value) => {
   const result = responseData.result || {}
   const nextLotteries = (result.lotteries || []).map(withHighlight)
 
-  lotteries.value = uniqueByNumber(append ? [...lotteries.value, ...nextLotteries] : nextLotteries)
+  lotteries.value = mergeStockSearchTickets(append ? [...lotteries.value, ...nextLotteries] : nextLotteries, {
+    preserveDuplicateFullNumbers
+  })
   pagination.value = result.pagination || null
   currentGameId.value = String(result.game_id || currentGameId.value || '')
 }
@@ -200,13 +192,14 @@ const search = async () => {
   pagination.value = null
 
   try {
+    const digits = buildSearchDigits()
     const response = await platformApi.searchStockLegacy({
-      digits: buildSearchDigits(),
+      digits,
       storeId: storeId.value || undefined
     })
 
     if (response.data.code === 0) {
-      updateSearchResult(response.data)
+      updateSearchResult(response.data, false, hasExactSixDigitSearch(digits))
     }
   } catch (e) {
     console.log(e)
@@ -223,15 +216,16 @@ const loadNextPage = async () => {
   isLoadingMore.value = true
 
   try {
+    const digits = buildSearchDigits()
     const response = await platformApi.searchStockLegacy({
-      digits: buildSearchDigits(),
+      digits,
       storeId: storeId.value || undefined,
       cursor: pagination.value?.seed || null,
       page: currentPage.value + 1
     })
 
     if (response.data.code === 0) {
-      updateSearchResult(response.data, true)
+      updateSearchResult(response.data, true, hasExactSixDigitSearch(digits))
     }
   } catch (e) {
     console.log(e)
@@ -260,16 +254,18 @@ const clearSearch = () => {
 }
 
 const removeLottery = (ticket: LotteryTicket) => {
+  const ticketIdentity = getStockSearchTicketIdentity(ticket)
+
   lotteries.value = lotteries.value.filter((item) => {
-    if (ticket.token) {
-      return item.token !== ticket.token
+    if (ticketIdentity) {
+      return getStockSearchTicketIdentity(item) !== ticketIdentity
     }
 
     return `${item.number}-${item.sort_order ?? item.set ?? ''}` !== `${ticket.number}-${ticket.sort_order ?? ticket.set ?? ''}`
   })
 }
 
-const ticketKey = (ticket: LotteryTicket, index: number) => String(ticket.token || ticket.local_stock_item_id || `${ticket.number}-${ticket.sort_order ?? ticket.set ?? index}`)
+const ticketKey = (ticket: LotteryTicket, index: number) => String(getStockSearchTicketIdentity(ticket) || `${ticket.number}-${ticket.sort_order ?? ticket.set ?? index}`)
 
 onMounted(() => {
   scrollContainer = document.querySelector('.app-scroll')

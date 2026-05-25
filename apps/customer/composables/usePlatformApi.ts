@@ -1,5 +1,6 @@
 import { ticketPrice } from '~/data/lottery'
 import type { CartLottery } from '~/composables/useCart'
+import { buildLegacyStockSearchParams } from '~/utils/stockSearchIdentity.js'
 
 type AnyRecord = Record<string, any>
 const CURRENT_GAME_TTL_MS = 5 * 60 * 1000
@@ -547,29 +548,8 @@ export const usePlatformApi = () => {
       })
     }
 
-    const number = String(input.number || '').replace(/\D/g, '').slice(0, 6)
-    const digitParams = (input.digits || []).slice(0, 6).reduce((params, digit, index) => {
-      const value = String(digit || '').replace(/\D/g, '').slice(0, 1)
-
-      if (value) {
-        params[`d${index + 1}`] = value
-      }
-
-      return params
-    }, {} as Record<string, string>)
-    const hasPositionalDigits = Object.keys(digitParams).length > 0
-    const mode = input.mode || (number || hasPositionalDigits ? 'search' : (input.storeId ? 'browse' : 'random'))
     const response = await axios.get('/public/stock/search', {
-      params: {
-        game_id: gameId,
-        ...(number ? { number } : {}),
-        ...digitParams,
-        ...(input.storeId ? { store_id: input.storeId } : {}),
-        mode,
-        ...(input.cursor ? { cursor: input.cursor } : {}),
-        ...(input.randomSeed ? { random_seed: input.randomSeed } : {}),
-        limit: input.limit || 20
-      }
+      params: buildLegacyStockSearchParams(input, gameId)
     })
     const payload = normalizeResponse(response)
     const lotteries = Array.isArray(payload.data) ? payload.data.map((item: AnyRecord) => normalizeStockItem(item)) : []

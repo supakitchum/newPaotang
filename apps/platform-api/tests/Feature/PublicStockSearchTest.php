@@ -245,6 +245,86 @@ class PublicStockSearchTest extends TestCase
         $this->assertSame(1, DB::table('local_stock_items')->where('tenant_id', 'ten_virtual_public')->whereNotNull('virtual_stock_ref')->count());
     }
 
+    public function test_PublicStockSearch_exact_six_virtual_search_returns_duplicate_copies_with_unique_reservation_ids(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_exact_dup', 'ten_exact_dup', 'exact-dup.newpaotang.test');
+        $this->insertGame('gam_exact_dup', 'open');
+        $this->insertBaseLotteryNumbers(['123456']);
+        $this->insertVirtualProfile('gam_exact_dup', 1, 3, [[
+            'set_size' => 3,
+            'percent_basis_points' => 10000,
+        ]]);
+        $this->insertPartnerDistribution('gam_exact_dup', 'par_exact_dup', 'ten_exact_dup', 10000, 3);
+
+        $rows = $this->getJson('http://exact-dup.newpaotang.test/api/v1/public/stock/search?game_id=gam_exact_dup&number=123456&limit=10')
+            ->assertOk()
+            ->assertJsonCount(3, 'data')
+            ->assertJsonPath('meta.has_more', false)
+            ->json('data');
+
+        $ids = array_values(array_map(fn (array $row): string => (string) $row['id'], $rows));
+
+        $this->assertSame(['123456', '123456', '123456'], array_values(array_map(fn (array $row): string => (string) $row['full_number'], $rows)));
+        $this->assertSame([
+            'vstock:ten_exact_dup:gam_exact_dup:123456:0',
+            'vstock:ten_exact_dup:gam_exact_dup:123456:1',
+            'vstock:ten_exact_dup:gam_exact_dup:123456:2',
+        ], $ids);
+        $this->assertCount(3, array_unique($ids));
+        $this->assertSame([0, 1, 2], array_values(array_map(fn (array $row): int => (int) $row['virtual_copy_index'], $rows)));
+
+        foreach ($rows as $row) {
+            $this->assertSame($row['id'], $row['token']);
+            $this->assertSame($row['id'], $row['local_stock_item_id']);
+            $this->assertSame($row['id'], $row['stock_ref']);
+        }
+    }
+
+    public function test_PublicStockSearch_exact_six_virtual_search_paginates_duplicate_copies_by_copy_index(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_exact_page', 'ten_exact_page', 'exact-page.newpaotang.test');
+        $this->insertGame('gam_exact_page', 'open');
+        $this->insertBaseLotteryNumbers(['654321']);
+        $this->insertVirtualProfile('gam_exact_page', 1, 3, [[
+            'set_size' => 3,
+            'percent_basis_points' => 10000,
+        ]]);
+        $this->insertPartnerDistribution('gam_exact_page', 'par_exact_page', 'ten_exact_page', 10000, 3);
+
+        $pageOne = $this->getJson('http://exact-page.newpaotang.test/api/v1/public/stock/search?game_id=gam_exact_page&number=654321&limit=2')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.has_more', true)
+            ->json();
+
+        $cursor = $pageOne['meta']['next_cursor'] ?? null;
+        $this->assertIsString($cursor);
+        $this->assertNotSame('', $cursor);
+
+        $pageTwo = $this->getJson('http://exact-page.newpaotang.test/api/v1/public/stock/search?'.http_build_query([
+            'game_id' => 'gam_exact_page',
+            'number' => '654321',
+            'limit' => 2,
+            'cursor' => $cursor,
+        ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.has_more', false)
+            ->assertJsonPath('meta.next_cursor', null)
+            ->json();
+
+        $ids = array_values(array_map(fn (array $row): string => (string) $row['id'], array_merge($pageOne['data'], $pageTwo['data'])));
+
+        $this->assertSame([
+            'vstock:ten_exact_page:gam_exact_page:654321:0',
+            'vstock:ten_exact_page:gam_exact_page:654321:1',
+            'vstock:ten_exact_page:gam_exact_page:654321:2',
+        ], $ids);
+        $this->assertCount(3, array_unique($ids));
+    }
+
     public function test_PublicStockSearch_random_virtual_results_interleave_duplicate_copy_numbers(): void
     {
         $this->seedDefaultRbac();
