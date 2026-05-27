@@ -10,10 +10,12 @@ use App\Models\RewardClaim;
 use App\Models\RewardPrize;
 use App\Models\RewardPublishLog;
 use App\Models\RewardResult;
+use App\Models\PlatformSystemSetting;
 use App\Models\SyncOutbox;
 use App\Models\Ticket;
 use App\Models\Wallet;
 use App\Models\WinningTicket;
+use App\Modules\Reward\Events\RewardLiveResultUpdated;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Modules\Auth\Services\CustomerAuthService;
@@ -22,6 +24,7 @@ use App\Modules\Commerce\Services\CommerceService;
 use App\Shared\Idempotency\IdempotencyService;
 use App\Support\CustomerNo;
 use App\Support\PublicUrl;
+use App\Support\YoutubeLiveUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -29,6 +32,7 @@ use Illuminate\Support\Str;
 class RewardService
 {
     private const CHECK_CHUNK_SIZE = 100;
+    private const PUBLIC_LIVE_RESULT_STATUSES = ['draft', 'recorded', 'checking', 'summary_ready', 'verified'];
     public const CLAIM_PAYOUT_METHODS = ['wallet_credit', 'bank_transfer', 'manual_cash'];
 
     public function __construct(
@@ -301,8 +305,958 @@ class RewardService
             'meta' => [
                 'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->id : null,
                 'has_more' => $hasMore,
+                'live_settings' => $this->centralLiveSettings(),
             ],
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     * @return array<string, mixed>
+     */
+    public function listCentralWinners(array $queryParams): array
+    {
+        $limit = $this->limit($queryParams['limit'] ?? null);
+        $defaultGameId = $this->defaultWinnerGameId();
+        $gameId = trim((string) ($queryParams['game_id'] ?? ''));
+        $gameId = $gameId === '' ? (string) ($defaultGameId ?? '') : $gameId;
+        $game = $gameId === '' ? null : Game::query()->whereKey($gameId)->first();
+
+        if ($game === null) {
+            return [
+                'data' => [],
+                'meta' => [
+                    'game_id' => $gameId === '' ? null : $gameId,
+                    'default_game_id' => $defaultGameId,
+                    'game' => null,
+                    'winner_count' => 0,
+                    'total_prize_amount' => $this->money(0),
+                    'next_cursor' => null,
+                    'has_more' => false,
+                ],
+            ];
+        }
+
+        $liveResult = $this->latestSanookLiveResultForGame((string) $game->id);
+        if ($liveResult !== null) {
+            $liveWinners = $this->centralWinnerLiveRows($liveResult, $game, $limit);
+            $liveResultSummary = $this->publicLiveSummary($liveResult);
+
+            return [
+                'data' => $liveWinners['rows'],
+                'meta' => $this->centralWinnerLiveMeta(
+                    $game,
+                    $defaultGameId,
+                    $liveResultSummary,
+                    $liveResultSummary['live_estimate'],
+                    $liveWinners['winning_ticket_count'],
+                    $liveWinners['winning_row_count'],
+                    $liveWinners['by_prize_type'],
+                    true,
+                    $liveWinners['total_prize_amount'],
+                ),
+            ];
+        }
+
+        $baseQuery = DB::table('winning_tickets')
+            ->leftJoin('tickets', 'tickets.id', '=', 'winning_tickets.ticket_id')
+            ->leftJoin('customers', 'customers.id', '=', 'tickets.customer_id')
+            ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'winning_tickets.tenant_id')
+            ->leftJoin('reward_claims', 'reward_claims.winning_ticket_id', '=', 'winning_tickets.id')
+            ->where('winning_tickets.game_id', $gameId);
+
+        foreach (['status', 'prize_type', 'tenant_id'] as $field) {
+            if (($queryParams[$field] ?? null) !== null && trim((string) $queryParams[$field]) !== '') {
+                $baseQuery->where('winning_tickets.'.$field, trim((string) $queryParams[$field]));
+            }
+        }
+
+        if (($queryParams['claim_status'] ?? null) !== null && trim((string) $queryParams['claim_status']) !== '') {
+            $claimStatus = trim((string) $queryParams['claim_status']);
+            if ($claimStatus === 'not_claimed') {
+                $baseQuery->whereNull('reward_claims.id');
+            } else {
+                $baseQuery->where('reward_claims.status', $claimStatus);
+            }
+        }
+
+        if (($queryParams['q'] ?? null) !== null && trim((string) $queryParams['q']) !== '') {
+            $q = trim((string) $queryParams['q']);
+            $baseQuery->where(function ($nested) use ($q): void {
+                $nested->where('winning_tickets.id', 'like', '%'.$q.'%')
+                    ->orWhere('winning_tickets.ticket_id', 'like', '%'.$q.'%')
+                    ->orWhere('tickets.full_number', 'like', '%'.$q.'%')
+                    ->orWhere('customers.customer_no', 'like', '%'.$q.'%')
+                    ->orWhere('customers.name', 'like', '%'.$q.'%')
+                    ->orWhere('customers.phone', 'like', '%'.$q.'%')
+                    ->orWhere('reward_claims.reference', 'like', '%'.$q.'%');
+            });
+        }
+
+        $winnerCount = (clone $baseQuery)->count('winning_tickets.id');
+        $totalPrizeAmount = (int) (clone $baseQuery)->sum('winning_tickets.amount');
+
+        if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
+            $baseQuery->where('winning_tickets.id', '>', trim((string) $queryParams['cursor']));
+        }
+
+        $rows = $baseQuery
+            ->select([
+                'winning_tickets.id',
+                'winning_tickets.tenant_id',
+                'winning_tickets.game_id',
+                'winning_tickets.ticket_id',
+                'winning_tickets.reward_result_id',
+                'winning_tickets.reward_prize_id',
+                'winning_tickets.prize_type',
+                'winning_tickets.prize_number',
+                'winning_tickets.amount',
+                'winning_tickets.base_amount',
+                'winning_tickets.adjustment_amount',
+                'winning_tickets.tenant_price_rule_id',
+                'winning_tickets.currency',
+                'winning_tickets.status',
+                'winning_tickets.created_at',
+                'winning_tickets.updated_at',
+                'tickets.full_number',
+                'tickets.status as ticket_status',
+                'customers.id as customer_id',
+                'customers.customer_no',
+                'customers.name as customer_name',
+                'customers.first_name as customer_first_name',
+                'customers.last_name as customer_last_name',
+                'customers.phone as customer_phone',
+                'partner_tenants.code as tenant_code',
+                'partner_tenants.name as tenant_name',
+                'reward_claims.id as claim_id',
+                'reward_claims.reference as claim_reference',
+                'reward_claims.status as claim_status',
+                'reward_claims.payout_method as claim_payout_method',
+                'reward_claims.submitted_at as claim_submitted_at',
+                'reward_claims.paid_at as claim_paid_at',
+            ])
+            ->orderBy('winning_tickets.id')
+            ->limit($limit + 1)
+            ->get()
+            ->all();
+
+        $hasMore = count($rows) > $limit;
+        $rows = array_slice($rows, 0, $limit);
+
+        return [
+            'data' => array_map(fn (object $winner): array => $this->centralWinnerResource($winner, $game), $rows),
+            'meta' => [
+                'game_id' => (string) $game->id,
+                'default_game_id' => $defaultGameId,
+                'game' => $this->winnerGameResource($game, $defaultGameId),
+                'has_live_result' => false,
+                'completion_percent' => 0,
+                'source' => ['name' => 'official'],
+                'winner_count' => $winnerCount,
+                'winning_row_count' => $winnerCount,
+                'total_prize_amount' => $this->money($totalPrizeAmount),
+                'prize_breakdown' => [],
+                'official_claimable' => true,
+                'realtime' => [
+                    'event' => 'reward.result.live.updated',
+                    'channels' => [
+                        'public.results.latest',
+                        'public.results.game.'.(string) $game->id,
+                    ],
+                ],
+                'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->id : null,
+                'has_more' => $hasMore,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function centralWinnerGames(): array
+    {
+        $defaultGameId = $this->defaultWinnerGameId();
+        $rows = Game::query()
+            ->where('status', '<>', 'archived')
+            ->orderByDesc('draw_at')
+            ->orderByDesc('sale_start_at')
+            ->limit(100)
+            ->get()
+            ->all();
+
+        return [
+            'data' => array_map(fn (object $game): array => $this->winnerGameResource($game, $defaultGameId), $rows),
+            'meta' => [
+                'default_game_id' => $defaultGameId,
+            ],
+        ];
+    }
+
+    private function defaultWinnerGameId(): ?string
+    {
+        $gameId = Game::query()
+            ->whereNotNull('sale_start_at')
+            ->where('sale_start_at', '<=', now())
+            ->whereNotIn('status', ['draft', 'archived'])
+            ->orderByDesc('sale_start_at')
+            ->orderByDesc('draw_at')
+            ->value('id');
+
+        if ($gameId !== null) {
+            return (string) $gameId;
+        }
+
+        $fallback = Game::query()
+            ->where('status', '<>', 'archived')
+            ->orderByDesc('draw_at')
+            ->orderByDesc('sale_start_at')
+            ->value('id');
+
+        return $fallback === null ? null : (string) $fallback;
+    }
+
+    /**
+     * @param array<string, mixed>|null $liveResult
+     * @param array<string, mixed> $liveEstimate
+     * @param array<string, mixed> $byPrizeType
+     * @return array<string, mixed>
+     */
+    private function centralWinnerLiveMeta(
+        object $game,
+        ?string $defaultGameId,
+        ?array $liveResult,
+        array $liveEstimate,
+        int $winningTicketCount,
+        int $winningRowCount,
+        array $byPrizeType,
+        bool $hasLiveResult,
+        int $totalPrizeAmount = 0,
+    ): array {
+        $gameId = (string) $game->id;
+
+        return [
+            'game_id' => $gameId,
+            'default_game_id' => $defaultGameId,
+            'game' => $this->winnerGameResource($game, $defaultGameId),
+            'reward_result_id' => $liveResult['reward_result_id'] ?? null,
+            'live_result' => $liveResult,
+            'has_live_result' => $hasLiveResult,
+            'completion_percent' => (float) ($liveResult['completion_percent'] ?? 0),
+            'source' => $liveResult['source'] ?? ['name' => 'sanook'],
+            'winner_count' => $winningTicketCount,
+            'winning_row_count' => $winningRowCount,
+            'total_prize_amount' => $this->money($totalPrizeAmount),
+            'prize_breakdown' => $byPrizeType,
+            'live_estimate' => [
+                ...$liveEstimate,
+                'estimated_winning_ticket_count' => $winningTicketCount,
+                'estimated_winning_rows' => $winningRowCount,
+                'estimated_payout_amount' => $this->money($totalPrizeAmount),
+                'by_prize_type' => $byPrizeType,
+                'official_claimable' => false,
+            ],
+            'official_claimable' => false,
+            'updated_at' => $liveResult['updated_at'] ?? null,
+            'realtime' => [
+                'event' => 'reward.result.live.updated',
+                'channels' => [
+                    'public.results.latest',
+                    'public.results.game.'.$gameId,
+                ],
+            ],
+        ];
+    }
+
+    private function latestSanookLiveResultForGame(string $gameId): ?object
+    {
+        $results = RewardResult::query()
+            ->where('game_id', $gameId)
+            ->where('status', 'draft')
+            ->whereNotNull('summary_json')
+            ->orderByDesc('updated_at')
+            ->limit(10)
+            ->get()
+            ->all();
+
+        foreach ($results as $result) {
+            $summary = $this->decodeJsonObject($result->summary_json);
+
+            if (($summary['source']['name'] ?? null) === 'sanook') {
+                return $result;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{rows: array<int, array<string, mixed>>, winning_ticket_count: int, winning_row_count: int, total_prize_amount: int, by_prize_type: array<string, mixed>}
+     */
+    private function centralWinnerLiveRows(object $result, object $game, int $limit): array
+    {
+        $prizes = $this->completedRewardPrizes((string) $result->id);
+        $groups = [];
+        $rows = [];
+        $totalPrizeAmount = 0;
+        $byPrizeType = [];
+        $pricingCache = [];
+
+        foreach ($prizes as $prize) {
+            $matches = $this->ticketPrizeAggregateRows((string) $game->id, $prize)->get()->all();
+
+            foreach ($matches as $match) {
+                $ticketCount = (int) $match->ticket_count;
+                if ($ticketCount < 1) {
+                    continue;
+                }
+
+                $pricing = $this->livePricingForPrize((string) $match->tenant_id, (string) $game->id, $prize, $pricingCache);
+                $amount = (int) $pricing['effective_amount'];
+                $type = (string) $prize->prize_type;
+                $currency = (string) ($pricing['currency'] ?? $prize->currency ?? 'THB');
+                $totalAmount = $ticketCount * $amount;
+                $fullNumber = (string) $match->full_number;
+                $tenantId = (string) $match->tenant_id;
+                $totalPrizeAmount += $totalAmount;
+                $byPrizeType[$type] ??= [
+                    'prize_type' => $type,
+                    'winner_count' => 0,
+                    'winning_row_count' => 0,
+                    'total_prize_amount' => $this->money(0, $currency),
+                ];
+                $byPrizeType[$type]['winner_count'] += $ticketCount;
+                $byPrizeType[$type]['winning_row_count'] += $ticketCount;
+                $byPrizeType[$type]['total_prize_amount'] = $this->money(
+                    (int) $byPrizeType[$type]['total_prize_amount']['amount'] + $totalAmount,
+                    $currency,
+                );
+
+                $groups[$fullNumber] ??= $this->emptyLiveWinnerGroup($result, $game, $fullNumber, $currency);
+                $this->addLiveWinnerGroupMatch($groups[$fullNumber], $match, $prize, $pricing, $ticketCount, $totalAmount);
+            }
+        }
+
+        uasort($groups, fn (array $left, array $right): int => (
+            ($right['total_prize_amount'] <=> $left['total_prize_amount'])
+                ?: ($right['ticket_count'] <=> $left['ticket_count'])
+                ?: strcmp((string) $left['full_number'], (string) $right['full_number'])
+        ));
+
+        foreach (array_slice($groups, 0, $limit) as $group) {
+            $rows[] = $this->centralWinnerLiveGroupResource($group);
+        }
+
+        return [
+            'rows' => $rows,
+            'winning_ticket_count' => array_sum(array_map(
+                fn (array $group): int => (int) $group['ticket_count'],
+                $groups,
+            )),
+            'winning_row_count' => array_sum(array_map(
+                fn (array $row): int => (int) $row['winning_row_count'],
+                $byPrizeType,
+            )),
+            'total_prize_amount' => $totalPrizeAmount,
+            'by_prize_type' => array_values($byPrizeType),
+        ];
+    }
+
+    /**
+     * @return array<int, object>
+     */
+    private function completedRewardPrizes(string $rewardResultId): array
+    {
+        return RewardPrize::query()
+            ->where('reward_result_id', $rewardResultId)
+            ->orderBy('sort_order')
+            ->get()
+            ->filter(fn (object $prize): bool => ! $this->isPendingPrizeNumber((string) $prize->prize_number))
+            ->values()
+            ->all();
+    }
+
+    private function ticketPrizeAggregateRows(string $gameId, object $prize)
+    {
+        $query = DB::table('tickets')
+            ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'tickets.tenant_id')
+            ->where('tickets.game_id', $gameId)
+            ->whereIn('tickets.status', ['active', 'reward_pending', 'winning', 'non_winning']);
+
+        $this->applyTicketPrizeMatchConstraint($query, $prize);
+
+        return $query
+            ->select([
+                'tickets.tenant_id',
+                'tickets.game_id',
+                'tickets.full_number',
+                'partner_tenants.code as tenant_code',
+                'partner_tenants.name as tenant_name',
+                DB::raw('COUNT(*) as ticket_count'),
+                DB::raw('MIN(tickets.id) as sample_ticket_id'),
+                DB::raw('MAX(tickets.updated_at) as updated_at'),
+            ])
+            ->groupBy([
+                'tickets.tenant_id',
+                'tickets.game_id',
+                'tickets.full_number',
+                'partner_tenants.code',
+                'partner_tenants.name',
+            ])
+            ->orderBy('tickets.full_number')
+            ->orderBy('tickets.tenant_id');
+    }
+
+    private function applyTicketPrizeMatchConstraint($query, object $prize): void
+    {
+        $type = strtolower((string) $prize->prize_type);
+        $number = (string) $prize->prize_number;
+
+        if (str_contains($type, 'front3')) {
+            $query->where('tickets.full_number', 'like', $number.'%');
+
+            return;
+        }
+
+        if (str_contains($type, 'back3') || str_contains($type, 'back2')) {
+            $query->where('tickets.full_number', 'like', '%'.$number);
+
+            return;
+        }
+
+        $query->where('tickets.full_number', $number);
+    }
+
+    /**
+     * @param array<string, array<string, mixed>> $cache
+     * @return array<string, mixed>
+     */
+    private function livePricingForPrize(string $tenantId, string $gameId, object $prize, array &$cache): array
+    {
+        $key = $tenantId.':'.$gameId.':'.(string) $prize->id;
+        $cache[$key] ??= $this->tenantRewardPriceRules->resolveForPrize($tenantId, $gameId, $prize);
+
+        return $cache[$key];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function emptyLiveWinnerGroup(object $result, object $game, string $fullNumber, string $currency): array
+    {
+        return [
+            'id' => 'winner_group_'.substr(sha1($result->id.':'.$fullNumber), 0, 20),
+            'game_id' => (string) $game->id,
+            'game_code' => (string) $game->code,
+            'game_name' => (string) $game->name,
+            'game' => $this->winnerGameResource($game),
+            'reward_result_id' => (string) $result->id,
+            'full_number' => $fullNumber,
+            'ticket_count' => 0,
+            'total_prize_amount' => 0,
+            'currency' => $currency,
+            'status' => 'live_draft',
+            'source' => 'sanook',
+            'official_claimable' => false,
+            'created_at' => $result->updated_at,
+            'updated_at' => $result->updated_at,
+            '_ticket_counts' => [],
+            '_tenants' => [],
+            '_prize_breakdown' => [],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $group
+     * @param array<string, mixed> $pricing
+     */
+    private function addLiveWinnerGroupMatch(array &$group, object $match, object $prize, array $pricing, int $ticketCount, int $totalAmount): void
+    {
+        $tenantId = (string) $match->tenant_id;
+        $type = (string) $prize->prize_type;
+        $currency = (string) ($pricing['currency'] ?? $group['currency'] ?? 'THB');
+        $group['currency'] = $currency;
+        $group['total_prize_amount'] = (int) $group['total_prize_amount'] + $totalAmount;
+        $group['updated_at'] = $match->updated_at ?? $group['updated_at'];
+        $group['_ticket_counts'][$tenantId] = max((int) ($group['_ticket_counts'][$tenantId] ?? 0), $ticketCount);
+        $group['ticket_count'] = array_sum($group['_ticket_counts']);
+        $group['_tenants'][$tenantId] ??= [
+            'id' => $tenantId,
+            'code' => $match->tenant_code,
+            'name' => $match->tenant_name,
+            'ticket_count' => 0,
+        ];
+        $group['_tenants'][$tenantId]['ticket_count'] = max((int) $group['_tenants'][$tenantId]['ticket_count'], $ticketCount);
+        $group['_prize_breakdown'][$type] ??= [
+            'prize_type' => $type,
+            'prize_numbers' => [],
+            'ticket_count' => 0,
+            'winner_count' => 0,
+            'winning_row_count' => 0,
+            'total_prize_amount' => 0,
+            'currency' => $currency,
+        ];
+        $group['_prize_breakdown'][$type]['prize_numbers'][(string) $prize->prize_number] = true;
+        $group['_prize_breakdown'][$type]['ticket_count'] += $ticketCount;
+        $group['_prize_breakdown'][$type]['winner_count'] += $ticketCount;
+        $group['_prize_breakdown'][$type]['winning_row_count'] += $ticketCount;
+        $group['_prize_breakdown'][$type]['total_prize_amount'] += $totalAmount;
+    }
+
+    /**
+     * @param array<string, mixed> $group
+     * @return array<string, mixed>
+     */
+    private function centralWinnerLiveGroupResource(array $group): array
+    {
+        $breakdown = array_values(array_map(function (array $row): array {
+            $currency = (string) ($row['currency'] ?? 'THB');
+
+            return [
+                'prize_type' => $row['prize_type'],
+                'prize_numbers' => array_keys($row['prize_numbers']),
+                'ticket_count' => (int) $row['ticket_count'],
+                'winner_count' => (int) $row['winner_count'],
+                'winning_row_count' => (int) $row['winning_row_count'],
+                'total_prize_amount' => $this->money((int) $row['total_prize_amount'], $currency),
+            ];
+        }, $group['_prize_breakdown']));
+        $prizeTypes = array_values(array_map(fn (array $row): string => (string) $row['prize_type'], $breakdown));
+        $prizeNumbers = array_values(array_unique(array_merge(...array_map(
+            fn (array $row): array => $row['prize_numbers'],
+            $breakdown,
+        ))));
+        $tenants = array_values($group['_tenants']);
+        $totalPrizeAmount = $this->money((int) $group['total_prize_amount'], (string) $group['currency']);
+
+        return [
+            'id' => (string) $group['id'],
+            'game_id' => (string) $group['game_id'],
+            'game_code' => (string) $group['game_code'],
+            'game_name' => (string) $group['game_name'],
+            'game' => $group['game'],
+            'reward_result_id' => (string) $group['reward_result_id'],
+            'full_number' => (string) $group['full_number'],
+            'ticket_count' => (int) $group['ticket_count'],
+            'prize_type' => count($prizeTypes) === 1 ? $prizeTypes[0] : 'multiple',
+            'prize_types' => $prizeTypes,
+            'prize_number' => count($prizeNumbers) === 1 ? $prizeNumbers[0] : null,
+            'prize_numbers' => $prizeNumbers,
+            'prize_breakdown' => $breakdown,
+            'total_prize_amount' => $totalPrizeAmount,
+            'prize_amount' => $totalPrizeAmount,
+            'tenant_count' => count($tenants),
+            'tenant_code' => $this->liveTenantSummary($tenants, 'code'),
+            'tenant_name' => $this->liveTenantSummary($tenants, 'name'),
+            'tenants' => $tenants,
+            'ticket_id' => null,
+            'ticket_status' => null,
+            'customer_id' => null,
+            'customer_no' => null,
+            'customer_name' => null,
+            'customer_phone' => null,
+            'claim_id' => null,
+            'claim_reference' => null,
+            'claim_status' => 'pending_confirmation',
+            'claim_payout_method' => null,
+            'claim_submitted_at' => null,
+            'claim_paid_at' => null,
+            'status' => (string) $group['status'],
+            'source' => (string) $group['source'],
+            'official_claimable' => (bool) $group['official_claimable'],
+            'created_at' => $group['created_at'],
+            'updated_at' => $group['updated_at'],
+        ];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $tenants
+     */
+    private function liveTenantSummary(array $tenants, string $field): ?string
+    {
+        $values = array_values(array_filter(array_map(
+            fn (array $tenant): string => trim((string) ($tenant[$field] ?? '')),
+            $tenants,
+        )));
+
+        if ($values === []) {
+            return null;
+        }
+
+        $visible = array_slice($values, 0, 2);
+        $suffix = count($values) > 2 ? ' +'.(count($values) - 2).' more' : '';
+
+        return implode(', ', $visible).$suffix;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function winnerGameResource(object $game, ?string $defaultGameId = null): array
+    {
+        return [
+            'id' => (string) $game->id,
+            'game_id' => (string) $game->id,
+            'code' => (string) $game->code,
+            'name' => (string) $game->name,
+            'status' => (string) $game->status,
+            'sale_start_at' => $game->sale_start_at,
+            'draw_at' => $game->draw_at,
+            'close_at' => $game->close_at,
+            'is_default' => $defaultGameId !== null && (string) $game->id === $defaultGameId,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function centralWinnerResource(object $winner, object $game): array
+    {
+        $customerId = $winner->customer_id === null ? null : (string) $winner->customer_id;
+        $customerNo = $customerId === null ? null : CustomerNo::display($winner->customer_no ?? null, $customerId);
+        $customerName = $this->winnerCustomerName($winner, $customerNo);
+        $claimId = $winner->claim_id === null ? null : (string) $winner->claim_id;
+
+        return [
+            'id' => (string) $winner->id,
+            'tenant_id' => (string) $winner->tenant_id,
+            'tenant_code' => $winner->tenant_code,
+            'tenant_name' => $winner->tenant_name,
+            'tenant' => [
+                'id' => (string) $winner->tenant_id,
+                'code' => $winner->tenant_code,
+                'name' => $winner->tenant_name,
+            ],
+            'game_id' => (string) $winner->game_id,
+            'game_code' => (string) $game->code,
+            'game_name' => (string) $game->name,
+            'game' => $this->winnerGameResource($game),
+            'ticket_id' => (string) $winner->ticket_id,
+            'full_number' => $winner->full_number,
+            'ticket_status' => $winner->ticket_status,
+            'ticket' => [
+                'id' => (string) $winner->ticket_id,
+                'full_number' => $winner->full_number,
+                'status' => $winner->ticket_status,
+            ],
+            'customer_id' => $customerId,
+            'customer_no' => $customerNo,
+            'customer_name' => $customerName,
+            'customer_phone' => $winner->customer_phone,
+            'customer' => $customerId === null ? null : [
+                'id' => $customerId,
+                'customer_no' => $customerNo,
+                'name' => $customerName,
+                'phone' => $winner->customer_phone,
+            ],
+            'reward_result_id' => (string) $winner->reward_result_id,
+            'reward_prize_id' => (string) $winner->reward_prize_id,
+            'prize_type' => (string) $winner->prize_type,
+            'prize_types' => [(string) $winner->prize_type],
+            'prize_number' => (string) $winner->prize_number,
+            'prize_numbers' => [(string) $winner->prize_number],
+            'prize_amount' => $this->money((int) $winner->amount, (string) $winner->currency),
+            'total_prize_amount' => $this->money((int) $winner->amount, (string) $winner->currency),
+            'ticket_count' => 1,
+            'tenant_count' => 1,
+            'tenant_summary' => $winner->tenant_name ?? $winner->tenant_code,
+            'prize_breakdown' => [[
+                'prize_type' => (string) $winner->prize_type,
+                'prize_numbers' => [(string) $winner->prize_number],
+                'ticket_count' => 1,
+                'winner_count' => 1,
+                'winning_row_count' => 1,
+                'total_prize_amount' => $this->money((int) $winner->amount, (string) $winner->currency),
+            ]],
+            'base_amount' => $this->money((int) ($winner->base_amount ?? $winner->amount), (string) $winner->currency),
+            'adjustment_amount' => $this->money((int) ($winner->adjustment_amount ?? 0), (string) $winner->currency),
+            'tenant_price_rule_id' => $winner->tenant_price_rule_id,
+            'claim_id' => $claimId,
+            'claim_reference' => $winner->claim_reference,
+            'claim_status' => $winner->claim_status ?? 'not_claimed',
+            'claim_payout_method' => $winner->claim_payout_method,
+            'claim_submitted_at' => $winner->claim_submitted_at,
+            'claim_paid_at' => $winner->claim_paid_at,
+            'status' => (string) $winner->status,
+            'created_at' => $winner->created_at,
+            'updated_at' => $winner->updated_at,
+        ];
+    }
+
+    private function winnerCustomerName(object $winner, ?string $fallback): ?string
+    {
+        $name = trim((string) ($winner->customer_name ?? ''));
+
+        if ($name !== '') {
+            return $name;
+        }
+
+        $firstLast = trim(trim((string) ($winner->customer_first_name ?? '')).' '.trim((string) ($winner->customer_last_name ?? '')));
+
+        return $firstLast === '' ? $fallback : $firstLast;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function centralLiveSettings(): array
+    {
+        $url = $this->centralWaitingResultYoutubeUrl();
+
+        return [
+            'id' => 'central_reward_live_settings',
+            'waiting_result_youtube_url' => $url,
+            'waiting_result_youtube_embed_url' => YoutubeLiveUrl::embedUrl($url),
+            'source' => $url !== '' ? 'central_default' : 'not_configured',
+            'updated_at' => PlatformSystemSetting::query()
+                ->where('key', 'waiting_result_youtube_url')
+                ->value('updated_at'),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    public function validateCentralLiveSettingsPayload(array $payload): array
+    {
+        $value = $this->liveSettingsPayloadValue($payload);
+
+        if ($value === null) {
+            return [
+                'waiting_result_youtube_url' => ['The waiting_result_youtube_url field is required.'],
+            ];
+        }
+
+        if (! YoutubeLiveUrl::isAllowedOrEmpty($value)) {
+            return [
+                'waiting_result_youtube_url' => ['The waiting_result_youtube_url field must be a valid YouTube URL.'],
+            ];
+        }
+
+        return [];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource: array<string, mixed>}
+     */
+    public function updateCentralLiveSettings(array $payload, AdminSessionContext $actor, Request $request): array
+    {
+        $url = trim((string) ($this->liveSettingsPayloadValue($payload) ?? ''));
+        $normalized = ['waiting_result_youtube_url' => $url];
+        $idempotencyKey = (string) $request->header('Idempotency-Key');
+
+        return DB::transaction(function () use ($actor, $idempotencyKey, $normalized, $request, $url): array {
+            $replay = $this->idempotency->replayOrConflict(null, 'central_admin', $actor->adminUser['id'], 'admin.central.rewards.live-settings.patch', $idempotencyKey, $normalized, 'reward.create', true);
+
+            if (is_array($replay)) {
+                return ['resource' => $replay['body'] ?? [], 'status' => $replay['status']];
+            }
+
+            if ($replay === 'idempotency_conflict' || $replay === 'resource_conflict') {
+                return ['error' => $replay];
+            }
+
+            $setting = PlatformSystemSetting::query()->firstOrNew(['key' => 'waiting_result_youtube_url']);
+
+            if (! $setting->exists) {
+                $setting->id = 'pss_'.substr(sha1('waiting_result_youtube_url'), 0, 20);
+                $setting->key = 'waiting_result_youtube_url';
+            }
+
+            $setting->fill([
+                'value_json' => $url,
+                'status' => 'active',
+            ]);
+            $setting->save();
+
+            $this->auditAdmin($actor, $request, 'reward.live_settings.updated', 'platform_system_setting', 'waiting_result_youtube_url', $normalized);
+
+            $resource = $this->centralLiveSettings();
+            $this->idempotency->storeResponse(null, 'central_admin', $actor->adminUser['id'], 'admin.central.rewards.live-settings.patch', $idempotencyKey, $normalized, 200, $resource, 'reward.create');
+
+            return ['resource' => $resource];
+        });
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    public function validateLiveIngestPayload(array $payload): array
+    {
+        $errors = [];
+        $rules = ThaiGovernmentLotteryRewardTemplate::rules();
+        $source = trim((string) ($payload['source'] ?? ''));
+        $drawCode = trim((string) ($payload['draw_code'] ?? ''));
+        $payloadHash = trim((string) ($payload['payload_hash'] ?? ''));
+        $prizes = $payload['prizes'] ?? null;
+
+        if ($source !== 'sanook') {
+            $errors['source'][] = 'The source field must be sanook.';
+        }
+
+        if (! preg_match('/^[0-9]{8}$/', $drawCode)) {
+            $errors['draw_code'][] = 'The draw_code field must contain exactly 8 digits.';
+        }
+
+        if ($payloadHash === '' || strlen($payloadHash) > 128) {
+            $errors['payload_hash'][] = 'The payload_hash field is required and must not exceed 128 characters.';
+        }
+
+        if (! is_array($prizes) || $prizes === []) {
+            $errors['prizes'][] = 'The prizes field must contain at least one prize group.';
+
+            return $errors;
+        }
+
+        $seenByType = [];
+
+        foreach (array_values($prizes) as $index => $prize) {
+            $row = is_array($prize) ? $prize : [];
+            $type = trim((string) ($row['prize_type'] ?? ''));
+            $numbers = $row['prize_numbers'] ?? null;
+            $rule = $rules[$type] ?? null;
+
+            if ($type === '' || $rule === null) {
+                $errors["prizes.$index.prize_type"][] = 'The prize_type field must be a Thai Government Lottery prize type.';
+                continue;
+            }
+
+            if (! is_array($numbers) || $numbers === []) {
+                $errors["prizes.$index.prize_numbers"][] = 'The prize_numbers field must contain at least one number.';
+                continue;
+            }
+
+            if (count($numbers) > $rule['count']) {
+                $errors["prizes.$index.prize_numbers"][] = 'The '.$type.' prize_numbers field cannot contain more than '.$rule['count'].' number(s).';
+            }
+
+            foreach (array_values($numbers) as $numberIndex => $number) {
+                $normalizedNumber = trim((string) $number);
+                $isPending = preg_match('/^x{'.$rule['digits'].'}$/i', $normalizedNumber) === 1;
+
+                if (! $isPending && ! preg_match('/^[0-9]{'.$rule['digits'].'}$/', $normalizedNumber)) {
+                    $errors["prizes.$index.prize_numbers.$numberIndex"][] = 'The '.$type.' prize number must contain exactly '.$rule['digits'].' digits or x placeholders.';
+                    continue;
+                }
+
+                if ($isPending) {
+                    continue;
+                }
+
+                $seenKey = $type.':'.$normalizedNumber;
+                if (isset($seenByType[$seenKey])) {
+                    $errors["prizes.$index.prize_numbers.$numberIndex"][] = 'Duplicate live prize numbers are not allowed in the same prize group.';
+                }
+                $seenByType[$seenKey] = true;
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, error?: string}
+     */
+    public function ingestSanookLiveResult(array $payload, Request $request): array
+    {
+        $normalized = $this->normalizeLiveIngestPayload($payload);
+
+        return DB::transaction(function () use ($normalized, $request): array {
+            $game = Game::query()
+                ->where('code', $normalized['draw_code'])
+                ->lockForUpdate()
+                ->first();
+
+            if ($game === null) {
+                return ['error' => 'not_found'];
+            }
+
+            $result = RewardResult::query()
+                ->where('game_id', $game->id)
+                ->lockForUpdate()
+                ->first();
+
+            if ($result === null) {
+                $result = $this->createDraftRewardResultForGame((string) $game->id);
+            }
+
+            if ((string) $result->status !== 'draft') {
+                return ['error' => 'resource_conflict'];
+            }
+
+            $previousSummary = $this->decodeJsonObject($result->summary_json);
+            if (($previousSummary['source']['payload_hash'] ?? null) === $normalized['payload_hash']) {
+                return ['resource' => $this->publicLiveSummary($result) + ['changed' => false]];
+            }
+
+            $this->ensureDraftRewardPrizes((string) $result->id, (string) $game->id);
+            $this->applyLivePrizeUpdates((string) $result->id, $normalized['prizes']);
+
+            $summary = [
+                'source' => [
+                    'name' => 'sanook',
+                    'draw_code' => $normalized['draw_code'],
+                    'draw_date' => $normalized['draw_date'],
+                    'scraped_at' => $normalized['scraped_at'],
+                    'payload_hash' => $normalized['payload_hash'],
+                    'request_id' => $request->header('X-Request-Id'),
+                ],
+                'live' => [
+                    'status' => 'draft',
+                    'completion_percent' => $normalized['completion_percent'],
+                    'updated_at' => now()->toISOString(),
+                ],
+                'live_estimate' => $this->liveWinnerEstimateSummary((string) $result->id, (string) $game->id),
+            ];
+
+            RewardResult::query()->where('id', $result->id)->update([
+                'summary_json' => json_encode($summary, JSON_THROW_ON_ERROR),
+                'updated_at' => now(),
+            ]);
+
+            $fresh = RewardResult::query()->where('id', $result->id)->first() ?? $result;
+            $resource = $this->publicLiveSummary($fresh);
+            RewardLiveResultUpdated::dispatch($this->compactLiveBroadcastPayload($resource) + [
+                'event_type' => 'reward.result.live.updated',
+                'changed' => true,
+            ]);
+
+            return ['resource' => $resource + ['changed' => true]];
+        });
+    }
+
+    /**
+     * @return array{body: array<string, mixed>|null, etag: string|null}
+     */
+    public function publicLiveLatestResult(): array
+    {
+        $result = RewardResult::query()
+            ->join('games', 'games.id', '=', 'reward_results.game_id')
+            ->whereIn('reward_results.status', self::PUBLIC_LIVE_RESULT_STATUSES)
+            ->whereNotNull('reward_results.summary_json')
+            ->select('reward_results.*')
+            ->orderByDesc('games.draw_at')
+            ->orderByDesc('reward_results.updated_at')
+            ->first();
+
+        return $this->publicLiveResultEnvelope($result);
+    }
+
+    /**
+     * @return array{body: array<string, mixed>|null, etag: string|null}
+     */
+    public function publicLiveResultForGame(string $gameId): array
+    {
+        $result = RewardResult::where('game_id', $gameId)
+            ->whereIn('status', self::PUBLIC_LIVE_RESULT_STATUSES)
+            ->whereNotNull('summary_json')
+            ->orderByDesc('updated_at')
+            ->first();
+
+        return $this->publicLiveResultEnvelope($result);
     }
 
     /**
@@ -571,6 +1525,35 @@ class RewardService
 
             return $this->rewardResult($rewardResultId) ?? [];
         }, 'reward.published');
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string}
+     */
+    public function confirmLiveDraftResult(string $rewardResultId, array $payload, AdminSessionContext $actor, Request $request): array
+    {
+        return $this->centralWrite($rewardResultId, $payload, $actor, $request, 'admin.central.rewards.confirm_live', 'reward.create', function (object $result) use ($rewardResultId, $request): array|string {
+            if ((string) $result->status !== 'draft') {
+                return 'resource_conflict';
+            }
+
+            if (! $this->rewardPrizesAreComplete($rewardResultId)) {
+                return 'resource_conflict';
+            }
+
+            RewardResult::query()->where('id', $rewardResultId)->update([
+                'status' => 'recorded',
+                'checked_at' => null,
+                'verified_at' => null,
+                'published_at' => null,
+                'updated_at' => now(),
+            ]);
+            $this->setGameStatus((string) $result->game_id, 'reward_recorded');
+            $this->processRewardCheck($rewardResultId, self::CHECK_CHUNK_SIZE, $request->header('Idempotency-Key'));
+
+            return $this->rewardResult($rewardResultId) ?? [];
+        }, 'reward.live_confirmed', 202);
     }
 
     /**
@@ -1396,6 +2379,193 @@ class RewardService
     }
 
     /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function normalizeLiveIngestPayload(array $payload): array
+    {
+        $prizes = array_map(function (mixed $prize): array {
+            $row = is_array($prize) ? $prize : [];
+
+            return [
+                'prize_type' => trim((string) ($row['prize_type'] ?? '')),
+                'prize_numbers' => array_values(array_map(
+                    fn (mixed $number): string => strtolower(trim((string) $number)),
+                    is_array($row['prize_numbers'] ?? null) ? $row['prize_numbers'] : [],
+                )),
+            ];
+        }, is_array($payload['prizes'] ?? null) ? $payload['prizes'] : []);
+
+        return [
+            'source' => 'sanook',
+            'draw_code' => trim((string) ($payload['draw_code'] ?? '')),
+            'draw_date' => trim((string) ($payload['draw_date'] ?? '')),
+            'scraped_at' => trim((string) ($payload['scraped_at'] ?? now()->toISOString())),
+            'completion_percent' => max(0, min(100, (float) ($payload['completion_percent'] ?? $this->completionPercentForLivePrizes($prizes)))),
+            'payload_hash' => trim((string) ($payload['payload_hash'] ?? '')),
+            'prizes' => $prizes,
+        ];
+    }
+
+    /**
+     * @param array<int, array{prize_type: string, prize_numbers: array<int, string>}> $prizes
+     */
+    private function completionPercentForLivePrizes(array $prizes): float
+    {
+        $rules = ThaiGovernmentLotteryRewardTemplate::rules();
+        $total = array_sum(array_map(fn (array $rule): int => $rule['count'], $rules));
+        $completed = 0;
+
+        foreach ($prizes as $prize) {
+            $rule = $rules[$prize['prize_type']] ?? null;
+
+            if ($rule === null) {
+                continue;
+            }
+
+            foreach ($prize['prize_numbers'] as $number) {
+                if (! $this->isPlaceholderNumber($number, $rule['digits'])) {
+                    $completed++;
+                }
+            }
+        }
+
+        return $total <= 0 ? 0 : round(($completed / $total) * 100, 2);
+    }
+
+    private function createDraftRewardResultForGame(string $gameId): object
+    {
+        $now = now();
+        $rewardResultId = 'rew_'.Str::ulid()->toBase32();
+
+        RewardResult::query()->insert([
+            'id' => $rewardResultId,
+            'game_id' => $gameId,
+            'status' => 'draft',
+            'version' => 1,
+            'summary_json' => null,
+            'created_by_admin_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $this->ensureDraftRewardPrizes($rewardResultId, $gameId);
+
+        return RewardResult::query()->where('id', $rewardResultId)->first();
+    }
+
+    private function ensureDraftRewardPrizes(string $rewardResultId, string $gameId): void
+    {
+        if (RewardPrize::query()->where('reward_result_id', $rewardResultId)->exists()) {
+            return;
+        }
+
+        $now = now();
+        $rows = [];
+
+        foreach (ThaiGovernmentLotteryRewardTemplate::draftPrizes() as $index => $prize) {
+            $rows[] = [
+                'id' => 'rpr_'.Str::ulid()->toBase32(),
+                'reward_result_id' => $rewardResultId,
+                'game_id' => $gameId,
+                'prize_type' => $prize['prize_type'],
+                'prize_number' => $prize['prize_number'],
+                'amount' => $prize['amount']['amount'],
+                'currency' => $prize['amount']['currency'],
+                'sort_order' => $index,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        RewardPrize::query()->insert($rows);
+    }
+
+    /**
+     * @param array<int, array{prize_type: string, prize_numbers: array<int, string>}> $prizes
+     */
+    private function applyLivePrizeUpdates(string $rewardResultId, array $prizes): void
+    {
+        $rules = ThaiGovernmentLotteryRewardTemplate::rules();
+
+        foreach ($prizes as $prize) {
+            $type = $prize['prize_type'];
+            $rule = $rules[$type] ?? null;
+
+            if ($rule === null) {
+                continue;
+            }
+
+            $rows = RewardPrize::query()
+                ->where('reward_result_id', $rewardResultId)
+                ->where('prize_type', $type)
+                ->orderBy('sort_order')
+                ->get(['id', 'prize_number'])
+                ->all();
+
+            foreach ($prize['prize_numbers'] as $index => $number) {
+                if (! isset($rows[$index]) || $this->isPlaceholderNumber($number, $rule['digits'])) {
+                    continue;
+                }
+
+                if ((string) $rows[$index]->prize_number === $number) {
+                    continue;
+                }
+
+                RewardPrize::query()->where('id', $rows[$index]->id)->update([
+                    'prize_number' => $number,
+                    'updated_at' => now(),
+                ]);
+            }
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function liveWinnerEstimateSummary(string $rewardResultId, string $gameId): array
+    {
+        $prizes = $this->completedRewardPrizes($rewardResultId);
+        $matchedTicketCounts = [];
+        $estimatedRows = 0;
+        $estimatedPayout = 0;
+        $byPrizeType = [];
+
+        foreach ($prizes as $prize) {
+            $matches = 0;
+            $amount = (int) $prize->amount;
+
+            foreach ($this->ticketPrizeAggregateRows($gameId, $prize)->get()->all() as $match) {
+                $ticketCount = (int) $match->ticket_count;
+                if ($ticketCount < 1) {
+                    continue;
+                }
+
+                $countKey = (string) $match->full_number.':'.(string) $match->tenant_id;
+                $matchedTicketCounts[$countKey] = max((int) ($matchedTicketCounts[$countKey] ?? 0), $ticketCount);
+                $matches += $ticketCount;
+                $estimatedRows += $ticketCount;
+                $estimatedPayout += $ticketCount * $amount;
+            }
+
+            if ($matches > 0) {
+                $type = (string) $prize->prize_type;
+                $byPrizeType[$type] = ($byPrizeType[$type] ?? 0) + $matches;
+            }
+        }
+
+        return [
+            'mode' => 'live_result',
+            'completed_prize_count' => count($prizes),
+            'estimated_winning_ticket_count' => array_sum($matchedTicketCounts),
+            'estimated_winning_rows' => $estimatedRows,
+            'estimated_payout_amount' => $this->money($estimatedPayout),
+            'by_prize_type' => $byPrizeType,
+            'official_claimable' => false,
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function rewardResultResource(object $result): array
@@ -1431,6 +2601,7 @@ class RewardService
         $prizes = RewardPrize::query()->where('reward_result_id', $rewardResultId)->orderBy('sort_order')->get()->all();
 
         return [
+            'reward_result_id' => (string) $result->id,
             'game_id' => (string) $result->game_id,
             'reward_version' => (int) $result->version,
             'status' => (string) $result->status,
@@ -1477,6 +2648,131 @@ class RewardService
             'status' => (string) $result->status,
             'prizes' => $summary['prizes'] ?? array_map(fn (object $prize): array => $this->prizeResource($prize), RewardPrize::query()->where('reward_result_id', $result->id)->orderBy('sort_order')->get()->all()),
         ];
+    }
+
+    /**
+     * @return array{body: array<string, mixed>|null, etag: string|null}
+     */
+    private function publicLiveResultEnvelope(?object $result): array
+    {
+        if ($result === null) {
+            return ['body' => null, 'etag' => null];
+        }
+
+        $body = $this->publicLiveSummary($result);
+        $payloadHash = (string) ($body['source']['payload_hash'] ?? sha1((string) $result->id.'|'.(string) $result->status.'|'.(string) $result->updated_at));
+
+        return [
+            'body' => $body,
+            'etag' => '"reward-live-'.$body['game_id'].'-'.substr($payloadHash, 0, 16).'"',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function publicLiveSummary(object $result): array
+    {
+        $summary = $this->decodeJsonObject($result->summary_json);
+        $game = Game::whereKey($result->game_id)->first(['code', 'name', 'draw_at']);
+        $prizes = RewardPrize::query()
+            ->where('reward_result_id', $result->id)
+            ->orderBy('sort_order')
+            ->get()
+            ->all();
+
+        return [
+            'reward_result_id' => (string) $result->id,
+            'game_id' => (string) $result->game_id,
+            'game_code' => (string) ($game?->code ?? ''),
+            'draw_code' => (string) ($game?->code ?? ($summary['source']['draw_code'] ?? '')),
+            'game_name' => (string) ($game?->name ?? ''),
+            'draw_at' => $game?->draw_at,
+            'reward_version' => (int) $result->version,
+            'status' => (string) $result->status === 'draft' ? 'live_draft' : 'live_unconfirmed',
+            'official_status' => (string) $result->status,
+            'completion_percent' => (float) ($summary['live']['completion_percent'] ?? $this->completionPercentForPrizeRows($prizes)),
+            'source' => $summary['source'] ?? ['name' => 'central', 'mode' => 'unconfirmed'],
+            'live_estimate' => $summary['live_estimate'] ?? $this->liveWinnerEstimateSummary((string) $result->id, (string) $result->game_id),
+            'prizes' => array_map(fn (object $prize): array => $this->livePrizeResource($prize), $prizes),
+            'updated_at' => $summary['live']['updated_at'] ?? $result->updated_at,
+        ];
+    }
+
+    private function livePrizeResource(object $prize): array
+    {
+        $type = (string) $prize->prize_type;
+        $number = (string) $prize->prize_number;
+
+        if ($this->isPendingPrizeNumber($number)) {
+            $number = $this->placeholderForPrizeType($type);
+        }
+
+        return [
+            'prize_type' => $type,
+            'prize_number' => $number,
+            'amount' => $this->money((int) $prize->amount, (string) $prize->currency),
+            'is_pending' => $this->isPlaceholderNumber($number, strlen($number)),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $resource
+     * @return array<string, mixed>
+     */
+    private function compactLiveBroadcastPayload(array $resource): array
+    {
+        $highlightTypes = ['first_prize', 'front3', 'back3', 'back2', 'near_first_prize'];
+
+        return [
+            'reward_result_id' => $resource['reward_result_id'] ?? null,
+            'game_id' => $resource['game_id'] ?? null,
+            'game_code' => $resource['game_code'] ?? null,
+            'draw_code' => $resource['draw_code'] ?? null,
+            'game_name' => $resource['game_name'] ?? null,
+            'status' => $resource['status'] ?? 'live_draft',
+            'official_status' => $resource['official_status'] ?? 'draft',
+            'completion_percent' => $resource['completion_percent'] ?? 0,
+            'source' => $resource['source'] ?? ['name' => 'sanook'],
+            'live_estimate' => $resource['live_estimate'] ?? ['mode' => 'live_result', 'official_claimable' => false],
+            'prizes' => array_values(array_filter(
+                is_array($resource['prizes'] ?? null) ? $resource['prizes'] : [],
+                fn (array $prize): bool => in_array((string) ($prize['prize_type'] ?? ''), $highlightTypes, true),
+            )),
+            'updated_at' => $resource['updated_at'] ?? now()->toISOString(),
+            'refresh_required' => true,
+        ];
+    }
+
+    /**
+     * @param array<int, object> $prizes
+     */
+    private function completionPercentForPrizeRows(array $prizes): float
+    {
+        if ($prizes === []) {
+            return 0;
+        }
+
+        $completed = count(array_filter($prizes, fn (object $prize): bool => ! $this->isPendingPrizeNumber((string) $prize->prize_number)));
+
+        return round(($completed / count($prizes)) * 100, 2);
+    }
+
+    private function placeholderForPrizeType(string $type): string
+    {
+        $digits = ThaiGovernmentLotteryRewardTemplate::rules()[$type]['digits'] ?? 6;
+
+        return str_repeat('x', $digits);
+    }
+
+    private function isPendingPrizeNumber(string $number): bool
+    {
+        return $number === '' || str_starts_with($number, 'pending_') || preg_match('/^x+$/i', $number) === 1;
+    }
+
+    private function isPlaceholderNumber(string $number, int $digits): bool
+    {
+        return preg_match('/^x{'.$digits.'}$/i', trim($number)) === 1;
     }
 
     /**
@@ -1563,6 +2859,42 @@ class RewardService
             'status' => $status,
             'updated_at' => now(),
         ]);
+    }
+
+    private function centralWaitingResultYoutubeUrl(): string
+    {
+        $value = PlatformSystemSetting::query()
+            ->where('key', 'waiting_result_youtube_url')
+            ->where('status', 'active')
+            ->first()
+            ?->value_json;
+
+        return is_string($value) ? trim($value) : '';
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function liveSettingsPayloadValue(array $payload): ?string
+    {
+        $settings = is_array($payload['settings'] ?? null) ? $payload['settings'] : [];
+        $live = is_array($payload['live'] ?? null) ? $payload['live'] : [];
+
+        foreach (['waiting_result_youtube_url', 'youtube_live_url'] as $key) {
+            if (array_key_exists($key, $settings)) {
+                return is_scalar($settings[$key]) || $settings[$key] === null ? (string) ($settings[$key] ?? '') : null;
+            }
+
+            if (array_key_exists($key, $live)) {
+                return is_scalar($live[$key]) || $live[$key] === null ? (string) ($live[$key] ?? '') : null;
+            }
+
+            if (array_key_exists($key, $payload)) {
+                return is_scalar($payload[$key]) || $payload[$key] === null ? (string) ($payload[$key] ?? '') : null;
+            }
+        }
+
+        return null;
     }
 
     /**

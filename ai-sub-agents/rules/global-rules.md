@@ -3,13 +3,15 @@
 ## Chain Of Command
 
 ```text
-User -> Coordinator -> Orchestrator -> Dev Agents -> Orchestrator -> QA Tester -> Coordinator -> GitOps
+STANDARD/FULL: User -> Coordinator -> Orchestrator -> Dev Agents -> Orchestrator -> QA Tester -> Coordinator -> GitOps
+FAST_PATH: User -> Coordinator -> owning Dev Agent -> QA Tester when required -> Coordinator -> GitOps
 ```
 
 - Coordinator เป็นผู้ตัดสินใจ scope, milestone, priority, policy, และ approval
-- Orchestrator แปลงคำสั่งของ Coordinator เป็น task prompt ให้ sub-agent
+- Orchestrator แปลงคำสั่งของ Coordinator เป็น task prompt ให้ sub-agent ใน STANDARD/FULL flow
 - Dev Backend, Dev BO Central, Dev BO Partner, และ Dev Customer รับงานผ่าน Orchestrator task เท่านั้น
-- QA Tester รับงานจาก Orchestrator หลัง handoff ของ dev-agent ครบแล้ว
+- ยกเว้น `FAST_PATH` งาน `SMALL` ที่ Coordinator เปิด owning dev-agent โดยตรงตาม `workflow/fast-path.md`
+- QA Tester รับงานจาก Orchestrator หลัง handoff ของ dev-agent ครบแล้ว หรือรับ FAST_PATH QA trigger จาก Coordinator decision ที่ dev handoff พร้อมแล้ว
 - GitOps รับงานจาก Coordinator หลัง QA ผ่านและ Coordinator approve แล้วเท่านั้น
 - ทุก agent ต้องมี trigger file ก่อนเริ่มงาน
 - Default execution mode is AUTO: background runner opens sub-agent work from trigger files
@@ -45,8 +47,10 @@ CANCELLED
 Trigger permissions:
 
 ```text
-Coordinator -> Orchestrator only
+Coordinator -> Orchestrator for STANDARD/FULL work
+Coordinator -> owning Dev Agent only for FAST_PATH SMALL work
 Orchestrator -> Dev Backend / Dev BO Central / Dev BO Partner / Dev Customer / QA Tester
+Coordinator -> QA Tester only for FAST_PATH after owning dev-agent handoff is ready
 Coordinator -> GitOps only after QA PASS is accepted
 ```
 
@@ -83,6 +87,10 @@ runner must enforce depends_on and blocking_outputs before start
 runner must not start work without trigger
 runner must not start CANCELLED triggers
 runner is not allowed to decide scope, QA result, approval, git policy, or DB policy
+runner may first-spawn automatically when no registry/agent_id exists for role+task
+runner must reuse/resume an existing role+task agent before spawning a duplicate
+runner must not spawn a replacement agent for a role+task that already has agent_id without matching spawn_new:<agent> or Coordinator/User decision
+runner must poll expected handoff/report and close triggers when output is complete
 ```
 
 Manual Mode:
@@ -90,8 +98,32 @@ Manual Mode:
 ```text
 ใช้เฉพาะเมื่อ background runner ไม่พร้อมหรือ Coordinator/User ระบุชัด
 ยังต้องสร้าง trigger/task/handoff/report ตาม protocol เดิม
-ห้ามข้าม Orchestrator, QA, หรือ GitOps gate
+ห้ามข้าม QA หรือ GitOps gate; Orchestrator ข้ามได้เฉพาะ `FAST_PATH` ที่ Coordinator ระบุครบตาม rule
 ```
+
+## Fast Path Rule
+
+งานเล็กต้องพิจารณา `FAST_PATH` ก่อนเพื่อประหยัดเวลาและ context
+
+```text
+Task Size: SMALL
+Flow Mode: FAST_PATH
+Primary Owner: one dev-agent only
+```
+
+ใช้ FAST_PATH ได้เฉพาะเมื่อครบเกณฑ์ใน `ai-sub-agents/workflow/fast-path.md`
+
+เมื่อ FAST_PATH ใช้ได้:
+
+```text
+Coordinator may trigger the owning dev-agent directly
+Orchestrator is skipped for the initial breakdown
+conditional agents must not be opened just in case
+backend expansion requires evidence and Coordinator approval
+QA/GitOps gates still apply
+```
+
+ถ้างานเริ่มเกิน owner เดียวหรือมี DB/security/payment/tenant/shared-file risk ต้อง escalate เป็น `STANDARD` หรือ `FULL`
 
 ## Agent Memory Rule
 
@@ -155,7 +187,8 @@ Coordinator ห้ามทำ:
 รัน migration/seed/reset บน DB
 ทำ commit/push
 แก้ automated test แทน dev-agent
-ข้าม Orchestrator หรือ QA gate
+ข้าม QA gate
+ข้าม Orchestrator gate ยกเว้น FAST_PATH ที่มี Task Size SMALL และบันทึกเหตุผลไว้ใน decision
 ```
 
 ## Test Env First Rule
@@ -187,7 +220,7 @@ docker compose -p newpaotang exec -T platform-api env APP_ENV=testing DB_DATABAS
 
 ## QA Browser Env Rule
 
-Visible Chrome QA must declare and prove the browser is connected to the intended test environment.
+Visible Chrome QA must declare the real browser runtime environment separately from automated test DB evidence.
 
 Required fields:
 
@@ -197,13 +230,18 @@ frontend service
 API base URL
 APP_ENV
 DB_DATABASE
+Automated Test DB
+Visible Browser Runtime DB
 tenant/domain
 account/role
 test data fixture
+fixture creation/cleanup
 evidence path
 ```
 
-If QA cannot prove the browser flow uses test env/test DB, QA must report `BLOCKED` or `PASS WITH RISK`; never clean PASS.
+Automated/destructive validation must use test env/test DB first. Visible Chrome on localhost may use the local runtime DB only when the running frontend/API are wired that way, but it must be non-destructive and declared as runtime coverage.
+
+If QA cannot identify which DB/API the visible browser used, QA must report `BLOCKED` or `PASS WITH RISK`; never clean PASS.
 
 ## Local Runtime DB Update Rule
 
@@ -235,8 +273,12 @@ QA report ต้องระบุ:
 ```text
 Chrome app was visible to the user
 URL/page tested
+API base URL used
+automated test DB
+visible browser runtime DB
 account/role used
 test data or tenant used
+fixture creation/cleanup
 screenshot/evidence path when available
 PASS/FAIL result per scenario
 ```

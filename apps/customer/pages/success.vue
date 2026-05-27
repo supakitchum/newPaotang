@@ -31,18 +31,6 @@
             <span class="muted-text">สลากฯ งวดวันที่</span>
             <strong class="text-primary text-end">{{ drawDate }}</strong>
           </div>
-          <div v-if="orderLotteries.length" class="receipt-ticket-preview">
-            <LotteryImage
-              v-for="(ticket, index) in orderLotteries"
-              :key="`${getLotteryNumber(ticket)}-${index}`"
-              :src="getLotteryImageUrl(ticket)"
-              :thumb-src="getLotteryThumbUrl(ticket)"
-              :status="getLotteryImageStatus(ticket)"
-              :error-message="getLotteryImageError(ticket)"
-              :number="getLotteryNumber(ticket)"
-              variant="stub"
-            />
-          </div>
           <hr>
           <div class="d-flex justify-content-between">
             <span class="muted-text">ชำระเงินให้</span>
@@ -190,19 +178,6 @@ const totalAmount = computed(() => {
 })
 const paidAtText = computed(() => formatDateTime(receipt.value?.paid_at || displayOrder.value?.updated_at || displayOrder.value?.created_at))
 const referenceCode = computed(() => receipt.value?.reference || (displayOrder.value?.id ? `ORDER-${displayOrder.value.id}` : '-'))
-const orderLotteries = computed(() => Array.isArray(displayOrder.value?.lotteries) ? displayOrder.value.lotteries : [])
-
-const getLotteryString = (lottery: Record<string, unknown>, keys: string[]) => {
-  const value = keys.find((key) => lottery[key])
-
-  return value ? String(lottery[value] || '') : ''
-}
-
-const getLotteryNumber = (lottery: Record<string, unknown>) => getLotteryString(lottery, ['number', 'full_number', 'lottery_number'])
-const getLotteryImageUrl = (lottery: Record<string, unknown>) => getLotteryString(lottery, ['image_url', 'image'])
-const getLotteryThumbUrl = (lottery: Record<string, unknown>) => getLotteryString(lottery, ['image_thumb_url'])
-const getLotteryImageStatus = (lottery: Record<string, unknown>) => getLotteryString(lottery, ['image_status'])
-const getLotteryImageError = (lottery: Record<string, unknown>) => getLotteryString(lottery, ['image_error'])
 
 const fetchReceipt = async () => {
   isLoading.value = true

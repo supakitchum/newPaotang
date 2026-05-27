@@ -24,6 +24,7 @@ use App\Modules\Growth\Http\Controllers\CustomerAffiliateController;
 use App\Modules\PartnerStore\Http\Controllers\CustomerReservationController;
 use App\Modules\PartnerStore\Http\Controllers\PublicAssetController;
 use App\Modules\Reward\Http\Controllers\CustomerRewardController;
+use App\Modules\Reward\Http\Controllers\InternalRewardIngestController;
 use App\Modules\Health\Http\Controllers\HealthController;
 use App\Modules\Partner\Http\Controllers\PartnerApiClientController;
 use App\Modules\CentralStock\Http\Controllers\PartnerLotteryBrandingAssetController;
@@ -52,6 +53,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/health', [HealthController::class, 'summary']);
 Route::get('/health/live', [HealthController::class, 'live']);
 Route::get('/health/ready', [HealthController::class, 'ready']);
+Route::post('/internal/reward-ingest/sanook', [InternalRewardIngestController::class, 'sanook']);
 
 Route::get('/public/admin-site-config', [PublicSiteConfigController::class, 'admin']);
 Route::get('/public/site-config', [PublicSiteConfigController::class, 'show']);
@@ -64,6 +66,8 @@ Route::get('/public/stock/images/{token}.webp', [PublicStockImageController::cla
 Route::get('/public/assets/{path}', [PublicAssetController::class, 'show'])->where('path', '.*');
 Route::post('/public/affiliate/referrals/click', [CustomerAffiliateController::class, 'trackReferralVisit']);
 Route::get('/public/results/latest', [PublicRewardController::class, 'latest']);
+Route::get('/public/results/live/latest', [PublicRewardController::class, 'liveLatest']);
+Route::get('/public/results/live/{game_id}', [PublicRewardController::class, 'liveShow']);
 Route::get('/public/results/{game_id}', [PublicRewardController::class, 'show']);
 
 Route::post('/customer/auth/register', [CustomerAuthController::class, 'register']);
@@ -326,9 +330,17 @@ Route::post('/admin/central/allocations/{allocation_id}/redistribute', [CentralA
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/allocations/{allocation_id}/cancel', [CentralAllocationController::class, 'cancel'])
     ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/winners/games', [CentralRewardController::class, 'winnerGames'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/winners', [CentralRewardController::class, 'winners'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/rewards', [CentralRewardController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/rewards', [CentralRewardController::class, 'store'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/rewards/live-settings', [CentralRewardController::class, 'liveSettings'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::patch('/admin/central/rewards/live-settings', [CentralRewardController::class, 'updateLiveSettings'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/rewards/{reward_result_id}', [CentralRewardController::class, 'show'])
     ->middleware(['admin.auth', 'admin.scope:central']);
@@ -339,6 +351,8 @@ Route::get('/admin/central/rewards/{reward_result_id}/check-batches', [CentralRe
 Route::post('/admin/central/rewards/{reward_result_id}/verify', [CentralRewardController::class, 'verify'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/rewards/{reward_result_id}/publish', [CentralRewardController::class, 'publish'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/rewards/{reward_result_id}/confirm-live', [CentralRewardController::class, 'confirmLive'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/rewards/{reward_result_id}/correct', [CentralRewardController::class, 'correct'])
     ->middleware(['admin.auth', 'admin.scope:central']);
@@ -484,6 +498,10 @@ Route::post('/admin/tenant/reservations/{reservation_id}/cancel', [TenantReserva
 Route::get('/admin/tenant/price-rules', [BoMenuCompletionController::class, 'priceRulesIndex'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/price-rule-games', [BoMenuCompletionController::class, 'priceRuleGames'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/price-rules/live-settings', [BoMenuCompletionController::class, 'priceRulesLiveSettings'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::patch('/admin/tenant/price-rules/live-settings', [BoMenuCompletionController::class, 'priceRulesUpdateLiveSettings'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/price-rules', [BoMenuCompletionController::class, 'priceRulesStore'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);

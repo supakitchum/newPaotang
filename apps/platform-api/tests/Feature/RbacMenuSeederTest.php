@@ -44,7 +44,7 @@ class RbacMenuSeederTest extends TestCase
     {
         $this->seed(DefaultRbacMenuSeeder::class);
 
-        $this->assertSame(23, DB::table('admin_menus')->where('scope_type', 'central')->count());
+        $this->assertSame(24, DB::table('admin_menus')->where('scope_type', 'central')->count());
         $this->assertSame(32, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
 
         $this->assertDatabaseHas('admin_menus', [
@@ -75,6 +75,16 @@ class RbacMenuSeederTest extends TestCase
             'label' => 'Sale Price Rules',
             'route' => '/admin/central/sale-price-rules',
             'required_permission_code' => 'price_rule.view',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('admin_menus', [
+            'scope_type' => 'central',
+            'code' => 'winners',
+            'label' => 'Winners',
+            'route' => '/admin/central/winners',
+            'category' => 'Lottery Operations',
+            'required_permission_code' => 'reward.view',
             'status' => 'active',
         ]);
 
@@ -168,7 +178,7 @@ class RbacMenuSeederTest extends TestCase
         ]);
     }
 
-    public function test_reseeding_grants_sale_price_permissions_to_central_super_admin_role(): void
+    public function test_reseeding_grants_lottery_operation_permissions_to_central_super_admin_role(): void
     {
         DB::table('roles')->insert([
             'id' => 'rol_c_super_admin',
@@ -194,6 +204,24 @@ class RbacMenuSeederTest extends TestCase
             ->where('role_id', 'rol_c_super_admin')
             ->whereIn('permission_id', $permissionIds)
             ->count());
+
+        $rewardPermissionId = (string) DB::table('permissions')
+            ->where('scope_type', 'central')
+            ->where('code', 'reward.view')
+            ->value('id');
+        $winnerMenuId = (string) DB::table('admin_menus')
+            ->where('scope_type', 'central')
+            ->where('code', 'winners')
+            ->value('id');
+
+        $this->assertDatabaseHas('role_permissions', [
+            'role_id' => 'rol_c_super_admin',
+            'permission_id' => $rewardPermissionId,
+        ]);
+        $this->assertDatabaseHas('role_menus', [
+            'role_id' => 'rol_c_super_admin',
+            'menu_id' => $winnerMenuId,
+        ]);
     }
 
     public function test_reseeding_removes_retired_tenant_stock_sync_menu_and_permission(): void

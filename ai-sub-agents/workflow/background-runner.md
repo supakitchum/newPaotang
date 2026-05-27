@@ -4,6 +4,12 @@ Background runner คือ execution controller สำหรับ `AUTO` Mode
 
 Runner ไม่ใช่ agent และห้ามตัดสิน scope, implementation, QA result, approval, git policy, หรือ DB policy เอง
 
+Codex implementation details อยู่ที่:
+
+```text
+ai-sub-agents/workflow/codex-native-runner.md
+```
+
 ## Runner Responsibilities
 
 ```text
@@ -12,11 +18,36 @@ claim PENDING trigger atomically before starting work
 enforce trigger dependencies before start
 set trigger status in AUTO Mode
 start the target sub-agent with trigger/task/role/memory/decision context
+reuse or resume an existing role+task sub-agent before spawning a new one
+first-spawn automatically when no registry/agent_id exists for role+task
+allow replacement spawn only when spawn_new:<agent> matches target role or Coordinator/User approves
 write heartbeat while the sub-agent is running
+poll expected handoff/report while trigger is RUNNING
 wait for expected handoff/report
 mark DONE only when expected output exists and passes protocol checks
 mark BLOCKED when the sub-agent reports blocker, times out, or dependency fails
 write runner log for every status transition
+```
+
+## Codex Native Spawn
+
+เมื่อใช้ Codex, runner controller ต้องใช้ spawn prompt template:
+
+```text
+ai-sub-agents/templates/codex-spawn-prompt-template.md
+```
+
+และ runner log template:
+
+```text
+ai-sub-agents/templates/runner-log-template.md
+```
+
+Agent reuse registry:
+
+```text
+ai-sub-agents/runner/agents/YYYYMMDD-<task-key>-<role>.md
+ai-sub-agents/templates/agent-registry-template.md
 ```
 
 ## Status Ownership
@@ -78,6 +109,8 @@ timeout_minutes
 retry_count
 max_retries
 current activity
+poll interval
+last output check
 ```
 
 Default timeout:
@@ -88,6 +121,34 @@ max_retries: 1
 ```
 
 If heartbeat is stale past timeout, runner must mark trigger `BLOCKED` and write a runner log.
+
+## Polling Rule
+
+While a trigger is `RUNNING`, runner must poll the expected handoff/report every 60-120 seconds.
+
+If the expected output already exists, runner must validate it and update trigger status without waiting for a final chat signal from the sub-agent.
+
+See:
+
+```text
+ai-sub-agents/workflow/runner-polling.md
+```
+
+## Reuse Rule
+
+Before starting a target agent, runner must check the agent registry and reuse/resume the existing role+task agent when possible.
+
+Runner must not spawn a duplicate agent for the same trigger while a fresh claim/heartbeat, existing expected output, or reusable registry entry exists.
+
+If the registry already has an `agent_id` and reuse/resume fails, runner must not spawn a replacement until Coordinator/User records a decision or the trigger/decision contains a matching `spawn_new:<agent>`.
+
+If no registry/agent_id exists for that role+task, runner should spawn immediately, save the returned `agent_id`, and mark it as generation 1.
+
+See:
+
+```text
+ai-sub-agents/workflow/sub-agent-reuse.md
+```
 
 ## Retry Rule
 
@@ -131,6 +192,10 @@ heartbeat file
 status transitions
 dependency check result
 expected output check result
+polling result
+reuse/resume decision
+spawn control command
+replacement spawn decision
 blocker or timeout details
 ```
 

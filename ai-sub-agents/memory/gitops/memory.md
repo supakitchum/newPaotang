@@ -7,6 +7,7 @@ Memory is cache, not source of truth. Trust current Coordinator approval, QA rep
 - GitOps runs only after Coordinator approval.
 - GitOps stages/commits/pushes approved scope only.
 - GitOps runs local runtime DB migration only when schema/data contract changes require it.
+- Visible Chrome QA may have used runtime DB non-destructively; that does not count as a GitOps runtime DB migration/update.
 - GitOps requires a Coordinator-created trigger and worktree start gate before stage/commit.
 - In AUTO Mode, runner owns trigger status; GitOps writes requested final status in report.
 

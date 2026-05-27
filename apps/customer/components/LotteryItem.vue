@@ -26,8 +26,9 @@
             variant="card"
           />
           <div class="ticket-data-grid">
-            <LotteryNumber :number="ticketNumber" :highlight="ticket.highlight" :highlight-digits="ticket.highlightDigits" />
-            <span v-if="ticketCount > 1" class="ticket-count-badge">จำนวน {{ ticketCount }} ใบ</span>
+            <div class="ticket-number-column">
+              <LotteryNumber :number="ticketNumber" :highlight="ticket.highlight" :highlight-digits="ticket.highlightDigits" />
+            </div>
           </div>
         </div>
         <button
@@ -58,6 +59,7 @@
         </button>
       </div>
       <div class="d-flex justify-content-between align-items-center mt-2">
+        <span v-if="ticketCount > 1" class="ticket-count-badge">จำนวน {{ ticketCount }} ใบ</span>
         <div class="muted-text fw-medium">{{ sellerName }}</div>
         <div class="price" :class="priceTrendClass">
           <i v-if="priceTrend === 'up'" class="bi bi-arrow-up-short price-trend-icon" aria-hidden="true" />
@@ -326,16 +328,22 @@ const handleBooking = async () => {
   justify-content: flex-end;
 }
 
+.ticket-number-column {
+  width: 154px;
+  display: grid;
+  gap: 8px;
+}
+
 .ticket-count-badge {
-  align-self: flex-start;
+  align-self: stretch;
   background: #eaf4ff;
   border-radius: 999px;
   color: #0d6efd;
   display: inline-flex;
+  justify-content: center;
   font-size: 0.78rem;
   font-weight: 800;
   line-height: 1;
-  margin-top: 8px;
   padding: 6px 10px;
   white-space: nowrap;
 }

@@ -8,11 +8,11 @@ QA Tester ทดสอบงานตาม test case และ acceptance crite
 
 ```text
 อ่าน Coordinator decision
-อ่าน Orchestrator QA task
+อ่าน QA task จาก Orchestrator หรือ FAST_PATH Coordinator decision
 อ่าน dev-agent handoff ทุกตัว
 อ่าน QA trigger และยืนยันว่า AUTO runner mark RUNNING แล้ว
 ผ่าน worktree start gate ก่อนทดสอบ
-ยืนยัน browser URL/API base/test DB/account/evidence path ก่อน visible Chrome QA
+ยืนยัน automated test DB และ visible browser runtime DB/API/account/evidence path ก่อน visible Chrome QA
 วาง test plan
 รัน automated/focused regression บน test env/test DB
 เปิด Google Chrome จริงแบบ visible สำหรับ browser acceptance
@@ -31,7 +31,7 @@ Memory is cache only and must not override current task, handoffs, source-of-tru
 
 ## Test Env First Rule
 
-QA ต้องใช้ test env/test DB ก่อนเท่านั้น
+QA ต้องเริ่ม validation บน test env/test DB ก่อนเสมอ
 
 ```text
 APP_ENV=testing
@@ -50,16 +50,20 @@ QA ห้าม wipe/reset/refresh local runtime DB จริง เช่น `n
 
 QA browser acceptance ต้องเปิด Google Chrome จริงบนเครื่องผู้ใช้ให้เห็น
 
+Visible Chrome อาจใช้ local runtime DB `newpaotang` ถ้านั่นคือ wiring จริงของ localhost frontend/API แต่ต้องเป็น non-destructive และต้องรายงานแยกจาก automated test DB evidence
+
 QA ต้องบันทึก:
 
 ```text
 Chrome was visible to the user
 URL tested
 API base URL used
-APP_ENV and DB_DATABASE used
+Automated Test DB used before browser QA
+Visible Browser Runtime DB actually used
 account/role used
 tenant/test data used
-proof browser used test env/test DB
+fixture creation and cleanup
+proof browser API/DB target was identified
 scenario steps
 screenshot/evidence path when available
 result per scenario
@@ -75,7 +79,8 @@ result per scenario
 ห้ามอัปเดต local runtime DB จริง
 ห้าม mark PASS ถ้าไม่ได้รัน test env validation
 ห้าม mark PASS ถ้า browser flow ไม่มี visible Google Chrome evidence
-ห้าม mark PASS ถ้าพิสูจน์ไม่ได้ว่า browser flow ใช้ test env/test DB
+ห้าม mark PASS ถ้าระบุไม่ได้ว่า browser flow ใช้ API/DB target ใด
+ห้าม claim ว่า browser ใช้ newpaotang_test ถ้าไม่มี runtime wiring proof
 ห้ามทำงานถ้าไม่มี trigger file
 ```
 

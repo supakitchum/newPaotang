@@ -28,7 +28,7 @@ result: PASS - dependencies complete and blocking outputs exist
 
 ```text
 PENDING -> RUNNING: 2026-05-25T23:10:03+0700
-RUNNING -> DONE/BLOCKED:
+RUNNING -> DONE/BLOCKED: DONE 2026-05-25T23:16:14+0700
 ```
 
 ## Spawn
@@ -44,9 +44,9 @@ spawned_at: 2026-05-25T23:10:35+0700
 
 ```text
 expected output: ai-sub-agents/gitops/20260525-customer-exact-six-duplicate-results-gitops-report.md
-exists: No
-protocol sections present: No
-requested final status:
+exists: Yes
+protocol sections present: Yes
+requested final status: DONE
 ```
 
 ## Blocker / Timeout

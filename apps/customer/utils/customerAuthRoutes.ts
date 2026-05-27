@@ -4,6 +4,8 @@ const publicCustomerRoutes = new Set([
   '/register',
   '/line/callback',
   '/maintenance',
+  '/wait-result',
+  '/waiting-result',
 ])
 
 export const isPublicCustomerRoute = (path: string) => publicCustomerRoutes.has(path)

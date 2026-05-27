@@ -21,6 +21,8 @@ GitOps:    ai-sub-agents/gitops/YYYYMMDD-<task-key>-gitops-report.md
 
 ## Task
 
+## Task Classification
+
 ## Worktree / HEAD
 
 ## Trigger Status
@@ -100,15 +102,16 @@ confirmation that local runtime DB was not destructively reset
 browser URL
 frontend service
 API base URL
-APP_ENV
-DB_DATABASE
+automated test DB
+visible browser runtime DB
 tenant/domain
 account/role
-test API/test DB proof
+browser API/DB target proof
+fixture creation/cleanup
 evidence path
 ```
 
-ถ้าพิสูจน์ไม่ได้ว่า browser ใช้ test env/test DB ห้าม clean PASS
+ถ้าระบุไม่ได้ว่า browser ใช้ API/DB target ใด ห้าม clean PASS
 
 ## Memory Update Evidence
 
@@ -141,11 +144,9 @@ release evidence
 QA report ต้องมีหัวข้อ:
 
 ```markdown
-## Test Env / Test DB Evidence
+## Automated Test Env / Test DB Evidence
 
 ## Visible Google Chrome Evidence
-
-## QA Browser Env Evidence
 
 ## Memory Updates
 

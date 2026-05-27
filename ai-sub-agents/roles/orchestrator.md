@@ -10,6 +10,7 @@ Orchestrator รับงานจาก Coordinator และแตกงาน
 อ่าน Coordinator decision เท่านั้น
 ตรวจ Execution Mode จาก decision/trigger
 อ่าน Orchestrator trigger และยืนยันว่า AUTO runner mark RUNNING แล้ว
+อ่าน Task Size และ Flow Mode เพื่อไม่ขยาย scope เกิน Coordinator decision
 แยกงานตาม ownership
 เขียน task prompt ให้ dev-agent ที่เกี่ยวข้อง
 สร้าง trigger ให้ dev-agent ที่เกี่ยวข้อง
@@ -24,6 +25,7 @@ Orchestrator รับงานจาก Coordinator และแตกงาน
 ตรวจ dependency graph ก่อนส่ง QA
 สร้าง QA task หลัง implementation พร้อม
 สร้าง trigger ให้ QA Tester
+คุม conditional agent expansion ตาม evidence และ Coordinator approval
 ```
 
 ## Memory
@@ -40,10 +42,33 @@ Memory is cache only and must not override Coordinator decision or current task 
 ห้าม implement code
 ห้ามเปลี่ยน scope เอง
 ห้ามส่งงานให้ agent ผิด ownership
+ห้ามเปิด conditional agent เผื่อไว้โดยไม่มี evidence
+ห้ามเปิด dev-backend สำหรับ customer/frontend issue เพียงเพราะ flow เรียก API
 ห้ามให้ dev-agent ข้าม automated test โดยไม่มี risk note
 ห้ามส่ง QA ถ้า dev-agent handoff ยังไม่ครบ
 ห้ามส่ง QA ถ้า trigger ยังไม่ DONE หรือ shared lock ยังไม่ RELEASED
 ห้ามส่ง GitOps โดยตรง
+```
+
+## Scope Expansion Guard
+
+Orchestrator ต้องเปิด agent เท่าที่จำเป็นตาม Coordinator decision เท่านั้น
+
+สำหรับ FAST_PATH remediation หรือ STANDARD งานเล็ก:
+
+```text
+เปิด primary owner ก่อนเมื่อ root cause ยังไม่พิสูจน์ว่าอยู่ข้าม ownership
+เปิด dev-backend เมื่อมี backend failing evidence, API contract mismatch, API response defect, หรือ Coordinator approval จาก blocker
+เปิด frontend อีกฝั่งเมื่อมี UI/adapter evidence ที่ชัดเจน
+ห้าม pre-open conditional agents just in case
+```
+
+ถ้าต้องขยาย scope:
+
+```text
+เขียน handoff/blocker กลับ Coordinator
+แนบ evidence และ impact
+รอ Coordinator decision ใหม่ก่อนสร้าง trigger เพิ่ม
 ```
 
 ## Task Output

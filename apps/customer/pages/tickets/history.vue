@@ -49,6 +49,10 @@
           <TicketStub
             :number="getTicketNumber(ticket)"
             :status="getTicketStatusText(ticket)"
+            :is-winning="isWinningTicket(ticket)"
+            :prize-title="getTicketPrizeTitle(ticket)"
+            :prize-amount="formatPrizeAmount(getTicketPrizeAmount(ticket))"
+            :claim-label="isTicketClaimable(ticket) ? 'ขึ้นรางวัล' : 'ดูรางวัล'"
           />
         </div>
       </div>
@@ -100,7 +104,11 @@ const {
   getGameDate,
   getTicketNumber,
   getTicketCount,
-  getTicketStatusText
+  getTicketStatusText,
+  isWinningTicket,
+  getTicketPrizeAmount,
+  getTicketPrizeTitle,
+  isTicketClaimable
 } = useUserTickets()
 const tickets = ref<UserTicket[]>([])
 const historyGame = ref<UserTicketGame | null>(null)
@@ -129,6 +137,16 @@ const summaryText = computed(() => {
 const getTicketKey = (ticket: UserTicket, index: number) => (
   `${ticket.id || ticket.order_id || getTicketNumber(ticket)}-${index}`
 )
+
+const formatPrizeAmount = (amount: number) => {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return ''
+  }
+
+  return amount.toLocaleString('th-TH', {
+    maximumFractionDigits: 0
+  })
+}
 
 const openTicketModal = (ticket: UserTicket) => {
   selectedTicket.value = ticket

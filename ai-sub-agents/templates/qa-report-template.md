@@ -35,7 +35,7 @@ heartbeat file:
 
 ## Scope Tested
 
-## Test Env / Test DB Evidence
+## Automated Test Env / Test DB Evidence
 
 ```text
 APP_ENV:
@@ -59,12 +59,15 @@ Chrome visible to user: Yes/No
 URL(s):
 frontend service:
 API base URL:
-APP_ENV:
-DB_DATABASE:
+automated APP_ENV:
+automated test DB:
+visible browser runtime DB:
+browser API/DB target proof:
 account/role:
 tenant/test data:
+fixture creation method:
+fixture cleanup method:
 screenshot/evidence path:
-test API/test DB proof:
 notes:
 ```
 

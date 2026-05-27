@@ -146,6 +146,26 @@ const isCartOrPaymentRoute = (path: string) => (
   path === '/topup'
 )
 
+const parseTimestampMs = (value: unknown) => {
+  if (!value) {
+    return null
+  }
+
+  if (typeof value === 'number') {
+    return value < 1000000000000 ? value * 1000 : value
+  }
+
+  const numericValue = Number(value)
+
+  if (Number.isFinite(numericValue)) {
+    return numericValue < 1000000000000 ? numericValue * 1000 : numericValue
+  }
+
+  const dateValue = Date.parse(String(value))
+
+  return Number.isNaN(dateValue) ? null : dateValue
+}
+
 export const useAppInit = () => {
   const data = useState<AppInitData | null>('app_init_data', () => null)
   const expiresAt = useState<number>('app_init_expires_at', () => 0)
@@ -154,11 +174,21 @@ export const useAppInit = () => {
   const isReady = useState<boolean>('app_init_ready', () => false)
   const error = useState<SerializableError | null>('app_init_error', () => null)
   const platformApi = usePlatformApi()
-  const { items, setCartItems } = useCart()
+  const { items, remainingMilliseconds, setCartItems } = useCart()
 
   const currentGame = computed(() => data.value?.game || null)
   const currentStatus = computed(() => Number(data.value?.status ?? 0))
   const currentDrawDate = computed(() => formatDrawDateText(currentGame.value?.name))
+  const saleCloseAt = computed(() => parseTimestampMs(currentGame.value?.end_at || currentGame.value?.close_at || null))
+  const hasActiveCart = computed(() => items.value.length > 0 && remainingMilliseconds.value > 0)
+  const hasPublishedResult = computed(() => currentStatus.value === 2)
+  const isSaleClosedNow = () => (
+    currentStatus.value !== 1 ||
+    (saleCloseAt.value !== null && Date.now() >= saleCloseAt.value)
+  )
+  const isWaitingForResultNow = () => isSaleClosedNow() && !hasPublishedResult.value
+  const isSaleClosed = computed(() => currentStatus.value !== 1)
+  const isWaitingForResult = computed(() => isSaleClosed.value && !hasPublishedResult.value)
   const waiting = computed(() => data.value?.waiting || [])
   const hasWaiting = computed(() => isFilledValue(waiting.value))
   const isExpired = () => !data.value || Date.now() >= expiresAt.value
@@ -192,7 +222,7 @@ export const useAppInit = () => {
       error.value = null
 
       try {
-        const nextData = normalizeInitData(await platformApi.loadAppInit())
+        const nextData = normalizeInitData(await platformApi.loadAppInit({ force: options.force }))
         const now = Date.now()
 
         if (requestVersion === initFetchVersion) {
@@ -248,6 +278,15 @@ export const useAppInit = () => {
     }
 
     const status = currentStatus.value
+    const waitingForResult = isWaitingForResultNow()
+
+    if (path === '/waiting-result' && status === 2) {
+      return '/result'
+    }
+
+    if (path === '/waiting-result' && !waitingForResult) {
+      return status === 1 ? '/buy' : '/result'
+    }
 
     if (path === '/countdown' && status !== 3) {
       return status === 1 ? '/buy' : '/result'
@@ -257,12 +296,12 @@ export const useAppInit = () => {
       return '/result'
     }
 
-    if (status === 3 && (isSaleRoute(path) || isCartOrPaymentRoute(path))) {
-      return '/countdown'
+    if (waitingForResult && isSaleRoute(path)) {
+      return hasActiveCart.value ? '/cart' : '/waiting-result'
     }
 
-    if (status === 0 && isSaleRoute(path)) {
-      return '/result'
+    if (waitingForResult && isCartOrPaymentRoute(path) && !hasActiveCart.value) {
+      return '/waiting-result'
     }
 
     return null
@@ -273,6 +312,13 @@ export const useAppInit = () => {
     currentGame,
     currentStatus,
     currentDrawDate,
+    saleCloseAt,
+    hasActiveCart,
+    hasPublishedResult,
+    isSaleClosed,
+    isWaitingForResult,
+    isSaleClosedNow,
+    isWaitingForResultNow,
     waiting,
     hasWaiting,
     expiresAt,

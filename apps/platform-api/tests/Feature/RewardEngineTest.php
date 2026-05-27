@@ -14,6 +14,96 @@ class RewardEngineTest extends TestCase
     use M7RewardFixtures;
     use RefreshDatabase;
 
+    public function test_RewardEngine_central_rewards_live_settings_save_and_list_meta(): void
+    {
+        $this->seedDefaultRbac();
+        $denied = $this->centralRewardAdmin(['reward.view'], 'reward-live-denied');
+        $admin = $this->centralRewardAdmin(['reward.view', 'reward.create'], 'reward-live');
+
+        $this->withToken($denied['access_token'])
+            ->patchJson('/api/v1/admin/central/rewards/live-settings', [
+                'waiting_result_youtube_url' => 'https://www.youtube.com/watch?v=M7lc1UVf-VE',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-live-denied',
+            ])
+            ->assertForbidden();
+
+        $this->withToken($admin['access_token'])
+            ->patchJson('/api/v1/admin/central/rewards/live-settings', [
+                'waiting_result_youtube_url' => 'https://www.youtube.com/watch?v=M7lc1UVf-VE',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-live-save',
+            ])
+            ->assertOk()
+            ->assertJsonPath('waiting_result_youtube_url', 'https://www.youtube.com/watch?v=M7lc1UVf-VE')
+            ->assertJsonPath('waiting_result_youtube_embed_url', 'https://www.youtube.com/embed/M7lc1UVf-VE')
+            ->assertJsonPath('source', 'central_default');
+
+        $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/central/rewards/live-settings', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('waiting_result_youtube_url', 'https://www.youtube.com/watch?v=M7lc1UVf-VE');
+
+        $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/central/rewards', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('meta.live_settings.waiting_result_youtube_embed_url', 'https://www.youtube.com/embed/M7lc1UVf-VE');
+
+        $this->withToken($admin['access_token'])
+            ->patchJson('/api/v1/admin/central/rewards/live-settings', [
+                'waiting_result_youtube_url' => 'https://example.test/watch?v=M7lc1UVf-VE',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-live-invalid',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.waiting_result_youtube_url.0', 'The waiting_result_youtube_url field must be a valid YouTube URL.');
+    }
+
+    public function test_RewardEngine_thai_government_lottery_template_matches_current_reward_amounts(): void
+    {
+        $rules = ThaiGovernmentLotteryRewardTemplate::rules();
+
+        $this->assertSame(['count' => 1, 'amount' => 6000000], [
+            'count' => $rules['first_prize']['count'],
+            'amount' => $rules['first_prize']['amount'],
+        ]);
+        $this->assertSame(['count' => 5, 'amount' => 200000], [
+            'count' => $rules['second_prize']['count'],
+            'amount' => $rules['second_prize']['amount'],
+        ]);
+        $this->assertSame(['count' => 10, 'amount' => 80000], [
+            'count' => $rules['third_prize']['count'],
+            'amount' => $rules['third_prize']['amount'],
+        ]);
+        $this->assertSame(['count' => 50, 'amount' => 40000], [
+            'count' => $rules['fourth_prize']['count'],
+            'amount' => $rules['fourth_prize']['amount'],
+        ]);
+        $this->assertSame(['count' => 100, 'amount' => 20000], [
+            'count' => $rules['fifth_prize']['count'],
+            'amount' => $rules['fifth_prize']['amount'],
+        ]);
+        $this->assertSame(['count' => 2, 'amount' => 100000], [
+            'count' => $rules['near_first_prize']['count'],
+            'amount' => $rules['near_first_prize']['amount'],
+        ]);
+        $this->assertSame(['count' => 2, 'amount' => 4000], [
+            'count' => $rules['front3']['count'],
+            'amount' => $rules['front3']['amount'],
+        ]);
+        $this->assertSame(['count' => 2, 'amount' => 4000], [
+            'count' => $rules['back3']['count'],
+            'amount' => $rules['back3']['amount'],
+        ]);
+        $this->assertSame(['count' => 1, 'amount' => 2000], [
+            'count' => $rules['back2']['count'],
+            'amount' => $rules['back2']['amount'],
+        ]);
+    }
+
     public function test_RewardEngine_central_record_check_verify_publish_public_result_and_correct_are_permissioned_idempotent(): void
     {
         $world = $this->prepareRewardWorld('par_reward_engine', 'ten_reward_engine', 'reward-engine.m7.test', 'gam_reward_engine', '0807100000', 790101);
@@ -130,6 +220,58 @@ class RewardEngineTest extends TestCase
             ])
             ->assertAccepted()
             ->assertJsonPath('status', 'corrected');
+    }
+
+    public function test_RewardEngine_central_winners_default_to_latest_opened_game(): void
+    {
+        $oldWorld = $this->prepareRewardWorld('par_reward_winners_old', 'ten_reward_winners_old', 'reward-winners-old.m7.test', 'gam_reward_winners_old', '0807110001', 791101);
+        DB::table('games')->where('id', $oldWorld['game_id'])->update([
+            'sale_start_at' => now()->subDays(20),
+            'draw_at' => now()->subDays(19),
+            'close_at' => now()->subDays(18),
+            'updated_at' => now(),
+        ]);
+        $this->publishReward($oldWorld, null, 'winners-old');
+
+        $latestWorld = $this->prepareRewardWorld('par_reward_winners_new', 'ten_reward_winners_new', 'reward-winners-new.m7.test', 'gam_reward_winners_new', '0807110002', 791201);
+        DB::table('games')->where('id', $latestWorld['game_id'])->update([
+            'sale_start_at' => now()->subDay(),
+            'draw_at' => now()->addDay(),
+            'close_at' => now()->subHour(),
+            'updated_at' => now(),
+        ]);
+        $this->publishReward($latestWorld, null, 'winners-latest');
+
+        $denied = $this->centralRewardAdmin([], 'reward-winners-denied');
+        $admin = $this->centralRewardAdmin(['reward.view'], 'reward-winners-view');
+
+        $this->withToken($denied['access_token'])
+            ->getJson('/api/v1/admin/central/winners', ['X-Admin-Scope' => 'central'])
+            ->assertForbidden();
+
+        $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/central/winners/games', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('meta.default_game_id', $latestWorld['game_id'])
+            ->assertJsonPath('data.0.id', $latestWorld['game_id'])
+            ->assertJsonPath('data.0.is_default', true);
+
+        $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/central/winners', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('meta.game_id', $latestWorld['game_id'])
+            ->assertJsonPath('meta.winner_count', 1)
+            ->assertJsonPath('meta.total_prize_amount.amount', 6000000)
+            ->assertJsonPath('data.0.game_id', $latestWorld['game_id'])
+            ->assertJsonPath('data.0.full_number', $latestWorld['ticket_number'])
+            ->assertJsonPath('data.0.prize_amount.amount', 6000000)
+            ->assertJsonPath('data.0.status', 'verified');
+
+        $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/central/winners?game_id='.$oldWorld['game_id'], ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('meta.game_id', $oldWorld['game_id'])
+            ->assertJsonPath('data.0.game_id', $oldWorld['game_id']);
     }
 
     public function test_RewardEngine_partial_reward_number_and_payout_updates_do_not_require_complete_prizes(): void
@@ -303,6 +445,209 @@ class RewardEngineTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonPath('error.details.fields.game_id.0', 'The game must be closed before reward results can be recorded.');
+    }
+
+    public function test_RewardEngine_sanook_live_ingest_updates_live_draft_without_publishing_until_confirmed(): void
+    {
+        config(['platform.lotto_scraper.hmac_secret' => 'test-secret']);
+        $world = $this->prepareRewardWorld('par_reward_live', 'ten_reward_live', 'reward-live.m7.test', 'gam_reward_live', '0807100099', 791001);
+        DB::table('games')->where('id', $world['game_id'])->update(['code' => '01062569']);
+
+        $payload = $this->sanookLivePayload('01062569', [[
+            'prize_type' => 'first_prize',
+            'prize_numbers' => [$world['ticket_number']],
+        ]], 0.58);
+
+        $this->postJson('/api/v1/internal/reward-ingest/sanook', $payload)
+            ->assertForbidden();
+
+        $draft = $this->postSignedSanookIngest($payload)
+            ->assertOk()
+            ->assertJsonPath('status', 'live_draft')
+            ->assertJsonPath('prizes.0.prize_number', $world['ticket_number'])
+            ->assertJsonPath('live_estimate.mode', 'live_result')
+            ->assertJsonPath('live_estimate.official_claimable', false)
+            ->json();
+
+        $this->assertSame(0, DB::table('winning_tickets')->where('game_id', $world['game_id'])->count());
+
+        $this->getJson('http://'.$world['host'].'/api/v1/public/results/live/latest')
+            ->assertOk()
+            ->assertJsonPath('game_id', $world['game_id'])
+            ->assertJsonPath('status', 'live_draft')
+            ->assertJsonPath('prizes.0.prize_number', $world['ticket_number']);
+
+        $this->getJson('http://'.$world['host'].'/api/v1/public/results/latest')
+            ->assertNotFound();
+
+        $admin = $this->centralRewardAdmin(['reward.view', 'reward.create', 'reward.audit'], 'reward-live-confirm');
+        $this->withToken($admin['access_token'])
+            ->postJson('/api/v1/admin/central/rewards/'.$draft['reward_result_id'].'/confirm-live', [], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-live-confirm-incomplete',
+            ])
+            ->assertConflict();
+
+        $completePayload = $this->sanookLivePayload('01062569', $this->groupPrizeNumbers($this->thaiGovernmentLotteryPrizes($world['ticket_number'])), 100);
+        $this->postSignedSanookIngest($completePayload)
+            ->assertOk()
+            ->assertJsonPath('completion_percent', 100);
+
+        $this->withToken($admin['access_token'])
+            ->postJson('/api/v1/admin/central/rewards/'.$draft['reward_result_id'].'/confirm-live', [], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-live-confirm-complete',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('status', 'summary_ready');
+
+        $this->assertSame(1, DB::table('winning_tickets')->where('ticket_id', $world['ticket_id'])->count());
+
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/tickets')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $world['ticket_id'])
+            ->assertJsonPath('data.0.status', 'reward_pending')
+            ->assertJsonPath('data.0.reward_status.status', 'pending_result');
+
+        $this->getJson('http://'.$world['host'].'/api/v1/public/results/live/latest')
+            ->assertOk()
+            ->assertJsonPath('game_id', $world['game_id'])
+            ->assertJsonPath('status', 'live_unconfirmed')
+            ->assertJsonPath('official_status', 'summary_ready')
+            ->assertJsonPath('prizes.0.prize_number', $world['ticket_number']);
+
+        $this->getJson('http://'.$world['host'].'/api/v1/public/results/latest')
+            ->assertNotFound();
+    }
+
+    public function test_RewardEngine_central_winners_use_sanook_live_results_without_separate_api(): void
+    {
+        config(['platform.lotto_scraper.hmac_secret' => 'test-secret']);
+        $world = $this->prepareRewardWorld('par_reward_winners_live', 'ten_reward_winners_live', 'reward-winners-live.m7.test', 'gam_reward_winners_live', '0807100199', 792001);
+        DB::table('games')->where('id', $world['game_id'])->update([
+            'code' => '01072569',
+            'sale_start_at' => now(),
+            'draw_at' => now()->addHour(),
+            'close_at' => now()->subMinute(),
+            'status' => 'open',
+            'updated_at' => now(),
+        ]);
+        DB::table('games')->insert([
+            'id' => 'gam_reward_winners_live_closed',
+            'code' => 'closed_winners_live',
+            'name' => 'Closed Winners Live Game',
+            'sale_start_at' => now()->subDay(),
+            'draw_at' => now()->subDay(),
+            'close_at' => now()->subMinute(),
+            'closed_at' => now()->subMinute(),
+            'archived_at' => null,
+            'status' => 'closed',
+            'metadata_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $payload = $this->sanookLivePayload('01072569', [[
+            'prize_type' => 'first_prize',
+            'prize_numbers' => [$world['ticket_number']],
+        ]], 4.25);
+        $draft = $this->postSignedSanookIngest($payload)->assertOk()->json();
+        $denied = $this->centralRewardAdmin([], 'reward-winners-live-denied');
+        $admin = $this->centralRewardAdmin(['reward.view'], 'reward-winners-live-view');
+
+        $this->withToken($denied['access_token'])
+            ->getJson('/api/v1/admin/central/winners/games', ['X-Admin-Scope' => 'central'])
+            ->assertForbidden();
+
+        $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/central/winners/games', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('meta.default_game_id', $world['game_id'])
+            ->assertJsonPath('data.0.id', $world['game_id'])
+            ->assertJsonPath('data.0.is_default', true);
+
+        $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/central/winners?game_id=gam_reward_winners_live_closed', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('meta.game.id', 'gam_reward_winners_live_closed')
+            ->assertJsonPath('data', []);
+
+        $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/central/winners', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('meta.game_id', $world['game_id'])
+            ->assertJsonPath('meta.reward_result_id', $draft['reward_result_id'])
+            ->assertJsonPath('meta.has_live_result', true)
+            ->assertJsonPath('meta.source.name', 'sanook')
+            ->assertJsonPath('meta.completion_percent', 4.25)
+            ->assertJsonPath('meta.winner_count', 1)
+            ->assertJsonPath('meta.winning_row_count', 1)
+            ->assertJsonPath('meta.total_prize_amount.amount', 6000000)
+            ->assertJsonPath('meta.live_estimate.official_claimable', false)
+            ->assertJsonPath('data.0.full_number', $world['ticket_number'])
+            ->assertJsonPath('data.0.ticket_count', 1)
+            ->assertJsonPath('data.0.total_prize_amount.amount', 6000000)
+            ->assertJsonPath('data.0.prize_amount.amount', 6000000)
+            ->assertJsonPath('data.0.prize_breakdown.0.ticket_count', 1)
+            ->assertJsonPath('data.0.status', 'live_draft')
+            ->assertJsonPath('data.0.claim_status', 'pending_confirmation')
+            ->assertJsonPath('data.0.source', 'sanook')
+            ->assertJsonPath('data.0.official_claimable', false);
+
+        $this->assertSame(0, DB::table('winning_tickets')->where('ticket_id', $world['ticket_id'])->count());
+    }
+
+    /**
+     * @param array<int, array{prize_type: string, prize_numbers: array<int, string>}> $prizes
+     * @return array<string, mixed>
+     */
+    private function sanookLivePayload(string $drawCode, array $prizes, float $completionPercent): array
+    {
+        return [
+            'source' => 'sanook',
+            'draw_code' => $drawCode,
+            'draw_date' => '2026-06-01',
+            'scraped_at' => now()->toISOString(),
+            'completion_percent' => $completionPercent,
+            'payload_hash' => hash('sha256', $drawCode.json_encode($prizes, JSON_THROW_ON_ERROR).$completionPercent),
+            'prizes' => $prizes,
+        ];
+    }
+
+    /**
+     * @param array<int, array{prize_type: string, prize_number: string}> $prizes
+     * @return array<int, array{prize_type: string, prize_numbers: array<int, string>}>
+     */
+    private function groupPrizeNumbers(array $prizes): array
+    {
+        $groups = [];
+
+        foreach ($prizes as $prize) {
+            $groups[$prize['prize_type']][] = $prize['prize_number'];
+        }
+
+        return array_map(
+            fn (string $type, array $numbers): array => ['prize_type' => $type, 'prize_numbers' => array_values($numbers)],
+            array_keys($groups),
+            array_values($groups),
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function postSignedSanookIngest(array $payload, string $secret = 'test-secret'): \Illuminate\Testing\TestResponse
+    {
+        $body = json_encode($payload, JSON_THROW_ON_ERROR);
+        $timestamp = (string) time();
+        $signature = 'sha256='.hash_hmac('sha256', $timestamp.'.'.$body, $secret);
+
+        return $this->call('POST', '/api/v1/internal/reward-ingest/sanook', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_X_LOTTO_SCRAPER_TIMESTAMP' => $timestamp,
+            'HTTP_X_LOTTO_SCRAPER_SIGNATURE' => $signature,
+        ], $body);
     }
 
 }

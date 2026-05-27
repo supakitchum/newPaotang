@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 import {
   buildLegacyStockSearchParams,
@@ -47,4 +48,11 @@ assert.deepEqual(exactRows.map(getStockSearchTicketIdentity), ['copy-a', 'copy-b
 assert.equal(partialRows.length, 1)
 assert.equal(partialRows[0].id, 'copy-a')
 
-console.log('PASS exact six stock search params and duplicate row identity checks')
+const searchPage = readFileSync(new URL('../pages/buy/search.vue', import.meta.url), 'utf8')
+
+assert.match(searchPage, /:show-more-link="!lastSearchWasExact"/)
+assert.match(searchPage, /lastSearchWasExact\.value = isExactResult/)
+assert.match(searchPage, /mode: 'random'/)
+assert.match(searchPage, /randomSeed/)
+
+console.log('PASS exact six stock search params, duplicate row identity, more-link visibility, and random search mode checks')

@@ -19,6 +19,17 @@ AUTO
 Fallback: MANUAL if background runner is unavailable
 ```
 
+## Task Classification
+
+```text
+Task Size: SMALL | STANDARD | FULL
+Flow Mode: FAST_PATH | STANDARD | FULL
+Primary Owner:
+Conditional Agents:
+Fast Path Eligibility:
+Reason Orchestrator is used/skipped:
+```
+
 ## Objective
 
 ## Scope
@@ -63,6 +74,15 @@ blocking_outputs:
 unblocks:
 ```
 
+## Conditional Agent Expansion
+
+```text
+May open additional agents: Yes/No
+Required evidence before expansion:
+Coordinator approval required before expansion: Yes
+Backend expansion allowed only when:
+```
+
 ## Worktree Start Gate
 
 ```text
@@ -105,7 +125,8 @@ Do not wipe/reset local runtime DB newpaotang.
 
 ```text
 If this task affects browser behavior, QA must open real Google Chrome visibly to the user and record evidence.
-QA must prove browser is connected to test env/test DB before clean PASS.
+QA must identify browser API/DB target before clean PASS.
+Visible Chrome may use local runtime DB only as non-destructive browser coverage and must be reported separately from automated test DB evidence.
 ```
 
 ## QA Browser Environment
@@ -114,11 +135,14 @@ QA must prove browser is connected to test env/test DB before clean PASS.
 browser URL:
 frontend service:
 API base URL:
-APP_ENV:
-DB_DATABASE:
+automated APP_ENV:
+automated test DB:
+visible browser runtime DB:
 tenant/domain:
 account/role:
 test data fixture:
+fixture creation:
+fixture cleanup:
 evidence path:
 ```
 
@@ -145,5 +169,8 @@ ai-sub-agents/handoffs/YYYYMMDD-<task-key>-<agent>-handoff.md
 ## Next Agent
 
 ```text
-Orchestrator
+FAST_PATH: QA Tester or Coordinator according to Coordinator decision
+STANDARD/FULL dev work: Orchestrator
+QA work: Coordinator
+GitOps work: Coordinator
 ```

@@ -1,6 +1,6 @@
 # Execution Mode
 
-ระบบ `ai-sub-agents` รองรับ 2 execution modes
+ระบบ `ai-sub-agents` รองรับ execution mode และ flow mode แยกกัน
 
 ค่าเริ่มต้นคือ `AUTO`
 
@@ -19,11 +19,14 @@ Expected flow:
 
 ```text
 User -> Coordinator chat
-Coordinator creates Orchestrator trigger
-runner starts Orchestrator
-Orchestrator creates dev-agent triggers
+Coordinator classifies Task Size and Flow Mode
+FAST_PATH SMALL: Coordinator creates owning dev-agent trigger directly
+STANDARD/FULL: Coordinator creates Orchestrator trigger
+runner starts the target agent from trigger
+STANDARD/FULL: Orchestrator creates dev-agent triggers
 runner starts dev-agents
-Orchestrator creates QA trigger
+FAST_PATH: Coordinator creates QA trigger after owning dev-agent handoff when QA is required
+STANDARD/FULL: Orchestrator creates QA trigger
 runner starts QA Tester
 Coordinator reviews QA
 Coordinator creates GitOps trigger
@@ -41,6 +44,8 @@ runner owns trigger status in AUTO Mode
 runner must atomically claim trigger before starting agents
 runner must write heartbeat while trigger is RUNNING
 runner must enforce dependencies before starting agents
+runner must reuse/resume existing role+task agents before spawning duplicates
+runner must poll expected handoff/report while trigger is RUNNING
 runner must not start CANCELLED triggers
 runner must not start an agent without a matching trigger file
 runner must report BLOCKED trigger status back through Markdown handoff/report
@@ -59,7 +64,8 @@ Target sub-agent reads its trigger/task/memory and continues the same protocol
 All handoff/report/decision files are still required
 ```
 
-Manual Mode ไม่อนุญาตให้ข้าม Orchestrator, QA, หรือ GitOps gate
+Manual Mode ไม่อนุญาตให้ข้าม QA หรือ GitOps gate
+Orchestrator ข้ามได้เฉพาะ `FAST_PATH SMALL` ที่ Coordinator decision ระบุครบ
 
 ## Mode Declaration
 
@@ -67,6 +73,8 @@ Manual Mode ไม่อนุญาตให้ข้าม Orchestrator, QA, �
 
 ```text
 Execution Mode: AUTO
+Task Size: SMALL/STANDARD/FULL
+Flow Mode: FAST_PATH/STANDARD/FULL
 Fallback Mode: MANUAL if background runner is unavailable
 ```
 
@@ -84,6 +92,8 @@ verify depends_on and blocking_outputs
 set trigger status to RUNNING before starting agent
 pass trigger path, task path, role path, memory path, and source decision to agent
 write heartbeat while agent is running
+poll expected handoff/report every 60-120 seconds
+reuse/resume existing registered agent before spawn_agent
 wait for expected handoff/report
 set status DONE only when expected output exists
 set status BLOCKED if agent reports blocker
@@ -91,6 +101,16 @@ never edit implementation code itself
 ```
 
 Runner ไม่ใช่ agent และห้ามตัดสิน scope, QA, approval, git, หรือ DB เอง
+
+## Codex Native Runner
+
+ใน Codex ให้ใช้ Coordinator chat เป็น runner controller และเปิด sub-agent ด้วย multi-agent spawn tool ตาม:
+
+```text
+ai-sub-agents/workflow/codex-native-runner.md
+```
+
+ถ้า multi-agent spawn tool ไม่พร้อมใช้งาน ให้ fallback เป็น MANUAL Mode
 
 ## Completion In One Chat
 

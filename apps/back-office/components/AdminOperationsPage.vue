@@ -446,6 +446,7 @@
               <NuxtLink
                 v-if="action.route"
                 :to="actionRoute(action, row)"
+                :target="action.target"
                 :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
               >
                 {{ action.label }}
@@ -711,6 +712,7 @@ const stockGenerationSubmittedBatch = ref<any>(null)
 const stockGenerationHasActiveBatch = ref(false)
 const sortState = reactive<{ key: string, direction: 'asc' | 'desc' }>({ key: '', direction: 'asc' })
 const meta = reactive({ next_cursor: null as string | null, has_more: false })
+const listMeta = ref<Record<string, any>>({})
 const pageState = reactive({ cursors: [null] as Array<string | null>, index: 0 })
 const relatedFilters = reactive<Record<string, Record<string, any>>>({})
 const relatedRows = reactive<Record<string, any[]>>({})
@@ -803,6 +805,7 @@ const stockTickets = reactive<{
 })
 const optionSourceOptions = reactive<Record<OperationOptionSource, OperationOption[]>>({
   'central-games': [],
+  'central-winner-games': [],
   'central-sale-price-games': [],
   'central-partners': [],
   'central-billing-plans': [],
@@ -820,6 +823,7 @@ const optionSourceOptions = reactive<Record<OperationOptionSource, OperationOpti
 })
 const optionSourceLoading = reactive<Record<OperationOptionSource, boolean>>({
   'central-games': false,
+  'central-winner-games': false,
   'central-sale-price-games': false,
   'central-partners': false,
   'central-billing-plans': false,
@@ -860,6 +864,7 @@ const isStockGenerationRoute = computed(() => props.scope === 'central' && slugP
 const isStockSettingsRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-settings')
 const isStockPatternCoverageRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'stock-pattern-coverage')
 const isAllocationsRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'allocations')
+const isWinnersRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'winners')
 const isTenantStockRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'stock')
 const isTenantTopupsRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'topups')
 const isPriceRulesRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'price-rules')
@@ -1080,6 +1085,7 @@ useAdminRealtimeSubscription({
   onEvent: handleTenantTopupRealtimeEvent,
 })
 const currentCentralGameOption = computed(() => singleCurrentGameOption(optionSourceOptions['central-games'] || []))
+const currentCentralWinnerGameOption = computed(() => latestDefaultOrCurrentGameOption(optionSourceOptions['central-winner-games'] || []))
 const currentCentralSalePriceGameOption = computed(() => latestDefaultOrCurrentGameOption(optionSourceOptions['central-sale-price-games'] || []))
 const currentAllocationGameOption = computed(() => latestCurrentGameOption(optionSourceOptions['allocation-games'] || []))
 const currentTenantStockGameOption = computed(() => latestTenantStockGameOption(optionSourceOptions['tenant-stock-games'] || []))
@@ -1371,6 +1377,7 @@ async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previo
       rows.value = []
       meta.next_cursor = null
       meta.has_more = false
+      listMeta.value = {}
       pageState.cursors = [null]
       pageState.index = 0
       await loadRelatedLists()
@@ -1382,6 +1389,7 @@ async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previo
     const nextRows = normalizeRows(response, resource.value)
     rows.value = nextRows
     const nextMeta = extractMeta(response)
+    listMeta.value = nextMeta
     meta.next_cursor = nextMeta.next_cursor || null
     meta.has_more = Boolean(nextMeta.has_more || nextMeta.next_cursor)
     updatePageState(pageState, pageCursor, pageMode)
@@ -1475,6 +1483,9 @@ const currentGameOptionForSource = (source?: OperationOptionSource) => {
   }
   if (source === 'central-sale-price-games') {
     return currentCentralSalePriceGameOption.value
+  }
+  if (source === 'central-winner-games') {
+    return currentCentralWinnerGameOption.value
   }
   if (source === 'tenant-sale-price-games') {
     return currentTenantSalePriceGameOption.value
@@ -1624,6 +1635,11 @@ const loadOptionSource = async (source: OperationOptionSource) => {
         }
       }
       optionSourceOptions[source] = options
+    } else if (source === 'central-winner-games') {
+      const response = await api.apiFetch('/admin/central/winners/games', {
+        scope: 'central',
+      })
+      optionSourceOptions[source] = normalizeGameOptions(extractItems(response))
     } else if (source === 'central-sale-price-games') {
       const response = await api.apiFetch('/admin/central/sale-price-games', {
         scope: 'central',
@@ -2066,7 +2082,7 @@ const applyCurrentGameFilterDefault = () => {
 }
 
 const routeFiltersWithCurrentGame = (next: Record<string, any>) => (
-  salePriceRuleFiltersWithCurrentGame(priceRuleFiltersWithCurrentGame(tenantStockFiltersWithCurrentGame(allocationFiltersWithCurrentGame(stockGenerationFiltersWithCurrentGame(next)))))
+  winnerFiltersWithDefaultGame(salePriceRuleFiltersWithCurrentGame(priceRuleFiltersWithCurrentGame(tenantStockFiltersWithCurrentGame(allocationFiltersWithCurrentGame(stockGenerationFiltersWithCurrentGame(next))))))
 )
 
 const stockGenerationFiltersWithCurrentGame = (next: Record<string, any>) => {
@@ -2091,6 +2107,18 @@ const allocationFiltersWithCurrentGame = (next: Record<string, any>) => {
   }
 
   const currentGame = currentAllocationGameOption.value
+  return {
+    ...next,
+    game_id: currentGame ? optionValue(currentGame) : '',
+  }
+}
+
+const winnerFiltersWithDefaultGame = (next: Record<string, any>) => {
+  if (!isWinnersRoute.value || !isBlank(next.game_id)) {
+    return next
+  }
+
+  const currentGame = currentCentralWinnerGameOption.value
   return {
     ...next,
     game_id: currentGame ? optionValue(currentGame) : '',
@@ -2324,6 +2352,11 @@ const openDetailAction = (action: OperationAction) => {
   const nextAction = rowSpecificAction(action, row)
 
   if (nextAction.route) {
+    if (nextAction.target === '_blank' && import.meta.client) {
+      window.open(actionRoute(nextAction, row), '_blank', 'noopener')
+      return
+    }
+
     navigateTo(actionRoute(nextAction, row))
     return
   }
@@ -2333,6 +2366,17 @@ const openDetailAction = (action: OperationAction) => {
 
 const openCollectionAction = (action: OperationAction) => {
   if (action.disabled) {
+    return
+  }
+
+  if (action.route) {
+    const route = actionRoute(action, buildCollectionContext())
+    if (action.target === '_blank' && import.meta.client) {
+      window.open(route, '_blank', 'noopener')
+      return
+    }
+
+    navigateTo(route)
     return
   }
 
@@ -3159,6 +3203,9 @@ const normalizePayloadField = (field: OperationFormField, value: any) => {
   }
 
   if (value === '' || value === undefined || value === null) {
+    if (field.emptyValue === 'string') {
+      return ''
+    }
     return undefined
   }
 
@@ -3395,6 +3442,7 @@ const buildCollectionContext = () => {
       date_to: currentFilters.date_to,
       group_by: currentFilters.group_by,
       filters: currentFilters,
+      live_settings: listMeta.value.live_settings,
     },
   }
 }

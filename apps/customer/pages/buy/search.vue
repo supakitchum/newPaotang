@@ -26,6 +26,7 @@
           :key="ticketKey(ticket, index)"
           :ticket="ticket"
           :show-image="false"
+          :show-more-link="!lastSearchWasExact"
           @booking-unavailable="removeLottery"
       />
       <template v-if="showSkeletonItems">
@@ -112,6 +113,8 @@ const currentGameId = ref('')
 const isSearching = ref(false)
 const isLoadingMore = ref(false)
 const hasSearched = ref(false)
+const lastSearchWasExact = ref(false)
+const searchRandomSeed = ref<string | null>(null)
 let scrollContainer: HTMLElement | null = null
 
 const skeletonItems = [1, 2, 3, 4, 5]
@@ -144,6 +147,12 @@ const handleDigitsUpdate = (digits: string[]) => {
 }
 
 const buildSearchDigits = () => searchNumber.value.slice(0, 6)
+
+const createRandomSeed = () => (
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+)
 
 const getTicketNumber = (ticket: Partial<LotteryTicket>) => getStockSearchTicketNumber(ticket)
 
@@ -193,13 +202,21 @@ const search = async () => {
 
   try {
     const digits = buildSearchDigits()
+    const isExactResult = hasExactSixDigitSearch(digits)
+    const randomSeed = createRandomSeed()
+
+    lastSearchWasExact.value = isExactResult
+    searchRandomSeed.value = randomSeed
+
     const response = await platformApi.searchStockLegacy({
       digits,
-      storeId: storeId.value || undefined
+      storeId: storeId.value || undefined,
+      mode: 'random',
+      randomSeed
     })
 
     if (response.data.code === 0) {
-      updateSearchResult(response.data, false, hasExactSixDigitSearch(digits))
+      updateSearchResult(response.data, false, isExactResult)
     }
   } catch (e) {
     console.log(e)
@@ -217,9 +234,15 @@ const loadNextPage = async () => {
 
   try {
     const digits = buildSearchDigits()
+    const randomSeed = searchRandomSeed.value || createRandomSeed()
+
+    searchRandomSeed.value = randomSeed
+
     const response = await platformApi.searchStockLegacy({
       digits,
       storeId: storeId.value || undefined,
+      mode: 'random',
+      randomSeed,
       cursor: pagination.value?.seed || null,
       page: currentPage.value + 1
     })
@@ -251,6 +274,8 @@ const clearSearch = () => {
   lotteries.value = []
   pagination.value = null
   hasSearched.value = false
+  lastSearchWasExact.value = false
+  searchRandomSeed.value = null
 }
 
 const removeLottery = (ticket: LotteryTicket) => {

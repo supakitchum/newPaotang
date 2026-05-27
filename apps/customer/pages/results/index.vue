@@ -42,7 +42,8 @@ const drawDate = computed(() => formatDrawDateText(game.value?.name))
 
 onMounted(async () => {
   try {
-    const response = await platformApi.rewardLegacy()
+    const liveResponse = await platformApi.rewardLiveLegacy()
+    const response = liveResponse.result ? liveResponse : await platformApi.rewardLegacy()
 
     if (response.code === 0) {
       game.value = response.result || null
@@ -50,6 +51,17 @@ onMounted(async () => {
     }
   } finally {
     isLoading.value = false
+  }
+})
+
+useLotteryResultRealtime({
+  onResult: async () => {
+    const response = await platformApi.rewardLiveLegacy()
+
+    if (response.code === 0 && response.result) {
+      game.value = response.result || null
+      historyGames.value = response.history || []
+    }
   }
 })
 </script>

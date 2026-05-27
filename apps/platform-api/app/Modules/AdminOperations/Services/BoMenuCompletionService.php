@@ -16,6 +16,7 @@ use App\Models\PartnerHealthCheck;
 use App\Models\PartnerMonitoringProfile;
 use App\Models\PartnerTenant;
 use App\Models\PartnerTenantDomain;
+use App\Models\PartnerTenantSetting;
 use App\Models\PartnerUsageMeter;
 use App\Models\PlatformSystemSetting;
 use App\Models\SyncInbox;
@@ -28,6 +29,7 @@ use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Tenancy\TenantHostNormalizer;
 use App\Support\CustomerNo;
+use App\Support\YoutubeLiveUrl;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -645,14 +647,90 @@ class BoMenuCompletionService
         $gameId = trim((string) ($queryParams['game_id'] ?? '')) ?: $this->latestOpenPriceRuleGameId();
 
         if ($gameId === null) {
-            return ['data' => [], 'meta' => ['next_cursor' => null, 'has_more' => false, 'default_game_id' => null]];
+            return [
+                'data' => [],
+                'meta' => [
+                    'next_cursor' => null,
+                    'has_more' => false,
+                    'default_game_id' => null,
+                    'live_settings' => $this->tenantLiveSettings($tenantId),
+                ],
+            ];
         }
 
         return $this->paginateArrayRows(
             $this->rewardPriceRules->settingRows($tenantId, $gameId),
             $queryParams,
-            ['default_game_id' => $gameId],
+            [
+                'default_game_id' => $gameId,
+                'live_settings' => $this->tenantLiveSettings($tenantId),
+            ],
         );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function tenantLiveSettings(string $tenantId): array
+    {
+        $centralUrl = $this->centralWaitingResultYoutubeUrl();
+        $tenantUrl = trim((string) (PartnerTenantSetting::query()
+            ->where('tenant_id', $tenantId)
+            ->value('waiting_result_youtube_url') ?? ''));
+        $resolvedUrl = $tenantUrl !== '' ? $tenantUrl : $centralUrl;
+
+        return [
+            'id' => 'tenant_reward_live_settings',
+            'tenant_id' => $tenantId,
+            'waiting_result_youtube_url' => $resolvedUrl,
+            'waiting_result_youtube_embed_url' => YoutubeLiveUrl::embedUrl($resolvedUrl),
+            'tenant_override_youtube_url' => $tenantUrl,
+            'central_default_youtube_url' => $centralUrl,
+            'source' => $tenantUrl !== '' ? 'tenant_override' : ($centralUrl !== '' ? 'central_default' : 'not_configured'),
+            'updated_at' => PartnerTenantSetting::query()
+                ->where('tenant_id', $tenantId)
+                ->value('updated_at'),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, error?: string, errors?: array<string, array<int, string>>}
+     */
+    public function updateTenantLiveSettings(string $tenantId, array $payload, AdminSessionContext $actor, Request $request): array
+    {
+        $value = $this->liveSettingsPayloadValue($payload);
+
+        if ($value === null) {
+            return ['error' => 'validation_failed', 'errors' => [
+                'waiting_result_youtube_url' => ['The waiting_result_youtube_url field is required.'],
+            ]];
+        }
+
+        if (! YoutubeLiveUrl::isAllowedOrEmpty($value)) {
+            return ['error' => 'validation_failed', 'errors' => [
+                'waiting_result_youtube_url' => ['The waiting_result_youtube_url field must be a valid YouTube URL.'],
+            ]];
+        }
+
+        return DB::transaction(function () use ($tenantId, $payload, $actor, $request, $value): array {
+            $settings = $this->ensureTenantSettingsForLiveSettings($tenantId);
+
+            if ($settings === null) {
+                return ['error' => 'not_found'];
+            }
+
+            $url = trim($value);
+            PartnerTenantSetting::query()->where('tenant_id', $tenantId)->update([
+                'waiting_result_youtube_url' => $url === '' ? null : $url,
+                'config_version' => ((int) $settings->config_version) + 1,
+                'updated_at' => now(),
+            ]);
+
+            $this->audit($actor, $request, 'price_rule.live_settings.updated', 'partner_tenant_setting', $tenantId, $payload, tenantId: $tenantId);
+
+            return ['resource' => $this->tenantLiveSettings($tenantId)];
+        });
     }
 
     /**
@@ -2472,6 +2550,7 @@ class BoMenuCompletionService
             'platform_name' => 'NewPaotang',
             'admin_api_version' => 'v1',
             'bo_menu_completion_backend_gaps' => 'implemented',
+            'waiting_result_youtube_url' => '',
         ] as $key => $value) {
             PlatformSystemSetting::query()->firstOrCreate(
                 ['key' => $key],
@@ -2484,6 +2563,95 @@ class BoMenuCompletionService
                 ],
             );
         }
+    }
+
+    private function centralWaitingResultYoutubeUrl(): string
+    {
+        $value = PlatformSystemSetting::query()
+            ->where('key', 'waiting_result_youtube_url')
+            ->where('status', 'active')
+            ->first()
+            ?->value_json;
+
+        return is_string($value) ? trim($value) : '';
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function liveSettingsPayloadValue(array $payload): ?string
+    {
+        $settings = is_array($payload['settings'] ?? null) ? $payload['settings'] : [];
+        $live = is_array($payload['live'] ?? null) ? $payload['live'] : [];
+
+        foreach (['waiting_result_youtube_url', 'youtube_live_url'] as $key) {
+            if (array_key_exists($key, $settings)) {
+                return is_scalar($settings[$key]) || $settings[$key] === null ? (string) ($settings[$key] ?? '') : null;
+            }
+
+            if (array_key_exists($key, $live)) {
+                return is_scalar($live[$key]) || $live[$key] === null ? (string) ($live[$key] ?? '') : null;
+            }
+
+            if (array_key_exists($key, $payload)) {
+                return is_scalar($payload[$key]) || $payload[$key] === null ? (string) ($payload[$key] ?? '') : null;
+            }
+        }
+
+        return null;
+    }
+
+    private function ensureTenantSettingsForLiveSettings(string $tenantId): ?PartnerTenantSetting
+    {
+        $tenant = PartnerTenant::query()->whereKey($tenantId)->first();
+
+        if ($tenant === null) {
+            return null;
+        }
+
+        $settings = PartnerTenantSetting::query()
+            ->where('tenant_id', $tenantId)
+            ->lockForUpdate()
+            ->first();
+
+        if ($settings !== null) {
+            return $settings;
+        }
+
+        $now = now();
+        PartnerTenantSetting::query()->create([
+            'id' => $this->stableId('pts', $tenantId),
+            'tenant_id' => $tenantId,
+            'site_name' => (string) $tenant->name,
+            'display_name' => null,
+            'locale' => 'th-TH',
+            'timezone' => 'Asia/Bangkok',
+            'support_email' => null,
+            'support_phone' => null,
+            'default_title' => (string) $tenant->name,
+            'title_template' => null,
+            'default_description' => null,
+            'default_keywords_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'robots_default' => 'index,follow',
+            'sitemap_enabled' => true,
+            'robots_enabled' => true,
+            'maintenance_active' => false,
+            'maintenance_mode' => null,
+            'maintenance_message' => null,
+            'maintenance_expected_end_at' => null,
+            'maintenance_retry_after_seconds' => null,
+            'maintenance_allowed_routes_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'maintenance_blocked_route_patterns_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'api_base_url' => '/api/v1',
+            'realtime_url' => null,
+            'asset_cdn_base_url' => null,
+            'waiting_result_youtube_url' => null,
+            'config_version' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return PartnerTenantSetting::query()->where('tenant_id', $tenantId)->first();
     }
 
     /**

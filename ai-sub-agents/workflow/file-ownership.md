@@ -10,6 +10,8 @@ Can edit:
 ai-sub-agents/decisions/**
 ai-sub-agents/handoffs/*coordinator*.md
 ai-sub-agents/triggers/*orchestrator-trigger.md
+ai-sub-agents/triggers/*dev-*-trigger.md only for FAST_PATH SMALL direct owner triggers
+ai-sub-agents/triggers/*qa-tester-trigger.md only for FAST_PATH after owning dev-agent handoff is ready
 ai-sub-agents/triggers/*gitops-trigger.md after QA approval
 ai-sub-agents/flow-ai-agent.md
 ai-sub-agents/rules/**
@@ -196,6 +198,7 @@ ai-sub-agents/triggers/** status fields only
 ai-sub-agents/runner/claims/**
 ai-sub-agents/runner/heartbeats/**
 ai-sub-agents/runner/logs/**
+ai-sub-agents/runner/agents/**
 ```
 
 Must not edit:

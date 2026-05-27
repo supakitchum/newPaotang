@@ -80,11 +80,21 @@ const fullLink = (item: LotteryRewardGame | null | undefined) => {
   return item?.id ? `/result/full?game_id=${item.id}` : '/result/full'
 }
 
-const fetchReward = async () => {
-  isLoading.value = true
+const fetchReward = async (silent = false) => {
+  if (!silent) {
+    isLoading.value = true
+  }
   errorMessage.value = ''
 
   try {
+    const liveResponse = await platformApi.rewardLiveLegacy()
+
+    if (liveResponse.data?.code === 0 && liveResponse.data.result) {
+      game.value = liveResponse.data.result || null
+      historyGames.value = liveResponse.data.history || []
+      return
+    }
+
     const response = await platformApi.rewardLegacy()
 
     if (response.data?.code === 0) {
@@ -97,9 +107,16 @@ const fetchReward = async () => {
   } catch (error) {
     errorMessage.value = (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'กรุณาลองใหม่อีกครั้ง'
   } finally {
-    isLoading.value = false
+    if (!silent) {
+      isLoading.value = false
+    }
   }
 }
+
+useLotteryResultRealtime({
+  onResult: () => fetchReward(true),
+  onReconnect: () => fetchReward(true)
+})
 
 onMounted(fetchReward)
 </script>

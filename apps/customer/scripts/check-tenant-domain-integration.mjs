@@ -12,6 +12,7 @@ const expect = (label, condition) => {
 const nuxtConfig = read('nuxt.config.ts')
 const axiosPlugin = read('plugins/axios.ts')
 const authComposable = read('composables/useAuth.ts')
+const customerAuthRoutes = read('utils/customerAuthRoutes.ts')
 const siteConfigComposable = read('composables/useSiteConfig.ts')
 const stockRealtimeComposable = read('composables/useCustomerStockRealtime.ts')
 const affiliateReferralComposable = read('composables/useAffiliateReferral.ts')
@@ -22,6 +23,10 @@ const registerPage = read('pages/register.vue')
 const lineCallbackPage = read('pages/line/callback.vue')
 const checkoutPage = read('pages/checkout.vue')
 const affiliatePage = read('pages/affiliate.vue')
+const appVue = read('app.vue')
+const appInitComposable = read('composables/useAppInit.ts')
+const saleClosureGuard = read('composables/useSaleClosureGuard.ts')
+const waitingResultPage = read('pages/waiting-result.vue')
 const proxyRoutePath = 'server/routes/api/v1/[...path].ts'
 const proxyRoute = read(proxyRoutePath)
 
@@ -58,6 +63,12 @@ expect('affiliate referral apply is wired before checkout', checkoutPage.include
 expect('customer affiliate page displays canonical ?ref link', affiliatePage.includes('/?ref=${encodeURIComponent(referralCode.value)}') && affiliatePage.includes("!value.includes('/a/')"))
 expect('customer affiliate page prefers active affiliate link code', affiliatePage.includes('primaryLink.value?.code || overview.value.affiliate?.code'))
 expect('customer affiliate page shows visitor and registered widgets', affiliatePage.includes('visitor_count') && affiliatePage.includes('registered_count'))
+expect('customer app installs sale closure guard', appVue.includes('useSaleClosureGuard()'))
+expect('sale closure redirects sale routes to cart or waiting result', appInitComposable.includes("return hasActiveCart.value ? '/cart' : '/waiting-result'"))
+expect('sale closure allows active cart payment but blocks expired carts', appInitComposable.includes('isCartOrPaymentRoute(path) && !hasActiveCart.value') && appInitComposable.includes("return '/waiting-result'"))
+expect('sale closure guard releases expired cart reservations', saleClosureGuard.includes('releaseReservationLegacy') && saleClosureGuard.includes('หมดเวลาชำระเงิน'))
+expect('waiting result page links to customer tickets', waitingResultPage.includes('to="/tickets"') && waitingResultPage.includes('สลากของฉัน'))
+expect('waiting result page is public before tickets click', customerAuthRoutes.includes("'/waiting-result'") && customerAuthRoutes.includes("'/wait-result'"))
 
 const failed = checks.filter((check) => !check.condition)
 

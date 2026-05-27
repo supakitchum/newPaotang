@@ -41,6 +41,7 @@ services:
       REVERB_HOST: platform-api-reverb
       REVERB_PORT: "8080"
       REVERB_SCHEME: http
+      LOTTO_SCRAPER_HMAC_SECRET: newpaotang-local-lotto-scraper-secret
     ports:
       - "8000:8000"
     volumes:
@@ -172,6 +173,34 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  lotto-scraper:
+    profiles: ["scraper"]
+    build:
+      context: ./apps/lotto-scraper
+      dockerfile: Dockerfile
+    environment:
+      TZ: Asia/Bangkok
+      LOG_LEVEL: info
+      LOTTO_SCRAPER_PLATFORM_API_URL: http://platform-api:8000/api/v1
+      LOTTO_SCRAPER_REDIS_URL: redis://valkey:6379
+      LOTTO_SCRAPER_SOURCE_BASE_URL: https://news.sanook.com/lotto/check
+      LOTTO_SCRAPER_HMAC_SECRET: newpaotang-local-lotto-scraper-secret
+      LOTTO_SCRAPER_HEALTH_PORT: "3200"
+      LOTTO_SCRAPER_MIN_CRAWL_DELAY_MS: "10000"
+      LOTTO_SCRAPER_POLL_WARMUP_MS: "60000"
+      LOTTO_SCRAPER_POLL_LIVE_MIN_MS: "10000"
+      LOTTO_SCRAPER_POLL_LIVE_MAX_MS: "15000"
+      LOTTO_SCRAPER_POLL_TAIL_MIN_MS: "30000"
+      LOTTO_SCRAPER_POLL_TAIL_MAX_MS: "60000"
+    expose:
+      - "3200"
+    restart: unless-stopped
+    depends_on:
+      platform-api:
+        condition: service_started
       valkey:
         condition: service_healthy
 

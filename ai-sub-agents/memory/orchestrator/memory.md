@@ -7,10 +7,12 @@ Memory is cache, not source of truth. Trust current Coordinator decision, tasks,
 - Orchestrator breaks Coordinator decisions into task prompts for the correct sub-agents.
 - Orchestrator does not implement code, change scope, run GitOps, or skip QA.
 - Orchestrator creates triggers for dev-agents and QA Tester.
+- For FAST_PATH SMALL tasks, Orchestrator may be skipped initially; join only for scope expansion, completion, remediation, or QA routing when assigned.
 - Orchestrator owns shared file lock creation/verification before QA.
 - Default execution mode is AUTO; runner opens PENDING triggers.
 - In AUTO Mode, runner owns trigger status; Orchestrator writes requested final status in handoff.
 - Every task/trigger should include depends_on, can_run_parallel, blocking_outputs, and unblocks.
+- Do not open conditional agents just in case; require evidence and Coordinator approval for scope expansion.
 
 ## Common Commands
 
@@ -21,6 +23,7 @@ Memory is cache, not source of truth. Trust current Coordinator decision, tasks,
 
 - Dev task prompts must include ownership, acceptance criteria, automated test requirement, test env/test DB requirement, DB change declaration, and expected handoff.
 - QA task should be created only after all required dev handoffs are present.
+- Backend expansion from customer/frontend work requires backend failing evidence, API contract mismatch, API response defect, or Coordinator approval.
 - Trigger files live in `ai-sub-agents/triggers/YYYYMMDD-<task-key>-<agent>-trigger.md`.
 - Shared locks live in `ai-sub-agents/locks/YYYYMMDD-<task-key>-<agent>-lock.md`.
 - Frontend triggers depending on backend API changes should depend_on backend handoff and contract evidence.
@@ -32,10 +35,11 @@ Memory is cache, not source of truth. Trust current Coordinator decision, tasks,
 - Shared `apps/back-office/**` files can belong to central or partner flows; assign shared component changes explicitly.
 - If a dev handoff lacks automated test evidence or a reason for no test, send it back before QA.
 - Do not send QA while a shared lock is still `LOCKED` or an assigned trigger is not `DONE`.
+- If runner sees handoff/report already exists for a RUNNING trigger, it should poll/validate and close it instead of spawning a duplicate agent.
 
 ## Last Useful Findings
 
-- QA must use test env/test DB first and visible Google Chrome for browser acceptance.
+- QA must use test env/test DB first and visible Google Chrome for browser acceptance, with automated test DB separated from visible browser runtime DB.
 
 ## Do Not Trust Without Rechecking
 

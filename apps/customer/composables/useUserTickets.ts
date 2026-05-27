@@ -1,4 +1,5 @@
 import { formatDrawDateText } from '~/utils/formatDrawDate'
+import { moneyToDisplayNumber } from '~/composables/usePlatformApi'
 
 export interface UserTicketGame {
   id?: number | string
@@ -22,6 +23,11 @@ export interface UserTicket {
   image_error?: string | null
   count?: number | string
   total?: number | string
+  prize_amount?: number | string | { amount?: number | string, currency?: string } | null
+  prize_type?: string | null
+  prize_number?: string | null
+  claimable?: boolean
+  reward_status?: Record<string, unknown> | null
   game_id?: number | string
   draw?: number | string
   draw_no?: number | string
@@ -116,6 +122,44 @@ export const getTicketStatusText = (ticket: Partial<UserTicket> | null | undefin
   return 'รอออกผล'
 }
 
+const prizeTypeLabels: Record<string, string> = {
+  first_prize: 'รางวัลที่ 1',
+  near_first_prize: 'รางวัลข้างเคียงรางวัลที่ 1',
+  second_prize: 'รางวัลที่ 2',
+  third_prize: 'รางวัลที่ 3',
+  fourth_prize: 'รางวัลที่ 4',
+  fifth_prize: 'รางวัลที่ 5',
+  front3: 'รางวัลเลขหน้า 3 ตัว',
+  back3: 'รางวัลเลขท้าย 3 ตัว',
+  back2: 'รางวัลเลขท้าย 2 ตัว'
+}
+
+export const isWinningTicket = (ticket: Partial<UserTicket> | null | undefined) => {
+  const status = Number(ticket?.status)
+  const rewardStatus = String(ticket?.reward_status?.status || '').toLowerCase()
+
+  return [4, 5].includes(status) || ['winning', 'approved', 'submitted', 'paid', 'paid_out'].includes(rewardStatus)
+}
+
+export const getTicketPrizeAmount = (ticket: Partial<UserTicket> | null | undefined) => {
+  const rewardStatus = ticket?.reward_status || {}
+
+  return moneyToDisplayNumber(rewardStatus.prize_amount ?? ticket?.prize_amount, 0)
+}
+
+export const getTicketPrizeTitle = (ticket: Partial<UserTicket> | null | undefined) => {
+  const rewardStatus = ticket?.reward_status || {}
+  const type = String(rewardStatus.prize_type || ticket?.prize_type || '').trim()
+
+  return prizeTypeLabels[type] || (isWinningTicket(ticket) ? 'ถูกรางวัล' : '')
+}
+
+export const isTicketClaimable = (ticket: Partial<UserTicket> | null | undefined) => {
+  const rewardStatus = ticket?.reward_status || {}
+
+  return Boolean(rewardStatus.claimable ?? ticket?.claimable)
+}
+
 export const getTicketDraw = (ticket: Partial<UserTicket> | null | undefined, game?: UserTicketGame | null) => {
   const value = ticket?.draw_no ?? ticket?.draw ?? ticket?.game_no ?? ticket?.game_id ?? game?.id ?? '-'
 
@@ -181,6 +225,10 @@ export const useUserTickets = () => {
     getTicketCount,
     getTicketTotal,
     getTicketStatusText,
+    isWinningTicket,
+    getTicketPrizeAmount,
+    getTicketPrizeTitle,
+    isTicketClaimable,
     getTicketDraw,
     getTicketSet,
     getTicketImageUrl

@@ -16,6 +16,7 @@ const routeHints: Record<string, string> = {
 
 const scopedRouteOverrides: Record<string, string> = {
   'central:rewards': '/admin/central/rewards',
+  'central:winners': '/admin/central/winners',
   'central:stock_generation': '/admin/central/stock-generation',
   'central:stock_settings': '/admin/central/stock-settings',
   'central:stock_pattern_coverage': '/admin/central/stock-pattern-coverage',

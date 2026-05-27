@@ -398,6 +398,36 @@ class BoMenuCompletionController extends Controller
         );
     }
 
+    public function priceRulesLiveSettings(Request $request): JsonResponse
+    {
+        $context = $this->tenantContext($request, 'price_rule.view');
+
+        return $context instanceof AdminSessionContext
+            ? response()->json($this->completion->tenantLiveSettings((string) $context->activeTenantId()))
+            : $context;
+    }
+
+    public function priceRulesUpdateLiveSettings(Request $request): JsonResponse
+    {
+        $context = $this->tenantContext($request, 'price_rule.manage');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $tenantId = (string) $context->activeTenantId();
+
+        return $this->writeWithIdempotency(
+            $request,
+            $context,
+            $tenantId,
+            'tenant_admin',
+            'admin.tenant.price-rules.live-settings.patch',
+            'price_rule.manage',
+            fn (array $payload): array => $this->completion->updateTenantLiveSettings($tenantId, $payload, $context, $request),
+        );
+    }
+
     public function priceRulesShow(Request $request, string $price_rule_id): JsonResponse
     {
         $context = $this->tenantContext($request, 'price_rule.view');

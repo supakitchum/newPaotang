@@ -49,6 +49,10 @@ return [
         'scheme' => env('REVERB_SCHEME', 'http'),
         'auth_ttl_seconds' => 300,
     ],
+    'lotto_scraper' => [
+        'hmac_secret' => env('LOTTO_SCRAPER_HMAC_SECRET', 'newpaotang-local-lotto-scraper-secret'),
+        'signature_ttl_seconds' => max(60, (int) env('LOTTO_SCRAPER_SIGNATURE_TTL_SECONDS', 300)),
+    ],
     'line' => [
         'client_id' => env('LINE_LOGIN_CHANNEL_ID'),
         'client_secret' => env('LINE_LOGIN_CHANNEL_SECRET'),

@@ -20,6 +20,10 @@
         v-else-if="selectedTicket"
         :number="ticketNumber"
         :status="getTicketStatusText(selectedTicket)"
+        :is-winning="isWinningTicket(selectedTicket)"
+        :prize-title="getTicketPrizeTitle(selectedTicket)"
+        :prize-amount="formatPrizeAmount(getTicketPrizeAmount(selectedTicket))"
+        :claim-label="isTicketClaimable(selectedTicket) ? 'ขึ้นรางวัล' : 'ดูรางวัล'"
       />
 
       <div v-else class="empty-lottery-state">
@@ -54,7 +58,11 @@ const {
   getGameDate,
   getTicketNumber,
   getTicketCount,
-  getTicketStatusText
+  getTicketStatusText,
+  isWinningTicket,
+  getTicketPrizeAmount,
+  getTicketPrizeTitle,
+  isTicketClaimable
 } = useUserTickets()
 const selectedTicket = ref<UserTicket | null>(null)
 const selectedGame = ref<UserTicketGame | null>(null)
@@ -82,6 +90,16 @@ const requestedGameId = computed(() => {
 const ticketNumber = computed(() => getTicketNumber(selectedTicket.value))
 const ticketCount = computed(() => selectedTicket.value ? getTicketCount(selectedTicket.value) : 0)
 const drawDate = computed(() => getGameDate(selectedGame.value) || currentDrawDate.value)
+
+const formatPrizeAmount = (amount: number) => {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return ''
+  }
+
+  return amount.toLocaleString('th-TH', {
+    maximumFractionDigits: 0
+  })
+}
 
 const goBack = () => {
   if (process.client && window.history.length > 1) {

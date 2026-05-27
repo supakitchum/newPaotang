@@ -131,6 +131,44 @@ class CustomerReservationTest extends TestCase
         ]);
     }
 
+    public function test_CustomerReservation_rejects_stale_virtual_stock_after_game_sale_window_closes(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_closed_reserve', 'ten_closed_reserve', 'closed-reserve.newpaotang.test');
+        $this->insertGame('gam_closed_reserve', 'open');
+        $this->insertBaseLotteryNumbers(['654340']);
+        $this->insertVirtualProfile('gam_closed_reserve', 1);
+        $this->insertVirtualAllocation('gam_closed_reserve', 'par_closed_reserve', 'ten_closed_reserve', 10000, 1);
+        $customerToken = $this->issueCustomerToken('ten_closed_reserve', 'cus_closed_reserve');
+
+        $stock = $this->getJson('http://closed-reserve.newpaotang.test/api/v1/public/stock/search?game_id=gam_closed_reserve&number=654340')
+            ->assertOk()
+            ->assertJsonPath('data.0.full_number', '654340')
+            ->json('data.0');
+
+        DB::table('games')->where('id', 'gam_closed_reserve')->update([
+            'close_at' => now()->subMinute(),
+            'updated_at' => now(),
+        ]);
+
+        $this->getJson('http://closed-reserve.newpaotang.test/api/v1/public/stock/search?game_id=gam_closed_reserve&number=654340')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->withToken($customerToken)
+            ->postJson('http://closed-reserve.newpaotang.test/api/v1/customer/reservations', [
+                'game_id' => 'gam_closed_reserve',
+                'local_stock_item_ids' => [$stock['id']],
+            ], [
+                'Idempotency-Key' => 'reserve-sale-closed',
+            ])
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'reservation_unavailable');
+
+        $this->assertSame(0, DB::table('stock_reservations')->where('customer_id', 'cus_closed_reserve')->count());
+        $this->assertSame(0, DB::table('local_stock_items')->where('tenant_id', 'ten_closed_reserve')->whereNotNull('virtual_stock_ref')->count());
+    }
+
     public function test_CustomerReservation_uses_first_cart_expiry_and_cart_endpoint_expires_due_items(): void
     {
         $this->seedDefaultRbac();

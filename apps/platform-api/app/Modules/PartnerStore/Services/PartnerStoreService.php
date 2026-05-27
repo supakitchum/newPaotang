@@ -573,6 +573,12 @@ class PartnerStoreService
      */
     public function createReservation(string $tenantId, string $partnerId, CustomerSessionContext $customer, array $payload, Request $request): array
     {
+        $gameId = trim((string) ($payload['game_id'] ?? ''));
+
+        if (! $this->gameSaleOpenForPartner($partnerId, $gameId)) {
+            return ['error' => 'reservation_unavailable'];
+        }
+
         $virtualReservation = $this->virtualStock->createReservation($tenantId, $partnerId, $customer, $payload, $request);
 
         if ($virtualReservation !== null) {

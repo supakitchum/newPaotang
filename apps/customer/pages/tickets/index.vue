@@ -30,6 +30,14 @@
         <div v-if="activeSearch" class="muted-text fw-semibold">ผลการค้นหา “{{ activeSearch }}”</div>
       </div>
 
+      <div v-if="winningTicketCount > 0" class="ticket-win-banner mb-3">
+        <div>
+          <strong>ยินดีด้วย!</strong>
+          <span>คุณถูกรางวัล {{ winningTicketCountText }} ใบ</span>
+        </div>
+        <i class="bi bi-coin" />
+      </div>
+
       <div v-if="isLoadingInitial" class="empty-lottery-state">
         กำลังโหลดสลากฯ
       </div>
@@ -52,6 +60,10 @@
           <TicketStub
             :number="getTicketNumber(ticket)"
             :status="getTicketStatusText(ticket)"
+            :is-winning="isWinningTicket(ticket)"
+            :prize-title="getTicketPrizeTitle(ticket)"
+            :prize-amount="formatPrizeAmount(getTicketPrizeAmount(ticket))"
+            :claim-label="isTicketClaimable(ticket) ? 'ขึ้นรางวัล' : 'ดูรางวัล'"
           />
         </div>
       </div>
@@ -103,7 +115,11 @@ const {
   getGameDate,
   getTicketNumber,
   getTicketCount,
-  getTicketStatusText
+  getTicketStatusText,
+  isWinningTicket,
+  getTicketPrizeAmount,
+  getTicketPrizeTitle,
+  isTicketClaimable
 } = useUserTickets()
 const { currentDrawDate } = useAppInit()
 const perPage = 20
@@ -126,6 +142,10 @@ const drawDate = computed(() => getGameDate(currentGame.value) || currentDrawDat
 const loadedTicketCount = computed(() => tickets.value.reduce((total, ticket) => total + getTicketCount(ticket), 0))
 const totalTicketCount = computed(() => apiTotalTicketCount.value || loadedTicketCount.value)
 const hasMore = computed(() => currentPage.value < lastPage.value)
+const winningTicketCount = computed(() => tickets.value.reduce((total, ticket) => (
+  total + (isWinningTicket(ticket) ? getTicketCount(ticket) : 0)
+), 0))
+const winningTicketCountText = computed(() => winningTicketCount.value.toLocaleString('th-TH'))
 
 const getTicketKey = (ticket: UserTicket, index: number) => (
   `${ticket.id || ticket.order_id || getTicketNumber(ticket)}-${index}`
@@ -214,6 +234,16 @@ const clearSearch = () => {
   fetchTicketPage(1)
 }
 
+const formatPrizeAmount = (amount: number) => {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return ''
+  }
+
+  return amount.toLocaleString('th-TH', {
+    maximumFractionDigits: 0
+  })
+}
+
 onMounted(async () => {
   await fetchTicketPage()
   setupLoadObserver()
@@ -271,6 +301,51 @@ onBeforeUnmount(() => {
   color: #fff;
   font-size: 14px;
   font-weight: 700;
+}
+
+.ticket-win-banner {
+  min-height: 82px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 15px 18px;
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(255, 255, 255, .7) 0 18px, transparent 19px),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, .24) 0 8px, transparent 8px 22px),
+    linear-gradient(105deg, #fff4bf 0%, #ffe28a 100%);
+  color: #8b5c03;
+  box-shadow: 0 8px 18px rgba(176, 121, 13, .12);
+}
+
+.ticket-win-banner div {
+  display: grid;
+  gap: 4px;
+}
+
+.ticket-win-banner strong {
+  color: #a56800;
+  font-size: 19px;
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+.ticket-win-banner span {
+  color: #7a5509;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ticket-win-banner i {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .48);
+  color: #f4a900;
+  font-size: 32px;
 }
 
 .ticket-card-button {

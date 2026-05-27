@@ -63,6 +63,7 @@ class DefaultRbacMenuSeeder extends Seeder
             ->delete();
 
         $this->grantSalePricePermissionsToDefaultRoles($now);
+        $this->grantWinnerMenuToPlatformOwner($now);
     }
 
     /**
@@ -201,6 +202,7 @@ class DefaultRbacMenuSeeder extends Seeder
                 'dashboard' => 'dashboard.view',
                 'games' => 'game.view',
                 'rewards' => 'reward.view',
+                'winners' => 'reward.view',
                 'prize_checking' => 'reward.view',
                 'sale_price_rules' => 'price_rule.view',
                 'stock_generation' => 'stock.generate',
@@ -307,6 +309,7 @@ class DefaultRbacMenuSeeder extends Seeder
         return match ($scopeType.':'.$code) {
             'central:dashboard' => '/admin/central/dashboard',
             'central:games' => '/admin/central/games',
+            'central:winners' => '/admin/central/winners',
             'central:rewards',
             'central:prize_checking' => '/admin/central/rewards',
             'central:sale_price_rules' => '/admin/central/sale-price-rules',
@@ -395,6 +398,7 @@ class DefaultRbacMenuSeeder extends Seeder
         return match ($scopeType.':'.$code) {
             'central:games',
             'central:rewards',
+            'central:winners',
             'central:prize_checking',
             'central:sale_price_rules',
             'central:stock_generation',
@@ -455,7 +459,7 @@ class DefaultRbacMenuSeeder extends Seeder
         return match (true) {
             $code === 'dashboard' => 'ri-dashboard-line',
             str_contains($code, 'stock') || str_contains($code, 'allocation') => 'ri-archive-stack-line',
-            str_contains($code, 'reward') || str_contains($code, 'prize') => 'ri-trophy-line',
+            str_contains($code, 'reward') || str_contains($code, 'prize') || str_contains($code, 'winner') => 'ri-trophy-line',
             str_contains($code, 'partner') => 'ri-building-4-line',
             str_contains($code, 'quota') => 'ri-speed-up-line',
             str_contains($code, 'billing') || str_contains($code, 'settlement') || str_contains($code, 'payout') => 'ri-bank-card-line',
@@ -520,6 +524,68 @@ class DefaultRbacMenuSeeder extends Seeder
             DB::table('role_permissions')->insertOrIgnore($rows);
             $this->bumpPermissionCacheVersions($roleIds, $now);
         }
+    }
+
+    private function grantWinnerMenuToPlatformOwner(mixed $now): void
+    {
+        $roleIds = DB::table('roles')
+            ->where('scope_type', 'central')
+            ->whereNull('tenant_id')
+            ->whereIn('code', ['super_admin'])
+            ->pluck('id')
+            ->all();
+
+        if ($roleIds === []) {
+            return;
+        }
+
+        $permissionIds = DB::table('permissions')
+            ->where('scope_type', 'central')
+            ->where('code', 'reward.view')
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($permissionIds !== []) {
+            $permissionRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($permissionIds as $permissionId) {
+                    $permissionRows[] = [
+                        'role_id' => $roleId,
+                        'permission_id' => $permissionId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_permissions')->insertOrIgnore($permissionRows);
+        }
+
+        $menuIds = DB::table('admin_menus')
+            ->where('scope_type', 'central')
+            ->where('code', 'winners')
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($menuIds !== []) {
+            $menuRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($menuIds as $menuId) {
+                    $menuRows[] = [
+                        'role_id' => $roleId,
+                        'menu_id' => $menuId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_menus')->insertOrIgnore($menuRows);
+        }
+
+        $this->bumpPermissionCacheVersions($roleIds, $now);
     }
 
     /**

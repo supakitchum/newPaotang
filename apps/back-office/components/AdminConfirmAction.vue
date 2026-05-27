@@ -128,16 +128,6 @@
                   >
                 </div>
               </div>
-              <div v-else class="np-reward-prize-editor__numbers np-reward-prize-editor__numbers--readonly">
-                <span
-                  v-for="(number, index) in group.numbers"
-                  :key="`${group.type}-${index}`"
-                  class="np-reward-prize-editor__number-pill"
-                  :class="{ 'text-muted': isBlank(number) }"
-                >
-                  {{ displayRewardNumber(number) }}
-                </span>
-              </div>
             </section>
           </div>
           <div v-else-if="field.type === 'stock-set-distribution'" class="np-stock-config-panel">
@@ -862,11 +852,6 @@ const normalizeSubmitFormValues = () => {
   }
 
   return values
-}
-
-const displayRewardNumber = (value: any) => {
-  const normalized = String(value || '').trim()
-  return normalized && !normalized.startsWith('pending_') ? normalized : '-'
 }
 
 const fieldColumnClass = (field: OperationFormField) => (

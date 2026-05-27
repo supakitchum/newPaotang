@@ -28,6 +28,17 @@ class PublicRewardController extends Controller
         return $this->publicResult($request, $this->rewards->publicLatestResult());
     }
 
+    public function liveLatest(Request $request): JsonResponse
+    {
+        $tenant = $this->tenantContext($request);
+
+        if ($tenant instanceof JsonResponse) {
+            return $tenant;
+        }
+
+        return $this->publicResult($request, $this->rewards->publicLiveLatestResult());
+    }
+
     public function show(Request $request, string $game_id): JsonResponse
     {
         $tenant = $this->tenantContext($request);
@@ -37,6 +48,17 @@ class PublicRewardController extends Controller
         }
 
         return $this->publicResult($request, $this->rewards->publicResultForGame($game_id));
+    }
+
+    public function liveShow(Request $request, string $game_id): JsonResponse
+    {
+        $tenant = $this->tenantContext($request);
+
+        if ($tenant instanceof JsonResponse) {
+            return $tenant;
+        }
+
+        return $this->publicResult($request, $this->rewards->publicLiveResultForGame($game_id));
     }
 
     /**

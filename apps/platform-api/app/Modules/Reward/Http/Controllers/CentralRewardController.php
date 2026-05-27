@@ -31,6 +31,28 @@ class CentralRewardController extends Controller
         return response()->json($this->rewards->listRewardResults($request->query()));
     }
 
+    public function winners(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'reward.view');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        return response()->json($this->rewards->listCentralWinners($request->query()));
+    }
+
+    public function winnerGames(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'reward.view');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        return response()->json($this->rewards->centralWinnerGames());
+    }
+
     public function store(Request $request): JsonResponse
     {
         $context = $this->authorizedContext($request, 'reward.create');
@@ -46,6 +68,33 @@ class CentralRewardController extends Controller
         }
 
         return $this->writeResult($request, $this->rewards->createRewardResult($request->all(), $context, $request), 202);
+    }
+
+    public function liveSettings(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'reward.view');
+
+        return $context instanceof AdminSessionContext
+            ? response()->json($this->rewards->centralLiveSettings())
+            : $context;
+    }
+
+    public function updateLiveSettings(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'reward.create');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+        $errors = $headerErrors + $this->rewards->validateCentralLiveSettingsPayload($request->all());
+
+        if ($errors !== []) {
+            return ApiErrorResponse::validationFailed($request, $errors);
+        }
+
+        return $this->writeResult($request, $this->rewards->updateCentralLiveSettings($request->all(), $context, $request));
     }
 
     public function show(Request $request, string $reward_result_id): JsonResponse
@@ -113,6 +162,17 @@ class CentralRewardController extends Controller
         }
 
         return $this->writeWithIdempotency($request, fn (): array => $this->rewards->publishRewardResult($reward_result_id, $request->all(), $context, $request));
+    }
+
+    public function confirmLive(Request $request, string $reward_result_id): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'reward.create');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        return $this->writeWithIdempotency($request, fn (): array => $this->rewards->confirmLiveDraftResult($reward_result_id, $request->all(), $context, $request), 202);
     }
 
     public function correct(Request $request, string $reward_result_id): JsonResponse

@@ -21,4 +21,6 @@ useCustomerStockRealtime({
   enabled: shouldUseGlobalPresence,
   includePresence: true,
 })
+
+useSaleClosureGuard()
 </script>

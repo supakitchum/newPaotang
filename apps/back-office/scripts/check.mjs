@@ -615,6 +615,7 @@ for (const requiredAdminWorkflowPath of [
   '/admin/central/reports/{report_key}',
   '/admin/central/reports/{report_key}/exports',
   '/admin/central/rewards/{reward_result_id}/check-batches',
+  '/admin/central/rewards/{reward_result_id}/confirm-live',
 ]) {
   if (!documentedPaths[requiredAdminWorkflowPath]) {
     failures.push(`OpenAPI snapshot is missing admin workflow path ${requiredAdminWorkflowPath}`)

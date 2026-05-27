@@ -2432,18 +2432,117 @@ class CommerceService
     private function ticketResource(object $ticket): array
     {
         $image = $this->ticketImageResource($ticket);
+        $rewardStatus = $this->ticketRewardStatusResource($ticket);
 
         return [
             'id' => (string) $ticket->id,
             'game_id' => (string) $ticket->game_id,
             'full_number' => (string) $ticket->full_number,
-            'status' => (string) $ticket->status,
+            'status' => $this->customerVisibleTicketStatus((string) $ticket->status, $rewardStatus),
+            'reward_status' => $rewardStatus,
+            'prize_type' => $rewardStatus['prize_type'] ?? null,
+            'prize_number' => $rewardStatus['prize_number'] ?? null,
+            'prize_amount' => $rewardStatus['prize_amount'] ?? null,
+            'claimable' => $rewardStatus['claimable'] ?? false,
             'image_thumb_url' => $image['image_thumb_url'],
             'image_url' => $image['image_url'],
             'preview_image_url' => $image['preview_image_url'],
             'image_status' => $image['image_status'],
             'image_error' => $image['image_error'],
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function ticketRewardStatusResource(object $ticket): array
+    {
+        $winning = DB::table('winning_tickets')
+            ->join('reward_results', 'reward_results.id', '=', 'winning_tickets.reward_result_id')
+            ->where('winning_tickets.tenant_id', (string) $ticket->tenant_id)
+            ->where('winning_tickets.ticket_id', (string) $ticket->id)
+            ->select([
+                'winning_tickets.id',
+                'winning_tickets.reward_result_id',
+                'winning_tickets.prize_type',
+                'winning_tickets.prize_number',
+                'winning_tickets.amount',
+                'winning_tickets.currency',
+                'winning_tickets.status',
+                'reward_results.status as reward_result_status',
+            ])
+            ->orderByDesc('winning_tickets.created_at')
+            ->first();
+        $claim = DB::table('reward_claims')
+            ->where('tenant_id', (string) $ticket->tenant_id)
+            ->where('ticket_id', (string) $ticket->id)
+            ->orderByDesc('created_at')
+            ->first();
+
+        if ($claim !== null) {
+            return [
+                'ticket_id' => (string) $ticket->id,
+                'status' => (string) $claim->status,
+                'claimable' => false,
+                'prize_type' => $winning?->prize_type,
+                'prize_number' => $winning?->prize_number,
+                'prize_amount' => $this->money((int) $claim->prize_amount, (string) $claim->currency),
+                'reward_result_id' => $winning?->reward_result_id,
+                'reward_claim_id' => (string) $claim->id,
+            ];
+        }
+
+        if ($winning !== null && in_array((string) $winning->reward_result_status, ['verified', 'published'], true)) {
+            return [
+                'ticket_id' => (string) $ticket->id,
+                'status' => 'winning',
+                'claimable' => (string) $winning->reward_result_status === 'published' && in_array((string) $winning->status, ['pending', 'verified'], true),
+                'prize_type' => (string) $winning->prize_type,
+                'prize_number' => (string) $winning->prize_number,
+                'prize_amount' => $this->money((int) $winning->amount, (string) $winning->currency),
+                'reward_result_id' => (string) $winning->reward_result_id,
+                'reward_claim_id' => null,
+            ];
+        }
+
+        $published = DB::table('reward_results')
+            ->where('game_id', (string) $ticket->game_id)
+            ->where('status', 'published')
+            ->exists();
+
+        return [
+            'ticket_id' => (string) $ticket->id,
+            'status' => $published ? 'non_winning' : 'pending_result',
+            'claimable' => false,
+            'prize_type' => null,
+            'prize_number' => null,
+            'prize_amount' => null,
+            'reward_result_id' => null,
+            'reward_claim_id' => null,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $rewardStatus
+     */
+    private function customerVisibleTicketStatus(string $ticketStatus, array $rewardStatus): string
+    {
+        $status = strtolower(trim($ticketStatus));
+        $rewardStatusValue = strtolower(trim((string) ($rewardStatus['status'] ?? '')));
+
+        if (in_array($rewardStatusValue, ['winning', 'claim_submitted', 'approved', 'claim_approved', 'paid', 'paid_out'], true)) {
+            return in_array($rewardStatusValue, ['paid', 'paid_out'], true) ? 'paid_out' : 'winning';
+        }
+
+        if ($rewardStatusValue === 'non_winning') {
+            return 'non_winning';
+        }
+
+        if (in_array($status, ['winning', 'non_winning', 'paid_out'], true)) {
+            return 'reward_pending';
+        }
+
+        return $ticketStatus;
     }
 
     /**

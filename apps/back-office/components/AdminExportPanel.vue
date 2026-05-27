@@ -8,12 +8,12 @@
       >
         <button
           type="button"
-          class="btn btn-outline-primary btn-wave"
+          :class="`btn btn-outline-${action.variant || 'primary'} btn-wave`"
           :disabled="action.disabled"
           :title="action.disabledReason"
           @click="$emit('run', action)"
         >
-          <i class="ri-play-line me-1" />
+          <i :class="action.route ? 'ri-arrow-right-line me-1' : 'ri-play-line me-1'" />
           {{ action.label }}
         </button>
         <span v-if="action.disabled && action.disabledReason" class="text-muted fs-12 mt-1">{{ action.disabledReason }}</span>

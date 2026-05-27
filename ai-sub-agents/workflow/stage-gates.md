@@ -11,11 +11,14 @@ Owner: Coordinator
 ระบุ Execution Mode: AUTO ใน decision
 อ่าน Coordinator memory เป็น cache
 อ่าน source of truth
+classify Task Size: SMALL/STANDARD/FULL
+กำหนด Flow Mode: FAST_PATH/STANDARD/FULL
 กำหนด scope และ out-of-scope
 กำหนด milestone/lifecycle
 กำหนด acceptance criteria
 กำหนด agent assignment
-เขียน trigger ให้ Orchestrator เท่านั้น
+เขียน trigger ให้ Orchestrator สำหรับ STANDARD/FULL
+เขียน trigger ให้ owning dev-agent โดยตรงได้เฉพาะ FAST_PATH SMALL
 อัปเดต Coordinator memory ถ้ามี reusable decision pattern ใหม่
 ```
 
@@ -23,11 +26,14 @@ Output:
 
 ```text
 ai-sub-agents/decisions/YYYYMMDD-<task-key>-decision.md
-ai-sub-agents/triggers/YYYYMMDD-<task-key>-orchestrator-trigger.md
-Next Agent: Orchestrator
+ai-sub-agents/triggers/YYYYMMDD-<task-key>-orchestrator-trigger.md for STANDARD/FULL
+ai-sub-agents/triggers/YYYYMMDD-<task-key>-<dev-agent>-trigger.md for FAST_PATH
+Next Agent: Orchestrator or owning Dev Agent
 ```
 
 Coordinator ห้ามเขียนโค้ดใน gate นี้
+
+FAST_PATH ต้องทำตาม `ai-sub-agents/workflow/fast-path.md`
 
 ## Gate 1: Task Breakdown
 
@@ -37,6 +43,7 @@ Owner: Orchestrator
 อ่าน Coordinator decision
 อ่าน Orchestrator memory เป็น cache
 อ่าน Orchestrator trigger; AUTO runner owns trigger status
+ตรวจ Task Size/Flow Mode และไม่เปิด conditional agents เกิน decision
 แตกงานเป็น task prompt ตาม agent ownership
 สร้าง trigger ให้ dev-agent ที่เกี่ยวข้อง
 สร้าง shared file lock ถ้ามี shared risk
@@ -45,6 +52,7 @@ Owner: Orchestrator
 กำหนด automated test expectation
 กำหนด test env/test DB requirement
 กำหนด handoff target
+เปิด backend/agent เพิ่มเฉพาะเมื่อมี evidence และ Coordinator approval ถ้าเป็น scope expansion
 ส่ง handoff ให้ runner mark Orchestrator trigger DONE เมื่อ task/trigger/handoff ครบ
 อัปเดต Orchestrator memory ถ้ามี reusable breakdown pattern ใหม่
 ```
@@ -63,7 +71,7 @@ ai-sub-agents/handoffs/YYYYMMDD-<task-key>-orchestrator-handoff.md
 Owner: Dev Backend, Dev BO Central, Dev BO Partner, Dev Customer
 
 ```text
-ทำเฉพาะ task ที่ได้รับจาก Orchestrator
+ทำเฉพาะ task ที่ได้รับจาก Orchestrator หรือ FAST_PATH Coordinator trigger
 อ่าน memory ของตัวเองเป็น cache
 อ่าน trigger ของตัวเอง; AUTO runner owns trigger status
 ผ่าน worktree start gate ก่อนแก้ไฟล์
@@ -81,7 +89,7 @@ Output:
 
 ```text
 ai-sub-agents/handoffs/YYYYMMDD-<task-key>-<agent>-handoff.md
-Next Agent: Orchestrator
+Next Agent: Orchestrator for STANDARD/FULL, or Coordinator/QA Tester according to FAST_PATH decision
 ```
 
 ## Gate 3: Orchestrator Completion Check
@@ -113,12 +121,14 @@ Next Agent: QA Tester
 
 ถ้างานยังไม่ครบ ให้ส่งกลับ dev-agent ที่เกี่ยวข้องผ่าน remediation task
 
+FAST_PATH ที่ไม่ใช้ Orchestrator ให้ Coordinator ตรวจ dev handoff แล้วสร้าง QA trigger หรือส่ง remediation decision ตาม acceptance criteria
+
 ## Gate 4: QA
 
 Owner: QA Tester
 
 ```text
-อ่าน Coordinator decision, Orchestrator task, และ dev handoff
+อ่าน Coordinator decision, QA task/trigger, และ dev handoff
 อ่าน QA Tester memory เป็น cache
 อ่าน QA trigger; AUTO runner owns trigger status
 ผ่าน worktree start gate ก่อนทดสอบ
@@ -126,6 +136,7 @@ Owner: QA Tester
 ทดสอบทุกอย่างบน test env/test DB ก่อนเสมอ
 รัน automated/focused regression ตาม acceptance criteria
 เปิด Google Chrome จริงแบบ visible สำหรับ browser acceptance
+แยก Automated Test DB กับ Visible Browser Runtime DB ใน report
 บันทึก evidence และผล PASS/FAIL
 เขียน requested trigger final status ใน QA report
 อัปเดต QA Tester memory ถ้ามี reusable QA pattern/gotcha/test data ใหม่
@@ -148,6 +159,7 @@ Owner: Coordinator
 อ่าน QA report
 อ่าน Coordinator memory เป็น cache
 ตรวจ risk, defect, evidence, และ test env compliance
+ตรวจว่า QA report แยก automated test DB และ visible browser runtime DB ชัดเจน
 ตัดสิน PASS, FAIL, PASS WITH RISK, หรือ ASK USER
 ถ้า PASS ให้สร้าง GitOps trigger
 อัปเดต Coordinator memory ถ้ามี reusable approval/remediation pattern ใหม่
@@ -164,7 +176,7 @@ Decision:
 
 ```text
 PASS -> Next Agent: GitOps
-FAIL/PASS WITH RISK -> Next Agent: Orchestrator
+FAIL/PASS WITH RISK -> Next Agent: Orchestrator, or owning Dev Agent only when FAST_PATH remediation remains SMALL and single-owner
 ASK USER -> hold until user answers
 ```
 

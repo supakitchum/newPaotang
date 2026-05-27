@@ -55,6 +55,13 @@ export interface SiteConfig {
     realtime_url?: string
     asset_cdn_base_url?: string
   }
+  live?: {
+    waiting_result_youtube_url?: string
+    waiting_result_youtube_embed_url?: string
+    tenant_override_youtube_url?: string
+    central_default_youtube_url?: string
+    source?: string
+  }
   [key: string]: unknown
 }
 

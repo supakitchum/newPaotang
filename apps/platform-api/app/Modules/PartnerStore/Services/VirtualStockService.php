@@ -599,13 +599,19 @@ class VirtualStockService
                 return ['error' => 'reservation_unavailable'];
             }
 
-            $game = Game::query()->where('id', $gameId)->where('status', 'open')->lockForUpdate()->first();
+            $now = now();
+            $game = Game::query()
+                ->where('id', $gameId)
+                ->where('status', 'open')
+                ->where('sale_start_at', '<=', $now)
+                ->where('close_at', '>', $now)
+                ->lockForUpdate()
+                ->first();
 
             if ($game === null) {
                 return ['error' => 'reservation_unavailable'];
             }
 
-            $now = now();
             $firstActiveReservation = StockReservation::query()
                 ->where('tenant_id', $tenantId)
                 ->where('customer_id', $customer->customerId())

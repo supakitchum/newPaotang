@@ -12,6 +12,15 @@
 AUTO
 ```
 
+## Task Classification
+
+```text
+task_size: SMALL | STANDARD | FULL
+flow_mode: FAST_PATH | STANDARD | FULL
+primary_owner:
+conditional_agents:
+```
+
 Fallback:
 
 ```text
@@ -53,6 +62,21 @@ last_heartbeat_at:
 timeout_minutes: 30
 retry_count: 0
 max_retries: 1
+poll_interval_seconds: 60-120
+```
+
+## Agent Reuse
+
+```text
+reuse_policy: reuse_or_resume_same_task_role_before_spawn
+spawn_control: auto | spawn_new:<agent>
+agent_registry:
+existing_agent_id:
+previous_agent_ids:
+replacement_spawn_requires_user_decision: Yes
+replacement_decision:
+prewarm_allowed: Yes/No
+close_policy:
 ```
 
 ## Source Decision
@@ -103,6 +127,15 @@ Use APP_ENV=testing and DB_DATABASE=newpaotang_test for destructive commands.
 Do not wipe/reset local runtime DB newpaotang.
 ```
 
+## Visible Browser Runtime Requirement
+
+```text
+Browser QA required: Yes/No
+Automated test DB:
+Visible browser runtime DB:
+Browser QA must be non-destructive if runtime DB is newpaotang.
+```
+
 ## DB Change Declaration
 
 ```text
@@ -122,6 +155,13 @@ Locked files:
 
 ```text
 handoff/report path:
+```
+
+## Spawn Prompt
+
+```text
+template: ai-sub-agents/templates/codex-spawn-prompt-template.md
+agent_type: worker
 ```
 
 ## Status History

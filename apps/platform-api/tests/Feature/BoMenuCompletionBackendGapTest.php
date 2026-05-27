@@ -46,6 +46,8 @@ class BoMenuCompletionBackendGapTest extends TestCase
             'GET|HEAD api/v1/admin/central/sync-logs',
             'GET|HEAD api/v1/admin/tenant/price-rules',
             'GET|HEAD api/v1/admin/tenant/price-rule-games',
+            'GET|HEAD api/v1/admin/tenant/price-rules/live-settings',
+            'PATCH api/v1/admin/tenant/price-rules/live-settings',
             'POST api/v1/admin/tenant/price-rules',
             'GET|HEAD api/v1/admin/tenant/price-rules/{price_rule_id}',
             'PATCH api/v1/admin/tenant/price-rules/{price_rule_id}',
@@ -304,6 +306,15 @@ class BoMenuCompletionBackendGapTest extends TestCase
             'tenant_id' => 'ten_tenant_gap',
         ]);
 
+        DB::table('platform_system_settings')->insert([
+            'id' => 'pss_live_url',
+            'key' => 'waiting_result_youtube_url',
+            'value_json' => json_encode('https://www.youtube.com/watch?v=M7lc1UVf-VE', JSON_THROW_ON_ERROR),
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         $this->withToken($login['access_token'])
             ->getJson('/api/v1/admin/tenant/price-rule-games', $tenantHeaders)
             ->assertOk()
@@ -317,8 +328,24 @@ class BoMenuCompletionBackendGapTest extends TestCase
             ->assertJsonPath('data.0.prize_type', 'first_prize')
             ->assertJsonPath('data.0.central_reward_amount.amount', 6000000)
             ->assertJsonPath('data.0.partner_payout_amount.amount', 6000000)
+            ->assertJsonPath('meta.live_settings.waiting_result_youtube_url', 'https://www.youtube.com/watch?v=M7lc1UVf-VE')
+            ->assertJsonPath('meta.live_settings.waiting_result_youtube_embed_url', 'https://www.youtube.com/embed/M7lc1UVf-VE')
+            ->assertJsonPath('meta.live_settings.source', 'central_default')
             ->json();
         $firstPrizeRowId = $priceRule['data'][0]['id'];
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/tenant/price-rules/live-settings', [
+                'live' => [
+                    'waiting_result_youtube_url' => 'https://youtu.be/dQw4w9WgXcQ',
+                ],
+            ], $tenantHeaders + ['Idempotency-Key' => 'tenant-price-rule-live-settings'])
+            ->assertOk()
+            ->assertJsonPath('tenant_override_youtube_url', 'https://youtu.be/dQw4w9WgXcQ')
+            ->assertJsonPath('waiting_result_youtube_url', 'https://youtu.be/dQw4w9WgXcQ')
+            ->assertJsonPath('waiting_result_youtube_embed_url', 'https://www.youtube.com/embed/dQw4w9WgXcQ')
+            ->assertJsonPath('central_default_youtube_url', 'https://www.youtube.com/watch?v=M7lc1UVf-VE')
+            ->assertJsonPath('source', 'tenant_override');
 
         $updatedPriceRule = $this->withToken($login['access_token'])
             ->patchJson('/api/v1/admin/tenant/price-rules/'.$firstPrizeRowId, [
@@ -365,6 +392,13 @@ class BoMenuCompletionBackendGapTest extends TestCase
             ->assertAccepted()
             ->assertJsonPath('status', 'active')
             ->assertJsonPath('readiness.dns_verified', true);
+
+        $this->getJson('http://tenant-gap.newpaotang.test/api/v1/public/site-config')
+            ->assertOk()
+            ->assertJsonPath('data.live.waiting_result_youtube_url', 'https://youtu.be/dQw4w9WgXcQ')
+            ->assertJsonPath('data.live.waiting_result_youtube_embed_url', 'https://www.youtube.com/embed/dQw4w9WgXcQ')
+            ->assertJsonPath('data.live.central_default_youtube_url', 'https://www.youtube.com/watch?v=M7lc1UVf-VE')
+            ->assertJsonPath('data.live.source', 'tenant_override');
 
         $this->withToken($login['access_token'])
             ->patchJson('/api/v1/admin/tenant/domains/'.$domain['id'], [

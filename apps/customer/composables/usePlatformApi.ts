@@ -349,14 +349,41 @@ const ticketStatusToLegacy = (status: unknown) => {
   return 1
 }
 
+const customerVisibleTicketStatus = (ticketStatus: unknown, rewardStatus: AnyRecord) => {
+  const rewardStatusValue = String(rewardStatus.status || '').toLowerCase()
+
+  if (['winning', 'claim_submitted', 'approved', 'paid', 'paid_out'].includes(rewardStatusValue)) {
+    return ['paid', 'paid_out'].includes(rewardStatusValue) ? 5 : 4
+  }
+
+  if (rewardStatusValue === 'non_winning') {
+    return 0
+  }
+
+  const legacyStatus = ticketStatusToLegacy(ticketStatus)
+  return [4, 5, 0].includes(legacyStatus) && rewardStatusValue === 'pending_result' ? 1 : legacyStatus
+}
+
 const normalizeTicket = (ticket: AnyRecord) => {
   const imageFields = normalizeImageFields(ticket)
+  const rewardStatus = ticket.reward_status && typeof ticket.reward_status === 'object'
+    ? ticket.reward_status
+    : {}
+  const prizeAmount = moneyToDisplayNumber(rewardStatus.prize_amount || ticket.prize_amount, 0)
 
   return {
     ...ticket,
     number: String(ticket.full_number || ticket.number || ticket.lottery_number || ''),
     lottery_number: String(ticket.full_number || ticket.number || ticket.lottery_number || ''),
-    status: ticketStatusToLegacy(ticket.status),
+    status: customerVisibleTicketStatus(ticket.status, rewardStatus),
+    reward_status: {
+      ...rewardStatus,
+      prize_amount: prizeAmount
+    },
+    prize_type: rewardStatus.prize_type || ticket.prize_type || '',
+    prize_number: rewardStatus.prize_number || ticket.prize_number || '',
+    prize_amount: prizeAmount,
+    claimable: rewardStatus.claimable ?? ticket.claimable ?? false,
     ...imageFields
   }
 }
@@ -384,9 +411,11 @@ const rewardTypeToSlug = (value: unknown) => {
 
   const map: Record<string, string> = {
     first: 'reward_1',
+    first_prize: 'reward_1',
     reward_1: 'reward_1',
     two_digit: 'reward_two_digit',
     last2: 'reward_two_digit',
+    back2: 'reward_two_digit',
     reward_two_digit: 'reward_two_digit',
     front3: 'reward_three_digit_1',
     reward_three_digit_1: 'reward_three_digit_1',
@@ -394,7 +423,12 @@ const rewardTypeToSlug = (value: unknown) => {
     last3: 'reward_three_digit_2',
     reward_three_digit_2: 'reward_three_digit_2',
     beside_first: 'reward_beside_1',
-    reward_beside_1: 'reward_beside_1'
+    near_first_prize: 'reward_beside_1',
+    reward_beside_1: 'reward_beside_1',
+    second_prize: 'reward_2',
+    third_prize: 'reward_3',
+    fourth_prize: 'reward_4',
+    fifth_prize: 'reward_5'
   }
 
   return map[type] || type
@@ -448,7 +482,19 @@ export const usePlatformApi = () => {
       return currentGameState.value
     }
 
-    const response = await axios.get('/public/games/current')
+    let response: unknown
+
+    try {
+      response = await axios.get('/public/games/current')
+    } catch (error) {
+      if (options.force) {
+        currentGameState.value = null
+        currentGameFetchedAt.value = Date.now()
+      }
+
+      throw error
+    }
+
     const game = unwrapData<AnyRecord>(response)
 
     currentGameState.value = game
@@ -498,10 +544,10 @@ export const usePlatformApi = () => {
     })
   }
 
-  const loadAppInit = async () => {
+  const loadAppInit = async (options: { force?: boolean } = {}) => {
     const [configResult, gameResult, cartResult] = await Promise.allSettled([
       fetchSiteConfig(),
-      getCurrentGame(),
+      getCurrentGame({ force: options.force }),
       token.value ? loadCart() : Promise.resolve(null)
     ])
     const configValue = configResult.status === 'fulfilled' ? configResult.value : null
@@ -613,6 +659,29 @@ export const usePlatformApi = () => {
       return withLegacyData({
         code: 0,
         result: null,
+        history: []
+      })
+    }
+  }
+
+  const rewardLiveLegacy = async (gameId?: string | number | null) => {
+    try {
+      const endpoint = gameId ? `/public/results/live/${gameId}` : '/public/results/live/latest'
+      const response = await axios.get(endpoint)
+      const rawSummary = unwrapData<AnyRecord>(response)
+      const summary = normalizeRewardSummary(rawSummary)
+
+      return withLegacyData({
+        code: 0,
+        result: summary,
+        live: rawSummary,
+        history: summary ? [summary] : []
+      })
+    } catch {
+      return withLegacyData({
+        code: 0,
+        result: null,
+        live: null,
         history: []
       })
     }
@@ -983,6 +1052,7 @@ export const usePlatformApi = () => {
     storesLegacy,
     newsLegacy,
     rewardLegacy,
+    rewardLiveLegacy,
     login,
     me,
     refresh,

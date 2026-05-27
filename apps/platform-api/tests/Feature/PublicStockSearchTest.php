@@ -245,6 +245,31 @@ class PublicStockSearchTest extends TestCase
         $this->assertSame(1, DB::table('local_stock_items')->where('tenant_id', 'ten_virtual_public')->whereNotNull('virtual_stock_ref')->count());
     }
 
+    public function test_PublicStockSearch_hides_virtual_stock_after_game_sale_window_closes(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_sale_closed', 'ten_sale_closed', 'sale-closed.newpaotang.test');
+        $this->insertGame('gam_sale_closed', 'open');
+        $this->insertBaseLotteryNumbers(['234567']);
+        $this->insertVirtualProfile('gam_sale_closed');
+        $this->insertPartnerDistribution('gam_sale_closed', 'par_sale_closed', 'ten_sale_closed', 10000);
+
+        DB::table('games')->where('id', 'gam_sale_closed')->update([
+            'close_at' => now()->subMinute(),
+            'updated_at' => now(),
+        ]);
+
+        $this->getJson('http://sale-closed.newpaotang.test/api/v1/public/games/current')
+            ->assertNotFound()
+            ->assertJsonPath('error.code', 'resource_not_found');
+
+        $this->getJson('http://sale-closed.newpaotang.test/api/v1/public/stock/search?game_id=gam_sale_closed&number=234567')
+            ->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJsonPath('meta.next_cursor', null)
+            ->assertJsonPath('meta.has_more', false);
+    }
+
     public function test_PublicStockSearch_exact_six_virtual_search_returns_duplicate_copies_with_unique_reservation_ids(): void
     {
         $this->seedDefaultRbac();

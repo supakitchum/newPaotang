@@ -7,11 +7,13 @@ use App\Models\PartnerTenantDomain;
 use App\Models\PartnerTenantFeatureFlag;
 use App\Models\PartnerTenantSetting;
 use App\Models\PartnerTenantTheme;
+use App\Models\PlatformSystemSetting;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Modules\Maintenance\Services\MaintenanceService;
 use App\Shared\Tenancy\PartnerBoHostResolver;
 use App\Shared\Tenancy\TenantHostNormalizer;
+use App\Support\YoutubeLiveUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -216,6 +218,10 @@ class TenantConfigurationService
             $errors['maintenance_mode'][] = 'The maintenance_mode field is invalid.';
         }
 
+        if (array_key_exists('waiting_result_youtube_url', $updates) && ! YoutubeLiveUrl::isAllowedOrEmpty($updates['waiting_result_youtube_url'])) {
+            $errors['waiting_result_youtube_url'][] = 'The waiting_result_youtube_url field must be a valid YouTube URL.';
+        }
+
         foreach (['maintenance_allowed_routes_json', 'maintenance_blocked_route_patterns_json'] as $field) {
             if (array_key_exists($field, $updates) && ! is_array($updates[$field])) {
                 $errors[$field][] = 'The '.$field.' field must be an array of strings.';
@@ -346,6 +352,7 @@ class TenantConfigurationService
             'seo' => $this->seoPayload($settings, $host),
             'maintenance' => $this->maintenance->stateForTenant((string) $record->tenant_id, (string) $record->tenant_status),
             'api' => $this->apiPayload($settings),
+            'live' => $this->livePayload($settings),
             'timestamps' => [
                 'config_version' => max((int) $settings->config_version, (int) $theme->config_version),
                 'updated_at' => max((string) $settings->updated_at, (string) $theme->updated_at),
@@ -370,6 +377,7 @@ class TenantConfigurationService
             'seo' => $this->seoPayload($settings, $host),
             'maintenance' => $this->maintenance->stateForTenant((string) $tenant->id, (string) $tenant->status),
             'api' => $this->apiPayload($settings),
+            'live' => $this->livePayload($settings),
             'config_version' => (int) $settings->config_version,
         ];
     }
@@ -427,6 +435,7 @@ class TenantConfigurationService
             'api_base_url' => '/api/v1',
             'realtime_url' => null,
             'asset_cdn_base_url' => $this->canonicalUrl($this->primaryHost((string) $tenant->id)),
+            'waiting_result_youtube_url' => null,
             'config_version' => 1,
             'created_at' => $now,
             'updated_at' => $now,
@@ -501,6 +510,7 @@ class TenantConfigurationService
             'api_base_url' => '/api/v1',
             'realtime_url' => null,
             'asset_cdn_base_url' => $this->canonicalUrl($this->primaryHost((string) $tenant->id)),
+            'waiting_result_youtube_url' => null,
             'config_version' => 1,
             'created_at' => $now,
             'updated_at' => $now,
@@ -546,6 +556,7 @@ class TenantConfigurationService
         $seo = is_array($payload['seo'] ?? null) ? $payload['seo'] : [];
         $maintenance = is_array($payload['maintenance'] ?? null) ? $payload['maintenance'] : [];
         $api = is_array($payload['api'] ?? null) ? $payload['api'] : [];
+        $live = is_array($payload['live'] ?? null) ? $payload['live'] : [];
 
         foreach (['site_name', 'display_name', 'locale', 'timezone', 'support_email', 'support_phone'] as $field) {
             if (array_key_exists($field, $payload) || array_key_exists($field, $site)) {
@@ -604,6 +615,14 @@ class TenantConfigurationService
                 $updates[$column] = $payload[$column];
             } elseif (array_key_exists($input, $payload)) {
                 $updates[$column] = $payload[$input];
+            }
+        }
+
+        foreach (['waiting_result_youtube_url', 'youtube_live_url'] as $field) {
+            if (array_key_exists($field, $live)) {
+                $updates['waiting_result_youtube_url'] = $live[$field];
+            } elseif (array_key_exists($field, $payload)) {
+                $updates['waiting_result_youtube_url'] = $payload[$field];
             }
         }
 
@@ -737,6 +756,35 @@ class TenantConfigurationService
             'realtime_url' => $settings->realtime_url,
             'asset_cdn_base_url' => $settings->asset_cdn_base_url,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function livePayload(object $settings): array
+    {
+        $centralUrl = $this->centralWaitingResultYoutubeUrl();
+        $tenantUrl = trim((string) ($settings->waiting_result_youtube_url ?? ''));
+        $resolvedUrl = $tenantUrl !== '' ? $tenantUrl : $centralUrl;
+
+        return [
+            'waiting_result_youtube_url' => $resolvedUrl,
+            'waiting_result_youtube_embed_url' => YoutubeLiveUrl::embedUrl($resolvedUrl),
+            'tenant_override_youtube_url' => $tenantUrl,
+            'central_default_youtube_url' => $centralUrl,
+            'source' => $tenantUrl !== '' ? 'tenant_override' : ($centralUrl !== '' ? 'central_default' : 'not_configured'),
+        ];
+    }
+
+    private function centralWaitingResultYoutubeUrl(): string
+    {
+        $value = PlatformSystemSetting::query()
+            ->where('key', 'waiting_result_youtube_url')
+            ->where('status', 'active')
+            ->first()
+            ?->value_json;
+
+        return is_string($value) ? trim($value) : '';
     }
 
     /**

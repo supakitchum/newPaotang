@@ -72,6 +72,11 @@ export default defineNuxtConfig({
             })
           },
         },
+        '/lotto-scraper': {
+          target: 'http://lotto-scraper:3200',
+          changeOrigin: false,
+          rewrite: (path) => path.replace(/^\/lotto-scraper/, '') || '/',
+        },
       },
     },
   },

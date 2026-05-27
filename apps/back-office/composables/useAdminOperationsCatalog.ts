@@ -38,7 +38,7 @@ export type OperationOption = string | {
   close_at?: string
   server_time?: string
 }
-export type OperationOptionSource = 'central-games' | 'central-sale-price-games' | 'central-partners' | 'central-billing-plans' | 'central-admin-roles' | 'tenant-admin-roles' | 'allocation-partners' | 'allocation-tenants' | 'allocation-games' | 'tenant-stock-games' | 'tenant-price-rule-games' | 'tenant-sale-price-games' | 'tenant-customers' | 'tenant-affiliates' | 'tenant-affiliate-programs'
+export type OperationOptionSource = 'central-games' | 'central-winner-games' | 'central-sale-price-games' | 'central-partners' | 'central-billing-plans' | 'central-admin-roles' | 'tenant-admin-roles' | 'allocation-partners' | 'allocation-tenants' | 'allocation-games' | 'tenant-stock-games' | 'tenant-price-rule-games' | 'tenant-sale-price-games' | 'tenant-customers' | 'tenant-affiliates' | 'tenant-affiliate-programs'
 
 export type OperationColumn = {
   key: string
@@ -92,7 +92,7 @@ export type OperationFormField = {
   max?: number
   step?: number
   itemKey?: string
-  emptyValue?: 'array'
+  emptyValue?: 'array' | 'string'
   submitAsArray?: boolean
   partial?: boolean
   visibleForGenerationModes?: string[]
@@ -104,6 +104,7 @@ export type OperationAction = {
   method?: 'POST' | 'PATCH' | 'PUT' | 'DELETE'
   endpoint?: string
   route?: string
+  target?: '_blank' | '_self'
   variant?: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'light'
   disabled?: boolean
   disabledReason?: string
@@ -540,6 +541,8 @@ const alertPolicyStatusOptions = ['active', 'paused', 'archived']
 const alertSeverityOptions = ['info', 'warning', 'critical']
 const alertEventStatusOptions = ['open', 'acknowledged', 'resolved', 'suppressed']
 const rewardStatusOptions = ['draft', 'recorded', 'checking', 'summary_ready', 'verified', 'published', 'corrected', 'archived']
+const rewardPrizeTypeOptions = ['first_prize', 'second_prize', 'third_prize', 'fourth_prize', 'fifth_prize', 'near_first_prize', 'front3', 'back3', 'back2']
+const rewardClaimStatusOptions = ['not_claimed', 'submitted', 'under_review', 'approved', 'paid', 'rejected', 'cancelled']
 const adminUserStatusOptions = ['active', 'invited', 'suspended', 'disabled']
 const roleStatusOptions = ['active', 'archived']
 const maintenanceStatusOptions = ['inactive', 'scheduled', 'active', 'ended', 'cancelled']
@@ -571,6 +574,26 @@ const reportExportContext = ['scope', 'report_key', 'tenant_id', 'date_from', 'd
 const adminUserActionContext = ['id', 'tenant_id', 'name', 'email', 'phone', 'status', 'roles.0.id', 'roles.0.name', 'permissions.0']
 const roleActionContext = ['id', 'tenant_id', 'code', 'name', 'status', 'permissions.0', 'permissions.1', 'system_role']
 const domainActionContext = ['id', 'tenant_id', 'host', 'type', 'status', 'is_primary', 'readiness.local_only']
+const winnerDetailFields: OperationColumn[] = [
+  { key: 'game_name', label: 'Game', fallbackKeys: ['game_code', 'game_id'] },
+  { key: 'tenant_name', label: 'Tenant', fallbackKeys: ['tenant_code', 'tenant_id'] },
+  { key: 'customer_name', label: 'Winner', fallbackKeys: ['customer_no', 'customer_id'] },
+  { key: 'customer_no', label: 'Customer No.' },
+  { key: 'customer_phone', label: 'Phone' },
+  { key: 'full_number', label: 'Ticket number' },
+  { key: 'ticket_status', label: 'Ticket status', type: 'status' },
+  { key: 'prize_type', label: 'Prize type' },
+  { key: 'prize_number', label: 'Prize number' },
+  { key: 'prize_amount', label: 'Prize amount', type: 'money' },
+  { key: 'base_amount', label: 'Base amount', type: 'money' },
+  { key: 'adjustment_amount', label: 'Adjustment', type: 'money' },
+  { key: 'claim_status', label: 'Claim status', type: 'status' },
+  { key: 'claim_reference', label: 'Claim reference' },
+  { key: 'claim_payout_method', label: 'Payout method' },
+  { key: 'status', label: 'Winning status', type: 'status' },
+  { key: 'created_at', label: 'Created', type: 'datetime' },
+  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+]
 const rewardPrizeNumberHelp = 'Update winning numbers only. Payout amounts are kept from the current reward template.'
 const rewardPrizeAmountHelp = 'Update payout amounts only. Each amount is edited once per prize group and applied to every row in that group.'
 const permissionOptions = (permissions: Record<string, string>): OperationOption[] => Object.entries(permissions)
@@ -1402,6 +1425,26 @@ const rewardNumberUpdateFields: OperationFormField[] = [
 const rewardPayoutUpdateFields: OperationFormField[] = [
   { key: 'payout_amount_updates', label: 'Payout amounts', type: 'reward-prize-amount-grid', sourceKey: 'prizes', required: true, partial: true, help: rewardPrizeAmountHelp },
 ]
+const centralRewardLiveFields: OperationFormField[] = [
+  {
+    key: 'waiting_result_youtube_url',
+    label: 'YouTube live URL',
+    sourceKey: 'live_settings.waiting_result_youtube_url',
+    placeholder: 'https://www.youtube.com/watch?v=...',
+    emptyValue: 'string',
+    help: 'Default livestream used on the customer waiting-result page when a tenant has no override.',
+  },
+]
+const tenantRewardLiveFields: OperationFormField[] = [
+  {
+    key: 'live.waiting_result_youtube_url',
+    label: 'YouTube live override URL',
+    sourceKey: 'live_settings.tenant_override_youtube_url',
+    placeholder: 'Leave blank to use Central default',
+    emptyValue: 'string',
+    help: 'Tenant override for the customer waiting-result page. Leave blank to inherit the Central Rewards default.',
+  },
+]
 const tenant: OperationResource[] = [
   {
     scope: 'tenant',
@@ -1470,6 +1513,15 @@ const tenant: OperationResource[] = [
         formFields: priceRuleUpdateFields,
       },
     ],
+    collectionActions: [{
+      key: 'update-live',
+      label: 'Set YouTube live override',
+      method: 'PATCH',
+      endpoint: '/admin/tenant/price-rules/live-settings',
+      variant: 'info',
+      formFields: tenantRewardLiveFields,
+      contextFields: ['live_settings.waiting_result_youtube_url', 'live_settings.central_default_youtube_url', 'live_settings.source'],
+    }],
   },
   {
     scope: 'tenant',
@@ -1521,7 +1573,7 @@ const tenant: OperationResource[] = [
     idParam: 'reservation_id',
     idKey: 'id',
     apiSort: true,
-    defaultSort: { key: 'created_at', direction: 'desc' },
+    defaultSort: { key: 'updated_at', direction: 'desc' },
     columns: [
       { key: 'customer_no', label: 'Customer no' },
       { key: 'status', label: 'Status', type: 'status' },
@@ -2912,6 +2964,35 @@ const central: OperationResource[] = [
   },
   {
     scope: 'central',
+    slug: 'winners',
+    title: 'Winners',
+    group: 'Lottery Operations',
+    listEndpoint: '/admin/central/winners',
+    idParam: 'winner_id',
+    idKey: 'id',
+    detailFromList: true,
+    clientSort: true,
+    defaultSort: { key: 'created_at', direction: 'desc' },
+    columns: [
+      { key: 'full_number', label: 'Ticket number' },
+      { key: 'prize_summary', label: 'Prize', fallbackKeys: ['prize_type'] },
+      { key: 'ticket_count', label: 'Tickets', type: 'number' },
+      { key: 'total_prize_amount', label: 'Total prize', type: 'money', fallbackKeys: ['prize_amount'] },
+      { key: 'tenant_summary', label: 'Tenant', fallbackKeys: ['tenant_name', 'tenant_code', 'tenant_id'] },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ],
+    filters: cursorFilters([
+      { key: 'game_id', label: 'Game', type: 'select', optionSource: 'central-winner-games', hideEmptyOption: true, emptyOptionLabel: 'No opened game' },
+      { key: 'q', label: 'Search' },
+      { key: 'prize_type', label: 'Prize type', type: 'select', options: rewardPrizeTypeOptions },
+      { key: 'claim_status', label: 'Claim status', type: 'select', options: rewardClaimStatusOptions },
+      statusFilter(['pending', 'verified', 'paid', 'cancelled']),
+    ]),
+    detailFields: winnerDetailFields,
+  },
+  {
+    scope: 'central',
     slug: 'rewards',
     title: 'Rewards',
     group: 'Central Rewards',
@@ -2931,17 +3012,26 @@ const central: OperationResource[] = [
     filters: cursorFilters([{ key: 'game_id', label: 'Game ID' }, statusFilter(rewardStatusOptions)]),
     confirmContextFields: rewardActionContext,
     actions: [
-      { key: 'update_numbers', label: 'Update winning numbers', method: 'PATCH', endpoint: '/admin/central/rewards/{reward_result_id}', variant: 'primary', contextFields: rewardActionContext, formFields: rewardNumberUpdateFields },
-      { key: 'update_payouts', label: 'Update payout amounts', method: 'PATCH', endpoint: '/admin/central/rewards/{reward_result_id}', variant: 'warning', contextFields: rewardActionContext, formFields: rewardPayoutUpdateFields },
-      { key: 'verify', label: 'Verify', endpoint: '/admin/central/rewards/{reward_result_id}/verify', variant: 'success', reason: true, contextFields: rewardActionContext },
-      { key: 'correct', label: 'Correct', endpoint: '/admin/central/rewards/{reward_result_id}/correct', variant: 'warning', reason: true, contextFields: rewardActionContext },
-      { key: 'publish', label: 'Publish', endpoint: '/admin/central/rewards/{reward_result_id}/publish', variant: 'primary', reason: true, contextFields: rewardActionContext },
+      { key: 'update_numbers', label: 'Update winning numbers', method: 'PATCH', endpoint: '/admin/central/rewards/{reward_result_id}', variant: 'primary', contextFields: rewardActionContext, formFields: rewardNumberUpdateFields, enabledStatuses: ['draft', 'recorded', 'checking', 'summary_ready', 'verified'], hideWhenDisabled: true },
+      { key: 'update_payouts', label: 'Update payout amounts', method: 'PATCH', endpoint: '/admin/central/rewards/{reward_result_id}', variant: 'warning', contextFields: rewardActionContext, formFields: rewardPayoutUpdateFields, enabledStatuses: ['draft', 'recorded', 'checking', 'summary_ready', 'verified'], hideWhenDisabled: true },
+      { key: 'confirm_live', label: 'Confirm live draft', endpoint: '/admin/central/rewards/{reward_result_id}/confirm-live', variant: 'success', reason: true, contextFields: rewardActionContext, enabledStatuses: ['draft'], hideWhenDisabled: true },
+      { key: 'verify', label: 'Verify', endpoint: '/admin/central/rewards/{reward_result_id}/verify', variant: 'success', reason: true, contextFields: rewardActionContext, enabledStatuses: ['summary_ready'], hideWhenDisabled: true },
+      { key: 'correct', label: 'Correct', endpoint: '/admin/central/rewards/{reward_result_id}/correct', variant: 'warning', reason: true, contextFields: rewardActionContext, enabledStatuses: ['verified', 'published'], hideWhenDisabled: true },
+      { key: 'publish', label: 'Publish', endpoint: '/admin/central/rewards/{reward_result_id}/publish', variant: 'primary', reason: true, contextFields: rewardActionContext, enabledStatuses: ['verified'], hideWhenDisabled: true },
     ],
     collectionActions: [{
       key: 'create',
       label: 'Record reward result',
       endpoint: '/admin/central/rewards',
       formFields: rewardCreateFields,
+    }, {
+      key: 'update-live',
+      label: 'Set YouTube live default',
+      method: 'PATCH',
+      endpoint: '/admin/central/rewards/live-settings',
+      variant: 'info',
+      formFields: centralRewardLiveFields,
+      contextFields: ['live_settings.waiting_result_youtube_url', 'live_settings.source', 'live_settings.updated_at'],
     }],
   },
   {

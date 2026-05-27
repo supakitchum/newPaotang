@@ -21,7 +21,7 @@ MANUAL if background runner is unavailable
 ## Status
 
 ```text
-RUNNING
+DONE
 ```
 
 Allowed values:
@@ -143,7 +143,7 @@ handoff/report path: ai-sub-agents/gitops/20260525-customer-exact-six-duplicate-
 ```text
 created: 2026-05-25T23:09:01+0700 by Coordinator
 RUNNING: 2026-05-25T23:10:03+0700 by codex-native-runner-coordinator-20260525T231003+0700
-DONE/BLOCKED/CANCELLED:
+DONE/BLOCKED/CANCELLED: DONE 2026-05-25T23:16:14+0700 by codex-native-runner-coordinator-20260525T231003+0700
 ```
 
 ## Blockers

@@ -25,12 +25,14 @@ CANCELLED
 ## Who Can Trigger Whom
 
 ```text
-Coordinator -> Orchestrator only
+Coordinator -> Orchestrator for STANDARD/FULL work
+Coordinator -> owning Dev Agent only for FAST_PATH SMALL work
 Orchestrator -> Dev Backend / Dev BO Central / Dev BO Partner / Dev Customer / QA Tester
+Coordinator -> QA Tester only for FAST_PATH after owning dev-agent handoff is ready
 Coordinator -> GitOps only after QA PASS is accepted
 ```
 
-Coordinator ห้าม trigger dev-agent โดยตรง และ Orchestrator ห้าม trigger GitOps
+Coordinator ห้าม trigger dev-agent/QA โดยตรง ยกเว้น FAST_PATH ที่เข้าเกณฑ์ และ Orchestrator ห้าม trigger GitOps
 
 ## Required Trigger Fields
 
@@ -38,6 +40,8 @@ Coordinator ห้าม trigger dev-agent โดยตรง และ Orchestr
 
 ```text
 execution mode
+task size
+flow mode
 task key
 target agent
 status
@@ -50,6 +54,8 @@ worktree start gate
 test env/test DB requirement
 DB change declaration
 shared file locks required, if any
+reuse policy
+poll interval
 Next Agent
 ```
 
@@ -69,6 +75,7 @@ AUTO Mode: runner marks trigger RUNNING before implementation/testing work start
 AUTO Mode: runner marks trigger DONE only after required handoff/report exists
 AUTO Mode: runner marks trigger BLOCKED when a blocker prevents completion
 AUTO Mode: agent must not edit trigger status directly
+AUTO Mode: runner must poll expected handoff/report and reuse/resume same role+task agent before duplicate spawn
 MANUAL Mode: target agent/operator may update trigger status
 agent must not work from an old trigger if a newer trigger exists for the same task and agent
 AUTO runner must follow the same status lifecycle
