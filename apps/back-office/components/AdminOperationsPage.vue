@@ -654,6 +654,11 @@
         :record="relatedDetail.record"
         :loading="relatedDetail.loading"
       />
+      <AdminOrderDetail
+        v-else-if="relatedDetail.renderer === 'order'"
+        :record="relatedDetail.record"
+        :loading="relatedDetail.loading"
+      />
       <AdminDetailSection
         v-else
         title="Detail"
@@ -2822,7 +2827,7 @@ const loadRelatedList = async (related: OperationRelatedList, cursor?: string | 
     const pageCursor = cursor || null
     const endpoint = interpolate(related.listEndpoint, recordId.value)
     const relatedQuery = cleanQuery({
-      ...(related.defaultQuery || {}),
+      ...interpolateQuery(related.defaultQuery || {}, recordId.value),
       ...ensureRelatedFilters(related),
       cursor: pageCursor || relatedFilters[related.key]?.cursor || undefined,
       sort_by: related.apiSort && relatedSortState[related.key]?.key ? relatedSortState[related.key].key : undefined,
@@ -3456,6 +3461,16 @@ const interpolate = (endpoint: string, idOrRecord?: string | null | Record<strin
 
   return encodeURIComponent(idOrRecord || '')
 })
+
+const interpolateQuery = (query: Record<string, any>, idOrRecord?: string | null | Record<string, any>) => {
+  const next: Record<string, any> = {}
+
+  for (const [key, value] of Object.entries(query)) {
+    next[key] = typeof value === 'string' ? interpolate(value, idOrRecord) : value
+  }
+
+  return next
+}
 
 function normalizeSlug(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(String)

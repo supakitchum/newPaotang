@@ -1,5 +1,5 @@
 <template>
-  <AdminWinnersPage scope="central" />
+  <AdminWinnersPage scope="tenant" />
 </template>
 
 <script setup lang="ts">

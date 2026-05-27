@@ -63,7 +63,9 @@
             :is-winning="isWinningTicket(ticket)"
             :prize-title="getTicketPrizeTitle(ticket)"
             :prize-amount="formatPrizeAmount(getTicketPrizeAmount(ticket))"
+            :prizes="getTicketRewardPrizes(ticket)"
             :claim-label="isTicketClaimable(ticket) ? 'ขึ้นรางวัล' : 'ดูรางวัล'"
+            :claim-to="getTicketClaimTo(ticket)"
           />
         </div>
       </div>
@@ -113,13 +115,16 @@ const tabs = [
 const {
   fetchTickets,
   getGameDate,
+  getTicketGameDate,
   getTicketNumber,
   getTicketCount,
   getTicketStatusText,
   isWinningTicket,
   getTicketPrizeAmount,
+  getTicketRewardPrizes,
   getTicketPrizeTitle,
-  isTicketClaimable
+  isTicketClaimable,
+  getTicketClaimTo
 } = useUserTickets()
 const { currentDrawDate } = useAppInit()
 const perPage = 20
@@ -138,7 +143,7 @@ const activeSearch = ref('')
 const selectedTicket = ref<UserTicket | null>(null)
 const loadMoreSentinel = ref<HTMLElement | null>(null)
 let loadObserver: IntersectionObserver | null = null
-const drawDate = computed(() => getGameDate(currentGame.value) || currentDrawDate.value)
+const drawDate = computed(() => getGameDate(currentGame.value) || getTicketGameDate(tickets.value[0]) || currentDrawDate.value)
 const loadedTicketCount = computed(() => tickets.value.reduce((total, ticket) => total + getTicketCount(ticket), 0))
 const totalTicketCount = computed(() => apiTotalTicketCount.value || loadedTicketCount.value)
 const hasMore = computed(() => currentPage.value < lastPage.value)

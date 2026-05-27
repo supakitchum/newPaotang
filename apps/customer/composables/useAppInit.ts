@@ -281,7 +281,7 @@ export const useAppInit = () => {
     const waitingForResult = isWaitingForResultNow()
 
     if (path === '/waiting-result' && status === 2) {
-      return '/result'
+      return null
     }
 
     if (path === '/waiting-result' && !waitingForResult) {

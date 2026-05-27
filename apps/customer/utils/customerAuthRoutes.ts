@@ -4,6 +4,8 @@ const publicCustomerRoutes = new Set([
   '/register',
   '/line/callback',
   '/maintenance',
+  '/result',
+  '/result/full',
   '/wait-result',
   '/waiting-result',
 ])

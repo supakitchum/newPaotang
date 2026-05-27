@@ -540,7 +540,7 @@ const billingPlanStatusOptions = ['active', 'archived']
 const alertPolicyStatusOptions = ['active', 'paused', 'archived']
 const alertSeverityOptions = ['info', 'warning', 'critical']
 const alertEventStatusOptions = ['open', 'acknowledged', 'resolved', 'suppressed']
-const rewardStatusOptions = ['draft', 'recorded', 'checking', 'summary_ready', 'verified', 'published', 'corrected', 'archived']
+const rewardStatusOptions = ['draft', 'summary_ready', 'published']
 const rewardPrizeTypeOptions = ['first_prize', 'second_prize', 'third_prize', 'fourth_prize', 'fifth_prize', 'near_first_prize', 'front3', 'back3', 'back2']
 const rewardClaimStatusOptions = ['not_claimed', 'submitted', 'under_review', 'approved', 'paid', 'rejected', 'cancelled']
 const adminUserStatusOptions = ['active', 'invited', 'suspended', 'disabled']
@@ -557,6 +557,7 @@ const billingPlanActionContext = ['id', 'code', 'name', 'monthly_fee.amount', 'm
 const alertPolicyActionContext = ['id', 'partner_id', 'partner.name', 'policy_key', 'severity', 'status']
 const alertEventActionContext = ['id', 'partner_id', 'partner.name', 'policy_key', 'severity', 'status', 'channel', 'title', 'triggered_at']
 const rewardActionContext = ['id', 'game_id', 'status', 'version', 'checked_at', 'verified_at', 'published_at']
+const rewardClaimActionContext = ['id', 'reference', 'customer.customer_no', 'customer.name', 'ticket.full_number', 'prize_amount.amount', 'payout_method', 'status', 'submitted_at']
 const settlementActionContext = ['id', 'partner_id', 'tenant_id', 'status', 'sales_amount.amount', 'commission_amount.amount', 'payout_amount.amount', 'net_amount.amount', 'period_from', 'period_to']
 const priceRuleActionContext = ['game_id', 'prize_type', 'prize_label', 'prize_count', 'central_reward_amount.amount', 'partner_payout_amount.amount', 'adjustment_amount.amount', 'source', 'updated_at']
 const salePriceRuleActionContext = ['game_id', 'game_name', 'set_size', 'central_price', 'partner_price', 'price', 'source', 'status', 'updated_at']
@@ -829,16 +830,25 @@ const ticketDetailFields: OperationColumn[] = [
   { key: 'updated_at', label: 'Updated', type: 'datetime' },
 ]
 const rewardClaimDetailFields: OperationColumn[] = [
-  { key: 'id', label: 'Reward claim' },
-  { key: 'customer_id', label: 'Customer' },
-  { key: 'ticket_id', label: 'Ticket' },
-  { key: 'reward_result_id', label: 'Reward' },
-  { key: 'amount', label: 'Amount', type: 'money' },
-  { key: 'payout_amount', label: 'Payout amount', type: 'money' },
+  { key: 'id', label: 'Exchange request' },
+  { key: 'reference', label: 'Reference' },
+  { key: 'customer.customer_no', label: 'Customer no' },
+  { key: 'customer.name', label: 'Customer' },
+  { key: 'ticket.full_number', label: 'Ticket number' },
+  { key: 'game_id', label: 'Game' },
+  { key: 'prize_type', label: 'Prize type' },
+  { key: 'prize_number', label: 'Prize number' },
+  { key: 'prize_amount', label: 'Prize amount', type: 'money' },
+  { key: 'payout_method', label: 'Payout method' },
+  { key: 'bank_account.bank_name', label: 'Bank' },
+  { key: 'bank_account.account_name', label: 'Account name' },
+  { key: 'bank_account.account_number', label: 'Account number' },
+  { key: 'payout_wallet.balance', label: 'Wallet balance', type: 'money' },
   { key: 'status', label: 'Status', type: 'status' },
-  { key: 'metadata', label: 'Metadata', type: 'object-summary' },
-  { key: 'created_at', label: 'Created', type: 'datetime' },
-  { key: 'updated_at', label: 'Updated', type: 'datetime' },
+  { key: 'submitted_at', label: 'Submitted', type: 'datetime' },
+  { key: 'reviewed_at', label: 'Reviewed', type: 'datetime' },
+  { key: 'paid_at', label: 'Wallet credited', type: 'datetime' },
+  { key: 'admin_note', label: 'Admin note' },
 ]
 const agentDetailFields: OperationColumn[] = [
   { key: 'id', label: 'Agent' },
@@ -1728,6 +1738,32 @@ const tenant: OperationResource[] = [
       endpoint: '/admin/tenant/members',
       formFields: memberCreateFields,
     }],
+    relatedLists: [{
+      key: 'order-histories',
+      title: 'Order Histories',
+      listEndpoint: '/admin/tenant/orders',
+      detailEndpoint: '/admin/tenant/orders/{order_id}',
+      detailRenderer: 'order',
+      idParam: 'order_id',
+      idKey: 'id',
+      apiSort: true,
+      defaultSort: { key: 'created_at', direction: 'desc' },
+      defaultQuery: { customer_id: '{member_id}' },
+      columns: [
+        { key: 'order_id', label: 'Order', fallbackKeys: ['id'] },
+        { key: 'total.amount', label: 'Total', type: 'money' },
+        { key: 'status', label: 'Status', type: 'status' },
+        { key: 'payment_status', label: 'Payment' },
+        { key: 'created_at', label: 'Created', type: 'datetime' },
+      ],
+      filters: cursorFilters([
+        statusFilter(['draft', 'pending_payment', 'paid', 'cancelled', 'expired', 'refunded', 'failed']),
+        { key: 'payment_status', label: 'Payment status', type: 'select', options: ['unpaid', 'pending', 'paid', 'refunded', 'failed'] },
+        { key: 'game_id', label: 'Game ID' },
+      ]),
+      emptyTitle: 'No order histories',
+      emptyMessage: 'This customer has no order history records.',
+    }],
   },
   {
     ...resource('tenant', 'tickets', 'Tickets', 'Tenant Support', '/admin/tenant/tickets', '/admin/tenant/tickets/{ticket_id}', 'ticket_id', [
@@ -1844,12 +1880,40 @@ const tenant: OperationResource[] = [
     detailRenderer: 'topup',
   },
   {
-    ...actionResource('tenant', 'reward-claims', 'Reward Claims', 'Tenant Rewards', '/admin/tenant/reward-claims', '/admin/tenant/reward-claims/{claim_id}', 'claim_id', [
-      { key: 'approve', label: 'Approve', endpoint: '/admin/tenant/reward-claims/{claim_id}/approve', variant: 'success', reason: true },
-      { key: 'reject', label: 'Reject', endpoint: '/admin/tenant/reward-claims/{claim_id}/reject', variant: 'danger', reason: true },
-      { key: 'pay', label: 'Pay', endpoint: '/admin/tenant/reward-claims/{claim_id}/pay', variant: 'primary', reason: true },
-    ]),
+    scope: 'tenant',
+    slug: 'exchange-reward',
+    title: 'Exchange Reward',
+    group: 'Store Operations',
+    listEndpoint: '/admin/tenant/reward-claims',
+    detailEndpoint: '/admin/tenant/reward-claims/{claim_id}',
+    idParam: 'claim_id',
+    idKey: 'id',
     detailFields: rewardClaimDetailFields,
+    apiSort: true,
+    defaultSort: { key: 'submitted_at', direction: 'desc' },
+    columns: [
+      { key: 'reference', label: 'Reference' },
+      { key: 'customer.customer_no', label: 'Customer no' },
+      { key: 'customer.name', label: 'Customer' },
+      { key: 'ticket.full_number', label: 'Ticket' },
+      { key: 'prize_amount', label: 'Prize amount', type: 'money' },
+      { key: 'payout_method', label: 'Payout method' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'submitted_at', label: 'Submitted', type: 'datetime', fallbackKeys: ['created_at'] },
+    ],
+    filters: cursorFilters([
+      statusFilter(['submitted', 'under_review', 'approved', 'rejected', 'cancelled']),
+      { key: 'q', label: 'Search' },
+      { key: 'game_id', label: 'Game ID' },
+      { key: 'customer_id', label: 'Customer ID' },
+    ]),
+    confirmContextFields: rewardClaimActionContext,
+    actions: [
+      { key: 'approve', label: 'Approve', endpoint: '/admin/tenant/reward-claims/{claim_id}/approve', variant: 'success', reason: true, enabledStatuses: ['submitted', 'under_review'], hideWhenDisabled: true, contextFields: rewardClaimActionContext },
+      { key: 'reject', label: 'Reject', endpoint: '/admin/tenant/reward-claims/{claim_id}/reject', variant: 'danger', reason: true, enabledStatuses: ['submitted', 'under_review'], hideWhenDisabled: true, contextFields: rewardClaimActionContext },
+    ],
+    emptyTitle: 'No reward exchange requests',
+    emptyMessage: 'Customer reward exchange requests will appear here after customers choose wallet or bank payout.',
   },
   {
     scope: 'tenant',
@@ -2975,6 +3039,7 @@ const central: OperationResource[] = [
     defaultSort: { key: 'created_at', direction: 'desc' },
     columns: [
       { key: 'full_number', label: 'Ticket number' },
+      { key: 'customer_no', label: 'Customer no' },
       { key: 'prize_summary', label: 'Prize', fallbackKeys: ['prize_type'] },
       { key: 'ticket_count', label: 'Tickets', type: 'number' },
       { key: 'total_prize_amount', label: 'Total prize', type: 'money', fallbackKeys: ['prize_amount'] },
@@ -3012,12 +3077,10 @@ const central: OperationResource[] = [
     filters: cursorFilters([{ key: 'game_id', label: 'Game ID' }, statusFilter(rewardStatusOptions)]),
     confirmContextFields: rewardActionContext,
     actions: [
-      { key: 'update_numbers', label: 'Update winning numbers', method: 'PATCH', endpoint: '/admin/central/rewards/{reward_result_id}', variant: 'primary', contextFields: rewardActionContext, formFields: rewardNumberUpdateFields, enabledStatuses: ['draft', 'recorded', 'checking', 'summary_ready', 'verified'], hideWhenDisabled: true },
-      { key: 'update_payouts', label: 'Update payout amounts', method: 'PATCH', endpoint: '/admin/central/rewards/{reward_result_id}', variant: 'warning', contextFields: rewardActionContext, formFields: rewardPayoutUpdateFields, enabledStatuses: ['draft', 'recorded', 'checking', 'summary_ready', 'verified'], hideWhenDisabled: true },
-      { key: 'confirm_live', label: 'Confirm live draft', endpoint: '/admin/central/rewards/{reward_result_id}/confirm-live', variant: 'success', reason: true, contextFields: rewardActionContext, enabledStatuses: ['draft'], hideWhenDisabled: true },
-      { key: 'verify', label: 'Verify', endpoint: '/admin/central/rewards/{reward_result_id}/verify', variant: 'success', reason: true, contextFields: rewardActionContext, enabledStatuses: ['summary_ready'], hideWhenDisabled: true },
-      { key: 'correct', label: 'Correct', endpoint: '/admin/central/rewards/{reward_result_id}/correct', variant: 'warning', reason: true, contextFields: rewardActionContext, enabledStatuses: ['verified', 'published'], hideWhenDisabled: true },
-      { key: 'publish', label: 'Publish', endpoint: '/admin/central/rewards/{reward_result_id}/publish', variant: 'primary', reason: true, contextFields: rewardActionContext, enabledStatuses: ['verified'], hideWhenDisabled: true },
+      { key: 'update_numbers', label: 'Update winning numbers', method: 'PATCH', endpoint: '/admin/central/rewards/{reward_result_id}', variant: 'primary', contextFields: rewardActionContext, formFields: rewardNumberUpdateFields, enabledStatuses: ['draft'], hideWhenDisabled: true },
+      { key: 'update_payouts', label: 'Update payout amounts', method: 'PATCH', endpoint: '/admin/central/rewards/{reward_result_id}', variant: 'warning', contextFields: rewardActionContext, formFields: rewardPayoutUpdateFields, enabledStatuses: ['draft', 'summary_ready'], hideWhenDisabled: true },
+      { key: 'confirm_live', label: 'Confirm result', endpoint: '/admin/central/rewards/{reward_result_id}/confirm-live', variant: 'success', reason: true, contextFields: rewardActionContext, enabledStatuses: ['draft', 'recorded', 'checking', 'summary_ready', 'verified'], hideWhenDisabled: true },
+      { key: 'redraw', label: 'Draw again', endpoint: '/admin/central/rewards/{reward_result_id}/redraw', variant: 'danger', reason: true, contextFields: rewardActionContext, enabledStatuses: ['published'], hideWhenDisabled: true },
     ],
     collectionActions: [{
       key: 'create',
@@ -3108,6 +3171,7 @@ const resourceAliases: Record<string, { target: string, title: string }> = {
   'central:master-stock': { target: 'stock', title: 'Stock Manager' },
   'central:stock-generation': { target: 'stock', title: 'Stock Manager' },
   'central:stock-coverage': { target: 'stock-pattern-coverage', title: 'Stock Pattern Coverage' },
+  'tenant:reward-claims': { target: 'exchange-reward', title: 'Exchange Reward' },
 }
 
 export const useAdminOperationsCatalog = () => {

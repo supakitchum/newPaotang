@@ -274,6 +274,100 @@ class RewardEngineTest extends TestCase
             ->assertJsonPath('data.0.game_id', $oldWorld['game_id']);
     }
 
+    public function test_RewardEngine_central_winners_preview_central_draft_results(): void
+    {
+        $world = $this->prepareRewardWorld('par_reward_winners_draft', 'ten_reward_winners_draft', 'reward-winners-draft.m7.test', 'gam_reward_winners_draft', '0807110003', 791301);
+        $admin = $this->centralRewardAdmin(['reward.view', 'reward.create'], 'reward-winners-draft');
+        $prizes = $this->thaiGovernmentLotteryPrizes($world['ticket_number']);
+
+        $reward = $this->withToken($admin['access_token'])
+            ->postJson('/api/v1/admin/central/rewards', [
+                'game_id' => $world['game_id'],
+                'prizes' => $prizes,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-winners-draft-create',
+            ])
+            ->assertAccepted()
+            ->json();
+
+        $this->withToken($admin['access_token'])
+            ->patchJson('/api/v1/admin/central/rewards/'.$reward['id'], [
+                'prize_number_updates' => [[
+                    'prize_type' => 'second_prize',
+                    'prize_numbers' => [''],
+                ]],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-winners-draft-partial',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'draft');
+
+        $this->assertSame(0, DB::table('winning_tickets')->where('game_id', $world['game_id'])->count());
+
+        $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/central/winners?game_id='.$world['game_id'], ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('meta.game_id', $world['game_id'])
+            ->assertJsonPath('meta.reward_result_id', $reward['id'])
+            ->assertJsonPath('meta.has_live_result', true)
+            ->assertJsonPath('meta.source.name', 'central')
+            ->assertJsonPath('meta.winner_count', 1)
+            ->assertJsonPath('meta.total_prize_amount.amount', 6000000)
+            ->assertJsonPath('data.0.full_number', $world['ticket_number'])
+            ->assertJsonPath('data.0.customer_no', $world['auth']['user']['customer_no'])
+            ->assertJsonPath('data.0.ticket_count', 1)
+            ->assertJsonPath('data.0.total_prize_amount.amount', 6000000)
+            ->assertJsonPath('data.0.status', 'live_draft')
+            ->assertJsonPath('data.0.source', 'central')
+            ->assertJsonPath('data.0.official_claimable', false);
+    }
+
+    public function test_RewardEngine_tenant_winners_are_scoped_and_include_customer_no(): void
+    {
+        $world = $this->prepareRewardWorld('par_reward_tenant_winners', 'ten_reward_tenant_winners', 'reward-tenant-winners.m7.test', 'gam_reward_tenant_winners', '0807110004', 791401);
+        $otherWorld = $this->prepareRewardWorld('par_reward_tenant_other', 'ten_reward_tenant_other', 'reward-tenant-other.m7.test', 'gam_reward_tenant_other', '0807110005', 791501);
+        $this->publishReward($world, null, 'tenant-winners');
+        $this->publishReward($otherWorld, null, 'tenant-winners-other');
+
+        $denied = $this->tenantAdmin($world, [], 'tenant-winners-denied');
+        $admin = $this->tenantAdmin($world, ['reward_claim.view'], 'tenant-winners-view');
+        $headers = [
+            'X-Admin-Scope' => 'tenant',
+            'X-Tenant-Id' => $world['tenant_id'],
+        ];
+
+        $this->withToken($denied['access_token'])
+            ->getJson('/api/v1/admin/tenant/winners', $headers)
+            ->assertForbidden();
+
+        $games = $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/tenant/winners/games', $headers)
+            ->assertOk()
+            ->assertJsonPath('meta.default_game_id', $world['game_id'])
+            ->json('data');
+
+        $this->assertContains($world['game_id'], array_column($games, 'id'));
+        $this->assertNotContains($otherWorld['game_id'], array_column($games, 'id'));
+
+        $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/tenant/winners?game_id='.$world['game_id'], $headers)
+            ->assertOk()
+            ->assertJsonPath('meta.scope_type', 'tenant')
+            ->assertJsonPath('meta.tenant_id', $world['tenant_id'])
+            ->assertJsonPath('meta.winner_count', 1)
+            ->assertJsonPath('data.0.tenant_id', $world['tenant_id'])
+            ->assertJsonPath('data.0.customer_no', $world['auth']['user']['customer_no'])
+            ->assertJsonPath('data.0.full_number', $world['ticket_number']);
+
+        $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/tenant/winners?game_id='.$otherWorld['game_id'], $headers)
+            ->assertOk()
+            ->assertJsonPath('meta.winner_count', 0)
+            ->assertJsonCount(0, 'data');
+    }
+
     public function test_RewardEngine_partial_reward_number_and_payout_updates_do_not_require_complete_prizes(): void
     {
         $world = $this->prepareRewardWorld('par_reward_partial', 'ten_reward_partial', 'reward-partial.m7.test', 'gam_reward_partial', '0807100001', 790501);
@@ -499,7 +593,7 @@ class RewardEngineTest extends TestCase
                 'Idempotency-Key' => 'reward-live-confirm-complete',
             ])
             ->assertAccepted()
-            ->assertJsonPath('status', 'summary_ready');
+            ->assertJsonPath('status', 'published');
 
         $this->assertSame(1, DB::table('winning_tickets')->where('ticket_id', $world['ticket_id'])->count());
 
@@ -507,18 +601,97 @@ class RewardEngineTest extends TestCase
             ->getJson('http://'.$world['host'].'/api/v1/customer/tickets')
             ->assertOk()
             ->assertJsonPath('data.0.id', $world['ticket_id'])
-            ->assertJsonPath('data.0.status', 'reward_pending')
-            ->assertJsonPath('data.0.reward_status.status', 'pending_result');
-
-        $this->getJson('http://'.$world['host'].'/api/v1/public/results/live/latest')
-            ->assertOk()
-            ->assertJsonPath('game_id', $world['game_id'])
-            ->assertJsonPath('status', 'live_unconfirmed')
-            ->assertJsonPath('official_status', 'summary_ready')
-            ->assertJsonPath('prizes.0.prize_number', $world['ticket_number']);
+            ->assertJsonPath('data.0.status', 'winning')
+            ->assertJsonPath('data.0.reward_status.status', 'winning')
+            ->assertJsonPath('data.0.reward_status.claimable', true);
 
         $this->getJson('http://'.$world['host'].'/api/v1/public/results/latest')
-            ->assertNotFound();
+            ->assertOk()
+            ->assertJsonPath('game_id', $world['game_id'])
+            ->assertJsonPath('status', 'published')
+            ->assertJsonPath('prizes.0.prize_number', $world['ticket_number']);
+    }
+
+    public function test_RewardEngine_redraw_discards_unapproved_claims_and_blocks_after_approval(): void
+    {
+        $world = $this->prepareRewardWorld('par_reward_redraw', 'ten_reward_redraw', 'reward-redraw.m7.test', 'gam_reward_redraw', '0807100299', 793001);
+        $published = $this->publishReward($world, keySuffix: 'redraw');
+        $claim = $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/reward-claims', [
+                'ticket_id' => $world['ticket_id'],
+                'payout_method' => 'bank_transfer',
+                'bank_account' => ['bank' => 'test', 'account_no' => '1234567890'],
+            ], [
+                'Idempotency-Key' => 'reward-redraw-claim-create',
+            ])
+            ->assertCreated()
+            ->json();
+        $admin = $this->centralRewardAdmin(['reward.view', 'reward.create'], 'reward-redraw-admin');
+
+        $this->withToken($admin['access_token'])
+            ->postJson('/api/v1/admin/central/rewards/'.$published['id'].'/redraw', [
+                'reason' => 'scraped result changed before approval',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-redraw-before-approval',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'draft')
+            ->assertJsonPath('prizes.0.prize_number', 'pending_first_prize_001');
+
+        $this->assertDatabaseMissing('reward_claims', ['id' => $claim['id']]);
+        $this->assertSame(0, DB::table('winning_tickets')->where('reward_result_id', $published['id'])->count());
+
+        $completePayload = $this->thaiGovernmentLotteryPrizes($world['ticket_number']);
+        $this->withToken($admin['access_token'])
+            ->patchJson('/api/v1/admin/central/rewards/'.$published['id'], [
+                'prizes' => $completePayload,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-redraw-reload',
+            ])
+            ->assertOk();
+        $republished = $this->withToken($admin['access_token'])
+            ->postJson('/api/v1/admin/central/rewards/'.$published['id'].'/confirm-live', [
+                'reason' => 'confirmed redraw',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-redraw-confirm',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('status', 'published')
+            ->json();
+
+        $approvedClaim = $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/reward-claims', [
+                'ticket_id' => $world['ticket_id'],
+                'payout_method' => 'bank_transfer',
+                'bank_account' => ['bank' => 'test', 'account_no' => '1234567890'],
+            ], [
+                'Idempotency-Key' => 'reward-redraw-approved-claim-create',
+            ])
+            ->assertCreated()
+            ->json();
+        $tenantAdmin = $this->tenantAdmin($world, ['reward_claim.view', 'reward_claim.approve'], 'reward-redraw-tenant');
+        $this->withToken($tenantAdmin['access_token'])
+            ->postJson('/api/v1/admin/tenant/reward-claims/'.$approvedClaim['id'].'/approve', [
+                'reason' => 'approved bank transfer',
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => $world['tenant_id'],
+                'Idempotency-Key' => 'reward-redraw-approve-bank',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'approved');
+
+        $this->withToken($admin['access_token'])
+            ->postJson('/api/v1/admin/central/rewards/'.$republished['id'].'/redraw', [
+                'reason' => 'must be blocked',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-redraw-after-approval',
+            ])
+            ->assertConflict();
     }
 
     public function test_RewardEngine_central_winners_use_sanook_live_results_without_separate_api(): void

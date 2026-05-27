@@ -68,6 +68,7 @@
         :date="resultGame.name || '-'"
         :result="resultSummary"
         :link="'/result'"
+        :unofficial="isUnofficialReward"
         class="mb-3"
       />
 
@@ -131,7 +132,7 @@ definePageMeta({
 
 const platformApi = usePlatformApi()
 const config = useRuntimeConfig()
-const { toSummary } = useLotteryReward()
+const { isDisplayableRewardNumber, toSummary } = useLotteryReward()
 const { currentDrawDate: drawDate } = useAppInit()
 const { isAuthenticated, user, restoreAuthState } = useAuth()
 const { formatMoney, toNumber } = useTopup()
@@ -145,12 +146,17 @@ const activeNewsIndex = ref(0)
 let newsTimer: ReturnType<typeof setInterval> | null = null
 
 const hasRewardResult = (game: LotteryRewardGame | null | undefined) => {
-  if (!game || Number(game.status) !== 2) {
+  if (!game) {
     return false
   }
 
   const summary = toSummary(game)
-  return summary.first !== '-' || summary.last2 !== '-' || summary.front3[0] !== '-' || summary.last3[0] !== '-'
+  return [
+    summary.first,
+    summary.last2,
+    ...summary.front3,
+    ...summary.last3
+  ].some(isDisplayableRewardNumber)
 }
 
 const resultGame = computed(() => {
@@ -162,6 +168,7 @@ const resultGame = computed(() => {
 })
 
 const resultSummary = computed(() => toSummary(resultGame.value))
+const isUnofficialReward = computed(() => Boolean(resultGame.value) && Number(resultGame.value?.status) !== 2)
 const apiAssetBaseUrl = computed(() => {
   const baseUrl = config.public.apiBaseUrl || ''
   return `${baseUrl}`.replace(/\/api\/v\d+\/?$/i, '').replace(/\/api\/?$/i, '').replace(/\/$/, '')
@@ -207,11 +214,21 @@ const fetchReward = async () => {
   isRewardLoading.value = true
 
   try {
-    const response = await platformApi.rewardLegacy()
+    const liveResponse = await platformApi.rewardLiveLegacy()
+    const livePayload = liveResponse.data || liveResponse
 
-    if (response.data?.code === 0) {
-      latestGame.value = response.data.result || null
-      historyGames.value = response.data.history || response.data.histories || []
+    if (livePayload.code === 0 && livePayload.result) {
+      latestGame.value = livePayload.result || null
+      historyGames.value = livePayload.history || livePayload.histories || []
+      return
+    }
+
+    const response = await platformApi.rewardLegacy()
+    const payload = response.data || response
+
+    if (payload.code === 0) {
+      latestGame.value = payload.result || null
+      historyGames.value = payload.history || payload.histories || []
     }
   } catch (error) {
     console.log(error)

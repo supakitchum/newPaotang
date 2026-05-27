@@ -52,7 +52,9 @@
             :is-winning="isWinningTicket(ticket)"
             :prize-title="getTicketPrizeTitle(ticket)"
             :prize-amount="formatPrizeAmount(getTicketPrizeAmount(ticket))"
+            :prizes="getTicketRewardPrizes(ticket)"
             :claim-label="isTicketClaimable(ticket) ? 'ขึ้นรางวัล' : 'ดูรางวัล'"
+            :claim-to="getTicketClaimTo(ticket)"
           />
         </div>
       </div>
@@ -102,13 +104,16 @@ const tabs = [
 const {
   fetchTickets,
   getGameDate,
+  getTicketGameDate,
   getTicketNumber,
   getTicketCount,
   getTicketStatusText,
   isWinningTicket,
   getTicketPrizeAmount,
+  getTicketRewardPrizes,
   getTicketPrizeTitle,
-  isTicketClaimable
+  isTicketClaimable,
+  getTicketClaimTo
 } = useUserTickets()
 const tickets = ref<UserTicket[]>([])
 const historyGame = ref<UserTicketGame | null>(null)
@@ -122,7 +127,7 @@ const perPage = 20
 const selectedTicket = ref<UserTicket | null>(null)
 const loadMoreSentinel = ref<HTMLElement | null>(null)
 let loadObserver: IntersectionObserver | null = null
-const drawDate = computed(() => getGameDate(historyGame.value))
+const drawDate = computed(() => getGameDate(historyGame.value) || getTicketGameDate(tickets.value[0]))
 const winningTickets = computed(() => tickets.value.filter((ticket) => [4, 5].includes(Number(ticket.status))))
 const visibleTickets = computed(() => showOnlyWinning.value ? winningTickets.value : tickets.value)
 const hasMore = computed(() => currentPage.value < lastPage.value)

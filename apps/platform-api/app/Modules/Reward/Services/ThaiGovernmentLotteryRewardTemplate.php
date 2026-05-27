@@ -47,7 +47,7 @@ class ThaiGovernmentLotteryRewardTemplate
         return $rows;
     }
 
-    private static function pendingNumber(string $type, int $index): string
+    public static function pendingNumber(string $type, int $index): string
     {
         return 'pending_'.$type.'_'.str_pad((string) $index, 3, '0', STR_PAD_LEFT);
     }

@@ -20,12 +20,18 @@
       </section>
 
       <ResultSummaryCard
-        v-else
+        v-else-if="hasCurrentRewardSummary"
         :date="drawDate"
         :link="fullLink(game)"
         :result="currentSummary"
+        :unofficial="isUnofficialReward(game)"
         variant="featured"
       />
+
+      <section v-else class="result-card result-card-featured result-inline-state">
+        <i class="bi bi-hourglass-split text-primary" />
+        <span>ยังไม่มีข้อมูลผลรางวัลล่าสุด</span>
+      </section>
     </BlueHeader>
 
     <section class="results-history-sheet">
@@ -35,16 +41,17 @@
         กำลังโหลดข้อมูลงวดย้อนหลัง
       </div>
 
-      <div v-else-if="!historyGames.length" class="muted-text text-center py-4">
+      <div v-else-if="!displayHistoryGames.length" class="muted-text text-center py-4">
         ยังไม่มีข้อมูลผลรางวัลงวดย้อนหลัง
       </div>
 
       <ResultSummaryCard
-        v-for="history in historyGames"
+        v-for="history in displayHistoryGames"
         :key="history.id || history.name"
         :date="formatDrawDateText(history.name)"
         :link="fullLink(history)"
         :result="toSummary(history)"
+        :unofficial="isUnofficialReward(history)"
         variant="history"
         class="mb-4"
       />
@@ -70,11 +77,37 @@ const game = ref<LotteryRewardGame | null>(null)
 const historyGames = ref<LotteryRewardGame[]>([])
 const isLoading = ref(true)
 const errorMessage = ref('')
-const { toSummary } = useLotteryReward()
+const { isDisplayableRewardNumber, toSummary } = useLotteryReward()
 
 const drawDate = computed(() => formatDrawDateText(game.value?.name))
-const isWaitingResult = computed(() => Number(game.value?.status) === 1)
 const currentSummary = computed(() => toSummary(game.value))
+const hasCurrentRewardSummary = computed(() => [
+  currentSummary.value.first,
+  currentSummary.value.last2,
+  ...currentSummary.value.front3,
+  ...currentSummary.value.last3
+].some(isDisplayableRewardNumber))
+const displayHistoryGames = computed(() => {
+  const currentId = String(game.value?.id || '')
+
+  return historyGames.value.filter((history) => {
+    const historyId = String(history.id || '')
+    const summary = toSummary(history)
+    const hasSummary = [
+      summary.first,
+      summary.last2,
+      ...summary.front3,
+      ...summary.last3
+    ].some(isDisplayableRewardNumber)
+
+    return hasSummary && (!currentId || historyId !== currentId)
+  })
+})
+const isWaitingResult = computed(() => [1, 3].includes(Number(game.value?.status)) && !hasCurrentRewardSummary.value)
+
+const isUnofficialReward = (item: LotteryRewardGame | null | undefined) => (
+  Boolean(item) && Number(item?.status) !== 2
+)
 
 const fullLink = (item: LotteryRewardGame | null | undefined) => {
   return item?.id ? `/result/full?game_id=${item.id}` : '/result/full'
@@ -112,11 +145,6 @@ const fetchReward = async (silent = false) => {
     }
   }
 }
-
-useLotteryResultRealtime({
-  onResult: () => fetchReward(true),
-  onReconnect: () => fetchReward(true)
-})
 
 onMounted(fetchReward)
 </script>

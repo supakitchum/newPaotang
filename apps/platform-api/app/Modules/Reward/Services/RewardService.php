@@ -33,6 +33,18 @@ class RewardService
 {
     private const CHECK_CHUNK_SIZE = 100;
     private const PUBLIC_LIVE_RESULT_STATUSES = ['draft', 'recorded', 'checking', 'summary_ready', 'verified'];
+    private const PUBLIC_RESULT_GAME_STATUSES = ['closed', 'reward_recorded', 'reward_checking', 'reward_verified', 'reward_published'];
+    private const PRIZE_TYPE_SORT_ORDER = [
+        'first_prize' => 10,
+        'near_first_prize' => 20,
+        'second_prize' => 30,
+        'third_prize' => 40,
+        'fourth_prize' => 50,
+        'fifth_prize' => 60,
+        'front3' => 70,
+        'back3' => 80,
+        'back2' => 90,
+    ];
     public const CLAIM_PAYOUT_METHODS = ['wallet_credit', 'bank_transfer', 'manual_cash'];
 
     public function __construct(
@@ -130,7 +142,7 @@ class RewardService
                 $counts[$type]++;
             }
 
-            if ($number === '' || str_starts_with($number, 'pending_')) {
+            if ($this->isPendingPrizeNumber($number)) {
                 if (! $requireComplete) {
                     continue;
                 }
@@ -154,11 +166,11 @@ class RewardService
                 $errors["prizes.$index.amount"][] = 'The amount currency must be THB.';
             }
 
-            if ($number !== '' && ! str_starts_with($number, 'pending_') && isset($seen[$key])) {
+            if (! $this->isPendingPrizeNumber($number) && isset($seen[$key])) {
                 $errors["prizes.$index"][] = 'Duplicate prize rows are not allowed.';
             }
 
-            if ($number !== '' && ! str_starts_with($number, 'pending_')) {
+            if (! $this->isPendingPrizeNumber($number)) {
                 $seen[$key] = true;
             }
         }
@@ -212,12 +224,11 @@ class RewardService
 
                     foreach (array_values($numbers) as $numberIndex => $number) {
                         $normalizedNumber = trim((string) $number);
+                        $hasUpdate = true;
 
-                        if ($normalizedNumber === '' || str_starts_with($normalizedNumber, 'pending_')) {
+                        if ($this->isPendingPrizeNumber($normalizedNumber)) {
                             continue;
                         }
-
-                        $hasUpdate = true;
 
                         if (! preg_match('/^[0-9]{'.$rule['digits'].'}$/', $normalizedNumber)) {
                             $errors["prize_number_updates.$index.prize_numbers.$numberIndex"][] = 'The '.$type.' prize number must contain exactly '.$rule['digits'].' digits.';
@@ -316,8 +327,26 @@ class RewardService
      */
     public function listCentralWinners(array $queryParams): array
     {
+        return $this->listWinners($queryParams);
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     * @return array<string, mixed>
+     */
+    public function listTenantWinners(string $tenantId, array $queryParams): array
+    {
+        return $this->listWinners($queryParams, $tenantId);
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     * @return array<string, mixed>
+     */
+    private function listWinners(array $queryParams, ?string $tenantId = null): array
+    {
         $limit = $this->limit($queryParams['limit'] ?? null);
-        $defaultGameId = $this->defaultWinnerGameId();
+        $defaultGameId = $this->defaultWinnerGameId($tenantId);
         $gameId = trim((string) ($queryParams['game_id'] ?? ''));
         $gameId = $gameId === '' ? (string) ($defaultGameId ?? '') : $gameId;
         $game = $gameId === '' ? null : Game::query()->whereKey($gameId)->first();
@@ -329,6 +358,8 @@ class RewardService
                     'game_id' => $gameId === '' ? null : $gameId,
                     'default_game_id' => $defaultGameId,
                     'game' => null,
+                    'scope_type' => $tenantId === null ? 'central' : 'tenant',
+                    'tenant_id' => $tenantId,
                     'winner_count' => 0,
                     'total_prize_amount' => $this->money(0),
                     'next_cursor' => null,
@@ -337,9 +368,9 @@ class RewardService
             ];
         }
 
-        $liveResult = $this->latestSanookLiveResultForGame((string) $game->id);
+        $liveResult = $this->latestDraftWinnerPreviewResultForGame((string) $game->id);
         if ($liveResult !== null) {
-            $liveWinners = $this->centralWinnerLiveRows($liveResult, $game, $limit);
+            $liveWinners = $this->centralWinnerLiveRows($liveResult, $game, $limit, $tenantId);
             $liveResultSummary = $this->publicLiveSummary($liveResult);
 
             return [
@@ -354,6 +385,7 @@ class RewardService
                     $liveWinners['by_prize_type'],
                     true,
                     $liveWinners['total_prize_amount'],
+                    $tenantId,
                 ),
             ];
         }
@@ -364,6 +396,10 @@ class RewardService
             ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'winning_tickets.tenant_id')
             ->leftJoin('reward_claims', 'reward_claims.winning_ticket_id', '=', 'winning_tickets.id')
             ->where('winning_tickets.game_id', $gameId);
+
+        if ($tenantId !== null) {
+            $baseQuery->where('winning_tickets.tenant_id', $tenantId);
+        }
 
         foreach (['status', 'prize_type', 'tenant_id'] as $field) {
             if (($queryParams[$field] ?? null) !== null && trim((string) $queryParams[$field]) !== '') {
@@ -449,6 +485,8 @@ class RewardService
                 'game_id' => (string) $game->id,
                 'default_game_id' => $defaultGameId,
                 'game' => $this->winnerGameResource($game, $defaultGameId),
+                'scope_type' => $tenantId === null ? 'central' : 'tenant',
+                'tenant_id' => $tenantId,
                 'has_live_result' => false,
                 'completion_percent' => 0,
                 'source' => ['name' => 'official'],
@@ -492,12 +530,48 @@ class RewardService
         ];
     }
 
-    private function defaultWinnerGameId(): ?string
+    /**
+     * @return array<string, mixed>
+     */
+    public function tenantWinnerGames(string $tenantId): array
+    {
+        $defaultGameId = $this->defaultWinnerGameId($tenantId);
+        $rows = Game::query()
+            ->where('status', '<>', 'archived')
+            ->whereExists(function ($query) use ($tenantId): void {
+                $query->select(DB::raw(1))
+                    ->from('tickets')
+                    ->whereColumn('tickets.game_id', 'games.id')
+                    ->where('tickets.tenant_id', $tenantId);
+            })
+            ->orderByDesc('draw_at')
+            ->orderByDesc('sale_start_at')
+            ->limit(100)
+            ->get()
+            ->all();
+
+        return [
+            'data' => array_map(fn (object $game): array => $this->winnerGameResource($game, $defaultGameId), $rows),
+            'meta' => [
+                'default_game_id' => $defaultGameId,
+                'scope_type' => 'tenant',
+                'tenant_id' => $tenantId,
+            ],
+        ];
+    }
+
+    private function defaultWinnerGameId(?string $tenantId = null): ?string
     {
         $gameId = Game::query()
             ->whereNotNull('sale_start_at')
             ->where('sale_start_at', '<=', now())
             ->whereNotIn('status', ['draft', 'archived'])
+            ->when($tenantId !== null, fn ($query) => $query->whereExists(function ($nested) use ($tenantId): void {
+                $nested->select(DB::raw(1))
+                    ->from('tickets')
+                    ->whereColumn('tickets.game_id', 'games.id')
+                    ->where('tickets.tenant_id', $tenantId);
+            }))
             ->orderByDesc('sale_start_at')
             ->orderByDesc('draw_at')
             ->value('id');
@@ -508,6 +582,12 @@ class RewardService
 
         $fallback = Game::query()
             ->where('status', '<>', 'archived')
+            ->when($tenantId !== null, fn ($query) => $query->whereExists(function ($nested) use ($tenantId): void {
+                $nested->select(DB::raw(1))
+                    ->from('tickets')
+                    ->whereColumn('tickets.game_id', 'games.id')
+                    ->where('tickets.tenant_id', $tenantId);
+            }))
             ->orderByDesc('draw_at')
             ->orderByDesc('sale_start_at')
             ->value('id');
@@ -531,13 +611,28 @@ class RewardService
         array $byPrizeType,
         bool $hasLiveResult,
         int $totalPrizeAmount = 0,
+        ?string $tenantId = null,
     ): array {
         $gameId = (string) $game->id;
+        $scopedLiveEstimate = [
+            ...$liveEstimate,
+            'estimated_winning_ticket_count' => $winningTicketCount,
+            'estimated_winning_rows' => $winningRowCount,
+            'estimated_payout_amount' => $this->money($totalPrizeAmount),
+            'by_prize_type' => $byPrizeType,
+            'official_claimable' => false,
+        ];
+
+        if ($tenantId !== null && $liveResult !== null) {
+            $liveResult['live_estimate'] = $scopedLiveEstimate;
+        }
 
         return [
             'game_id' => $gameId,
             'default_game_id' => $defaultGameId,
             'game' => $this->winnerGameResource($game, $defaultGameId),
+            'scope_type' => $tenantId === null ? 'central' : 'tenant',
+            'tenant_id' => $tenantId,
             'reward_result_id' => $liveResult['reward_result_id'] ?? null,
             'live_result' => $liveResult,
             'has_live_result' => $hasLiveResult,
@@ -547,14 +642,7 @@ class RewardService
             'winning_row_count' => $winningRowCount,
             'total_prize_amount' => $this->money($totalPrizeAmount),
             'prize_breakdown' => $byPrizeType,
-            'live_estimate' => [
-                ...$liveEstimate,
-                'estimated_winning_ticket_count' => $winningTicketCount,
-                'estimated_winning_rows' => $winningRowCount,
-                'estimated_payout_amount' => $this->money($totalPrizeAmount),
-                'by_prize_type' => $byPrizeType,
-                'official_claimable' => false,
-            ],
+            'live_estimate' => $scopedLiveEstimate,
             'official_claimable' => false,
             'updated_at' => $liveResult['updated_at'] ?? null,
             'realtime' => [
@@ -567,32 +655,19 @@ class RewardService
         ];
     }
 
-    private function latestSanookLiveResultForGame(string $gameId): ?object
+    private function latestDraftWinnerPreviewResultForGame(string $gameId): ?object
     {
-        $results = RewardResult::query()
+        return RewardResult::query()
             ->where('game_id', $gameId)
             ->where('status', 'draft')
-            ->whereNotNull('summary_json')
             ->orderByDesc('updated_at')
-            ->limit(10)
-            ->get()
-            ->all();
-
-        foreach ($results as $result) {
-            $summary = $this->decodeJsonObject($result->summary_json);
-
-            if (($summary['source']['name'] ?? null) === 'sanook') {
-                return $result;
-            }
-        }
-
-        return null;
+            ->first();
     }
 
     /**
      * @return array{rows: array<int, array<string, mixed>>, winning_ticket_count: int, winning_row_count: int, total_prize_amount: int, by_prize_type: array<string, mixed>}
      */
-    private function centralWinnerLiveRows(object $result, object $game, int $limit): array
+    private function centralWinnerLiveRows(object $result, object $game, int $limit, ?string $tenantId = null): array
     {
         $prizes = $this->completedRewardPrizes((string) $result->id);
         $groups = [];
@@ -602,7 +677,7 @@ class RewardService
         $pricingCache = [];
 
         foreach ($prizes as $prize) {
-            $matches = $this->ticketPrizeAggregateRows((string) $game->id, $prize)->get()->all();
+            $matches = $this->ticketPrizeAggregateRows((string) $game->id, $prize, $tenantId)->get()->all();
 
             foreach ($matches as $match) {
                 $ticketCount = (int) $match->ticket_count;
@@ -675,12 +750,17 @@ class RewardService
             ->all();
     }
 
-    private function ticketPrizeAggregateRows(string $gameId, object $prize)
+    private function ticketPrizeAggregateRows(string $gameId, object $prize, ?string $tenantId = null)
     {
         $query = DB::table('tickets')
             ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'tickets.tenant_id')
+            ->leftJoin('customers', 'customers.id', '=', 'tickets.customer_id')
             ->where('tickets.game_id', $gameId)
             ->whereIn('tickets.status', ['active', 'reward_pending', 'winning', 'non_winning']);
+
+        if ($tenantId !== null) {
+            $query->where('tickets.tenant_id', $tenantId);
+        }
 
         $this->applyTicketPrizeMatchConstraint($query, $prize);
 
@@ -692,7 +772,14 @@ class RewardService
                 'partner_tenants.code as tenant_code',
                 'partner_tenants.name as tenant_name',
                 DB::raw('COUNT(*) as ticket_count'),
+                DB::raw('COUNT(DISTINCT tickets.customer_id) as customer_count'),
                 DB::raw('MIN(tickets.id) as sample_ticket_id'),
+                DB::raw('MIN(customers.id) as customer_id'),
+                DB::raw('MIN(customers.customer_no) as customer_no'),
+                DB::raw('MIN(customers.name) as customer_name'),
+                DB::raw('MIN(customers.first_name) as customer_first_name'),
+                DB::raw('MIN(customers.last_name) as customer_last_name'),
+                DB::raw('MIN(customers.phone) as customer_phone'),
                 DB::raw('MAX(tickets.updated_at) as updated_at'),
             ])
             ->groupBy([
@@ -754,15 +841,25 @@ class RewardService
             'ticket_count' => 0,
             'total_prize_amount' => 0,
             'currency' => $currency,
-            'status' => 'live_draft',
-            'source' => 'sanook',
+            'status' => (string) $result->status === 'draft' ? 'live_draft' : 'live_unconfirmed',
+            'source' => $this->rewardResultPreviewSourceName($result),
             'official_claimable' => false,
             'created_at' => $result->updated_at,
             'updated_at' => $result->updated_at,
             '_ticket_counts' => [],
             '_tenants' => [],
+            '_customers' => [],
+            '_customer_counts' => [],
             '_prize_breakdown' => [],
         ];
+    }
+
+    private function rewardResultPreviewSourceName(object $result): string
+    {
+        $summary = $this->decodeJsonObject($result->summary_json);
+        $source = trim((string) ($summary['source']['name'] ?? ''));
+
+        return $source !== '' ? $source : 'central';
     }
 
     /**
@@ -786,6 +883,23 @@ class RewardService
             'ticket_count' => 0,
         ];
         $group['_tenants'][$tenantId]['ticket_count'] = max((int) $group['_tenants'][$tenantId]['ticket_count'], $ticketCount);
+        $customerId = $match->customer_id === null ? null : (string) $match->customer_id;
+        if ($customerId !== null && $customerId !== '') {
+            $customerNo = CustomerNo::display($match->customer_no ?? null, $customerId);
+            $customerName = $this->winnerCustomerName($match, $customerNo);
+            $group['_customers'][$customerId] ??= [
+                'id' => $customerId,
+                'customer_no' => $customerNo,
+                'name' => $customerName,
+                'phone' => $match->customer_phone,
+                'ticket_count' => 0,
+            ];
+            $group['_customers'][$customerId]['ticket_count'] = max((int) $group['_customers'][$customerId]['ticket_count'], $ticketCount);
+        }
+        $group['_customer_counts'][$tenantId] = max(
+            (int) ($group['_customer_counts'][$tenantId] ?? 0),
+            (int) ($match->customer_count ?? ($customerId === null ? 0 : 1)),
+        );
         $group['_prize_breakdown'][$type] ??= [
             'prize_type' => $type,
             'prize_numbers' => [],
@@ -826,6 +940,8 @@ class RewardService
             $breakdown,
         ))));
         $tenants = array_values($group['_tenants']);
+        $customers = array_values($group['_customers']);
+        $customerCount = max(count($customers), array_sum(array_map('intval', $group['_customer_counts'])));
         $totalPrizeAmount = $this->money((int) $group['total_prize_amount'], (string) $group['currency']);
 
         return [
@@ -848,12 +964,14 @@ class RewardService
             'tenant_code' => $this->liveTenantSummary($tenants, 'code'),
             'tenant_name' => $this->liveTenantSummary($tenants, 'name'),
             'tenants' => $tenants,
+            'customer_count' => $customerCount,
             'ticket_id' => null,
             'ticket_status' => null,
-            'customer_id' => null,
-            'customer_no' => null,
-            'customer_name' => null,
-            'customer_phone' => null,
+            'customer_id' => $customerCount === 1 && count($customers) === 1 ? (string) $customers[0]['id'] : null,
+            'customer_no' => $this->liveCustomerSummary($customers, 'customer_no'),
+            'customer_name' => $customerCount === 1 && count($customers) === 1 ? $customers[0]['name'] : null,
+            'customer_phone' => $customerCount === 1 && count($customers) === 1 ? $customers[0]['phone'] : null,
+            'customers' => $customers,
             'claim_id' => null,
             'claim_reference' => null,
             'claim_status' => 'pending_confirmation',
@@ -886,6 +1004,14 @@ class RewardService
         $suffix = count($values) > 2 ? ' +'.(count($values) - 2).' more' : '';
 
         return implode(', ', $visible).$suffix;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $customers
+     */
+    private function liveCustomerSummary(array $customers, string $field): ?string
+    {
+        return $this->liveTenantSummary($customers, $field);
     }
 
     /**
@@ -942,6 +1068,7 @@ class RewardService
             'customer_no' => $customerNo,
             'customer_name' => $customerName,
             'customer_phone' => $winner->customer_phone,
+            'customer_count' => $customerId === null ? 0 : 1,
             'customer' => $customerId === null ? null : [
                 'id' => $customerId,
                 'customer_no' => $customerNo,
@@ -1236,7 +1363,7 @@ class RewardService
         $result = RewardResult::query()
             ->join('games', 'games.id', '=', 'reward_results.game_id')
             ->whereIn('reward_results.status', self::PUBLIC_LIVE_RESULT_STATUSES)
-            ->whereNotNull('reward_results.summary_json')
+            ->whereIn('games.status', self::PUBLIC_RESULT_GAME_STATUSES)
             ->select('reward_results.*')
             ->orderByDesc('games.draw_at')
             ->orderByDesc('reward_results.updated_at')
@@ -1250,10 +1377,13 @@ class RewardService
      */
     public function publicLiveResultForGame(string $gameId): array
     {
-        $result = RewardResult::where('game_id', $gameId)
-            ->whereIn('status', self::PUBLIC_LIVE_RESULT_STATUSES)
-            ->whereNotNull('summary_json')
-            ->orderByDesc('updated_at')
+        $result = RewardResult::query()
+            ->join('games', 'games.id', '=', 'reward_results.game_id')
+            ->where('reward_results.game_id', $gameId)
+            ->whereIn('reward_results.status', self::PUBLIC_LIVE_RESULT_STATUSES)
+            ->whereIn('games.status', self::PUBLIC_RESULT_GAME_STATUSES)
+            ->select('reward_results.*')
+            ->orderByDesc('reward_results.updated_at')
             ->first();
 
         return $this->publicLiveResultEnvelope($result);
@@ -1328,6 +1458,7 @@ class RewardService
             $this->setGameStatus($normalized['game_id'], 'reward_recorded');
             $this->auditAdmin($actor, $request, 'reward.recorded', 'reward_result', $resultId, $normalized);
             $this->processRewardCheck($resultId, self::CHECK_CHUNK_SIZE, $idempotencyKey);
+            $this->broadcastRewardLiveUpdate($resultId);
 
             $resource = $this->rewardResult($resultId) ?? [];
             $this->idempotency->storeResponse(null, 'central_admin', $actor->adminUser['id'], 'admin.central.rewards.store', $idempotencyKey, $normalized, 202, $resource, 'reward.create');
@@ -1392,6 +1523,7 @@ class RewardService
             if ($isComplete) {
                 $this->processRewardCheck($rewardResultId, self::CHECK_CHUNK_SIZE, $idempotencyKey);
             }
+            $this->broadcastRewardLiveUpdate($rewardResultId);
 
             $this->auditAdmin($actor, $request, 'reward.updated', 'reward_result', $rewardResultId, $normalized);
 
@@ -1471,6 +1603,7 @@ class RewardService
             ]);
             WinningTicket::query()->where('reward_result_id', $rewardResultId)->where('status', 'pending')->update(['status' => 'verified', 'updated_at' => now()]);
             $this->setGameStatus((string) $result->game_id, 'reward_verified');
+            $this->broadcastRewardLiveUpdate($rewardResultId);
 
             return $this->rewardResult($rewardResultId) ?? [];
         }, 'reward.verified');
@@ -1491,39 +1624,7 @@ class RewardService
                 return 'resource_conflict';
             }
 
-            $version = max((int) $result->version, (int) RewardPublishLog::where('reward_result_id', $rewardResultId)->max('reward_version') + 1);
-            $publishedAt = now();
-            $summary = $this->summary($rewardResultId);
-            $logId = 'rpl_'.Str::ulid()->toBase32();
-
-            RewardResult::query()->where('id', $rewardResultId)->update([
-                'status' => 'published',
-                'version' => $version,
-                'summary_json' => json_encode($summary, JSON_THROW_ON_ERROR),
-                'published_by_admin_id' => $actor->adminUser['id'],
-                'published_at' => $publishedAt,
-                'updated_at' => $publishedAt,
-            ]);
-            RewardPublishLog::query()->insert([
-                'id' => $logId,
-                'reward_result_id' => $rewardResultId,
-                'game_id' => (string) $result->game_id,
-                'reward_version' => $version,
-                'published_by_admin_id' => $actor->adminUser['id'],
-                'payload_json' => json_encode($summary, JSON_THROW_ON_ERROR),
-                'published_at' => $publishedAt,
-                'created_at' => $publishedAt,
-                'updated_at' => $publishedAt,
-            ]);
-            $this->setGameStatus((string) $result->game_id, 'reward_published');
-            $this->insertOutboxEvent('reward.published.v1', (string) $result->game_id, 'reward_result', $rewardResultId, $request->header('Idempotency-Key'), $request->header('X-Request-Id'), [
-                'reward_result_id' => $rewardResultId,
-                'game_id' => (string) $result->game_id,
-                'reward_version' => $version,
-                'published_at' => $publishedAt->toISOString(),
-            ]);
-
-            return $this->rewardResult($rewardResultId) ?? [];
+            return $this->publishCheckedRewardResult($rewardResultId, $result, $actor, $request);
         }, 'reward.published');
     }
 
@@ -1533,8 +1634,12 @@ class RewardService
      */
     public function confirmLiveDraftResult(string $rewardResultId, array $payload, AdminSessionContext $actor, Request $request): array
     {
-        return $this->centralWrite($rewardResultId, $payload, $actor, $request, 'admin.central.rewards.confirm_live', 'reward.create', function (object $result) use ($rewardResultId, $request): array|string {
-            if ((string) $result->status !== 'draft') {
+        return $this->centralWrite($rewardResultId, $payload, $actor, $request, 'admin.central.rewards.confirm_live', 'reward.create', function (object $result) use ($rewardResultId, $actor, $request): array|string {
+            if ((string) $result->status === 'published') {
+                return $this->rewardResult($rewardResultId) ?? [];
+            }
+
+            if (! in_array((string) $result->status, ['draft', 'recorded', 'checking', 'summary_ready', 'verified'], true)) {
                 return 'resource_conflict';
             }
 
@@ -1542,18 +1647,94 @@ class RewardService
                 return 'resource_conflict';
             }
 
+            if (! in_array((string) $result->status, ['summary_ready', 'verified'], true)) {
+                RewardResult::query()->where('id', $rewardResultId)->update([
+                    'status' => 'recorded',
+                    'checked_at' => null,
+                    'verified_at' => null,
+                    'published_at' => null,
+                    'updated_at' => now(),
+                ]);
+                $this->setGameStatus((string) $result->game_id, 'reward_recorded');
+                $this->processRewardCheck($rewardResultId, self::CHECK_CHUNK_SIZE, $request->header('Idempotency-Key'));
+            }
+
+            $fresh = RewardResult::query()->where('id', $rewardResultId)->first() ?? $result;
+
+            return $this->publishCheckedRewardResult($rewardResultId, $fresh, $actor, $request);
+        }, 'reward.live_confirmed', 202);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string}
+     */
+    public function redrawRewardResult(string $rewardResultId, array $payload, AdminSessionContext $actor, Request $request): array
+    {
+        return $this->centralWrite($rewardResultId, $payload, $actor, $request, 'admin.central.rewards.redraw', 'reward.create', function (object $result) use ($rewardResultId, $actor, $payload): array|string {
+            if (! in_array((string) $result->status, ['published', 'verified', 'summary_ready'], true)) {
+                return 'resource_conflict';
+            }
+
+            $winningTicketIds = WinningTicket::query()
+                ->where('reward_result_id', $rewardResultId)
+                ->pluck('id')
+                ->all();
+
+            if ($winningTicketIds !== []) {
+                $approvedClaimExists = RewardClaim::query()
+                    ->whereIn('winning_ticket_id', $winningTicketIds)
+                    ->whereIn('status', ['approved', 'paid'])
+                    ->exists();
+
+                if ($approvedClaimExists) {
+                    return 'resource_conflict';
+                }
+
+                RewardClaim::query()
+                    ->whereIn('winning_ticket_id', $winningTicketIds)
+                    ->delete();
+            }
+
+            WinningTicket::query()->where('reward_result_id', $rewardResultId)->delete();
+            RewardCheckItem::query()->where('reward_result_id', $rewardResultId)->delete();
+            RewardCheckBatch::query()->where('reward_result_id', $rewardResultId)->delete();
+            RewardPrize::query()->where('reward_result_id', $rewardResultId)->delete();
+            $this->ensureDraftRewardPrizes($rewardResultId, (string) $result->game_id);
+
             RewardResult::query()->where('id', $rewardResultId)->update([
-                'status' => 'recorded',
+                'status' => 'draft',
+                'summary_json' => json_encode([
+                    'source' => [
+                        'name' => 'central',
+                        'mode' => 'redraw',
+                    ],
+                    'live' => [
+                        'status' => 'draft',
+                        'completion_percent' => 0,
+                        'updated_at' => now()->toISOString(),
+                    ],
+                    'redraw' => [
+                        'reason' => $payload['reason'] ?? null,
+                        'requested_by_admin_id' => $actor->adminUser['id'],
+                        'requested_at' => now()->toISOString(),
+                    ],
+                ], JSON_THROW_ON_ERROR),
                 'checked_at' => null,
+                'verified_by_admin_id' => null,
                 'verified_at' => null,
+                'published_by_admin_id' => null,
                 'published_at' => null,
+                'corrected_by_admin_id' => $actor->adminUser['id'],
+                'correction_note' => $payload['reason'] ?? $payload['note'] ?? null,
+                'corrected_at' => now(),
                 'updated_at' => now(),
             ]);
             $this->setGameStatus((string) $result->game_id, 'reward_recorded');
-            $this->processRewardCheck($rewardResultId, self::CHECK_CHUNK_SIZE, $request->header('Idempotency-Key'));
+            $this->broadcastRewardLiveUpdate($rewardResultId);
 
             return $this->rewardResult($rewardResultId) ?? [];
-        }, 'reward.live_confirmed', 202);
+        }, 'reward.redraw_requested', 200);
     }
 
     /**
@@ -1577,6 +1758,70 @@ class RewardService
 
             return $this->rewardResult($rewardResultId) ?? [];
         }, 'reward.corrected', 202);
+    }
+
+    private function publishCheckedRewardResult(string $rewardResultId, object $result, AdminSessionContext $actor, Request $request): array|string
+    {
+        $fresh = RewardResult::query()->where('id', $rewardResultId)->first() ?? $result;
+
+        if ((string) $fresh->status === 'published') {
+            return $this->rewardResult($rewardResultId) ?? [];
+        }
+
+        if (! in_array((string) $fresh->status, ['summary_ready', 'verified'], true)) {
+            return 'resource_conflict';
+        }
+
+        $version = max(
+            (int) $fresh->version,
+            (int) RewardPublishLog::where('reward_result_id', $rewardResultId)->max('reward_version') + 1,
+        );
+        $publishedAt = now();
+        $summary = [
+            ...$this->summary($rewardResultId),
+            'reward_version' => $version,
+            'status' => 'published',
+        ];
+        $logId = 'rpl_'.Str::ulid()->toBase32();
+
+        WinningTicket::query()
+            ->where('reward_result_id', $rewardResultId)
+            ->where('status', 'pending')
+            ->update([
+                'status' => 'verified',
+                'updated_at' => $publishedAt,
+            ]);
+        RewardResult::query()->where('id', $rewardResultId)->update([
+            'status' => 'published',
+            'version' => $version,
+            'summary_json' => json_encode($summary, JSON_THROW_ON_ERROR),
+            'verified_by_admin_id' => $fresh->verified_by_admin_id ?? $actor->adminUser['id'],
+            'verified_at' => $fresh->verified_at ?? $publishedAt,
+            'published_by_admin_id' => $actor->adminUser['id'],
+            'published_at' => $publishedAt,
+            'updated_at' => $publishedAt,
+        ]);
+        RewardPublishLog::query()->insert([
+            'id' => $logId,
+            'reward_result_id' => $rewardResultId,
+            'game_id' => (string) $fresh->game_id,
+            'reward_version' => $version,
+            'published_by_admin_id' => $actor->adminUser['id'],
+            'payload_json' => json_encode($summary, JSON_THROW_ON_ERROR),
+            'published_at' => $publishedAt,
+            'created_at' => $publishedAt,
+            'updated_at' => $publishedAt,
+        ]);
+        $this->setGameStatus((string) $fresh->game_id, 'reward_published');
+        $this->insertOutboxEvent('reward.published.v1', (string) $fresh->game_id, 'reward_result', $rewardResultId, $request->header('Idempotency-Key'), $request->header('X-Request-Id'), [
+            'reward_result_id' => $rewardResultId,
+            'game_id' => (string) $fresh->game_id,
+            'reward_version' => $version,
+            'published_at' => $publishedAt->toISOString(),
+        ]);
+        $this->broadcastRewardLiveUpdate($rewardResultId);
+
+        return $this->rewardResult($rewardResultId) ?? [];
     }
 
     /**
@@ -1621,13 +1866,12 @@ class RewardService
             return null;
         }
 
-        $winning = WinningTicket::query()
-            ->join('reward_results', 'reward_results.id', '=', 'winning_tickets.reward_result_id')
-            ->where('winning_tickets.tenant_id', $tenantId)
-            ->where('winning_tickets.ticket_id', $ticketId)
-            ->select('winning_tickets.*', 'reward_results.status as reward_result_status')
-            ->orderByDesc('winning_tickets.created_at')
-            ->first();
+        $winnings = $this->ticketWinningRows($tenantId, $ticketId);
+        $visibleWinnings = array_values(array_filter(
+            $winnings,
+            fn (object $winning): bool => in_array((string) $winning->reward_result_status, ['verified', 'published'], true),
+        ));
+        $winning = $visibleWinnings[0] ?? null;
         $claim = RewardClaim::query()
             ->forTenant($tenantId)
             ->where('ticket_id', $ticketId)
@@ -1639,18 +1883,31 @@ class RewardService
                 'ticket_id' => $ticketId,
                 'status' => $this->claimStatusForTicket((string) $claim->status),
                 'claimable' => false,
+                'prize_type' => $winning?->prize_type,
+                'prize_number' => $winning?->prize_number,
                 'prize_amount' => $this->money((int) $claim->prize_amount, (string) $claim->currency),
+                'prizes' => $this->winningPrizeRowsResource($visibleWinnings),
+                'prize_count' => count($visibleWinnings),
                 'reward_result_id' => $winning?->reward_result_id,
                 'reward_claim_id' => (string) $claim->id,
             ];
         }
 
-        if ($winning !== null && in_array((string) $winning->reward_result_status, ['verified', 'published'], true)) {
+        if ($winning !== null) {
+            $claimableWinnings = array_values(array_filter(
+                $visibleWinnings,
+                fn (object $row): bool => (string) $row->reward_result_status === 'published' && in_array((string) $row->status, ['pending', 'verified'], true),
+            ));
+
             return [
                 'ticket_id' => $ticketId,
                 'status' => 'winning',
-                'claimable' => (string) $winning->reward_result_status === 'published' && in_array((string) $winning->status, ['pending', 'verified'], true),
-                'prize_amount' => $this->money((int) $winning->amount, (string) $winning->currency),
+                'claimable' => $claimableWinnings !== [],
+                'prize_type' => (string) $winning->prize_type,
+                'prize_number' => (string) $winning->prize_number,
+                'prize_amount' => $this->money($this->sumWinningAmount($visibleWinnings), (string) $winning->currency),
+                'prizes' => $this->winningPrizeRowsResource($visibleWinnings),
+                'prize_count' => count($visibleWinnings),
                 'reward_result_id' => (string) $winning->reward_result_id,
                 'reward_claim_id' => null,
             ];
@@ -1661,7 +1918,11 @@ class RewardService
                 'ticket_id' => $ticketId,
                 'status' => 'non_winning',
                 'claimable' => false,
+                'prize_type' => null,
+                'prize_number' => null,
                 'prize_amount' => null,
+                'prizes' => [],
+                'prize_count' => 0,
                 'reward_result_id' => null,
                 'reward_claim_id' => null,
             ];
@@ -1671,7 +1932,11 @@ class RewardService
             'ticket_id' => $ticketId,
             'status' => 'pending_result',
             'claimable' => false,
+            'prize_type' => null,
+            'prize_number' => null,
             'prize_amount' => null,
+            'prizes' => [],
+            'prize_count' => 0,
             'reward_result_id' => null,
             'reward_claim_id' => null,
         ];
@@ -1761,20 +2026,27 @@ class RewardService
                 return ['error' => 'not_found'];
             }
 
-            $winning = WinningTicket::query()
+            $winnings = WinningTicket::query()
                 ->join('reward_results', 'reward_results.id', '=', 'winning_tickets.reward_result_id')
                 ->where('winning_tickets.tenant_id', $tenantId)
                 ->where('winning_tickets.ticket_id', $ticket->id)
                 ->where('reward_results.status', 'published')
                 ->select('winning_tickets.*')
                 ->lockForUpdate()
-                ->first();
+                ->get()
+                ->all();
+            $winnings = $this->sortWinningRows($winnings);
+            $claimableWinnings = array_values(array_filter(
+                $winnings,
+                fn (object $winning): bool => in_array((string) $winning->status, ['pending', 'verified'], true),
+            ));
+            $winning = $claimableWinnings[0] ?? null;
 
-            if ($winning === null || ! in_array((string) $winning->status, ['pending', 'verified'], true)) {
+            if ($winning === null) {
                 return ['error' => 'resource_conflict'];
             }
 
-            if (RewardClaim::where('tenant_id', $tenantId)->where('winning_ticket_id', $winning->id)->exists()) {
+            if (RewardClaim::where('tenant_id', $tenantId)->where('ticket_id', $ticket->id)->exists()) {
                 return ['error' => 'resource_conflict'];
             }
 
@@ -1787,6 +2059,9 @@ class RewardService
             $claimId = 'rcl_'.Str::ulid()->toBase32();
             $now = now();
             $priceRuleSnapshot = $winning->price_rule_snapshot_json;
+            $prizeAmount = $this->sumWinningAmount($claimableWinnings, 'amount');
+            $basePrizeAmount = $this->sumWinningAmount($claimableWinnings, 'base_amount', 'amount');
+            $adjustmentAmount = $this->sumWinningAmount($claimableWinnings, 'adjustment_amount');
 
             if ($normalized['payout_method'] === 'bank_transfer') {
                 $this->storeCustomerRewardPayoutBankAccount($tenantId, $customer->customerId(), $normalized['bank_account']);
@@ -1803,9 +2078,9 @@ class RewardService
                 'reference' => 'RWD-'.strtoupper(substr($claimId, -10)),
                 'status' => 'submitted',
                 'payout_method' => $normalized['payout_method'],
-                'prize_amount' => (int) $winning->amount,
-                'base_prize_amount' => (int) ($winning->base_amount ?? $winning->amount),
-                'adjustment_amount' => (int) ($winning->adjustment_amount ?? 0),
+                'prize_amount' => $prizeAmount,
+                'base_prize_amount' => $basePrizeAmount,
+                'adjustment_amount' => $adjustmentAmount,
                 'tenant_price_rule_id' => $winning->tenant_price_rule_id,
                 'price_rule_snapshot_json' => is_array($priceRuleSnapshot) ? json_encode($priceRuleSnapshot, JSON_THROW_ON_ERROR) : $priceRuleSnapshot,
                 'currency' => (string) $winning->currency,
@@ -1875,7 +2150,7 @@ class RewardService
      */
     public function approveTenantClaim(string $tenantId, AdminSessionContext $actor, string $claimId, array $payload, Request $request): array
     {
-        return $this->tenantClaimWrite($tenantId, $actor, $claimId, $payload, $request, 'admin.tenant.reward_claims.approve', 'reward_claim.approve', 'reward_claim.approved', function (object $claim) use ($actor, $payload): array|string {
+        return $this->tenantClaimWrite($tenantId, $actor, $claimId, $payload, $request, 'admin.tenant.reward_claims.approve', 'reward_claim.approve', 'reward_claim.approved', function (object $claim) use ($actor, $payload, $request): array|string {
             if ((string) $claim->status === 'approved') {
                 return [];
             }
@@ -1890,14 +2165,38 @@ class RewardService
                 return 'resource_conflict';
             }
 
+            $ledger = null;
+            $walletId = $claim->wallet_id;
+
+            if ((string) $claim->payout_method === 'wallet_credit') {
+                $walletId = $walletId ?? $this->customerAuth->ensurePrimaryWallet((string) $claim->tenant_id, (string) $claim->customer_id);
+                $ledger = $this->commerce->postLedger((string) $claim->tenant_id, (string) $walletId, (string) $claim->customer_id, 'credit', $amount, 'reward_claim', (string) $claim->id, 'reward-approve-'.(string) $request->header('Idempotency-Key'), $actor->adminUser['id'], $payload);
+                $this->insertWalletOutbox((string) $claim->tenant_id, (string) $claim->customer_id, (string) $walletId, $ledger, (string) $request->header('Idempotency-Key'), $request->header('X-Request-Id'));
+            }
+
             RewardClaim::query()->where('id', $claim->id)->update([
                 'status' => 'approved',
                 'prize_amount' => $amount,
+                'wallet_id' => $walletId,
+                'payout_ledger_id' => $ledger['id'] ?? $claim->payout_ledger_id,
                 'reviewed_by_admin_id' => $actor->adminUser['id'],
                 'reviewed_at' => now(),
+                'paid_by_admin_id' => $ledger === null ? null : $actor->adminUser['id'],
+                'paid_at' => $ledger === null ? null : now(),
                 'admin_note' => $payload['reason'] ?? null,
                 'updated_at' => now(),
             ]);
+            WinningTicket::query()->where('tenant_id', $claim->tenant_id)->where('ticket_id', $claim->ticket_id)->update([
+                'status' => $ledger === null ? 'approved' : 'paid',
+                'updated_at' => now(),
+            ]);
+
+            if ($ledger !== null) {
+                Ticket::query()->where('id', $claim->ticket_id)->where('tenant_id', $claim->tenant_id)->update([
+                    'status' => 'paid_out',
+                    'updated_at' => now(),
+                ]);
+            }
 
             return [];
         });
@@ -1948,29 +2247,32 @@ class RewardService
             $method = trim((string) ($payload['payout_method'] ?? $claim->payout_method));
             $amount = $this->moneyAmount($payload['paid_amount'] ?? null, (int) $claim->prize_amount);
             $ledger = null;
+            $walletId = $claim->wallet_id;
 
             if (! in_array($method, self::CLAIM_PAYOUT_METHODS, true) || $amount <= 0) {
                 return 'resource_conflict';
             }
 
             if ($method === 'wallet_credit') {
-                $walletId = $claim->wallet_id ?? $this->customerAuth->ensurePrimaryWallet((string) $claim->tenant_id, (string) $claim->customer_id);
-                $ledger = $this->commerce->postLedger((string) $claim->tenant_id, (string) $walletId, (string) $claim->customer_id, 'credit', $amount, 'reward_claim', (string) $claim->id, 'reward-pay-'.(string) $request->header('Idempotency-Key'), $actor->adminUser['id'], $payload);
-                $this->insertWalletOutbox((string) $claim->tenant_id, (string) $claim->customer_id, (string) $walletId, $ledger, (string) $request->header('Idempotency-Key'), $request->header('X-Request-Id'));
+                $walletId = $walletId ?? $this->customerAuth->ensurePrimaryWallet((string) $claim->tenant_id, (string) $claim->customer_id);
+                if ($claim->payout_ledger_id === null) {
+                    $ledger = $this->commerce->postLedger((string) $claim->tenant_id, (string) $walletId, (string) $claim->customer_id, 'credit', $amount, 'reward_claim', (string) $claim->id, 'reward-pay-'.(string) $request->header('Idempotency-Key'), $actor->adminUser['id'], $payload);
+                    $this->insertWalletOutbox((string) $claim->tenant_id, (string) $claim->customer_id, (string) $walletId, $ledger, (string) $request->header('Idempotency-Key'), $request->header('X-Request-Id'));
+                }
             }
 
             RewardClaim::query()->where('id', $claim->id)->update([
                 'status' => 'paid',
                 'payout_method' => $method,
                 'prize_amount' => $amount,
-                'wallet_id' => $claim->wallet_id ?? ($method === 'wallet_credit' ? $ledger['wallet_id'] : null),
-                'payout_ledger_id' => $ledger['id'] ?? null,
+                'wallet_id' => $walletId,
+                'payout_ledger_id' => $ledger['id'] ?? $claim->payout_ledger_id,
                 'paid_by_admin_id' => $actor->adminUser['id'],
                 'paid_at' => now(),
                 'admin_note' => $payload['reason'] ?? null,
                 'updated_at' => now(),
             ]);
-            WinningTicket::query()->where('id', $claim->winning_ticket_id)->update(['status' => 'paid', 'updated_at' => now()]);
+            WinningTicket::query()->where('tenant_id', $claim->tenant_id)->where('ticket_id', $claim->ticket_id)->update(['status' => 'paid', 'updated_at' => now()]);
             Ticket::query()->where('id', $claim->ticket_id)->where('tenant_id', $claim->tenant_id)->update(['status' => 'paid_out', 'updated_at' => now()]);
 
             return [];
@@ -2225,16 +2527,22 @@ class RewardService
                     ->where('reward_result_id', $rewardResultId)
                     ->where('prize_type', $update['prize_type'])
                     ->orderBy('sort_order')
-                    ->get(['id'])
+                    ->get(['id', 'prize_number'])
                     ->all();
 
                 foreach ($update['prize_numbers'] as $index => $number) {
-                    if (! isset($rows[$index]) || $number === '' || str_starts_with($number, 'pending_')) {
+                    if (! isset($rows[$index])) {
+                        continue;
+                    }
+
+                    $nextNumber = $this->normalizePrizeNumberUpdateValue($update['prize_type'], $index, $number);
+
+                    if ((string) $rows[$index]->prize_number === $nextNumber) {
                         continue;
                     }
 
                     RewardPrize::query()->where('id', $rows[$index]->id)->update([
-                        'prize_number' => $number,
+                        'prize_number' => $nextNumber,
                         'updated_at' => now(),
                     ]);
                 }
@@ -2269,11 +2577,11 @@ class RewardService
             ));
 
             foreach ($update['prize_numbers'] as $index => $number) {
-                if (! isset($indexes[$index]) || $number === '' || str_starts_with($number, 'pending_')) {
+                if (! isset($indexes[$index])) {
                     continue;
                 }
 
-                $rows[$indexes[$index]]['prize_number'] = $number;
+                $rows[$indexes[$index]]['prize_number'] = $this->normalizePrizeNumberUpdateValue($update['prize_type'], $index, $number);
             }
         }
 
@@ -2641,9 +2949,14 @@ class RewardService
     private function publicSummary(object $result): array
     {
         $summary = $this->decodeJsonObject($result->summary_json);
+        $game = Game::whereKey($result->game_id)->first(['code', 'name', 'draw_at']);
 
         return [
             'game_id' => (string) $result->game_id,
+            'game_code' => (string) ($game?->code ?? ''),
+            'draw_code' => (string) ($game?->code ?? ($summary['source']['draw_code'] ?? '')),
+            'game_name' => (string) ($game?->name ?? ($summary['game_name'] ?? '')),
+            'draw_at' => $game?->draw_at,
             'reward_version' => (int) $result->version,
             'status' => (string) $result->status,
             'prizes' => $summary['prizes'] ?? array_map(fn (object $prize): array => $this->prizeResource($prize), RewardPrize::query()->where('reward_result_id', $result->id)->orderBy('sort_order')->get()->all()),
@@ -2744,6 +3057,26 @@ class RewardService
         ];
     }
 
+    private function broadcastRewardLiveUpdate(string $rewardResultId, bool $changed = true): void
+    {
+        $result = RewardResult::query()->whereKey($rewardResultId)->first();
+
+        if ($result === null) {
+            return;
+        }
+
+        if (! in_array((string) $result->status, [...self::PUBLIC_LIVE_RESULT_STATUSES, 'published'], true)) {
+            return;
+        }
+
+        $payload = $this->compactLiveBroadcastPayload($this->publicLiveSummary($result)) + [
+            'event_type' => 'reward.result.live.updated',
+            'changed' => $changed,
+        ];
+
+        DB::afterCommit(fn () => RewardLiveResultUpdated::dispatch($payload));
+    }
+
     /**
      * @param array<int, object> $prizes
      */
@@ -2763,6 +3096,15 @@ class RewardService
         $digits = ThaiGovernmentLotteryRewardTemplate::rules()[$type]['digits'] ?? 6;
 
         return str_repeat('x', $digits);
+    }
+
+    private function normalizePrizeNumberUpdateValue(string $type, int $index, mixed $number): string
+    {
+        $normalized = trim((string) $number);
+
+        return $this->isPendingPrizeNumber($normalized)
+            ? ThaiGovernmentLotteryRewardTemplate::pendingNumber($type, $index + 1)
+            : $normalized;
     }
 
     private function isPendingPrizeNumber(string $number): bool
@@ -2794,13 +3136,80 @@ class RewardService
     }
 
     /**
+     * @return array<int, object>
+     */
+    private function ticketWinningRows(string $tenantId, string $ticketId): array
+    {
+        $rows = WinningTicket::query()
+            ->join('reward_results', 'reward_results.id', '=', 'winning_tickets.reward_result_id')
+            ->where('winning_tickets.tenant_id', $tenantId)
+            ->where('winning_tickets.ticket_id', $ticketId)
+            ->select('winning_tickets.*', 'reward_results.status as reward_result_status')
+            ->get()
+            ->all();
+
+        return $this->sortWinningRows($rows);
+    }
+
+    /**
+     * @param array<int, object> $rows
+     * @return array<int, object>
+     */
+    private function sortWinningRows(array $rows): array
+    {
+        usort($rows, function (object $left, object $right): int {
+            $leftOrder = self::PRIZE_TYPE_SORT_ORDER[(string) $left->prize_type] ?? 999;
+            $rightOrder = self::PRIZE_TYPE_SORT_ORDER[(string) $right->prize_type] ?? 999;
+
+            return ($leftOrder <=> $rightOrder)
+                ?: ((int) $right->amount <=> (int) $left->amount)
+                ?: strcmp((string) $left->id, (string) $right->id);
+        });
+
+        return $rows;
+    }
+
+    /**
+     * @param array<int, object> $rows
+     */
+    private function sumWinningAmount(array $rows, string $field = 'amount', ?string $fallbackField = null): int
+    {
+        return array_reduce($rows, function (int $total, object $row) use ($field, $fallbackField): int {
+            $value = $row->{$field} ?? ($fallbackField === null ? 0 : ($row->{$fallbackField} ?? 0));
+
+            return $total + (int) $value;
+        }, 0);
+    }
+
+    /**
+     * @param array<int, object> $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function winningPrizeRowsResource(array $rows): array
+    {
+        return array_map(fn (object $winning): array => [
+            'winning_ticket_id' => (string) $winning->id,
+            'reward_result_id' => (string) $winning->reward_result_id,
+            'reward_prize_id' => (string) $winning->reward_prize_id,
+            'prize_type' => (string) $winning->prize_type,
+            'prize_number' => (string) $winning->prize_number,
+            'amount' => $this->money((int) $winning->amount, (string) $winning->currency),
+            'base_amount' => $this->money((int) ($winning->base_amount ?? $winning->amount), (string) $winning->currency),
+            'adjustment_amount' => $this->money((int) ($winning->adjustment_amount ?? 0), (string) $winning->currency),
+            'currency' => (string) $winning->currency,
+            'status' => (string) $winning->status,
+        ], $rows);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function claimResource(object $claim): array
     {
         $ticket = Ticket::where('id', $claim->ticket_id)->first();
         $customer = Customer::where('id', $claim->customer_id)->first();
-        $winning = WinningTicket::where('id', $claim->winning_ticket_id)->first();
+        $winnings = $this->ticketWinningRows((string) $claim->tenant_id, (string) $claim->ticket_id);
+        $winning = $winnings[0] ?? WinningTicket::where('id', $claim->winning_ticket_id)->first();
         $wallet = $claim->wallet_id === null ? null : Wallet::where('id', $claim->wallet_id)->first();
 
         return [
@@ -2814,6 +3223,8 @@ class RewardService
             'prize_type' => $winning?->prize_type,
             'prize_number' => $winning?->prize_number,
             'prize_amount' => $this->money((int) $claim->prize_amount, (string) $claim->currency),
+            'prizes' => $this->winningPrizeRowsResource($winnings),
+            'prize_count' => count($winnings),
             'reward_pricing' => [
                 'base_source' => TenantRewardPriceRuleService::BASE_SOURCE_CENTRAL_REWARD,
                 'base_prize_amount' => $this->money((int) ($claim->base_prize_amount ?? $claim->prize_amount), (string) $claim->currency),
@@ -2824,6 +3235,7 @@ class RewardService
             ],
             'status' => (string) $claim->status,
             'payout_method' => $claim->payout_method,
+            'bank_account' => $this->decodeJsonObject($claim->bank_account_json),
             'payout_wallet' => $wallet === null ? null : $this->walletResource($wallet),
             'submitted_at' => $claim->submitted_at,
             'reviewed_at' => $claim->reviewed_at,

@@ -1,10 +1,22 @@
 import { formatDrawDateText } from '~/utils/formatDrawDate'
-import { moneyToDisplayNumber } from '~/composables/usePlatformApi'
+import { rewardAmountToDisplayNumber } from '~/composables/usePlatformApi'
 
 export interface UserTicketGame {
   id?: number | string
+  code?: string
   name?: string
+  draw_at?: string
   status?: number | string
+  [key: string]: unknown
+}
+
+export interface UserTicketRewardPrize {
+  prize_type?: string
+  prize_number?: string
+  amount?: number | string | { amount?: number | string, currency?: string } | null
+  prize_amount?: number | string | { amount?: number | string, currency?: string } | null
+  reward?: number | string | { amount?: number | string, currency?: string } | null
+  title?: string
   [key: string]: unknown
 }
 
@@ -26,9 +38,13 @@ export interface UserTicket {
   prize_amount?: number | string | { amount?: number | string, currency?: string } | null
   prize_type?: string | null
   prize_number?: string | null
+  prizes?: UserTicketRewardPrize[]
   claimable?: boolean
   reward_status?: Record<string, unknown> | null
+  game?: UserTicketGame | null
   game_id?: number | string
+  game_name?: string
+  draw_at?: string
   draw?: number | string
   draw_no?: number | string
   game_no?: number | string
@@ -97,6 +113,28 @@ export const getTicketImageUrl = (ticket: Partial<UserTicket> | null | undefined
 }
 
 export const getTicketStatusText = (ticket: Partial<UserTicket> | null | undefined) => {
+  const rewardStatus = String(ticket?.reward_status?.status || '').toLowerCase()
+
+  if (['paid', 'paid_out'].includes(rewardStatus)) {
+    return 'ขึ้นเงินแล้ว'
+  }
+
+  if (['submitted', 'claim_submitted', 'under_review', 'approved', 'claim_approved'].includes(rewardStatus)) {
+    return 'รอรับเงินรางวัล'
+  }
+
+  if (rewardStatus === 'rejected') {
+    return 'เคลมไม่สำเร็จ'
+  }
+
+  if (rewardStatus === 'winning') {
+    return 'ถูกรางวัล'
+  }
+
+  if (rewardStatus === 'non_winning') {
+    return 'ไม่ถูกรางวัล'
+  }
+
   const status = Number(ticket?.status)
 
   if (status === 4) {
@@ -138,16 +176,56 @@ export const isWinningTicket = (ticket: Partial<UserTicket> | null | undefined) 
   const status = Number(ticket?.status)
   const rewardStatus = String(ticket?.reward_status?.status || '').toLowerCase()
 
-  return [4, 5].includes(status) || ['winning', 'approved', 'submitted', 'paid', 'paid_out'].includes(rewardStatus)
+  return [4, 5].includes(status) || ['winning', 'approved', 'claim_approved', 'submitted', 'claim_submitted', 'under_review', 'paid', 'paid_out', 'rejected'].includes(rewardStatus)
 }
 
 export const getTicketPrizeAmount = (ticket: Partial<UserTicket> | null | undefined) => {
-  const rewardStatus = ticket?.reward_status || {}
+  const prizes = getTicketRewardPrizes(ticket)
 
-  return moneyToDisplayNumber(rewardStatus.prize_amount ?? ticket?.prize_amount, 0)
+  if (prizes.length > 0) {
+    return prizes.reduce((total, prize) => total + prize.amount, 0)
+  }
+
+  const rewardStatus = ticket?.reward_status || {}
+  const prizeType = rewardStatus.prize_type || ticket?.prize_type || ''
+
+  return rewardAmountToDisplayNumber(rewardStatus.prize_amount ?? ticket?.prize_amount, 0, prizeType)
+}
+
+export const getTicketRewardPrizes = (ticket: Partial<UserTicket> | null | undefined) => {
+  const rewardStatus = ticket?.reward_status || {}
+  const source = Array.isArray(rewardStatus.prizes)
+    ? rewardStatus.prizes
+    : (Array.isArray(ticket?.prizes) ? ticket.prizes : [])
+
+  return source
+    .map((item: unknown) => {
+      const prize = item && typeof item === 'object' ? item as UserTicketRewardPrize : {}
+      const prizeType = String(prize.prize_type || '').trim()
+      const amount = rewardAmountToDisplayNumber(prize.amount ?? prize.prize_amount ?? prize.reward, 0, prizeType)
+
+      return {
+        ...prize,
+        prize_type: prizeType,
+        prize_number: String(prize.prize_number || ''),
+        title: prizeTypeLabels[prizeType] || String(prize.title || 'ถูกรางวัล'),
+        amount
+      }
+    })
+    .filter((prize) => prize.amount > 0 || prize.prize_type || prize.prize_number)
 }
 
 export const getTicketPrizeTitle = (ticket: Partial<UserTicket> | null | undefined) => {
+  const prizes = getTicketRewardPrizes(ticket)
+
+  if (prizes.length > 1) {
+    return `ถูกรางวัล ${prizes.length.toLocaleString('th-TH')} รางวัล`
+  }
+
+  if (prizes.length === 1) {
+    return prizes[0].title
+  }
+
   const rewardStatus = ticket?.reward_status || {}
   const type = String(rewardStatus.prize_type || ticket?.prize_type || '').trim()
 
@@ -160,11 +238,60 @@ export const isTicketClaimable = (ticket: Partial<UserTicket> | null | undefined
   return Boolean(rewardStatus.claimable ?? ticket?.claimable)
 }
 
+export const getTicketClaimId = (ticket: Partial<UserTicket> | null | undefined) => {
+  const rewardStatus = ticket?.reward_status || {}
+  const claimId = rewardStatus.reward_claim_id || ticket?.reward_claim_id || ''
+
+  return String(claimId || '').trim()
+}
+
+export const getTicketClaimTo = (ticket: Partial<UserTicket> | null | undefined) => {
+  const claimId = getTicketClaimId(ticket)
+
+  if (claimId) {
+    return `/reward-claims/${encodeURIComponent(claimId)}`
+  }
+
+  const ticketId = String(ticket?.id || '').trim()
+
+  return isTicketClaimable(ticket) && ticketId ? `/tickets/claim/${encodeURIComponent(ticketId)}` : ''
+}
+
 export const getTicketDraw = (ticket: Partial<UserTicket> | null | undefined, game?: UserTicketGame | null) => {
   const value = ticket?.draw_no ?? ticket?.draw ?? ticket?.game_no ?? ticket?.game_id ?? game?.id ?? '-'
 
   return String(value || '-')
 }
+
+export const getTicketGame = (ticket: Partial<UserTicket> | null | undefined) => {
+  if (ticket?.game && typeof ticket.game === 'object') {
+    return ticket.game
+  }
+
+  if (ticket?.game_id || ticket?.game_name || ticket?.draw_at) {
+    return {
+      id: ticket.game_id,
+      name: ticket.game_name || '',
+      draw_at: ticket.draw_at || ''
+    }
+  }
+
+  return null
+}
+
+export const getGameDateText = (game: UserTicketGame | null | undefined) => {
+  const nameDate = formatDrawDateText(game?.name)
+
+  if (nameDate !== '-') {
+    return nameDate
+  }
+
+  const drawAtDate = formatDrawDateText(game?.draw_at)
+
+  return drawAtDate === '-' ? '' : drawAtDate
+}
+
+export const getTicketGameDate = (ticket: Partial<UserTicket> | null | undefined) => getGameDateText(getTicketGame(ticket))
 
 export const getTicketSet = (ticket: Partial<UserTicket> | null | undefined) => {
   const value = ticket?.set ?? ticket?.sort_order ?? getTicketCount(ticket)
@@ -204,32 +331,33 @@ export const useUserTickets = () => {
     const filteredTickets = options.search
       ? response.tickets.filter((ticket) => getTicketNumber(ticket).includes(String(options.search)))
       : response.tickets
+    const ticketGame = filteredTickets.map(getTicketGame).find(Boolean) || null
 
     return {
       ...response,
       tickets: filteredTickets,
+      game: ticketGame || response.game,
       totalTicketCount: response.totalTicketCount || filteredTickets.length
     }
   }
 
-  const getGameDate = (game: UserTicketGame | null | undefined) => {
-    const dateText = formatDrawDateText(game?.name)
-
-    return dateText === '-' ? '' : dateText
-  }
-
   return {
     fetchTickets,
-    getGameDate,
+    getGameDate: getGameDateText,
     getTicketNumber,
     getTicketCount,
     getTicketTotal,
     getTicketStatusText,
     isWinningTicket,
     getTicketPrizeAmount,
+    getTicketRewardPrizes,
     getTicketPrizeTitle,
     isTicketClaimable,
+    getTicketClaimId,
+    getTicketClaimTo,
     getTicketDraw,
+    getTicketGame,
+    getTicketGameDate,
     getTicketSet,
     getTicketImageUrl
   }

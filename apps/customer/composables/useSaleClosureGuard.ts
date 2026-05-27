@@ -2,6 +2,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { CartLottery } from '~/composables/useCart'
 
 const WAITING_RESULT_PATH = '/waiting-result'
+const SALE_CLOSED_NOTICE_QUERY = 'sale_closed'
 
 const parseTimestampMs = (value: unknown) => {
   if (!value) {
@@ -30,6 +31,12 @@ const reservationIdsFromCart = (items: CartLottery[]) => Array.from(new Set(item
   .map((value) => String(value ?? '').trim())
   .filter(Boolean)))
 
+const isBuyOrSearchRoute = (path: string) => (
+  path === '/search' ||
+  path === '/buy' ||
+  path.startsWith('/buy/')
+)
+
 export const useSaleClosureGuard = () => {
   if (!process.client) {
     return
@@ -48,7 +55,6 @@ export const useSaleClosureGuard = () => {
   } = useAppInit()
   const { items, hasItems, isExpired, clearCart } = useCart()
   const now = useState<number>('sale_closure_guard_now', () => Date.now())
-  const hasShownSaleClosedNotice = useState<boolean>('sale_closure_notice_shown', () => false)
   const lastCloseRefreshKey = useState<string | null>('sale_closure_last_refresh_key', () => null)
   const lastReleasedCartKey = useState<string | null>('sale_closure_last_released_cart_key', () => null)
   const isRefreshingClosedSale = ref(false)
@@ -80,26 +86,21 @@ export const useSaleClosureGuard = () => {
     return items.value.map((item) => `${item.game_id || ''}:${item.number}`).join('|')
   })
 
-  const showSaleClosedNotice = () => {
-    if (hasShownSaleClosedNotice.value) {
-      return
-    }
-
-    hasShownSaleClosedNotice.value = true
-
-    showAlert({
-      title: 'หมดเวลาจำหน่ายสลากแล้ว',
-      message: hasActiveCart.value
-        ? 'ยังสามารถชำระเงินเพื่อซื้อสลากในตะกร้านี้ได้จนกว่าจะหมดเวลาชำระเงิน'
-        : 'หมดเวลาจำหน่ายสลากแล้ว กรุณารอประกาศผลรางวัล',
-      variant: 'warning'
-    })
-  }
-
   const redirectForSaleState = async () => {
-    const redirectTarget = getInitRedirectTarget(route.path)
+    const sourcePath = route.path
+    const redirectTarget = getInitRedirectTarget(sourcePath)
 
     if (redirectTarget && redirectTarget !== route.path) {
+      if (redirectTarget === WAITING_RESULT_PATH && isBuyOrSearchRoute(sourcePath)) {
+        await navigateTo({
+          path: WAITING_RESULT_PATH,
+          query: {
+            [SALE_CLOSED_NOTICE_QUERY]: '1'
+          }
+        })
+        return
+      }
+
       await navigateTo(redirectTarget)
     }
   }
@@ -155,15 +156,7 @@ export const useSaleClosureGuard = () => {
   const handleSaleState = async () => {
     now.value = Date.now()
 
-    if (currentStatus.value === 1 && !waitingForResult.value) {
-      hasShownSaleClosedNotice.value = false
-    }
-
     await refreshClosedSaleOnce()
-
-    if (waitingForResult.value) {
-      showSaleClosedNotice()
-    }
 
     await redirectForSaleState()
 

@@ -8,12 +8,6 @@
       <AdminEmptyState v-else-if="!record" title="No detail data" message="This record has no data to display yet." />
       <div v-else class="np-detail-section">
         <AdminDefinitionList v-if="items.length" :items="items" />
-        <div v-if="complexItems.length" class="np-detail-groups">
-          <section v-for="item in complexItems" :key="item.key" class="np-detail-group">
-            <h6 class="mb-2">{{ item.label }}</h6>
-            <AdminReadableValue :value="item.value" :field-key="item.key" />
-          </section>
-        </div>
       </div>
     </div>
   </div>

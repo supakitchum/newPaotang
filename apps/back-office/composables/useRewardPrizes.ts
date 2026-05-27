@@ -103,7 +103,7 @@ export const rewardPrizeGroupsToNumberUpdates = (groups: RewardPrizeGroupState[]
     prize_type: group.type,
     prize_numbers: group.numbers.map((number) => String(number || '').trim()),
   }))
-  .filter((group) => group.prize_numbers.some((number) => number !== '' && !number.startsWith('pending_')))
+  .filter((group) => group.prize_numbers.length > 0)
 
 export const rewardPrizeGroupsToPayoutUpdates = (groups: RewardPrizeGroupState[]): RewardPayoutAmountUpdatePayload[] => groups
   .map((group) => {
@@ -132,8 +132,5 @@ export const hasCompleteRewardPrizeAmounts = (groups: RewardPrizeGroupState[]) =
 ))
 
 export const hasAnyRewardPrizeNumberUpdate = (groups: RewardPrizeGroupState[]) => groups.some((group) => (
-  group.numbers.some((number) => {
-    const normalized = String(number || '').trim()
-    return normalized !== '' && !normalized.startsWith('pending_')
-  })
+  group.numbers.length > 0
 ))

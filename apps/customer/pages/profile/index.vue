@@ -14,11 +14,17 @@
         <h2 class="fs-6 fw-medium muted-text mb-3">{{ section.title }}</h2>
         <template v-for="item in section.items" :key="menuItemKey(item)">
           <NuxtLink v-if="menuItemTo(item)" class="menu-row menu-row-link" :to="menuItemTo(item)">
-            <span class="fw-semibold flex-grow-1 fs-6">{{ menuItemLabel(item) }}</span>
+            <span class="menu-row-main">
+              <span class="fw-semibold fs-6">{{ menuItemLabel(item) }}</span>
+              <span v-if="menuItemBadge(item)" class="menu-row-badge">{{ menuItemBadge(item) }}</span>
+            </span>
             <i class="bi bi-chevron-right fs-3 text-secondary" />
           </NuxtLink>
           <div v-else class="menu-row">
-            <span class="fw-semibold flex-grow-1 fs-6">{{ menuItemLabel(item) }}</span>
+            <span class="menu-row-main">
+              <span class="fw-semibold fs-6">{{ menuItemLabel(item) }}</span>
+              <span v-if="menuItemBadge(item)" class="menu-row-badge">{{ menuItemBadge(item) }}</span>
+            </span>
             <i class="bi bi-chevron-right fs-3 text-secondary" />
           </div>
         </template>
@@ -44,9 +50,11 @@ const customerNoText = computed(() => {
 
   return `รหัสสมาชิก : ${customerNo || '-'}`
 })
-const menuItemLabel = (item: string | { label: string }) => typeof item === 'string' ? item : item.label
-const menuItemTo = (item: string | { to?: string }) => typeof item === 'string' ? '' : item.to || ''
-const menuItemKey = (item: string | { label: string, to?: string }) => `${menuItemLabel(item)}:${menuItemTo(item)}`
+type ProfileMenuItem = string | { label: string, to?: string, badge?: string }
+const menuItemLabel = (item: ProfileMenuItem) => typeof item === 'string' ? item : item.label
+const menuItemTo = (item: ProfileMenuItem) => typeof item === 'string' ? '' : item.to || ''
+const menuItemBadge = (item: ProfileMenuItem) => typeof item === 'string' ? '' : item.badge || ''
+const menuItemKey = (item: ProfileMenuItem) => `${menuItemLabel(item)}:${menuItemTo(item)}:${menuItemBadge(item)}`
 
 onMounted(async () => {
   try {
@@ -87,5 +95,28 @@ onMounted(async () => {
 .profile-sheet {
   margin-top: 0;
   padding-top: 24px;
+}
+
+.menu-row-main {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  gap: 8px;
+  min-width: 0;
+}
+
+.menu-row-main > span:first-child {
+  min-width: 0;
+}
+
+.menu-row-badge {
+  background: #e8f6ff;
+  border-radius: 999px;
+  color: #0b74d9;
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 4px 8px;
 }
 </style>

@@ -101,6 +101,18 @@ class RewardClaimTest extends TestCase
             ->json();
 
         $this->assertSame($claim['id'], $approved['id']);
+        $this->assertDatabaseHas('wallet_ledger', [
+            'tenant_id' => $world['tenant_id'],
+            'wallet_id' => $world['wallet_id'],
+            'entry_type' => 'credit',
+            'amount' => 6000000,
+            'reference_type' => 'reward_claim',
+            'reference_id' => $claim['id'],
+        ]);
+        $this->assertDatabaseHas('tickets', [
+            'id' => $world['ticket_id'],
+            'status' => 'paid_out',
+        ]);
 
         $paid = $this->withToken($tenantPayer['access_token'])
             ->postJson('/api/v1/admin/tenant/reward-claims/'.$claim['id'].'/pay', [
@@ -133,6 +145,113 @@ class RewardClaimTest extends TestCase
             'target_id' => $claim['id'],
             'tenant_id' => $world['tenant_id'],
         ]);
+    }
+
+    public function test_RewardClaim_customer_status_and_claim_sum_multiple_prizes_for_one_ticket(): void
+    {
+        $world = $this->prepareRewardWorld('par_reward_multi', 'ten_reward_multi', 'reward-multi.m7.test', 'gam_reward_multi', '0807200100', 790251);
+        $admin = $this->centralRewardAdmin([
+            'reward.view',
+            'reward.create',
+            'reward.verify',
+            'reward.publish',
+            'reward.correct',
+            'reward.audit',
+        ], 'reward-multi-prize');
+        $ticketNumber = (string) $world['ticket_number'];
+        $prizes = $this->thaiGovernmentLotteryPrizes($ticketNumber, $ticketNumber);
+        $patchedBack3 = false;
+        $patchedBack2 = false;
+
+        foreach ($prizes as &$prize) {
+            if (! $patchedBack3 && $prize['prize_type'] === 'back3') {
+                $prize['prize_number'] = substr($ticketNumber, -3);
+                $patchedBack3 = true;
+                continue;
+            }
+
+            if (! $patchedBack2 && $prize['prize_type'] === 'back2') {
+                $prize['prize_number'] = substr($ticketNumber, -2);
+                $patchedBack2 = true;
+            }
+        }
+        unset($prize);
+
+        $reward = $this->withToken($admin['access_token'])
+            ->postJson('/api/v1/admin/central/rewards', [
+                'game_id' => $world['game_id'],
+                'prizes' => $prizes,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-create-multi-prize',
+            ])
+            ->assertAccepted()
+            ->json();
+
+        $this->withToken($admin['access_token'])
+            ->postJson('/api/v1/admin/central/rewards/'.$reward['id'].'/verify', [
+                'reason' => 'multi prize summary checked',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-verify-multi-prize',
+            ])
+            ->assertOk();
+
+        $this->withToken($admin['access_token'])
+            ->postJson('/api/v1/admin/central/rewards/'.$reward['id'].'/publish', [], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-publish-multi-prize',
+            ])
+            ->assertOk();
+
+        $this->assertSame(3, DB::table('winning_tickets')->where('ticket_id', $world['ticket_id'])->count());
+
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/tickets/'.$world['ticket_id'].'/reward-status')
+            ->assertOk()
+            ->assertJsonPath('status', 'winning')
+            ->assertJsonPath('claimable', true)
+            ->assertJsonPath('prize_count', 3)
+            ->assertJsonPath('prize_amount.amount', 6006000)
+            ->assertJsonPath('prizes.0.prize_type', 'first_prize')
+            ->assertJsonPath('prizes.1.prize_type', 'back3')
+            ->assertJsonPath('prizes.2.prize_type', 'back2');
+
+        $claim = $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/reward-claims', [
+                'ticket_id' => $world['ticket_id'],
+                'payout_method' => 'wallet_credit',
+            ], [
+                'Idempotency-Key' => 'reward-claim-create-multi-prize',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('prize_count', 3)
+            ->assertJsonPath('prize_amount.amount', 6006000)
+            ->json();
+
+        $this->assertSame(1, DB::table('reward_claims')->where('tenant_id', $world['tenant_id'])->count());
+
+        $tenantPayer = $this->tenantAdmin($world, ['reward_claim.view', 'reward_claim.approve'], 'reward-multi-prize-pay');
+        $this->withToken($tenantPayer['access_token'])
+            ->postJson('/api/v1/admin/tenant/reward-claims/'.$claim['id'].'/approve', [
+                'reason' => 'approve all prize rows for one ticket',
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => $world['tenant_id'],
+                'Idempotency-Key' => 'reward-claim-approve-multi-prize',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'approved');
+
+        $this->assertDatabaseHas('wallet_ledger', [
+            'tenant_id' => $world['tenant_id'],
+            'wallet_id' => $world['wallet_id'],
+            'entry_type' => 'credit',
+            'amount' => 6006000,
+            'reference_type' => 'reward_claim',
+            'reference_id' => $claim['id'],
+        ]);
+        $this->assertSame(3, DB::table('winning_tickets')->where('ticket_id', $world['ticket_id'])->where('status', 'paid')->count());
     }
 
     public function test_RewardClaim_uses_tenant_reward_price_adjustment_snapshot_for_reports(): void
@@ -212,6 +331,48 @@ class RewardClaimTest extends TestCase
             ->assertJsonPath('rows.0.base_prize_amount', 6000000)
             ->assertJsonPath('rows.0.adjustment_amount', -100000)
             ->assertJsonPath('rows.0.prize_amount', 5900000);
+    }
+
+    public function test_RewardClaim_approve_bank_transfer_marks_approved_without_wallet_credit(): void
+    {
+        $fixture = $this->submittedRewardClaim('bank_approve', 'bank_transfer');
+        $world = $fixture['world'];
+        $claim = $fixture['claim'];
+        $tenantApprover = $fixture['admin'];
+        $walletBalance = DB::table('wallets')->where('id', $world['wallet_id'])->value('balance_amount');
+        $ledgerCount = DB::table('wallet_ledger')
+            ->where('tenant_id', $world['tenant_id'])
+            ->where('reference_type', 'reward_claim')
+            ->where('reference_id', $claim['id'])
+            ->count();
+
+        $approved = $this->withToken($tenantApprover['access_token'])
+            ->postJson('/api/v1/admin/tenant/reward-claims/'.$claim['id'].'/approve', [
+                'reason' => 'approved for bank transfer',
+            ], $this->tenantClaimHeaders($world, 'reward-bank-transfer-approve'))
+            ->assertOk()
+            ->assertJsonPath('status', 'approved')
+            ->assertJsonPath('payout_method', 'bank_transfer')
+            ->json();
+
+        $this->assertSame($claim['id'], $approved['id']);
+        $this->assertSame($walletBalance, DB::table('wallets')->where('id', $world['wallet_id'])->value('balance_amount'));
+        $this->assertSame($ledgerCount, DB::table('wallet_ledger')
+            ->where('tenant_id', $world['tenant_id'])
+            ->where('reference_type', 'reward_claim')
+            ->where('reference_id', $claim['id'])
+            ->count());
+        $this->assertDatabaseHas('reward_claims', [
+            'id' => $claim['id'],
+            'status' => 'approved',
+            'payout_method' => 'bank_transfer',
+            'payout_ledger_id' => null,
+            'paid_at' => null,
+        ]);
+        $this->assertDatabaseHas('winning_tickets', [
+            'id' => $claim['winning_ticket_id'],
+            'status' => 'approved',
+        ]);
     }
 
     public function test_RewardClaim_pay_rejects_invalid_payout_method_without_mutation(): void
@@ -415,7 +576,7 @@ class RewardClaimTest extends TestCase
     /**
      * @return array{world: array<string, mixed>, claim: array<string, mixed>, admin: array<string, mixed>}
      */
-    private function submittedRewardClaim(string $suffix): array
+    private function submittedRewardClaim(string $suffix, string $payoutMethod = 'wallet_credit'): array
     {
         $digits = substr(str_pad((string) (abs(crc32($suffix)) % 100000), 5, '0', STR_PAD_LEFT), 0, 5);
         $idSuffix = substr(str_replace('_', '', strtolower($suffix)), 0, 10).substr(sha1($suffix), 0, 6);
@@ -430,12 +591,21 @@ class RewardClaimTest extends TestCase
         );
         $this->publishReward($world, keySuffix: $suffix);
 
+        $payload = [
+            'ticket_id' => $world['ticket_id'],
+            'payout_method' => $payoutMethod,
+            'note' => 'validation test claim',
+        ];
+        if ($payoutMethod === 'bank_transfer') {
+            $payload['bank_account'] = [
+                'bank_name' => 'Test Bank',
+                'account_name' => 'Reward Winner',
+                'account_number' => '1234567890',
+            ];
+        }
+
         $claim = $this->withToken($world['auth']['token'])
-            ->postJson('http://'.$world['host'].'/api/v1/customer/reward-claims', [
-                'ticket_id' => $world['ticket_id'],
-                'payout_method' => 'wallet_credit',
-                'note' => 'validation test claim',
-            ], [
+            ->postJson('http://'.$world['host'].'/api/v1/customer/reward-claims', $payload, [
                 'Idempotency-Key' => 'reward-claim-create-'.$suffix,
             ])
             ->assertCreated()

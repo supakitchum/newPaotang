@@ -44,6 +44,7 @@ use App\Modules\Commerce\Http\Controllers\TenantCommerceController;
 use App\Modules\Growth\Http\Controllers\TenantGrowthController;
 use App\Modules\Maintenance\Http\Controllers\TenantMaintenanceController;
 use App\Modules\Reward\Http\Controllers\TenantRewardClaimController;
+use App\Modules\Reward\Http\Controllers\TenantRewardWinnersController;
 use App\Modules\PartnerStore\Http\Controllers\TenantReservationController;
 use App\Modules\PartnerStore\Http\Controllers\TenantStockController;
 use App\Modules\SupportAccess\Http\Controllers\TenantSupportAccessController;
@@ -354,6 +355,8 @@ Route::post('/admin/central/rewards/{reward_result_id}/publish', [CentralRewardC
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/rewards/{reward_result_id}/confirm-live', [CentralRewardController::class, 'confirmLive'])
     ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/rewards/{reward_result_id}/redraw', [CentralRewardController::class, 'redraw'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/rewards/{reward_result_id}/correct', [CentralRewardController::class, 'correct'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/reports/{report_key}', [ReportController::class, 'centralReport'])
@@ -601,10 +604,14 @@ Route::post('/admin/tenant/topups/{topup_id}/cancel', [TenantCommerceController:
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/reward-claims', [TenantRewardClaimController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/winners/games', [TenantRewardWinnersController::class, 'winnerGames'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/winners', [TenantRewardWinnersController::class, 'winners'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/reward-claims/{claim_id}', [TenantRewardClaimController::class, 'show'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/reward-claims/{claim_id}/approve', [TenantRewardClaimController::class, 'approve'])
-    ->middleware(['admin.auth', 'admin.scope:tenant']);
+    ->middleware(['admin.auth', 'admin.scope:tenant', 'support.block:payout_approve']);
 Route::post('/admin/tenant/reward-claims/{claim_id}/reject', [TenantRewardClaimController::class, 'reject'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/reward-claims/{claim_id}/pay', [TenantRewardClaimController::class, 'pay'])

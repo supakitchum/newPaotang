@@ -23,7 +23,9 @@
         :is-winning="isWinningTicket(selectedTicket)"
         :prize-title="getTicketPrizeTitle(selectedTicket)"
         :prize-amount="formatPrizeAmount(getTicketPrizeAmount(selectedTicket))"
+        :prizes="getTicketRewardPrizes(selectedTicket)"
         :claim-label="isTicketClaimable(selectedTicket) ? 'ขึ้นรางวัล' : 'ดูรางวัล'"
+        :claim-to="getTicketClaimTo(selectedTicket)"
       />
 
       <div v-else class="empty-lottery-state">
@@ -56,13 +58,16 @@ const { currentDrawDate } = useAppInit()
 const {
   fetchTickets,
   getGameDate,
+  getTicketGameDate,
   getTicketNumber,
   getTicketCount,
   getTicketStatusText,
   isWinningTicket,
   getTicketPrizeAmount,
+  getTicketRewardPrizes,
   getTicketPrizeTitle,
-  isTicketClaimable
+  isTicketClaimable,
+  getTicketClaimTo
 } = useUserTickets()
 const selectedTicket = ref<UserTicket | null>(null)
 const selectedGame = ref<UserTicketGame | null>(null)
@@ -89,7 +94,7 @@ const requestedGameId = computed(() => {
 })
 const ticketNumber = computed(() => getTicketNumber(selectedTicket.value))
 const ticketCount = computed(() => selectedTicket.value ? getTicketCount(selectedTicket.value) : 0)
-const drawDate = computed(() => getGameDate(selectedGame.value) || currentDrawDate.value)
+const drawDate = computed(() => getTicketGameDate(selectedTicket.value) || getGameDate(selectedGame.value) || currentDrawDate.value)
 
 const formatPrizeAmount = (amount: number) => {
   if (!Number.isFinite(amount) || amount <= 0) {

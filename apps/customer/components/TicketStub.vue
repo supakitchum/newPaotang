@@ -14,15 +14,23 @@
       <div class="ticket-stub-status">
         <div class="ticket-status-text" :class="{ winning: isWinning }">{{ status }}</div>
       </div>
+      <span class="side-label">สลากดิจิทัล</span>
     </div>
     <div v-if="isWinning" class="ticket-stub-reward">
       <div class="ticket-stub-reward-copy">
         <strong>{{ prizeTitle || 'ถูกรางวัล' }}</strong>
+        <div v-if="prizes.length > 1" class="ticket-stub-prize-list">
+          <span v-for="(prize, index) in prizes" :key="`${prize.prize_type || index}-${prize.prize_number || index}`">
+            {{ prize.title || 'ถูกรางวัล' }} {{ formatPrizeAmount(prize.amount) }} บาท
+          </span>
+        </div>
         <span v-if="prizeAmount">รับเงินรางวัล {{ prizeAmount }} บาท</span>
       </div>
-      <span class="ticket-claim-button">{{ claimLabel }}</span>
+      <NuxtLink v-if="claimTo" class="ticket-claim-button" :to="claimTo" @click.stop>
+        {{ claimLabel }}
+      </NuxtLink>
+      <span v-else class="ticket-claim-button">{{ claimLabel }}</span>
     </div>
-    <span class="side-label">สลากดิจิทัล</span>
   </article>
 </template>
 
@@ -48,9 +56,38 @@ defineProps({
     type: String,
     default: ''
   },
+  prizes: {
+    type: Array,
+    default: () => []
+  },
   claimLabel: {
     type: String,
     default: 'ขึ้นรางวัล'
+  },
+  claimTo: {
+    type: String,
+    default: ''
   }
 })
+
+const formatPrizeAmount = (amount: unknown) => {
+  const value = Number(amount || 0)
+
+  return Number.isFinite(value) ? value.toLocaleString('th-TH') : '0'
+}
 </script>
+
+<style scoped>
+.ticket-stub-prize-list {
+  display: grid;
+  gap: 2px;
+  margin-top: 2px;
+}
+
+.ticket-stub-prize-list span {
+  color: #8a5a00;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+</style>

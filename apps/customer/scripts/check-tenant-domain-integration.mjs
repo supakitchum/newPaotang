@@ -67,8 +67,11 @@ expect('customer app installs sale closure guard', appVue.includes('useSaleClosu
 expect('sale closure redirects sale routes to cart or waiting result', appInitComposable.includes("return hasActiveCart.value ? '/cart' : '/waiting-result'"))
 expect('sale closure allows active cart payment but blocks expired carts', appInitComposable.includes('isCartOrPaymentRoute(path) && !hasActiveCart.value') && appInitComposable.includes("return '/waiting-result'"))
 expect('sale closure guard releases expired cart reservations', saleClosureGuard.includes('releaseReservationLegacy') && saleClosureGuard.includes('หมดเวลาชำระเงิน'))
+expect('sale closure guard no longer opens generic sale closed modal', !saleClosureGuard.includes('hasShownSaleClosedNotice') && !saleClosureGuard.includes('showSaleClosedNotice'))
+expect('sale closure guard marks buy/search waiting-result redirects for modal', saleClosureGuard.includes('isBuyOrSearchRoute') && saleClosureGuard.includes("[SALE_CLOSED_NOTICE_QUERY]: '1'"))
 expect('waiting result page links to customer tickets', waitingResultPage.includes('to="/tickets"') && waitingResultPage.includes('สลากของฉัน'))
 expect('waiting result page is public before tickets click', customerAuthRoutes.includes("'/waiting-result'") && customerAuthRoutes.includes("'/wait-result'"))
+expect('waiting result consumes sale closed modal query', waitingResultPage.includes('route.query.sale_closed') && waitingResultPage.includes('consumeSaleClosedNotice') && waitingResultPage.includes('delete query.sale_closed'))
 
 const failed = checks.filter((check) => !check.condition)
 

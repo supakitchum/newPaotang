@@ -38,6 +38,8 @@ const scopedRouteOverrides: Record<string, string> = {
   'central:system_settings': '/admin/central/system-settings',
   'tenant:price_rules': '/admin/tenant/price-rules',
   'tenant:customers': '/admin/tenant/customers',
+  'tenant:winners': '/admin/tenant/winners',
+  'tenant:exchange_reward': '/admin/tenant/exchange-reward',
   'tenant:agent_quotas': '/admin/tenant/growth/agent-quotas',
   'tenant:monitoring': '/admin/tenant/monitoring',
   'tenant:usage': '/admin/tenant/usage',

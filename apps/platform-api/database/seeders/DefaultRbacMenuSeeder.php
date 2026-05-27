@@ -64,6 +64,7 @@ class DefaultRbacMenuSeeder extends Seeder
 
         $this->grantSalePricePermissionsToDefaultRoles($now);
         $this->grantWinnerMenuToPlatformOwner($now);
+        $this->grantTenantWinnerMenuToPartnerOwners($now);
     }
 
     /**
@@ -235,6 +236,8 @@ class DefaultRbacMenuSeeder extends Seeder
                 'wallets' => 'wallet.view',
                 'topups' => 'topup.view',
                 'tickets' => 'ticket.view',
+                'exchange_reward' => 'reward_claim.view',
+                'winners' => 'reward_claim.view',
                 'agents' => 'agent.view',
                 'agent_quotas' => 'agent.quota.manage',
                 'payment_settings' => 'payment_settings.view',
@@ -310,6 +313,7 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:dashboard' => '/admin/central/dashboard',
             'central:games' => '/admin/central/games',
             'central:winners' => '/admin/central/winners',
+            'tenant:winners' => '/admin/tenant/winners',
             'central:rewards',
             'central:prize_checking' => '/admin/central/rewards',
             'central:sale_price_rules' => '/admin/central/sale-price-rules',
@@ -341,6 +345,7 @@ class DefaultRbacMenuSeeder extends Seeder
             'tenant:wallets' => '/admin/tenant/wallets',
             'tenant:topups' => '/admin/tenant/topups',
             'tenant:tickets' => '/admin/tenant/tickets',
+            'tenant:exchange_reward' => '/admin/tenant/exchange-reward',
             'tenant:agents',
             'tenant:agent_quotas' => '/admin/tenant/growth/agents',
             'tenant:payment_settings' => '/admin/tenant/payment-settings',
@@ -386,6 +391,10 @@ class DefaultRbacMenuSeeder extends Seeder
             return 'Partner/Tenant';
         }
 
+        if ($code === 'exchange_reward') {
+            return 'Exchange Reward';
+        }
+
         return str($code)->replace('_', ' ')->title()->toString();
     }
 
@@ -428,6 +437,8 @@ class DefaultRbacMenuSeeder extends Seeder
             'tenant:wallets',
             'tenant:topups',
             'tenant:tickets',
+            'tenant:exchange_reward',
+            'tenant:winners',
             'tenant:payment_settings' => 'Store Operations',
             'tenant:agents',
             'tenant:agent_quotas',
@@ -565,6 +576,67 @@ class DefaultRbacMenuSeeder extends Seeder
         $menuIds = DB::table('admin_menus')
             ->where('scope_type', 'central')
             ->where('code', 'winners')
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($menuIds !== []) {
+            $menuRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($menuIds as $menuId) {
+                    $menuRows[] = [
+                        'role_id' => $roleId,
+                        'menu_id' => $menuId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_menus')->insertOrIgnore($menuRows);
+        }
+
+        $this->bumpPermissionCacheVersions($roleIds, $now);
+    }
+
+    private function grantTenantWinnerMenuToPartnerOwners(mixed $now): void
+    {
+        $roleIds = DB::table('roles')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['owner_partner', 'owner'])
+            ->pluck('id')
+            ->all();
+
+        if ($roleIds === []) {
+            return;
+        }
+
+        $permissionIds = DB::table('permissions')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['reward_claim.view', 'reward_claim.approve', 'reward_claim.reject'])
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($permissionIds !== []) {
+            $permissionRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($permissionIds as $permissionId) {
+                    $permissionRows[] = [
+                        'role_id' => $roleId,
+                        'permission_id' => $permissionId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_permissions')->insertOrIgnore($permissionRows);
+        }
+
+        $menuIds = DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['winners', 'exchange_reward'])
             ->where('status', 'active')
             ->pluck('id')
             ->all();

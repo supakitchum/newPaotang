@@ -1,6 +1,6 @@
 {
   "source": "docs/openapi.yaml",
-  "updated": "2026-05-26",
+  "updated": "2026-05-27",
   "note": "Static active-BO admin path snapshot used inside the back-office Docker mount. Retired legacy write paths may remain documented in docs/openapi.yaml but are excluded from active BO workflow coverage.",
   "paths": {
     "/admin/central/allocations": ["get", "post"],
@@ -47,6 +47,7 @@
     "/admin/central/rewards/{reward_result_id}/confirm-live": ["post"],
     "/admin/central/rewards/{reward_result_id}/correct": ["post"],
     "/admin/central/rewards/{reward_result_id}/publish": ["post"],
+    "/admin/central/rewards/{reward_result_id}/redraw": ["post"],
     "/admin/central/rewards/{reward_result_id}/verify": ["post"],
     "/admin/central/winners": ["get"],
     "/admin/central/winners/games": ["get"],
@@ -153,6 +154,8 @@
     "/admin/tenant/wallets": ["get"],
     "/admin/tenant/wallets/{wallet_id}": ["get"],
     "/admin/tenant/wallets/{wallet_id}/adjust": ["patch"],
-    "/admin/tenant/wallets/{wallet_id}/ledger": ["get"]
+    "/admin/tenant/wallets/{wallet_id}/ledger": ["get"],
+    "/admin/tenant/winners": ["get"],
+    "/admin/tenant/winners/games": ["get"]
   }
 }

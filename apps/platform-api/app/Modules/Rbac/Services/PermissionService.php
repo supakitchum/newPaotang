@@ -3,7 +3,6 @@
 namespace App\Modules\Rbac\Services;
 
 use App\Models\AdminUserRole;
-use Illuminate\Support\Facades\DB;
 
 class PermissionService
 {
@@ -20,6 +19,10 @@ class PermissionService
 
         if ($scopeType === 'tenant' && ($scopeId === null || $tenantId === null)) {
             return false;
+        }
+
+        if ($this->tenantOwnerRewardClaimPermission($adminUserId, $scopeType, $scopeId, $permissionCode, $tenantId)) {
+            return true;
         }
 
         $query = AdminUserRole::query()
@@ -88,6 +91,42 @@ class PermissionService
                 ->where('roles.tenant_id', $tenantId);
         }
 
-        return $query->pluck('permissions.code')->all();
+        $permissions = $query->pluck('permissions.code')->all();
+
+        foreach (['reward_claim.view', 'reward_claim.approve', 'reward_claim.reject'] as $permissionCode) {
+            if ($this->tenantOwnerRewardClaimPermission($adminUserId, $scopeType, $scopeId, $permissionCode, $tenantId)) {
+                $permissions[] = $permissionCode;
+            }
+        }
+
+        $permissions = array_values(array_unique($permissions));
+        sort($permissions);
+
+        return $permissions;
+    }
+
+    private function tenantOwnerRewardClaimPermission(
+        string $adminUserId,
+        string $scopeType,
+        ?string $scopeId,
+        string $permissionCode,
+        ?string $tenantId,
+    ): bool {
+        if ($scopeType !== 'tenant' || ! in_array($permissionCode, ['reward_claim.view', 'reward_claim.approve', 'reward_claim.reject'], true) || $scopeId === null || $tenantId === null) {
+            return false;
+        }
+
+        return AdminUserRole::query()
+            ->join('admin_scopes', 'admin_scopes.id', '=', 'admin_user_roles.scope_id')
+            ->join('roles', 'roles.id', '=', 'admin_user_roles.role_id')
+            ->where('admin_user_roles.admin_user_id', $adminUserId)
+            ->where('admin_scopes.id', $scopeId)
+            ->where('admin_scopes.scope_type', 'tenant')
+            ->where('admin_scopes.tenant_id', $tenantId)
+            ->where('roles.scope_type', 'tenant')
+            ->where('roles.tenant_id', $tenantId)
+            ->where('roles.status', 'active')
+            ->whereIn('roles.code', ['owner', 'owner_partner'])
+            ->exists();
     }
 }

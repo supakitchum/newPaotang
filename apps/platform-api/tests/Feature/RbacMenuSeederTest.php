@@ -45,7 +45,7 @@ class RbacMenuSeederTest extends TestCase
         $this->seed(DefaultRbacMenuSeeder::class);
 
         $this->assertSame(24, DB::table('admin_menus')->where('scope_type', 'central')->count());
-        $this->assertSame(32, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
+        $this->assertSame(34, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
 
         $this->assertDatabaseHas('admin_menus', [
             'scope_type' => 'central',
@@ -85,6 +85,26 @@ class RbacMenuSeederTest extends TestCase
             'route' => '/admin/central/winners',
             'category' => 'Lottery Operations',
             'required_permission_code' => 'reward.view',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('admin_menus', [
+            'scope_type' => 'tenant',
+            'code' => 'winners',
+            'label' => 'Winners',
+            'route' => '/admin/tenant/winners',
+            'category' => 'Store Operations',
+            'required_permission_code' => 'reward_claim.view',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('admin_menus', [
+            'scope_type' => 'tenant',
+            'code' => 'exchange_reward',
+            'label' => 'Exchange Reward',
+            'route' => '/admin/tenant/exchange-reward',
+            'category' => 'Store Operations',
+            'required_permission_code' => 'reward_claim.view',
             'status' => 'active',
         ]);
 
@@ -222,6 +242,104 @@ class RbacMenuSeederTest extends TestCase
             'role_id' => 'rol_c_super_admin',
             'menu_id' => $winnerMenuId,
         ]);
+    }
+
+    public function test_reseeding_grants_tenant_winners_to_partner_owner_roles(): void
+    {
+        DB::table('partners')->insert([
+            [
+                'id' => 'par_rbac_owner',
+                'code' => 'par_rbac_owner',
+                'name' => 'RBAC Owner Partner',
+                'type' => 'partner_store',
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => 'par_rbac_owner_partner',
+                'code' => 'par_rbac_owner_partner',
+                'name' => 'RBAC Owner Partner Role Partner',
+                'type' => 'partner_store',
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        DB::table('partner_tenants')->insert([
+            [
+                'id' => 'ten_rbac_owner',
+                'partner_id' => 'par_rbac_owner',
+                'code' => 'ten_rbac_owner',
+                'name' => 'RBAC Owner Tenant',
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => 'ten_rbac_owner_partner',
+                'partner_id' => 'par_rbac_owner_partner',
+                'code' => 'ten_rbac_owner_partner',
+                'name' => 'RBAC Owner Partner Tenant',
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        DB::table('roles')->insert([
+            [
+                'id' => 'rol_t_owner',
+                'scope_type' => 'tenant',
+                'tenant_id' => 'ten_rbac_owner',
+                'code' => 'owner',
+                'name' => 'Tenant Owner',
+                'status' => 'active',
+                'version' => 1,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => 'rol_t_owner_partner',
+                'scope_type' => 'tenant',
+                'tenant_id' => 'ten_rbac_owner_partner',
+                'code' => 'owner_partner',
+                'name' => 'Owner Partner',
+                'status' => 'active',
+                'version' => 1,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $this->seed(DefaultRbacMenuSeeder::class);
+
+        $rewardClaimPermissionIds = DB::table('permissions')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['reward_claim.view', 'reward_claim.approve', 'reward_claim.reject'])
+            ->pluck('id')
+            ->all();
+        $rewardClaimMenuIds = DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['winners', 'exchange_reward'])
+            ->pluck('id')
+            ->all();
+
+        foreach (['rol_t_owner', 'rol_t_owner_partner'] as $roleId) {
+            foreach ($rewardClaimPermissionIds as $permissionId) {
+                $this->assertDatabaseHas('role_permissions', [
+                    'role_id' => $roleId,
+                    'permission_id' => $permissionId,
+                ]);
+            }
+            foreach ($rewardClaimMenuIds as $menuId) {
+                $this->assertDatabaseHas('role_menus', [
+                    'role_id' => $roleId,
+                    'menu_id' => $menuId,
+                ]);
+            }
+        }
     }
 
     public function test_reseeding_removes_retired_tenant_stock_sync_menu_and_permission(): void

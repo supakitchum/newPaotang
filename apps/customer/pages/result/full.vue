@@ -8,6 +8,11 @@
     />
 
     <section class="content-sheet result-full-sheet">
+      <div v-if="showUnofficialAlert" class="result-unofficial-alert result-full-unofficial-alert text-center">
+        <i class="bi bi-exclamation-triangle-fill me-2" />
+        <span>ผลรางวัลนี้เป็นผลแสดงสดอย่างไม่เป็นทางการ</span>
+      </div>
+
       <div v-if="!isLoading && !errorMessage" class="result-draw-date">
         งวดวันที่ {{ drawDate }}
       </div>
@@ -89,10 +94,11 @@
           <p>ระบบยังไม่พบเลขรางวัลของงวดนี้</p>
         </div>
 
-        <div class="payment-dock text-center muted-text">
-          คุณสามารถขึ้นเงินรางวัลได้ที่ ธนาคารกรุงไทย ธ.ก.ส. ออมสิน ทุกสาขา หรือสำนักงานสลากกินแบ่งรัฐบาล
-        </div>
       </template>
+
+      <div v-if="showPaymentDock" class="payment-dock text-center muted-text">
+        คุณสามารถขึ้นเงินรางวัลได้ที่ ธนาคารกรุงไทย ธ.ก.ส. ออมสิน ทุกสาขา หรือสำนักงานสลากกินแบ่งรัฐบาล
+      </div>
     </section>
   </MobileShell>
 </template>
@@ -108,14 +114,16 @@ definePageMeta({
 
 const route = useRoute()
 const platformApi = usePlatformApi()
+const { currentGame, currentDrawDate, ensureAppInit } = useAppInit()
 const game = ref<LotteryRewardGame | null>(null)
 const historyGames = ref<LotteryRewardGame[]>([])
 const isLoading = ref(true)
 const errorMessage = ref('')
 const {
+  getDisplayRewardNumbers,
   getRewardAmount,
   getRewardGroups,
-  getRewardNumbers
+  isDisplayableRewardNumber
 } = useLotteryReward()
 
 const requestedGameId = computed(() => Number(route.query.game_id || route.query.id || 0))
@@ -123,32 +131,71 @@ const allGames = computed(() => [
   ...(game.value ? [game.value] : []),
   ...historyGames.value
 ])
-const selectedGame = computed(() => {
-  if (!requestedGameId.value) {
-    return game.value
+const fallbackGame = computed<LotteryRewardGame | null>(() => {
+  if (!currentGame.value) {
+    return null
   }
 
-  return allGames.value.find((item) => Number(item.id) === requestedGameId.value) || game.value
+  if (requestedGameId.value && Number(currentGame.value.id) !== requestedGameId.value) {
+    return null
+  }
+
+  return {
+    id: Number(currentGame.value.id) || undefined,
+    name: String(currentGame.value.name || ''),
+    status: Number(currentGame.value.status) || 1,
+    rewards: []
+  }
 })
-const drawDate = computed(() => formatDrawDateText(selectedGame.value?.name))
+const selectedGame = computed(() => {
+  if (!requestedGameId.value) {
+    return game.value || fallbackGame.value
+  }
+
+  return allGames.value.find((item) => Number(item.id) === requestedGameId.value) || game.value || fallbackGame.value
+})
+const drawDate = computed(() => {
+  const selectedDate = formatDrawDateText(selectedGame.value?.name)
+  const fallbackDate = currentDrawDate.value
+
+  if (selectedDate !== '-') {
+    return selectedDate
+  }
+
+  return fallbackDate !== '-' ? fallbackDate : 'รอข้อมูลวันออกผล'
+})
 const headerTitle = computed(() => 'ผลรางวัลสลากฯ')
-const isWaitingResult = computed(() => Number(selectedGame.value?.status) === 1)
-const firstReward = computed(() => getRewardNumbers(selectedGame.value, 'reward_1')[0] || '-')
-const twoDigitReward = computed(() => getRewardNumbers(selectedGame.value, 'reward_two_digit')[0] || '-')
+const showPaymentDock = computed(() => !isLoading.value && !errorMessage.value)
+const showUnofficialAlert = computed(() => !isLoading.value && !errorMessage.value && hasRewardResult.value && Number(selectedGame.value?.status) !== 2)
+const firstReward = computed(() => getDisplayRewardNumbers(selectedGame.value, 'reward_1')[0] || '-')
+const twoDigitReward = computed(() => getDisplayRewardNumbers(selectedGame.value, 'reward_two_digit')[0] || '-')
 const frontThreeRewards = computed(() => {
-  const numbers = getRewardNumbers(selectedGame.value, 'reward_three_digit_1')
+  const numbers = getDisplayRewardNumbers(selectedGame.value, 'reward_three_digit_1')
   return numbers.length ? numbers : ['-']
 })
 const backThreeRewards = computed(() => {
-  const numbers = getRewardNumbers(selectedGame.value, 'reward_three_digit_2')
+  const numbers = getDisplayRewardNumbers(selectedGame.value, 'reward_three_digit_2')
   return numbers.length ? numbers : ['-']
 })
-const detailGroups = computed(() => getRewardGroups(selectedGame.value).filter((group) => ![
-  'reward_1',
-  'reward_two_digit',
-  'reward_three_digit_1',
-  'reward_three_digit_2'
-].includes(group.key)))
+const detailGroups = computed(() => getRewardGroups(selectedGame.value)
+  .map((group) => ({
+    ...group,
+    numbers: group.numbers.filter(isDisplayableRewardNumber)
+  }))
+  .filter((group) => group.numbers.length > 0 && ![
+    'reward_1',
+    'reward_two_digit',
+    'reward_three_digit_1',
+    'reward_three_digit_2'
+  ].includes(group.key)))
+const hasRewardResult = computed(() => [
+  firstReward.value,
+  twoDigitReward.value,
+  ...frontThreeRewards.value,
+  ...backThreeRewards.value,
+  ...detailGroups.value.flatMap((group) => group.numbers)
+].some(isDisplayableRewardNumber))
+const isWaitingResult = computed(() => [1, 3].includes(Number(selectedGame.value?.status)) && !hasRewardResult.value)
 
 const numberGridClass = (count: number) => {
   if (count <= 2) {
@@ -167,15 +214,34 @@ const fetchReward = async () => {
   errorMessage.value = ''
 
   try {
-    const response = await platformApi.rewardLegacy(requestedGameId.value || undefined)
+    await ensureAppInit()
 
-    if (response.data?.code === 0) {
-      game.value = response.data.result || null
-      historyGames.value = response.data.history || response.data.histories || []
+    const liveResponse = await platformApi.rewardLiveLegacy(requestedGameId.value || undefined)
+    const livePayload = liveResponse.data || liveResponse
+
+    if (livePayload.code === 0 && livePayload.result) {
+      game.value = livePayload.result || null
+      historyGames.value = livePayload.history || livePayload.histories || []
       return
     }
 
-    errorMessage.value = response.data?.message || 'ไม่พบข้อมูลผลรางวัล'
+    const response = await platformApi.rewardLegacy(requestedGameId.value || undefined)
+    const payload = response.data || response
+
+    if (payload.code === 0 && payload.result) {
+      game.value = payload.result || null
+      historyGames.value = payload.history || payload.histories || []
+      return
+    }
+
+    if (payload.code === 0) {
+      game.value = null
+      historyGames.value = payload.history || payload.histories || []
+      errorMessage.value = fallbackGame.value ? '' : 'ไม่พบข้อมูลผลรางวัล'
+      return
+    }
+
+    errorMessage.value = payload.message || 'ไม่พบข้อมูลผลรางวัล'
   } catch (error) {
     errorMessage.value = (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'กรุณาลองใหม่อีกครั้ง'
   } finally {
@@ -229,6 +295,10 @@ onMounted(fetchReward)
   font-size: 18px;
   font-weight: 800;
   text-align: center;
+}
+
+.result-full-unofficial-alert {
+  margin-bottom: 14px;
 }
 
 .result-detail-highlight {

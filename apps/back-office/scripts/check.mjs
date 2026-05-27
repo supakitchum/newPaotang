@@ -14,7 +14,9 @@ const requiredFiles = [
   'pages/admin/tenant/maintenance.vue',
   'pages/admin/tenant/support-access/index.vue',
   'pages/admin/tenant/support-access/[id].vue',
+  'pages/admin/tenant/winners/index.vue',
   'pages/admin/tenant/[...slug].vue',
+  'pages/admin/central/winners/index.vue',
   'pages/admin/central/[...slug].vue',
   'composables/useAdminApi.ts',
   'composables/useAdminHostMode.ts',
@@ -64,6 +66,7 @@ const requiredComponents = [
   'AdminStockCoverageSettings',
   'AdminStockPatternCoverage',
   'AdminProtectedContent',
+  'AdminWinnersPage',
 ]
 
 const failures = []
@@ -178,6 +181,37 @@ const tenantMaintenancePage = existsSync(join(root, 'pages/admin/tenant/maintena
   : ''
 const adminFoundationCss = existsSync(join(root, 'assets/css/admin-foundation.css'))
   ? readFileSync(join(root, 'assets/css/admin-foundation.css'), 'utf8')
+  : ''
+const rewardPrizes = existsSync(join(root, 'composables/useRewardPrizes.ts'))
+  ? readFileSync(join(root, 'composables/useRewardPrizes.ts'), 'utf8')
+  : ''
+const adminWinnersPage = existsSync(join(root, 'components/AdminWinnersPage.vue'))
+  ? readFileSync(join(root, 'components/AdminWinnersPage.vue'), 'utf8')
+  : ''
+const tenantWinnersPage = existsSync(join(root, 'pages/admin/tenant/winners/index.vue'))
+  ? readFileSync(join(root, 'pages/admin/tenant/winners/index.vue'), 'utf8')
+  : ''
+const centralWinnersPage = existsSync(join(root, 'pages/admin/central/winners/index.vue'))
+  ? readFileSync(join(root, 'pages/admin/central/winners/index.vue'), 'utf8')
+  : ''
+const adminPathsSnapshot = existsSync(join(root, 'scripts/openapi-admin-paths.snapshot.json'))
+  ? readFileSync(join(root, 'scripts/openapi-admin-paths.snapshot.json'), 'utf8')
+  : ''
+const platformSeederPath = join(root, '..', 'platform-api', 'database', 'seeders', 'DefaultRbacMenuSeeder.php')
+const platformSeeder = existsSync(platformSeederPath)
+  ? readFileSync(platformSeederPath, 'utf8')
+  : ''
+const platformRoutesPath = join(root, '..', 'platform-api', 'routes', 'api.php')
+const platformRoutes = existsSync(platformRoutesPath)
+  ? readFileSync(platformRoutesPath, 'utf8')
+  : ''
+const platformPermissionServicePath = join(root, '..', 'platform-api', 'app', 'Modules', 'Rbac', 'Services', 'PermissionService.php')
+const platformPermissionService = existsSync(platformPermissionServicePath)
+  ? readFileSync(platformPermissionServicePath, 'utf8')
+  : ''
+const tenantWinnersBackfillMigrationPath = join(root, '..', 'platform-api', 'database', 'migrations', '2026_05_27_000001_backfill_tenant_winners_owner_menu.php')
+const tenantWinnersBackfillMigration = existsSync(tenantWinnersBackfillMigrationPath)
+  ? readFileSync(tenantWinnersBackfillMigrationPath, 'utf8')
   : ''
 const serverAdminGuardStart = adminMiddleware.indexOf('if (import.meta.server)')
 const clientAdminRestoreStart = adminMiddleware.indexOf('session.restore()')
@@ -476,8 +510,15 @@ for (const evidence of [
   ['allocation partner percent BO workflow', operationsCatalog.includes("'allocation-partners'") && operationsCatalog.includes('/admin/central/allocations/partner-percent') && operationsCatalog.includes('/admin/central/allocations/{allocation_id}/recall-all') && operationsCatalog.includes('/admin/central/allocations/{allocation_id}/redistribute') && operationsCatalog.includes("enabledStatuses: ['recalled']") && operationsCatalog.includes('allocationPercentField') && operationsPage.includes('/admin/central/allocation-options/partners') && operationsPage.includes('/admin/central/allocation-options/tenants') && operationsPage.includes('/admin/central/allocation-options/games') && operationsPage.includes('routeFilterValues') && adminConfirmAction.includes('Allocation preview') && readFileSync(join(root, 'components/AdminFilterBar.vue'), 'utf8').includes('visibleOptions(filter)') && readFileSync(join(root, 'components/AdminStockPatternCoverage.vue'), 'utf8').includes('applyRouteDefaults')],
   ['retired physical stock BO workflow', operationsCatalog.includes("apiGapResource('central', 'partner-quotas'") && operationsCatalog.includes('Partner Quotas is retired') && !operationsCatalog.includes("endpoint: '/admin/central/partner-quotas'") && !operationsCatalog.includes("endpoint: '/admin/central/partner-quotas/{quota_id}'") && !operationsCatalog.includes('partnerQuotaCreateFields') && !operationsCatalog.includes('partnerQuotaUpdateFields') && !operationsCatalog.includes('requested_count') && adminNavigation.includes('retiredCentralMenuKeys') && !adminNavigation.includes("'central:partner_quotas':") && apiClient.includes('retired_flow') && adminApiState.includes('retired_flow') && operationsPage.includes("generation_mode: 'virtual_profile'") && operationsPage.includes('delete next.total_count') && operationsPage.includes('delete next.number_digits') && operationsCatalog.includes("route: adminUiRoute('central', 'stock-generation?game_id={game_id}&partner_id={partner_id}&tenant_id={tenant_id}&allocation_id={id}&status=allocated')")],
   ['retired tenant stock sync workflow', adminNavigation.includes("retiredTenantMenuKeys = new Set(['stock_sync'])") && !operationsCatalog.includes("slug: 'stock-sync'") && !operationsCatalog.includes('/admin/tenant/stock-sync/batches')],
+  ['tenant winners partner menu stays in Store Operations', platformSeeder.includes("'tenant:winners' => '/admin/tenant/winners'") && platformSeeder.includes("'tenant:winners',\n            'tenant:payment_settings' => 'Store Operations'") && platformSeeder.includes("'winners' => 'reward_claim.view'") && platformSeeder.includes('grantTenantWinnerMenuToPartnerOwners') && platformSeeder.includes("whereIn('code', ['owner_partner', 'owner'])") && platformPermissionService.includes('tenantOwnerRewardClaimPermission') && platformPermissionService.includes("whereIn('roles.code', ['owner', 'owner_partner'])") && tenantWinnersBackfillMigration.includes("where('scope_type', 'tenant')") && tenantWinnersBackfillMigration.includes("where('code', 'winners')") && tenantWinnersBackfillMigration.includes("'category' => 'Store Operations'") && tenantWinnersBackfillMigration.includes("whereIn('code', ['owner', 'owner_partner'])")],
+  ['tenant exchange reward approval menu exists', platformSeeder.includes("'exchange_reward' => 'reward_claim.view'") && platformSeeder.includes("'tenant:exchange_reward' => '/admin/tenant/exchange-reward'") && adminNavigation.includes("'tenant:exchange_reward': '/admin/tenant/exchange-reward'") && operationsCatalog.includes("slug: 'exchange-reward'") && operationsCatalog.includes("title: 'Exchange Reward'") && operationsCatalog.includes("endpoint: '/admin/tenant/reward-claims/{claim_id}/approve'") && !operationsCatalog.includes("endpoint: '/admin/tenant/reward-claims/{claim_id}/pay'")],
+  ['tenant winners partner route and shared page exist', adminNavigation.includes("'tenant:winners': '/admin/tenant/winners'") && tenantWinnersPage.includes('scope="tenant"') && centralWinnersPage.includes('scope="central"') && adminWinnersPage.includes('props.scope') && adminWinnersPage.includes('`/admin/${pageScope.value}/winners`')],
+  ['tenant winners API endpoints are registered and snapshotted', platformRoutes.includes("Route::get('/admin/tenant/winners/games'") && platformRoutes.includes("Route::get('/admin/tenant/winners'") && adminPathsSnapshot.includes('"/admin/tenant/winners"') && adminPathsSnapshot.includes('"/admin/tenant/winners/games"')],
+  ['winners table includes customer number for central and tenant page', operationsCatalog.includes("{ key: 'customer_no', label: 'Customer no' }") && adminWinnersPage.includes("key: 'customer_no'")],
+  ['customer detail includes order history related table', operationsCatalog.includes("key: 'order-histories'") && operationsCatalog.includes("title: 'Order Histories'") && operationsCatalog.includes("listEndpoint: '/admin/tenant/orders'") && operationsCatalog.includes("defaultQuery: { customer_id: '{member_id}' }") && operationsCatalog.includes("detailRenderer: 'order'") && operationsPage.includes('interpolateQuery(related.defaultQuery') && operationsPage.includes("relatedDetail.renderer === 'order'")],
   ['P3 API sortable data table', readFileSync(join(root, 'components/AdminDataTable.vue'), 'utf8').includes('sortChange') && readFileSync(join(root, 'components/AdminDataTable.vue'), 'utf8').includes('aria-sort') && readFileSync(join(root, 'components/AdminDataTable.vue'), 'utf8').includes('sortable') && operationsCatalog.includes('apiSort?: boolean') && operationsPage.includes('sort_by') && operationsPage.includes('applySort')],
   ['P3 reward report log workflows', operationsCatalog.includes("'reward-prize-number-grid'") && operationsCatalog.includes("'reward-prize-amount-grid'") && operationsCatalog.includes('detailRenderer?:') && operationsCatalog.includes("detailRenderer: 'reward'") && operationsCatalog.includes('const rewardCreateFields') && operationsCatalog.includes('const rewardNumberUpdateFields') && operationsCatalog.includes('const rewardPayoutUpdateFields') && operationsCatalog.includes('Update winning numbers') && operationsCatalog.includes('Update payout amounts') && operationsPage.includes('AdminRewardPrizes') && operationsPage.includes('rewardPrizeGroupsToPayload') && adminConfirmAction.includes('np-reward-prize-editor') && existsSync(join(root, 'components/AdminRewardPrizes.vue')) && operationsCatalog.includes('const settlementActionContext') && operationsCatalog.includes('const reportExportContext') && operationsCatalog.includes('function reportExportFields') && operationsPage.includes('buildCollectionContext') && adminReportPanel.includes('Report rows')],
+  ['reward number updates keep blank rows so API can mark pending results', rewardPrizes.includes('.filter((group) => group.prize_numbers.length > 0)') && rewardPrizes.includes('group.numbers.length > 0') && !rewardPrizes.includes("number !== '' && !number.startsWith('pending_')")],
   ['P3 tenant sync processed filter', operationsCatalog.includes("slug: 'sync-logs'") && operationsCatalog.includes("statusFilter(['pending', 'running', 'completed', 'processed', 'failed'])")],
   ['P4 administration security settings workflows', operationsCatalog.includes('function adminUserResource') && operationsCatalog.includes('function roleManagementResource') && operationsCatalog.includes('const adminUserCreateFields') && operationsCatalog.includes('const roleCreateFields') && operationsCatalog.includes('const tenantSettingsFields') && operationsCatalog.includes('const tenantThemeFields') && operationsCatalog.includes('const tenantDomainCreateFields') && operationsCatalog.includes("secondarySettings") && operationsPage.includes('isMenuManagement') && operationsPage.includes('saveMenuTree') && operationsPage.includes('loadSecondarySettings') && existsSync(join(root, 'components/AdminMenuTreeEditor.vue')) && readFileSync(join(root, 'components/AdminMenuTreeEditor.vue'), 'utf8').includes('Save menu')],
   ['settings update method support', operationsPage.includes('resource.value.updateMethod') && operationsCatalog.includes("updateMethod?: 'PATCH' | 'PUT' | 'POST'")],

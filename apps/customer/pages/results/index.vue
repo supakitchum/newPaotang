@@ -54,14 +54,4 @@ onMounted(async () => {
   }
 })
 
-useLotteryResultRealtime({
-  onResult: async () => {
-    const response = await platformApi.rewardLiveLegacy()
-
-    if (response.code === 0 && response.result) {
-      game.value = response.result || null
-      historyGames.value = response.history || []
-    }
-  }
-})
 </script>

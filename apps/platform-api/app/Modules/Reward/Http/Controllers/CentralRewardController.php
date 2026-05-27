@@ -175,6 +175,17 @@ class CentralRewardController extends Controller
         return $this->writeWithIdempotency($request, fn (): array => $this->rewards->confirmLiveDraftResult($reward_result_id, $request->all(), $context, $request), 202);
     }
 
+    public function redraw(Request $request, string $reward_result_id): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'reward.create');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        return $this->writeWithIdempotency($request, fn (): array => $this->rewards->redrawRewardResult($reward_result_id, $request->all(), $context, $request));
+    }
+
     public function correct(Request $request, string $reward_result_id): JsonResponse
     {
         $context = $this->authorizedContext($request, 'reward.correct');

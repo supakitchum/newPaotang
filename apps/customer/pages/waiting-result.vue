@@ -9,8 +9,8 @@
 
         <div class="waiting-result-copy">
           <p>หมดเวลาจำหน่ายสลากแล้ว</p>
-          <h1>รอประกาศผลรางวัล</h1>
-<!--          <span>{{ currentGameName }}</span>-->
+          <h1>{{ waitingResultTitle }}</h1>
+    <!--          <span>{{ currentGameName }}</span>-->
         </div>
 
         <section class="waiting-result-result" aria-live="polite">
@@ -31,6 +31,7 @@
               v-else-if="hasRewardSummary"
               :date="rewardDrawDate"
               :result="rewardSummary"
+              :unofficial="isUnofficialReward"
               link="/result/full"
           />
 
@@ -88,9 +89,11 @@ definePageMeta({
 
 const platformApi = usePlatformApi()
 const runtimeConfig = useRuntimeConfig()
+const route = useRoute()
 const { currentGame, ensureAppInit } = useAppInit()
 const { config: siteConfig, fetchSiteConfig } = useSiteConfig()
-const { toSummary } = useLotteryReward()
+const { showAlert } = useAppAlert()
+const { isDisplayableRewardNumber, toSummary } = useLotteryReward()
 
 const rewardGame = ref<LotteryRewardGame | null>(null)
 const isRewardLoading = ref(true)
@@ -115,9 +118,11 @@ const normalizeDisplayText = (value: unknown) => {
 }
 
 const currentGameName = computed(() => normalizeDisplayText(currentGame.value?.name) || 'รอข้อมูลเกมปัจจุบัน')
+const currentRewardGameId = computed(() => normalizeDisplayText(currentGame.value?.id))
 const rewardSummary = computed(() => toSummary(rewardGame.value))
 const rewardDrawDate = computed(() => normalizeDisplayText(rewardGame.value?.name) || currentGameName.value)
 const rewardEmptyMessage = computed(() => 'ยังไม่มีข้อมูลผลรางวัลล่าสุด')
+const isUnofficialReward = computed(() => Boolean(rewardGame.value) && Number(rewardGame.value?.status) !== 2)
 const youtubeLiveUrl = computed(() => (
   normalizeDisplayText(siteConfig.value?.live?.waiting_result_youtube_url)
   || normalizeDisplayText(runtimeConfig.public.waitingResultYoutubeUrl)
@@ -128,10 +133,39 @@ const hasRewardSummary = computed(() => [
   rewardSummary.value.last2,
   ...rewardSummary.value.front3,
   ...rewardSummary.value.last3
-].some((number) => number && number !== '-'))
+].some(isDisplayableRewardNumber))
+const rewardBelongsToCurrentGame = computed(() => {
+  if (!currentRewardGameId.value) {
+    return Boolean(rewardGame.value)
+  }
+
+  return normalizeDisplayText(rewardGame.value?.id) === currentRewardGameId.value
+})
+const hasCurrentGameRewardResult = computed(() => hasRewardSummary.value && rewardBelongsToCurrentGame.value)
+const waitingResultTitle = computed(() => hasCurrentGameRewardResult.value ? 'ออกรางวัลแล้ว' : 'รอประกาศผลรางวัล')
+
+const consumeSaleClosedNotice = async () => {
+  if (String(route.query.sale_closed || '') !== '1') {
+    return
+  }
+
+  showAlert({
+    title: 'หมดเวลาจำหน่ายสลากแล้ว',
+    message: 'หมดเวลาจำหน่ายสลากแล้ว กรุณารอประกาศผลรางวัล',
+    variant: 'warning'
+  })
+
+  const query = { ...route.query }
+  delete query.sale_closed
+  await navigateTo({ path: route.path, query }, { replace: true })
+}
 
 const applyLiveRewardPayload = (payload: any) => {
   if (!payload || !Array.isArray(payload.prizes)) {
+    return
+  }
+
+  if (currentRewardGameId.value && normalizeDisplayText(payload.game_id) !== currentRewardGameId.value) {
     return
   }
 
@@ -155,7 +189,7 @@ const applyLiveRewardPayload = (payload: any) => {
   rewardGame.value = {
     id: payload.game_id,
     name: payload.game_name || payload.draw_code || payload.game_code || '',
-    status: 1,
+    status: String(payload.official_status || payload.status || '').toLowerCase() === 'published' ? 2 : 1,
     rewards: Array.from(grouped.values())
   }
 }
@@ -163,9 +197,10 @@ const applyLiveRewardPayload = (payload: any) => {
 const fetchReward = async () => {
   isRewardLoading.value = true
   rewardErrorMessage.value = ''
+  const rewardGameId = currentRewardGameId.value || undefined
 
   try {
-    const liveResponse = await platformApi.rewardLiveLegacy()
+    const liveResponse = await platformApi.rewardLiveLegacy(rewardGameId)
     const livePayload = liveResponse.data || liveResponse
 
     if (livePayload.code === 0 && livePayload.result) {
@@ -173,7 +208,7 @@ const fetchReward = async () => {
       return
     }
 
-    const response = await platformApi.rewardLegacy()
+    const response = await platformApi.rewardLegacy(rewardGameId)
     const payload = response.data || response
 
     if (payload.code === 0) {
@@ -192,6 +227,7 @@ const fetchReward = async () => {
 }
 
 useLotteryResultRealtime({
+  gameId: currentRewardGameId,
   onResult: applyLiveRewardPayload,
   onReconnect: fetchReward
 })
@@ -201,6 +237,7 @@ onMounted(async () => {
     ensureAppInit(),
     fetchSiteConfig()
   ])
+  await consumeSaleClosedNotice()
   await fetchReward()
 })
 </script>

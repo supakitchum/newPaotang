@@ -46,6 +46,57 @@ export const moneyToDisplayNumber = (value: unknown, fallback = 0) => {
   return fallback
 }
 
+const knownRewardDisplayAmounts: Record<string, number> = {
+  first_prize: 6000000,
+  near_first_prize: 100000,
+  second_prize: 200000,
+  third_prize: 80000,
+  fourth_prize: 40000,
+  fifth_prize: 20000,
+  front3: 4000,
+  back3: 4000,
+  back2: 2000,
+  reward_1: 6000000,
+  reward_beside_1: 100000,
+  reward_2: 200000,
+  reward_3: 80000,
+  reward_4: 40000,
+  reward_5: 20000,
+  reward_three_digit_1: 4000,
+  reward_three_digit_2: 4000,
+  reward_two_digit: 2000
+}
+
+export const rewardAmountToDisplayNumber = (value: unknown, fallback = 0, prizeType?: unknown) => {
+  const prizeKey = String(prizeType || '').trim()
+  const displayAmount = knownRewardDisplayAmounts[prizeKey] || 0
+  const normalize = (amount: number) => {
+    if (displayAmount > 0 && Math.abs(amount) >= displayAmount * 10) {
+      return amount / 100
+    }
+
+    return amount
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? normalize(value) : fallback
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value)
+
+    return Number.isFinite(parsed) ? normalize(parsed) : fallback
+  }
+
+  if (value && typeof value === 'object' && 'amount' in value) {
+    const amount = Number((value as { amount?: unknown }).amount)
+
+    return Number.isFinite(amount) ? normalize(amount) : fallback
+  }
+
+  return fallback
+}
+
 const displayAmountToMinor = (value: unknown) => Math.round(moneyToDisplayNumber(value) * 100)
 
 const statusToLegacyGameStatus = (status: unknown) => {
@@ -364,27 +415,87 @@ const customerVisibleTicketStatus = (ticketStatus: unknown, rewardStatus: AnyRec
   return [4, 5, 0].includes(legacyStatus) && rewardStatusValue === 'pending_result' ? 1 : legacyStatus
 }
 
+const normalizeRewardPrize = (prize: AnyRecord | null | undefined) => {
+  if (!prize) {
+    return null
+  }
+
+  const prizeType = prize.prize_type || prize.slug || ''
+  const amount = rewardAmountToDisplayNumber(prize.amount ?? prize.prize_amount ?? prize.reward, 0, prizeType)
+
+  return {
+    ...prize,
+    prize_type: prizeType,
+    prize_number: prize.prize_number || prize.number || '',
+    amount,
+    prize_amount: amount,
+    reward: amount
+  }
+}
+
+const normalizeRewardPrizes = (value: unknown) => (
+  Array.isArray(value) ? value.map(normalizeRewardPrize).filter(Boolean) : []
+)
+
 const normalizeTicket = (ticket: AnyRecord) => {
   const imageFields = normalizeImageFields(ticket)
   const rewardStatus = ticket.reward_status && typeof ticket.reward_status === 'object'
     ? ticket.reward_status
     : {}
-  const prizeAmount = moneyToDisplayNumber(rewardStatus.prize_amount || ticket.prize_amount, 0)
+  const prizes = normalizeRewardPrizes(rewardStatus.prizes || ticket.prizes)
+  const prizeType = rewardStatus.prize_type || ticket.prize_type || prizes[0]?.prize_type || ''
+  const prizeAmount = prizes.length > 0
+    ? prizes.reduce((total, prize) => total + Number(prize?.amount || 0), 0)
+    : rewardAmountToDisplayNumber(rewardStatus.prize_amount || ticket.prize_amount, 0, prizeType)
+  const game = ticket.game && typeof ticket.game === 'object'
+    ? normalizeGame(ticket.game)
+    : null
 
   return {
     ...ticket,
     number: String(ticket.full_number || ticket.number || ticket.lottery_number || ''),
     lottery_number: String(ticket.full_number || ticket.number || ticket.lottery_number || ''),
+    game,
     status: customerVisibleTicketStatus(ticket.status, rewardStatus),
     reward_status: {
       ...rewardStatus,
+      prizes,
+      prize_count: Number(rewardStatus.prize_count ?? prizes.length),
       prize_amount: prizeAmount
     },
-    prize_type: rewardStatus.prize_type || ticket.prize_type || '',
-    prize_number: rewardStatus.prize_number || ticket.prize_number || '',
+    prize_type: prizeType,
+    prize_number: rewardStatus.prize_number || ticket.prize_number || prizes[0]?.prize_number || '',
+    prizes,
     prize_amount: prizeAmount,
     claimable: rewardStatus.claimable ?? ticket.claimable ?? false,
     ...imageFields
+  }
+}
+
+const normalizeRewardClaim = (claim: AnyRecord | null | undefined) => {
+  if (!claim) {
+    return null
+  }
+
+  const rewardPricing = claim.reward_pricing && typeof claim.reward_pricing === 'object'
+    ? claim.reward_pricing
+    : {}
+  const prizes = normalizeRewardPrizes(claim.prizes || claim.ticket?.reward_status?.prizes || claim.ticket?.prizes)
+  const prizeType = claim.prize_type || claim.ticket?.reward_status?.prize_type || claim.ticket?.prize_type || prizes[0]?.prize_type || ''
+
+  return {
+    ...claim,
+    ticket: claim.ticket ? normalizeTicket(claim.ticket) : null,
+    prizes,
+    prize_count: Number(claim.prize_count ?? prizes.length),
+    prize_amount: rewardAmountToDisplayNumber(claim.prize_amount, 0, prizeType),
+    reward_pricing: {
+      ...rewardPricing,
+      base_prize_amount: rewardAmountToDisplayNumber(rewardPricing.base_prize_amount, 0, prizeType),
+      adjustment_amount: rewardAmountToDisplayNumber(rewardPricing.adjustment_amount, 0, prizeType),
+      effective_prize_amount: rewardAmountToDisplayNumber(rewardPricing.effective_prize_amount, 0, prizeType)
+    },
+    payout_wallet: claim.payout_wallet ? normalizeWallet(claim.payout_wallet) : null
   }
 }
 
@@ -448,7 +559,7 @@ const normalizeRewardSummary = (summary: AnyRecord | null | undefined) => {
       id: slug,
       game_id: summary.game_id,
       name: prize.name || slug,
-      reward: moneyToDisplayNumber(prize.amount || prize.reward),
+      reward: rewardAmountToDisplayNumber(prize.amount || prize.reward, 0, prize.prize_type || prize.slug),
       slug,
       number: []
     }
@@ -880,16 +991,23 @@ export const usePlatformApi = () => {
   }
 
   const ticketsLegacy = async (input: { cursor?: string | null, limit?: number, page?: number, history?: boolean, status?: string | number } = {}) => {
-    const response = await axios.get(input.history ? '/customer/tickets/history' : '/customer/tickets', {
-      params: {
-        ...(input.cursor ? { cursor: input.cursor } : {}),
-        ...(input.status !== undefined && input.status !== null && String(input.status) !== '' ? { status: input.status } : {}),
-        limit: input.limit || 20
-      }
-    })
+    const activeGamePromise = input.history
+      ? Promise.resolve(null)
+      : getCurrentGame().catch(() => currentGameState.value)
+    const [response, activeGame] = await Promise.all([
+      axios.get(input.history ? '/customer/tickets/history' : '/customer/tickets', {
+        params: {
+          ...(input.cursor ? { cursor: input.cursor } : {}),
+          ...(input.status !== undefined && input.status !== null && String(input.status) !== '' ? { status: input.status } : {}),
+          limit: input.limit || 20
+        }
+      }),
+      activeGamePromise
+    ])
     const payload = normalizeResponse(response)
     const tickets = Array.isArray(payload.data) ? payload.data.map(normalizeTicket) : []
-    const game = input.history ? null : normalizeGame(currentGameState.value)
+    const ticketGame = tickets.find((ticket) => ticket.game)?.game || null
+    const game = normalizeGame(ticketGame || (input.history ? null : activeGame || currentGameState.value))
 
     return {
       tickets,
@@ -901,6 +1019,37 @@ export const usePlatformApi = () => {
   }
 
   const ticketDetail = async (ticketId: string | number) => normalizeTicket(unwrapData<AnyRecord>(await axios.get(`/customer/tickets/${ticketId}`)))
+
+  const ticketRewardStatus = async (ticketId: string | number) => {
+    const status = unwrapData<AnyRecord>(await axios.get(`/customer/tickets/${ticketId}/reward-status`))
+    const prizes = normalizeRewardPrizes(status.prizes)
+    const prizeType = status.prize_type || prizes[0]?.prize_type || ''
+
+    return {
+      ...status,
+      prizes,
+      prize_count: Number(status.prize_count ?? prizes.length),
+      prize_amount: prizes.length > 0
+        ? prizes.reduce((total, prize) => total + Number(prize?.amount || 0), 0)
+        : rewardAmountToDisplayNumber(status.prize_amount, 0, prizeType)
+    }
+  }
+
+  const rewardClaims = async (params: AnyRecord = {}) => {
+    const response = await axios.get('/customer/reward-claims', { params })
+    const payload = normalizeResponse(response)
+
+    return {
+      data: Array.isArray(payload.data) ? payload.data.map(normalizeRewardClaim).filter(Boolean) : [],
+      meta: payload.meta || null
+    }
+  }
+
+  const rewardClaim = async (claimId: string | number) => normalizeRewardClaim(unwrapData<AnyRecord>(await axios.get(`/customer/reward-claims/${claimId}`)))
+
+  const createRewardClaim = async (payload: AnyRecord) => normalizeRewardClaim(unwrapData<AnyRecord>(await axios.post('/customer/reward-claims', payload, {
+    headers: idempotencyHeaders('customer-reward-claim')
+  })))
 
   const topupOverviewLegacy = async (params: AnyRecord = {}) => {
     const response = await axios.get('/customer/topups', { params })
@@ -1069,6 +1218,10 @@ export const usePlatformApi = () => {
     orderReceiptLegacy,
     ticketsLegacy,
     ticketDetail,
+    ticketRewardStatus,
+    rewardClaims,
+    rewardClaim,
+    createRewardClaim,
     topupOverviewLegacy,
     topupDetailLegacy,
     createTopupLegacy,
