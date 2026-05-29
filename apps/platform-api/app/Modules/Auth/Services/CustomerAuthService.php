@@ -17,7 +17,9 @@ use Illuminate\Support\Str;
 class CustomerAuthService
 {
     private const ACCESS_TOKEN_TTL_SECONDS = 3600;
-    private const REFRESH_TOKEN_TTL_SECONDS = 604800;
+    private const REFRESH_TOKEN_TTL_SECONDS = 2592000;
+    private const PIN_MAX_FAILED_ATTEMPTS = 5;
+    private const PIN_LOCK_SECONDS = 900;
 
     public function __construct(private readonly IdempotencyService $idempotency)
     {
@@ -173,7 +175,12 @@ class CustomerAuthService
                 'updated_at' => now(),
             ]);
 
-            return $this->issueSession((string) $tenant['tenant_id'], (string) $customer->id, (string) $oldSession->id);
+            return $this->issueSession(
+                (string) $tenant['tenant_id'],
+                (string) $customer->id,
+                (string) $oldSession->id,
+                $oldSession->pin_verified_at === null ? null : (string) $oldSession->pin_verified_at,
+            );
         });
     }
 
@@ -197,7 +204,7 @@ class CustomerAuthService
             ->where('id', $context->customerId())
             ->first();
 
-        return $customer === null ? null : $this->customerProfile($customer);
+        return $customer === null ? null : $this->customerProfile($customer, $context->pinVerified());
     }
 
     /**
@@ -260,11 +267,133 @@ class CustomerAuthService
     /**
      * @return array<string, mixed>
      */
-    public function issueSession(string $tenantId, string $customerId, ?string $refreshedFromId = null): array
+    public function pinStatus(CustomerSessionContext $context): array
+    {
+        $customer = Customer::where('tenant_id', $context->tenantId())
+            ->where('id', $context->customerId())
+            ->first();
+
+        return [
+            'has_pin' => $customer !== null && $this->customerHasPin($customer),
+            'pin_verified' => $context->pinVerified(),
+            'pin_setup_required' => $customer !== null && ! $this->customerHasPin($customer),
+            'pin_required' => $customer !== null && $this->customerHasPin($customer) && ! $context->pinVerified(),
+            'locked_until' => $customer?->pin_locked_until?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, error?: string, retry_after_seconds?: int|null}
+     */
+    public function setupPin(CustomerSessionContext $context, array $payload): array
+    {
+        $pin = trim((string) ($payload['pin'] ?? ''));
+
+        return DB::transaction(function () use ($context, $pin): array {
+            $customer = Customer::query()
+                ->where('tenant_id', $context->tenantId())
+                ->where('id', $context->customerId())
+                ->lockForUpdate()
+                ->first();
+
+            if ($customer === null) {
+                return ['error' => 'authentication_required'];
+            }
+
+            if ($this->customerHasPin($customer)) {
+                return ['error' => 'resource_conflict'];
+            }
+
+            $now = now();
+            Customer::query()->where('id', $customer->id)->update([
+                'pin_hash' => Hash::make($pin),
+                'pin_set_at' => $now,
+                'pin_changed_at' => $now,
+                'pin_failed_attempts' => 0,
+                'pin_locked_until' => null,
+                'pin_last_verified_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            $this->markSessionPinVerified((string) $context->session['id'], $now);
+            $fresh = Customer::whereKey($customer->id)->first();
+
+            return ['resource' => $this->pinResponse($fresh, true)];
+        });
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, error?: string, retry_after_seconds?: int|null}
+     */
+    public function verifyPin(CustomerSessionContext $context, array $payload): array
+    {
+        $pin = trim((string) ($payload['pin'] ?? ''));
+
+        return $this->verifyPinForContext($context, $pin, true);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, error?: string, retry_after_seconds?: int|null}
+     */
+    public function changePin(CustomerSessionContext $context, array $payload): array
+    {
+        $currentPin = trim((string) ($payload['current_pin'] ?? ''));
+        $newPin = trim((string) ($payload['new_pin'] ?? ''));
+
+        return DB::transaction(function () use ($context, $currentPin, $newPin): array {
+            $customer = Customer::query()
+                ->where('tenant_id', $context->tenantId())
+                ->where('id', $context->customerId())
+                ->lockForUpdate()
+                ->first();
+
+            if ($customer === null) {
+                return ['error' => 'authentication_required'];
+            }
+
+            if (! $this->customerHasPin($customer)) {
+                return ['error' => 'pin_setup_required'];
+            }
+
+            if ($this->pinLockRetryAfter($customer) !== null) {
+                return ['error' => 'pin_locked', 'retry_after_seconds' => $this->pinLockRetryAfter($customer)];
+            }
+
+            if (! Hash::check($currentPin, (string) $customer->pin_hash)) {
+                $this->recordFailedPinAttempt($customer);
+
+                return ['error' => 'pin_invalid'];
+            }
+
+            $now = now();
+            Customer::query()->where('id', $customer->id)->update([
+                'pin_hash' => Hash::make($newPin),
+                'pin_changed_at' => $now,
+                'pin_failed_attempts' => 0,
+                'pin_locked_until' => null,
+                'pin_last_verified_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            $this->markSessionPinVerified((string) $context->session['id'], $now);
+            $fresh = Customer::whereKey($customer->id)->first();
+
+            return ['resource' => $this->pinResponse($fresh, true)];
+        });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function issueSession(string $tenantId, string $customerId, ?string $refreshedFromId = null, ?string $pinVerifiedAt = null): array
     {
         $accessToken = $this->newToken('npa_ct');
         $refreshToken = $this->newToken('npa_crt');
         $sessionId = 'cas_'.Str::ulid()->toBase32();
+        $now = now();
 
         CustomerAuthSession::query()->insert([
             'id' => $sessionId,
@@ -272,20 +401,27 @@ class CustomerAuthService
             'customer_id' => $customerId,
             'access_token_hash' => hash('sha256', $accessToken),
             'refresh_token_hash' => hash('sha256', $refreshToken),
-            'access_expires_at' => now()->addSeconds(self::ACCESS_TOKEN_TTL_SECONDS),
-            'refresh_expires_at' => now()->addSeconds(self::REFRESH_TOKEN_TTL_SECONDS),
+            'access_expires_at' => $now->copy()->addSeconds(self::ACCESS_TOKEN_TTL_SECONDS),
+            'refresh_expires_at' => $now->copy()->addSeconds(self::REFRESH_TOKEN_TTL_SECONDS),
             'revoked_at' => null,
             'refreshed_from_id' => $refreshedFromId,
             'last_used_at' => null,
-            'created_at' => now(),
-            'updated_at' => now(),
+            'pin_verified_at' => $pinVerifiedAt,
+            'created_at' => $now,
+            'updated_at' => $now,
         ]);
+
+        $customer = Customer::where('id', $customerId)->first();
+        $pinVerified = $pinVerifiedAt !== null;
 
         return [
             'token' => $accessToken,
             'refresh_token' => $refreshToken,
             'expires_in' => self::ACCESS_TOKEN_TTL_SECONDS,
-            'user' => $this->customerProfile(Customer::where('id', $customerId)->first()),
+            'pin_verified' => $pinVerified,
+            'pin_setup_required' => $customer === null ? false : ! $this->customerHasPin($customer),
+            'pin_required' => $customer !== null && $this->customerHasPin($customer) && ! $pinVerified,
+            'user' => $this->customerProfile($customer, $pinVerified),
         ];
     }
 
@@ -372,10 +508,127 @@ class CustomerAuthService
     }
 
     /**
+     * @return array{resource?: array<string, mixed>, error?: string, retry_after_seconds?: int|null}
+     */
+    private function verifyPinForContext(CustomerSessionContext $context, string $pin, bool $markSessionVerified): array
+    {
+        return DB::transaction(function () use ($context, $pin, $markSessionVerified): array {
+            $customer = Customer::query()
+                ->where('tenant_id', $context->tenantId())
+                ->where('id', $context->customerId())
+                ->lockForUpdate()
+                ->first();
+
+            if ($customer === null) {
+                return ['error' => 'authentication_required'];
+            }
+
+            if (! $this->customerHasPin($customer)) {
+                return ['error' => 'pin_setup_required'];
+            }
+
+            $retryAfter = $this->pinLockRetryAfter($customer);
+
+            if ($retryAfter !== null) {
+                return ['error' => 'pin_locked', 'retry_after_seconds' => $retryAfter];
+            }
+
+            if (! Hash::check($pin, (string) $customer->pin_hash)) {
+                $this->recordFailedPinAttempt($customer);
+
+                $fresh = Customer::whereKey($customer->id)->first();
+                $retryAfter = $fresh === null ? null : $this->pinLockRetryAfter($fresh);
+
+                return $retryAfter === null
+                    ? ['error' => 'pin_invalid']
+                    : ['error' => 'pin_locked', 'retry_after_seconds' => $retryAfter];
+            }
+
+            $now = now();
+            Customer::query()->where('id', $customer->id)->update([
+                'pin_failed_attempts' => 0,
+                'pin_locked_until' => null,
+                'pin_last_verified_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            if ($markSessionVerified) {
+                $this->markSessionPinVerified((string) $context->session['id'], $now);
+            }
+
+            $fresh = Customer::whereKey($customer->id)->first();
+
+            return ['resource' => $this->pinResponse($fresh, true)];
+        });
+    }
+
+    private function markSessionPinVerified(string $sessionId, mixed $verifiedAt): void
+    {
+        CustomerAuthSession::query()->where('id', $sessionId)->update([
+            'pin_verified_at' => $verifiedAt,
+            'updated_at' => now(),
+        ]);
+    }
+
+    /**
      * @return array<string, mixed>
      */
-    private function customerProfile(object $customer): array
+    private function pinResponse(?object $customer, bool $pinVerified): array
     {
+        return [
+            'has_pin' => $customer !== null && $this->customerHasPin($customer),
+            'pin_verified' => $pinVerified,
+            'pin_setup_required' => $customer !== null && ! $this->customerHasPin($customer),
+            'pin_required' => $customer !== null && $this->customerHasPin($customer) && ! $pinVerified,
+            'user' => $this->customerProfile($customer, $pinVerified),
+        ];
+    }
+
+    private function customerHasPin(object $customer): bool
+    {
+        return is_string($customer->pin_hash) && $customer->pin_hash !== '';
+    }
+
+    private function pinLockRetryAfter(object $customer): ?int
+    {
+        if ($customer->pin_locked_until === null) {
+            return null;
+        }
+
+        $lockedUntil = $customer->pin_locked_until;
+        $retryAfter = method_exists($lockedUntil, 'getTimestamp')
+            ? $lockedUntil->getTimestamp() - now()->getTimestamp()
+            : strtotime((string) $lockedUntil) - time();
+
+        return $retryAfter > 0 ? $retryAfter : null;
+    }
+
+    private function recordFailedPinAttempt(object $customer): void
+    {
+        $attempts = min(255, ((int) ($customer->pin_failed_attempts ?? 0)) + 1);
+        $updates = [
+            'pin_failed_attempts' => $attempts,
+            'updated_at' => now(),
+        ];
+
+        if ($attempts >= self::PIN_MAX_FAILED_ATTEMPTS) {
+            $updates['pin_locked_until'] = now()->addSeconds(self::PIN_LOCK_SECONDS);
+        }
+
+        Customer::query()->where('id', $customer->id)->update($updates);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function customerProfile(?object $customer, bool $pinVerified = false): array
+    {
+        if ($customer === null) {
+            return [];
+        }
+
+        $hasPin = $this->customerHasPin($customer);
+
         return [
             'id' => (string) $customer->id,
             'tenant_id' => (string) $customer->tenant_id,
@@ -389,6 +642,10 @@ class CustomerAuthService
             'status' => $customer->status ?? null,
             'avatar_url' => $customer->avatar_url ?? null,
             'reward_payout_bank_account' => $this->decodedBankAccount($customer->reward_payout_bank_account_json ?? null),
+            'has_pin' => $hasPin,
+            'pin_verified' => $pinVerified,
+            'pin_required' => $hasPin && ! $pinVerified,
+            'pin_setup_required' => ! $hasPin,
         ];
     }
 

@@ -45,6 +45,16 @@ class AuthenticateCustomer
             return ApiErrorResponse::authenticationRequired($request);
         }
 
+        if ($this->requiresPinUnlock($request)) {
+            if (! $context->hasPin()) {
+                return ApiErrorResponse::customerPinSetupRequired($request);
+            }
+
+            if (! $context->pinVerified()) {
+                return ApiErrorResponse::customerPinRequired($request);
+            }
+        }
+
         $request->attributes->set('customer_session', $context);
         $request->attributes->set('customer_tenant', $tenant['context']);
 
@@ -53,7 +63,25 @@ class AuthenticateCustomer
 
     private function blocksMaintenance(Request $request): bool
     {
-        return $request->is('api/v1/customer/auth/logout', 'api/v1/customer/auth/me', 'api/v1/customer/profile');
+        return $request->is(
+            'api/v1/customer/auth/logout',
+            'api/v1/customer/auth/me',
+            'api/v1/customer/auth/pin/*',
+            'api/v1/customer/profile',
+        );
+    }
+
+    private function requiresPinUnlock(Request $request): bool
+    {
+        return ! $request->is(
+            'api/v1/customer/auth/logout',
+            'api/v1/customer/auth/me',
+            'api/v1/customer/auth/pin/status',
+            'api/v1/customer/auth/pin/setup',
+            'api/v1/customer/auth/pin/verify',
+            'api/v1/customer/auth/pin/change',
+            'api/v1/customer/affiliate/referrals/apply',
+        );
     }
 
     /**

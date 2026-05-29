@@ -125,7 +125,7 @@ const normalizeGame = (game: AnyRecord | null | undefined) => {
   return {
     ...game,
     status: statusToLegacyGameStatus(game.status),
-    start_at: game.start_at || game.draw_at || game.created_at,
+    start_at: game.start_at || game.sale_start_at || game.draw_at || game.created_at,
     end_at: game.end_at || game.close_at || game.draw_at
   }
 }
@@ -403,7 +403,11 @@ const ticketStatusToLegacy = (status: unknown) => {
 const customerVisibleTicketStatus = (ticketStatus: unknown, rewardStatus: AnyRecord) => {
   const rewardStatusValue = String(rewardStatus.status || '').toLowerCase()
 
-  if (['winning', 'claim_submitted', 'approved', 'paid', 'paid_out'].includes(rewardStatusValue)) {
+  if (rewardStatusValue === 'approved' && (rewardStatus.paid_at || rewardStatus.payout_ledger_id || rewardStatus.payout_method === 'bank_transfer')) {
+    return 5
+  }
+
+  if (['winning', 'claim_submitted', 'approved', 'paid', 'paid_out', 'rejected', 'cancelled'].includes(rewardStatusValue)) {
     return ['paid', 'paid_out'].includes(rewardStatusValue) ? 5 : 4
   }
 
@@ -806,6 +810,14 @@ export const usePlatformApi = () => {
 
   const me = async () => unwrapData<AnyRecord>(await axios.get('/customer/auth/me'))
 
+  const pinStatus = async () => unwrapData<AnyRecord>(await axios.get('/customer/auth/pin/status'))
+
+  const setupPin = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/customer/auth/pin/setup', payload))
+
+  const verifyPin = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/customer/auth/pin/verify', payload))
+
+  const changePin = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/customer/auth/pin/change', payload))
+
   const refresh = async (refreshToken: string | null | undefined) => {
     if (!refreshToken) {
       return null
@@ -1204,6 +1216,10 @@ export const usePlatformApi = () => {
     rewardLiveLegacy,
     login,
     me,
+    pinStatus,
+    setupPin,
+    verifyPin,
+    changePin,
     refresh,
     logout,
     register,

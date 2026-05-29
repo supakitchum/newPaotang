@@ -113,18 +113,27 @@ export const getTicketImageUrl = (ticket: Partial<UserTicket> | null | undefined
 }
 
 export const getTicketStatusText = (ticket: Partial<UserTicket> | null | undefined) => {
-  const rewardStatus = String(ticket?.reward_status?.status || '').toLowerCase()
+  const rewardStatusRecord = ticket?.reward_status || {}
+  const rewardStatus = String(rewardStatusRecord.status || '').toLowerCase()
 
-  if (['paid', 'paid_out'].includes(rewardStatus)) {
+  if (['paid', 'paid_out'].includes(rewardStatus) || (rewardStatus === 'approved' && Boolean(rewardStatusRecord.paid_at || rewardStatusRecord.payout_ledger_id || rewardStatusRecord.payout_method === 'bank_transfer'))) {
     return 'ขึ้นเงินแล้ว'
   }
 
-  if (['submitted', 'claim_submitted', 'under_review', 'approved', 'claim_approved'].includes(rewardStatus)) {
+  if (['submitted', 'claim_submitted', 'under_review'].includes(rewardStatus)) {
     return 'รอรับเงินรางวัล'
   }
 
+  if (['approved', 'claim_approved'].includes(rewardStatus)) {
+    return 'อนุมัติแล้ว'
+  }
+
   if (rewardStatus === 'rejected') {
-    return 'เคลมไม่สำเร็จ'
+    return 'ขึ้นเงินไม่สำเร็จ'
+  }
+
+  if (rewardStatus === 'cancelled') {
+    return 'ยกเลิกขึ้นเงิน'
   }
 
   if (rewardStatus === 'winning') {
@@ -176,7 +185,7 @@ export const isWinningTicket = (ticket: Partial<UserTicket> | null | undefined) 
   const status = Number(ticket?.status)
   const rewardStatus = String(ticket?.reward_status?.status || '').toLowerCase()
 
-  return [4, 5].includes(status) || ['winning', 'approved', 'claim_approved', 'submitted', 'claim_submitted', 'under_review', 'paid', 'paid_out', 'rejected'].includes(rewardStatus)
+  return [4, 5].includes(status) || ['winning', 'approved', 'claim_approved', 'submitted', 'claim_submitted', 'under_review', 'paid', 'paid_out', 'rejected', 'cancelled'].includes(rewardStatus)
 }
 
 export const getTicketPrizeAmount = (ticket: Partial<UserTicket> | null | undefined) => {
@@ -238,6 +247,55 @@ export const isTicketClaimable = (ticket: Partial<UserTicket> | null | undefined
   return Boolean(rewardStatus.claimable ?? ticket?.claimable)
 }
 
+export const getTicketDisplaySortRank = (ticket: Partial<UserTicket> | null | undefined) => {
+  const rewardStatusRecord = ticket?.reward_status || {}
+  const rewardStatus = String(rewardStatusRecord.status || '').toLowerCase()
+  const ticketStatus = Number(ticket?.status)
+
+  if (rewardStatus === 'winning') {
+    return 0
+  }
+
+  if (['rejected', 'cancelled'].includes(rewardStatus)) {
+    return 1
+  }
+
+  if (['submitted', 'claim_submitted', 'under_review'].includes(rewardStatus)) {
+    return 2
+  }
+
+  if (
+    ['paid', 'paid_out'].includes(rewardStatus)
+    || ['approved', 'claim_approved'].includes(rewardStatus)
+    || ticketStatus === 5
+    || ticket?.paid === true
+    || ticket?.paid === 1
+    || ticket?.paid === '1'
+  ) {
+    return 3
+  }
+
+  if (rewardStatus === 'non_winning' || ticketStatus === 0) {
+    return 5
+  }
+
+  if (ticketStatus === 4) {
+    return 0
+  }
+
+  return 4
+}
+
+export const sortTicketsForCurrentDraw = (nextTickets: UserTicket[]) => (
+  nextTickets
+    .map((ticket, index) => ({ ticket, index }))
+    .sort((left, right) => (
+      (getTicketDisplaySortRank(left.ticket) - getTicketDisplaySortRank(right.ticket))
+      || left.index - right.index
+    ))
+    .map((entry) => entry.ticket)
+)
+
 export const getTicketClaimId = (ticket: Partial<UserTicket> | null | undefined) => {
   const rewardStatus = ticket?.reward_status || {}
   const claimId = rewardStatus.reward_claim_id || ticket?.reward_claim_id || ''
@@ -246,15 +304,15 @@ export const getTicketClaimId = (ticket: Partial<UserTicket> | null | undefined)
 }
 
 export const getTicketClaimTo = (ticket: Partial<UserTicket> | null | undefined) => {
-  const claimId = getTicketClaimId(ticket)
-
-  if (claimId) {
-    return `/reward-claims/${encodeURIComponent(claimId)}`
-  }
-
   const ticketId = String(ticket?.id || '').trim()
 
-  return isTicketClaimable(ticket) && ticketId ? `/tickets/claim/${encodeURIComponent(ticketId)}` : ''
+  if (isTicketClaimable(ticket) && ticketId) {
+    return `/tickets/claim/${encodeURIComponent(ticketId)}`
+  }
+
+  const claimId = getTicketClaimId(ticket)
+
+  return claimId ? `/reward-claims/${encodeURIComponent(claimId)}` : ''
 }
 
 export const getTicketDraw = (ticket: Partial<UserTicket> | null | undefined, game?: UserTicketGame | null) => {
@@ -353,6 +411,8 @@ export const useUserTickets = () => {
     getTicketRewardPrizes,
     getTicketPrizeTitle,
     isTicketClaimable,
+    getTicketDisplaySortRank,
+    sortTicketsForCurrentDraw,
     getTicketClaimId,
     getTicketClaimTo,
     getTicketDraw,

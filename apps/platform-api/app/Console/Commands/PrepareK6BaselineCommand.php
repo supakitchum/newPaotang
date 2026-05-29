@@ -330,6 +330,7 @@ class PrepareK6BaselineCommand extends Command
             'revoked_at' => null,
             'refreshed_from_id' => null,
             'last_used_at' => null,
+            'pin_verified_at' => $now,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -538,6 +539,9 @@ class PrepareK6BaselineCommand extends Command
             'phone' => $phone,
             'email' => $customerId.'@load-test.local',
             'password_hash' => Hash::make(Str::random(32)),
+            'pin_hash' => Hash::make('246810'),
+            'pin_set_at' => $now,
+            'pin_last_verified_at' => $now,
             'avatar_url' => null,
             'name' => 'K6 Baseline Customer',
             'status' => 'active',

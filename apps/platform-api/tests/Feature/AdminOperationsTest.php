@@ -91,6 +91,17 @@ class AdminOperationsTest extends TestCase
         $this->withToken($tenantLogin['access_token'])
             ->postJson('/api/v1/admin/tenant/realtime/auth', [
                 'socket_id' => '9876.5432',
+                'channel_name' => 'private-admin.tenant.ten_auth.reward-claims',
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_auth',
+            ])
+            ->assertOk()
+            ->assertJsonStructure(['auth', 'channel_data', 'expires_at']);
+
+        $this->withToken($tenantLogin['access_token'])
+            ->postJson('/api/v1/admin/tenant/realtime/auth', [
+                'socket_id' => '9876.5432',
                 'channel_name' => 'private-admin.tenant.ten_other.dashboard',
             ], [
                 'X-Admin-Scope' => 'tenant',

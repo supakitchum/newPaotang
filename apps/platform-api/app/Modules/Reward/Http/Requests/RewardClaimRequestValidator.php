@@ -23,6 +23,10 @@ class RewardClaimRequestValidator
             $errors['ticket_id'][] = 'The ticket_id field is required.';
         }
 
+        if (! preg_match('/^\d{6}$/', trim((string) ($payload['pin'] ?? '')))) {
+            $errors['pin'][] = 'The pin field must contain exactly 6 digits.';
+        }
+
         $method = (string) ($payload['payout_method'] ?? '');
 
         if (! in_array($method, ['wallet_credit', 'bank_transfer'], true)) {
@@ -38,7 +42,7 @@ class RewardClaimRequestValidator
      */
     public function tenantClaimActionErrors(array $payload, string $action): array
     {
-        $errors = $this->payloads->requiredString($payload, 'reason');
+        $errors = $action === 'approve' ? [] : $this->payloads->requiredString($payload, 'reason');
 
         if ($action === 'approve') {
             $errors = $this->payloads->merge($errors, $this->positiveMoneyOverride($payload, 'approved_amount'));

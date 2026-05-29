@@ -23,4 +23,14 @@ class CustomerSessionContext
     {
         return (string) $this->session['customer_id'];
     }
+
+    public function hasPin(): bool
+    {
+        return (bool) ($this->customer['has_pin'] ?? false);
+    }
+
+    public function pinVerified(): bool
+    {
+        return (bool) ($this->session['pin_verified'] ?? false);
+    }
 }

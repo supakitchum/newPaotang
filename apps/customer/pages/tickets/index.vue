@@ -48,7 +48,7 @@
 
       <div v-else-if="tickets.length" class="d-grid gap-3">
         <div
-          v-for="(ticket, index) in tickets"
+          v-for="(ticket, index) in displayTickets"
           :key="getTicketKey(ticket, index)"
           class="ticket-card-button"
           role="button"
@@ -124,6 +124,7 @@ const {
   getTicketRewardPrizes,
   getTicketPrizeTitle,
   isTicketClaimable,
+  sortTicketsForCurrentDraw,
   getTicketClaimTo
 } = useUserTickets()
 const { currentDrawDate } = useAppInit()
@@ -143,7 +144,8 @@ const activeSearch = ref('')
 const selectedTicket = ref<UserTicket | null>(null)
 const loadMoreSentinel = ref<HTMLElement | null>(null)
 let loadObserver: IntersectionObserver | null = null
-const drawDate = computed(() => getGameDate(currentGame.value) || getTicketGameDate(tickets.value[0]) || currentDrawDate.value)
+const displayTickets = computed(() => sortTicketsForCurrentDraw(tickets.value))
+const drawDate = computed(() => getGameDate(currentGame.value) || getTicketGameDate(displayTickets.value[0]) || currentDrawDate.value)
 const loadedTicketCount = computed(() => tickets.value.reduce((total, ticket) => total + getTicketCount(ticket), 0))
 const totalTicketCount = computed(() => apiTotalTicketCount.value || loadedTicketCount.value)
 const hasMore = computed(() => currentPage.value < lastPage.value)

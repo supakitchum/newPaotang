@@ -267,7 +267,8 @@ class AdminOperationsService
             'presence-admin.tenant.'.$tenantId.'.admin.'.$adminUserId,
         ], true) || $this->isTenantStockChannel($channelName, $tenantId)
             || $this->isTenantStockCoverageChannel($channelName, $tenantId)
-            || $this->isTenantTopupsChannel($channelName, $tenantId);
+            || $this->isTenantTopupsChannel($channelName, $tenantId)
+            || $this->isTenantRewardClaimsChannel($channelName, $tenantId);
     }
 
     private function isCentralStockGenerationChannel(string $channelName): bool
@@ -312,6 +313,15 @@ class AdminOperationsService
             : preg_quote($tenantId, '/');
 
         return preg_match('/^private-admin\.tenant\.'.$tenantPattern.'\.topups$/', $channelName) === 1;
+    }
+
+    private function isTenantRewardClaimsChannel(string $channelName, ?string $tenantId = null): bool
+    {
+        $tenantPattern = $tenantId === null || $tenantId === ''
+            ? '[A-Za-z0-9_-]+'
+            : preg_quote($tenantId, '/');
+
+        return preg_match('/^private-admin\.tenant\.'.$tenantPattern.'\.reward-claims$/', $channelName) === 1;
     }
 
     private function limit(mixed $value): int

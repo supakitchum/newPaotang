@@ -25,6 +25,12 @@ class Customer extends BaseModel
         'updated_at',
         'email',
         'password_hash',
+        'pin_hash',
+        'pin_set_at',
+        'pin_changed_at',
+        'pin_failed_attempts',
+        'pin_locked_until',
+        'pin_last_verified_at',
         'avatar_url',
         'reward_payout_bank_account_json',
         'last_login_at',
@@ -32,10 +38,15 @@ class Customer extends BaseModel
 
     protected $hidden = [
         'password_hash',
+        'pin_hash',
     ];
 
     protected $casts = [
         'last_login_at' => 'datetime',
+        'pin_set_at' => 'datetime',
+        'pin_changed_at' => 'datetime',
+        'pin_locked_until' => 'datetime',
+        'pin_last_verified_at' => 'datetime',
         'reward_payout_bank_account_json' => 'array',
     ];
 

@@ -1,5 +1,5 @@
 <template>
-  <MobileShell time="12:00">
+  <MobileShell time="12:00" active-nav="home" show-bottom-nav>
     <section class="countdown-page">
       <div class="countdown-brand">
         <BrandLogo />
@@ -10,6 +10,7 @@
         <p class="countdown-kicker">รอเปิดงวดใหม่</p>
         <h1>จะเปิดขายในอีก</h1>
         <p class="countdown-draw">งวดวันที่ {{ currentDrawDate }}</p>
+        <p v-if="saleStartText" class="countdown-start">เปิดขาย {{ saleStartText }}</p>
       </div>
 
       <div class="countdown-grid" aria-label="เวลานับถอยหลัง">
@@ -35,18 +36,30 @@ definePageMeta({
   requiresAuth: false
 })
 
-const { currentGame, currentDrawDate, refreshAppInit, currentStatus } = useAppInit()
+const {
+  currentDrawDate,
+  refreshAppInit,
+  currentStatus,
+  saleStartAt,
+  isSaleNotStartedNow
+} = useAppInit()
 const now = ref(Date.now())
 const isCheckingStatus = ref(false)
 let timer: ReturnType<typeof setInterval> | null = null
 
-const startAt = computed(() => {
-  const value = currentGame.value?.start_at
-  const timestamp = value ? Date.parse(String(value)) : Number.NaN
-
-  return Number.isNaN(timestamp) ? null : timestamp
-})
+const startAt = computed(() => saleStartAt.value)
 const remainingMilliseconds = computed(() => Math.max(0, (startAt.value || now.value) - now.value))
+const saleStartText = computed(() => {
+  if (!startAt.value) {
+    return ''
+  }
+
+  return new Intl.DateTimeFormat('th-TH', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Asia/Bangkok'
+  }).format(new Date(startAt.value))
+})
 const countdownItems = computed(() => {
   const totalSeconds = Math.floor(remainingMilliseconds.value / 1000)
   const days = Math.floor(totalSeconds / 86400)
@@ -62,6 +75,14 @@ const countdownItems = computed(() => {
   ]
 })
 
+const targetAfterCountdown = () => {
+  if (currentStatus.value === 1) {
+    return '/buy'
+  }
+
+  return currentStatus.value === 2 ? '/result' : '/waiting-result'
+}
+
 const tick = async () => {
   now.value = Date.now()
 
@@ -69,8 +90,8 @@ const tick = async () => {
     isCheckingStatus.value = true
     await refreshAppInit()
 
-    if (currentStatus.value !== 3) {
-      await navigateTo(currentStatus.value === 1 ? '/buy' : '/result')
+    if (!isSaleNotStartedNow()) {
+      await navigateTo(targetAfterCountdown())
     }
 
     isCheckingStatus.value = false
@@ -78,6 +99,7 @@ const tick = async () => {
 }
 
 onMounted(() => {
+  void tick()
   timer = setInterval(tick, 1000)
 })
 
@@ -91,7 +113,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .countdown-page {
   min-height: 100dvh;
-  padding: 68px var(--content-pad) 32px;
+  padding: 68px var(--content-pad) 124px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -113,7 +135,8 @@ onBeforeUnmount(() => {
 }
 
 .countdown-kicker,
-.countdown-draw {
+.countdown-draw,
+.countdown-start {
   margin: 0;
   font-weight: 600;
   opacity: .92;
@@ -121,6 +144,12 @@ onBeforeUnmount(() => {
 
 .countdown-kicker {
   color: #ffd10b;
+}
+
+.countdown-start {
+  margin-top: 8px;
+  color: rgba(255, 255, 255, .82);
+  font-size: 14px;
 }
 
 .countdown-copy h1 {

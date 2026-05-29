@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\PartnerStoreFixtures;
@@ -37,6 +38,8 @@ class CustomerAuthTest extends TestCase
             ->assertJsonMissing(['password_hash'])
             ->assertJsonMissing(['access_token_hash'])
             ->assertJsonPath('user.tenant_id', 'ten_auth_m5')
+            ->assertJsonPath('user.has_pin', false)
+            ->assertJsonPath('pin_setup_required', true)
             ->json();
 
         $this->assertDatabaseHas('customers', [
@@ -58,18 +61,42 @@ class CustomerAuthTest extends TestCase
             ->assertOk()
             ->assertJsonPath('user.id', $registered['user']['id'])
             ->json();
+        $loginSession = DB::table('customer_auth_sessions')
+            ->where('access_token_hash', hash('sha256', $login['token']))
+            ->first();
+        $this->assertNotNull($loginSession);
+        $this->assertTrue(CarbonImmutable::parse((string) $loginSession->refresh_expires_at)->greaterThanOrEqualTo(now()->addDays(29)));
 
         $refreshed = $this->postJson('http://auth.m5.test/api/v1/customer/auth/refresh', [
             'refresh_token' => $login['refresh_token'],
         ])
             ->assertOk()
             ->assertJsonPath('user.id', $registered['user']['id'])
+            ->assertJsonPath('user.has_pin', false)
+            ->assertJsonPath('pin_setup_required', true)
             ->json();
+
+        $this->withToken($refreshed['token'])
+            ->getJson('http://auth.m5.test/api/v1/customer/profile')
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'pin_setup_required');
+
+        $this->withToken($refreshed['token'])
+            ->postJson('http://auth.m5.test/api/v1/customer/auth/pin/setup', [
+                'pin' => '123456',
+                'pin_confirmation' => '123456',
+            ])
+            ->assertOk()
+            ->assertJsonPath('has_pin', true)
+            ->assertJsonPath('pin_verified', true)
+            ->assertJsonPath('user.pin_setup_required', false);
 
         $this->withToken($refreshed['token'])
             ->getJson('http://auth.m5.test/api/v1/customer/auth/me')
             ->assertOk()
-            ->assertJsonPath('id', $registered['user']['id']);
+            ->assertJsonPath('id', $registered['user']['id'])
+            ->assertJsonPath('has_pin', true)
+            ->assertJsonPath('pin_verified', true);
 
         $this->withToken($refreshed['token'])
             ->getJson('http://auth.m5.test/api/v1/customer/profile')
@@ -92,6 +119,64 @@ class CustomerAuthTest extends TestCase
             ->assertJsonPath('name', 'Customer Updated')
             ->assertJsonPath('reward_payout_bank_account.bank_name', 'Example Bank')
             ->assertJsonPath('reward_payout_bank_account.account_number', '1234567890');
+
+        $lockedLogin = $this->postJson('http://auth.m5.test/api/v1/customer/auth/login', [
+            'username' => '0801002000',
+            'password' => 'customer-secret',
+        ])
+            ->assertOk()
+            ->assertJsonPath('pin_required', true)
+            ->assertJsonPath('user.has_pin', true)
+            ->assertJsonPath('user.pin_verified', false)
+            ->json();
+
+        $this->withToken($lockedLogin['token'])
+            ->getJson('http://auth.m5.test/api/v1/customer/profile')
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'pin_required');
+
+        DB::table('customer_auth_sessions')
+            ->where('access_token_hash', hash('sha256', $lockedLogin['token']))
+            ->update([
+                'access_expires_at' => now()->subMinute(),
+                'updated_at' => now(),
+            ]);
+
+        $this->withToken($lockedLogin['token'])
+            ->getJson('http://auth.m5.test/api/v1/customer/auth/me')
+            ->assertUnauthorized()
+            ->assertJsonPath('error.code', 'authentication_required');
+
+        $refreshedLockedLogin = $this->postJson('http://auth.m5.test/api/v1/customer/auth/refresh', [
+            'refresh_token' => $lockedLogin['refresh_token'],
+        ])
+            ->assertOk()
+            ->assertJsonPath('user.id', $registered['user']['id'])
+            ->assertJsonPath('pin_required', true)
+            ->assertJsonPath('user.has_pin', true)
+            ->assertJsonPath('user.pin_verified', false)
+            ->json();
+        $pinLockedToken = $refreshedLockedLogin['token'];
+
+        $this->withToken($pinLockedToken)
+            ->postJson('http://auth.m5.test/api/v1/customer/auth/pin/verify', [
+                'pin' => '000000',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'pin_invalid');
+
+        $this->withToken($pinLockedToken)
+            ->postJson('http://auth.m5.test/api/v1/customer/auth/pin/verify', [
+                'pin' => '123456',
+            ])
+            ->assertOk()
+            ->assertJsonPath('has_pin', true)
+            ->assertJsonPath('pin_verified', true);
+
+        $this->withToken($pinLockedToken)
+            ->getJson('http://auth.m5.test/api/v1/customer/profile')
+            ->assertOk()
+            ->assertJsonPath('id', $registered['user']['id']);
 
         $this->withToken($refreshed['token'])
             ->postJson('http://auth.m5.test/api/v1/customer/auth/logout', [], [

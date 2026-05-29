@@ -133,7 +133,7 @@ const showConfirmPassword = ref(false)
 const isSubmitting = ref(false)
 const platformApi = usePlatformApi()
 const route = useRoute()
-const { setAuthToken, setAuthUser } = useAuth()
+const { setAuthSession } = useAuth()
 const { applyStoredRef } = useAffiliateReferral()
 const { refreshAppInit } = useAppInit()
 const { showAlert } = useAppAlert()
@@ -149,6 +149,13 @@ const getSafeRedirect = () => {
 
   return route.query.redirect
 }
+
+const needsPinUnlock = (response: Record<string, any>) => Boolean(
+  response?.pin_setup_required ||
+  response?.pin_required ||
+  response?.user?.pin_setup_required ||
+  response?.user?.pin_required
+)
 
 const loginTo = computed(() => {
   const redirect = getSafeRedirect()
@@ -208,9 +215,19 @@ const handleSubmit = async () => {
     })
 
     if (response?.token) {
-      setAuthToken(response.token)
-      setAuthUser(response.user || response.customer || {})
+      setAuthSession(response)
       await applyStoredRef({ registered: true })
+
+      if (needsPinUnlock(response)) {
+        await navigateTo({
+          path: '/pin',
+          query: {
+            redirect: getSafeRedirect()
+          }
+        })
+        return
+      }
+
       await refreshAppInit(response.token)
       await navigateTo(getSafeRedirect())
     }

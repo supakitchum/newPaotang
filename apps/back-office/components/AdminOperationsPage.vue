@@ -872,6 +872,7 @@ const isAllocationsRoute = computed(() => props.scope === 'central' && slugParts
 const isWinnersRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'winners')
 const isTenantStockRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'stock')
 const isTenantTopupsRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'topups')
+const isTenantExchangeRewardRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'exchange-reward')
 const isPriceRulesRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'price-rules')
 const isSalePriceRulesRoute = computed(() => resource.value?.slug === 'sale-price-rules')
 const showListSections = computed(() => Boolean(resource.value?.listSections?.length && mode.value === 'list'))
@@ -1088,6 +1089,22 @@ useAdminRealtimeSubscription({
   eventName: 'topup.updated',
   enabled: tenantTopupsRealtimeEnabled,
   onEvent: handleTenantTopupRealtimeEvent,
+})
+const tenantRewardClaimsRealtimeChannelName = computed(() => (
+  isTenantExchangeRewardRoute.value && session.currentTenantId.value
+    ? `private-admin.tenant.${session.currentTenantId.value}.reward-claims`
+    : ''
+))
+const tenantRewardClaimsRealtimeEnabled = computed(() => Boolean(
+  isTenantExchangeRewardRoute.value
+  && showListSections.value
+  && session.isAuthenticated.value,
+))
+useAdminRealtimeSubscription({
+  channelName: tenantRewardClaimsRealtimeChannelName,
+  eventName: 'reward.claim.updated',
+  enabled: tenantRewardClaimsRealtimeEnabled,
+  onEvent: handleTenantRewardClaimRealtimeEvent,
 })
 const currentCentralGameOption = computed(() => singleCurrentGameOption(optionSourceOptions['central-games'] || []))
 const currentCentralWinnerGameOption = computed(() => latestDefaultOrCurrentGameOption(optionSourceOptions['central-winner-games'] || []))
@@ -2693,6 +2710,35 @@ function handleTenantTopupRealtimeEvent(payload: any) {
   }
 }
 
+function handleTenantRewardClaimRealtimeEvent(payload: any) {
+  if (!tenantRewardClaimsRealtimeEnabled.value || !payload || typeof payload !== 'object') {
+    return
+  }
+
+  const row = payload.claim || payload.row || payload
+  const payloadTenantId = String(payload.tenant_id || row?.tenant_id || '').trim()
+  if (payloadTenantId && payloadTenantId !== String(session.currentTenantId.value || '')) {
+    return
+  }
+
+  const claimId = String(row?.id || payload.claim_id || '').trim()
+  if (!claimId) {
+    return
+  }
+
+  for (const section of activeRelatedLists.value) {
+    if (!String(section.listEndpoint || '').includes('/reward-claims')) {
+      continue
+    }
+
+    if (rewardClaimBelongsToSection(section, row) && rewardClaimMatchesSectionFilters(section, row)) {
+      upsertRelatedRow(section, row)
+    } else {
+      removeRelatedRow(section.key, claimId)
+    }
+  }
+}
+
 async function reloadStockTableFromRealtime() {
   if (!stockTableRealtimeEnabled.value || stockTableRealtimeReloading.value) {
     return
@@ -2897,6 +2943,54 @@ function topupMatchesSectionFilters(section: OperationRelatedList, row: any) {
 
   if (filtersForSection.customer_no && !customerNo.includes(String(filtersForSection.customer_no).toUpperCase())) {
     return false
+  }
+
+  return true
+}
+
+function rewardClaimBelongsToSection(section: OperationRelatedList, row: any) {
+  const status = String((row?.__raw || row)?.status || '').toLowerCase()
+  const pending = ['submitted', 'under_review'].includes(status)
+  const sectionName = String(section.defaultQuery?.section || '').toLowerCase()
+
+  if (sectionName === 'pending') {
+    return pending
+  }
+
+  if (sectionName === 'history') {
+    return !pending
+  }
+
+  return true
+}
+
+function rewardClaimMatchesSectionFilters(section: OperationRelatedList, row: any) {
+  const filtersForSection = cleanQuery(relatedFilters[section.key] || {})
+  const source = row?.__raw || row || {}
+  const status = String(source.status || '').toLowerCase()
+  const gameId = String(source.game_id || '').trim()
+  const customerId = String(source.customer_id || source.customer?.id || '').trim()
+  const reference = String(source.reference || '').toUpperCase()
+  const ticketId = String(source.ticket_id || source.ticket?.id || '').toUpperCase()
+  const fullNumber = String(source.ticket?.full_number || source.full_number || '').toUpperCase()
+  const customerNo = String(getPath(source, 'customer.customer_no') || source.customer_no || source.member_no || '').toUpperCase()
+  const customerName = String(getPath(source, 'customer.name') || source.customer_name || '').toUpperCase()
+
+  if (filtersForSection.status && status !== String(filtersForSection.status).toLowerCase()) {
+    return false
+  }
+
+  if (filtersForSection.game_id && gameId !== String(filtersForSection.game_id).trim()) {
+    return false
+  }
+
+  if (filtersForSection.customer_id && customerId !== String(filtersForSection.customer_id).trim()) {
+    return false
+  }
+
+  if (filtersForSection.q) {
+    const q = String(filtersForSection.q).toUpperCase()
+    return [reference, ticketId, fullNumber, customerId.toUpperCase(), customerNo, customerName].some((value) => value.includes(q))
   }
 
   return true
@@ -3663,7 +3757,7 @@ const formatDateTimeLocalValue = (value: any) => {
   if (value === undefined || value === null || value === '') return ''
 
   const raw = String(value)
-  const localMatch = raw.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/)
+  const localMatch = raw.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?$/)
   if (localMatch) {
     return `${localMatch[1]}T${localMatch[2]}`
   }
@@ -3673,8 +3767,17 @@ const formatDateTimeLocalValue = (value: any) => {
     return raw
   }
 
-  const pad = (entry: number) => String(entry).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date)
+  const part = (type: string) => parts.find((entry) => entry.type === type)?.value || '00'
+  return `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}`
 }
 
 const formatJsonFieldValue = (value: any) => {

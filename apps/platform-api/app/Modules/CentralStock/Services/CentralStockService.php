@@ -48,6 +48,8 @@ class CentralStockService
         'reward_published',
         'archived',
     ];
+    private const CLOSED_GAME_STATUSES = ['closed', 'reward_recorded', 'reward_checking', 'reward_verified', 'reward_published'];
+    private const RECORDED_REWARD_RESULT_STATUSES = ['recorded', 'checking', 'summary_ready', 'verified', 'published', 'corrected'];
 
     private const STOCK_STATUSES = ['available', 'allocated', 'sold', 'recalled', 'voided'];
     private const QUOTA_STATUSES = ['active', 'inactive', 'archived'];
@@ -307,8 +309,8 @@ class CentralStockService
         if (
             $previousGame !== null
             && (
-                $previousGame->closed_at === null
-                || ! RewardResult::where('game_id', $previousGame->id)->where('status', '!=', 'draft')->exists()
+                ! $this->gameIsClosedForNextOpening($previousGame)
+                || ! $this->gameHasRecordedRewardResult((string) $previousGame->id)
             )
         ) {
             $errors['status'][] = 'The previous game must be closed and have recorded reward results before opening a new game.';
@@ -5562,7 +5564,20 @@ class CentralStockService
 
     private function canArchiveStatus(string $status): bool
     {
-        return in_array($status, ['closed', 'reward_recorded', 'reward_checking', 'reward_verified', 'reward_published'], true);
+        return in_array($status, self::CLOSED_GAME_STATUSES, true);
+    }
+
+    private function gameIsClosedForNextOpening(object $game): bool
+    {
+        return $game->closed_at !== null || in_array((string) $game->status, self::CLOSED_GAME_STATUSES, true);
+    }
+
+    private function gameHasRecordedRewardResult(string $gameId): bool
+    {
+        return RewardResult::query()
+            ->where('game_id', $gameId)
+            ->whereIn('status', self::RECORDED_REWARD_RESULT_STATUSES)
+            ->exists();
     }
 
     private function createDraftRewardForGame(string $gameId, mixed $createdByAdminId, Carbon $now): void

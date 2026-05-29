@@ -610,6 +610,12 @@ class RewardEngineTest extends TestCase
             ->assertJsonPath('game_id', $world['game_id'])
             ->assertJsonPath('status', 'published')
             ->assertJsonPath('prizes.0.prize_number', $world['ticket_number']);
+
+        $this->getJson('http://'.$world['host'].'/api/v1/public/results/live/latest')
+            ->assertOk()
+            ->assertJsonPath('game_id', $world['game_id'])
+            ->assertJsonPath('status', 'published')
+            ->assertJsonPath('prizes.0.prize_number', $world['ticket_number']);
     }
 
     public function test_RewardEngine_redraw_discards_unapproved_claims_and_blocks_after_approval(): void
@@ -620,6 +626,7 @@ class RewardEngineTest extends TestCase
             ->postJson('http://'.$world['host'].'/api/v1/customer/reward-claims', [
                 'ticket_id' => $world['ticket_id'],
                 'payout_method' => 'bank_transfer',
+                'pin' => '246810',
                 'bank_account' => ['bank' => 'test', 'account_no' => '1234567890'],
             ], [
                 'Idempotency-Key' => 'reward-redraw-claim-create',
@@ -666,6 +673,7 @@ class RewardEngineTest extends TestCase
             ->postJson('http://'.$world['host'].'/api/v1/customer/reward-claims', [
                 'ticket_id' => $world['ticket_id'],
                 'payout_method' => 'bank_transfer',
+                'pin' => '246810',
                 'bank_account' => ['bank' => 'test', 'account_no' => '1234567890'],
             ], [
                 'Idempotency-Key' => 'reward-redraw-approved-claim-create',

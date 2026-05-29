@@ -115,6 +115,13 @@ const getSafeRedirect = () => {
   return route.query.redirect
 }
 
+const needsPinUnlock = (response: Record<string, any>) => Boolean(
+  response?.pin_setup_required ||
+  response?.pin_required ||
+  response?.user?.pin_setup_required ||
+  response?.user?.pin_required
+)
+
 const registerTo = computed(() => {
   const redirect = getSafeRedirect()
 
@@ -152,6 +159,17 @@ const handleSubmit = async () => {
     if (response?.token) {
       setAuthSession(response)
       await applyStoredRef()
+
+      if (needsPinUnlock(response)) {
+        await navigateTo({
+          path: '/pin',
+          query: {
+            redirect: getSafeRedirect()
+          }
+        })
+        return
+      }
+
       await refreshAppInit(response.token)
       await navigateTo(getSafeRedirect())
     }

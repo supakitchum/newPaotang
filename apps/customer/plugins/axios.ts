@@ -15,7 +15,7 @@ export default defineNuxtPlugin({
     const config = useRuntimeConfig()
     const route = useRoute()
     const requestHeaders = process.server ? useRequestHeaders(['host']) : {}
-    const { token: authToken, clearAuthToken } = useAuth()
+    const { token: authToken, refreshToken, clearAuthToken, setPinVerified, refreshAuthToken } = useAuth()
     const { showAlert } = useAppAlert()
     const publicApiBaseUrl = String(config.public.apiBaseUrl || '/api/v1')
     const tenantHost = normalizeTenantHost(process.server ? requestHeaders.host : (process.client ? window.location.host : ''))
@@ -69,19 +69,64 @@ export default defineNuxtPlugin({
       return request
     })
 
+    let refreshPromise: Promise<any> | null = null
+    const refreshCustomerSession = async () => {
+      if (!refreshPromise) {
+        refreshPromise = refreshAuthToken().finally(() => {
+          refreshPromise = null
+        })
+      }
+
+      return refreshPromise
+    }
+
     api.interceptors.response.use(
       (response) => response,
       async (error) => {
         const status = error.response?.status
         const requestUrl = error.config?.url || ''
         const apiError = error.response?.data?.error
+        const isLoginRequest = requestUrl.startsWith('/customer/auth/login')
+        const isRefreshRequest = requestUrl.startsWith('/customer/auth/refresh')
 
         if (apiError && !error.response.data.message) {
           error.response.data.message = apiError.message || 'กรุณาลองใหม่อีกครั้ง'
           error.response.data.code = apiError.code
         }
 
-        if (status === 401 && requestUrl !== '/customer/auth/login') {
+        if (['pin_required', 'pin_setup_required', 'pin_locked'].includes(String(apiError?.code || '')) && !requestUrl.startsWith('/customer/auth/pin/')) {
+          setPinVerified(false)
+
+          if (process.client && route.path !== '/pin') {
+            await nuxtApp.runWithContext(() => navigateTo({
+              path: '/pin',
+              query: {
+                redirect: route.fullPath
+              }
+            }))
+          }
+        }
+
+        if (status === 401 && !isLoginRequest && !isRefreshRequest && refreshToken.value && !error.config?._authRetry) {
+          const session = await refreshCustomerSession()
+
+          if (session?.token && error.config) {
+            error.config._authRetry = true
+
+            if (typeof error.config.headers?.set === 'function') {
+              error.config.headers.set('Authorization', `Bearer ${session.token}`)
+            } else {
+              error.config.headers = {
+                ...(error.config.headers || {}),
+                Authorization: `Bearer ${session.token}`
+              }
+            }
+
+            return api.request(error.config)
+          }
+        }
+
+        if (status === 401 && !isLoginRequest) {
           clearAuthToken()
 
           if (process.client && !isHandlingUnauthorized) {

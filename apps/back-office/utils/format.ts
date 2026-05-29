@@ -20,6 +20,7 @@ const moneyFormatter = new Intl.NumberFormat('th-TH', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 })
+const adminTimeZone = 'Asia/Bangkok'
 
 export const formatDateTime = (value?: string | null) => {
   if (!value) {
@@ -34,6 +35,7 @@ export const formatDateTime = (value?: string | null) => {
   return new Intl.DateTimeFormat('th-TH', {
     dateStyle: 'medium',
     timeStyle: 'short',
+    timeZone: adminTimeZone,
   }).format(date)
 }
 

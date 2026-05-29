@@ -40,6 +40,10 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
+  forceBackTo: {
+    type: Boolean,
+    default: false
+  },
   minHeight: {
     type: String,
     default: '174px'
@@ -50,6 +54,11 @@ const emit = defineEmits(['search'])
 const router = useRouter()
 
 const goBack = () => {
+  if (props.forceBackTo) {
+    navigateTo(props.backTo)
+    return
+  }
+
   if (process.client && window.history.length > 1) {
     router.back()
     return

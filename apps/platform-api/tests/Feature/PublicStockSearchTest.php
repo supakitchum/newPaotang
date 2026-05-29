@@ -260,14 +260,35 @@ class PublicStockSearchTest extends TestCase
         ]);
 
         $this->getJson('http://sale-closed.newpaotang.test/api/v1/public/games/current')
-            ->assertNotFound()
-            ->assertJsonPath('error.code', 'resource_not_found');
+            ->assertOk()
+            ->assertJsonPath('id', 'gam_sale_closed');
 
         $this->getJson('http://sale-closed.newpaotang.test/api/v1/public/stock/search?game_id=gam_sale_closed&number=234567')
             ->assertOk()
             ->assertJsonCount(0, 'data')
             ->assertJsonPath('meta.next_cursor', null)
             ->assertJsonPath('meta.has_more', false);
+    }
+
+    public function test_PublicGameCurrent_returns_latest_tenant_game_after_reward_is_published(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_reward_published', 'ten_reward_published', 'reward-published.newpaotang.test');
+        $this->insertGame('gam_reward_published', 'reward_published');
+        $this->insertBaseLotteryNumbers(['345678']);
+        $this->insertVirtualProfile('gam_reward_published');
+        $this->insertPartnerDistribution('gam_reward_published', 'par_reward_published', 'ten_reward_published', 10000);
+
+        DB::table('games')->where('id', 'gam_reward_published')->update([
+            'close_at' => now()->subHour(),
+            'draw_at' => now()->subMinute(),
+            'updated_at' => now(),
+        ]);
+
+        $this->getJson('http://reward-published.newpaotang.test/api/v1/public/games/current')
+            ->assertOk()
+            ->assertJsonPath('id', 'gam_reward_published')
+            ->assertJsonPath('status', 'reward_published');
     }
 
     public function test_PublicStockSearch_exact_six_virtual_search_returns_duplicate_copies_with_unique_reservation_ids(): void

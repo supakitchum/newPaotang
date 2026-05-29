@@ -32,6 +32,33 @@ class ApiErrorResponse
         return self::make($request, 403, 'permission_denied', 'You do not have permission to perform this action.');
     }
 
+    public static function customerPinSetupRequired(Request $request): JsonResponse
+    {
+        return self::make($request, 403, 'pin_setup_required', 'A 6-digit customer PIN must be set before continuing.');
+    }
+
+    public static function customerPinRequired(Request $request): JsonResponse
+    {
+        return self::make($request, 403, 'pin_required', 'Customer PIN verification is required before continuing.');
+    }
+
+    public static function customerPinLocked(Request $request, ?int $retryAfterSeconds = null): JsonResponse
+    {
+        $response = self::make(
+            $request,
+            423,
+            'pin_locked',
+            'Customer PIN verification is temporarily locked. Please try again later.',
+            ['retry_after_seconds' => $retryAfterSeconds],
+        );
+
+        if ($retryAfterSeconds !== null && $retryAfterSeconds > 0) {
+            $response->headers->set('Retry-After', (string) $retryAfterSeconds);
+        }
+
+        return $response;
+    }
+
     public static function notFound(Request $request): JsonResponse
     {
         return self::make($request, 404, 'resource_not_found', 'The requested resource was not found.');

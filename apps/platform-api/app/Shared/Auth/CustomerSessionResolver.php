@@ -60,6 +60,8 @@ class CustomerSessionResolver
                 'id' => (string) $session->id,
                 'tenant_id' => (string) $session->tenant_id,
                 'customer_id' => (string) $session->customer_id,
+                'pin_verified_at' => $session->pin_verified_at,
+                'pin_verified' => $session->pin_verified_at !== null,
             ],
             customer: [
                 'id' => (string) $customer->id,
@@ -69,6 +71,7 @@ class CustomerSessionResolver
                 'email' => $customer->email ?? null,
                 'avatar_url' => $customer->avatar_url ?? null,
                 'status' => (string) $customer->status,
+                'has_pin' => is_string($customer->pin_hash) && $customer->pin_hash !== '',
             ],
         );
     }

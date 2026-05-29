@@ -107,14 +107,19 @@ class CustomerRewardController extends Controller
     }
 
     /**
-     * @param array{resource?: array<string, mixed>|null, status?: int, error?: string} $result
+     * @param array{resource?: array<string, mixed>|null, status?: int, error?: string, retry_after_seconds?: int|null} $result
      */
     private function writeResult(Request $request, array $result, int $defaultStatus = 200): JsonResponse
     {
         return match ($result['error'] ?? null) {
+            'authentication_required' => ApiErrorResponse::authenticationRequired($request),
             'idempotency_conflict' => ApiErrorResponse::idempotencyConflict($request),
             'resource_conflict' => ApiErrorResponse::resourceConflict($request),
             'not_found' => ApiErrorResponse::notFound($request),
+            'pin_setup_required' => ApiErrorResponse::customerPinSetupRequired($request),
+            'pin_required' => ApiErrorResponse::customerPinRequired($request),
+            'pin_locked' => ApiErrorResponse::customerPinLocked($request, $result['retry_after_seconds'] ?? null),
+            'pin_invalid' => ApiErrorResponse::make($request, 422, 'pin_invalid', 'The customer PIN is incorrect.'),
             'validation_failed' => ApiErrorResponse::validationFailed($request, ['payload' => ['The request payload is invalid.']]),
             default => response()->json($result['resource'] ?? [], $result['status'] ?? $defaultStatus),
         };

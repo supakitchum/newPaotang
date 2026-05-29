@@ -3,6 +3,7 @@
 namespace Tests\Support;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 trait PartnerStoreFixtures
 {
@@ -64,6 +65,9 @@ trait PartnerStoreFixtures
             'customer_no' => strtoupper((string) preg_replace('/[^A-Za-z0-9]+/', '', $tenantId)).strtoupper(substr(sha1($customerId), 0, 8)),
             'phone' => '080'.substr(sha1($customerId), 0, 7),
             'name' => 'Customer '.$customerId,
+            'pin_hash' => Hash::make('246810'),
+            'pin_set_at' => now(),
+            'pin_last_verified_at' => now(),
             'status' => 'active',
             'created_at' => now(),
             'updated_at' => now(),
@@ -77,6 +81,7 @@ trait PartnerStoreFixtures
             'access_expires_at' => now()->addHour(),
             'revoked_at' => null,
             'last_used_at' => null,
+            'pin_verified_at' => now(),
             'created_at' => now(),
             'updated_at' => now(),
         ]);

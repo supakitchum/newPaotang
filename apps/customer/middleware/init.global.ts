@@ -2,7 +2,7 @@ import { requiresCustomerAuth } from '~/utils/customerAuthRoutes'
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const { fetchSiteConfig, isRouteBlockedByMaintenance } = useSiteConfig()
-  const { ensureAppInit, getInitRedirectTarget } = useAppInit()
+  const { ensureAppInit, getInitRedirectTarget, isReady } = useAppInit()
   const { token, user, restoreAuthState } = useAuth()
   const isPrivatePage = requiresCustomerAuth(to.path)
 
@@ -14,6 +14,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (to.path !== '/maintenance' && isRouteBlockedByMaintenance(to.path)) {
     return navigateTo('/maintenance')
+  }
+
+  if (to.path === '/pin') {
+    isReady.value = true
+    return
   }
 
   await ensureAppInit()

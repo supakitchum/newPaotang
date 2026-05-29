@@ -966,7 +966,7 @@ const formatDateTimeLocalValue = (value: any) => {
   if (value === undefined || value === null || value === '') return ''
 
   const raw = String(value)
-  const localMatch = raw.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/)
+  const localMatch = raw.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?$/)
   if (localMatch) {
     return `${localMatch[1]}T${localMatch[2]}`
   }
@@ -976,8 +976,17 @@ const formatDateTimeLocalValue = (value: any) => {
     return raw
   }
 
-  const pad = (entry: number) => String(entry).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date)
+  const part = (type: string) => parts.find((entry) => entry.type === type)?.value || '00'
+  return `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}`
 }
 
 const formatPrizeLines = (value: any) => {

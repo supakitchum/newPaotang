@@ -2,9 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Modules\Reward\Events\RewardClaimUpdated;
 use App\Modules\Reward\Services\TenantRewardPriceRuleService;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Tests\Support\M7RewardFixtures;
 use Tests\TestCase;
 
@@ -25,10 +29,25 @@ class RewardClaimTest extends TestCase
             ->assertJsonPath('claimable', true)
             ->assertJsonPath('prize_amount.amount', 6000000);
 
+        $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/reward-claims', [
+                'ticket_id' => $world['ticket_id'],
+                'payout_method' => 'wallet_credit',
+                'pin' => '000000',
+                'note' => 'wrong pin must not create a claim',
+            ], [
+                'Idempotency-Key' => 'reward-claim-wrong-pin',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'pin_invalid');
+
+        $this->assertSame(0, DB::table('reward_claims')->where('tenant_id', $world['tenant_id'])->count());
+
         $claim = $this->withToken($world['auth']['token'])
             ->postJson('http://'.$world['host'].'/api/v1/customer/reward-claims', [
                 'ticket_id' => $world['ticket_id'],
                 'payout_method' => 'wallet_credit',
+                'pin' => '246810',
                 'note' => 'please credit wallet',
             ], [
                 'Idempotency-Key' => 'reward-claim-create',
@@ -36,11 +55,14 @@ class RewardClaimTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('status', 'submitted')
             ->json();
+        $this->assertTrue(CarbonImmutable::parse((string) $claim['submitted_at'])->lessThanOrEqualTo(now()->addMinute()));
+        $this->assertTrue(DB::table('reward_claims')->where('id', $claim['id'])->where('submitted_at', '<=', now()->addMinute())->exists());
 
         $replay = $this->withToken($world['auth']['token'])
             ->postJson('http://'.$world['host'].'/api/v1/customer/reward-claims', [
                 'ticket_id' => $world['ticket_id'],
                 'payout_method' => 'wallet_credit',
+                'pin' => '246810',
                 'note' => 'please credit wallet',
             ], [
                 'Idempotency-Key' => 'reward-claim-create',
@@ -113,6 +135,34 @@ class RewardClaimTest extends TestCase
             'id' => $world['ticket_id'],
             'status' => 'paid_out',
         ]);
+
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/tickets/'.$world['ticket_id'].'/reward-status')
+            ->assertOk()
+            ->assertJsonPath('status', 'paid_out')
+            ->assertJsonPath('claim_status', 'approved')
+            ->assertJsonPath('reward_claim_id', $claim['id']);
+
+        $claimList = $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/reward-claims')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $claim['id'])
+            ->assertJsonPath('data.0.status', 'approved')
+            ->json();
+        $this->assertNotNull($claimList['data'][0]['paid_at'] ?? null);
+
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/tickets')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $world['ticket_id'])
+            ->assertJsonPath('data.0.status', 'paid_out')
+            ->assertJsonPath('data.0.reward_status.status', 'paid_out')
+            ->assertJsonPath('data.0.reward_status.claim_status', 'approved');
+
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/tickets/history')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
 
         $paid = $this->withToken($tenantPayer['access_token'])
             ->postJson('/api/v1/admin/tenant/reward-claims/'.$claim['id'].'/pay', [
@@ -221,6 +271,7 @@ class RewardClaimTest extends TestCase
             ->postJson('http://'.$world['host'].'/api/v1/customer/reward-claims', [
                 'ticket_id' => $world['ticket_id'],
                 'payout_method' => 'wallet_credit',
+                'pin' => '246810',
             ], [
                 'Idempotency-Key' => 'reward-claim-create-multi-prize',
             ])
@@ -288,6 +339,7 @@ class RewardClaimTest extends TestCase
             ->postJson('http://'.$world['host'].'/api/v1/customer/reward-claims', [
                 'ticket_id' => $world['ticket_id'],
                 'payout_method' => 'bank_transfer',
+                'pin' => '246810',
                 'bank_account' => ['bank' => 'test', 'account_no' => '1234567890'],
             ], [
                 'Idempotency-Key' => 'reward-adjust-claim-create',
@@ -333,7 +385,7 @@ class RewardClaimTest extends TestCase
             ->assertJsonPath('rows.0.prize_amount', 5900000);
     }
 
-    public function test_RewardClaim_approve_bank_transfer_marks_approved_without_wallet_credit(): void
+    public function test_RewardClaim_approve_bank_transfer_marks_paid_out_without_wallet_credit(): void
     {
         $fixture = $this->submittedRewardClaim('bank_approve', 'bank_transfer');
         $world = $fixture['world'];
@@ -367,12 +419,181 @@ class RewardClaimTest extends TestCase
             'status' => 'approved',
             'payout_method' => 'bank_transfer',
             'payout_ledger_id' => null,
-            'paid_at' => null,
         ]);
+        $this->assertNotNull(DB::table('reward_claims')->where('id', $claim['id'])->value('paid_at'));
         $this->assertDatabaseHas('winning_tickets', [
             'id' => $claim['winning_ticket_id'],
-            'status' => 'approved',
+            'status' => 'paid',
         ]);
+        $this->assertDatabaseHas('tickets', [
+            'id' => $world['ticket_id'],
+            'status' => 'paid_out',
+        ]);
+
+        $rewardStatus = $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/tickets/'.$world['ticket_id'].'/reward-status')
+            ->assertOk()
+            ->assertJsonPath('status', 'paid_out')
+            ->assertJsonPath('claim_status', 'approved')
+            ->assertJsonPath('reward_claim_id', $claim['id'])
+            ->json();
+        $this->assertNotNull($rewardStatus['paid_at'] ?? null);
+
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/tickets')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $world['ticket_id'])
+            ->assertJsonPath('data.0.status', 'paid_out')
+            ->assertJsonPath('data.0.reward_status.status', 'paid_out')
+            ->assertJsonPath('data.0.reward_status.claim_status', 'approved');
+
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/tickets/history')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_RewardClaim_rejected_status_is_visible_to_customer_tickets(): void
+    {
+        $fixture = $this->submittedRewardClaim('reject_visible');
+        $world = $fixture['world'];
+        $claim = $fixture['claim'];
+        $tenantPayer = $fixture['admin'];
+
+        Event::fake([RewardClaimUpdated::class]);
+
+        $this->withToken($tenantPayer['access_token'])
+            ->postJson('/api/v1/admin/tenant/reward-claims/'.$claim['id'].'/reject', [
+                'reason' => 'customer bank mismatch',
+            ], $this->tenantClaimHeaders($world, 'reward-reject-visible'))
+            ->assertOk()
+            ->assertJsonPath('status', 'rejected');
+
+        Event::assertDispatched(RewardClaimUpdated::class, fn (RewardClaimUpdated $event): bool => (
+            ($event->payload['tenant_id'] ?? null) === $world['tenant_id']
+            && ($event->payload['claim_id'] ?? null) === $claim['id']
+            && ($event->payload['claim']['status'] ?? null) === 'rejected'
+        ));
+
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/tickets/'.$world['ticket_id'].'/reward-status')
+            ->assertOk()
+            ->assertJsonPath('status', 'rejected')
+            ->assertJsonPath('claim_status', 'rejected')
+            ->assertJsonPath('claimable', true)
+            ->assertJsonPath('reward_claim_id', $claim['id']);
+
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/tickets')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $world['ticket_id'])
+            ->assertJsonPath('data.0.status', 'winning')
+            ->assertJsonPath('data.0.reward_status.status', 'rejected')
+            ->assertJsonPath('data.0.reward_status.claim_status', 'rejected')
+            ->assertJsonPath('data.0.reward_status.claimable', true);
+
+        $secondClaim = $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/reward-claims', [
+                'ticket_id' => $world['ticket_id'],
+                'payout_method' => 'wallet_credit',
+                'pin' => '246810',
+                'note' => 'submit again after rejection',
+            ], [
+                'Idempotency-Key' => 'reward-rejected-claim-resubmit',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('status', 'submitted')
+            ->json();
+        $this->assertNotSame($claim['id'], $secondClaim['id']);
+        $this->assertSame(2, DB::table('reward_claims')->where('tenant_id', $world['tenant_id'])->where('ticket_id', $world['ticket_id'])->count());
+
+        Event::assertDispatched(RewardClaimUpdated::class, fn (RewardClaimUpdated $event): bool => (
+            ($event->payload['tenant_id'] ?? null) === $world['tenant_id']
+            && ($event->payload['claim_id'] ?? null) === $secondClaim['id']
+            && ($event->payload['claim']['status'] ?? null) === 'submitted'
+        ));
+
+        $this->withToken($tenantPayer['access_token'])
+            ->getJson('/api/v1/admin/tenant/reward-claims?section=pending&sort_by=submitted_at&sort_dir=asc', $this->tenantClaimHeaders($world, 'reward-pending-section'))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $secondClaim['id'])
+            ->assertJsonPath('data.0.status', 'submitted');
+
+        $this->withToken($tenantPayer['access_token'])
+            ->getJson('/api/v1/admin/tenant/reward-claims?section=history&sort_by=updated_at&sort_dir=desc', $this->tenantClaimHeaders($world, 'reward-history-section'))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $claim['id'])
+            ->assertJsonPath('data.0.status', 'rejected');
+
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/tickets/'.$world['ticket_id'].'/reward-status')
+            ->assertOk()
+            ->assertJsonPath('status', 'claim_submitted')
+            ->assertJsonPath('claimable', false)
+            ->assertJsonPath('reward_claim_id', $secondClaim['id']);
+    }
+
+    public function test_RewardClaim_customer_tickets_use_open_game_before_sale_and_history_waits_for_newer_open_game(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-29 10:00:00', 'Asia/Bangkok'));
+
+        try {
+            $old = $this->prepareRewardWorld(
+                'par_reward_history',
+                'ten_reward_history',
+                'reward-history.m7.test',
+                'gam_reward_history_old',
+                '0807200500',
+                790501,
+            );
+            $this->moveGameToDrawDate($old['game_id'], '2026-05-01 15:30:00');
+            $this->publishReward($old, '999999', 'history-old');
+
+            $latest = $this->prepareAdditionalRewardTicket(
+                $old,
+                'gam_reward_history_latest',
+                790601,
+                'history-latest',
+            );
+            $this->moveGameToDrawDate($latest['game_id'], '2026-05-16 15:30:00');
+            $this->publishReward($latest, '999999', 'history-latest');
+
+            $this->withToken($old['auth']['token'])
+                ->getJson('http://'.$old['host'].'/api/v1/customer/tickets')
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $latest['ticket_id'])
+                ->assertJsonPath('data.0.game_id', $latest['game_id']);
+
+            $this->withToken($old['auth']['token'])
+                ->getJson('http://'.$old['host'].'/api/v1/customer/tickets/history')
+                ->assertOk()
+                ->assertJsonCount(0, 'data');
+
+            $this->prepareOpenAllocatedGame($old, 'gam_reward_history_open', 790701, '2026-06-01 15:30:00');
+
+            $this->getJson('http://'.$old['host'].'/api/v1/public/games/current')
+                ->assertOk()
+                ->assertJsonPath('id', 'gam_reward_history_open')
+                ->assertJsonPath('status', 'open');
+
+            $this->withToken($old['auth']['token'])
+                ->getJson('http://'.$old['host'].'/api/v1/customer/tickets')
+                ->assertOk()
+                ->assertJsonCount(0, 'data');
+
+            $history = $this->withToken($old['auth']['token'])
+                ->getJson('http://'.$old['host'].'/api/v1/customer/tickets/history')
+                ->assertOk()
+                ->json();
+
+            $this->assertCount(1, $history['data']);
+            $this->assertSame($latest['ticket_id'], $history['data'][0]['id']);
+            $this->assertSame($latest['game_id'], $history['data'][0]['game_id']);
+            $this->assertSame('2026-05-16', substr((string) $history['data'][0]['game']['draw_at'], 0, 10));
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_RewardClaim_pay_rejects_invalid_payout_method_without_mutation(): void
@@ -451,25 +672,23 @@ class RewardClaimTest extends TestCase
         }
     }
 
-    public function test_RewardClaim_approve_reject_and_pay_require_reason(): void
+    public function test_RewardClaim_approve_allows_empty_reason_but_reject_and_pay_require_reason(): void
     {
         $fixture = $this->submittedRewardClaim('reason_required');
         $world = $fixture['world'];
         $claim = $fixture['claim'];
         $tenantPayer = $fixture['admin'];
 
-        foreach ([[], ['reason' => '   ']] as $index => $payload) {
-            $this->withToken($tenantPayer['access_token'])
-                ->postJson('/api/v1/admin/tenant/reward-claims/'.$claim['id'].'/approve', $payload, $this->tenantClaimHeaders($world, 'reward-approve-reason-required-'.$index))
-                ->assertStatus(422)
-                ->assertJsonPath('error.code', 'validation_failed')
-                ->assertJsonPath('error.details.fields.reason.0', 'The reason field is required.');
+        $this->withToken($tenantPayer['access_token'])
+            ->postJson('/api/v1/admin/tenant/reward-claims/'.$claim['id'].'/approve', [], $this->tenantClaimHeaders($world, 'reward-approve-no-reason'))
+            ->assertOk()
+            ->assertJsonPath('status', 'approved');
 
-            $this->assertDatabaseHas('reward_claims', [
-                'id' => $claim['id'],
-                'status' => 'submitted',
-            ]);
-        }
+        $this->assertDatabaseHas('reward_claims', [
+            'id' => $claim['id'],
+            'status' => 'approved',
+            'admin_note' => null,
+        ]);
 
         foreach ([[], ['reason' => '   ']] as $index => $payload) {
             $this->withToken($tenantPayer['access_token'])
@@ -480,16 +699,9 @@ class RewardClaimTest extends TestCase
 
             $this->assertDatabaseHas('reward_claims', [
                 'id' => $claim['id'],
-                'status' => 'submitted',
+                'status' => 'approved',
             ]);
         }
-
-        $this->withToken($tenantPayer['access_token'])
-            ->postJson('/api/v1/admin/tenant/reward-claims/'.$claim['id'].'/approve', [
-                'reason' => 'verified for pay reason test',
-            ], $this->tenantClaimHeaders($world, 'reward-pay-reason-approve'))
-            ->assertOk()
-            ->assertJsonPath('status', 'approved');
 
         foreach ([['payout_method' => 'wallet_credit'], ['payout_method' => 'wallet_credit', 'reason' => '   ']] as $index => $payload) {
             $this->withToken($tenantPayer['access_token'])
@@ -560,9 +772,22 @@ class RewardClaimTest extends TestCase
             ->assertJsonPath('claimable', false);
 
         $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/tickets')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $world['ticket_id'])
+            ->assertJsonPath('data.0.status', 'non_winning')
+            ->assertJsonPath('data.0.reward_status.status', 'non_winning');
+
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/tickets/history')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->withToken($world['auth']['token'])
             ->postJson('http://'.$world['host'].'/api/v1/customer/reward-claims', [
                 'ticket_id' => $world['ticket_id'],
                 'payout_method' => 'wallet_credit',
+                'pin' => '246810',
             ], [
                 'Idempotency-Key' => 'reward-lost-claim',
             ])
@@ -594,6 +819,7 @@ class RewardClaimTest extends TestCase
         $payload = [
             'ticket_id' => $world['ticket_id'],
             'payout_method' => $payoutMethod,
+            'pin' => '246810',
             'note' => 'validation test claim',
         ];
         if ($payoutMethod === 'bank_transfer') {
@@ -631,6 +857,74 @@ class RewardClaimTest extends TestCase
             'X-Tenant-Id' => $world['tenant_id'],
             'Idempotency-Key' => $idempotencyKey,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function prepareAdditionalRewardTicket(array $baseWorld, string $gameId, int $stockStart, string $keySuffix): array
+    {
+        $this->insertGame($gameId, 'open');
+        $this->insertVirtualCartSupply($baseWorld['partner_id'], $baseWorld['tenant_id'], $gameId, $stockStart);
+
+        $reservation = $this->withToken($baseWorld['auth']['token'])
+            ->postJson('http://'.$baseWorld['host'].'/api/v1/customer/reservations', [
+                'game_id' => $gameId,
+                'local_stock_item_ids' => [$this->firstVirtualStockRef($baseWorld['host'], $gameId, $stockStart)],
+            ], [
+                'Idempotency-Key' => 'reserve-'.$keySuffix,
+            ])
+            ->assertCreated()
+            ->json();
+
+        $world = array_merge($baseWorld, [
+            'game_id' => $gameId,
+            'reservation' => $reservation,
+        ]);
+        $order = $this->checkoutWallet($world, 'reward-checkout-'.$keySuffix);
+
+        DB::table('games')->where('id', $gameId)->update([
+            'status' => 'closed',
+            'closed_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return array_merge($world, [
+            'order' => $order,
+            'ticket_id' => $order['tickets'][0]['id'],
+            'ticket_number' => $order['tickets'][0]['full_number'],
+        ]);
+    }
+
+    private function moveGameToDrawDate(string $gameId, string $drawAt): void
+    {
+        $drawAt = Carbon::parse($drawAt, 'Asia/Bangkok');
+
+        DB::table('games')->where('id', $gameId)->update([
+            'sale_start_at' => $drawAt->copy()->subDays(7),
+            'close_at' => $drawAt->copy()->subHour(),
+            'closed_at' => $drawAt->copy()->subHour(),
+            'draw_at' => $drawAt,
+            'status' => 'closed',
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function prepareOpenAllocatedGame(array $baseWorld, string $gameId, int $stockStart, string $drawAt): void
+    {
+        $this->insertGame($gameId, 'open');
+        $this->insertVirtualCartSupply($baseWorld['partner_id'], $baseWorld['tenant_id'], $gameId, $stockStart);
+
+        $drawAt = Carbon::parse($drawAt, 'Asia/Bangkok');
+
+        DB::table('games')->where('id', $gameId)->update([
+            'sale_start_at' => now()->addDay(),
+            'close_at' => $drawAt->copy()->subHour(),
+            'closed_at' => null,
+            'draw_at' => $drawAt,
+            'status' => 'open',
+            'updated_at' => now(),
+        ]);
     }
 
     /**

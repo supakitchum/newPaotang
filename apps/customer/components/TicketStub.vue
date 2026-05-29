@@ -12,7 +12,7 @@
         <LotteryNumber :number="number" compact />
       </div>
       <div class="ticket-stub-status">
-        <div class="ticket-status-text" :class="{ winning: isWinning }">{{ status }}</div>
+        <div class="ticket-status-text" :class="statusToneClass">{{ status }}</div>
       </div>
       <span class="side-label">สลากดิจิทัล</span>
     </div>
@@ -35,7 +35,9 @@
 </template>
 
 <script setup lang="ts">
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   number: {
     type: String,
     required: true
@@ -70,6 +72,20 @@ defineProps({
   }
 })
 
+const statusToneClass = computed(() => {
+  const statusText = props.status.trim()
+
+  if (statusText === 'ขึ้นเงินแล้ว') {
+    return 'status-success'
+  }
+
+  if (statusText === 'ขึ้นเงินไม่สำเร็จ') {
+    return 'status-danger'
+  }
+
+  return props.isWinning ? 'winning' : ''
+})
+
 const formatPrizeAmount = (amount: unknown) => {
   const value = Number(amount || 0)
 
@@ -89,5 +105,13 @@ const formatPrizeAmount = (amount: unknown) => {
   font-size: 11px;
   font-weight: 800;
   line-height: 1.25;
+}
+
+.ticket-status-text.status-success {
+  color: #16a34a;
+}
+
+.ticket-status-text.status-danger {
+  color: #dc2626;
 }
 </style>

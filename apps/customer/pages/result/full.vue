@@ -123,10 +123,14 @@ const {
   getDisplayRewardNumbers,
   getRewardAmount,
   getRewardGroups,
-  isDisplayableRewardNumber
+  isDisplayableRewardNumber,
+  isResolvedRewardNumber
 } = useLotteryReward()
 
-const requestedGameId = computed(() => Number(route.query.game_id || route.query.id || 0))
+const normalizeId = (value: unknown) => String(value || '').trim()
+const requestedGameId = computed(() => normalizeId(route.query.game_id || route.query.id))
+const currentGameId = computed(() => normalizeId(currentGame.value?.id))
+const rewardGameId = computed(() => requestedGameId.value || currentGameId.value)
 const allGames = computed(() => [
   ...(game.value ? [game.value] : []),
   ...historyGames.value
@@ -136,12 +140,12 @@ const fallbackGame = computed<LotteryRewardGame | null>(() => {
     return null
   }
 
-  if (requestedGameId.value && Number(currentGame.value.id) !== requestedGameId.value) {
+  if (requestedGameId.value && currentGameId.value !== requestedGameId.value) {
     return null
   }
 
   return {
-    id: Number(currentGame.value.id) || undefined,
+    id: currentGame.value.id,
     name: String(currentGame.value.name || ''),
     status: Number(currentGame.value.status) || 1,
     rewards: []
@@ -152,7 +156,7 @@ const selectedGame = computed(() => {
     return game.value || fallbackGame.value
   }
 
-  return allGames.value.find((item) => Number(item.id) === requestedGameId.value) || game.value || fallbackGame.value
+  return allGames.value.find((item) => normalizeId(item.id) === requestedGameId.value) || fallbackGame.value
 })
 const drawDate = computed(() => {
   const selectedDate = formatDrawDateText(selectedGame.value?.name)
@@ -166,7 +170,7 @@ const drawDate = computed(() => {
 })
 const headerTitle = computed(() => 'ผลรางวัลสลากฯ')
 const showPaymentDock = computed(() => !isLoading.value && !errorMessage.value)
-const showUnofficialAlert = computed(() => !isLoading.value && !errorMessage.value && hasRewardResult.value && Number(selectedGame.value?.status) !== 2)
+const showUnofficialAlert = computed(() => !isLoading.value && !errorMessage.value && hasResolvedRewardResult.value && Number(selectedGame.value?.status) !== 2)
 const firstReward = computed(() => getDisplayRewardNumbers(selectedGame.value, 'reward_1')[0] || '-')
 const twoDigitReward = computed(() => getDisplayRewardNumbers(selectedGame.value, 'reward_two_digit')[0] || '-')
 const frontThreeRewards = computed(() => {
@@ -195,6 +199,13 @@ const hasRewardResult = computed(() => [
   ...backThreeRewards.value,
   ...detailGroups.value.flatMap((group) => group.numbers)
 ].some(isDisplayableRewardNumber))
+const hasResolvedRewardResult = computed(() => [
+  firstReward.value,
+  twoDigitReward.value,
+  ...frontThreeRewards.value,
+  ...backThreeRewards.value,
+  ...detailGroups.value.flatMap((group) => group.numbers)
+].some(isResolvedRewardNumber))
 const isWaitingResult = computed(() => [1, 3].includes(Number(selectedGame.value?.status)) && !hasRewardResult.value)
 
 const numberGridClass = (count: number) => {
@@ -216,7 +227,8 @@ const fetchReward = async () => {
   try {
     await ensureAppInit()
 
-    const liveResponse = await platformApi.rewardLiveLegacy(requestedGameId.value || undefined)
+    const targetGameId = rewardGameId.value || undefined
+    const liveResponse = await platformApi.rewardLiveLegacy(targetGameId)
     const livePayload = liveResponse.data || liveResponse
 
     if (livePayload.code === 0 && livePayload.result) {
@@ -225,7 +237,7 @@ const fetchReward = async () => {
       return
     }
 
-    const response = await platformApi.rewardLegacy(requestedGameId.value || undefined)
+    const response = await platformApi.rewardLegacy(targetGameId)
     const payload = response.data || response
 
     if (payload.code === 0 && payload.result) {

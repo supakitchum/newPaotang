@@ -14,17 +14,12 @@
         </button>
       </section>
 
-      <section v-else-if="isWaitingResult" class="result-card result-card-featured result-inline-state">
-        <i class="bi bi-hourglass-split text-primary" />
-        <span>กำลังรอออกผล {{ drawDate }}</span>
-      </section>
-
       <ResultSummaryCard
-        v-else-if="hasCurrentRewardSummary"
+        v-else-if="currentDisplayGame"
         :date="drawDate"
-        :link="fullLink(game)"
+        :link="fullLink(currentDisplayGame)"
         :result="currentSummary"
-        :unofficial="isUnofficialReward(game)"
+        :unofficial="hasResolvedRewardSummary(currentDisplayGame) && isUnofficialReward(currentDisplayGame)"
         variant="featured"
       />
 
@@ -73,37 +68,64 @@ definePageMeta({
 })
 
 const platformApi = usePlatformApi()
+const { currentGame, currentDrawDate, ensureAppInit } = useAppInit()
 const game = ref<LotteryRewardGame | null>(null)
 const historyGames = ref<LotteryRewardGame[]>([])
 const isLoading = ref(true)
 const errorMessage = ref('')
-const { isDisplayableRewardNumber, toSummary } = useLotteryReward()
+const { isResolvedRewardNumber, toSummary } = useLotteryReward()
 
-const drawDate = computed(() => formatDrawDateText(game.value?.name))
-const currentSummary = computed(() => toSummary(game.value))
-const hasCurrentRewardSummary = computed(() => [
-  currentSummary.value.first,
-  currentSummary.value.last2,
-  ...currentSummary.value.front3,
-  ...currentSummary.value.last3
-].some(isDisplayableRewardNumber))
+const normalizeId = (value: unknown) => String(value || '').trim()
+const currentGameId = computed(() => normalizeId(currentGame.value?.id))
+const currentFallbackGame = computed<LotteryRewardGame | null>(() => {
+  if (!currentGame.value) {
+    return null
+  }
+
+  return {
+    id: currentGame.value.id,
+    name: String(currentGame.value.name || ''),
+    status: Number(currentGame.value.status) || 1,
+    rewards: []
+  }
+})
+const currentDisplayGame = computed(() => game.value || currentFallbackGame.value)
+const drawDate = computed(() => {
+  const displayDate = formatDrawDateText(currentDisplayGame.value?.name)
+
+  if (displayDate !== '-') {
+    return displayDate
+  }
+
+  return currentDrawDate.value !== '-' ? currentDrawDate.value : 'รอข้อมูลวันออกผล'
+})
+const currentSummary = computed(() => toSummary(currentDisplayGame.value))
+const hasResolvedRewardSummary = (item: LotteryRewardGame | null | undefined) => {
+  const summary = toSummary(item)
+
+  return [
+    summary.first,
+    summary.last2,
+    ...summary.front3,
+    ...summary.last3
+  ].some(isResolvedRewardNumber)
+}
 const displayHistoryGames = computed(() => {
-  const currentId = String(game.value?.id || '')
+  const currentId = normalizeId(currentDisplayGame.value?.id || currentGameId.value)
 
   return historyGames.value.filter((history) => {
-    const historyId = String(history.id || '')
+    const historyId = normalizeId(history.id)
     const summary = toSummary(history)
-    const hasSummary = [
+    const hasResolvedSummary = [
       summary.first,
       summary.last2,
       ...summary.front3,
       ...summary.last3
-    ].some(isDisplayableRewardNumber)
+    ].some(isResolvedRewardNumber)
 
-    return hasSummary && (!currentId || historyId !== currentId)
+    return hasResolvedSummary && (!currentId || historyId !== currentId)
   })
 })
-const isWaitingResult = computed(() => [1, 3].includes(Number(game.value?.status)) && !hasCurrentRewardSummary.value)
 
 const isUnofficialReward = (item: LotteryRewardGame | null | undefined) => (
   Boolean(item) && Number(item?.status) !== 2
@@ -120,23 +142,37 @@ const fetchReward = async (silent = false) => {
   errorMessage.value = ''
 
   try {
-    const liveResponse = await platformApi.rewardLiveLegacy()
+    await ensureAppInit()
 
-    if (liveResponse.data?.code === 0 && liveResponse.data.result) {
-      game.value = liveResponse.data.result || null
-      historyGames.value = liveResponse.data.history || []
-      return
+    const rewardGameId = currentGameId.value || undefined
+    const liveResponse = await platformApi.rewardLiveLegacy(rewardGameId)
+    const livePayload = liveResponse.data || liveResponse
+
+    if (livePayload.code === 0 && livePayload.result) {
+      game.value = livePayload.result || null
+    } else {
+      const response = await platformApi.rewardLegacy(rewardGameId)
+      const payload = response.data || response
+
+      if (payload.code === 0) {
+        game.value = payload.result || null
+      } else {
+        game.value = null
+        errorMessage.value = payload.message || 'ไม่พบข้อมูลผลรางวัล'
+      }
     }
 
-    const response = await platformApi.rewardLegacy()
+    const latestPublishedResponse = await platformApi.rewardLegacy()
+    const latestPublishedPayload = latestPublishedResponse.data || latestPublishedResponse
+    const latestPublished = latestPublishedPayload.code === 0 ? latestPublishedPayload.result || null : null
 
-    if (response.data?.code === 0) {
-      game.value = response.data.result || null
-      historyGames.value = response.data.history || response.data.histories || []
-      return
+    historyGames.value = latestPublished && normalizeId(latestPublished.id) !== normalizeId(currentDisplayGame.value?.id || currentGameId.value)
+      ? [latestPublished]
+      : []
+
+    if (!currentDisplayGame.value && !latestPublished) {
+      errorMessage.value = errorMessage.value || 'ไม่พบข้อมูลผลรางวัล'
     }
-
-    errorMessage.value = response.data?.message || 'ไม่พบข้อมูลผลรางวัล'
   } catch (error) {
     errorMessage.value = (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'กรุณาลองใหม่อีกครั้ง'
   } finally {

@@ -245,6 +245,61 @@ class CentralGameTest extends TestCase
             ->assertJsonPath('status', 'open');
     }
 
+    public function test_CentralGame_open_allows_previous_reward_published_game_even_when_closed_at_is_missing(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertGame('gam_previous_published', 'reward_published');
+
+        DB::table('reward_results')->insert([
+            'id' => 'rr_gam_previous_published',
+            'game_id' => 'gam_previous_published',
+            'status' => 'published',
+            'version' => 1,
+            'summary_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'created_by_admin_id' => null,
+            'verified_by_admin_id' => null,
+            'published_by_admin_id' => null,
+            'corrected_by_admin_id' => null,
+            'correction_note' => null,
+            'checked_at' => now(),
+            'verified_at' => now(),
+            'published_at' => now(),
+            'corrected_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->assertNull(DB::table('games')->where('id', 'gam_previous_published')->value('closed_at'));
+
+        $login = $this->createCentralSession([
+            'game.create',
+            'game.update',
+        ], 'adm_game_pub_prev', 'game-pub-prev@example.test');
+
+        $next = $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/games', [
+                'name' => 'Next Draw After Published Result',
+                'sale_start_at' => now()->addDay()->toISOString(),
+                'draw_at' => now()->addDays(2)->toISOString(),
+                'close_at' => now()->addDay()->addHours(20)->toISOString(),
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'game-create-after-published-result',
+            ])
+            ->assertCreated()
+            ->json();
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/games/'.$next['id'], [
+                'status' => 'open',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'game-open-after-published-result',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'open');
+    }
+
     public function test_CentralGame_archived_game_without_recorded_reward_does_not_block_next_open_game(): void
     {
         $this->seedDefaultRbac();

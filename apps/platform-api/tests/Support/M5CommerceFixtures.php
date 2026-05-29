@@ -35,6 +35,14 @@ trait M5CommerceFixtures
             'Idempotency-Key' => 'register-'.$tenantId,
         ])->assertCreated()->json();
 
+        $this->withToken($auth['token'])
+            ->postJson('http://'.$host.'/api/v1/customer/auth/pin/setup', [
+                'pin' => '246810',
+                'pin_confirmation' => '246810',
+            ])
+            ->assertOk()
+            ->assertJsonPath('pin_verified', true);
+
         $reservation = $this->withToken($auth['token'])
             ->postJson('http://'.$host.'/api/v1/customer/reservations', [
                 'game_id' => $gameId,

@@ -78,6 +78,10 @@ Route::get('/customer/auth/line/callback', [CustomerLineAuthController::class, '
 Route::post('/customer/auth/refresh', [CustomerAuthController::class, 'refresh']);
 Route::post('/customer/auth/logout', [CustomerAuthController::class, 'logout'])->middleware('customer.auth');
 Route::get('/customer/auth/me', [CustomerAuthController::class, 'me'])->middleware('customer.auth');
+Route::get('/customer/auth/pin/status', [CustomerAuthController::class, 'pinStatus'])->middleware('customer.auth');
+Route::post('/customer/auth/pin/setup', [CustomerAuthController::class, 'setupPin'])->middleware('customer.auth');
+Route::post('/customer/auth/pin/verify', [CustomerAuthController::class, 'verifyPin'])->middleware('customer.auth');
+Route::post('/customer/auth/pin/change', [CustomerAuthController::class, 'changePin'])->middleware('customer.auth');
 Route::get('/customer/profile', [CustomerAuthController::class, 'profile'])->middleware('customer.auth');
 Route::patch('/customer/profile', [CustomerAuthController::class, 'updateProfile'])->middleware('customer.auth');
 Route::post('/customer/realtime/auth', [CustomerRealtimeController::class, 'authorize'])->middleware('customer.auth');

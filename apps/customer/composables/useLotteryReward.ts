@@ -8,7 +8,7 @@ export interface LotteryReward {
 }
 
 export interface LotteryRewardGame {
-  id?: number
+  id?: number | string
   name?: string
   status?: number
   rewards?: LotteryReward[]

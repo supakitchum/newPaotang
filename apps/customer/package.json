@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "nuxt dev",
     "lint": "node scripts/check-tenant-domain-integration.mjs",
-    "test": "node scripts/check-tenant-domain-integration.mjs && node scripts/check-exact-six-search-identity.mjs && node scripts/check-waiting-result-live-reward.mjs && node scripts/check-customer-reward-claim-flow.mjs",
+    "test": "node scripts/check-tenant-domain-integration.mjs && node scripts/check-exact-six-search-identity.mjs && node scripts/check-waiting-result-live-reward.mjs && node scripts/check-customer-reward-claim-flow.mjs && node scripts/check-customer-pin-auth-flow.mjs",
     "test:waiting-result": "node scripts/check-waiting-result-live-reward.mjs",
     "build": "nuxt build",
     "generate": "nuxt generate",

@@ -127,6 +127,69 @@ class CustomerAuthController extends Controller
         return $this->writeResult($request, $result);
     }
 
+    public function pinStatus(Request $request): JsonResponse
+    {
+        $context = $request->attributes->get('customer_session');
+
+        if (! $context instanceof CustomerSessionContext) {
+            return ApiErrorResponse::authenticationRequired($request);
+        }
+
+        return response()->json($this->customerAuth->pinStatus($context));
+    }
+
+    public function setupPin(Request $request): JsonResponse
+    {
+        $context = $request->attributes->get('customer_session');
+
+        if (! $context instanceof CustomerSessionContext) {
+            return ApiErrorResponse::authenticationRequired($request);
+        }
+
+        $errors = $this->pinErrors($request->all(), 'pin', true);
+
+        if ($errors !== []) {
+            return ApiErrorResponse::validationFailed($request, $errors);
+        }
+
+        return $this->writeResult($request, $this->customerAuth->setupPin($context, $request->all()));
+    }
+
+    public function verifyPin(Request $request): JsonResponse
+    {
+        $context = $request->attributes->get('customer_session');
+
+        if (! $context instanceof CustomerSessionContext) {
+            return ApiErrorResponse::authenticationRequired($request);
+        }
+
+        $errors = $this->pinErrors($request->all());
+
+        if ($errors !== []) {
+            return ApiErrorResponse::validationFailed($request, $errors);
+        }
+
+        return $this->writeResult($request, $this->customerAuth->verifyPin($context, $request->all()));
+    }
+
+    public function changePin(Request $request): JsonResponse
+    {
+        $context = $request->attributes->get('customer_session');
+
+        if (! $context instanceof CustomerSessionContext) {
+            return ApiErrorResponse::authenticationRequired($request);
+        }
+
+        $errors = $this->pinErrors($request->all(), 'current_pin')
+            + $this->pinErrors($request->all(), 'new_pin', true);
+
+        if ($errors !== []) {
+            return ApiErrorResponse::validationFailed($request, $errors);
+        }
+
+        return $this->writeResult($request, $this->customerAuth->changePin($context, $request->all()));
+    }
+
     /**
      * @return array<string, mixed>|JsonResponse
      */
@@ -172,13 +235,38 @@ class CustomerAuthController extends Controller
     }
 
     /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    private function pinErrors(array $payload, string $field = 'pin', bool $confirmation = false): array
+    {
+        $errors = [];
+        $value = trim((string) ($payload[$field] ?? ''));
+
+        if (! preg_match('/^\d{6}$/', $value)) {
+            $errors[$field][] = 'The '.$field.' field must contain exactly 6 digits.';
+        }
+
+        if ($confirmation && array_key_exists($field.'_confirmation', $payload) && $value !== (string) $payload[$field.'_confirmation']) {
+            $errors[$field.'_confirmation'][] = 'The '.$field.' confirmation does not match.';
+        }
+
+        return $errors;
+    }
+
+    /**
      * @param array{resource?: array<string, mixed>|null, status?: int, error?: string} $result
      */
     private function writeResult(Request $request, array $result, int $defaultStatus = 200): JsonResponse
     {
         return match ($result['error'] ?? null) {
+            'authentication_required' => ApiErrorResponse::authenticationRequired($request),
             'idempotency_conflict' => ApiErrorResponse::idempotencyConflict($request),
             'resource_conflict' => ApiErrorResponse::resourceConflict($request),
+            'pin_setup_required' => ApiErrorResponse::customerPinSetupRequired($request),
+            'pin_required' => ApiErrorResponse::customerPinRequired($request),
+            'pin_locked' => ApiErrorResponse::customerPinLocked($request, $result['retry_after_seconds'] ?? null),
+            'pin_invalid' => ApiErrorResponse::make($request, 422, 'pin_invalid', 'The customer PIN is incorrect.'),
             default => response()->json($result['resource'] ?? [], $result['status'] ?? $defaultStatus),
         };
     }

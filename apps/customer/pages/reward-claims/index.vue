@@ -1,16 +1,14 @@
 <template>
-  <MobileShell active-nav="menu" show-bottom-nav>
-    <BlueHeader title="ประวัติขึ้นเงินรางวัล" back-to="/profile" min-height="218px">
-      <div class="reward-claims-hero">
-        <span><i class="bi bi-receipt-cutoff" /></span>
-        <div>
-          <h1>{{ totalClaimsText }}</h1>
-          <p>รายการขึ้นเงินรางวัลสลากดิจิทัล</p>
-        </div>
-      </div>
-    </BlueHeader>
+  <MobileShell active-nav="menu">
+    <BlueHeader
+      class="reward-claims-header"
+      title="ประวัติขึ้นเงินรางวัลสลากดิจิทัล"
+      back-to="/profile"
+      force-back-to
+      min-height="96px"
+    />
 
-    <section class="content-sheet reward-claims-page">
+    <section class="content-sheet flush reward-claims-page">
       <div v-if="isLoadingInitial" class="empty-lottery-state">
         กำลังโหลดประวัติขึ้นเงิน...
       </div>
@@ -36,27 +34,28 @@
             class="reward-claim-row"
             :to="`/reward-claims/${encodeURIComponent(String(claim.id))}`"
           >
-            <div class="reward-claim-row-head">
-              <span>{{ claim.reference || `รายการ #${claim.id}` }}</span>
-              <strong :class="['reward-claim-status', statusClass(claim.status)]">{{ statusText(claim.status) }}</strong>
-            </div>
-            <div class="reward-claim-row-body">
-              <div>
-                <span>เลขสลากฯ</span>
-                <strong>{{ getTicketNumber(claim.ticket) || '-' }}</strong>
-              </div>
-              <div>
-                <span>รางวัล</span>
-                <strong>{{ claimPrizeSummary(claim) }}</strong>
-              </div>
-              <div>
-                <span>เงินรางวัล</span>
+            <div class="reward-claim-row-main">
+              <div class="reward-claim-row-line reward-claim-row-head">
+                <strong>เงินรางวัลสลากฯ</strong>
                 <strong>{{ formatMoney(claim.prize_amount) }} บาท</strong>
               </div>
+              <div class="reward-claim-row-line reward-claim-row-reward">
+                <span class="reward-claim-prize-names">
+                  <span v-for="prizeName in claimPrizeNames(claim)" :key="prizeName">{{ prizeName }}</span>
+                </span>
+                <span :class="['reward-claim-status', statusClass(claim)]">{{ statusText(claim) }}</span>
+              </div>
+              <div class="reward-claim-row-payout">
+                {{ payoutSummary(claim) }}
+              </div>
+              <div class="reward-claim-row-line reward-claim-row-foot">
+                <time>{{ formatDateTime(claim.submitted_at || claim.created_at) }}</time>
+                <i class="bi bi-chevron-right" aria-hidden="true" />
+              </div>
             </div>
-            <div class="reward-claim-row-foot">
-              <span><i class="bi bi-calendar3" />{{ formatDate(claim.submitted_at || claim.created_at) }}</span>
-              <span><i class="bi" :class="payoutIcon(claim.payout_method)" />{{ payoutText(claim.payout_method) }}</span>
+            <div class="visually-hidden">
+              <div>เลขสลากฯ {{ getTicketNumber(claim.ticket) || '-' }}</div>
+              <div>รหัสรายการ {{ claim.reference || `#${claim.id}` }}</div>
             </div>
           </NuxtLink>
         </div>
@@ -86,50 +85,85 @@ const isLoadingMore = ref(false)
 const loadError = ref('')
 const limit = 20
 
-const totalClaimsText = computed(() => claims.value.length > 0 ? `${claims.value.length.toLocaleString('th-TH')} รายการ` : 'ประวัติรายการ')
+const claimStatusValue = (claimOrStatus: unknown) => (
+  claimOrStatus && typeof claimOrStatus === 'object'
+    ? String((claimOrStatus as Record<string, any>).status || '').toLowerCase()
+    : String(claimOrStatus || '').toLowerCase()
+)
 
-const statusText = (status: unknown) => {
-  const value = String(status || '').toLowerCase()
-  const map: Record<string, string> = {
-    submitted: 'ส่งรายการแล้ว',
-    under_review: 'กำลังตรวจสอบ',
-    approved: 'อนุมัติแล้ว',
-    rejected: 'ไม่อนุมัติ',
-    paid: 'จ่ายเงินแล้ว'
-  }
+const claimIsPaid = (claimOrStatus: unknown) => {
+  const value = claimStatusValue(claimOrStatus)
+  const claim = claimOrStatus && typeof claimOrStatus === 'object' ? claimOrStatus as Record<string, any> : {}
 
-  return map[value] || 'รอดำเนินการ'
+  return ['paid', 'paid_out'].includes(value) || (value === 'approved' && Boolean(claim.paid_at || claim.payout_ledger_id || claim.payout_method === 'bank_transfer'))
 }
 
-const statusClass = (status: unknown) => {
-  const value = String(status || '').toLowerCase()
+const statusText = (claimOrStatus: unknown) => {
+  const value = claimStatusValue(claimOrStatus)
 
-  if (value === 'paid') {
-    return 'is-paid'
-  }
-
-  if (value === 'approved') {
-    return 'is-approved'
+  if (claimIsPaid(claimOrStatus)) {
+    return 'โอนเงินสำเร็จ'
   }
 
   if (value === 'rejected') {
+    return 'ขึ้นเงินไม่สำเร็จ'
+  }
+
+  if (value === 'cancelled') {
+    return 'ยกเลิกรายการ'
+  }
+
+  if (value === 'approved') {
+    return 'อนุมัติแล้ว รอโอนเงิน'
+  }
+
+  return 'รอดำเนินการโอนเงิน'
+}
+
+const statusClass = (claimOrStatus: unknown) => {
+  const value = claimStatusValue(claimOrStatus)
+
+  if (claimIsPaid(claimOrStatus)) {
+    return 'is-paid'
+  }
+
+  if (['rejected', 'cancelled'].includes(value)) {
     return 'is-rejected'
   }
 
   return 'is-pending'
 }
 
-const payoutText = (method: unknown) => String(method || '') === 'bank_transfer' ? 'โอนธนาคาร' : 'เข้า G-Wallet'
-const payoutIcon = (method: unknown) => String(method || '') === 'bank_transfer' ? 'bi-bank2' : 'bi-wallet2'
+const payoutSummary = (claim: Record<string, any>) => {
+  if (String(claim.payout_method || '') !== 'bank_transfer') {
+    return 'รับเข้า G-Wallet'
+  }
+
+  const account = claim.payout_bank_account || claim.bank_account || claim.bank || {}
+  const bankName = String(account.bank_name || account.bank || claim.bank_name || '').replace(/^ธนาคาร/u, '').trim()
+
+  return `รับผ่านบัญชี${bankName || 'ธนาคาร'}`
+}
+
 const claimPrizeSummary = (claim: Record<string, any>) => {
   const prizes = Array.isArray(claim.prizes) ? claim.prizes : []
 
   if (prizes.length > 1) {
-    return `ถูกรางวัล ${prizes.length.toLocaleString('th-TH')} รางวัล`
+    const firstPrizeTitle = prizeTypeText(prizes[0]?.prize_type || claim.prize_type)
+
+    return `${firstPrizeTitle} และอีก ${(prizes.length - 1).toLocaleString('th-TH')} รางวัล`
   }
 
   return prizeTypeText(prizes[0]?.prize_type || claim.prize_type)
 }
+
+const claimPrizeNames = (claim: Record<string, any>) => {
+  const prizes = Array.isArray(claim.prizes) ? claim.prizes : []
+  const names = prizes.map((prize) => prizeTypeText(prize?.prize_type || claim.prize_type)).filter(Boolean)
+
+  return names.length > 0 ? Array.from(new Set(names)) : [claimPrizeSummary(claim)]
+}
+
 const prizeTypeText = (type: unknown) => {
   const map: Record<string, string> = {
     first_prize: 'รางวัลที่ 1',
@@ -145,12 +179,14 @@ const prizeTypeText = (type: unknown) => {
 
   return map[String(type || '')] || 'ถูกรางวัล'
 }
+
 const formatMoney = (amount: unknown) => {
   const value = Number(amount || 0)
 
   return Number.isFinite(value) ? value.toLocaleString('th-TH') : '0'
 }
-const formatDate = (value: unknown) => {
+
+const formatDateTime = (value: unknown) => {
   if (!value) {
     return '-'
   }
@@ -161,11 +197,15 @@ const formatDate = (value: unknown) => {
     return String(value)
   }
 
-  return date.toLocaleDateString('th-TH', {
+  return new Intl.DateTimeFormat('th-TH', {
     day: 'numeric',
     month: 'short',
-    year: 'numeric'
-  })
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).format(date).replace(',', '')
 }
 
 const fetchClaims = async (nextCursor: string | null = null) => {
@@ -211,50 +251,39 @@ onMounted(() => fetchClaims())
 </script>
 
 <style scoped>
-.reward-claims-hero {
-  align-items: flex-start;
-  color: #fff;
-  display: flex;
-  gap: 12px;
-  margin-top: 18px;
+.reward-claims-header {
+  min-height: 96px !important;
+  padding: 44px 16px 10px;
 }
 
-.reward-claims-hero > span {
-  background: #fff;
-  border-radius: 14px;
-  color: #0b69dc;
-  display: grid;
-  flex: 0 0 48px;
-  font-size: 24px;
-  height: 48px;
-  place-items: center;
-  width: 48px;
+.reward-claims-header :deep(.hero-row) {
+  min-height: 36px;
 }
 
-.reward-claims-hero h1,
-.reward-claims-hero p {
-  margin: 0;
-}
-
-.reward-claims-hero h1 {
-  font-size: 24px;
+.reward-claims-header :deep(.hero-title) {
+  font-size: 16px;
   font-weight: 900;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
-.reward-claims-hero p {
-  font-size: 14px;
-  font-weight: 800;
-  margin-top: 4px;
-  opacity: .92;
+.reward-claims-header :deep(.hero-back) {
+  font-size: 27px;
+  height: 36px;
+  top: 0;
+  width: 36px;
 }
 
 .reward-claims-page {
+  align-content: start;
+  background: #fff;
+  border-radius: 0;
   display: grid;
-  gap: 14px;
+  gap: 0;
   margin-left: auto;
   margin-right: auto;
   max-width: 640px;
+  min-height: calc(100dvh - 96px);
+  padding: 0 0 calc(22px + env(safe-area-inset-bottom));
 }
 
 .reward-claims-empty {
@@ -301,102 +330,114 @@ onMounted(() => fetchClaims())
 }
 
 .reward-claims-list {
+  align-content: start;
+  background: #fff;
   display: grid;
-  gap: 12px;
+  gap: 0;
+  grid-auto-rows: max-content;
 }
 
 .reward-claim-row {
   background: #fff;
-  border: 1px solid #e8edf4;
-  border-radius: 8px;
-  box-shadow: 0 10px 22px rgba(22, 46, 82, .08);
+  border-bottom: 1px solid #eef2f7;
   color: inherit;
-  display: grid;
-  gap: 12px;
-  padding: 16px;
+  display: block;
+  min-height: 0;
+  padding: 9px 10px 8px;
   text-decoration: none;
 }
 
-.reward-claim-row-head,
-.reward-claim-row-body,
-.reward-claim-row-foot {
-  display: flex;
-  gap: 10px;
-  justify-content: space-between;
-}
-
-.reward-claim-row-head {
-  align-items: flex-start;
-}
-
-.reward-claim-row-head > span {
-  color: #17335f;
-  font-size: 15px;
-  font-weight: 900;
+.reward-claim-row-main {
+  display: grid;
+  gap: 0;
   min-width: 0;
+}
+
+.reward-claim-row-line {
+  align-items: start;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+}
+
+.reward-claim-row-head strong {
+  color: #202938;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.reward-claim-row-reward {
+  margin-top: 3px;
+}
+
+.reward-claim-prize-names {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.reward-claim-prize-names span,
+.reward-claim-row-payout,
+.reward-claim-row-foot time {
+  color: #4b5563;
+  font-size: 15px;
+  line-height: 1.32;
   overflow-wrap: anywhere;
 }
 
-.reward-claim-status {
-  border-radius: 999px;
-  flex: 0 0 auto;
-  font-size: 12px;
-  font-weight: 900;
-  padding: 6px 9px;
+.reward-claim-row-payout {
+  margin-top: 3px;
 }
 
-.reward-claim-status.is-paid,
-.reward-claim-status.is-approved {
-  background: #e7f8ef;
-  color: #087a3a;
+.reward-claim-status {
+  border-radius: 3px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1;
+  margin-top: 1px;
+  padding: 4px 6px;
+  white-space: nowrap;
+}
+
+.reward-claim-status.is-paid {
+  background: #e5f8df;
+  color: #28a81e;
 }
 
 .reward-claim-status.is-pending {
-  background: #fff5db;
-  color: #9a6100;
+  background: #fff3d0;
+  color: #e29300;
 }
 
 .reward-claim-status.is-rejected {
-  background: #fee2e2;
-  color: #b91c1c;
-}
-
-.reward-claim-row-body > div {
-  display: grid;
-  gap: 2px;
-}
-
-.reward-claim-row-body > div:last-child {
-  text-align: right;
-}
-
-.reward-claim-row-body span,
-.reward-claim-row-foot {
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.reward-claim-row-body strong {
-  color: #111827;
-  font-size: 18px;
-  font-weight: 900;
+  background: #ffe1df;
+  color: #ed2c25;
 }
 
 .reward-claim-row-foot {
-  border-top: 1px solid #eef2f7;
-  flex-wrap: wrap;
-  padding-top: 12px;
-}
-
-.reward-claim-row-foot span {
   align-items: center;
-  display: inline-flex;
-  gap: 6px;
+  margin-top: 3px;
+}
+
+.reward-claim-row-foot time {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.reward-claim-row-foot i {
+  color: #3b9cff;
+  font-size: 23px;
+  line-height: 1;
 }
 
 .reward-claims-more {
   justify-self: center;
+  margin-top: 16px;
   min-width: 160px;
 }
 </style>

@@ -130,14 +130,7 @@ class PartnerStoreService
         }
 
         $game = $this->saleOpenGameQuery($partnerId)
-            ->whereIn('games.id', DB::table('partner_stock_allocations')
-                ->join('stock_supply_profiles', 'stock_supply_profiles.game_id', '=', 'partner_stock_allocations.game_id')
-                ->where('partner_stock_allocations.partner_id', $partnerId)
-                ->where('partner_stock_allocations.tenant_id', $tenantId)
-                ->whereIn('partner_stock_allocations.status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
-                ->where('partner_stock_allocations.allocated_count', '>', 0)
-                ->where('stock_supply_profiles.status', 'active')
-                ->select('partner_stock_allocations.game_id'))
+            ->whereIn('games.id', $this->tenantAllocatedGameIdsQuery($partnerId, $tenantId))
             ->orderBy('games.draw_at')
             ->first();
 
@@ -147,7 +140,51 @@ class PartnerStoreService
                 ->first();
         }
 
+        if ($game === null) {
+            $game = Game::query()
+                ->where('games.status', 'open')
+                ->whereIn('games.id', $this->tenantAllocatedGameIdsQuery($partnerId, $tenantId))
+                ->select('games.*')
+                ->orderByDesc('games.draw_at')
+                ->first();
+        }
+
+        if ($game === null) {
+            $game = Game::query()
+                ->where('games.status', 'open')
+                ->select('games.*')
+                ->orderByDesc('games.draw_at')
+                ->first();
+        }
+
+        if ($game === null) {
+            $game = Game::query()
+                ->whereIn('games.id', $this->tenantAllocatedGameIdsQuery($partnerId, $tenantId))
+                ->select('games.*')
+                ->orderByDesc('games.draw_at')
+                ->first();
+        }
+
+        if ($game === null) {
+            $game = Game::query()
+                ->select('games.*')
+                ->orderByDesc('games.draw_at')
+                ->first();
+        }
+
         return $game === null ? null : $this->gameResource($game);
+    }
+
+    private function tenantAllocatedGameIdsQuery(string $partnerId, string $tenantId): \Illuminate\Database\Query\Builder
+    {
+        return DB::table('partner_stock_allocations')
+            ->join('stock_supply_profiles', 'stock_supply_profiles.game_id', '=', 'partner_stock_allocations.game_id')
+            ->where('partner_stock_allocations.partner_id', $partnerId)
+            ->where('partner_stock_allocations.tenant_id', $tenantId)
+            ->whereIn('partner_stock_allocations.status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->where('partner_stock_allocations.allocated_count', '>', 0)
+            ->where('stock_supply_profiles.status', 'active')
+            ->select('partner_stock_allocations.game_id');
     }
 
     /**

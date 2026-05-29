@@ -34,6 +34,7 @@ use App\Shared\Idempotency\IdempotencyService;
 use App\Support\CustomerNo;
 use App\Support\PublicUrl;
 use App\Support\ThaiBankCatalog;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
@@ -43,6 +44,12 @@ use Illuminate\Support\Str;
 
 class CommerceService
 {
+    private const ACTIVE_ALLOCATION_PAIR_STATUSES = ['pending', 'processing', 'allocated', 'partially_allocated'];
+
+    private const CURRENT_TICKET_HIDDEN_STATUSES = ['cancelled', 'voided'];
+
+    private const HISTORY_TICKET_STATUSES = ['cancelled', 'non_winning', 'paid_out', 'voided'];
+
     private const REWARD_PRIZE_TYPE_SORT_ORDER = [
         'first_prize' => 10,
         'near_first_prize' => 20,
@@ -254,6 +261,19 @@ class CommerceService
     public function customerTickets(string $tenantId, CustomerSessionContext $customer, array $queryParams, bool $history = false): array
     {
         $limit = $this->limit($queryParams['limit'] ?? null);
+        $historyGameId = $history ? $this->customerTicketHistoryGameId($tenantId, $customer->customerId(), $queryParams) : null;
+        $currentGameId = $history ? null : $this->customerCurrentTicketGameId($tenantId, $customer->customerId());
+
+        if (($history && $historyGameId === null) || (! $history && $currentGameId === null)) {
+            return [
+                'data' => [],
+                'meta' => [
+                    'next_cursor' => null,
+                    'has_more' => false,
+                ],
+            ];
+        }
+
         $query = Ticket::query()
             ->forTenant($tenantId)
             ->where('customer_id', $customer->customerId())
@@ -262,9 +282,11 @@ class CommerceService
             ->limit($limit + 1);
 
         if ($history) {
-            $query->whereIn('status', ['cancelled', 'non_winning', 'paid_out', 'voided']);
+            $query->where('game_id', $historyGameId);
+            $this->applyCustomerTicketHistoryScope($query);
         } else {
-            $query->whereNotIn('status', ['cancelled', 'non_winning', 'paid_out', 'voided']);
+            $query->where('game_id', $currentGameId)
+                ->whereNotIn('status', self::CURRENT_TICKET_HIDDEN_STATUSES);
         }
 
         if (($queryParams['status'] ?? null) !== null && trim((string) $queryParams['status']) !== '') {
@@ -286,6 +308,123 @@ class CommerceService
                 'has_more' => $hasMore,
             ],
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     */
+    private function customerTicketHistoryGameId(string $tenantId, string $customerId, array $queryParams): ?string
+    {
+        $openGame = $this->customerOpenGameForTenant($tenantId);
+
+        if ($openGame === null) {
+            return null;
+        }
+
+        $query = Ticket::query()
+            ->forTenant($tenantId)
+            ->where('customer_id', $customerId)
+            ->join('games', 'games.id', '=', 'tickets.game_id')
+            ->where('games.draw_at', '<', $openGame->draw_at);
+
+        $this->applyCustomerTicketHistoryGameCandidateScope($query);
+
+        $requestedGameId = trim((string) ($queryParams['game_id'] ?? ''));
+
+        if ($requestedGameId !== '') {
+            return (clone $query)->where('tickets.game_id', $requestedGameId)->exists() ? $requestedGameId : null;
+        }
+
+        $gameId = $query
+            ->orderByDesc('games.draw_at')
+            ->orderByDesc('games.sale_start_at')
+            ->orderByDesc('games.created_at')
+            ->orderByDesc('games.id')
+            ->value('tickets.game_id');
+
+        return $gameId === null ? null : (string) $gameId;
+    }
+
+    private function applyCustomerTicketHistoryScope(Builder $query): void
+    {
+        $query->where(function ($scope): void {
+            $scope->whereIn('status', self::HISTORY_TICKET_STATUSES)
+                ->orWhereExists(function ($published): void {
+                    $published->selectRaw('1')
+                        ->from('reward_results')
+                        ->whereColumn('reward_results.game_id', 'tickets.game_id')
+                        ->where('reward_results.status', 'published');
+                });
+        });
+    }
+
+    private function applyCustomerTicketHistoryGameCandidateScope(Builder $query): void
+    {
+        $query->whereExists(function ($published): void {
+            $published->selectRaw('1')
+                ->from('reward_results')
+                ->whereColumn('reward_results.game_id', 'tickets.game_id')
+                ->where('reward_results.status', 'published');
+        });
+    }
+
+    private function customerCurrentTicketGameId(string $tenantId, string $customerId): ?string
+    {
+        $openGame = $this->customerOpenGameForTenant($tenantId);
+
+        if ($openGame !== null) {
+            return (string) $openGame->id;
+        }
+
+        $gameId = Ticket::query()
+            ->forTenant($tenantId)
+            ->where('customer_id', $customerId)
+            ->join('games', 'games.id', '=', 'tickets.game_id')
+            ->orderByDesc('games.draw_at')
+            ->orderByDesc('games.sale_start_at')
+            ->orderByDesc('games.created_at')
+            ->orderByDesc('games.id')
+            ->value('tickets.game_id');
+
+        return $gameId === null ? null : (string) $gameId;
+    }
+
+    private function customerOpenGameForTenant(string $tenantId): ?object
+    {
+        $partnerId = PartnerTenant::whereKey($tenantId)->value('partner_id');
+
+        if ($partnerId !== null && $partnerId !== '') {
+            $game = DB::table('games')
+                ->where('games.status', 'open')
+                ->whereIn('games.id', $this->tenantAllocatedGameIdsQuery((string) $partnerId, $tenantId))
+                ->orderByDesc('games.draw_at')
+                ->orderByDesc('games.sale_start_at')
+                ->orderByDesc('games.created_at')
+                ->first(['games.id', 'games.draw_at']);
+
+            if ($game !== null) {
+                return $game;
+            }
+        }
+
+        return DB::table('games')
+            ->where('games.status', 'open')
+            ->orderByDesc('games.draw_at')
+            ->orderByDesc('games.sale_start_at')
+            ->orderByDesc('games.created_at')
+            ->first(['games.id', 'games.draw_at']);
+    }
+
+    private function tenantAllocatedGameIdsQuery(string $partnerId, string $tenantId): \Illuminate\Database\Query\Builder
+    {
+        return DB::table('partner_stock_allocations')
+            ->join('stock_supply_profiles', 'stock_supply_profiles.game_id', '=', 'partner_stock_allocations.game_id')
+            ->where('partner_stock_allocations.partner_id', $partnerId)
+            ->where('partner_stock_allocations.tenant_id', $tenantId)
+            ->whereIn('partner_stock_allocations.status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->where('partner_stock_allocations.allocated_count', '>', 0)
+            ->where('stock_supply_profiles.status', 'active')
+            ->select('partner_stock_allocations.game_id');
     }
 
     /**
@@ -1014,7 +1153,9 @@ class CommerceService
             'id' => 'id',
             'entry_type' => 'entry_type',
             'status' => 'status',
+            'amount' => 'amount',
             'amount.amount' => 'amount',
+            'balance_after' => 'balance_after',
             'balance_after.amount' => 'balance_after',
             'reference_type' => 'reference_type',
             'created_at' => 'created_at',
@@ -2503,14 +2644,21 @@ class CommerceService
         $claim = DB::table('reward_claims')
             ->where('tenant_id', (string) $ticket->tenant_id)
             ->where('ticket_id', (string) $ticket->id)
+            ->orderByRaw("CASE WHEN status IN ('rejected', 'cancelled') THEN 1 ELSE 0 END")
             ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->first();
 
         if ($claim !== null) {
+            $customerStatus = $this->claimStatusForTicket($claim);
+            $claimableAfterRejected = in_array((string) $claim->status, ['rejected', 'cancelled'], true)
+                && $this->claimableWinningRows($visibleWinnings) !== [];
+
             return [
                 'ticket_id' => (string) $ticket->id,
-                'status' => (string) $claim->status,
-                'claimable' => false,
+                'status' => $customerStatus,
+                'claim_status' => (string) $claim->status,
+                'claimable' => $claimableAfterRejected,
                 'prize_type' => $winning?->prize_type,
                 'prize_number' => $winning?->prize_number,
                 'prize_amount' => $this->money((int) $claim->prize_amount, (string) $claim->currency),
@@ -2518,14 +2666,15 @@ class CommerceService
                 'prize_count' => count($visibleWinnings),
                 'reward_result_id' => $winning?->reward_result_id,
                 'reward_claim_id' => (string) $claim->id,
+                'payout_method' => (string) $claim->payout_method,
+                'paid_at' => $claim->paid_at,
+                'reviewed_at' => $claim->reviewed_at,
+                'admin_note' => $claim->admin_note,
             ];
         }
 
         if ($winning !== null) {
-            $claimableWinnings = array_values(array_filter(
-                $visibleWinnings,
-                fn (object $row): bool => (string) $row->reward_result_status === 'published' && in_array((string) $row->status, ['pending', 'verified'], true),
-            ));
+            $claimableWinnings = $this->claimableWinningRows($visibleWinnings);
 
             return [
                 'ticket_id' => (string) $ticket->id,
@@ -2633,7 +2782,7 @@ class CommerceService
         $status = strtolower(trim($ticketStatus));
         $rewardStatusValue = strtolower(trim((string) ($rewardStatus['status'] ?? '')));
 
-        if (in_array($rewardStatusValue, ['winning', 'claim_submitted', 'approved', 'claim_approved', 'paid', 'paid_out'], true)) {
+        if (in_array($rewardStatusValue, ['winning', 'claim_submitted', 'approved', 'claim_approved', 'paid', 'paid_out', 'rejected', 'cancelled'], true)) {
             return in_array($rewardStatusValue, ['paid', 'paid_out'], true) ? 'paid_out' : 'winning';
         }
 
@@ -2646,6 +2795,36 @@ class CommerceService
         }
 
         return $ticketStatus;
+    }
+
+    private function claimStatusForTicket(object $claim): string
+    {
+        $claimStatus = strtolower((string) $claim->status);
+
+        if ($claimStatus === 'approved' && ($claim->paid_at !== null || $claim->payout_ledger_id !== null || (string) $claim->payout_method === 'bank_transfer')) {
+            return 'paid_out';
+        }
+
+        return match ($claimStatus) {
+            'submitted', 'under_review' => 'claim_submitted',
+            'approved' => 'approved',
+            'paid', 'paid_out' => 'paid_out',
+            'rejected' => 'rejected',
+            'cancelled' => 'cancelled',
+            default => 'pending_result',
+        };
+    }
+
+    /**
+     * @param array<int, object> $rows
+     * @return array<int, object>
+     */
+    private function claimableWinningRows(array $rows): array
+    {
+        return array_values(array_filter(
+            $rows,
+            fn (object $row): bool => (string) $row->reward_result_status === 'published' && in_array((string) $row->status, ['pending', 'verified'], true),
+        ));
     }
 
     /**

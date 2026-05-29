@@ -9,8 +9,11 @@ export interface AppInitGame {
   id?: number | string
   name?: string
   status?: number | string
+  sale_start_at?: string
   start_at?: string
+  close_at?: string
   end_at?: string
+  server_time?: string
   [key: string]: unknown
 }
 
@@ -179,14 +182,26 @@ export const useAppInit = () => {
   const currentGame = computed(() => data.value?.game || null)
   const currentStatus = computed(() => Number(data.value?.status ?? 0))
   const currentDrawDate = computed(() => formatDrawDateText(currentGame.value?.name))
+  const saleStartAt = computed(() => parseTimestampMs(currentGame.value?.start_at || currentGame.value?.sale_start_at || null))
   const saleCloseAt = computed(() => parseTimestampMs(currentGame.value?.end_at || currentGame.value?.close_at || null))
   const hasActiveCart = computed(() => items.value.length > 0 && remainingMilliseconds.value > 0)
   const hasPublishedResult = computed(() => currentStatus.value === 2)
+  const currentTimeMs = () => {
+    const serverTime = parseTimestampMs(currentGame.value?.server_time || null)
+
+    return serverTime === null ? Date.now() : serverTime + Math.max(0, Date.now() - fetchedAt.value)
+  }
+  const isSaleNotStartedNow = () => (
+    currentStatus.value === 1 &&
+    saleStartAt.value !== null &&
+    currentTimeMs() < saleStartAt.value
+  )
   const isSaleClosedNow = () => (
     currentStatus.value !== 1 ||
-    (saleCloseAt.value !== null && Date.now() >= saleCloseAt.value)
+    (saleCloseAt.value !== null && currentTimeMs() >= saleCloseAt.value)
   )
   const isWaitingForResultNow = () => isSaleClosedNow() && !hasPublishedResult.value
+  const isSaleNotStarted = computed(() => isSaleNotStartedNow())
   const isSaleClosed = computed(() => currentStatus.value !== 1)
   const isWaitingForResult = computed(() => isSaleClosed.value && !hasPublishedResult.value)
   const waiting = computed(() => data.value?.waiting || [])
@@ -278,7 +293,24 @@ export const useAppInit = () => {
     }
 
     const status = currentStatus.value
+    const saleNotStarted = isSaleNotStartedNow()
     const waitingForResult = isWaitingForResultNow()
+
+    if (path === '/countdown') {
+      if (saleNotStarted) {
+        return null
+      }
+
+      if (status === 1) {
+        return '/buy'
+      }
+
+      return status === 2 ? '/result' : '/waiting-result'
+    }
+
+    if (saleNotStarted && (isSaleRoute(path) || path === '/waiting-result')) {
+      return '/countdown'
+    }
 
     if (path === '/waiting-result' && status === 2) {
       return null
@@ -288,11 +320,7 @@ export const useAppInit = () => {
       return status === 1 ? '/buy' : '/result'
     }
 
-    if (path === '/countdown' && status !== 3) {
-      return status === 1 ? '/buy' : '/result'
-    }
-
-    if (status === 2 && (isSaleRoute(path) || isCartOrPaymentRoute(path))) {
+    if (status === 2 && path !== '/' && (isSaleRoute(path) || isCartOrPaymentRoute(path))) {
       return '/result'
     }
 
@@ -312,11 +340,14 @@ export const useAppInit = () => {
     currentGame,
     currentStatus,
     currentDrawDate,
+    saleStartAt,
     saleCloseAt,
     hasActiveCart,
     hasPublishedResult,
+    isSaleNotStarted,
     isSaleClosed,
     isWaitingForResult,
+    isSaleNotStartedNow,
     isSaleClosedNow,
     isWaitingForResultNow,
     waiting,

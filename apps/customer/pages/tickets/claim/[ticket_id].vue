@@ -1,29 +1,18 @@
 <template>
-  <MobileShell active-nav="tickets">
-    <section v-if="claimStep === 'pin'" class="reward-pin-page">
-      <button class="reward-pin-back" type="button" aria-label="กลับ" @click="claimStep = 'confirm'">
-        <i class="bi bi-chevron-left" />
-      </button>
-      <h1>เป๋าตัง</h1>
-      <div class="reward-pin-copy">
-        <h2>ใส่รหัส PIN 6 หลัก</h2>
-        <p>เพื่อทำรายการต่อ</p>
-      </div>
-      <div class="reward-pin-dots" aria-label="PIN">
-        <span v-for="index in 6" :key="index" :class="{ active: pinDigits.length >= index }" />
-      </div>
-      <div class="reward-pin-keypad">
-        <button v-for="digit in pinDigitsLayout" :key="digit || 'blank'" type="button" :disabled="!digit || isSubmitting" @click="appendPinDigit(digit)">
-          {{ digit }}
-        </button>
-        <button type="button" aria-label="ลบตัวเลข" :disabled="isSubmitting || !pinDigits" @click="removePinDigit">
-          <i class="bi bi-backspace" />
-        </button>
-      </div>
-    </section>
+  <PinKeypadScreen
+    v-if="claimStep === 'pin'"
+    title="ใส่รหัส PIN 6 หลัก"
+    subtitle="เพื่อทำรายการต่อ"
+    :digits="pinDigits"
+    :error="claimPinError"
+    :disabled="isSubmitting"
+    @append="appendPinDigit"
+    @remove="removePinDigit"
+    @back="claimStep = 'confirm'"
+  />
 
-    <template v-else>
-      <header class="reward-flow-header" :class="{ compact: claimStep === 'processing', select: claimStep === 'select' }">
+  <MobileShell v-else active-nav="tickets">
+      <header class="reward-flow-header" :class="{ compact: claimStep === 'processing', processing: claimStep === 'processing', select: claimStep === 'select' }">
         <button v-if="claimStep !== 'processing'" class="reward-flow-back" type="button" aria-label="กลับ" @click="handleBack">
           <i class="bi bi-chevron-left" />
         </button>
@@ -64,7 +53,7 @@
         </article>
       </header>
 
-      <section class="content-sheet reward-claim-page" :class="{ processing: claimStep === 'processing', select: claimStep === 'select' }">
+      <section class="content-sheet reward-claim-page" :class="{ confirm: claimStep === 'confirm', processing: claimStep === 'processing', select: claimStep === 'select' }">
         <div v-if="isLoading" class="empty-lottery-state">
           กำลังโหลดข้อมูลรางวัล...
         </div>
@@ -157,6 +146,16 @@
                 </div>
               </div>
 
+              <div class="reward-confirm-image-panel">
+                <LotteryImage
+                  :src="ticketImageUrl"
+                  :status="ticketImageStatus"
+                  :error-message="ticketImageError"
+                  :number="ticketNumber"
+                  variant="preview"
+                />
+              </div>
+
               <dl class="reward-confirm-list">
                 <div>
                   <dt>ผู้รับเงิน</dt>
@@ -164,7 +163,9 @@
                 </div>
                 <div>
                   <dt>ช่องทางขึ้นเงินรางวัล</dt>
-                  <dd class="blue">{{ payoutChannelText }}</dd>
+                  <dd class="blue reward-payout-lines">
+                    <span v-for="line in payoutChannelLines" :key="line">{{ line }}</span>
+                  </dd>
                 </div>
                 <div>
                   <dt>วิธีขึ้นเงินรางวัล</dt>
@@ -173,14 +174,6 @@
                 <div>
                   <dt>เลขสลากดิจิทัล</dt>
                   <dd>{{ ticketNumber || '-' }}</dd>
-                </div>
-                <div>
-                  <dt>ชุดที่</dt>
-                  <dd>{{ ticketSetText }}</dd>
-                </div>
-                <div>
-                  <dt>งวดที่</dt>
-                  <dd>{{ ticketDrawText }}</dd>
                 </div>
                 <div>
                   <dt>รางวัล</dt>
@@ -197,45 +190,57 @@
                   <dt>เงินรางวัล</dt>
                   <dd>{{ formatMoney(prizeAmount) }} บาท</dd>
                 </div>
-                <div>
+                <div class="discount">
                   <dt>ค่าภาษีถอนเงิน (0.5%)</dt>
-                  <dd>{{ formatMoney(taxAmount) }} บาท</dd>
+                  <dd>
+                    <span><s>{{ formatMoney(taxAmount) }} บาท</s> ลดให้ {{ formatMoney(taxAmount) }} บาท</span>
+                    <strong>0 บาท</strong>
+                  </dd>
                 </div>
-                <div>
+                <div class="discount">
                   <dt>ค่าธรรมเนียม (1%)</dt>
-                  <dd>{{ formatMoney(feeAmount) }} บาท</dd>
+                  <dd>
+                    <span><s>{{ formatMoney(feeAmount) }} บาท</s> ลดให้ {{ formatMoney(feeAmount) }} บาท</span>
+                    <strong>0 บาท</strong>
+                  </dd>
                 </div>
                 <div class="total">
                   <dt>ยอดเงินที่ได้รับ</dt>
                   <dd>{{ formatMoney(netAmount) }} บาท</dd>
                 </div>
               </dl>
-
+            </article>
+            <footer class="reward-claim-footer reward-confirm-footer">
               <button class="primary-pill reward-claim-submit" type="button" :disabled="!canContinue" @click="goToPin">
                 ยืนยัน
               </button>
-            </article>
+            </footer>
           </template>
 
           <template v-else-if="claimStep === 'processing'">
             <article class="reward-processing-card">
-              <div class="reward-processing-brand">
-                <span>GLO</span>
-                <span class="reward-processing-badge"><i class="bi bi-arrow-repeat" /></span>
+              <div class="reward-processing-logo-row">
+                <BrandLogo />
+                <span class="lottery-six">L6</span>
+              </div>
+              <div class="reward-processing-status-icon">
+                <i class="bi bi-clock-history" />
               </div>
               <h2>กำลังดำเนินการโอนเงินรางวัล</h2>
               <p class="reward-processing-note">
                 เงินรางวัลจะถึงบัญชีผู้รับเงิน ภายใน 2 ชั่วโมง หลังจากทำรายการสำเร็จ
               </p>
 
-              <dl class="reward-confirm-list">
+              <dl class="reward-confirm-list reward-processing-list">
                 <div>
                   <dt>ผู้รับเงิน</dt>
                   <dd class="blue">{{ receiverName }}</dd>
                 </div>
                 <div>
                   <dt>ช่องทางขึ้นเงินรางวัล</dt>
-                  <dd class="blue">{{ payoutChannelText }}</dd>
+                  <dd class="blue reward-payout-lines">
+                    <span v-for="line in payoutChannelLines" :key="line">{{ line }}</span>
+                  </dd>
                 </div>
                 <div>
                   <dt>วิธีขึ้นเงินรางวัล</dt>
@@ -250,12 +255,12 @@
                   <dd>{{ ticketNumber || '-' }}</dd>
                 </div>
                 <div>
-                  <dt>ชุดที่</dt>
-                  <dd>{{ ticketSetText }}</dd>
-                </div>
-                <div>
                   <dt>งวดที่</dt>
                   <dd>{{ ticketDrawText }}</dd>
+                </div>
+                <div>
+                  <dt>ชุดที่</dt>
+                  <dd>{{ ticketSetText }}</dd>
                 </div>
                 <div>
                   <dt>รางวัล</dt>
@@ -267,25 +272,38 @@
                 </div>
               </dl>
 
-              <dl class="reward-confirm-money">
+              <dl class="reward-confirm-money reward-processing-money">
                 <div>
                   <dt>เงินรางวัล</dt>
                   <dd>{{ formatMoney(prizeAmount) }} บาท</dd>
                 </div>
-                <div>
+                <div class="discount">
                   <dt>ค่าภาษีถอนเงิน (0.5%)</dt>
-                  <dd>{{ formatMoney(taxAmount) }} บาท</dd>
+                  <dd>
+                    <span><s>{{ formatMoney(taxAmount) }} บาท</s> ลดให้ {{ formatMoney(taxAmount) }} บาท</span>
+                    <strong>0 บาท</strong>
+                  </dd>
+                </div>
+                <div class="discount">
+                  <dt>ค่าธรรมเนียม (1%)</dt>
+                  <dd>
+                    <span><s>{{ formatMoney(feeAmount) }} บาท</s> ลดให้ {{ formatMoney(feeAmount) }} บาท</span>
+                    <strong>0 บาท</strong>
+                  </dd>
                 </div>
               </dl>
-
+              <p class="reward-processing-date">
+                วันที่ทำรายการ {{ processingSubmittedAtText }}
+              </p>
+            </article>
+            <footer class="reward-claim-footer reward-processing-footer">
               <NuxtLink class="primary-pill reward-claim-submit" to="/tickets">
                 ดูสลากฯ ของฉัน
               </NuxtLink>
-            </article>
+            </footer>
           </template>
         </template>
       </section>
-    </template>
   </MobileShell>
 </template>
 
@@ -318,13 +336,14 @@ const {
 const ticket = ref<UserTicket | null>(null)
 const rewardStatus = ref<Record<string, any> | null>(null)
 const profile = ref<Record<string, any> | null>(null)
+const submittedClaim = ref<Record<string, any> | null>(null)
 const isLoading = ref(true)
 const isSubmitting = ref(false)
 const loadError = ref('')
 const payoutMethod = ref<PayoutMethod>('wallet_credit')
 const claimStep = ref<ClaimStep>('select')
 const pinDigits = ref('')
-const pinDigitsLayout = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0']
+const claimPinError = ref('')
 
 const ticketId = computed(() => {
   const value = Array.isArray(route.params.ticket_id) ? route.params.ticket_id[0] : route.params.ticket_id
@@ -368,11 +387,31 @@ const prizeTitle = computed(() => {
 
   return getPrizeTitle(mergedRewardStatus.value.prize_type || ticket.value?.prize_type) || getTicketPrizeTitle(ticket.value) || 'ถูกรางวัล'
 })
-const existingClaimId = computed(() => String(rewardStatus.value?.reward_claim_id || ticket.value?.reward_status?.reward_claim_id || '').trim())
-const existingClaimTo = computed(() => existingClaimId.value ? `/reward-claims/${encodeURIComponent(existingClaimId.value)}` : '')
-const showSelectLotteryCard = computed(() => claimStep.value === 'select' && !isLoading.value && !loadError.value && !existingClaimId.value)
 const isClaimable = computed(() => Boolean(rewardStatus.value?.claimable ?? ticket.value?.reward_status?.claimable ?? ticket.value?.claimable))
 const rewardStatusValue = computed(() => String(rewardStatus.value?.status || ticket.value?.reward_status?.status || '').toLowerCase())
+const claimStatusValue = computed(() => String(
+  rewardStatus.value?.claim_status ||
+  ticket.value?.reward_status?.claim_status ||
+  rewardStatus.value?.status ||
+  ticket.value?.reward_status?.status ||
+  ''
+).toLowerCase())
+const rawExistingClaimId = computed(() => String(rewardStatus.value?.reward_claim_id || ticket.value?.reward_status?.reward_claim_id || '').trim())
+const existingClaimId = computed(() => {
+  const claimId = rawExistingClaimId.value
+
+  if (!claimId) {
+    return ''
+  }
+
+  if (isClaimable.value && ['rejected', 'cancelled'].includes(claimStatusValue.value)) {
+    return ''
+  }
+
+  return claimId
+})
+const existingClaimTo = computed(() => existingClaimId.value ? `/reward-claims/${encodeURIComponent(existingClaimId.value)}` : '')
+const showSelectLotteryCard = computed(() => claimStep.value === 'select' && !isLoading.value && !loadError.value && !existingClaimId.value)
 const unavailableMessage = computed(() => {
   if (rewardStatusValue.value === 'pending_result') {
     return 'สลากใบนี้ยังรอออกผล'
@@ -417,7 +456,16 @@ const accountLast4 = computed(() => {
   return number.slice(-4) || '----'
 })
 const receiverName = computed(() => String(profile.value?.name || profile.value?.full_name || profile.value?.display_name || 'ผู้ใช้งาน'))
-const payoutChannelText = computed(() => payoutMethod.value === 'bank_transfer' ? `${bankDisplayName.value} ${maskedAccountNumber.value}` : walletOptionTitle.value)
+const payoutChannelLines = computed(() => {
+  if (payoutMethod.value === 'bank_transfer') {
+    return [
+      bankAccount.value.bank_name || bankDisplayName.value || 'บัญชีธนาคาร',
+      `หมายเลขบัญชี ${maskedAccountNumber.value}`
+    ]
+  }
+
+  return [walletOptionTitle.value]
+})
 const rewardBankTo = computed(() => `/profile/reward-bank?redirect=${encodeURIComponent(route.fullPath)}`)
 const canContinue = computed(() => (
   isClaimable.value &&
@@ -427,11 +475,19 @@ const canContinue = computed(() => (
 ))
 const taxAmount = computed(() => Math.round(prizeAmount.value * 0.005))
 const feeAmount = computed(() => Math.round(prizeAmount.value * 0.01))
-const netAmount = computed(() => Math.max(0, prizeAmount.value - taxAmount.value - feeAmount.value))
+const netAmount = computed(() => prizeAmount.value)
 const ticketSetText = computed(() => getTicketSet(ticket.value))
 const ticketDrawText = computed(() => getTicketDraw(ticket.value))
+const ticketImageUrl = computed(() => ticket.value?.image_url || ticket.value?.image || '')
+const ticketImageStatus = computed(() => ticket.value?.image_status || '')
+const ticketImageError = computed(() => ticket.value?.image_error || '')
 const gameDatePlainText = computed(() => getTicketGameDate(ticket.value) || '-')
 const gameDateText = computed(() => `งวดวันที่ ${gameDatePlainText.value}`)
+const processingSubmittedAtText = computed(() => formatDateTime(
+  submittedClaim.value?.submitted_at ||
+  submittedClaim.value?.created_at ||
+  submittedClaim.value?.updated_at
+))
 
 const getPrizeTitle = (value: unknown) => {
   const prizeTypeLabels: Record<string, string> = {
@@ -454,6 +510,25 @@ const formatMoney = (amount: unknown) => {
   const value = Number(amount || 0)
 
   return Number.isFinite(value) ? value.toLocaleString('th-TH') : '0'
+}
+
+const formatDateTime = (value: unknown) => {
+  const rawValue = value || new Date().toISOString()
+  const date = new Date(String(rawValue))
+
+  if (Number.isNaN(date.getTime())) {
+    return '-'
+  }
+
+  return new Intl.DateTimeFormat('th-TH', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).format(date).replace(',', '')
 }
 
 const maskAccountNumber = (value: unknown) => {
@@ -495,6 +570,7 @@ const goToPin = () => {
   }
 
   pinDigits.value = ''
+  claimPinError.value = ''
   claimStep.value = 'pin'
 }
 
@@ -503,6 +579,7 @@ const appendPinDigit = async (digit: string) => {
     return
   }
 
+  claimPinError.value = ''
   pinDigits.value += digit
 
   if (pinDigits.value.length === 6) {
@@ -511,6 +588,7 @@ const appendPinDigit = async (digit: string) => {
 }
 
 const removePinDigit = () => {
+  claimPinError.value = ''
   pinDigits.value = pinDigits.value.slice(0, -1)
 }
 
@@ -567,19 +645,40 @@ const submitClaim = async () => {
 
   isSubmitting.value = true
   try {
-    await platformApi.createRewardClaim({
+    const claimResult = await platformApi.createRewardClaim({
       ticket_id: ticketId.value,
       payout_method: payoutMethod.value,
+      pin: pinDigits.value,
       ...(payoutMethod.value === 'bank_transfer' ? { bank_account: bankAccount.value } : {})
     })
+    submittedClaim.value = {
+      ...(claimResult || {}),
+      submitted_at: claimResult?.submitted_at || claimResult?.created_at || new Date().toISOString()
+    }
 
     claimStep.value = 'processing'
   } catch (error: any) {
     pinDigits.value = ''
+    const code = error?.response?.data?.error?.code || error?.response?.data?.code
 
     if (error?.response?.status === 409) {
       await loadClaimContext()
       claimStep.value = 'select'
+    }
+
+    if (code === 'pin_invalid') {
+      claimPinError.value = 'PIN ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง'
+      return
+    }
+
+    if (code === 'pin_locked') {
+      claimPinError.value = 'กรอก PIN ผิดเกินกำหนด กรุณารอสักครู่แล้วลองใหม่'
+      return
+    }
+
+    if (code === 'pin_setup_required') {
+      claimPinError.value = 'กรุณาตั้งค่า PIN ก่อนทำรายการ'
+      return
     }
 
     showAlert({
@@ -609,6 +708,11 @@ onMounted(loadClaimContext)
 
 .reward-flow-header.compact {
   min-height: 126px;
+}
+
+.reward-flow-header.processing {
+  min-height: 176px;
+  padding-bottom: 74px;
 }
 
 .reward-flow-header.select {
@@ -669,7 +773,15 @@ onMounted(loadClaimContext)
 }
 
 .reward-claim-page.processing {
-  margin-top: -76px;
+  background: transparent;
+  border-radius: 0;
+  margin-top: -122px;
+  min-height: calc(100dvh - 176px);
+  padding: 0 12px calc(92px + env(safe-area-inset-bottom));
+}
+
+.reward-claim-page.confirm {
+  padding-bottom: calc(94px + env(safe-area-inset-bottom));
 }
 
 .reward-claim-card,
@@ -806,6 +918,17 @@ onMounted(loadClaimContext)
   font-weight: 700;
 }
 
+.reward-confirm-image-panel {
+  background: #f8fafc;
+  border: 1px solid #e5edf8;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.reward-confirm-image-panel :deep(.lottery-image-preview) {
+  border-radius: 6px;
+}
+
 .reward-lottery-card dl,
 .reward-confirm-list,
 .reward-confirm-money {
@@ -845,6 +968,15 @@ onMounted(loadClaimContext)
 .reward-lottery-card dd.blue,
 .reward-confirm-list dd.blue {
   color: #086bdd;
+}
+
+.reward-payout-lines {
+  display: grid;
+  gap: 3px;
+}
+
+.reward-payout-lines span {
+  line-height: 1.3;
 }
 
 .reward-lottery-card dd.prize {
@@ -1013,6 +1145,30 @@ onMounted(loadClaimContext)
   padding-top: 10px;
 }
 
+.reward-confirm-money .discount dd {
+  display: grid;
+  gap: 4px;
+}
+
+.reward-confirm-money .discount dd span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.reward-confirm-money .discount dd s {
+  color: #94a3b8;
+  margin-right: 4px;
+}
+
+.reward-confirm-money .discount dd strong {
+  color: #16a34a;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
 .reward-confirm-money .total dt,
 .reward-confirm-money .total dd {
   color: #111827;
@@ -1049,111 +1205,51 @@ onMounted(loadClaimContext)
   min-height: 48px;
 }
 
-.reward-pin-page {
-  background: #fff;
-  color: #111827;
-  display: grid;
-  grid-template-rows: auto auto auto 1fr;
-  min-height: 100dvh;
-  padding: 48px 28px 24px;
-  text-align: center;
-}
-
-.reward-pin-back {
-  background: transparent;
-  border: 0;
-  color: #111827;
-  font-size: 24px;
-  height: 36px;
-  left: 14px;
-  padding: 0;
-  position: absolute;
-  top: 48px;
-  width: 36px;
-}
-
-.reward-pin-page h1 {
-  color: #3347b9;
-  font-size: 18px;
-  font-weight: 900;
-  margin: 0 0 50px;
-}
-
-.reward-pin-copy h2 {
-  font-size: 18px;
-  font-weight: 900;
-  margin: 0 0 7px;
-}
-
-.reward-pin-copy p {
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 700;
-  margin: 0;
-}
-
-.reward-pin-dots {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  margin: 28px 0 70px;
-}
-
-.reward-pin-dots span {
-  background: #d9dde5;
-  border-radius: 50%;
-  height: 9px;
-  width: 9px;
-}
-
-.reward-pin-dots span.active {
-  background: #1f2937;
-}
-
-.reward-pin-keypad {
-  align-self: end;
-  display: grid;
-  gap: 26px 34px;
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.reward-pin-keypad button {
-  background: transparent;
-  border: 0;
-  color: #111827;
-  font-size: 22px;
-  font-weight: 900;
-  min-height: 38px;
-}
-
-.reward-pin-keypad button:disabled {
-  color: transparent;
-}
-
 .reward-processing-card {
+  background:
+    repeating-linear-gradient(150deg, rgba(5, 130, 226, .035) 0 28px, transparent 28px 66px),
+    #fff;
+  gap: 10px;
+  overflow: hidden;
+  padding: 12px 12px 14px;
+  position: relative;
   text-align: center;
 }
 
-.reward-processing-brand {
-  justify-content: center;
-  position: relative;
-}
-
-.reward-processing-brand > span:first-child {
-  color: #0b69dc;
-  font-size: 24px;
-  font-weight: 900;
-}
-
-.reward-processing-badge {
+.reward-processing-logo-row {
   align-items: center;
-  background: #ffc530;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.reward-processing-logo-row :deep(.brand-logo-image),
+.reward-processing-logo-row :deep(.brand-logo-fallback) {
+  height: 22px;
+  width: auto;
+}
+
+.reward-processing-logo-row .lottery-six {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.reward-processing-status-icon {
+  align-items: center;
+  background: #ffb12f;
   border-radius: 50%;
   color: #fff;
+  font-size: 24px;
+  height: 52px;
   display: inline-flex;
-  height: 30px;
   justify-content: center;
-  width: 30px;
+  justify-self: center;
+  width: 52px;
+}
+
+.reward-processing-card h2 {
+  font-size: 15px;
+  line-height: 1.25;
 }
 
 .reward-processing-note {
@@ -1167,14 +1263,42 @@ onMounted(loadClaimContext)
   padding: 10px;
 }
 
+.reward-processing-list,
+.reward-processing-money {
+  gap: 7px;
+  text-align: left;
+}
+
+.reward-processing-list div,
+.reward-processing-money div {
+  gap: 10px;
+  grid-template-columns: minmax(112px, .82fr) minmax(0, 1fr);
+}
+
+.reward-processing-card .reward-confirm-list dt,
+.reward-processing-card .reward-confirm-money dt {
+  font-size: 12px;
+}
+
+.reward-processing-card .reward-confirm-list dd,
+.reward-processing-card .reward-confirm-money dd {
+  font-size: 12px;
+}
+
+.reward-processing-date {
+  border-top: 1px solid #eef2f7;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 0;
+  padding-top: 8px;
+}
+
 @media (max-width: 420px) {
   .reward-claim-page {
     padding-left: 14px;
     padding-right: 14px;
-  }
-
-  .reward-pin-keypad {
-    gap: 22px 26px;
   }
 }
 </style>
