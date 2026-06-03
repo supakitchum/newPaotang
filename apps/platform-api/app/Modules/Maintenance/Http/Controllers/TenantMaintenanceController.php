@@ -59,10 +59,7 @@ class TenantMaintenanceController extends Controller
             return ApiErrorResponse::validationFailed($request, $errors);
         }
 
-        if (
-            in_array($payload['status'], ['scheduled'], true)
-            || in_array($payload['mode'], ['scheduled'], true)
-        ) {
+        if (($payload['status'] ?? null) === 'scheduled') {
             $scheduleContext = $this->authorizedContext($request, 'maintenance.schedule');
 
             if (! $scheduleContext instanceof AdminSessionContext) {

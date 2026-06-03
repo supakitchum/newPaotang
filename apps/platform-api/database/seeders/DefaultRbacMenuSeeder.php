@@ -31,9 +31,11 @@ class DefaultRbacMenuSeeder extends Seeder
             array_map(fn (array $menu): array => [
                 'id' => $this->stableId('men', $menu['scope_type'], $menu['code']),
                 'scope_type' => $menu['scope_type'],
-                'parent_id' => null,
+                'parent_id' => isset($menu['parent_code'])
+                    ? $this->stableId('men', $menu['scope_type'], $menu['parent_code'])
+                    : null,
                 'code' => $menu['code'],
-                'label' => $this->labelFor($menu['code']),
+                'label' => $this->labelFor($menu['scope_type'], $menu['code']),
                 'route' => $menu['route'],
                 'category' => $this->categoryFor($menu['scope_type'], $menu['code']),
                 'icon' => $this->iconFor($menu['scope_type'], $menu['code']),
@@ -62,9 +64,13 @@ class DefaultRbacMenuSeeder extends Seeder
             ->where('code', 'stock.sync')
             ->delete();
 
+        $this->grantCentralDashboardMenusToDefaultRoles($now);
+        $this->grantCentralMaintenanceToSuperAdmins($now);
         $this->grantSalePricePermissionsToDefaultRoles($now);
         $this->grantWinnerMenuToPlatformOwner($now);
         $this->grantTenantWinnerMenuToPartnerOwners($now);
+        $this->grantTenantMaintenanceToPartnerOwners($now);
+        $this->grantTenantAnnouncementsToPartnerOwners($now);
     }
 
     /**
@@ -172,6 +178,8 @@ class DefaultRbacMenuSeeder extends Seeder
                 'seo.view' => 'View SEO settings',
                 'seo.update' => 'Update SEO settings',
                 'seo.redirect.manage' => 'Manage tenant redirects',
+                'announcement.view' => 'View tenant announcements',
+                'announcement.manage' => 'Manage tenant announcements',
                 'maintenance.view' => 'View maintenance settings',
                 'maintenance.update' => 'Update maintenance settings',
                 'maintenance.schedule' => 'Schedule maintenance',
@@ -194,21 +202,28 @@ class DefaultRbacMenuSeeder extends Seeder
     }
 
     /**
-     * @return array<int, array{scope_type: string, code: string, required_permission_code: string, route: string|null, sort_order: int}>
+     * @return array<int, array{scope_type: string, code: string, required_permission_code: string, route: string|null, sort_order: int, parent_code?: string}>
      */
     public function menus(): array
     {
         return [
             ...$this->scopedMenus('central', [
                 'dashboard' => 'dashboard.view',
+                'dashboard_sales' => 'dashboard.view',
+                'dashboard_partner' => 'dashboard.view',
+                'dashboard_wallet' => 'dashboard.view',
+                'dashboard_payout' => 'dashboard.view',
+                'dashboard_monitor' => 'dashboard.view',
                 'games' => 'game.view',
                 'rewards' => 'reward.view',
                 'winners' => 'reward.view',
                 'prize_checking' => 'reward.view',
                 'sale_price_rules' => 'price_rule.view',
+                'reward_payout_rules' => 'price_rule.view',
                 'stock_generation' => 'stock.generate',
                 'stock_settings' => 'stock.generate',
                 'partners' => 'partner.view',
+                'maintenance' => 'partner.view',
                 'partner_quotas' => 'partner.quota.manage',
                 'partner_monitoring' => 'partner.monitoring.view',
                 'partner_usage' => 'partner.usage.view',
@@ -246,6 +261,7 @@ class DefaultRbacMenuSeeder extends Seeder
                 'affiliate_links' => 'affiliate_link.view',
                 'affiliate_attributions' => 'affiliate_attribution.view',
                 'commission_rules' => 'commission_rule.view',
+                'announcements' => 'announcement.view',
                 'seo_settings' => 'seo.view',
                 'maintenance' => 'maintenance.view',
                 'support_access_logs' => 'support_access.audit',
@@ -285,7 +301,7 @@ class DefaultRbacMenuSeeder extends Seeder
 
     /**
      * @param array<string, string> $menus
-     * @return array<int, array{scope_type: string, code: string, required_permission_code: string, route: string|null, sort_order: int}>
+     * @return array<int, array{scope_type: string, code: string, required_permission_code: string, route: string|null, sort_order: int, parent_code?: string}>
      */
     private function scopedMenus(string $scopeType, array $menus): array
     {
@@ -293,13 +309,19 @@ class DefaultRbacMenuSeeder extends Seeder
         $sortOrder = 10;
 
         foreach ($menus as $code => $permissionCode) {
-            $rows[] = [
+            $row = [
                 'scope_type' => $scopeType,
                 'code' => $code,
                 'required_permission_code' => $permissionCode,
                 'route' => $this->routeFor($scopeType, $code),
                 'sort_order' => $sortOrder,
             ];
+
+            if ($scopeType === 'central' && str_starts_with($code, 'dashboard_')) {
+                $row['parent_code'] = 'dashboard';
+            }
+
+            $rows[] = $row;
 
             $sortOrder += 10;
         }
@@ -311,15 +333,22 @@ class DefaultRbacMenuSeeder extends Seeder
     {
         return match ($scopeType.':'.$code) {
             'central:dashboard' => '/admin/central/dashboard',
+            'central:dashboard_sales' => '/admin/central/dashboard/sales',
+            'central:dashboard_partner' => '/admin/central/dashboard/partner',
+            'central:dashboard_wallet' => '/admin/central/dashboard/wallet',
+            'central:dashboard_payout' => '/admin/central/dashboard/payout',
+            'central:dashboard_monitor' => '/admin/central/dashboard/monitor',
             'central:games' => '/admin/central/games',
             'central:winners' => '/admin/central/winners',
             'tenant:winners' => '/admin/tenant/winners',
             'central:rewards',
             'central:prize_checking' => '/admin/central/rewards',
             'central:sale_price_rules' => '/admin/central/sale-price-rules',
+            'central:reward_payout_rules' => '/admin/central/reward-payout-rules',
             'central:stock_generation' => '/admin/central/stock',
             'central:stock_settings' => '/admin/central/stock-settings',
-            'central:partners',
+            'central:partners' => '/admin/central/partners',
+            'central:maintenance' => '/admin/central/maintenance',
             'central:partner_quotas',
             'central:partner_monitoring',
             'central:partner_usage',
@@ -349,6 +378,7 @@ class DefaultRbacMenuSeeder extends Seeder
             'tenant:agents',
             'tenant:agent_quotas' => '/admin/tenant/growth/agents',
             'tenant:payment_settings' => '/admin/tenant/payment-settings',
+            'tenant:announcements' => '/admin/tenant/announcements',
             'tenant:affiliate_programs' => '/admin/tenant/growth/affiliate-programs',
             'tenant:affiliate_accounts' => '/admin/tenant/growth/affiliates',
             'tenant:affiliate_links' => '/admin/tenant/growth/affiliate-links',
@@ -377,8 +407,12 @@ class DefaultRbacMenuSeeder extends Seeder
         return $prefix.'_'.substr($scopeType, 0, 1).'_'.substr(sha1($scopeType.':'.$code), 0, 20);
     }
 
-    private function labelFor(string $code): string
+    private function labelFor(string $scopeType, string $code): string
     {
+        if (str_starts_with($code, 'dashboard_')) {
+            return str($code)->after('dashboard_')->replace('_', ' ')->title()->toString();
+        }
+
         if ($code === 'stock_generation') {
             return 'Stock Manager';
         }
@@ -395,12 +429,16 @@ class DefaultRbacMenuSeeder extends Seeder
             return 'Exchange Reward';
         }
 
+        if ($scopeType === 'central' && $code === 'maintenance') {
+            return 'Central Maintenance';
+        }
+
         return str($code)->replace('_', ' ')->title()->toString();
     }
 
     private function categoryFor(string $scopeType, string $code): string
     {
-        if ($code === 'dashboard') {
+        if ($code === 'dashboard' || str_starts_with($code, 'dashboard_')) {
             return 'Dashboard';
         }
 
@@ -410,10 +448,12 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:winners',
             'central:prize_checking',
             'central:sale_price_rules',
+            'central:reward_payout_rules',
             'central:stock_generation',
             'central:stock_settings',
             'central:allocations' => 'Lottery Operations',
             'central:partners',
+            'central:maintenance',
             'central:partner_quotas',
             'central:partner_monitoring',
             'central:partner_usage',
@@ -440,6 +480,7 @@ class DefaultRbacMenuSeeder extends Seeder
             'tenant:exchange_reward',
             'tenant:winners',
             'tenant:payment_settings' => 'Store Operations',
+            'tenant:announcements' => 'Store Operations',
             'tenant:agents',
             'tenant:agent_quotas',
             'tenant:affiliate_programs',
@@ -469,12 +510,18 @@ class DefaultRbacMenuSeeder extends Seeder
     {
         return match (true) {
             $code === 'dashboard' => 'ri-dashboard-line',
+            $code === 'dashboard_sales' => 'ri-line-chart-line',
+            $code === 'dashboard_partner' => 'ri-building-4-line',
+            $code === 'dashboard_wallet' => 'ri-wallet-3-line',
+            $code === 'dashboard_payout' => 'ri-bank-card-line',
+            $code === 'dashboard_monitor' => 'ri-pulse-line',
             str_contains($code, 'stock') || str_contains($code, 'allocation') => 'ri-archive-stack-line',
             str_contains($code, 'reward') || str_contains($code, 'prize') || str_contains($code, 'winner') => 'ri-trophy-line',
             str_contains($code, 'partner') => 'ri-building-4-line',
             str_contains($code, 'quota') => 'ri-speed-up-line',
             str_contains($code, 'billing') || str_contains($code, 'settlement') || str_contains($code, 'payout') => 'ri-bank-card-line',
             str_contains($code, 'alert') || str_contains($code, 'monitoring') => 'ri-notification-3-line',
+            str_contains($code, 'announcement') => 'ri-megaphone-line',
             str_contains($code, 'report') || str_contains($code, 'usage') => 'ri-bar-chart-box-line',
             str_contains($code, 'audit') || str_contains($code, 'log') => 'ri-history-line',
             str_contains($code, 'admin_user') => 'ri-user-settings-line',
@@ -496,6 +543,10 @@ class DefaultRbacMenuSeeder extends Seeder
         $roleScopes = [
             'central' => ['super_admin'],
             'tenant' => ['owner'],
+        ];
+        $menuScopes = [
+            'central' => ['sale_price_rules', 'reward_payout_rules'],
+            'tenant' => ['price_rules', 'sale_price_rules'],
         ];
 
         foreach ($roleScopes as $scopeType => $roleCodes) {
@@ -533,8 +584,156 @@ class DefaultRbacMenuSeeder extends Seeder
             }
 
             DB::table('role_permissions')->insertOrIgnore($rows);
+
+            $menuIds = DB::table('admin_menus')
+                ->where('scope_type', $scopeType)
+                ->whereIn('code', $menuScopes[$scopeType] ?? [])
+                ->where('status', 'active')
+                ->pluck('id')
+                ->all();
+
+            if ($menuIds !== []) {
+                $menuRows = [];
+                foreach ($roleIds as $roleId) {
+                    foreach ($menuIds as $menuId) {
+                        $menuRows[] = [
+                            'role_id' => $roleId,
+                            'menu_id' => $menuId,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ];
+                    }
+                }
+
+                DB::table('role_menus')->insertOrIgnore($menuRows);
+            }
+
             $this->bumpPermissionCacheVersions($roleIds, $now);
         }
+    }
+
+    private function grantCentralDashboardMenusToDefaultRoles(mixed $now): void
+    {
+        $roleIds = DB::table('roles')
+            ->where('scope_type', 'central')
+            ->whereNull('tenant_id')
+            ->whereIn('code', ['super_admin'])
+            ->pluck('id')
+            ->all();
+
+        if ($roleIds === []) {
+            return;
+        }
+
+        $permissionIds = DB::table('permissions')
+            ->where('scope_type', 'central')
+            ->where('code', 'dashboard.view')
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($permissionIds !== []) {
+            $permissionRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($permissionIds as $permissionId) {
+                    $permissionRows[] = [
+                        'role_id' => $roleId,
+                        'permission_id' => $permissionId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_permissions')->insertOrIgnore($permissionRows);
+        }
+
+        $menuIds = DB::table('admin_menus')
+            ->where('scope_type', 'central')
+            ->whereIn('code', ['dashboard', 'dashboard_sales', 'dashboard_partner', 'dashboard_wallet', 'dashboard_payout', 'dashboard_monitor'])
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($menuIds !== []) {
+            $menuRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($menuIds as $menuId) {
+                    $menuRows[] = [
+                        'role_id' => $roleId,
+                        'menu_id' => $menuId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_menus')->insertOrIgnore($menuRows);
+        }
+
+        $this->bumpPermissionCacheVersions($roleIds, $now);
+    }
+
+    private function grantCentralMaintenanceToSuperAdmins(mixed $now): void
+    {
+        $roleIds = DB::table('roles')
+            ->where('scope_type', 'central')
+            ->whereNull('tenant_id')
+            ->whereIn('code', ['super_admin'])
+            ->pluck('id')
+            ->all();
+
+        if ($roleIds === []) {
+            return;
+        }
+
+        $permissionIds = DB::table('permissions')
+            ->where('scope_type', 'central')
+            ->whereIn('code', ['partner.view', 'partner.update'])
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($permissionIds !== []) {
+            $permissionRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($permissionIds as $permissionId) {
+                    $permissionRows[] = [
+                        'role_id' => $roleId,
+                        'permission_id' => $permissionId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_permissions')->insertOrIgnore($permissionRows);
+        }
+
+        $menuIds = DB::table('admin_menus')
+            ->where('scope_type', 'central')
+            ->where('code', 'maintenance')
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($menuIds !== []) {
+            $menuRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($menuIds as $menuId) {
+                    $menuRows[] = [
+                        'role_id' => $roleId,
+                        'menu_id' => $menuId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_menus')->insertOrIgnore($menuRows);
+        }
+
+        $this->bumpPermissionCacheVersions($roleIds, $now);
     }
 
     private function grantWinnerMenuToPlatformOwner(mixed $now): void
@@ -637,6 +836,128 @@ class DefaultRbacMenuSeeder extends Seeder
         $menuIds = DB::table('admin_menus')
             ->where('scope_type', 'tenant')
             ->whereIn('code', ['winners', 'exchange_reward'])
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($menuIds !== []) {
+            $menuRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($menuIds as $menuId) {
+                    $menuRows[] = [
+                        'role_id' => $roleId,
+                        'menu_id' => $menuId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_menus')->insertOrIgnore($menuRows);
+        }
+
+        $this->bumpPermissionCacheVersions($roleIds, $now);
+    }
+
+    private function grantTenantMaintenanceToPartnerOwners(mixed $now): void
+    {
+        $roleIds = DB::table('roles')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['owner_partner', 'owner'])
+            ->pluck('id')
+            ->all();
+
+        if ($roleIds === []) {
+            return;
+        }
+
+        $permissionIds = DB::table('permissions')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['maintenance.view', 'maintenance.update', 'maintenance.schedule', 'maintenance.bypass'])
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($permissionIds !== []) {
+            $permissionRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($permissionIds as $permissionId) {
+                    $permissionRows[] = [
+                        'role_id' => $roleId,
+                        'permission_id' => $permissionId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_permissions')->insertOrIgnore($permissionRows);
+        }
+
+        $menuIds = DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->where('code', 'maintenance')
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($menuIds !== []) {
+            $menuRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($menuIds as $menuId) {
+                    $menuRows[] = [
+                        'role_id' => $roleId,
+                        'menu_id' => $menuId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_menus')->insertOrIgnore($menuRows);
+        }
+
+        $this->bumpPermissionCacheVersions($roleIds, $now);
+    }
+
+    private function grantTenantAnnouncementsToPartnerOwners(mixed $now): void
+    {
+        $roleIds = DB::table('roles')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['owner_partner', 'owner'])
+            ->pluck('id')
+            ->all();
+
+        if ($roleIds === []) {
+            return;
+        }
+
+        $permissionIds = DB::table('permissions')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['announcement.view', 'announcement.manage'])
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($permissionIds !== []) {
+            $permissionRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($permissionIds as $permissionId) {
+                    $permissionRows[] = [
+                        'role_id' => $roleId,
+                        'permission_id' => $permissionId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_permissions')->insertOrIgnore($permissionRows);
+        }
+
+        $menuIds = DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->where('code', 'announcements')
             ->where('status', 'active')
             ->pluck('id')
             ->all();

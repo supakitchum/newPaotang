@@ -14,12 +14,18 @@ Status legend:
 
 | Menu code | Seeded route | BO route | Status | Notes |
 | --- | --- | --- | --- | --- |
-| central:dashboard | /admin/central/dashboard | /admin/central/dashboard | Complete | Dedicated dashboard page. |
+| central:dashboard | /admin/central/dashboard | /admin/central/dashboard | Complete | Dashboard parent menu with Sales, Partner, Wallet, Payout, and Monitor submenus. |
+| central:dashboard_sales | /admin/central/dashboard/sales | /admin/central/dashboard/sales | Complete | Central sales analytics dashboard submenu. |
+| central:dashboard_partner | /admin/central/dashboard/partner | /admin/central/dashboard/partner | Complete | Central partner movement dashboard submenu. |
+| central:dashboard_wallet | /admin/central/dashboard/wallet | /admin/central/dashboard/wallet | Complete | Central wallet flow dashboard submenu. |
+| central:dashboard_payout | /admin/central/dashboard/payout | /admin/central/dashboard/payout | Complete | Central payout dashboard submenu. |
+| central:dashboard_monitor | /admin/central/dashboard/monitor | /admin/central/dashboard/monitor | Complete | Central live monitor dashboard submenu. |
 | central:games | /admin/central/games | /admin/central/games | Complete | Catalog uses central games list/detail/actions. |
 | central:rewards | /admin/central/rewards | /admin/central/rewards | Complete | Catalog uses central rewards list/detail/actions. |
 | central:prize_checking | /admin/central/rewards | /admin/central/rewards | Shared accepted | Prize checking shares the rewards verification workflow. |
 | central:stock_generation | /admin/central/stock | /admin/central/stock-generation | Shared accepted | Renamed to Stock Manager and consolidated as the single stock operations entry for generated supply, grouped stock counts, import/export, top-up progress, and stock actions. |
 | central:partners | /admin/central/partners | /admin/central/partners | Complete | Partner/Tenant consolidates partner detail, tenant profile editing, provisioning, lottery branding, and suspend actions. |
+| central:maintenance | /admin/central/maintenance | /admin/central/maintenance | Complete | Central Maintenance manages Central-controlled partner BO maintenance separately from tenant customer maintenance. |
 | central:partner_quotas | /admin/central/partners | /admin/central/partner-quotas | Complete | Dedicated BO route backed by registered partner quota API. |
 | central:partner_monitoring | /admin/central/partners | /admin/central/partner-monitoring | Complete | Catalog now calls registered partner monitoring list/detail APIs with `partner.monitoring.view`. |
 | central:partner_usage | /admin/central/partners | /admin/central/partner-usage | Complete | Catalog now calls registered partner usage list/detail APIs with `partner.usage.view` and date filters for recent summaries. |
@@ -53,6 +59,7 @@ Status legend:
 | tenant:agents | /admin/tenant/growth/agents | /admin/tenant/growth/agents | Complete | Growth route uses documented `/admin/tenant/agents` API. |
 | tenant:agent_quotas | /admin/tenant/growth/agents | /admin/tenant/growth/agent-quotas | Complete | Dedicated BO route uses agents API plus quota action. |
 | tenant:payment_settings | /admin/tenant/payment-settings | /admin/tenant/payment-settings | Complete | Settings-style route uses payment settings API. |
+| tenant:announcements | /admin/tenant/announcements | /admin/tenant/announcements | Complete | Dedicated announcement manager uses tenant-scoped CRUD, schedule, modal priority, and image upload APIs. |
 | tenant:affiliate_programs | /admin/tenant/growth/affiliate-programs | /admin/tenant/growth/affiliate-programs | Complete | Growth route uses documented affiliate programs API. |
 | tenant:affiliate_accounts | /admin/tenant/growth/affiliates | /admin/tenant/growth/affiliates | Complete | Growth route uses documented affiliates API. |
 | tenant:affiliate_links | /admin/tenant/growth/affiliate-links | /admin/tenant/growth/affiliate-links | Complete | Growth route uses documented affiliate links API. |

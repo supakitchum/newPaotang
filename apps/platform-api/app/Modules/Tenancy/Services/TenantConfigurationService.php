@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\DB;
 
 class TenantConfigurationService
 {
+    private const SUSPENDED_PARTNER_MAINTENANCE_MESSAGE = 'ขณะนี้ระบบปิดให้บริการชั่วคราว กรุณากลับมาใหม่ภายหลัง';
+
     private const MAINTENANCE_MODES = [
         'full_site',
         'customer_web_only',
@@ -62,8 +64,16 @@ class TenantConfigurationService
             return ['error' => ['status' => 404, 'code' => 'tenant_not_found', 'message' => 'Tenant domain was not found.']];
         }
 
-        if ($record->domain_status !== config('platform.tenant_resolution.active_domain_status', 'active')) {
+        $partnerSuspended = (string) $record->partner_status === 'suspended';
+
+        if ($record->domain_status !== config('platform.tenant_resolution.active_domain_status', 'active') && ! $partnerSuspended) {
             return ['error' => ['status' => 409, 'code' => 'domain_not_active', 'message' => 'Tenant domain is not active.']];
+        }
+
+        if ($partnerSuspended) {
+            return [
+                'data' => $this->siteConfigResource($record, $this->suspendedPartnerMaintenanceState($record)),
+            ];
         }
 
         if (
@@ -105,6 +115,10 @@ class TenantConfigurationService
                     'site' => [
                         'display_name' => 'NewPaotang Back Office',
                     ],
+                    'maintenance' => [
+                        'active' => false,
+                        'source' => null,
+                    ],
                 ],
             ];
         }
@@ -143,6 +157,7 @@ class TenantConfigurationService
                 'site' => [
                     'display_name' => $displayName,
                 ],
+                'maintenance' => $this->maintenance->stateForPartner((string) $context['partner_id']),
             ],
         ];
     }
@@ -220,6 +235,10 @@ class TenantConfigurationService
 
         if (array_key_exists('waiting_result_youtube_url', $updates) && ! YoutubeLiveUrl::isAllowedOrEmpty($updates['waiting_result_youtube_url'])) {
             $errors['waiting_result_youtube_url'][] = 'The waiting_result_youtube_url field must be a valid YouTube URL.';
+        }
+
+        if (array_key_exists('terms_content', $updates) && $updates['terms_content'] !== null && ! is_string($updates['terms_content'])) {
+            $errors['terms_content'][] = 'The terms_content field must be text.';
         }
 
         foreach (['maintenance_allowed_routes_json', 'maintenance_blocked_route_patterns_json'] as $field) {
@@ -320,7 +339,7 @@ class TenantConfigurationService
     /**
      * @return array<string, mixed>
      */
-    private function siteConfigResource(object $record): array
+    private function siteConfigResource(object $record, ?array $maintenanceOverride = null): array
     {
         $tenant = (object) [
             'id' => $record->tenant_id,
@@ -350,14 +369,34 @@ class TenantConfigurationService
             'theme' => $this->themePayload($theme),
             'features' => $features,
             'seo' => $this->seoPayload($settings, $host),
-            'maintenance' => $this->maintenance->stateForTenant((string) $record->tenant_id, (string) $record->tenant_status),
+            'maintenance' => $maintenanceOverride ?? $this->maintenance->stateForTenant((string) $record->tenant_id, (string) $record->tenant_status),
             'api' => $this->apiPayload($settings),
             'live' => $this->livePayload($settings),
+            'legal' => $this->legalPayload($settings),
             'timestamps' => [
                 'config_version' => max((int) $settings->config_version, (int) $theme->config_version),
                 'updated_at' => max((string) $settings->updated_at, (string) $theme->updated_at),
             ],
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function suspendedPartnerMaintenanceState(object $record): array
+    {
+        $state = $this->maintenance->stateForTenant((string) $record->tenant_id, (string) $record->tenant_status);
+
+        return array_replace($state, [
+            'status' => 'active',
+            'active' => true,
+            'mode' => 'customer_web_only',
+            'message' => $state['message'] ?: self::SUSPENDED_PARTNER_MAINTENANCE_MESSAGE,
+            'reason' => $state['reason'] ?? 'partner_suspended',
+            'reason_label' => $state['reason_label'] ?? 'Partner suspended',
+            'allowed_routes' => [],
+            'blocked_route_patterns' => [],
+        ]);
     }
 
     /**
@@ -378,6 +417,7 @@ class TenantConfigurationService
             'maintenance' => $this->maintenance->stateForTenant((string) $tenant->id, (string) $tenant->status),
             'api' => $this->apiPayload($settings),
             'live' => $this->livePayload($settings),
+            'legal' => $this->legalPayload($settings),
             'config_version' => (int) $settings->config_version,
         ];
     }
@@ -436,6 +476,7 @@ class TenantConfigurationService
             'realtime_url' => null,
             'asset_cdn_base_url' => $this->canonicalUrl($this->primaryHost((string) $tenant->id)),
             'waiting_result_youtube_url' => null,
+            'terms_content' => null,
             'config_version' => 1,
             'created_at' => $now,
             'updated_at' => $now,
@@ -511,6 +552,7 @@ class TenantConfigurationService
             'realtime_url' => null,
             'asset_cdn_base_url' => $this->canonicalUrl($this->primaryHost((string) $tenant->id)),
             'waiting_result_youtube_url' => null,
+            'terms_content' => null,
             'config_version' => 1,
             'created_at' => $now,
             'updated_at' => $now,
@@ -557,6 +599,7 @@ class TenantConfigurationService
         $maintenance = is_array($payload['maintenance'] ?? null) ? $payload['maintenance'] : [];
         $api = is_array($payload['api'] ?? null) ? $payload['api'] : [];
         $live = is_array($payload['live'] ?? null) ? $payload['live'] : [];
+        $legal = is_array($payload['legal'] ?? null) ? $payload['legal'] : [];
 
         foreach (['site_name', 'display_name', 'locale', 'timezone', 'support_email', 'support_phone'] as $field) {
             if (array_key_exists($field, $payload) || array_key_exists($field, $site)) {
@@ -624,6 +667,12 @@ class TenantConfigurationService
             } elseif (array_key_exists($field, $payload)) {
                 $updates['waiting_result_youtube_url'] = $payload[$field];
             }
+        }
+
+        if (array_key_exists('terms_content', $legal)) {
+            $updates['terms_content'] = $legal['terms_content'] === null ? null : trim((string) $legal['terms_content']);
+        } elseif (array_key_exists('terms_content', $payload)) {
+            $updates['terms_content'] = $payload['terms_content'] === null ? null : trim((string) $payload['terms_content']);
         }
 
         return $updates;
@@ -761,6 +810,16 @@ class TenantConfigurationService
     /**
      * @return array<string, mixed>
      */
+    private function legalPayload(object $settings): array
+    {
+        return [
+            'terms_content' => $this->termsContent($settings),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     private function livePayload(object $settings): array
     {
         $centralUrl = $this->centralWaitingResultYoutubeUrl();
@@ -785,6 +844,36 @@ class TenantConfigurationService
             ?->value_json;
 
         return is_string($value) ? trim($value) : '';
+    }
+
+    private function termsContent(object $settings): string
+    {
+        $custom = trim((string) ($settings->terms_content ?? ''));
+
+        return $custom !== '' ? $custom : $this->defaultTermsContent($this->siteDisplayName($settings));
+    }
+
+    private function siteDisplayName(object $settings): string
+    {
+        $displayName = trim((string) ($settings->display_name ?? ''));
+        $siteName = trim((string) ($settings->site_name ?? ''));
+
+        return $displayName !== '' ? $displayName : ($siteName !== '' ? $siteName : 'เว็บไซต์นี้');
+    }
+
+    private function defaultTermsContent(string $siteName): string
+    {
+        return implode("\n", [
+            'ข้อตกลงการใช้งาน',
+            '1. '.$siteName.'เป็นระบบจำหน่ายลอตเตอรี่ออนไลน์',
+            '2. บริษัทไม่สนับสนุนการจำหน่ายสลากให้กับบุคคลที่มีอายุไม่ถึง 20 ปี',
+            '3. บริษัทสนับสนุนผู้ไม่มีรายได้ ผู้พิการ ในการเป็นตัวแทนจำหน่ายลอตเตอรี่ออนไลน์',
+            '4. บริษัทเก็บรักษาสลากที่ลูกค้าซื้อเพื่อความปลอดภัย รวมถึงการขึ้นรางวัลให้กับลูกค้า',
+            '5. หากผู้ซื้อนำรูปภาพสลากหรือสลากจริงไปขายต่อ ทางบริษัทไม่มีส่วนเกี่ยวข้องและไม่รับผิดชอบความเสียหายในทุกกรณี',
+            '6. หลังจาก ทำรายการ และ กดปุ่ม " ชำระเงิน " ทางบริษัทถือว่า ผู้สั่งซื้อได้รับทราบ ข้อตกลงและเงื่อนไขต่างๆของบริษัทเป็นที่เรียบร้อย',
+            '7. บริษัทขอสงวนสิทธิ์ ขึ้นเงินรางวัลให้ลูกค้าที่ซื้อกับระบบ ในกรณีลูกค้าถูกรางวัล โดยไม่มีค่าใช้จ่ายใดๆ ทั้งสิ้น',
+            '8. ลูกค้าสามารถยกเลิกการสั่งซื้อสลากได้ภายใน 15 นาทีทุกกรณี หากเกินระยะเวลาที่กำหนด บริษัทขอสงวนสิทธิ์ไม่คืนเงินค่าสลากทุกกรณี',
+        ]);
     }
 
     /**

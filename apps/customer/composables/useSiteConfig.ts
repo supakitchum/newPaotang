@@ -62,6 +62,9 @@ export interface SiteConfig {
     central_default_youtube_url?: string
     source?: string
   }
+  legal?: {
+    terms_content?: string
+  }
   [key: string]: unknown
 }
 
@@ -77,7 +80,9 @@ const routeMatchesPattern = (path: string, pattern: string) => {
   return path === pattern
 }
 
-const defaultBlockedRoutes = [
+const checkoutPaymentRoutes = ['/checkout', '/topup']
+const alwaysAllowedMaintenanceRoutes = ['/maintenance', '/robots.txt']
+const protectedMaintenanceRoutes = [
   '/',
   '/buy',
   '/buy/search',
@@ -94,13 +99,14 @@ const defaultBlockedRoutes = [
   '/success',
   '/topup',
   '/topup/history',
+  '/my-wallet',
+  '/purchase-history',
   '/tickets',
   '/tickets/history',
   '/tickets/view',
+  '/profile/auto-reward',
   '/profile'
 ]
-
-const checkoutPaymentRoutes = ['/checkout', '/topup']
 
 export const useSiteConfig = () => {
   const requestHeaders = process.server ? useRequestHeaders(['host']) : {}
@@ -199,7 +205,10 @@ export const useSiteConfig = () => {
   const isMaintenanceActive = computed(() => Boolean(config.value?.maintenance?.active))
 
   const isRouteAllowedDuringMaintenance = (path: string) => {
-    const allowedRoutes = config.value?.maintenance?.allowed_routes || ['/maintenance', '/robots.txt']
+    const allowedRoutes = [
+      ...alwaysAllowedMaintenanceRoutes,
+      ...(config.value?.maintenance?.allowed_routes || [])
+    ]
 
     return allowedRoutes.some((allowedPath) => routeMatchesPattern(path, allowedPath))
   }
@@ -222,11 +231,15 @@ export const useSiteConfig = () => {
       return checkoutPaymentRoutes.some((blockedPath) => path === blockedPath || path.startsWith(`${blockedPath}/`))
     }
 
-    if (mode === 'scheduled') {
+    if (mode === 'scheduled' || mode === 'admin_only' || mode === 'read_only') {
       return false
     }
 
-    return defaultBlockedRoutes.some((blockedPath) => path === blockedPath || path.startsWith(`${blockedPath}/`))
+    if (mode === 'full_site' || mode === 'customer_web_only') {
+      return true
+    }
+
+    return protectedMaintenanceRoutes.some((blockedPath) => path === blockedPath || path.startsWith(`${blockedPath}/`))
   }
 
   const isWriteBlockedByMaintenance = () => {

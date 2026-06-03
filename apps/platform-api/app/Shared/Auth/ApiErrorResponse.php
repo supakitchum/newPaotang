@@ -100,6 +100,17 @@ class ApiErrorResponse
         return $response;
     }
 
+    public static function partnerMaintenanceActive(Request $request, ?int $retryAfterSeconds = null): JsonResponse
+    {
+        $response = self::make($request, 503, 'maintenance_active', 'Partner Back Office maintenance is active.');
+
+        if ($retryAfterSeconds !== null && $retryAfterSeconds > 0) {
+            $response->headers->set('Retry-After', (string) $retryAfterSeconds);
+        }
+
+        return $response;
+    }
+
     /**
      * @param array<string, array<int, string>> $fields
      */

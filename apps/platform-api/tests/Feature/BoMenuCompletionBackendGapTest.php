@@ -44,6 +44,9 @@ class BoMenuCompletionBackendGapTest extends TestCase
             'GET|HEAD api/v1/admin/central/webhook-logs',
             'GET|HEAD api/v1/admin/central/webhook-logs/{webhook_log_id}',
             'GET|HEAD api/v1/admin/central/sync-logs',
+            'GET|HEAD api/v1/admin/central/reward-payout-rule-games',
+            'GET|HEAD api/v1/admin/central/reward-payout-rules',
+            'GET|HEAD api/v1/admin/central/reward-payout-rules/{payout_rule_id}',
             'GET|HEAD api/v1/admin/tenant/price-rules',
             'GET|HEAD api/v1/admin/tenant/price-rule-games',
             'GET|HEAD api/v1/admin/tenant/price-rules/live-settings',
@@ -89,6 +92,7 @@ class BoMenuCompletionBackendGapTest extends TestCase
             'partner.alert.view',
             'audit.view',
             'system.settings.manage',
+            'price_rule.view',
         ], 'central_bo_gap');
 
         $this->createAdmin('adm_central_limited', 'central-gap-limited@example.test');
@@ -114,6 +118,28 @@ class BoMenuCompletionBackendGapTest extends TestCase
             'scope' => 'central',
         ]);
         $headers = ['X-Admin-Scope' => 'central'];
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/reward-payout-rule-games', $headers)
+            ->assertOk()
+            ->assertJsonPath('meta.default_game_id', 'gam_central_payout_gap')
+            ->assertJsonPath('data.0.game_id', 'gam_central_payout_gap');
+
+        $centralPayoutRule = $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/reward-payout-rules?game_id=gam_central_payout_gap', $headers)
+            ->assertOk()
+            ->assertJsonPath('data.0.game_id', 'gam_central_payout_gap')
+            ->assertJsonPath('data.0.prize_type', 'first_prize')
+            ->assertJsonPath('data.0.central_reward_amount.amount', 6000000)
+            ->assertJsonPath('data.6.central_reward_amount.amount', 4000)
+            ->assertJsonPath('data.8.central_reward_amount.amount', 2000)
+            ->json();
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/reward-payout-rules/'.$centralPayoutRule['data'][0]['id'], $headers)
+            ->assertOk()
+            ->assertJsonPath('prize_type', 'first_prize')
+            ->assertJsonPath('central_reward_amount.amount', 6000000);
 
         $this->withToken($login['access_token'])
             ->getJson('/api/v1/admin/central/partner-monitoring?partner_id=par_bo_gap', $headers)
@@ -485,6 +511,21 @@ class BoMenuCompletionBackendGapTest extends TestCase
 
     private function insertCentralOperationalFixtures(): void
     {
+        DB::table('games')->insert([
+            'id' => 'gam_central_payout_gap',
+            'code' => 'CENTRAL-PAYOUT-GAP',
+            'name' => 'Central Payout Gap Draw',
+            'sale_start_at' => now()->subHour(),
+            'draw_at' => now()->addDay(),
+            'close_at' => now()->addHours(20),
+            'closed_at' => null,
+            'archived_at' => null,
+            'status' => 'open',
+            'metadata_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         DB::table('partner_monitoring_profiles')->insert([
             'id' => 'mon_bo_gap',
             'partner_id' => 'par_bo_gap',

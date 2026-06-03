@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url'
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const componentPath = join(root, 'components/AdminLotteryImageOperations.vue')
 const pagePath = join(root, 'pages/admin/central/lottery-images/index.vue')
-const dashboardPath = join(root, 'pages/admin/central/dashboard.vue')
+const dashboardPath = join(root, 'pages/admin/central/dashboard/index.vue')
+const dashboardSectionPath = join(root, 'components/CentralDashboardSection.vue')
 const apiPath = join(root, 'composables/useAdminApi.ts')
 const catalogPath = join(root, 'composables/useAdminOperationsCatalog.ts')
 const operationsPagePath = join(root, 'components/AdminOperationsPage.vue')
@@ -25,6 +26,7 @@ if (!existsSync(pagePath)) {
 const component = existsSync(componentPath) ? readFileSync(componentPath, 'utf8') : ''
 const page = existsSync(pagePath) ? readFileSync(pagePath, 'utf8') : ''
 const dashboard = existsSync(dashboardPath) ? readFileSync(dashboardPath, 'utf8') : ''
+const dashboardSection = existsSync(dashboardSectionPath) ? readFileSync(dashboardSectionPath, 'utf8') : ''
 const api = existsSync(apiPath) ? readFileSync(apiPath, 'utf8') : ''
 const catalog = existsSync(catalogPath) ? readFileSync(catalogPath, 'utf8') : ''
 const operationsPage = existsSync(operationsPagePath) ? readFileSync(operationsPagePath, 'utf8') : ''
@@ -105,7 +107,7 @@ for (const token of [
   }
 }
 
-if (!dashboard.includes('/admin/central/lottery-images')) {
+if (!dashboard.includes('/admin/central/lottery-images') && !dashboardSection.includes('/admin/central/lottery-images')) {
   failures.push('Central dashboard does not link to lottery image operations')
 }
 

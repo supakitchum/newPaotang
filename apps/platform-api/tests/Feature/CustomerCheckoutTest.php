@@ -108,7 +108,18 @@ class CustomerCheckoutTest extends TestCase
         $this->withToken($world['auth']['token'])
             ->getJson('http://'.$world['host'].'/api/v1/customer/orders/'.$order['id'])
             ->assertOk()
-            ->assertJsonPath('id', $order['id']);
+            ->assertJsonPath('id', $order['id'])
+            ->assertJsonPath('ticket_count', 1)
+            ->assertJsonPath('game.name', 'Game gam_checkout');
+
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/orders')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $order['id'])
+            ->assertJsonPath('data.0.ticket_count', 1)
+            ->assertJsonPath('data.0.total.amount', 8000)
+            ->assertJsonPath('data.0.game.name', 'Game gam_checkout')
+            ->assertJsonPath('meta.total', 1);
 
         $this->withToken($world['auth']['token'])
             ->getJson('http://'.$world['host'].'/api/v1/customer/tickets')

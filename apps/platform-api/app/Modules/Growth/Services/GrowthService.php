@@ -37,8 +37,10 @@ use Illuminate\Support\Str;
 
 class GrowthService
 {
-    private const TENANT_REPORT_KEYS = ['overview', 'sales', 'stock', 'wallet', 'commission', 'rewards', 'orders', 'customers', 'audit'];
-    private const CENTRAL_REPORT_KEYS = ['overview', 'sales', 'stock', 'wallet', 'commission', 'rewards', 'settlement', 'partner_usage', 'audit'];
+    private const TENANT_REPORT_KEYS = ['overview', 'sales', 'stock', 'wallet', 'commission', 'rewards', 'orders', 'customers', 'settlement', 'audit'];
+    private const CENTRAL_REPORT_KEYS = ['overview', 'sales', 'orders', 'customers', 'stock', 'wallet', 'commission', 'rewards', 'settlement', 'partner_usage', 'partners', 'audit'];
+    private const CENTRAL_DRAW_REPORT_KEYS = ['overview', 'sales', 'orders', 'stock', 'wallet', 'commission', 'rewards'];
+    private const TENANT_DRAW_REPORT_KEYS = ['overview', 'sales', 'orders', 'stock', 'wallet', 'commission', 'rewards'];
     private const EXPORT_FORMATS = ['csv', 'xlsx', 'pdf'];
     private const PAYOUT_METHODS = ['bank_transfer', 'manual_cash', 'wallet_credit'];
     private const RULE_TYPES = ['fixed_per_order', 'percent_sales', 'per_ticket'];
@@ -1648,21 +1650,12 @@ class GrowthService
         $drilldownTenantId = $scope === 'central' ? $this->nullableString($queryParams['tenant_id'] ?? null) : $tenantId;
         $limit = $this->limit($queryParams['limit'] ?? null);
         $dateRange = $this->dateRange($queryParams);
-        $summary = $this->reportSummary($scope, $drilldownTenantId, $dateRange);
-        $rows = $this->reportRows($scope, $drilldownTenantId, $reportKey, $queryParams, $dateRange, $limit);
 
-        return [
-            'report_key' => $reportKey,
-            'scope' => $scope,
-            'tenant_id' => $drilldownTenantId,
-            'generated_at' => now()->toISOString(),
-            'summary' => $summary,
-            'rows' => $rows['rows'],
-            'meta' => [
-                'next_cursor' => $rows['next_cursor'],
-                'has_more' => $rows['has_more'],
-            ],
-        ];
+        if ($scope === 'central') {
+            return $this->centralReport($drilldownTenantId, $reportKey, $queryParams, $dateRange, $limit);
+        }
+
+        return $this->tenantReport((string) $drilldownTenantId, $reportKey, $queryParams, $dateRange, $limit);
     }
 
     /**
@@ -1693,6 +1686,9 @@ class GrowthService
             'report_key' => $reportKey,
             'format' => $format,
             'tenant_id' => $scope === 'central' ? $this->nullableString($payload['tenant_id'] ?? null) : $tenantId,
+            'game_id' => $this->reportExportSupportsGameFilter($scope, $reportKey)
+                ? $this->nullableString($payload['game_id'] ?? ($payload['filters']['game_id'] ?? null))
+                : null,
             'date_from' => $this->nullableString($payload['date_from'] ?? null),
             'date_to' => $this->nullableString($payload['date_to'] ?? null),
             'filters' => is_array($payload['filters'] ?? null) ? $payload['filters'] : [],
@@ -1713,6 +1709,10 @@ class GrowthService
                 }
 
                 if ($normalized['tenant_id'] !== null && ! PartnerTenant::where('id', $normalized['tenant_id'])->exists()) {
+                    return ['error' => 'not_found'];
+                }
+
+                if ($normalized['game_id'] !== null && ! Game::where('id', $normalized['game_id'])->exists()) {
                     return ['error' => 'not_found'];
                 }
 
@@ -3066,6 +3066,2271 @@ class GrowthService
     private function scopedOrders(?string $tenantId, array $dateRange): mixed
     {
         return $this->scopedTable('orders', $tenantId, $dateRange);
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     * @param array{from: Carbon|null, to: Carbon|null} $dateRange
+     * @return array<string, mixed>
+     */
+    private function centralReport(?string $tenantId, string $reportKey, array $queryParams, array $dateRange, int $limit): array
+    {
+        $gameId = $this->centralReportGameFilter($reportKey, $queryParams);
+        $rows = $this->centralReportRows($tenantId, $reportKey, $dateRange, $limit, $gameId);
+
+        return [
+            'report_key' => $reportKey,
+            'scope' => 'central',
+            'tenant_id' => $tenantId,
+            'game_id' => $gameId,
+            'generated_at' => now()->toISOString(),
+            'summary' => $this->centralReportSummary($tenantId, $dateRange, $gameId),
+            'sections' => $this->centralReportSections($tenantId, $reportKey, $dateRange, $limit, $gameId),
+            'columns' => $this->centralReportColumns($reportKey),
+            'rows' => $rows,
+            'meta' => [
+                'date_from' => $dateRange['from']?->toDateString(),
+                'date_to' => $dateRange['to']?->toDateString(),
+                'tenant_filter_applied' => $tenantId !== null,
+                'game_filter_supported' => $this->centralReportSupportsGameFilter($reportKey),
+                'game_filter_applied' => $gameId !== null,
+                'game_id' => $gameId,
+                'game' => $gameId !== null ? $this->centralReportGameMeta($gameId) : null,
+                'limit' => $limit,
+                'has_more' => count($rows) >= $limit,
+                'next_cursor' => null,
+                'group_by' => $this->nullableString($queryParams['group_by'] ?? null),
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     * @param array{from: Carbon|null, to: Carbon|null} $dateRange
+     * @return array<string, mixed>
+     */
+    private function tenantReport(string $tenantId, string $reportKey, array $queryParams, array $dateRange, int $limit): array
+    {
+        $gameId = $this->tenantReportGameFilter($reportKey, $queryParams);
+        $rows = $this->tenantReportRows($tenantId, $reportKey, $dateRange, $limit, $gameId);
+
+        return [
+            'report_key' => $reportKey,
+            'scope' => 'tenant',
+            'tenant_id' => $tenantId,
+            'game_id' => $gameId,
+            'generated_at' => now()->toISOString(),
+            'summary' => $this->tenantReportSummary($tenantId, $dateRange, $gameId),
+            'sections' => $this->tenantReportSections($tenantId, $reportKey, $dateRange, $limit, $gameId),
+            'columns' => $this->tenantReportColumns($reportKey),
+            'rows' => $rows,
+            'meta' => [
+                'date_from' => $dateRange['from']?->toDateString(),
+                'date_to' => $dateRange['to']?->toDateString(),
+                'game_filter_supported' => $this->tenantReportSupportsGameFilter($reportKey),
+                'game_filter_applied' => $gameId !== null,
+                'game_id' => $gameId,
+                'game' => $gameId !== null ? $this->centralReportGameMeta($gameId) : null,
+                'limit' => $limit,
+                'has_more' => count($rows) >= $limit,
+                'next_cursor' => null,
+                'group_by' => $this->nullableString($queryParams['group_by'] ?? null),
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     */
+    private function tenantReportGameFilter(string $reportKey, array $queryParams): ?string
+    {
+        if (! $this->tenantReportSupportsGameFilter($reportKey)) {
+            return null;
+        }
+
+        return $this->nullableString($queryParams['game_id'] ?? null);
+    }
+
+    private function tenantReportSupportsGameFilter(string $reportKey): bool
+    {
+        return in_array($reportKey, self::TENANT_DRAW_REPORT_KEYS, true);
+    }
+
+    private function reportExportSupportsGameFilter(string $scope, string $reportKey): bool
+    {
+        return $scope === 'central'
+            ? $this->centralReportSupportsGameFilter($reportKey)
+            : $this->tenantReportSupportsGameFilter($reportKey);
+    }
+
+    /**
+     * @param array{from: Carbon|null, to: Carbon|null} $dateRange
+     * @return array<string, mixed>
+     */
+    private function tenantReportSummary(string $tenantId, array $dateRange, ?string $gameId): array
+    {
+        $orders = $this->centralOrdersQuery($tenantId, $dateRange, $gameId);
+        $paidOrders = $this->centralPaidOrdersQuery($tenantId, $dateRange, $gameId);
+        $ordersCount = (int) (clone $orders)->count();
+        $paidOrdersCount = (int) (clone $paidOrders)->count();
+        $salesTotal = (int) (clone $paidOrders)->sum('orders.total_amount');
+        $walletInflow = $this->centralWalletFlowTotal($tenantId, $dateRange, 'inflow', $gameId);
+        $walletOutflow = $this->centralWalletFlowTotal($tenantId, $dateRange, 'outflow', $gameId);
+
+        return [
+            'orders_count' => $ordersCount,
+            'paid_orders_count' => $paidOrdersCount,
+            'sales_total' => $this->money($salesTotal),
+            'tickets_sold_count' => $this->centralPaidTicketsCount($tenantId, $dateRange, $gameId),
+            'average_order_amount' => $this->money($paidOrdersCount > 0 ? (int) round($salesTotal / $paidOrdersCount) : 0),
+            'paid_customer_count' => (int) (clone $paidOrders)->distinct('orders.customer_id')->count('orders.customer_id'),
+            'stock_count' => $this->tenantLocalStockCount($tenantId, $gameId),
+            'stock_total_count' => $this->tenantLocalStockCount($tenantId, $gameId),
+            'stock_available_count' => $this->tenantLocalStockCount($tenantId, $gameId, 'available'),
+            'stock_sold_count' => $this->tenantLocalStockCount($tenantId, $gameId, 'sold'),
+            'wallet_ledger_total' => $this->money($this->tenantWalletLedgerTotal($tenantId, $dateRange, $gameId)),
+            'wallet_inflow_total' => $this->money($walletInflow),
+            'wallet_outflow_total' => $this->money($walletOutflow),
+            'wallet_net_flow_total' => $this->money($walletInflow - $walletOutflow),
+            'commission_total' => $this->money($this->centralCommissionTotal($tenantId, $dateRange, $gameId)),
+            'payout_total' => $this->money((int) $this->scopedTable('affiliate_payouts', $tenantId, $dateRange)->sum('amount')),
+            'reward_claims_count' => $this->centralDateScopedCount('reward_claims', $tenantId, $dateRange, 'created_at', $gameId),
+            'reward_base_total' => $this->money($this->tenantRewardClaimSum($tenantId, $dateRange, 'COALESCE(base_prize_amount, prize_amount)', $gameId)),
+            'reward_adjustment_total' => $this->money($this->tenantRewardClaimSum($tenantId, $dateRange, 'COALESCE(adjustment_amount, 0)', $gameId)),
+            'reward_payout_total' => $this->money($this->centralRewardClaimTotal($tenantId, $dateRange, $gameId)),
+            'customers_count' => Customer::query()->where('tenant_id', $tenantId)->count(),
+            'new_customers_count' => $this->centralDateScopedCount('customers', $tenantId, $dateRange),
+            'settlements_count' => PartnerSettlement::query()->where('tenant_id', $tenantId)->count(),
+            'settlement_net_total' => $this->money($this->centralSettlementTotal($tenantId, $dateRange, 'net_amount')),
+        ];
+    }
+
+    /**
+     * @param array{from: Carbon|null, to: Carbon|null} $dateRange
+     * @return array<int, array<string, mixed>>
+     */
+    private function tenantReportSections(string $tenantId, string $reportKey, array $dateRange, int $limit, ?string $gameId): array
+    {
+        return match ($reportKey) {
+            'sales' => [
+                $this->reportTableSection('Sales by game', $this->centralSalesByGameRows($tenantId, $dateRange, 20, $gameId), [
+                    ['key' => 'game_name', 'label' => 'Game'],
+                    ['key' => 'draw_at', 'label' => 'Draw date', 'type' => 'datetime'],
+                    ['key' => 'sales_amount', 'label' => 'Sales', 'type' => 'money'],
+                    ['key' => 'ticket_count', 'label' => 'Tickets', 'type' => 'number'],
+                    ['key' => 'order_count', 'label' => 'Orders', 'type' => 'number'],
+                ]),
+                $this->reportTableSection('Payment method mix', $this->centralOrderBreakdownRows($tenantId, $dateRange, 'payment_method', $gameId), [
+                    ['key' => 'label', 'label' => 'Payment method'],
+                    ['key' => 'sales_amount', 'label' => 'Sales', 'type' => 'money'],
+                    ['key' => 'order_count', 'label' => 'Orders', 'type' => 'number'],
+                    ['key' => 'percent', 'label' => 'Share', 'type' => 'percent'],
+                ]),
+                $this->reportTableSection('Order status breakdown', $this->centralOrderBreakdownRows($tenantId, $dateRange, 'status', $gameId), [
+                    ['key' => 'label', 'label' => 'Status', 'type' => 'status'],
+                    ['key' => 'sales_amount', 'label' => 'Amount', 'type' => 'money'],
+                    ['key' => 'order_count', 'label' => 'Orders', 'type' => 'number'],
+                    ['key' => 'percent', 'label' => 'Share', 'type' => 'percent'],
+                ]),
+            ],
+            'orders' => [
+                $this->reportTableSection('Order status breakdown', $this->centralOrderBreakdownRows($tenantId, $dateRange, 'status', $gameId), [
+                    ['key' => 'label', 'label' => 'Status', 'type' => 'status'],
+                    ['key' => 'sales_amount', 'label' => 'Amount', 'type' => 'money'],
+                    ['key' => 'order_count', 'label' => 'Orders', 'type' => 'number'],
+                    ['key' => 'percent', 'label' => 'Share', 'type' => 'percent'],
+                ]),
+                $this->reportTableSection('Payment status breakdown', $this->centralOrderBreakdownRows($tenantId, $dateRange, 'payment_status', $gameId), [
+                    ['key' => 'label', 'label' => 'Payment status', 'type' => 'status'],
+                    ['key' => 'sales_amount', 'label' => 'Amount', 'type' => 'money'],
+                    ['key' => 'order_count', 'label' => 'Orders', 'type' => 'number'],
+                    ['key' => 'percent', 'label' => 'Share', 'type' => 'percent'],
+                ]),
+            ],
+            'customers' => [
+                $this->reportTableSection('Customer status breakdown', $this->tenantStatusRows('customers', $tenantId, $dateRange), [
+                    ['key' => 'label', 'label' => 'Status', 'type' => 'status'],
+                    ['key' => 'row_count', 'label' => 'Customers', 'type' => 'number'],
+                ]),
+                $this->reportTableSection('Customer preferences', $this->tenantCustomerPreferenceRows($tenantId, $dateRange), [
+                    ['key' => 'label', 'label' => 'Preference'],
+                    ['key' => 'enabled_count', 'label' => 'Enabled', 'type' => 'number'],
+                    ['key' => 'customer_count', 'label' => 'Customers', 'type' => 'number'],
+                    ['key' => 'percent', 'label' => 'Share', 'type' => 'percent'],
+                ]),
+            ],
+            'stock' => [
+                $this->reportTableSection('Stock by game', $this->tenantLocalStockByGameRows($tenantId, 25, $gameId), [
+                    ['key' => 'game_name', 'label' => 'Game'],
+                    ['key' => 'draw_at', 'label' => 'Draw date', 'type' => 'datetime'],
+                    ['key' => 'total_count', 'label' => 'Total', 'type' => 'number'],
+                    ['key' => 'available_count', 'label' => 'Available', 'type' => 'number'],
+                    ['key' => 'sold_count', 'label' => 'Sold', 'type' => 'number'],
+                    ['key' => 'reserved_count', 'label' => 'Reserved', 'type' => 'number'],
+                ]),
+                $this->reportTableSection('Stock status breakdown', $this->tenantLocalStockStatusRows($tenantId, $gameId), [
+                    ['key' => 'label', 'label' => 'Status', 'type' => 'status'],
+                    ['key' => 'row_count', 'label' => 'Tickets', 'type' => 'number'],
+                    ['key' => 'percent', 'label' => 'Share', 'type' => 'percent'],
+                ]),
+                $this->reportTableSection('Number segment coverage', $this->tenantLocalStockNumberSegmentRows($tenantId, $gameId), [
+                    ['key' => 'segment', 'label' => 'Segment'],
+                    ['key' => 'unique_count', 'label' => 'Unique numbers', 'type' => 'number'],
+                    ['key' => 'sold_count', 'label' => 'Sold', 'type' => 'number'],
+                    ['key' => 'available_count', 'label' => 'Available', 'type' => 'number'],
+                ]),
+            ],
+            'wallet' => [
+                $this->reportTableSection('Wallet flow by reference', $this->centralWalletReferenceRows($tenantId, $dateRange, 25, $gameId), [
+                    ['key' => 'reference_type', 'label' => 'Reference'],
+                    ['key' => 'inflow_amount', 'label' => 'Inflow', 'type' => 'money'],
+                    ['key' => 'outflow_amount', 'label' => 'Outflow', 'type' => 'money'],
+                    ['key' => 'net_amount', 'label' => 'Net', 'type' => 'money'],
+                    ['key' => 'ledger_count', 'label' => 'Entries', 'type' => 'number'],
+                ]),
+                $this->reportTableSection('Wallet status breakdown', $this->tenantWalletStatusRows($tenantId, $dateRange, $gameId), [
+                    ['key' => 'label', 'label' => 'Status', 'type' => 'status'],
+                    ['key' => 'amount', 'label' => 'Amount', 'type' => 'money'],
+                    ['key' => 'row_count', 'label' => 'Entries', 'type' => 'number'],
+                ]),
+            ],
+            'commission' => [
+                $this->reportTableSection('Commission by affiliate', $this->tenantCommissionByAffiliateRows($tenantId, $dateRange, 25, $gameId), [
+                    ['key' => 'affiliate_name', 'label' => 'Affiliate'],
+                    ['key' => 'affiliate_code', 'label' => 'Code'],
+                    ['key' => 'commission_amount', 'label' => 'Commission', 'type' => 'money'],
+                    ['key' => 'approved_amount', 'label' => 'Approved', 'type' => 'money'],
+                    ['key' => 'pending_amount', 'label' => 'Pending', 'type' => 'money'],
+                    ['key' => 'transaction_count', 'label' => 'Transactions', 'type' => 'number'],
+                ]),
+                $this->reportTableSection('Commission status mix', $this->centralMoneyStatusRows('commission_transactions', $tenantId, $dateRange, 'amount', $gameId), [
+                    ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                    ['key' => 'amount', 'label' => 'Amount', 'type' => 'money'],
+                    ['key' => 'row_count', 'label' => 'Rows', 'type' => 'number'],
+                ]),
+            ],
+            'rewards' => [
+                $this->reportTableSection('Reward status mix', $this->centralMoneyStatusRows('reward_claims', $tenantId, $dateRange, 'prize_amount', $gameId), [
+                    ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                    ['key' => 'amount', 'label' => 'Prize', 'type' => 'money'],
+                    ['key' => 'row_count', 'label' => 'Claims', 'type' => 'number'],
+                ]),
+                $this->reportTableSection('Reward payout methods', $this->tenantRewardMethodRows($tenantId, $dateRange, $gameId), [
+                    ['key' => 'payout_method', 'label' => 'Payout method'],
+                    ['key' => 'prize_amount', 'label' => 'Prize', 'type' => 'money'],
+                    ['key' => 'claim_count', 'label' => 'Claims', 'type' => 'number'],
+                    ['key' => 'approved_count', 'label' => 'Approved', 'type' => 'number'],
+                    ['key' => 'rejected_count', 'label' => 'Rejected', 'type' => 'number'],
+                ]),
+                $this->reportTableSection('Rewards by game', $this->tenantRewardByGameRows($tenantId, $dateRange, 25, $gameId), [
+                    ['key' => 'game_name', 'label' => 'Game'],
+                    ['key' => 'draw_at', 'label' => 'Draw date', 'type' => 'datetime'],
+                    ['key' => 'prize_amount', 'label' => 'Prize', 'type' => 'money'],
+                    ['key' => 'claim_count', 'label' => 'Claims', 'type' => 'number'],
+                    ['key' => 'approved_count', 'label' => 'Approved', 'type' => 'number'],
+                    ['key' => 'rejected_count', 'label' => 'Rejected', 'type' => 'number'],
+                ]),
+            ],
+            'settlement' => [
+                $this->reportTableSection('Settlement status mix', $this->tenantSettlementStatusRows($tenantId, $dateRange), [
+                    ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                    ['key' => 'sales_amount', 'label' => 'Sales', 'type' => 'money'],
+                    ['key' => 'commission_amount', 'label' => 'Commission', 'type' => 'money'],
+                    ['key' => 'payout_amount', 'label' => 'Payout', 'type' => 'money'],
+                    ['key' => 'net_amount', 'label' => 'Net', 'type' => 'money'],
+                    ['key' => 'row_count', 'label' => 'Rows', 'type' => 'number'],
+                ]),
+            ],
+            'audit' => [
+                $this->reportTableSection('Audit actions', $this->centralAuditActionRows($tenantId, $dateRange, 25), [
+                    ['key' => 'action', 'label' => 'Action'],
+                    ['key' => 'event_count', 'label' => 'Events', 'type' => 'number'],
+                    ['key' => 'admin_count', 'label' => 'Admins', 'type' => 'number'],
+                    ['key' => 'latest_at', 'label' => 'Latest', 'type' => 'datetime'],
+                ]),
+            ],
+            default => [
+                $this->reportTableSection('Sales by game', $this->centralSalesByGameRows($tenantId, $dateRange, 20, $gameId), [
+                    ['key' => 'game_name', 'label' => 'Game'],
+                    ['key' => 'draw_at', 'label' => 'Draw date', 'type' => 'datetime'],
+                    ['key' => 'sales_amount', 'label' => 'Sales', 'type' => 'money'],
+                    ['key' => 'ticket_count', 'label' => 'Tickets', 'type' => 'number'],
+                    ['key' => 'order_count', 'label' => 'Orders', 'type' => 'number'],
+                ]),
+                $this->reportTableSection('Local stock by game', $this->tenantLocalStockByGameRows($tenantId, 20, $gameId), [
+                    ['key' => 'game_name', 'label' => 'Game'],
+                    ['key' => 'draw_at', 'label' => 'Draw date', 'type' => 'datetime'],
+                    ['key' => 'total_count', 'label' => 'Total', 'type' => 'number'],
+                    ['key' => 'available_count', 'label' => 'Available', 'type' => 'number'],
+                    ['key' => 'sold_count', 'label' => 'Sold', 'type' => 'number'],
+                ]),
+                $this->reportTableSection('Operational status overview', $this->tenantOverviewStatusRows($tenantId, $dateRange, $gameId), [
+                    ['key' => 'area', 'label' => 'Area'],
+                    ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                    ['key' => 'row_count', 'label' => 'Count', 'type' => 'number'],
+                ]),
+            ],
+        };
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function tenantReportColumns(string $reportKey): array
+    {
+        return match ($reportKey) {
+            'sales' => [
+                ['key' => 'paid_at', 'label' => 'Paid at', 'type' => 'datetime'],
+                ['key' => 'game_name', 'label' => 'Game'],
+                ['key' => 'reference', 'label' => 'Order ref'],
+                ['key' => 'customer_name', 'label' => 'Customer'],
+                ['key' => 'ticket_count', 'label' => 'Tickets', 'type' => 'number'],
+                ['key' => 'total_amount', 'label' => 'Amount', 'type' => 'money'],
+                ['key' => 'payment_method', 'label' => 'Payment method'],
+            ],
+            'orders' => [
+                ['key' => 'created_at', 'label' => 'Created', 'type' => 'datetime'],
+                ['key' => 'paid_at', 'label' => 'Paid', 'type' => 'datetime'],
+                ['key' => 'reference', 'label' => 'Order ref'],
+                ['key' => 'customer_name', 'label' => 'Customer'],
+                ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                ['key' => 'payment_status', 'label' => 'Payment', 'type' => 'status'],
+                ['key' => 'total_amount', 'label' => 'Amount', 'type' => 'money'],
+            ],
+            'customers' => [
+                ['key' => 'created_at', 'label' => 'Joined', 'type' => 'datetime'],
+                ['key' => 'name', 'label' => 'Customer'],
+                ['key' => 'phone', 'label' => 'Phone'],
+                ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                ['key' => 'pin_set', 'label' => 'PIN set', 'type' => 'boolean'],
+                ['key' => 'auto_reward', 'label' => 'Auto reward', 'type' => 'boolean'],
+            ],
+            'stock' => [
+                ['key' => 'game_name', 'label' => 'Game'],
+                ['key' => 'draw_at', 'label' => 'Draw date', 'type' => 'datetime'],
+                ['key' => 'full_number', 'label' => 'Number'],
+                ['key' => 'front3', 'label' => 'Front 3'],
+                ['key' => 'back3', 'label' => 'Back 3'],
+                ['key' => 'back2', 'label' => 'Back 2'],
+                ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                ['key' => 'reserved_at', 'label' => 'Reserved', 'type' => 'datetime'],
+                ['key' => 'sold_at', 'label' => 'Sold', 'type' => 'datetime'],
+            ],
+            'wallet' => [
+                ['key' => 'posted_at', 'label' => 'Posted', 'type' => 'datetime'],
+                ['key' => 'customer_name', 'label' => 'Customer'],
+                ['key' => 'entry_type', 'label' => 'Type', 'type' => 'status'],
+                ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                ['key' => 'amount', 'label' => 'Amount', 'type' => 'money'],
+                ['key' => 'balance_after', 'label' => 'Balance after', 'type' => 'money'],
+                ['key' => 'reference_type', 'label' => 'Reference'],
+                ['key' => 'reference_id', 'label' => 'Reference ID'],
+            ],
+            'commission' => [
+                ['key' => 'created_at', 'label' => 'Created', 'type' => 'datetime'],
+                ['key' => 'affiliate_name', 'label' => 'Affiliate'],
+                ['key' => 'transaction_type', 'label' => 'Type'],
+                ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                ['key' => 'amount', 'label' => 'Amount', 'type' => 'money'],
+                ['key' => 'approved_at', 'label' => 'Approved at', 'type' => 'datetime'],
+            ],
+            'rewards' => [
+                ['key' => 'submitted_at', 'label' => 'Submitted', 'type' => 'datetime'],
+                ['key' => 'customer_name', 'label' => 'Customer'],
+                ['key' => 'game_name', 'label' => 'Game'],
+                ['key' => 'reference', 'label' => 'Reference'],
+                ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                ['key' => 'payout_method', 'label' => 'Payout method'],
+                ['key' => 'base_prize_amount', 'label' => 'Base prize', 'type' => 'money'],
+                ['key' => 'adjustment_amount', 'label' => 'Adjustment', 'type' => 'money'],
+                ['key' => 'prize_amount', 'label' => 'Prize', 'type' => 'money'],
+            ],
+            'settlement' => [
+                ['key' => 'created_at', 'label' => 'Created', 'type' => 'datetime'],
+                ['key' => 'period', 'label' => 'Period'],
+                ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                ['key' => 'sales_amount', 'label' => 'Sales', 'type' => 'money'],
+                ['key' => 'commission_amount', 'label' => 'Commission', 'type' => 'money'],
+                ['key' => 'payout_amount', 'label' => 'Payout', 'type' => 'money'],
+                ['key' => 'net_amount', 'label' => 'Net', 'type' => 'money'],
+            ],
+            'audit' => [
+                ['key' => 'created_at', 'label' => 'Created', 'type' => 'datetime'],
+                ['key' => 'scope_type', 'label' => 'Scope'],
+                ['key' => 'actor_type', 'label' => 'Actor'],
+                ['key' => 'actor_id', 'label' => 'Actor ID'],
+                ['key' => 'action', 'label' => 'Action'],
+                ['key' => 'target_type', 'label' => 'Target'],
+                ['key' => 'ip_address', 'label' => 'IP'],
+            ],
+            default => [
+                ['key' => 'game_name', 'label' => 'Game'],
+                ['key' => 'draw_at', 'label' => 'Draw date', 'type' => 'datetime'],
+                ['key' => 'sales_amount', 'label' => 'Sales', 'type' => 'money'],
+                ['key' => 'ticket_count', 'label' => 'Tickets', 'type' => 'number'],
+                ['key' => 'order_count', 'label' => 'Orders', 'type' => 'number'],
+                ['key' => 'stock_total_count', 'label' => 'Stock', 'type' => 'number'],
+                ['key' => 'stock_sold_count', 'label' => 'Sold stock', 'type' => 'number'],
+                ['key' => 'reward_payout_amount', 'label' => 'Rewards', 'type' => 'money'],
+                ['key' => 'reward_claim_count', 'label' => 'Reward claims', 'type' => 'number'],
+            ],
+        };
+    }
+
+    /**
+     * @param array{from: Carbon|null, to: Carbon|null} $dateRange
+     * @return array<int, array<string, mixed>>
+     */
+    private function tenantReportRows(string $tenantId, string $reportKey, array $dateRange, int $limit, ?string $gameId): array
+    {
+        return match ($reportKey) {
+            'sales' => $this->centralSalesOrderRows($tenantId, $dateRange, $limit, $gameId),
+            'orders' => $this->centralOrderRows($tenantId, $dateRange, $limit, $gameId),
+            'customers' => $this->centralCustomerRows($tenantId, $dateRange, $limit),
+            'stock' => $this->tenantLocalStockRows($tenantId, $limit, $gameId),
+            'wallet' => $this->centralWalletRows($tenantId, $dateRange, $limit, $gameId),
+            'commission' => $this->centralCommissionRows($tenantId, $dateRange, $limit, $gameId),
+            'rewards' => $this->centralRewardRows($tenantId, $dateRange, $limit, $gameId),
+            'settlement' => $this->centralSettlementRows($tenantId, $dateRange, $limit),
+            'audit' => $this->centralAuditRows($tenantId, $dateRange, $limit),
+            default => $this->tenantOverviewRows($tenantId, $dateRange, $limit, $gameId),
+        };
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     */
+    private function centralReportGameFilter(string $reportKey, array $queryParams): ?string
+    {
+        if (! $this->centralReportSupportsGameFilter($reportKey)) {
+            return null;
+        }
+
+        return $this->nullableString($queryParams['game_id'] ?? null);
+    }
+
+    private function centralReportSupportsGameFilter(string $reportKey): bool
+    {
+        return in_array($reportKey, self::CENTRAL_DRAW_REPORT_KEYS, true);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function centralReportGameMeta(string $gameId): ?array
+    {
+        $game = DB::table('games')
+            ->where('id', $gameId)
+            ->select(['id', 'code', 'name', 'draw_at', 'status'])
+            ->first();
+
+        if (! $game) {
+            return null;
+        }
+
+        return [
+            'id' => (string) $game->id,
+            'code' => (string) $game->code,
+            'name' => (string) $game->name,
+            'draw_at' => $this->iso($game->draw_at),
+            'status' => (string) $game->status,
+        ];
+    }
+
+    /**
+     * @param array{from: Carbon|null, to: Carbon|null} $dateRange
+     * @return array<string, mixed>
+     */
+    private function centralReportSummary(?string $tenantId, array $dateRange, ?string $gameId): array
+    {
+        $paidOrders = $this->centralPaidOrdersQuery($tenantId, $dateRange, $gameId);
+        $salesTotal = (int) (clone $paidOrders)->sum('orders.total_amount');
+        $paidOrdersCount = (int) (clone $paidOrders)->count();
+        $ticketsSold = $this->centralPaidTicketsCount($tenantId, $dateRange, $gameId);
+        $walletInflow = $this->centralWalletFlowTotal($tenantId, $dateRange, 'inflow', $gameId);
+        $walletOutflow = $this->centralWalletFlowTotal($tenantId, $dateRange, 'outflow', $gameId);
+        $rewardPayout = $this->centralRewardClaimTotal($tenantId, $dateRange, $gameId);
+        $commissionTotal = $this->centralCommissionTotal($tenantId, $dateRange, $gameId);
+
+        return [
+            'paid_orders_count' => $paidOrdersCount,
+            'sales_total' => $this->money($salesTotal),
+            'tickets_sold_count' => $ticketsSold,
+            'average_order_amount' => $this->money($paidOrdersCount > 0 ? (int) round($salesTotal / $paidOrdersCount) : 0),
+            'paid_customer_count' => (int) (clone $paidOrders)->distinct('orders.customer_id')->count('orders.customer_id'),
+            'selling_tenant_count' => (int) (clone $paidOrders)->distinct('orders.tenant_id')->count('orders.tenant_id'),
+            'partners_total' => DB::table('partners')->count(),
+            'active_partners_total' => DB::table('partners')->where('status', 'active')->count(),
+            'tenants_total' => DB::table('partner_tenants')->when($tenantId !== null, fn ($query) => $query->where('id', $tenantId))->count(),
+            'active_tenants_total' => DB::table('partner_tenants')->when($tenantId !== null, fn ($query) => $query->where('id', $tenantId))->where('status', 'active')->count(),
+            'customers_total' => DB::table('customers')->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))->count(),
+            'new_customers_count' => $this->centralDateScopedCount('customers', $tenantId, $dateRange),
+            'stock_total_count' => DB::table('stock_items')
+                ->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))
+                ->when($gameId !== null, fn ($query) => $query->where('game_id', $gameId))
+                ->count(),
+            'stock_available_count' => DB::table('stock_items')
+                ->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))
+                ->when($gameId !== null, fn ($query) => $query->where('game_id', $gameId))
+                ->where('status', 'available')
+                ->count(),
+            'wallet_inflow_total' => $this->money($walletInflow),
+            'wallet_outflow_total' => $this->money($walletOutflow),
+            'wallet_net_flow_total' => $this->money($walletInflow - $walletOutflow),
+            'reward_claims_count' => $this->centralDateScopedCount('reward_claims', $tenantId, $dateRange, 'created_at', $gameId),
+            'reward_payout_total' => $this->money($rewardPayout),
+            'commission_total' => $this->money($commissionTotal),
+            'affiliate_payout_total' => $this->money($this->centralAffiliatePayoutTotal($tenantId, $dateRange)),
+            'settlement_net_total' => $this->money($this->centralSettlementTotal($tenantId, $dateRange, 'net_amount')),
+            'audit_events_count' => $this->centralDateScopedCount('audit_logs', $tenantId, $dateRange),
+        ];
+    }
+
+    /**
+     * @param array{from: Carbon|null, to: Carbon|null} $dateRange
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralReportSections(?string $tenantId, string $reportKey, array $dateRange, int $limit, ?string $gameId): array
+    {
+        return match ($reportKey) {
+            'sales' => [
+                $this->reportTableSection('Sales by partner store', $this->centralSalesByTenantRows($tenantId, $dateRange, 12, $gameId), [
+                    ['key' => 'tenant_name', 'label' => 'Store'],
+                    ['key' => 'partner_name', 'label' => 'Partner'],
+                    ['key' => 'sales_amount', 'label' => 'Sales', 'type' => 'money'],
+                    ['key' => 'ticket_count', 'label' => 'Tickets', 'type' => 'number'],
+                    ['key' => 'order_count', 'label' => 'Orders', 'type' => 'number'],
+                    ['key' => 'customer_count', 'label' => 'Customers', 'type' => 'number'],
+                ]),
+                $this->reportTableSection('Sales by game', $this->centralSalesByGameRows($tenantId, $dateRange, 12, $gameId), [
+                    ['key' => 'game_name', 'label' => 'Game'],
+                    ['key' => 'draw_at', 'label' => 'Draw date', 'type' => 'datetime'],
+                    ['key' => 'sales_amount', 'label' => 'Sales', 'type' => 'money'],
+                    ['key' => 'ticket_count', 'label' => 'Tickets', 'type' => 'number'],
+                    ['key' => 'order_count', 'label' => 'Orders', 'type' => 'number'],
+                ]),
+                $this->reportTableSection('Payment method mix', $this->centralOrderBreakdownRows($tenantId, $dateRange, 'payment_method', $gameId), [
+                    ['key' => 'label', 'label' => 'Payment method'],
+                    ['key' => 'sales_amount', 'label' => 'Sales', 'type' => 'money'],
+                    ['key' => 'order_count', 'label' => 'Orders', 'type' => 'number'],
+                    ['key' => 'percent', 'label' => 'Share', 'type' => 'percent'],
+                ]),
+            ],
+            'orders' => [
+                $this->reportTableSection('Order status breakdown', $this->centralOrderBreakdownRows($tenantId, $dateRange, 'status', $gameId), [
+                    ['key' => 'label', 'label' => 'Status'],
+                    ['key' => 'sales_amount', 'label' => 'Amount', 'type' => 'money'],
+                    ['key' => 'order_count', 'label' => 'Orders', 'type' => 'number'],
+                    ['key' => 'percent', 'label' => 'Share', 'type' => 'percent'],
+                ]),
+                $this->reportTableSection('Payment status breakdown', $this->centralOrderBreakdownRows($tenantId, $dateRange, 'payment_status', $gameId), [
+                    ['key' => 'label', 'label' => 'Payment status'],
+                    ['key' => 'sales_amount', 'label' => 'Amount', 'type' => 'money'],
+                    ['key' => 'order_count', 'label' => 'Orders', 'type' => 'number'],
+                    ['key' => 'percent', 'label' => 'Share', 'type' => 'percent'],
+                ]),
+            ],
+            'customers' => [
+                $this->reportTableSection('New customers by partner store', $this->centralCustomersByTenantRows($tenantId, $dateRange, 20), [
+                    ['key' => 'tenant_name', 'label' => 'Store'],
+                    ['key' => 'partner_name', 'label' => 'Partner'],
+                    ['key' => 'customer_count', 'label' => 'New customers', 'type' => 'number'],
+                    ['key' => 'with_pin_count', 'label' => 'PIN set', 'type' => 'number'],
+                    ['key' => 'auto_reward_count', 'label' => 'Auto reward', 'type' => 'number'],
+                ]),
+            ],
+            'stock' => [
+                $this->reportTableSection('Stock by game', $this->centralStockByGameRows($tenantId, 20, $gameId), [
+                    ['key' => 'game_name', 'label' => 'Game'],
+                    ['key' => 'draw_at', 'label' => 'Draw date', 'type' => 'datetime'],
+                    ['key' => 'total_count', 'label' => 'Total', 'type' => 'number'],
+                    ['key' => 'available_count', 'label' => 'Available', 'type' => 'number'],
+                    ['key' => 'sold_count', 'label' => 'Sold', 'type' => 'number'],
+                    ['key' => 'reserved_count', 'label' => 'Reserved', 'type' => 'number'],
+                    ['key' => 'allocated_count', 'label' => 'Allocated', 'type' => 'number'],
+                ]),
+                $this->reportTableSection('Stock by partner store', $this->centralStockByTenantRows($tenantId, 20, $gameId), [
+                    ['key' => 'tenant_name', 'label' => 'Store'],
+                    ['key' => 'partner_name', 'label' => 'Partner'],
+                    ['key' => 'total_count', 'label' => 'Total', 'type' => 'number'],
+                    ['key' => 'available_count', 'label' => 'Available', 'type' => 'number'],
+                    ['key' => 'sold_count', 'label' => 'Sold', 'type' => 'number'],
+                ]),
+            ],
+            'wallet' => [
+                $this->reportTableSection('Wallet flow by reference', $this->centralWalletReferenceRows($tenantId, $dateRange, 20, $gameId), [
+                    ['key' => 'reference_type', 'label' => 'Reference'],
+                    ['key' => 'inflow_amount', 'label' => 'Inflow', 'type' => 'money'],
+                    ['key' => 'outflow_amount', 'label' => 'Outflow', 'type' => 'money'],
+                    ['key' => 'net_amount', 'label' => 'Net', 'type' => 'money'],
+                    ['key' => 'ledger_count', 'label' => 'Entries', 'type' => 'number'],
+                ]),
+                $this->reportTableSection('Wallet flow by partner store', $this->centralWalletByTenantRows($tenantId, $dateRange, 20, $gameId), [
+                    ['key' => 'tenant_name', 'label' => 'Store'],
+                    ['key' => 'partner_name', 'label' => 'Partner'],
+                    ['key' => 'inflow_amount', 'label' => 'Inflow', 'type' => 'money'],
+                    ['key' => 'outflow_amount', 'label' => 'Outflow', 'type' => 'money'],
+                    ['key' => 'net_amount', 'label' => 'Net', 'type' => 'money'],
+                ]),
+            ],
+            'commission' => [
+                $this->reportTableSection('Commission by partner store', $this->centralCommissionByTenantRows($tenantId, $dateRange, 20, $gameId), [
+                    ['key' => 'tenant_name', 'label' => 'Store'],
+                    ['key' => 'partner_name', 'label' => 'Partner'],
+                    ['key' => 'commission_amount', 'label' => 'Commission', 'type' => 'money'],
+                    ['key' => 'approved_amount', 'label' => 'Approved', 'type' => 'money'],
+                    ['key' => 'pending_amount', 'label' => 'Pending', 'type' => 'money'],
+                    ['key' => 'transaction_count', 'label' => 'Transactions', 'type' => 'number'],
+                ]),
+                $this->reportTableSection('Commission status mix', $this->centralMoneyStatusRows('commission_transactions', $tenantId, $dateRange, 'amount', $gameId), [
+                    ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                    ['key' => 'amount', 'label' => 'Amount', 'type' => 'money'],
+                    ['key' => 'row_count', 'label' => 'Rows', 'type' => 'number'],
+                ]),
+            ],
+            'rewards' => [
+                $this->reportTableSection('Reward claims by partner store', $this->centralRewardsByTenantRows($tenantId, $dateRange, 20, $gameId), [
+                    ['key' => 'tenant_name', 'label' => 'Store'],
+                    ['key' => 'partner_name', 'label' => 'Partner'],
+                    ['key' => 'prize_amount', 'label' => 'Prize', 'type' => 'money'],
+                    ['key' => 'approved_amount', 'label' => 'Approved', 'type' => 'money'],
+                    ['key' => 'rejected_count', 'label' => 'Rejected', 'type' => 'number'],
+                    ['key' => 'claim_count', 'label' => 'Claims', 'type' => 'number'],
+                ]),
+                $this->reportTableSection('Reward status mix', $this->centralMoneyStatusRows('reward_claims', $tenantId, $dateRange, 'prize_amount', $gameId), [
+                    ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                    ['key' => 'amount', 'label' => 'Prize', 'type' => 'money'],
+                    ['key' => 'row_count', 'label' => 'Claims', 'type' => 'number'],
+                ]),
+            ],
+            'settlement' => [
+                $this->reportTableSection('Settlement by partner store', $this->centralSettlementRows($tenantId, $dateRange, 25), $this->centralReportColumns('settlement')),
+            ],
+            'partner_usage' => [
+                $this->reportTableSection('Usage by partner store', $this->centralUsageByTenantRows($tenantId, $dateRange, 25), $this->centralReportColumns('partner_usage')),
+            ],
+            'partners' => [
+                $this->reportTableSection('Partner status mix', $this->centralPartnerStatusRows(), [
+                    ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                    ['key' => 'partner_count', 'label' => 'Partners', 'type' => 'number'],
+                    ['key' => 'tenant_count', 'label' => 'Stores', 'type' => 'number'],
+                ]),
+            ],
+            'audit' => [
+                $this->reportTableSection('Audit actions', $this->centralAuditActionRows($tenantId, $dateRange, 25), [
+                    ['key' => 'action', 'label' => 'Action'],
+                    ['key' => 'event_count', 'label' => 'Events', 'type' => 'number'],
+                    ['key' => 'admin_count', 'label' => 'Admins', 'type' => 'number'],
+                    ['key' => 'latest_at', 'label' => 'Latest', 'type' => 'datetime'],
+                ]),
+            ],
+            default => [
+                $this->reportTableSection('Top partner stores by sales', $this->centralSalesByTenantRows($tenantId, $dateRange, 12, $gameId), [
+                    ['key' => 'tenant_name', 'label' => 'Store'],
+                    ['key' => 'partner_name', 'label' => 'Partner'],
+                    ['key' => 'sales_amount', 'label' => 'Sales', 'type' => 'money'],
+                    ['key' => 'ticket_count', 'label' => 'Tickets', 'type' => 'number'],
+                    ['key' => 'order_count', 'label' => 'Orders', 'type' => 'number'],
+                ]),
+                $this->reportTableSection('Operational status overview', $this->centralOverviewStatusRows($tenantId, $gameId), [
+                    ['key' => 'area', 'label' => 'Area'],
+                    ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                    ['key' => 'row_count', 'label' => 'Count', 'type' => 'number'],
+                ]),
+            ],
+        };
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralReportColumns(string $reportKey): array
+    {
+        return match ($reportKey) {
+            'sales' => [
+                ['key' => 'paid_at', 'label' => 'Paid at', 'type' => 'datetime'],
+                ['key' => 'tenant_name', 'label' => 'Store'],
+                ['key' => 'partner_name', 'label' => 'Partner'],
+                ['key' => 'game_name', 'label' => 'Game'],
+                ['key' => 'reference', 'label' => 'Order ref'],
+                ['key' => 'customer_name', 'label' => 'Customer'],
+                ['key' => 'ticket_count', 'label' => 'Tickets', 'type' => 'number'],
+                ['key' => 'total_amount', 'label' => 'Amount', 'type' => 'money'],
+                ['key' => 'payment_method', 'label' => 'Payment method'],
+            ],
+            'orders' => [
+                ['key' => 'created_at', 'label' => 'Created', 'type' => 'datetime'],
+                ['key' => 'paid_at', 'label' => 'Paid', 'type' => 'datetime'],
+                ['key' => 'reference', 'label' => 'Order ref'],
+                ['key' => 'tenant_name', 'label' => 'Store'],
+                ['key' => 'customer_name', 'label' => 'Customer'],
+                ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                ['key' => 'payment_status', 'label' => 'Payment', 'type' => 'status'],
+                ['key' => 'total_amount', 'label' => 'Amount', 'type' => 'money'],
+            ],
+            'customers' => [
+                ['key' => 'created_at', 'label' => 'Joined', 'type' => 'datetime'],
+                ['key' => 'tenant_name', 'label' => 'Store'],
+                ['key' => 'name', 'label' => 'Customer'],
+                ['key' => 'phone', 'label' => 'Phone'],
+                ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                ['key' => 'pin_set', 'label' => 'PIN set', 'type' => 'boolean'],
+                ['key' => 'auto_reward', 'label' => 'Auto reward', 'type' => 'boolean'],
+            ],
+            'stock' => [
+                ['key' => 'game_name', 'label' => 'Game'],
+                ['key' => 'draw_at', 'label' => 'Draw date', 'type' => 'datetime'],
+                ['key' => 'full_number', 'label' => 'Number'],
+                ['key' => 'tenant_name', 'label' => 'Store'],
+                ['key' => 'partner_name', 'label' => 'Partner'],
+                ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                ['key' => 'updated_at', 'label' => 'Updated', 'type' => 'datetime'],
+            ],
+            'wallet' => [
+                ['key' => 'posted_at', 'label' => 'Posted', 'type' => 'datetime'],
+                ['key' => 'tenant_name', 'label' => 'Store'],
+                ['key' => 'customer_name', 'label' => 'Customer'],
+                ['key' => 'entry_type', 'label' => 'Type', 'type' => 'status'],
+                ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                ['key' => 'amount', 'label' => 'Amount', 'type' => 'money'],
+                ['key' => 'balance_after', 'label' => 'Balance after', 'type' => 'money'],
+                ['key' => 'reference_type', 'label' => 'Reference'],
+            ],
+            'commission' => [
+                ['key' => 'created_at', 'label' => 'Created', 'type' => 'datetime'],
+                ['key' => 'tenant_name', 'label' => 'Store'],
+                ['key' => 'affiliate_name', 'label' => 'Affiliate'],
+                ['key' => 'transaction_type', 'label' => 'Type'],
+                ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                ['key' => 'amount', 'label' => 'Amount', 'type' => 'money'],
+                ['key' => 'approved_at', 'label' => 'Approved at', 'type' => 'datetime'],
+            ],
+            'rewards' => [
+                ['key' => 'submitted_at', 'label' => 'Submitted', 'type' => 'datetime'],
+                ['key' => 'tenant_name', 'label' => 'Store'],
+                ['key' => 'customer_name', 'label' => 'Customer'],
+                ['key' => 'game_name', 'label' => 'Game'],
+                ['key' => 'reference', 'label' => 'Reference'],
+                ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                ['key' => 'payout_method', 'label' => 'Payout method'],
+                ['key' => 'base_prize_amount', 'label' => 'Base prize', 'type' => 'money'],
+                ['key' => 'adjustment_amount', 'label' => 'Adjustment', 'type' => 'money'],
+                ['key' => 'prize_amount', 'label' => 'Prize', 'type' => 'money'],
+            ],
+            'settlement' => [
+                ['key' => 'created_at', 'label' => 'Created', 'type' => 'datetime'],
+                ['key' => 'tenant_name', 'label' => 'Store'],
+                ['key' => 'partner_name', 'label' => 'Partner'],
+                ['key' => 'period', 'label' => 'Period'],
+                ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
+                ['key' => 'sales_amount', 'label' => 'Sales', 'type' => 'money'],
+                ['key' => 'commission_amount', 'label' => 'Commission', 'type' => 'money'],
+                ['key' => 'payout_amount', 'label' => 'Payout', 'type' => 'money'],
+                ['key' => 'net_amount', 'label' => 'Net', 'type' => 'money'],
+            ],
+            'partner_usage' => [
+                ['key' => 'usage_date', 'label' => 'Date'],
+                ['key' => 'tenant_name', 'label' => 'Store'],
+                ['key' => 'partner_name', 'label' => 'Partner'],
+                ['key' => 'api_request_count', 'label' => 'API', 'type' => 'number'],
+                ['key' => 'booking_request_count', 'label' => 'Bookings', 'type' => 'number'],
+                ['key' => 'checkout_request_count', 'label' => 'Checkouts', 'type' => 'number'],
+                ['key' => 'order_count', 'label' => 'Orders', 'type' => 'number'],
+                ['key' => 'sold_ticket_count', 'label' => 'Sold tickets', 'type' => 'number'],
+                ['key' => 'error_count', 'label' => 'Errors', 'type' => 'number'],
+            ],
+            'partners' => [
+                ['key' => 'created_at', 'label' => 'Created', 'type' => 'datetime'],
+                ['key' => 'partner_name', 'label' => 'Partner'],
+                ['key' => 'partner_code', 'label' => 'Partner code'],
+                ['key' => 'tenant_name', 'label' => 'Store'],
+                ['key' => 'tenant_code', 'label' => 'Store code'],
+                ['key' => 'partner_status', 'label' => 'Partner status', 'type' => 'status'],
+                ['key' => 'tenant_status', 'label' => 'Store status', 'type' => 'status'],
+            ],
+            'audit' => [
+                ['key' => 'created_at', 'label' => 'Created', 'type' => 'datetime'],
+                ['key' => 'scope_type', 'label' => 'Scope'],
+                ['key' => 'tenant_name', 'label' => 'Store'],
+                ['key' => 'actor_type', 'label' => 'Actor'],
+                ['key' => 'actor_id', 'label' => 'Actor ID'],
+                ['key' => 'action', 'label' => 'Action'],
+                ['key' => 'target_type', 'label' => 'Target'],
+                ['key' => 'ip_address', 'label' => 'IP'],
+            ],
+            default => [
+                ['key' => 'tenant_name', 'label' => 'Store'],
+                ['key' => 'partner_name', 'label' => 'Partner'],
+                ['key' => 'sales_amount', 'label' => 'Sales', 'type' => 'money'],
+                ['key' => 'ticket_count', 'label' => 'Tickets', 'type' => 'number'],
+                ['key' => 'order_count', 'label' => 'Orders', 'type' => 'number'],
+                ['key' => 'customer_count', 'label' => 'Customers', 'type' => 'number'],
+                ['key' => 'stock_total_count', 'label' => 'Stock', 'type' => 'number'],
+                ['key' => 'reward_payout_amount', 'label' => 'Rewards', 'type' => 'money'],
+                ['key' => 'wallet_net_amount', 'label' => 'Wallet net', 'type' => 'money'],
+            ],
+        };
+    }
+
+    /**
+     * @param array{from: Carbon|null, to: Carbon|null} $dateRange
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralReportRows(?string $tenantId, string $reportKey, array $dateRange, int $limit, ?string $gameId): array
+    {
+        return match ($reportKey) {
+            'sales' => $this->centralSalesOrderRows($tenantId, $dateRange, $limit, $gameId),
+            'orders' => $this->centralOrderRows($tenantId, $dateRange, $limit, $gameId),
+            'customers' => $this->centralCustomerRows($tenantId, $dateRange, $limit),
+            'stock' => $this->centralStockRows($tenantId, $limit, $gameId),
+            'wallet' => $this->centralWalletRows($tenantId, $dateRange, $limit, $gameId),
+            'commission' => $this->centralCommissionRows($tenantId, $dateRange, $limit, $gameId),
+            'rewards' => $this->centralRewardRows($tenantId, $dateRange, $limit, $gameId),
+            'settlement' => $this->centralSettlementRows($tenantId, $dateRange, $limit),
+            'partner_usage' => $this->centralUsageRows($tenantId, $dateRange, $limit),
+            'partners' => $this->centralPartnerRows($tenantId, $limit),
+            'audit' => $this->centralAuditRows($tenantId, $dateRange, $limit),
+            default => $this->centralOverviewRows($tenantId, $dateRange, $limit, $gameId),
+        };
+    }
+
+    /**
+     * @param array{from: Carbon|null, to: Carbon|null} $dateRange
+     * @return array<int, array<string, mixed>>
+     */
+    private function tenantOverviewRows(string $tenantId, array $dateRange, int $limit, ?string $gameId): array
+    {
+        $sales = collect($this->centralSalesByGameRows($tenantId, $dateRange, $limit, $gameId))->keyBy('game_id');
+        $stock = collect($this->tenantLocalStockByGameRows($tenantId, $limit, $gameId))->keyBy('game_id');
+        $rewards = collect($this->tenantRewardByGameRows($tenantId, $dateRange, $limit, $gameId))->keyBy('game_id');
+        $gameIds = $sales->keys()->merge($stock->keys())->merge($rewards->keys())->unique()->take($limit);
+
+        return $gameIds->map(function (string $id) use ($sales, $stock, $rewards): array {
+            $sale = $sales[$id] ?? [];
+            $stockRow = $stock[$id] ?? [];
+            $reward = $rewards[$id] ?? [];
+
+            return [
+                'game_id' => $id,
+                'game_name' => $sale['game_name'] ?? $stockRow['game_name'] ?? $reward['game_name'] ?? $id,
+                'draw_at' => $sale['draw_at'] ?? $stockRow['draw_at'] ?? $reward['draw_at'] ?? null,
+                'sales_amount' => $sale['sales_amount'] ?? $this->money(0),
+                'ticket_count' => $sale['ticket_count'] ?? 0,
+                'order_count' => $sale['order_count'] ?? 0,
+                'stock_total_count' => $stockRow['total_count'] ?? 0,
+                'stock_sold_count' => $stockRow['sold_count'] ?? 0,
+                'reward_payout_amount' => $reward['prize_amount'] ?? $this->money(0),
+                'reward_claim_count' => $reward['claim_count'] ?? 0,
+            ];
+        })->values()->all();
+    }
+
+    private function tenantLocalStockCount(string $tenantId, ?string $gameId, ?string $status = null): int
+    {
+        return (int) DB::table('local_stock_items')
+            ->where('tenant_id', $tenantId)
+            ->when($gameId !== null, fn ($query) => $query->where('game_id', $gameId))
+            ->when($status !== null, fn ($query) => $query->where('status', $status))
+            ->count();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function tenantLocalStockRows(string $tenantId, int $limit, ?string $gameId): array
+    {
+        $query = DB::table('local_stock_items')
+            ->leftJoin('games', 'games.id', '=', 'local_stock_items.game_id')
+            ->select([
+                'local_stock_items.id',
+                'local_stock_items.game_id',
+                'local_stock_items.full_number',
+                'local_stock_items.front3',
+                'local_stock_items.back3',
+                'local_stock_items.back2',
+                'local_stock_items.status',
+                'local_stock_items.synced_at',
+                'local_stock_items.reserved_at',
+                'local_stock_items.sold_at',
+                'local_stock_items.updated_at',
+                'games.name as game_name',
+                'games.draw_at',
+            ])
+            ->where('local_stock_items.tenant_id', $tenantId)
+            ->orderByDesc('local_stock_items.updated_at')
+            ->limit($limit);
+        $this->applyCentralGameFilter($query, $gameId, 'local_stock_items.game_id');
+
+        return $query->get()->map(fn (object $row): array => [
+            'id' => (string) $row->id,
+            'game_id' => (string) $row->game_id,
+            'game_name' => (string) ($row->game_name ?? $row->game_id),
+            'draw_at' => $this->iso($row->draw_at),
+            'full_number' => (string) $row->full_number,
+            'front3' => (string) ($row->front3 ?? '-'),
+            'back3' => (string) ($row->back3 ?? '-'),
+            'back2' => (string) ($row->back2 ?? '-'),
+            'status' => (string) $row->status,
+            'synced_at' => $this->iso($row->synced_at),
+            'reserved_at' => $this->iso($row->reserved_at),
+            'sold_at' => $this->iso($row->sold_at),
+            'updated_at' => $this->iso($row->updated_at),
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function tenantLocalStockByGameRows(string $tenantId, int $limit, ?string $gameId = null): array
+    {
+        $query = DB::table('local_stock_items')
+            ->leftJoin('games', 'games.id', '=', 'local_stock_items.game_id')
+            ->select([
+                'local_stock_items.game_id',
+                'games.name as game_name',
+                'games.draw_at',
+                DB::raw('COUNT(local_stock_items.id) as total_count'),
+                DB::raw("SUM(CASE WHEN local_stock_items.status = 'available' THEN 1 ELSE 0 END) as available_count"),
+                DB::raw("SUM(CASE WHEN local_stock_items.status = 'sold' THEN 1 ELSE 0 END) as sold_count"),
+                DB::raw("SUM(CASE WHEN local_stock_items.status = 'reserved' THEN 1 ELSE 0 END) as reserved_count"),
+            ])
+            ->where('local_stock_items.tenant_id', $tenantId)
+            ->groupBy('local_stock_items.game_id', 'games.name', 'games.draw_at')
+            ->orderByDesc('games.draw_at')
+            ->limit($limit);
+        $this->applyCentralGameFilter($query, $gameId, 'local_stock_items.game_id');
+
+        return $query->get()->map(fn (object $row): array => [
+            'game_id' => (string) $row->game_id,
+            'game_name' => (string) ($row->game_name ?? $row->game_id),
+            'draw_at' => $this->iso($row->draw_at),
+            'total_count' => (int) $row->total_count,
+            'available_count' => (int) $row->available_count,
+            'sold_count' => (int) $row->sold_count,
+            'reserved_count' => (int) $row->reserved_count,
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function tenantLocalStockStatusRows(string $tenantId, ?string $gameId): array
+    {
+        $total = max(1, $this->tenantLocalStockCount($tenantId, $gameId));
+        $query = DB::table('local_stock_items')
+            ->select([DB::raw("COALESCE(status, 'unknown') as label"), DB::raw('COUNT(*) as row_count')])
+            ->where('tenant_id', $tenantId)
+            ->groupBy('label')
+            ->orderByDesc('row_count');
+        $this->applyCentralGameFilter($query, $gameId, 'game_id');
+
+        return $query->get()->map(fn (object $row): array => [
+            'label' => (string) $row->label,
+            'row_count' => (int) $row->row_count,
+            'percent' => round(((int) $row->row_count / $total) * 100, 2),
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function tenantLocalStockNumberSegmentRows(string $tenantId, ?string $gameId): array
+    {
+        return collect([
+            ['Front 3 digits', 'front3'],
+            ['Back 3 digits', 'back3'],
+            ['Back 2 digits', 'back2'],
+        ])->map(function (array $segment) use ($tenantId, $gameId): array {
+            [$label, $column] = $segment;
+            $base = DB::table('local_stock_items')
+                ->where('tenant_id', $tenantId)
+                ->whereNotNull($column);
+            $this->applyCentralGameFilter($base, $gameId, 'game_id');
+
+            return [
+                'segment' => $label,
+                'unique_count' => (int) (clone $base)->distinct()->count($column),
+                'sold_count' => (int) (clone $base)->where('status', 'sold')->count(),
+                'available_count' => (int) (clone $base)->where('status', 'available')->count(),
+            ];
+        })->all();
+    }
+
+    /**
+     * @param array{from: Carbon|null, to: Carbon|null} $dateRange
+     * @return array<int, array<string, mixed>>
+     */
+    private function tenantStatusRows(string $table, string $tenantId, array $dateRange, string $labelColumn = 'status', ?string $amountColumn = null, string $dateExpression = 'created_at', ?string $gameId = null, ?string $gameColumn = 'game_id'): array
+    {
+        $select = [
+            DB::raw('COALESCE('.$labelColumn.", 'unknown') as label"),
+            DB::raw('COUNT(*) as row_count'),
+        ];
+
+        if ($amountColumn !== null) {
+            $select[] = DB::raw('SUM('.$amountColumn.') as amount');
+        }
+
+        $query = DB::table($table)
+            ->select($select)
+            ->where($table.'.tenant_id', $tenantId)
+            ->groupBy('label')
+            ->orderByDesc($amountColumn !== null ? 'amount' : 'row_count');
+
+        if ($gameId !== null && $gameColumn !== null) {
+            $query->where($gameColumn, $gameId);
+        }
+
+        $this->applyCentralDateRange($query, $dateRange, $dateExpression);
+
+        return $query->get()->map(function (object $row) use ($amountColumn): array {
+            $resource = [
+                'label' => (string) $row->label,
+                'row_count' => (int) $row->row_count,
+            ];
+
+            if ($amountColumn !== null) {
+                $resource['amount'] = $this->money((int) $row->amount);
+            }
+
+            return $resource;
+        })->all();
+    }
+
+    private function tenantWalletLedgerTotal(string $tenantId, array $dateRange, ?string $gameId): int
+    {
+        $query = DB::table('wallet_ledger')
+            ->where('wallet_ledger.tenant_id', $tenantId);
+        $this->applyCentralWalletGameFilter($query, $gameId);
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(wallet_ledger.posted_at, wallet_ledger.created_at)');
+
+        return (int) $query->sum('wallet_ledger.amount');
+    }
+
+    /**
+     * @param array{from: Carbon|null, to: Carbon|null} $dateRange
+     * @return array<int, array<string, mixed>>
+     */
+    private function tenantWalletStatusRows(string $tenantId, array $dateRange, ?string $gameId): array
+    {
+        $query = DB::table('wallet_ledger')
+            ->select([
+                DB::raw("COALESCE(wallet_ledger.status, 'unknown') as label"),
+                DB::raw('SUM(wallet_ledger.amount) as amount'),
+                DB::raw('COUNT(*) as row_count'),
+            ])
+            ->where('wallet_ledger.tenant_id', $tenantId)
+            ->groupBy('label')
+            ->orderByDesc('amount');
+        $this->applyCentralWalletGameFilter($query, $gameId);
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(wallet_ledger.posted_at, wallet_ledger.created_at)');
+
+        return $query->get()->map(fn (object $row): array => [
+            'label' => (string) $row->label,
+            'amount' => $this->money((int) $row->amount),
+            'row_count' => (int) $row->row_count,
+        ])->all();
+    }
+
+    /**
+     * @param array{from: Carbon|null, to: Carbon|null} $dateRange
+     * @return array<int, array<string, mixed>>
+     */
+    private function tenantCustomerPreferenceRows(string $tenantId, array $dateRange): array
+    {
+        $base = DB::table('customers')->where('tenant_id', $tenantId);
+        $this->applyCentralDateRange($base, $dateRange, 'customers.created_at');
+        $total = max(1, (int) (clone $base)->count());
+
+        return collect([
+            ['PIN set', 'pin_set_at IS NOT NULL'],
+            ['Auto reward enabled', 'auto_reward_claim_enabled = true'],
+            ["Auto reward wallet", "auto_reward_claim_payout_method = 'wallet_credit'"],
+            ["Auto reward bank transfer", "auto_reward_claim_payout_method = 'bank_transfer'"],
+        ])->map(function (array $preference) use ($base, $total): array {
+            [$label, $condition] = $preference;
+            $enabled = (int) (clone $base)->whereRaw($condition)->count();
+
+            return [
+                'label' => $label,
+                'enabled_count' => $enabled,
+                'customer_count' => $total,
+                'percent' => round(($enabled / $total) * 100, 2),
+            ];
+        })->all();
+    }
+
+    /**
+     * @param array{from: Carbon|null, to: Carbon|null} $dateRange
+     * @return array<int, array<string, mixed>>
+     */
+    private function tenantCommissionByAffiliateRows(string $tenantId, array $dateRange, int $limit, ?string $gameId): array
+    {
+        $query = DB::table('commission_transactions')
+            ->leftJoin('affiliate_accounts', 'affiliate_accounts.id', '=', 'commission_transactions.affiliate_account_id')
+            ->select([
+                'commission_transactions.affiliate_account_id',
+                'affiliate_accounts.name as affiliate_name',
+                'affiliate_accounts.code as affiliate_code',
+                DB::raw('SUM(commission_transactions.amount) as commission_amount'),
+                DB::raw("SUM(CASE WHEN commission_transactions.status = 'approved' THEN commission_transactions.amount ELSE 0 END) as approved_amount"),
+                DB::raw("SUM(CASE WHEN commission_transactions.status = 'approved' THEN 0 ELSE commission_transactions.amount END) as pending_amount"),
+                DB::raw('COUNT(*) as transaction_count'),
+            ])
+            ->where('commission_transactions.tenant_id', $tenantId)
+            ->groupBy('commission_transactions.affiliate_account_id', 'affiliate_accounts.name', 'affiliate_accounts.code')
+            ->orderByDesc('commission_amount')
+            ->limit($limit);
+        $this->applyCentralCommissionGameFilter($query, $gameId);
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(commission_transactions.approved_at, commission_transactions.calculated_at, commission_transactions.created_at)');
+
+        return $query->get()->map(fn (object $row): array => [
+            'affiliate_account_id' => (string) $row->affiliate_account_id,
+            'affiliate_name' => (string) ($row->affiliate_name ?? $row->affiliate_account_id),
+            'affiliate_code' => (string) ($row->affiliate_code ?? '-'),
+            'commission_amount' => $this->money((int) $row->commission_amount),
+            'approved_amount' => $this->money((int) $row->approved_amount),
+            'pending_amount' => $this->money((int) $row->pending_amount),
+            'transaction_count' => (int) $row->transaction_count,
+        ])->all();
+    }
+
+    /**
+     * @param array{from: Carbon|null, to: Carbon|null} $dateRange
+     * @return array<int, array<string, mixed>>
+     */
+    private function tenantRewardMethodRows(string $tenantId, array $dateRange, ?string $gameId): array
+    {
+        $query = DB::table('reward_claims')
+            ->select([
+                DB::raw("COALESCE(payout_method, 'unknown') as payout_method"),
+                DB::raw('SUM(prize_amount) as prize_amount'),
+                DB::raw('COUNT(*) as claim_count'),
+                DB::raw("SUM(CASE WHEN status IN ('approved', 'paid') THEN 1 ELSE 0 END) as approved_count"),
+                DB::raw("SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected_count"),
+            ])
+            ->where('tenant_id', $tenantId)
+            ->groupBy('payout_method')
+            ->orderByDesc('prize_amount');
+        $this->applyCentralGameFilter($query, $gameId, 'game_id');
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(reward_claims.submitted_at, reward_claims.created_at)');
+
+        return $query->get()->map(fn (object $row): array => [
+            'payout_method' => (string) $row->payout_method,
+            'prize_amount' => $this->money((int) $row->prize_amount),
+            'claim_count' => (int) $row->claim_count,
+            'approved_count' => (int) $row->approved_count,
+            'rejected_count' => (int) $row->rejected_count,
+        ])->all();
+    }
+
+    /**
+     * @param array{from: Carbon|null, to: Carbon|null} $dateRange
+     * @return array<int, array<string, mixed>>
+     */
+    private function tenantRewardByGameRows(string $tenantId, array $dateRange, int $limit, ?string $gameId): array
+    {
+        $query = DB::table('reward_claims')
+            ->leftJoin('games', 'games.id', '=', 'reward_claims.game_id')
+            ->select([
+                'reward_claims.game_id',
+                'games.name as game_name',
+                'games.draw_at',
+                DB::raw('SUM(reward_claims.prize_amount) as prize_amount'),
+                DB::raw('COUNT(*) as claim_count'),
+                DB::raw("SUM(CASE WHEN reward_claims.status IN ('approved', 'paid') THEN 1 ELSE 0 END) as approved_count"),
+                DB::raw("SUM(CASE WHEN reward_claims.status = 'rejected' THEN 1 ELSE 0 END) as rejected_count"),
+            ])
+            ->where('reward_claims.tenant_id', $tenantId)
+            ->groupBy('reward_claims.game_id', 'games.name', 'games.draw_at')
+            ->orderByDesc('games.draw_at')
+            ->limit($limit);
+        $this->applyCentralGameFilter($query, $gameId, 'reward_claims.game_id');
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(reward_claims.submitted_at, reward_claims.created_at)');
+
+        return $query->get()->map(fn (object $row): array => [
+            'game_id' => (string) $row->game_id,
+            'game_name' => (string) ($row->game_name ?? $row->game_id),
+            'draw_at' => $this->iso($row->draw_at),
+            'prize_amount' => $this->money((int) $row->prize_amount),
+            'claim_count' => (int) $row->claim_count,
+            'approved_count' => (int) $row->approved_count,
+            'rejected_count' => (int) $row->rejected_count,
+        ])->all();
+    }
+
+    /**
+     * @param array{from: Carbon|null, to: Carbon|null} $dateRange
+     * @return array<int, array<string, mixed>>
+     */
+    private function tenantSettlementStatusRows(string $tenantId, array $dateRange): array
+    {
+        $query = DB::table('partner_settlements')
+            ->select([
+                'status',
+                DB::raw('SUM(sales_amount) as sales_amount'),
+                DB::raw('SUM(commission_amount) as commission_amount'),
+                DB::raw('SUM(payout_amount) as payout_amount'),
+                DB::raw('SUM(net_amount) as net_amount'),
+                DB::raw('COUNT(*) as row_count'),
+            ])
+            ->where('tenant_id', $tenantId)
+            ->groupBy('status')
+            ->orderByDesc('net_amount');
+        $this->applyCentralDateRange($query, $dateRange, 'partner_settlements.created_at');
+
+        return $query->get()->map(fn (object $row): array => [
+            'status' => (string) $row->status,
+            'sales_amount' => $this->money((int) $row->sales_amount),
+            'commission_amount' => $this->money((int) $row->commission_amount),
+            'payout_amount' => $this->money((int) $row->payout_amount),
+            'net_amount' => $this->money((int) $row->net_amount),
+            'row_count' => (int) $row->row_count,
+        ])->all();
+    }
+
+    /**
+     * @param array{from: Carbon|null, to: Carbon|null} $dateRange
+     * @return array<int, array<string, mixed>>
+     */
+    private function tenantOverviewStatusRows(string $tenantId, array $dateRange, ?string $gameId): array
+    {
+        $rows = [];
+
+        foreach ([
+            ['Orders', 'orders', 'status', 'orders.created_at', 'orders.game_id'],
+            ['Local stock', 'local_stock_items', 'status', 'local_stock_items.created_at', 'local_stock_items.game_id'],
+            ['Reward claims', 'reward_claims', 'status', 'reward_claims.created_at', 'reward_claims.game_id'],
+            ['Wallet ledger', 'wallet_ledger', 'status', 'COALESCE(wallet_ledger.posted_at, wallet_ledger.created_at)', null],
+            ['Commission', 'commission_transactions', 'status', 'commission_transactions.created_at', null],
+        ] as [$area, $table, $labelColumn, $dateExpression, $gameColumn]) {
+            foreach ($this->tenantStatusRows($table, $tenantId, $dateRange, $labelColumn, null, $dateExpression, $gameId, $gameColumn) as $row) {
+                $rows[] = [
+                    'area' => $area,
+                    'status' => $row['label'],
+                    'row_count' => $row['row_count'],
+                ];
+            }
+        }
+
+        return $rows;
+    }
+
+    private function tenantRewardClaimSum(string $tenantId, array $dateRange, string $expression, ?string $gameId): int
+    {
+        $query = DB::table('reward_claims')
+            ->where('tenant_id', $tenantId)
+            ->selectRaw('COALESCE(SUM('.$expression.'), 0) as aggregate');
+        $this->applyCentralGameFilter($query, $gameId, 'game_id');
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(reward_claims.submitted_at, reward_claims.created_at)');
+
+        return (int) $query->value('aggregate');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function reportTableSection(string $title, array $rows, array $columns): array
+    {
+        return [
+            'type' => 'table',
+            'title' => $title,
+            'columns' => $columns,
+            'rows' => $rows,
+        ];
+    }
+
+    private function applyCentralDateRange(mixed $query, array $dateRange, string $expression): void
+    {
+        if ($dateRange['from'] !== null) {
+            $query->whereRaw($expression.' >= ?', [$dateRange['from']]);
+        }
+
+        if ($dateRange['to'] !== null) {
+            $query->whereRaw($expression.' <= ?', [$dateRange['to']]);
+        }
+    }
+
+    private function applyCentralTenantFilter(mixed $query, ?string $tenantId, string $column = 'tenant_id'): void
+    {
+        if ($tenantId !== null) {
+            $query->where($column, $tenantId);
+        }
+    }
+
+    private function applyCentralGameFilter(mixed $query, ?string $gameId, string $column = 'game_id'): void
+    {
+        if ($gameId !== null) {
+            $query->where($column, $gameId);
+        }
+    }
+
+    private function applyCentralCommissionGameFilter(mixed $query, ?string $gameId): void
+    {
+        if ($gameId === null) {
+            return;
+        }
+
+        $query->whereExists(function ($subQuery) use ($gameId): void {
+            $subQuery->selectRaw('1')
+                ->from('orders')
+                ->whereColumn('orders.id', 'commission_transactions.order_id')
+                ->where('orders.game_id', $gameId);
+        });
+    }
+
+    private function applyCentralWalletGameFilter(mixed $query, ?string $gameId): void
+    {
+        if ($gameId === null) {
+            return;
+        }
+
+        $query->where(function ($query) use ($gameId): void {
+            $query->whereExists(function ($subQuery) use ($gameId): void {
+                $subQuery->selectRaw('1')
+                    ->from('orders')
+                    ->whereColumn('orders.id', 'wallet_ledger.reference_id')
+                    ->where('wallet_ledger.reference_type', 'order')
+                    ->where('orders.game_id', $gameId);
+            })->orWhereExists(function ($subQuery) use ($gameId): void {
+                $subQuery->selectRaw('1')
+                    ->from('reward_claims')
+                    ->whereColumn('reward_claims.id', 'wallet_ledger.reference_id')
+                    ->where('wallet_ledger.reference_type', 'reward_claim')
+                    ->where('reward_claims.game_id', $gameId);
+            });
+        });
+    }
+
+    private function applyPaidOrderFilter(mixed $query): void
+    {
+        $query->where(function ($query): void {
+            $query->where('orders.payment_status', 'paid')
+                ->orWhereNotNull('orders.paid_at')
+                ->orWhereIn('orders.status', ['paid', 'completed']);
+        });
+    }
+
+    private function centralPaidOrdersQuery(?string $tenantId, array $dateRange, ?string $gameId = null): mixed
+    {
+        $query = DB::table('orders');
+        $this->applyPaidOrderFilter($query);
+        $this->applyCentralTenantFilter($query, $tenantId, 'orders.tenant_id');
+        $this->applyCentralGameFilter($query, $gameId, 'orders.game_id');
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(orders.paid_at, orders.created_at)');
+
+        return $query;
+    }
+
+    private function centralOrdersQuery(?string $tenantId, array $dateRange, ?string $gameId = null): mixed
+    {
+        $query = DB::table('orders');
+        $this->applyCentralTenantFilter($query, $tenantId, 'orders.tenant_id');
+        $this->applyCentralGameFilter($query, $gameId, 'orders.game_id');
+        $this->applyCentralDateRange($query, $dateRange, 'orders.created_at');
+
+        return $query;
+    }
+
+    private function centralPaidTicketsCount(?string $tenantId, array $dateRange, ?string $gameId): int
+    {
+        $query = DB::table('tickets')
+            ->join('orders', 'orders.id', '=', 'tickets.order_id');
+        $this->applyPaidOrderFilter($query);
+        $this->applyCentralTenantFilter($query, $tenantId, 'tickets.tenant_id');
+        $this->applyCentralGameFilter($query, $gameId, 'tickets.game_id');
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(orders.paid_at, orders.created_at)');
+
+        return (int) $query->count('tickets.id');
+    }
+
+    private function centralDateScopedCount(string $table, ?string $tenantId, array $dateRange, string $dateColumn = 'created_at', ?string $gameId = null): int
+    {
+        $query = DB::table($table);
+        $this->applyCentralTenantFilter($query, $tenantId, $table.'.tenant_id');
+        if ($gameId !== null) {
+            if ($table === 'commission_transactions') {
+                $this->applyCentralCommissionGameFilter($query, $gameId);
+            } elseif ($table === 'wallet_ledger') {
+                $this->applyCentralWalletGameFilter($query, $gameId);
+            } else {
+                $this->applyCentralGameFilter($query, $gameId, $table.'.game_id');
+            }
+        }
+        $this->applyCentralDateRange($query, $dateRange, $table.'.'.$dateColumn);
+
+        return (int) $query->count();
+    }
+
+    private function centralWalletFlowTotal(?string $tenantId, array $dateRange, string $direction, ?string $gameId): int
+    {
+        $query = DB::table('wallet_ledger');
+        $this->applyCentralTenantFilter($query, $tenantId, 'wallet_ledger.tenant_id');
+        $this->applyCentralWalletGameFilter($query, $gameId);
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(wallet_ledger.posted_at, wallet_ledger.created_at)');
+
+        if ($direction === 'outflow') {
+            $query->whereIn('entry_type', ['debit', 'hold']);
+        } else {
+            $query->whereNotIn('entry_type', ['debit', 'hold']);
+        }
+
+        return (int) $query->sum('amount');
+    }
+
+    private function centralRewardClaimTotal(?string $tenantId, array $dateRange, ?string $gameId): int
+    {
+        $query = DB::table('reward_claims');
+        $this->applyCentralTenantFilter($query, $tenantId, 'reward_claims.tenant_id');
+        $this->applyCentralGameFilter($query, $gameId, 'reward_claims.game_id');
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(reward_claims.paid_at, reward_claims.submitted_at, reward_claims.created_at)');
+
+        return (int) $query->sum('prize_amount');
+    }
+
+    private function centralCommissionTotal(?string $tenantId, array $dateRange, ?string $gameId): int
+    {
+        $query = DB::table('commission_transactions');
+        $this->applyCentralTenantFilter($query, $tenantId, 'commission_transactions.tenant_id');
+        $this->applyCentralCommissionGameFilter($query, $gameId);
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(commission_transactions.approved_at, commission_transactions.calculated_at, commission_transactions.created_at)');
+
+        return (int) $query->sum('amount');
+    }
+
+    private function centralAffiliatePayoutTotal(?string $tenantId, array $dateRange): int
+    {
+        $query = DB::table('affiliate_payouts');
+        $this->applyCentralTenantFilter($query, $tenantId, 'affiliate_payouts.tenant_id');
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(affiliate_payouts.approved_at, affiliate_payouts.created_at)');
+
+        return (int) $query->sum('amount');
+    }
+
+    private function centralSettlementTotal(?string $tenantId, array $dateRange, string $column): int
+    {
+        $query = DB::table('partner_settlements');
+        $this->applyCentralTenantFilter($query, $tenantId, 'partner_settlements.tenant_id');
+        $this->applyCentralDateRange($query, $dateRange, 'partner_settlements.created_at');
+
+        return (int) $query->sum($column);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralOverviewRows(?string $tenantId, array $dateRange, int $limit, ?string $gameId): array
+    {
+        $sales = collect($this->centralSalesByTenantRows($tenantId, $dateRange, $limit, $gameId))->keyBy('tenant_id');
+        $stock = collect($this->centralStockByTenantRows($tenantId, $limit, $gameId))->keyBy('tenant_id');
+        $wallet = collect($this->centralWalletByTenantRows($tenantId, $dateRange, $limit, $gameId))->keyBy('tenant_id');
+        $rewards = collect($this->centralRewardsByTenantRows($tenantId, $dateRange, $limit, $gameId))->keyBy('tenant_id');
+        $tenantIds = $sales->keys()->merge($stock->keys())->merge($wallet->keys())->merge($rewards->keys())->unique()->take($limit);
+
+        return $tenantIds->map(function (string $id) use ($sales, $stock, $wallet, $rewards): array {
+            $sale = $sales[$id] ?? [];
+            $stockRow = $stock[$id] ?? [];
+            $walletRow = $wallet[$id] ?? [];
+            $reward = $rewards[$id] ?? [];
+
+            return [
+                'tenant_id' => $id,
+                'tenant_name' => $sale['tenant_name'] ?? $stockRow['tenant_name'] ?? $walletRow['tenant_name'] ?? $reward['tenant_name'] ?? $id,
+                'partner_name' => $sale['partner_name'] ?? $stockRow['partner_name'] ?? $walletRow['partner_name'] ?? $reward['partner_name'] ?? '-',
+                'sales_amount' => $sale['sales_amount'] ?? $this->money(0),
+                'ticket_count' => $sale['ticket_count'] ?? 0,
+                'order_count' => $sale['order_count'] ?? 0,
+                'customer_count' => $sale['customer_count'] ?? 0,
+                'stock_total_count' => $stockRow['total_count'] ?? 0,
+                'reward_payout_amount' => $reward['prize_amount'] ?? $this->money(0),
+                'wallet_net_amount' => $walletRow['net_amount'] ?? $this->money(0),
+            ];
+        })->values()->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralSalesOrderRows(?string $tenantId, array $dateRange, int $limit, ?string $gameId): array
+    {
+        $query = $this->centralPaidOrdersQuery($tenantId, $dateRange, $gameId)
+            ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'orders.tenant_id')
+            ->leftJoin('partners', 'partners.id', '=', 'partner_tenants.partner_id')
+            ->leftJoin('games', 'games.id', '=', 'orders.game_id')
+            ->leftJoin('customers', 'customers.id', '=', 'orders.customer_id')
+            ->leftJoin('order_items', 'order_items.order_id', '=', 'orders.id')
+            ->select([
+                'orders.id',
+                'orders.reference',
+                'orders.payment_method',
+                'orders.total_amount',
+                'orders.currency',
+                'orders.paid_at',
+                'partner_tenants.name as tenant_name',
+                'partners.name as partner_name',
+                'games.name as game_name',
+                'customers.name as customer_name',
+                DB::raw('COUNT(order_items.id) as ticket_count'),
+            ])
+            ->groupBy('orders.id', 'orders.reference', 'orders.payment_method', 'orders.total_amount', 'orders.currency', 'orders.paid_at', 'partner_tenants.name', 'partners.name', 'games.name', 'customers.name')
+            ->orderByRaw('COALESCE(orders.paid_at, orders.created_at) DESC')
+            ->limit($limit);
+
+        return $query->get()->map(fn (object $row): array => [
+            'id' => (string) $row->id,
+            'paid_at' => $this->iso($row->paid_at),
+            'tenant_name' => (string) ($row->tenant_name ?? '-'),
+            'partner_name' => (string) ($row->partner_name ?? '-'),
+            'game_name' => (string) ($row->game_name ?? '-'),
+            'reference' => (string) ($row->reference ?? $row->id),
+            'customer_name' => (string) ($row->customer_name ?? '-'),
+            'ticket_count' => (int) $row->ticket_count,
+            'total_amount' => $this->money((int) $row->total_amount, (string) ($row->currency ?? 'THB')),
+            'payment_method' => (string) $row->payment_method,
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralOrderRows(?string $tenantId, array $dateRange, int $limit, ?string $gameId): array
+    {
+        $query = $this->centralOrdersQuery($tenantId, $dateRange, $gameId)
+            ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'orders.tenant_id')
+            ->leftJoin('customers', 'customers.id', '=', 'orders.customer_id')
+            ->select(['orders.*', 'partner_tenants.name as tenant_name', 'customers.name as customer_name'])
+            ->orderByDesc('orders.created_at')
+            ->limit($limit);
+
+        return $query->get()->map(fn (object $row): array => [
+            'id' => (string) $row->id,
+            'created_at' => $this->iso($row->created_at),
+            'paid_at' => $this->iso($row->paid_at),
+            'reference' => (string) ($row->reference ?? $row->id),
+            'tenant_name' => (string) ($row->tenant_name ?? '-'),
+            'customer_name' => (string) ($row->customer_name ?? $row->customer_id),
+            'status' => (string) $row->status,
+            'payment_status' => (string) $row->payment_status,
+            'total_amount' => $this->money((int) $row->total_amount, (string) ($row->currency ?? 'THB')),
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralCustomerRows(?string $tenantId, array $dateRange, int $limit): array
+    {
+        $query = DB::table('customers')
+            ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'customers.tenant_id')
+            ->select(['customers.*', 'partner_tenants.name as tenant_name'])
+            ->orderByDesc('customers.created_at')
+            ->limit($limit);
+        $this->applyCentralTenantFilter($query, $tenantId, 'customers.tenant_id');
+        $this->applyCentralDateRange($query, $dateRange, 'customers.created_at');
+
+        return $query->get()->map(fn (object $row): array => [
+            'id' => (string) $row->id,
+            'created_at' => $this->iso($row->created_at),
+            'tenant_name' => (string) ($row->tenant_name ?? '-'),
+            'name' => (string) ($row->name ?? trim((string) (($row->first_name ?? '').' '.($row->last_name ?? ''))) ?: $row->id),
+            'phone' => (string) ($row->phone ?? '-'),
+            'status' => (string) $row->status,
+            'pin_set' => $row->pin_set_at !== null,
+            'auto_reward' => (bool) ($row->auto_reward_claim_enabled ?? false),
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralStockRows(?string $tenantId, int $limit, ?string $gameId): array
+    {
+        $query = DB::table('stock_items')
+            ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'stock_items.tenant_id')
+            ->leftJoin('partners', 'partners.id', '=', 'stock_items.partner_id')
+            ->leftJoin('games', 'games.id', '=', 'stock_items.game_id')
+            ->select(['stock_items.*', 'partner_tenants.name as tenant_name', 'partners.name as partner_name', 'games.name as game_name', 'games.draw_at'])
+            ->orderByDesc('stock_items.updated_at')
+            ->limit($limit);
+        $this->applyCentralTenantFilter($query, $tenantId, 'stock_items.tenant_id');
+        $this->applyCentralGameFilter($query, $gameId, 'stock_items.game_id');
+
+        return $query->get()->map(fn (object $row): array => [
+            'id' => (string) $row->id,
+            'game_name' => (string) ($row->game_name ?? $row->game_id),
+            'draw_at' => $this->iso($row->draw_at),
+            'full_number' => (string) $row->full_number,
+            'tenant_name' => (string) ($row->tenant_name ?? '-'),
+            'partner_name' => (string) ($row->partner_name ?? '-'),
+            'status' => (string) $row->status,
+            'updated_at' => $this->iso($row->updated_at),
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralWalletRows(?string $tenantId, array $dateRange, int $limit, ?string $gameId): array
+    {
+        $query = DB::table('wallet_ledger')
+            ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'wallet_ledger.tenant_id')
+            ->leftJoin('customers', 'customers.id', '=', 'wallet_ledger.customer_id')
+            ->select(['wallet_ledger.*', 'partner_tenants.name as tenant_name', 'customers.name as customer_name'])
+            ->orderByRaw('COALESCE(wallet_ledger.posted_at, wallet_ledger.created_at) DESC')
+            ->limit($limit);
+        $this->applyCentralTenantFilter($query, $tenantId, 'wallet_ledger.tenant_id');
+        $this->applyCentralWalletGameFilter($query, $gameId);
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(wallet_ledger.posted_at, wallet_ledger.created_at)');
+
+        return $query->get()->map(fn (object $row): array => [
+            'id' => (string) $row->id,
+            'posted_at' => $this->iso($row->posted_at ?? $row->created_at),
+            'tenant_name' => (string) ($row->tenant_name ?? '-'),
+            'customer_name' => (string) ($row->customer_name ?? $row->customer_id),
+            'entry_type' => (string) $row->entry_type,
+            'status' => (string) $row->status,
+            'amount' => $this->money((int) $row->amount, (string) ($row->currency ?? 'THB')),
+            'balance_after' => $this->money((int) $row->balance_after, (string) ($row->currency ?? 'THB')),
+            'reference_type' => (string) ($row->reference_type ?? '-'),
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralCommissionRows(?string $tenantId, array $dateRange, int $limit, ?string $gameId): array
+    {
+        $query = DB::table('commission_transactions')
+            ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'commission_transactions.tenant_id')
+            ->leftJoin('affiliate_accounts', 'affiliate_accounts.id', '=', 'commission_transactions.affiliate_account_id')
+            ->select(['commission_transactions.*', 'partner_tenants.name as tenant_name', 'affiliate_accounts.name as affiliate_name'])
+            ->orderByRaw('COALESCE(commission_transactions.approved_at, commission_transactions.calculated_at, commission_transactions.created_at) DESC')
+            ->limit($limit);
+        $this->applyCentralTenantFilter($query, $tenantId, 'commission_transactions.tenant_id');
+        $this->applyCentralCommissionGameFilter($query, $gameId);
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(commission_transactions.approved_at, commission_transactions.calculated_at, commission_transactions.created_at)');
+
+        return $query->get()->map(fn (object $row): array => [
+            'id' => (string) $row->id,
+            'created_at' => $this->iso($row->created_at),
+            'tenant_name' => (string) ($row->tenant_name ?? '-'),
+            'affiliate_name' => (string) ($row->affiliate_name ?? $row->affiliate_account_id),
+            'transaction_type' => (string) $row->transaction_type,
+            'status' => (string) $row->status,
+            'amount' => $this->money((int) $row->amount, (string) ($row->currency ?? 'THB')),
+            'approved_at' => $this->iso($row->approved_at),
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralRewardRows(?string $tenantId, array $dateRange, int $limit, ?string $gameId): array
+    {
+        $query = DB::table('reward_claims')
+            ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'reward_claims.tenant_id')
+            ->leftJoin('customers', 'customers.id', '=', 'reward_claims.customer_id')
+            ->leftJoin('games', 'games.id', '=', 'reward_claims.game_id')
+            ->select(['reward_claims.*', 'partner_tenants.name as tenant_name', 'customers.name as customer_name', 'games.name as game_name'])
+            ->orderByRaw('COALESCE(reward_claims.submitted_at, reward_claims.created_at) DESC')
+            ->limit($limit);
+        $this->applyCentralTenantFilter($query, $tenantId, 'reward_claims.tenant_id');
+        $this->applyCentralGameFilter($query, $gameId, 'reward_claims.game_id');
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(reward_claims.submitted_at, reward_claims.created_at)');
+
+        return $query->get()->map(fn (object $row): array => [
+            'id' => (string) $row->id,
+            'submitted_at' => $this->iso($row->submitted_at ?? $row->created_at),
+            'tenant_name' => (string) ($row->tenant_name ?? '-'),
+            'customer_name' => (string) ($row->customer_name ?? $row->customer_id),
+            'game_name' => (string) ($row->game_name ?? $row->game_id),
+            'reference' => (string) ($row->reference ?? $row->id),
+            'status' => (string) $row->status,
+            'payout_method' => (string) $row->payout_method,
+            'base_prize_amount' => $this->money((int) ($row->base_prize_amount ?? $row->prize_amount), (string) ($row->currency ?? 'THB')),
+            'adjustment_amount' => $this->money((int) ($row->adjustment_amount ?? 0), (string) ($row->currency ?? 'THB')),
+            'prize_amount' => $this->money((int) $row->prize_amount, (string) ($row->currency ?? 'THB')),
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralSettlementRows(?string $tenantId, array $dateRange, int $limit): array
+    {
+        $query = DB::table('partner_settlements')
+            ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'partner_settlements.tenant_id')
+            ->leftJoin('partners', 'partners.id', '=', 'partner_settlements.partner_id')
+            ->select(['partner_settlements.*', 'partner_tenants.name as tenant_name', 'partners.name as partner_name'])
+            ->orderByDesc('partner_settlements.created_at')
+            ->limit($limit);
+        $this->applyCentralTenantFilter($query, $tenantId, 'partner_settlements.tenant_id');
+        $this->applyCentralDateRange($query, $dateRange, 'partner_settlements.created_at');
+
+        return $query->get()->map(fn (object $row): array => [
+            'id' => (string) $row->id,
+            'created_at' => $this->iso($row->created_at),
+            'tenant_name' => (string) ($row->tenant_name ?? '-'),
+            'partner_name' => (string) ($row->partner_name ?? $row->partner_id),
+            'period' => trim((string) ($row->period_from ?? '-').' - '.(string) ($row->period_to ?? '-')),
+            'status' => (string) $row->status,
+            'sales_amount' => $this->money((int) $row->sales_amount, (string) ($row->currency ?? 'THB')),
+            'commission_amount' => $this->money((int) $row->commission_amount, (string) ($row->currency ?? 'THB')),
+            'payout_amount' => $this->money((int) $row->payout_amount, (string) ($row->currency ?? 'THB')),
+            'net_amount' => $this->money((int) $row->net_amount, (string) ($row->currency ?? 'THB')),
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralUsageRows(?string $tenantId, array $dateRange, int $limit): array
+    {
+        $query = DB::table('partner_daily_usage_summaries')
+            ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'partner_daily_usage_summaries.tenant_id')
+            ->leftJoin('partners', 'partners.id', '=', 'partner_daily_usage_summaries.partner_id')
+            ->select(['partner_daily_usage_summaries.*', 'partner_tenants.name as tenant_name', 'partners.name as partner_name'])
+            ->orderByDesc('partner_daily_usage_summaries.usage_date')
+            ->limit($limit);
+        $this->applyCentralTenantFilter($query, $tenantId, 'partner_daily_usage_summaries.tenant_id');
+        $this->applyCentralDateRange($query, $dateRange, 'partner_daily_usage_summaries.usage_date');
+
+        return $query->get()->map(fn (object $row): array => [
+            'id' => (string) $row->id,
+            'usage_date' => (string) $row->usage_date,
+            'tenant_name' => (string) ($row->tenant_name ?? '-'),
+            'partner_name' => (string) ($row->partner_name ?? $row->partner_id),
+            'api_request_count' => (int) $row->api_request_count,
+            'booking_request_count' => (int) $row->booking_request_count,
+            'checkout_request_count' => (int) $row->checkout_request_count,
+            'order_count' => (int) $row->order_count,
+            'sold_ticket_count' => (int) $row->sold_ticket_count,
+            'error_count' => (int) $row->error_count,
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralPartnerRows(?string $tenantId, int $limit): array
+    {
+        $query = DB::table('partner_tenants')
+            ->join('partners', 'partners.id', '=', 'partner_tenants.partner_id')
+            ->select([
+                'partner_tenants.id',
+                'partner_tenants.code as tenant_code',
+                'partner_tenants.name as tenant_name',
+                'partner_tenants.status as tenant_status',
+                'partner_tenants.created_at',
+                'partners.code as partner_code',
+                'partners.name as partner_name',
+                'partners.status as partner_status',
+            ])
+            ->orderByDesc('partner_tenants.created_at')
+            ->limit($limit);
+        $this->applyCentralTenantFilter($query, $tenantId, 'partner_tenants.id');
+
+        return $query->get()->map(fn (object $row): array => [
+            'id' => (string) $row->id,
+            'created_at' => $this->iso($row->created_at),
+            'partner_name' => (string) $row->partner_name,
+            'partner_code' => (string) $row->partner_code,
+            'tenant_name' => (string) $row->tenant_name,
+            'tenant_code' => (string) $row->tenant_code,
+            'partner_status' => (string) $row->partner_status,
+            'tenant_status' => (string) $row->tenant_status,
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralAuditRows(?string $tenantId, array $dateRange, int $limit): array
+    {
+        $query = DB::table('audit_logs')
+            ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'audit_logs.tenant_id')
+            ->select(['audit_logs.*', 'partner_tenants.name as tenant_name'])
+            ->orderByDesc('audit_logs.created_at')
+            ->limit($limit);
+        $this->applyCentralTenantFilter($query, $tenantId, 'audit_logs.tenant_id');
+        $this->applyCentralDateRange($query, $dateRange, 'audit_logs.created_at');
+
+        return $query->get()->map(fn (object $row): array => [
+            'id' => (string) $row->id,
+            'created_at' => $this->iso($row->created_at),
+            'scope_type' => (string) $row->scope_type,
+            'tenant_name' => (string) ($row->tenant_name ?? '-'),
+            'actor_type' => (string) $row->actor_type,
+            'actor_id' => (string) $row->actor_id,
+            'action' => (string) $row->action,
+            'target_type' => (string) ($row->target_type ?? '-'),
+            'ip_address' => (string) ($row->ip_address ?? '-'),
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralSalesByTenantRows(?string $tenantId, array $dateRange, int $limit, ?string $gameId = null): array
+    {
+        $query = $this->centralPaidOrdersQuery($tenantId, $dateRange, $gameId)
+            ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'orders.tenant_id')
+            ->leftJoin('partners', 'partners.id', '=', 'partner_tenants.partner_id')
+            ->leftJoin('order_items', 'order_items.order_id', '=', 'orders.id')
+            ->select([
+                'orders.tenant_id',
+                'partner_tenants.name as tenant_name',
+                'partners.name as partner_name',
+                DB::raw('SUM(orders.total_amount) as sales_amount'),
+                DB::raw('COUNT(DISTINCT orders.id) as order_count'),
+                DB::raw('COUNT(order_items.id) as ticket_count'),
+                DB::raw('COUNT(DISTINCT orders.customer_id) as customer_count'),
+            ])
+            ->groupBy('orders.tenant_id', 'partner_tenants.name', 'partners.name')
+            ->orderByDesc('sales_amount')
+            ->limit($limit);
+
+        return $query->get()->map(fn (object $row): array => [
+            'tenant_id' => (string) $row->tenant_id,
+            'tenant_name' => (string) ($row->tenant_name ?? $row->tenant_id),
+            'partner_name' => (string) ($row->partner_name ?? '-'),
+            'sales_amount' => $this->money((int) $row->sales_amount),
+            'order_count' => (int) $row->order_count,
+            'ticket_count' => (int) $row->ticket_count,
+            'customer_count' => (int) $row->customer_count,
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralSalesByGameRows(?string $tenantId, array $dateRange, int $limit, ?string $gameId = null): array
+    {
+        $query = $this->centralPaidOrdersQuery($tenantId, $dateRange, $gameId)
+            ->leftJoin('games', 'games.id', '=', 'orders.game_id')
+            ->leftJoin('order_items', 'order_items.order_id', '=', 'orders.id')
+            ->select([
+                'orders.game_id',
+                'games.name as game_name',
+                'games.draw_at',
+                DB::raw('SUM(orders.total_amount) as sales_amount'),
+                DB::raw('COUNT(DISTINCT orders.id) as order_count'),
+                DB::raw('COUNT(order_items.id) as ticket_count'),
+            ])
+            ->groupBy('orders.game_id', 'games.name', 'games.draw_at')
+            ->orderByDesc('sales_amount')
+            ->limit($limit);
+
+        return $query->get()->map(fn (object $row): array => [
+            'game_id' => (string) $row->game_id,
+            'game_name' => (string) ($row->game_name ?? $row->game_id),
+            'draw_at' => $this->iso($row->draw_at),
+            'sales_amount' => $this->money((int) $row->sales_amount),
+            'order_count' => (int) $row->order_count,
+            'ticket_count' => (int) $row->ticket_count,
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralOrderBreakdownRows(?string $tenantId, array $dateRange, string $column, ?string $gameId = null): array
+    {
+        $query = $this->centralOrdersQuery($tenantId, $dateRange, $gameId)
+            ->select([
+                DB::raw('COALESCE('.$column.", 'unknown') as label"),
+                DB::raw('SUM(total_amount) as sales_amount'),
+                DB::raw('COUNT(*) as order_count'),
+            ])
+            ->groupBy('label')
+            ->orderByDesc('order_count');
+        $total = max(1, (int) $this->centralOrdersQuery($tenantId, $dateRange, $gameId)->count());
+
+        return $query->get()->map(fn (object $row): array => [
+            'label' => (string) $row->label,
+            'sales_amount' => $this->money((int) $row->sales_amount),
+            'order_count' => (int) $row->order_count,
+            'percent' => round(((int) $row->order_count / $total) * 100, 2),
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralCustomersByTenantRows(?string $tenantId, array $dateRange, int $limit): array
+    {
+        $query = DB::table('customers')
+            ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'customers.tenant_id')
+            ->leftJoin('partners', 'partners.id', '=', 'partner_tenants.partner_id')
+            ->select([
+                'customers.tenant_id',
+                'partner_tenants.name as tenant_name',
+                'partners.name as partner_name',
+                DB::raw('COUNT(customers.id) as customer_count'),
+                DB::raw('SUM(CASE WHEN customers.pin_set_at IS NULL THEN 0 ELSE 1 END) as with_pin_count'),
+                DB::raw('SUM(CASE WHEN customers.auto_reward_claim_enabled THEN 1 ELSE 0 END) as auto_reward_count'),
+            ])
+            ->groupBy('customers.tenant_id', 'partner_tenants.name', 'partners.name')
+            ->orderByDesc('customer_count')
+            ->limit($limit);
+        $this->applyCentralTenantFilter($query, $tenantId, 'customers.tenant_id');
+        $this->applyCentralDateRange($query, $dateRange, 'customers.created_at');
+
+        return $query->get()->map(fn (object $row): array => [
+            'tenant_id' => (string) $row->tenant_id,
+            'tenant_name' => (string) ($row->tenant_name ?? $row->tenant_id),
+            'partner_name' => (string) ($row->partner_name ?? '-'),
+            'customer_count' => (int) $row->customer_count,
+            'with_pin_count' => (int) $row->with_pin_count,
+            'auto_reward_count' => (int) $row->auto_reward_count,
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralStockByGameRows(?string $tenantId, int $limit, ?string $gameId = null): array
+    {
+        $query = DB::table('stock_items')
+            ->leftJoin('games', 'games.id', '=', 'stock_items.game_id')
+            ->select([
+                'stock_items.game_id',
+                'games.name as game_name',
+                'games.draw_at',
+                DB::raw('COUNT(stock_items.id) as total_count'),
+                DB::raw("SUM(CASE WHEN stock_items.status = 'available' THEN 1 ELSE 0 END) as available_count"),
+                DB::raw("SUM(CASE WHEN stock_items.status = 'sold' THEN 1 ELSE 0 END) as sold_count"),
+                DB::raw("SUM(CASE WHEN stock_items.status = 'reserved' THEN 1 ELSE 0 END) as reserved_count"),
+                DB::raw("SUM(CASE WHEN stock_items.status = 'allocated' THEN 1 ELSE 0 END) as allocated_count"),
+            ])
+            ->groupBy('stock_items.game_id', 'games.name', 'games.draw_at')
+            ->orderByDesc('games.draw_at')
+            ->limit($limit);
+        $this->applyCentralTenantFilter($query, $tenantId, 'stock_items.tenant_id');
+        $this->applyCentralGameFilter($query, $gameId, 'stock_items.game_id');
+
+        return $query->get()->map(fn (object $row): array => [
+            'game_id' => (string) $row->game_id,
+            'game_name' => (string) ($row->game_name ?? $row->game_id),
+            'draw_at' => $this->iso($row->draw_at),
+            'total_count' => (int) $row->total_count,
+            'available_count' => (int) $row->available_count,
+            'sold_count' => (int) $row->sold_count,
+            'reserved_count' => (int) $row->reserved_count,
+            'allocated_count' => (int) $row->allocated_count,
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralStockByTenantRows(?string $tenantId, int $limit, ?string $gameId = null): array
+    {
+        $query = DB::table('stock_items')
+            ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'stock_items.tenant_id')
+            ->leftJoin('partners', 'partners.id', '=', 'stock_items.partner_id')
+            ->select([
+                'stock_items.tenant_id',
+                'partner_tenants.name as tenant_name',
+                'partners.name as partner_name',
+                DB::raw('COUNT(stock_items.id) as total_count'),
+                DB::raw("SUM(CASE WHEN stock_items.status = 'available' THEN 1 ELSE 0 END) as available_count"),
+                DB::raw("SUM(CASE WHEN stock_items.status = 'sold' THEN 1 ELSE 0 END) as sold_count"),
+            ])
+            ->whereNotNull('stock_items.tenant_id')
+            ->groupBy('stock_items.tenant_id', 'partner_tenants.name', 'partners.name')
+            ->orderByDesc('total_count')
+            ->limit($limit);
+        $this->applyCentralTenantFilter($query, $tenantId, 'stock_items.tenant_id');
+        $this->applyCentralGameFilter($query, $gameId, 'stock_items.game_id');
+
+        return $query->get()->map(fn (object $row): array => [
+            'tenant_id' => (string) $row->tenant_id,
+            'tenant_name' => (string) ($row->tenant_name ?? $row->tenant_id),
+            'partner_name' => (string) ($row->partner_name ?? '-'),
+            'total_count' => (int) $row->total_count,
+            'available_count' => (int) $row->available_count,
+            'sold_count' => (int) $row->sold_count,
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralWalletReferenceRows(?string $tenantId, array $dateRange, int $limit, ?string $gameId = null): array
+    {
+        $query = DB::table('wallet_ledger')
+            ->select([
+                DB::raw("COALESCE(reference_type, 'manual') as reference_type"),
+                DB::raw("SUM(CASE WHEN entry_type IN ('debit', 'hold') THEN 0 ELSE amount END) as inflow_amount"),
+                DB::raw("SUM(CASE WHEN entry_type IN ('debit', 'hold') THEN amount ELSE 0 END) as outflow_amount"),
+                DB::raw("SUM(CASE WHEN entry_type IN ('debit', 'hold') THEN -amount ELSE amount END) as net_amount"),
+                DB::raw('COUNT(*) as ledger_count'),
+            ])
+            ->groupBy('reference_type')
+            ->orderByDesc('ledger_count')
+            ->limit($limit);
+        $this->applyCentralTenantFilter($query, $tenantId, 'wallet_ledger.tenant_id');
+        $this->applyCentralWalletGameFilter($query, $gameId);
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(wallet_ledger.posted_at, wallet_ledger.created_at)');
+
+        return $query->get()->map(fn (object $row): array => [
+            'reference_type' => (string) $row->reference_type,
+            'inflow_amount' => $this->money((int) $row->inflow_amount),
+            'outflow_amount' => $this->money((int) $row->outflow_amount),
+            'net_amount' => $this->money((int) $row->net_amount),
+            'ledger_count' => (int) $row->ledger_count,
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralWalletByTenantRows(?string $tenantId, array $dateRange, int $limit, ?string $gameId = null): array
+    {
+        $query = DB::table('wallet_ledger')
+            ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'wallet_ledger.tenant_id')
+            ->leftJoin('partners', 'partners.id', '=', 'partner_tenants.partner_id')
+            ->select([
+                'wallet_ledger.tenant_id',
+                'partner_tenants.name as tenant_name',
+                'partners.name as partner_name',
+                DB::raw("SUM(CASE WHEN entry_type IN ('debit', 'hold') THEN 0 ELSE amount END) as inflow_amount"),
+                DB::raw("SUM(CASE WHEN entry_type IN ('debit', 'hold') THEN amount ELSE 0 END) as outflow_amount"),
+                DB::raw("SUM(CASE WHEN entry_type IN ('debit', 'hold') THEN -amount ELSE amount END) as net_amount"),
+            ])
+            ->groupBy('wallet_ledger.tenant_id', 'partner_tenants.name', 'partners.name')
+            ->orderByDesc('net_amount')
+            ->limit($limit);
+        $this->applyCentralTenantFilter($query, $tenantId, 'wallet_ledger.tenant_id');
+        $this->applyCentralWalletGameFilter($query, $gameId);
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(wallet_ledger.posted_at, wallet_ledger.created_at)');
+
+        return $query->get()->map(fn (object $row): array => [
+            'tenant_id' => (string) $row->tenant_id,
+            'tenant_name' => (string) ($row->tenant_name ?? $row->tenant_id),
+            'partner_name' => (string) ($row->partner_name ?? '-'),
+            'inflow_amount' => $this->money((int) $row->inflow_amount),
+            'outflow_amount' => $this->money((int) $row->outflow_amount),
+            'net_amount' => $this->money((int) $row->net_amount),
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralCommissionByTenantRows(?string $tenantId, array $dateRange, int $limit, ?string $gameId = null): array
+    {
+        $query = DB::table('commission_transactions')
+            ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'commission_transactions.tenant_id')
+            ->leftJoin('partners', 'partners.id', '=', 'partner_tenants.partner_id')
+            ->select([
+                'commission_transactions.tenant_id',
+                'partner_tenants.name as tenant_name',
+                'partners.name as partner_name',
+                DB::raw('SUM(amount) as commission_amount'),
+                DB::raw("SUM(CASE WHEN commission_transactions.status = 'approved' THEN amount ELSE 0 END) as approved_amount"),
+                DB::raw("SUM(CASE WHEN commission_transactions.status = 'approved' THEN 0 ELSE amount END) as pending_amount"),
+                DB::raw('COUNT(*) as transaction_count'),
+            ])
+            ->groupBy('commission_transactions.tenant_id', 'partner_tenants.name', 'partners.name')
+            ->orderByDesc('commission_amount')
+            ->limit($limit);
+        $this->applyCentralTenantFilter($query, $tenantId, 'commission_transactions.tenant_id');
+        $this->applyCentralCommissionGameFilter($query, $gameId);
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(commission_transactions.approved_at, commission_transactions.calculated_at, commission_transactions.created_at)');
+
+        return $query->get()->map(fn (object $row): array => [
+            'tenant_id' => (string) $row->tenant_id,
+            'tenant_name' => (string) ($row->tenant_name ?? $row->tenant_id),
+            'partner_name' => (string) ($row->partner_name ?? '-'),
+            'commission_amount' => $this->money((int) $row->commission_amount),
+            'approved_amount' => $this->money((int) $row->approved_amount),
+            'pending_amount' => $this->money((int) $row->pending_amount),
+            'transaction_count' => (int) $row->transaction_count,
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralRewardsByTenantRows(?string $tenantId, array $dateRange, int $limit, ?string $gameId = null): array
+    {
+        $query = DB::table('reward_claims')
+            ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'reward_claims.tenant_id')
+            ->leftJoin('partners', 'partners.id', '=', 'partner_tenants.partner_id')
+            ->select([
+                'reward_claims.tenant_id',
+                'partner_tenants.name as tenant_name',
+                'partners.name as partner_name',
+                DB::raw('SUM(prize_amount) as prize_amount'),
+                DB::raw("SUM(CASE WHEN reward_claims.status IN ('approved', 'paid') THEN prize_amount ELSE 0 END) as approved_amount"),
+                DB::raw("SUM(CASE WHEN reward_claims.status = 'rejected' THEN 1 ELSE 0 END) as rejected_count"),
+                DB::raw('COUNT(*) as claim_count'),
+            ])
+            ->groupBy('reward_claims.tenant_id', 'partner_tenants.name', 'partners.name')
+            ->orderByDesc('prize_amount')
+            ->limit($limit);
+        $this->applyCentralTenantFilter($query, $tenantId, 'reward_claims.tenant_id');
+        $this->applyCentralGameFilter($query, $gameId, 'reward_claims.game_id');
+        $this->applyCentralDateRange($query, $dateRange, 'COALESCE(reward_claims.submitted_at, reward_claims.created_at)');
+
+        return $query->get()->map(fn (object $row): array => [
+            'tenant_id' => (string) $row->tenant_id,
+            'tenant_name' => (string) ($row->tenant_name ?? $row->tenant_id),
+            'partner_name' => (string) ($row->partner_name ?? '-'),
+            'prize_amount' => $this->money((int) $row->prize_amount),
+            'approved_amount' => $this->money((int) $row->approved_amount),
+            'rejected_count' => (int) $row->rejected_count,
+            'claim_count' => (int) $row->claim_count,
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralMoneyStatusRows(string $table, ?string $tenantId, array $dateRange, string $amountColumn, ?string $gameId = null): array
+    {
+        $query = DB::table($table)
+            ->select(['status', DB::raw('SUM('.$amountColumn.') as amount'), DB::raw('COUNT(*) as row_count')])
+            ->groupBy('status')
+            ->orderByDesc('amount');
+        $this->applyCentralTenantFilter($query, $tenantId, $table.'.tenant_id');
+        if ($table === 'reward_claims') {
+            $this->applyCentralGameFilter($query, $gameId, 'reward_claims.game_id');
+        } elseif ($table === 'commission_transactions') {
+            $this->applyCentralCommissionGameFilter($query, $gameId);
+        }
+        $this->applyCentralDateRange($query, $dateRange, $table.'.created_at');
+
+        return $query->get()->map(fn (object $row): array => [
+            'status' => (string) $row->status,
+            'amount' => $this->money((int) $row->amount),
+            'row_count' => (int) $row->row_count,
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralUsageByTenantRows(?string $tenantId, array $dateRange, int $limit): array
+    {
+        $query = DB::table('partner_daily_usage_summaries')
+            ->leftJoin('partner_tenants', 'partner_tenants.id', '=', 'partner_daily_usage_summaries.tenant_id')
+            ->leftJoin('partners', 'partners.id', '=', 'partner_daily_usage_summaries.partner_id')
+            ->select([
+                'partner_daily_usage_summaries.tenant_id',
+                'partner_tenants.name as tenant_name',
+                'partners.name as partner_name',
+                DB::raw('SUM(api_request_count) as api_request_count'),
+                DB::raw('SUM(booking_request_count) as booking_request_count'),
+                DB::raw('SUM(checkout_request_count) as checkout_request_count'),
+                DB::raw('SUM(order_count) as order_count'),
+                DB::raw('SUM(sold_ticket_count) as sold_ticket_count'),
+                DB::raw('SUM(error_count) as error_count'),
+            ])
+            ->groupBy('partner_daily_usage_summaries.tenant_id', 'partner_tenants.name', 'partners.name')
+            ->orderByDesc('api_request_count')
+            ->limit($limit);
+        $this->applyCentralTenantFilter($query, $tenantId, 'partner_daily_usage_summaries.tenant_id');
+        $this->applyCentralDateRange($query, $dateRange, 'partner_daily_usage_summaries.usage_date');
+
+        return $query->get()->map(fn (object $row): array => [
+            'id' => (string) ($row->tenant_id ?? 'central'),
+            'usage_date' => 'selected range',
+            'tenant_name' => (string) ($row->tenant_name ?? '-'),
+            'partner_name' => (string) ($row->partner_name ?? '-'),
+            'api_request_count' => (int) $row->api_request_count,
+            'booking_request_count' => (int) $row->booking_request_count,
+            'checkout_request_count' => (int) $row->checkout_request_count,
+            'order_count' => (int) $row->order_count,
+            'sold_ticket_count' => (int) $row->sold_ticket_count,
+            'error_count' => (int) $row->error_count,
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralPartnerStatusRows(): array
+    {
+        return DB::table('partners')
+            ->leftJoin('partner_tenants', 'partner_tenants.partner_id', '=', 'partners.id')
+            ->select([
+                'partners.status',
+                DB::raw('COUNT(DISTINCT partners.id) as partner_count'),
+                DB::raw('COUNT(partner_tenants.id) as tenant_count'),
+            ])
+            ->groupBy('partners.status')
+            ->orderByDesc('partner_count')
+            ->get()
+            ->map(fn (object $row): array => [
+                'status' => (string) $row->status,
+                'partner_count' => (int) $row->partner_count,
+                'tenant_count' => (int) $row->tenant_count,
+            ])
+            ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralAuditActionRows(?string $tenantId, array $dateRange, int $limit): array
+    {
+        $query = DB::table('audit_logs')
+            ->select([
+                'action',
+                DB::raw('COUNT(*) as event_count'),
+                DB::raw('COUNT(DISTINCT actor_id) as admin_count'),
+                DB::raw('MAX(created_at) as latest_at'),
+            ])
+            ->groupBy('action')
+            ->orderByDesc('event_count')
+            ->limit($limit);
+        $this->applyCentralTenantFilter($query, $tenantId, 'audit_logs.tenant_id');
+        $this->applyCentralDateRange($query, $dateRange, 'audit_logs.created_at');
+
+        return $query->get()->map(fn (object $row): array => [
+            'action' => (string) $row->action,
+            'event_count' => (int) $row->event_count,
+            'admin_count' => (int) $row->admin_count,
+            'latest_at' => $this->iso($row->latest_at),
+        ])->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function centralOverviewStatusRows(?string $tenantId, ?string $gameId): array
+    {
+        $rows = [];
+        foreach ([
+            ['Partners', 'partners', 'status', null],
+            ['Partner stores', 'partner_tenants', 'status', $tenantId === null ? null : ['id', $tenantId]],
+            ['Games', 'games', 'status', $gameId === null ? null : ['id', $gameId]],
+            ['Stock', 'stock_items', 'status', $tenantId === null ? null : ['tenant_id', $tenantId]],
+            ['Reward claims', 'reward_claims', 'status', $tenantId === null ? null : ['tenant_id', $tenantId]],
+        ] as [$area, $table, $column, $filter]) {
+            $query = DB::table($table)
+                ->select([$column.' as status', DB::raw('COUNT(*) as row_count')])
+                ->groupBy($column)
+                ->orderByDesc('row_count');
+            if (is_array($filter)) {
+                $query->where($filter[0], $filter[1]);
+            }
+            if ($gameId !== null && in_array($table, ['stock_items', 'reward_claims'], true)) {
+                $query->where('game_id', $gameId);
+            }
+            foreach ($query->get() as $row) {
+                $rows[] = [
+                    'area' => $area,
+                    'status' => (string) $row->status,
+                    'row_count' => (int) $row->row_count,
+                ];
+            }
+        }
+
+        return $rows;
     }
 
     /**

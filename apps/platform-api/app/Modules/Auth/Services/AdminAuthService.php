@@ -620,7 +620,7 @@ class AdminAuthService
 
     private function tenantAndPartnerAreActive(string $tenantStatus, string $partnerStatus): bool
     {
-        return $tenantStatus === config('platform.tenant_resolution.active_tenant_status', 'active')
+        return in_array($tenantStatus, [config('platform.tenant_resolution.active_tenant_status', 'active'), 'maintenance'], true)
             && $partnerStatus === config('platform.tenant_resolution.active_partner_status', 'active');
     }
 

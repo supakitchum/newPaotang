@@ -15,6 +15,7 @@ class LotterySalePriceService
 {
     private const DEFAULT_UNIT_AMOUNT = 8000;
     private const DEFAULT_CURRENCY = 'THB';
+    private const DEFAULT_MAX_SET_SIZE = 20;
 
     /**
      * @return array<string, mixed>
@@ -357,6 +358,35 @@ class LotterySalePriceService
     }
 
     /**
+     * @return array{source_game_id: ?string, central_rules: int, tenant_overrides: int}
+     */
+    public function seedRulesForNewGameFromPreviousDraw(string $gameId, mixed $now = null): array
+    {
+        $target = Game::query()->where('id', $gameId)->first();
+
+        if ($target === null) {
+            return ['source_game_id' => null, 'central_rules' => 0, 'tenant_overrides' => 0];
+        }
+
+        $now ??= now();
+        $sourceGameId = $this->previousSalePriceGameId($target);
+
+        if ($sourceGameId === null) {
+            return [
+                'source_game_id' => null,
+                'central_rules' => $this->seedDefaultCentralRules($gameId, $now),
+                'tenant_overrides' => 0,
+            ];
+        }
+
+        return [
+            'source_game_id' => $sourceGameId,
+            'central_rules' => $this->cloneCentralRules($sourceGameId, $gameId, $now),
+            'tenant_overrides' => $this->cloneTenantOverrides($sourceGameId, $gameId, $now),
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function summary(array $price): array
@@ -417,6 +447,134 @@ class LotterySalePriceService
             'rule_id' => $unit === null ? null : (string) $unit->id,
             'fallback' => true,
         ];
+    }
+
+    private function previousSalePriceGameId(object $target): ?string
+    {
+        $query = Game::query()
+            ->select('games.id')
+            ->join('game_sale_price_rules', 'game_sale_price_rules.game_id', '=', 'games.id')
+            ->where('games.id', '<>', (string) $target->id)
+            ->groupBy('games.id', 'games.draw_at')
+            ->orderByDesc('games.draw_at')
+            ->orderByDesc('games.id');
+
+        if ($target->draw_at !== null) {
+            $query->where('games.draw_at', '<', $target->draw_at);
+        }
+
+        $sourceGameId = $query->value('games.id');
+
+        return $sourceGameId === null ? null : (string) $sourceGameId;
+    }
+
+    private function cloneCentralRules(string $sourceGameId, string $targetGameId, mixed $now): int
+    {
+        $existingSetSizes = GameSalePriceRule::query()
+            ->where('game_id', $targetGameId)
+            ->pluck('set_size')
+            ->map(fn (mixed $setSize): int => (int) $setSize)
+            ->all();
+        $rules = GameSalePriceRule::query()
+            ->where('game_id', $sourceGameId)
+            ->when($existingSetSizes !== [], fn ($query) => $query->whereNotIn('set_size', $existingSetSizes))
+            ->orderBy('set_size')
+            ->get(['set_size', 'price_amount', 'currency', 'status']);
+        $rows = [];
+
+        foreach ($rules as $rule) {
+            $setSize = (int) $rule->set_size;
+            $rows[] = [
+                'id' => $this->stableCentralRuleId($targetGameId, $setSize),
+                'game_id' => $targetGameId,
+                'set_size' => $setSize,
+                'price_amount' => (int) $rule->price_amount,
+                'currency' => (string) $rule->currency,
+                'status' => (string) $rule->status,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        return $rows === [] ? 0 : (int) DB::table('game_sale_price_rules')->insertOrIgnore($rows);
+    }
+
+    private function cloneTenantOverrides(string $sourceGameId, string $targetGameId, mixed $now): int
+    {
+        $existing = DB::table('tenant_sale_price_overrides')
+            ->where('game_id', $targetGameId)
+            ->get(['tenant_id', 'set_size'])
+            ->mapWithKeys(fn (object $row): array => [(string) $row->tenant_id.':'.(int) $row->set_size => true])
+            ->all();
+        $overrides = TenantSalePriceOverride::query()
+            ->where('game_id', $sourceGameId)
+            ->orderBy('tenant_id')
+            ->orderBy('set_size')
+            ->get(['tenant_id', 'partner_id', 'set_size', 'price_amount', 'currency', 'status']);
+        $rows = [];
+
+        foreach ($overrides as $override) {
+            $tenantId = (string) $override->tenant_id;
+            $setSize = (int) $override->set_size;
+
+            if (isset($existing[$tenantId.':'.$setSize])) {
+                continue;
+            }
+
+            $rows[] = [
+                'id' => $this->stableTenantOverrideId($targetGameId, $tenantId, $setSize),
+                'tenant_id' => $tenantId,
+                'partner_id' => (string) $override->partner_id,
+                'game_id' => $targetGameId,
+                'set_size' => $setSize,
+                'price_amount' => (int) $override->price_amount,
+                'currency' => (string) $override->currency,
+                'status' => (string) $override->status,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        return $rows === [] ? 0 : (int) DB::table('tenant_sale_price_overrides')->insertOrIgnore($rows);
+    }
+
+    private function seedDefaultCentralRules(string $gameId, mixed $now): int
+    {
+        $existingSetSizes = GameSalePriceRule::query()
+            ->where('game_id', $gameId)
+            ->pluck('set_size')
+            ->map(fn (mixed $setSize): int => (int) $setSize)
+            ->all();
+        $rows = [];
+
+        for ($setSize = 1; $setSize <= self::DEFAULT_MAX_SET_SIZE; $setSize++) {
+            if (in_array($setSize, $existingSetSizes, true)) {
+                continue;
+            }
+
+            $rows[] = [
+                'id' => $this->stableCentralRuleId($gameId, $setSize),
+                'game_id' => $gameId,
+                'set_size' => $setSize,
+                'price_amount' => $setSize * self::DEFAULT_UNIT_AMOUNT,
+                'currency' => self::DEFAULT_CURRENCY,
+                'status' => 'active',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        return $rows === [] ? 0 : (int) DB::table('game_sale_price_rules')->insertOrIgnore($rows);
+    }
+
+    private function stableCentralRuleId(string $gameId, int $setSize): string
+    {
+        return 'gsp_'.substr(sha1('sale-price:'.$gameId.':'.$setSize), 0, 26);
+    }
+
+    private function stableTenantOverrideId(string $gameId, string $tenantId, int $setSize): string
+    {
+        return 'tsp_'.substr(sha1('sale-price:'.$gameId.':'.$tenantId.':'.$setSize), 0, 26);
     }
 
     /**

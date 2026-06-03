@@ -20,6 +20,7 @@ use App\Models\SyncOutbox;
 use App\Modules\CentralStock\Events\StockGenerationProgressUpdated;
 use App\Modules\Reward\Services\ThaiGovernmentLotteryRewardTemplate;
 use App\Modules\PartnerStore\Services\VirtualStockService;
+use App\Modules\Pricing\Services\LotterySalePriceService;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Support\PublicUrl;
@@ -80,6 +81,7 @@ class CentralStockService
         private readonly LotteryImageGenerator $lotteryImages,
         private readonly VirtualStockService $virtualStock,
         private readonly StockCoverageRealtimeService $coverageRealtime,
+        private readonly LotterySalePriceService $salePrices,
     ) {
     }
 
@@ -344,6 +346,7 @@ class CentralStockService
                 'updated_at' => $now,
             ]);
 
+            $this->salePrices->seedRulesForNewGameFromPreviousDraw($gameId, $now);
             $this->createDraftRewardForGame($gameId, $actor->adminUser['id'], $now);
             $this->auditGameChange($actor, $request, $gameId, 'created', $payload);
 
@@ -3679,6 +3682,10 @@ class CentralStockService
             $stock = StockItem::query()->where('id', $stockItemId)->lockForUpdate()->first();
 
             if ($stock === null || ! in_array($stock->status, ['available', 'allocated'], true)) {
+                return null;
+            }
+
+            if (! Game::query()->where('id', (string) $stock->game_id)->where('status', 'open')->exists()) {
                 return null;
             }
 

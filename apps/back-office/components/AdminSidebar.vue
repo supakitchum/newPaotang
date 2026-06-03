@@ -114,7 +114,12 @@ watch([visibleMenus, () => route.path], ([items]) => {
   const activeParents = items
     .filter((item: any) => item.children?.length && isActive(item))
     .map((item: any) => item.key)
+  const defaultOpenParents = openKeys.value.length === 0
+    ? items
+        .filter((item: any) => item.key === 'dashboard' && item.children?.length)
+        .map((item: any) => item.key)
+    : []
 
-  openKeys.value = [...new Set([...openKeys.value, ...activeParents])]
+  openKeys.value = [...new Set([...openKeys.value, ...defaultOpenParents, ...activeParents])]
 }, { immediate: true })
 </script>

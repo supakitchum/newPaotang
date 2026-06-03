@@ -226,6 +226,11 @@
                 <label class="form-label">Maintenance message</label>
                 <textarea v-model="settingsForm.maintenance_message" class="form-control" rows="2" :disabled="!primaryTenant" />
               </div>
+              <div class="col-12">
+                <label class="form-label">Terms and conditions</label>
+                <textarea v-model="settingsForm.terms_content" class="form-control" rows="6" :disabled="!primaryTenant" />
+                <div class="form-text">Shown on the customer Terms page. Leave blank to use the default text with the current site name.</div>
+              </div>
               <div class="col-12 col-md-6">
                 <label class="form-label">Realtime URL</label>
                 <input v-model="settingsForm.realtime_url" class="form-control" type="text" :disabled="!primaryTenant">
@@ -607,6 +612,9 @@ function buildSectionPayload(section: SectionKey) {
         realtime_url: nullable(settingsForm.realtime_url),
         asset_cdn_base_url: nullable(settingsForm.asset_cdn_base_url),
       },
+      legal: {
+        terms_content: nullable(settingsForm.terms_content),
+      },
     },
     theme: {
       brand: {
@@ -684,6 +692,7 @@ function resetForms() {
     api_base_url: valueOrDefault(settings?.api?.base_url, '/api/v1'),
     realtime_url: valueOrEmpty(settings?.api?.realtime_url),
     asset_cdn_base_url: valueOrEmpty(settings?.api?.asset_cdn_base_url),
+    terms_content: valueOrEmpty(settings?.legal?.terms_content),
   })
   assignForm(themeForm, {
     logo_url: valueOrEmpty(theme?.brand?.logo_url),

@@ -38,15 +38,15 @@
         </NuxtLink>
       </div>
 
-      <section v-if="isAuthenticated" class="home-wallet-panel mb-4">
-        <div>
-          <div class="home-wallet-label">Wallet ของฉัน</div>
-          <strong v-if="isWalletLoading">กำลังโหลด...</strong>
-          <strong v-else>{{ formatMoney(walletBalance) }} บาท</strong>
-          <p>{{ customerNoLabel }}</p>
-        </div>
-        <NuxtLink class="home-wallet-action" to="/topup">เติมเงิน</NuxtLink>
-      </section>
+      <WalletBalanceCard
+        v-if="isAuthenticated"
+        class="mb-4"
+        :balance="walletBalance"
+        :loading="isWalletLoading"
+        :customer-label="customerNoLabel"
+        topup-back-to="/"
+        compact
+      />
 
       <section v-else class="home-guest-panel mb-4">
         <div>
@@ -135,7 +135,7 @@ const config = useRuntimeConfig()
 const { isDisplayableRewardNumber, toSummary } = useLotteryReward()
 const { currentDrawDate: drawDate } = useAppInit()
 const { isAuthenticated, user, restoreAuthState } = useAuth()
-const { formatMoney, toNumber } = useTopup()
+const { toNumber } = useTopup()
 const latestGame = ref<LotteryRewardGame | null>(null)
 const historyGames = ref<LotteryRewardGame[]>([])
 const isRewardLoading = ref(true)
@@ -328,7 +328,6 @@ onBeforeUnmount(stopNewsTimer)
 </script>
 
 <style scoped>
-.home-wallet-panel,
 .home-guest-panel {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -341,36 +340,17 @@ onBeforeUnmount(stopNewsTimer)
   box-shadow: 0 10px 24px rgba(33, 55, 85, .08);
 }
 
-.home-wallet-label,
 .home-guest-panel p {
   color: #64748b;
   font-size: 13px;
   font-weight: 700;
 }
 
-.home-wallet-panel strong {
-  display: block;
-  margin-top: 2px;
-  color: #075ec9;
-  font-size: 28px;
-  font-weight: 900;
-  line-height: 1.05;
-}
-
-.home-wallet-panel p,
 .home-guest-panel h2,
 .home-guest-panel p {
   margin: 0;
 }
 
-.home-wallet-panel p {
-  margin-top: 6px;
-  color: #3b5b84;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.home-wallet-action,
 .home-guest-actions a {
   min-height: 42px;
   display: inline-flex;
@@ -514,12 +494,10 @@ onBeforeUnmount(stopNewsTimer)
 }
 
 @media (max-width: 520px) {
-  .home-wallet-panel,
   .home-guest-panel {
     grid-template-columns: 1fr;
   }
 
-  .home-wallet-action,
   .home-guest-actions a {
     width: 100%;
   }

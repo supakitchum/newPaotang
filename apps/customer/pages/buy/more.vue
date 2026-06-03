@@ -82,7 +82,6 @@ definePageMeta({
 })
 
 const route = useRoute()
-const router = useRouter()
 const platformApi = usePlatformApi()
 const { applyPriceUpdateToTickets } = usePriceRealtimePatch()
 const tickets = ref<MoreNumberTicket[]>([])
@@ -115,11 +114,6 @@ useCustomerStockRealtime({
 })
 
 const goBack = () => {
-  if (process.client && window.history.length > 1) {
-    router.back()
-    return
-  }
-
   navigateTo('/buy')
 }
 

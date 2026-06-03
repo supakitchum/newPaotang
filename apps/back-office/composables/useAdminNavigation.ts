@@ -10,16 +10,28 @@ type AdminMenuItem = {
 
 const routeHints: Record<string, string> = {
   dashboard: '/admin/central/dashboard',
+  dashboard_sales: '/admin/central/dashboard/sales',
+  dashboard_partner: '/admin/central/dashboard/partner',
+  dashboard_wallet: '/admin/central/dashboard/wallet',
+  dashboard_payout: '/admin/central/dashboard/payout',
+  dashboard_monitor: '/admin/central/dashboard/monitor',
   maintenance: '/admin/tenant/maintenance',
   support_access: '/admin/tenant/support-access',
 }
 
 const scopedRouteOverrides: Record<string, string> = {
+  'central:dashboard_sales': '/admin/central/dashboard/sales',
+  'central:dashboard_partner': '/admin/central/dashboard/partner',
+  'central:dashboard_wallet': '/admin/central/dashboard/wallet',
+  'central:dashboard_payout': '/admin/central/dashboard/payout',
+  'central:dashboard_monitor': '/admin/central/dashboard/monitor',
   'central:rewards': '/admin/central/rewards',
   'central:winners': '/admin/central/winners',
+  'central:reward_payout_rules': '/admin/central/reward-payout-rules',
   'central:stock_generation': '/admin/central/stock-generation',
   'central:stock_settings': '/admin/central/stock-settings',
   'central:stock_pattern_coverage': '/admin/central/stock-pattern-coverage',
+  'central:maintenance': '/admin/central/maintenance',
   'central:lottery_images': '/admin/central/lottery-images',
   'central:lottery_image_operations': '/admin/central/lottery-images',
   'central:lottery-images': '/admin/central/lottery-images',
@@ -38,6 +50,7 @@ const scopedRouteOverrides: Record<string, string> = {
   'central:system_settings': '/admin/central/system-settings',
   'tenant:price_rules': '/admin/tenant/price-rules',
   'tenant:customers': '/admin/tenant/customers',
+  'tenant:announcements': '/admin/tenant/announcements',
   'tenant:winners': '/admin/tenant/winners',
   'tenant:exchange_reward': '/admin/tenant/exchange-reward',
   'tenant:agent_quotas': '/admin/tenant/growth/agent-quotas',
@@ -107,6 +120,7 @@ export const useAdminNavigation = () => {
     if (safeIcon(item.icon)) return item.icon
 
     const key = item.key || ''
+    if (key.includes('announcement')) return 'ri-megaphone-line'
     if (key.includes('maintenance')) return 'ri-tools-line'
     if (key.includes('support')) return 'ri-customer-service-2-line'
     if (key.includes('audit')) return 'ri-history-line'
@@ -139,10 +153,6 @@ const buildMenuTree = (items: AdminMenuItem[]) => {
     ...item,
     children: Array.isArray(item.children) ? item.children : [],
   }))
-
-  if (normalizedItems.some((item) => item.children.length)) {
-    return normalizedItems
-  }
 
   const groups: AdminMenuItem[] = []
   const groupByCategory = new Map<string, AdminMenuItem>()

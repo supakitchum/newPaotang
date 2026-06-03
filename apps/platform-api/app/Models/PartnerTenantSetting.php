@@ -37,6 +37,7 @@ class PartnerTenantSetting extends BaseModel
         'realtime_url',
         'asset_cdn_base_url',
         'waiting_result_youtube_url',
+        'terms_content',
         'config_version',
         'created_at',
         'updated_at',

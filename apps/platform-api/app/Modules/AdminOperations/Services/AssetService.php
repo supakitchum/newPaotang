@@ -26,6 +26,7 @@ class AssetService
         'tenant_logo',
         'tenant_favicon',
         'tenant_og_image',
+        'tenant_announcement_image',
         'ticket_image',
         self::PARTNER_LOTTERY_BRANDING_PURPOSE,
         'admin_attachment',

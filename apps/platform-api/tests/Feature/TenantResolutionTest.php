@@ -55,6 +55,23 @@ class TenantResolutionTest extends TestCase
         $this->assertSame('tenant_inactive', $response->getData(true)['error']['code']);
     }
 
+    public function test_maintenance_tenant_status_still_sets_tenant_context(): void
+    {
+        $this->seedTenant(tenantStatus: 'maintenance');
+
+        $request = Request::create('/probe', 'GET', [], [], [], ['HTTP_HOST' => 'tenant.example.test']);
+        $response = app(ResolveTenantByHost::class)->handle($request, function () {
+            return response()->json([
+                'tenant_id' => app(TenantContext::class)->tenantId(),
+                'partner_id' => app(TenantContext::class)->partnerId(),
+            ]);
+        });
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('ten_test', $response->getData(true)['tenant_id']);
+        $this->assertSame('par_test', $response->getData(true)['partner_id']);
+    }
+
     public function test_active_host_sets_tenant_context(): void
     {
         $this->seedTenant();

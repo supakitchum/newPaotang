@@ -105,6 +105,34 @@ class CustomerAuthTest extends TestCase
 
         $this->withToken($refreshed['token'])
             ->patchJson('http://auth.m5.test/api/v1/customer/profile', [
+                'reward_payout_bank_account' => [
+                    'bank_name' => 'Example Bank',
+                    'account_name' => 'Customer Updated',
+                    'account_number' => '1234567890',
+                ],
+            ], [
+                'Idempotency-Key' => 'profile-bank-missing-pin-m5',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.fields.pin.0', 'The pin field must contain exactly 6 digits.');
+
+        $this->withToken($refreshed['token'])
+            ->patchJson('http://auth.m5.test/api/v1/customer/profile', [
+                'reward_payout_bank_account' => [
+                    'bank_name' => 'Example Bank',
+                    'account_name' => 'Customer Updated',
+                    'account_number' => '1234567890',
+                ],
+                'pin' => '000000',
+            ], [
+                'Idempotency-Key' => 'profile-bank-wrong-pin-m5',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'pin_invalid');
+
+        $this->withToken($refreshed['token'])
+            ->patchJson('http://auth.m5.test/api/v1/customer/profile', [
                 'name' => 'Customer Updated',
                 'avatar_url' => 'https://cdn.example.test/avatar.png',
                 'reward_payout_bank_account' => [
@@ -112,13 +140,21 @@ class CustomerAuthTest extends TestCase
                     'account_name' => 'Customer Updated',
                     'account_number' => '1234567890',
                 ],
+                'auto_reward_claim' => [
+                    'enabled' => true,
+                    'type' => 'bank_transfer',
+                ],
+                'pin' => '123456',
             ], [
                 'Idempotency-Key' => 'profile-update-m5',
             ])
             ->assertOk()
             ->assertJsonPath('name', 'Customer Updated')
             ->assertJsonPath('reward_payout_bank_account.bank_name', 'Example Bank')
-            ->assertJsonPath('reward_payout_bank_account.account_number', '1234567890');
+            ->assertJsonPath('reward_payout_bank_account.account_number', '1234567890')
+            ->assertJsonPath('auto_reward_claim.enabled', true)
+            ->assertJsonPath('auto_reward_claim.payout_method', 'bank_transfer')
+            ->assertJsonPath('auto_reward_claim.type', 'bank_transfer');
 
         $lockedLogin = $this->postJson('http://auth.m5.test/api/v1/customer/auth/login', [
             'username' => '0801002000',

@@ -51,19 +51,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['search'])
 
-const router = useRouter()
-
 const goBack = () => {
-  if (props.forceBackTo) {
-    navigateTo(props.backTo)
-    return
-  }
-
-  if (process.client && window.history.length > 1) {
-    router.back()
-    return
-  }
-
   navigateTo(props.backTo)
 }
 </script>

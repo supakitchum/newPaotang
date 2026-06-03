@@ -29,6 +29,7 @@ class ReportRequestValidator
         if ($scope === 'central') {
             $rules['tenant_id'] = ['sometimes', 'nullable', 'string', 'max:30'];
         }
+        $rules['game_id'] = ['sometimes', 'nullable', 'string', 'max:30'];
 
         return $this->payloads->merge(
             $this->payloads->validate($query, $rules),
@@ -45,6 +46,7 @@ class ReportRequestValidator
         $errors = $this->payloads->validate($payload, [
             'format' => ['required', 'string', 'in:'.implode(',', self::EXPORT_FORMATS)],
             'tenant_id' => [$scope === 'central' ? 'sometimes' : 'prohibited', 'nullable', 'string', 'max:30'],
+            'game_id' => ['sometimes', 'nullable', 'string', 'max:30'],
             'date_from' => ['sometimes', 'nullable', 'string'],
             'date_to' => ['sometimes', 'nullable', 'string'],
             'filters' => ['sometimes', 'array'],

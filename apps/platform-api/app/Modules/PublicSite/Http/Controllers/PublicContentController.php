@@ -24,6 +24,16 @@ class PublicContentController extends Controller
         return $this->result($request, $this->content->news($request));
     }
 
+    public function newsModal(Request $request): JsonResponse
+    {
+        return $this->result($request, $this->content->newsModal($request));
+    }
+
+    public function newsDetail(Request $request, string $slug): JsonResponse
+    {
+        return $this->result($request, $this->content->newsDetail($request, $slug));
+    }
+
     public function stores(Request $request): JsonResponse
     {
         return $this->result($request, $this->content->stores($request));

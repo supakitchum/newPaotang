@@ -1,13 +1,25 @@
 <template>
-  <MobileShell active-nav="menu" show-bottom-nav>
+  <PinKeypadScreen
+    v-if="affiliateStep === 'pin'"
+    title="ใส่รหัส PIN 6 หลัก"
+    subtitle="เพื่อเข้าใช้ระบบ Affiliate"
+    :digits="affiliatePinDigits"
+    :error="affiliatePinError"
+    :disabled="isVerifyingPin"
+    @append="appendAffiliatePinDigit"
+    @remove="removeAffiliatePinDigit"
+    @back="goBackFromPin"
+  />
+
+  <MobileShell v-else active-nav="menu" show-bottom-nav>
     <BlueHeader class="affiliate-blue-header" title="ตัวแทนจำหน่าย" back-to="/profile" min-height="248px">
       <div class="affiliate-hero">
         <div class="affiliate-hero-icon">
           <i class="bi bi-share-fill" />
         </div>
         <div class="affiliate-hero-copy">
-          <p>Affiliate ของฉัน</p>
-          <h1>แนะนำเพื่อน รับคอมมิชชัน ถอนเงินเอง</h1>
+          <h1>ตัวแทนจำหน่าย</h1>
+          <p>แนะนำผู้อื่นเพื่อรับผลตอบแทนการขาย</p>
         </div>
       </div>
     </BlueHeader>
@@ -198,6 +210,7 @@ type AffiliateTab = 'overview' | 'withdraw' | 'commissions' | 'payouts'
 
 const platformApi = usePlatformApi()
 const { showAlert } = useAppAlert()
+const { setAuthUser, setPinVerified, user } = useAuth()
 
 const emptyOverview = () => ({
   is_affiliate: false,
@@ -224,8 +237,12 @@ const emptyOverview = () => ({
 
 const overview = ref(emptyOverview())
 const activeTab = ref<AffiliateTab>('overview')
+const affiliateStep = ref<'pin' | 'content'>('pin')
+const affiliatePinDigits = ref('')
+const affiliatePinError = ref('')
 const isLoading = ref(false)
 const isSubmitting = ref(false)
+const isVerifyingPin = ref(false)
 const payoutAmount = ref('')
 const payoutMethod = ref('bank_transfer')
 const bankName = ref('')
@@ -389,6 +406,94 @@ const refresh = async () => {
   }
 }
 
+const resetAffiliatePinEntry = () => {
+  affiliatePinDigits.value = ''
+  affiliatePinError.value = ''
+}
+
+const applyAffiliatePinResponse = (response: Record<string, any>) => {
+  setAuthUser(response.user || {
+    ...(user.value || {}),
+    has_pin: response.has_pin,
+    pin_verified: response.pin_verified,
+    pin_setup_required: response.pin_setup_required,
+    pin_required: response.pin_required
+  })
+  setPinVerified(Boolean(response.pin_verified))
+}
+
+const verifyAffiliatePin = async () => {
+  if (isVerifyingPin.value || affiliatePinDigits.value.length !== 6) {
+    return
+  }
+
+  isVerifyingPin.value = true
+  affiliatePinError.value = ''
+
+  try {
+    const response = await platformApi.verifyPin({
+      pin: affiliatePinDigits.value
+    })
+
+    applyAffiliatePinResponse(response)
+    affiliateStep.value = 'content'
+    resetAffiliatePinEntry()
+    await refresh()
+  } catch (error: any) {
+    affiliatePinDigits.value = ''
+    const code = error?.response?.data?.error?.code || error?.response?.data?.code
+
+    if (code === 'pin_invalid') {
+      affiliatePinError.value = 'PIN ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง'
+      return
+    }
+
+    if (code === 'pin_locked') {
+      affiliatePinError.value = 'กรอก PIN ผิดเกินกำหนด กรุณารอสักครู่แล้วลองใหม่'
+      return
+    }
+
+    if (code === 'pin_setup_required') {
+      affiliatePinError.value = 'กรุณาตั้งค่า PIN ก่อนเข้าใช้ระบบ Affiliate'
+      return
+    }
+
+    affiliatePinError.value = error?.response?.data?.message || 'ไม่สามารถยืนยัน PIN ได้ กรุณาลองใหม่อีกครั้ง'
+  } finally {
+    isVerifyingPin.value = false
+  }
+}
+
+const appendAffiliatePinDigit = async (digit: string) => {
+  if (!/^\d$/.test(digit) || affiliatePinDigits.value.length >= 6 || isVerifyingPin.value) {
+    return
+  }
+
+  affiliatePinError.value = ''
+  affiliatePinDigits.value = `${affiliatePinDigits.value}${digit}`
+
+  if (affiliatePinDigits.value.length === 6) {
+    await verifyAffiliatePin()
+  }
+}
+
+const removeAffiliatePinDigit = () => {
+  if (isVerifyingPin.value) {
+    return
+  }
+
+  affiliatePinError.value = ''
+  affiliatePinDigits.value = affiliatePinDigits.value.slice(0, -1)
+}
+
+const goBackFromPin = async () => {
+  if (isVerifyingPin.value) {
+    return
+  }
+
+  await navigateTo('/profile')
+}
+
 const register = async () => {
   isSubmitting.value = true
   try {
@@ -453,7 +558,7 @@ const requestPayout = async () => {
   }
 }
 
-onMounted(refresh)
+onMounted(resetAffiliatePinEntry)
 </script>
 
 <style scoped>

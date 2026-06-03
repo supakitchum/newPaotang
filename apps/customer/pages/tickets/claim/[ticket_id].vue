@@ -319,7 +319,6 @@ type ClaimStep = 'select' | 'confirm' | 'pin' | 'processing'
 type PayoutMethod = 'wallet_credit' | 'bank_transfer'
 
 const route = useRoute()
-const router = useRouter()
 const platformApi = usePlatformApi()
 const { restoreAuthState } = useAuth()
 const { showAlert } = useAppAlert()
@@ -553,11 +552,6 @@ const bankAccountFromProfile = (value: Record<string, any> | null | undefined) =
 const handleBack = () => {
   if (claimStep.value === 'confirm') {
     claimStep.value = 'select'
-    return
-  }
-
-  if (process.client && window.history.length > 1) {
-    router.back()
     return
   }
 

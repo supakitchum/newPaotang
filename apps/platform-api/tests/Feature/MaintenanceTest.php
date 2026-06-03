@@ -75,11 +75,32 @@ class MaintenanceTest extends TestCase
                 'reason' => 'Full site maintenance',
                 'message' => 'Maintenance in progress.',
                 'retry_after_seconds' => 120,
+                'allowed_routes' => ['/api/v1/public/stock/search'],
             ], [
                 'X-Admin-Scope' => 'tenant',
                 'X-Tenant-Id' => 'ten_m9_a',
                 'Idempotency-Key' => 'm9-maintenance-full',
                 'X-Request-Id' => 'req-m9-maintenance-full',
+            ])
+            ->assertOk()
+            ->assertJsonPath('mode', 'full_site');
+
+        $this->getJson('http://m9-a.test/api/v1/public/stock/search?game_id=gam_m9_mode')
+            ->assertOk();
+
+        $this->withToken($admin['access_token'])
+            ->putJson('/api/v1/admin/tenant/maintenance', [
+                'status' => 'active',
+                'mode' => 'full_site',
+                'reason' => 'Block full site maintenance',
+                'message' => 'Maintenance in progress.',
+                'retry_after_seconds' => 120,
+                'allowed_routes' => [],
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_m9_a',
+                'Idempotency-Key' => 'm9-maintenance-full-block',
+                'X-Request-Id' => 'req-m9-maintenance-full-block',
             ])
             ->assertOk()
             ->assertJsonPath('mode', 'full_site');
@@ -214,12 +235,278 @@ class MaintenanceTest extends TestCase
             ->assertJsonPath('error.code', 'permission_denied');
 
         $this->withToken($admin['access_token'])
+            ->putJson('/api/v1/admin/tenant/maintenance', [
+                'status' => 'active',
+                'mode' => 'scheduled',
+                'reason' => 'Active maintenance must block traffic',
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_m9_validation',
+                'Idempotency-Key' => 'm9-maintenance-active-scheduled',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.fields.mode.0', 'The mode field must be a blocking maintenance mode when status is active.');
+
+        $this->withToken($admin['access_token'])
             ->getJson('/api/v1/admin/tenant/maintenance/bypasses', [
                 'X-Admin-Scope' => 'tenant',
                 'X-Tenant-Id' => 'ten_m9_validation',
             ])
             ->assertStatus(403)
             ->assertJsonPath('error.code', 'permission_denied');
+    }
+
+    public function test_Maintenance_customer_web_only_keeps_partner_bo_resolvable(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_m9_bo', 'ten_m9_bo', 'm9-bo.test');
+        $admin = $this->createTenantSession('ten_m9_bo', 'par_m9_bo', [
+            'maintenance.view',
+            'maintenance.update',
+        ], 'adm_m9_bo', 'm9-bo@example.test');
+
+        $this->withToken($admin['access_token'])
+            ->putJson('/api/v1/admin/tenant/maintenance', [
+                'status' => 'active',
+                'mode' => 'customer_web_only',
+                'reason' => 'Pause customer storefront only',
+                'message' => 'Customer storefront is temporarily unavailable.',
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_m9_bo',
+                'Idempotency-Key' => 'm9-maintenance-customer-only',
+            ])
+            ->assertOk()
+            ->assertJsonPath('mode', 'customer_web_only')
+            ->assertJsonPath('active', true);
+
+        $this->assertDatabaseHas('partner_tenants', [
+            'id' => 'ten_m9_bo',
+            'status' => 'maintenance',
+        ]);
+
+        $this->getJson('http://bo.m9-bo.test/api/v1/public/admin-site-config')
+            ->assertOk()
+            ->assertJsonPath('mode', 'partner')
+            ->assertJsonPath('partner.id', 'par_m9_bo')
+            ->assertJsonPath('tenant.id', 'ten_m9_bo');
+
+        $this->postJson('http://bo.m9-bo.test/api/v1/auth/admin/login', [
+            'email' => 'm9-bo@example.test',
+            'password' => 'secret-password',
+        ])
+            ->assertOk()
+            ->assertJsonPath('scopes.0.scope', 'tenant')
+            ->assertJsonPath('scopes.0.tenant_id', 'ten_m9_bo');
+    }
+
+    public function test_Maintenance_can_disable_tenant_status_maintenance_without_schedule_permission(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_m9_disable', 'ten_m9_disable', 'm9-disable.test');
+        DB::table('partner_tenants')->where('id', 'ten_m9_disable')->update(['status' => 'maintenance']);
+
+        $admin = $this->createTenantSession('ten_m9_disable', 'par_m9_disable', [
+            'maintenance.view',
+            'maintenance.update',
+        ], 'adm_m9_disable', 'm9-disable@example.test');
+
+        $this->withToken($admin['access_token'])
+            ->getJson('/api/v1/admin/tenant/maintenance', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_m9_disable',
+            ])
+            ->assertOk()
+            ->assertJsonPath('active', true);
+
+        $this->withToken($admin['access_token'])
+            ->putJson('/api/v1/admin/tenant/maintenance', [
+                'status' => 'inactive',
+                'mode' => 'scheduled',
+                'reason' => 'Maintenance window finished',
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_m9_disable',
+                'Idempotency-Key' => 'm9-maintenance-disable',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'inactive')
+            ->assertJsonPath('active', false);
+
+        $this->assertDatabaseHas('partner_tenants', [
+            'id' => 'ten_m9_disable',
+            'status' => 'active',
+        ]);
+
+        $this->getJson('http://m9-disable.test/api/v1/public/site-config')
+            ->assertOk()
+            ->assertJsonPath('data.maintenance.active', false);
+    }
+
+    public function test_CentralMaintenance_can_list_and_update_partner_tenant_maintenance(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_m9_central', 'ten_m9_central', 'm9-central.test');
+        $central = $this->createCentralSession([
+            'partner.view',
+            'partner.update',
+        ], 'adm_m9_central', 'm9-central-owner@example.test');
+
+        $this->withToken($central['access_token'])
+            ->getJson('/api/v1/admin/central/maintenance?q=m9-central', [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.0.partner_id', 'par_m9_central')
+            ->assertJsonPath('data.0.tenant_id', 'ten_m9_central')
+            ->assertJsonPath('data.0.maintenance.active', false);
+
+        $this->withToken($central['access_token'])
+            ->putJson('/api/v1/admin/central/maintenance/ten_m9_central', [
+                'status' => 'active',
+                'mode' => 'customer_web_only',
+                'reason' => 'Central customer storefront pause',
+                'message' => 'Customer storefront is temporarily unavailable.',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'central-maintenance-enable',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'active')
+            ->assertJsonPath('mode', 'customer_web_only')
+            ->assertJsonPath('active', true);
+
+        $this->assertDatabaseHas('partner_tenants', [
+            'id' => 'ten_m9_central',
+            'status' => 'maintenance',
+        ]);
+
+        $this->getJson('http://m9-central.test/api/v1/public/site-config')
+            ->assertOk()
+            ->assertJsonPath('data.maintenance.active', true)
+            ->assertJsonPath('data.maintenance.mode', 'customer_web_only');
+
+        $this->withToken($central['access_token'])
+            ->getJson('/api/v1/admin/central/maintenance/ten_m9_central', [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('active', true);
+
+        $this->withToken($central['access_token'])
+            ->putJson('/api/v1/admin/central/maintenance/ten_m9_central', [
+                'status' => 'inactive',
+                'mode' => 'scheduled',
+                'reason' => 'Central maintenance finished',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'central-maintenance-disable',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'inactive')
+            ->assertJsonPath('active', false);
+
+        $this->assertDatabaseHas('partner_tenants', [
+            'id' => 'ten_m9_central',
+            'status' => 'active',
+        ]);
+    }
+
+    public function test_CentralPartnerMaintenance_closes_partner_bo_without_changing_tenant_customer_maintenance(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_m9_partner_bo', 'ten_m9_partner_bo', 'm9-partner-bo.test');
+        $tenantAdmin = $this->createTenantSession('ten_m9_partner_bo', 'par_m9_partner_bo', [
+            'maintenance.view',
+            'maintenance.update',
+        ], 'adm_m9_partner_bo', 'm9-partner-bo@example.test');
+        $central = $this->createCentralSession([
+            'partner.view',
+            'partner.update',
+        ], 'adm_m9_partner_bo_central', 'm9-partner-bo-central@example.test');
+
+        $this->withToken($central['access_token'])
+            ->putJson('/api/v1/admin/central/partner-maintenance/par_m9_partner_bo', [
+                'status' => 'active',
+                'reason' => 'Central BO maintenance window',
+                'message' => 'Partner Back Office is temporarily closed by Central.',
+                'retry_after_seconds' => 180,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'central-partner-maintenance-enable',
+            ])
+            ->assertOk()
+            ->assertJsonPath('source', 'central_partner')
+            ->assertJsonPath('scope', 'partner_bo')
+            ->assertJsonPath('status', 'active')
+            ->assertJsonPath('active', true);
+
+        $this->assertDatabaseHas('partner_central_maintenance_settings', [
+            'partner_id' => 'par_m9_partner_bo',
+            'status' => 'active',
+        ]);
+        $this->assertDatabaseHas('partner_tenants', [
+            'id' => 'ten_m9_partner_bo',
+            'status' => 'active',
+        ]);
+
+        $this->withToken($central['access_token'])
+            ->getJson('/api/v1/admin/central/maintenance?q=m9-partner-bo', [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.0.partner_maintenance.active', true)
+            ->assertJsonPath('data.0.partner_maintenance.scope', 'partner_bo')
+            ->assertJsonPath('data.0.maintenance.active', false);
+
+        $this->getJson('http://bo.m9-partner-bo.test/api/v1/public/admin-site-config')
+            ->assertOk()
+            ->assertJsonPath('mode', 'partner')
+            ->assertJsonPath('maintenance.active', true)
+            ->assertJsonPath('maintenance.source', 'central_partner')
+            ->assertJsonPath('maintenance.retry_after_seconds', 180);
+
+        $this->postJson('http://bo.m9-partner-bo.test/api/v1/auth/admin/login', [
+            'email' => 'm9-partner-bo@example.test',
+            'password' => 'secret-password',
+        ])
+            ->assertStatus(503)
+            ->assertHeader('Retry-After', '180')
+            ->assertJsonPath('error.code', 'maintenance_active');
+
+        $this->withToken($tenantAdmin['access_token'])
+            ->getJson('http://bo.m9-partner-bo.test/api/v1/admin/tenant/settings', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_m9_partner_bo',
+            ])
+            ->assertStatus(503)
+            ->assertHeader('Retry-After', '180')
+            ->assertJsonPath('error.code', 'maintenance_active');
+
+        $this->withToken($central['access_token'])
+            ->putJson('http://localhost/api/v1/admin/central/partner-maintenance/par_m9_partner_bo', [
+                'status' => 'inactive',
+                'reason' => 'Central BO maintenance finished',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'central-partner-maintenance-disable',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'inactive')
+            ->assertJsonPath('active', false);
+
+        $this->getJson('http://bo.m9-partner-bo.test/api/v1/public/admin-site-config')
+            ->assertOk()
+            ->assertJsonPath('maintenance.active', false);
+
+        $this->postJson('http://bo.m9-partner-bo.test/api/v1/auth/admin/login', [
+            'email' => 'm9-partner-bo@example.test',
+            'password' => 'secret-password',
+        ])
+            ->assertOk()
+            ->assertJsonPath('scopes.0.scope', 'tenant')
+            ->assertJsonPath('scopes.0.tenant_id', 'ten_m9_partner_bo');
     }
 
     public function test_Maintenance_bypass_requires_ticket_id_before_mutations_and_preserves_idempotency(): void

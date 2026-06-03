@@ -27,6 +27,19 @@ class AdminOperationsController extends Controller
         return $this->dashboardSummary($request, 'central');
     }
 
+    public function centralDashboardSection(Request $request, string $section): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'central', 'dashboard.view');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $period = trim((string) $request->query('period', 'today'));
+
+        return response()->json($this->operations->centralDashboardSection($section, $period));
+    }
+
     public function tenantDashboardSummary(Request $request): JsonResponse
     {
         return $this->dashboardSummary($request, 'tenant');
@@ -80,7 +93,9 @@ class AdminOperationsController extends Controller
             return $context;
         }
 
-        return response()->json($this->operations->dashboardSummary($scopeType, $context->activeTenantId()));
+        $period = trim((string) $request->query('period', 'today'));
+
+        return response()->json($this->operations->dashboardSummary($scopeType, $context->activeTenantId(), $period));
     }
 
     private function realtimeAuth(Request $request, string $scopeType): JsonResponse

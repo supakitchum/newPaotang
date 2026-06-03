@@ -122,7 +122,16 @@ class CustomerAuthController extends Controller
             return ApiErrorResponse::validationFailed($request, $headerErrors);
         }
 
-        $result = $this->customerAuth->updateProfile($context, $request->all(), $request);
+        $payload = $request->all();
+        if ($this->profileUpdateRequiresPin($payload)) {
+            $pinErrors = $this->pinErrors($payload);
+
+            if ($pinErrors !== []) {
+                return ApiErrorResponse::validationFailed($request, $pinErrors);
+            }
+        }
+
+        $result = $this->customerAuth->updateProfile($context, $payload, $request);
 
         return $this->writeResult($request, $result);
     }
@@ -252,6 +261,15 @@ class CustomerAuthController extends Controller
         }
 
         return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function profileUpdateRequiresPin(array $payload): bool
+    {
+        return array_key_exists('reward_payout_bank_account', $payload)
+            || array_key_exists('bank_account', $payload);
     }
 
     /**

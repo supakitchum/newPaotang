@@ -458,6 +458,10 @@ class PartnerProvisioningService
             $errors['maintenance_mode'][] = 'The maintenance_mode field is invalid.';
         }
 
+        if (array_key_exists('terms_content', $updates) && $updates['terms_content'] !== null && ! is_string($updates['terms_content'])) {
+            $errors['terms_content'][] = 'The terms_content field must be text.';
+        }
+
         foreach (['maintenance_allowed_routes_json', 'maintenance_blocked_route_patterns_json'] as $field) {
             if (array_key_exists($field, $updates) && ! is_array($updates[$field])) {
                 $errors[$field][] = 'The '.$field.' field must be an array of strings.';
@@ -857,6 +861,58 @@ class PartnerProvisioningService
     }
 
     /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>|null
+     */
+    public function unsuspendPartner(string $partnerId, array $payload, AdminSessionContext $actor, Request $request): ?array
+    {
+        return DB::transaction(function () use ($partnerId, $payload, $actor, $request): ?array {
+            $partner = Partner::query()->where('id', $partnerId)->lockForUpdate()->first();
+
+            if ($partner === null) {
+                return null;
+            }
+
+            $now = now();
+
+            Partner::query()->where('id', $partnerId)->where('status', 'suspended')->update(['status' => 'active', 'updated_at' => $now]);
+            PartnerTenant::query()->where('partner_id', $partnerId)->where('status', 'suspended')->update(['status' => 'active', 'updated_at' => $now]);
+            PartnerTenantDomain::query()->where('partner_id', $partnerId)->where('status', 'suspended')->update(['status' => 'active', 'updated_at' => $now]);
+            PartnerApiClient::query()->where('partner_id', $partnerId)->where('status', 'suspended')->update(['status' => 'active', 'updated_at' => $now]);
+            PartnerTenantDeploymentProfile::query()
+                ->whereIn('tenant_id', PartnerTenant::query()->where('partner_id', $partnerId)->select('id'))
+                ->where('status', 'suspended')
+                ->update(['status' => 'active', 'updated_at' => $now]);
+            PartnerMonitoringProfile::query()
+                ->where('partner_id', $partnerId)
+                ->where('status', 'suspended')
+                ->update(['status' => 'active', 'health_status' => 'unknown', 'updated_at' => $now]);
+            PartnerUsageMeter::query()->where('partner_id', $partnerId)->where('status', 'paused')->update(['status' => 'active', 'updated_at' => $now]);
+            PartnerAlertPolicy::query()->where('partner_id', $partnerId)->where('status', 'paused')->update(['status' => 'active', 'updated_at' => $now]);
+            PartnerHealthCheck::query()->where('partner_id', $partnerId)->where('health_status', 'suspended')->update(['health_status' => 'unknown', 'updated_at' => $now]);
+            PartnerBillingPlanBinding::query()->where('partner_id', $partnerId)->where('status', 'suspended')->update(['status' => 'active', 'updated_at' => $now]);
+
+            $this->auditLogger->logAdminWrite(
+                actorId: $actor->adminUser['id'],
+                scopeType: 'central',
+                action: 'partner.unsuspended',
+                targetType: 'partner',
+                targetId: $partnerId,
+                payload: [
+                    'idempotency_key' => $request->header('Idempotency-Key'),
+                    'payload' => $payload,
+                ],
+                partnerId: $partnerId,
+                requestId: $request->header('X-Request-Id'),
+                ipAddress: $request->ip(),
+                userAgent: $request->userAgent(),
+            );
+
+            return $this->findPartner($partnerId);
+        });
+    }
+
+    /**
      * @param array<string, mixed> $queryParams
      * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
      */
@@ -1210,6 +1266,7 @@ class PartnerProvisioningService
                 'api_base_url' => $payload['api_base_url'] ?? '/api/v1',
                 'realtime_url' => $payload['realtime_url'] ?? null,
                 'asset_cdn_base_url' => $payload['asset_cdn_base_url'] ?? 'https://'.$host,
+                'terms_content' => $payload['terms_content'] ?? null,
                 'config_version' => 1,
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -1497,6 +1554,7 @@ class PartnerProvisioningService
             'seo' => $this->seoPayload($settings, $host),
             'maintenance' => $this->maintenancePayload($settings, (string) $tenant->status),
             'api' => $this->apiPayload($settings),
+            'legal' => $this->legalPayload($settings),
             'config_version' => (int) $settings->config_version,
         ];
     }
@@ -1581,6 +1639,7 @@ class PartnerProvisioningService
             'api_base_url' => '/api/v1',
             'realtime_url' => null,
             'asset_cdn_base_url' => $this->canonicalUrl($this->primaryHostForTenant((string) $tenant->id)),
+            'terms_content' => null,
             'config_version' => 1,
             'created_at' => $now,
             'updated_at' => $now,
@@ -1647,6 +1706,7 @@ class PartnerProvisioningService
             'api_base_url' => '/api/v1',
             'realtime_url' => null,
             'asset_cdn_base_url' => $this->canonicalUrl($this->primaryHostForTenant((string) $tenant->id)),
+            'terms_content' => null,
             'config_version' => 1,
             'created_at' => $now,
             'updated_at' => $now,
@@ -1738,6 +1798,46 @@ class PartnerProvisioningService
     /**
      * @return array<string, mixed>
      */
+    private function legalPayload(object $settings): array
+    {
+        return [
+            'terms_content' => $this->termsContent($settings),
+        ];
+    }
+
+    private function termsContent(object $settings): string
+    {
+        $custom = trim((string) ($settings->terms_content ?? ''));
+
+        return $custom !== '' ? $custom : $this->defaultTermsContent($this->siteDisplayName($settings));
+    }
+
+    private function siteDisplayName(object $settings): string
+    {
+        $displayName = trim((string) ($settings->display_name ?? ''));
+        $siteName = trim((string) ($settings->site_name ?? ''));
+
+        return $displayName !== '' ? $displayName : ($siteName !== '' ? $siteName : 'เว็บไซต์นี้');
+    }
+
+    private function defaultTermsContent(string $siteName): string
+    {
+        return implode("\n", [
+            'ข้อตกลงการใช้งาน',
+            '1. '.$siteName.'เป็นระบบจำหน่ายลอตเตอรี่ออนไลน์',
+            '2. บริษัทไม่สนับสนุนการจำหน่ายสลากให้กับบุคคลที่มีอายุไม่ถึง 20 ปี',
+            '3. บริษัทสนับสนุนผู้ไม่มีรายได้ ผู้พิการ ในการเป็นตัวแทนจำหน่ายลอตเตอรี่ออนไลน์',
+            '4. บริษัทเก็บรักษาสลากที่ลูกค้าซื้อเพื่อความปลอดภัย รวมถึงการขึ้นรางวัลให้กับลูกค้า',
+            '5. หากผู้ซื้อนำรูปภาพสลากหรือสลากจริงไปขายต่อ ทางบริษัทไม่มีส่วนเกี่ยวข้องและไม่รับผิดชอบความเสียหายในทุกกรณี',
+            '6. หลังจาก ทำรายการ และ กดปุ่ม " ชำระเงิน " ทางบริษัทถือว่า ผู้สั่งซื้อได้รับทราบ ข้อตกลงและเงื่อนไขต่างๆของบริษัทเป็นที่เรียบร้อย',
+            '7. บริษัทขอสงวนสิทธิ์ ขึ้นเงินรางวัลให้ลูกค้าที่ซื้อกับระบบ ในกรณีลูกค้าถูกรางวัล โดยไม่มีค่าใช้จ่ายใดๆ ทั้งสิ้น',
+            '8. ลูกค้าสามารถยกเลิกการสั่งซื้อสลากได้ภายใน 15 นาทีทุกกรณี หากเกินระยะเวลาที่กำหนด บริษัทขอสงวนสิทธิ์ไม่คืนเงินค่าสลากทุกกรณี',
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     private function brandPayload(object $theme): array
     {
         return [
@@ -1773,6 +1873,7 @@ class PartnerProvisioningService
         $seo = is_array($payload['seo'] ?? null) ? $payload['seo'] : [];
         $maintenance = is_array($payload['maintenance'] ?? null) ? $payload['maintenance'] : [];
         $api = is_array($payload['api'] ?? null) ? $payload['api'] : [];
+        $legal = is_array($payload['legal'] ?? null) ? $payload['legal'] : [];
 
         foreach (['site_name', 'display_name', 'locale', 'timezone', 'support_email', 'support_phone'] as $field) {
             if (array_key_exists($field, $payload) || array_key_exists($field, $site)) {
@@ -1832,6 +1933,12 @@ class PartnerProvisioningService
             } elseif (array_key_exists($input, $payload)) {
                 $updates[$column] = $payload[$input];
             }
+        }
+
+        if (array_key_exists('terms_content', $legal)) {
+            $updates['terms_content'] = $legal['terms_content'] === null ? null : trim((string) $legal['terms_content']);
+        } elseif (array_key_exists('terms_content', $payload)) {
+            $updates['terms_content'] = $payload['terms_content'] === null ? null : trim((string) $payload['terms_content']);
         }
 
         return $updates;

@@ -3,7 +3,7 @@ import { adminSessionCookieName } from '~/composables/useAdminSession'
 const loginRedirect = (redirect: string) => ({ path: '/login', query: { redirect } })
 const legacyLoginRedirect = () => ({ path: '/login' })
 
-export default defineNuxtRouteMiddleware((to) => {
+export default defineNuxtRouteMiddleware(async (to) => {
   const session = useAdminSession()
   const hostMode = useAdminHostMode()
 
@@ -34,6 +34,16 @@ export default defineNuxtRouteMiddleware((to) => {
     }
 
     return
+  }
+
+  if (hostMode.isPartnerBoHost.value) {
+    const adminSiteConfig = useAdminSiteConfig()
+    await adminSiteConfig.load()
+
+    if (adminSiteConfig.maintenanceActive.value) {
+      session.clear()
+      return navigateTo('/maintenance')
+    }
   }
 
   session.restore()

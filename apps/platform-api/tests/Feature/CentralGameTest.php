@@ -245,6 +245,93 @@ class CentralGameTest extends TestCase
             ->assertJsonPath('status', 'open');
     }
 
+    public function test_CentralGame_create_clones_sale_price_rules_from_previous_draw(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenant('par_game_price', 'ten_game_price');
+        $this->insertGame('gam_price_previous', 'reward_published');
+
+        DB::table('games')->where('id', 'gam_price_previous')->update([
+            'draw_at' => '2026-05-16T13:00:00+07:00',
+            'updated_at' => now(),
+        ]);
+
+        DB::table('game_sale_price_rules')->insert([
+            [
+                'id' => 'gsp_previous_set_one',
+                'game_id' => 'gam_price_previous',
+                'set_size' => 1,
+                'price_amount' => 9000,
+                'currency' => 'THB',
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => 'gsp_previous_set_three',
+                'game_id' => 'gam_price_previous',
+                'set_size' => 3,
+                'price_amount' => 25000,
+                'currency' => 'THB',
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        DB::table('tenant_sale_price_overrides')->insert([
+            'id' => 'tsp_previous_set_one',
+            'tenant_id' => 'ten_game_price',
+            'partner_id' => 'par_game_price',
+            'game_id' => 'gam_price_previous',
+            'set_size' => 1,
+            'price_amount' => 9500,
+            'currency' => 'THB',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $login = $this->createCentralSession([
+            'game.create',
+        ], 'adm_game_price_clone', 'game-price-clone@example.test');
+
+        $next = $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/games', [
+                'name' => 'Next Draw With Cloned Sale Prices',
+                'sale_start_at' => '2026-05-30T08:00:00+07:00',
+                'draw_at' => '2026-06-01T13:00:00+07:00',
+                'close_at' => '2026-06-01T12:00:00+07:00',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'game-create-sale-price-clone',
+            ])
+            ->assertCreated()
+            ->json();
+
+        $rules = DB::table('game_sale_price_rules')
+            ->where('game_id', $next['id'])
+            ->orderBy('set_size')
+            ->get(['set_size', 'price_amount', 'currency', 'status']);
+
+        $this->assertCount(2, $rules);
+        $this->assertSame(9000, (int) $rules[0]->price_amount);
+        $this->assertSame(1, (int) $rules[0]->set_size);
+        $this->assertSame(25000, (int) $rules[1]->price_amount);
+        $this->assertSame(3, (int) $rules[1]->set_size);
+        $this->assertTrue($rules->every(fn (object $rule): bool => (string) $rule->currency === 'THB' && (string) $rule->status === 'active'));
+
+        $this->assertDatabaseHas('tenant_sale_price_overrides', [
+            'tenant_id' => 'ten_game_price',
+            'partner_id' => 'par_game_price',
+            'game_id' => $next['id'],
+            'set_size' => 1,
+            'price_amount' => 9500,
+            'currency' => 'THB',
+            'status' => 'active',
+        ]);
+    }
+
     public function test_CentralGame_open_allows_previous_reward_published_game_even_when_closed_at_is_missing(): void
     {
         $this->seedDefaultRbac();

@@ -480,8 +480,37 @@ class PartnerProvisioningTest extends TestCase
         ]);
 
         $this->getJson('http://acme.example.test/api/v1/public/site-config')
-            ->assertConflict()
-            ->assertJsonPath('error.code', 'domain_not_active');
+            ->assertOk()
+            ->assertJsonPath('data.status', 'suspended')
+            ->assertJsonPath('data.domain.status', 'suspended')
+            ->assertJsonPath('data.maintenance.active', true)
+            ->assertJsonPath('data.maintenance.mode', 'customer_web_only')
+            ->assertJsonPath('data.maintenance.message', 'ขณะนี้ระบบปิดให้บริการชั่วคราว กรุณากลับมาใหม่ภายหลัง');
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/partners/'.$partner['id'].'/unsuspend', [
+                'reason' => 'contract restored',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'partner-unsuspend-acme',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'active')
+            ->assertJsonPath('tenants.0.status', 'active')
+            ->assertJsonPath('domains.0.status', 'active');
+
+        $this->assertDatabaseHas('partner_tenants', ['id' => $tenantId, 'status' => 'active']);
+        $this->assertDatabaseHas('partner_tenant_domains', ['tenant_id' => $tenantId, 'status' => 'active']);
+        $this->assertDatabaseHas('partner_billing_plan_bindings', ['partner_id' => $partner['id'], 'status' => 'active']);
+
+        $this->postJson('/api/v1/auth/admin/login', [
+            'email' => 'owner@acme.test',
+            'password' => 'owner-password',
+            'scope' => 'tenant',
+            'tenant_id' => $tenantId,
+        ])
+            ->assertOk()
+            ->assertJsonStructure(['access_token', 'refresh_token']);
     }
 
     public function test_PartnerApiClient_management_is_permissioned_and_never_returns_secret_material(): void
@@ -589,6 +618,17 @@ class PartnerProvisioningTest extends TestCase
             ->assertJsonPath('data.tenant_id', $tenantId)
             ->assertJsonPath('data.status', 'active')
             ->assertJsonPath('data.site.site_name', 'Site Lucky')
+            ->assertJsonPath('data.legal.terms_content', implode("\n", [
+                'ข้อตกลงการใช้งาน',
+                '1. Site Luckyเป็นระบบจำหน่ายลอตเตอรี่ออนไลน์',
+                '2. บริษัทไม่สนับสนุนการจำหน่ายสลากให้กับบุคคลที่มีอายุไม่ถึง 20 ปี',
+                '3. บริษัทสนับสนุนผู้ไม่มีรายได้ ผู้พิการ ในการเป็นตัวแทนจำหน่ายลอตเตอรี่ออนไลน์',
+                '4. บริษัทเก็บรักษาสลากที่ลูกค้าซื้อเพื่อความปลอดภัย รวมถึงการขึ้นรางวัลให้กับลูกค้า',
+                '5. หากผู้ซื้อนำรูปภาพสลากหรือสลากจริงไปขายต่อ ทางบริษัทไม่มีส่วนเกี่ยวข้องและไม่รับผิดชอบความเสียหายในทุกกรณี',
+                '6. หลังจาก ทำรายการ และ กดปุ่ม " ชำระเงิน " ทางบริษัทถือว่า ผู้สั่งซื้อได้รับทราบ ข้อตกลงและเงื่อนไขต่างๆของบริษัทเป็นที่เรียบร้อย',
+                '7. บริษัทขอสงวนสิทธิ์ ขึ้นเงินรางวัลให้ลูกค้าที่ซื้อกับระบบ ในกรณีลูกค้าถูกรางวัล โดยไม่มีค่าใช้จ่ายใดๆ ทั้งสิ้น',
+                '8. ลูกค้าสามารถยกเลิกการสั่งซื้อสลากได้ภายใน 15 นาทีทุกกรณี หากเกินระยะเวลาที่กำหนด บริษัทขอสงวนสิทธิ์ไม่คืนเงินค่าสลากทุกกรณี',
+            ]))
             ->assertJsonPath('data.domain.host', 'site.example.test')
             ->assertJsonPath('data.theme.primary_color', '#123456')
             ->assertJsonPath('data.features.affiliate', true)
@@ -701,6 +741,9 @@ class PartnerProvisioningTest extends TestCase
                 'api' => [
                     'base_url' => 'https://api.settings-one.test/api/v1',
                 ],
+                'legal' => [
+                    'terms_content' => 'Custom terms for Settings One',
+                ],
             ], [
                 'X-Admin-Scope' => 'tenant',
                 'X-Tenant-Id' => $tenantId,
@@ -711,7 +754,12 @@ class PartnerProvisioningTest extends TestCase
             ->assertJsonPath('site.support_email', 'support@settings-one.test')
             ->assertJsonPath('seo.default_keywords', ['lottery', 'lucky'])
             ->assertJsonPath('maintenance.active', true)
-            ->assertJsonPath('api.base_url', 'https://api.settings-one.test/api/v1');
+            ->assertJsonPath('api.base_url', 'https://api.settings-one.test/api/v1')
+            ->assertJsonPath('legal.terms_content', 'Custom terms for Settings One');
+
+        $this->getJson('http://settings-one.example.test/api/v1/public/site-config')
+            ->assertOk()
+            ->assertJsonPath('data.legal.terms_content', 'Custom terms for Settings One');
 
         $this->assertDatabaseHas('partner_tenant_settings', [
             'tenant_id' => $otherTenantId,

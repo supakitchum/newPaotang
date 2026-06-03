@@ -16,6 +16,7 @@ use App\Console\Commands\PruneTopupSlipsCommand;
 use App\Console\Commands\ProcessRewardCheckCommand;
 use App\Console\Commands\ProcessSoldSyncCommand;
 use App\Console\Commands\SeedBaseLotteryNumbersCommand;
+use App\Console\Commands\SeedRuntimeMockDataCommand;
 use App\Modules\SupportAccess\Http\Middleware\BlockSensitiveSupportImpersonation;
 use App\Shared\Auth\Http\Middleware\AuthenticateAdmin;
 use App\Shared\Auth\Http\Middleware\AuthenticateCustomer;
@@ -52,6 +53,7 @@ return Application::configure(basePath: dirname(__DIR__))
         CheckPendingLotteryBackgroundsCommand::class,
         LotteryImageReadinessCommand::class,
         PruneTopupSlipsCommand::class,
+        SeedRuntimeMockDataCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(NormalizeRequestHost::class);

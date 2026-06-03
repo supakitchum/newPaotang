@@ -106,6 +106,12 @@ onMounted(async () => {
   if (isPartnerBoMode.value) {
     form.scope = 'tenant'
     await adminSiteConfig.load()
+
+    if (adminSiteConfig.maintenanceActive.value) {
+      session.clear()
+      await navigateTo('/maintenance')
+      return
+    }
   }
 
   session.restore()
@@ -147,6 +153,13 @@ const submit = async () => {
     })
     await navigateTo(afterLoginPath(scope))
   } catch (err) {
+    if (isPartnerBoMode.value && (err as any)?.code === 'maintenance_active') {
+      adminSiteConfig.clear()
+      await adminSiteConfig.load()
+      await navigateTo('/maintenance')
+      return
+    }
+
     error.value = err
   } finally {
     loading.value = false

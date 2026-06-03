@@ -3,6 +3,7 @@
 namespace App\Shared\Auth\Http\Middleware;
 
 use App\Modules\Auth\Services\AdminAuthService;
+use App\Modules\Maintenance\Services\MaintenanceService;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Auth\ApiErrorResponse;
 use App\Shared\Tenancy\PartnerBoHostResolver;
@@ -15,6 +16,7 @@ class RequireAdminScope
     public function __construct(
         private readonly AdminAuthService $authService,
         private readonly PartnerBoHostResolver $partnerBoHosts,
+        private readonly MaintenanceService $maintenance,
     ) {
     }
 
@@ -40,6 +42,14 @@ class RequireAdminScope
         }
 
         if ($partnerBo !== null) {
+            $maintenance = $this->maintenance->stateForPartner((string) $partnerBo['partner_id']);
+
+            if ((bool) ($maintenance['active'] ?? false)) {
+                $retryAfter = $maintenance['retry_after_seconds'] ?? null;
+
+                return ApiErrorResponse::partnerMaintenanceActive($request, $retryAfter === null ? null : (int) $retryAfter);
+            }
+
             if ($scope === 'central' || ! $this->authService->contextMatchesPartnerBo($context, $partnerBo)) {
                 return ApiErrorResponse::permissionDenied($request);
             }

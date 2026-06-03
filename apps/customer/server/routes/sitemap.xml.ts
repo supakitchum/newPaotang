@@ -1,6 +1,6 @@
 import { normalizeTenantHost } from '~/utils/tenantHost'
 
-const publicRoutes = ['/', '/buy', '/buy/search', '/countdown', '/result', '/result/full']
+const publicRoutes = ['/', '/buy', '/buy/search', '/countdown', '/result', '/result/full', '/terms', '/lottery-knowledge']
 
 const escapeXml = (value: string) => value
   .replace(/&/g, '&amp;')

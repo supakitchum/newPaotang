@@ -63,6 +63,28 @@ class CustomerCommerceController extends Controller
         return response()->json($this->commerce->walletsForCustomer($tenant['tenant_id'], $customer));
     }
 
+    public function walletLedger(Request $request): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request, 'customer_read');
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        return response()->json($this->commerce->walletLedgerForCustomer($tenant['tenant_id'], $customer, $request->query()));
+    }
+
+    public function orders(Request $request): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request, 'customer_read');
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        return response()->json($this->commerce->customerOrders($tenant['tenant_id'], $customer, $request->query()));
+    }
+
     public function order(Request $request, string $order_id): JsonResponse
     {
         [$tenant, $customer, $error] = $this->tenantCustomer($request, 'customer_read');

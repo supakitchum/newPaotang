@@ -16,7 +16,7 @@ class RbacMenuSeederTest extends TestCase
         $this->seed(DefaultRbacMenuSeeder::class);
 
         $this->assertSame(44, DB::table('permissions')->where('scope_type', 'central')->count());
-        $this->assertSame(69, DB::table('permissions')->where('scope_type', 'tenant')->count());
+        $this->assertSame(71, DB::table('permissions')->where('scope_type', 'tenant')->count());
 
         $this->assertDatabaseHas('permissions', [
             'scope_type' => 'central',
@@ -44,8 +44,42 @@ class RbacMenuSeederTest extends TestCase
     {
         $this->seed(DefaultRbacMenuSeeder::class);
 
-        $this->assertSame(24, DB::table('admin_menus')->where('scope_type', 'central')->count());
-        $this->assertSame(34, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
+        $this->assertSame(31, DB::table('admin_menus')->where('scope_type', 'central')->count());
+        $this->assertSame(35, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
+
+        $dashboardParentId = (string) DB::table('admin_menus')
+            ->where('scope_type', 'central')
+            ->where('code', 'dashboard')
+            ->value('id');
+
+        $this->assertNotSame('', $dashboardParentId);
+        $this->assertDatabaseHas('admin_menus', [
+            'scope_type' => 'central',
+            'code' => 'dashboard',
+            'label' => 'Dashboard',
+            'route' => '/admin/central/dashboard',
+            'category' => 'Dashboard',
+            'required_permission_code' => 'dashboard.view',
+            'status' => 'active',
+        ]);
+
+        foreach ([
+            'dashboard_sales' => '/admin/central/dashboard/sales',
+            'dashboard_partner' => '/admin/central/dashboard/partner',
+            'dashboard_wallet' => '/admin/central/dashboard/wallet',
+            'dashboard_payout' => '/admin/central/dashboard/payout',
+            'dashboard_monitor' => '/admin/central/dashboard/monitor',
+        ] as $code => $route) {
+            $this->assertDatabaseHas('admin_menus', [
+                'scope_type' => 'central',
+                'code' => $code,
+                'parent_id' => $dashboardParentId,
+                'route' => $route,
+                'category' => 'Dashboard',
+                'required_permission_code' => 'dashboard.view',
+                'status' => 'active',
+            ]);
+        }
 
         $this->assertDatabaseHas('admin_menus', [
             'scope_type' => 'central',
@@ -80,6 +114,15 @@ class RbacMenuSeederTest extends TestCase
 
         $this->assertDatabaseHas('admin_menus', [
             'scope_type' => 'central',
+            'code' => 'reward_payout_rules',
+            'label' => 'Reward Payout Rules',
+            'route' => '/admin/central/reward-payout-rules',
+            'required_permission_code' => 'price_rule.view',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('admin_menus', [
+            'scope_type' => 'central',
             'code' => 'winners',
             'label' => 'Winners',
             'route' => '/admin/central/winners',
@@ -108,6 +151,16 @@ class RbacMenuSeederTest extends TestCase
             'status' => 'active',
         ]);
 
+        $this->assertDatabaseHas('admin_menus', [
+            'scope_type' => 'tenant',
+            'code' => 'announcements',
+            'label' => 'Announcements',
+            'route' => '/admin/tenant/announcements',
+            'category' => 'Store Operations',
+            'required_permission_code' => 'announcement.view',
+            'status' => 'active',
+        ]);
+
         $this->assertDatabaseMissing('admin_menus', [
             'scope_type' => 'central',
             'code' => 'master_stock',
@@ -123,6 +176,16 @@ class RbacMenuSeederTest extends TestCase
             'code' => 'partners',
             'label' => 'Partner/Tenant',
             'route' => '/admin/central/partners',
+        ]);
+
+        $this->assertDatabaseHas('admin_menus', [
+            'scope_type' => 'central',
+            'code' => 'maintenance',
+            'label' => 'Central Maintenance',
+            'route' => '/admin/central/maintenance',
+            'category' => 'Partner Operations',
+            'required_permission_code' => 'partner.view',
+            'status' => 'active',
         ]);
 
         $this->assertDatabaseMissing('admin_menus', [
@@ -163,9 +226,17 @@ class RbacMenuSeederTest extends TestCase
             ->where('code', 'dashboard.view')
             ->count());
 
-        $this->assertSame(1, DB::table('admin_menus')
+        $dashboardParentId = (string) DB::table('admin_menus')
             ->where('scope_type', 'central')
             ->where('code', 'dashboard')
+            ->value('id');
+
+        $this->assertNotSame('', $dashboardParentId);
+
+        $this->assertSame(5, DB::table('admin_menus')
+            ->where('scope_type', 'central')
+            ->whereIn('code', ['dashboard_sales', 'dashboard_partner', 'dashboard_wallet', 'dashboard_payout', 'dashboard_monitor'])
+            ->where('parent_id', $dashboardParentId)
             ->count());
 
         $this->assertSame(1, DB::table('admin_menus')
@@ -219,11 +290,46 @@ class RbacMenuSeederTest extends TestCase
             ->whereIn('code', ['price_rule.view', 'price_rule.manage'])
             ->pluck('id')
             ->all();
+        $priceRuleMenuIds = DB::table('admin_menus')
+            ->where('scope_type', 'central')
+            ->whereIn('code', ['sale_price_rules', 'reward_payout_rules'])
+            ->pluck('id')
+            ->all();
+        $partnerPermissionIds = DB::table('permissions')
+            ->where('scope_type', 'central')
+            ->whereIn('code', ['partner.view', 'partner.update'])
+            ->pluck('id')
+            ->all();
+        $centralMaintenanceMenuId = (string) DB::table('admin_menus')
+            ->where('scope_type', 'central')
+            ->where('code', 'maintenance')
+            ->value('id');
+        $dashboardMenuIds = DB::table('admin_menus')
+            ->where('scope_type', 'central')
+            ->whereIn('code', ['dashboard', 'dashboard_sales', 'dashboard_partner', 'dashboard_wallet', 'dashboard_payout', 'dashboard_monitor'])
+            ->pluck('id')
+            ->all();
 
         $this->assertSame(2, DB::table('role_permissions')
             ->where('role_id', 'rol_c_super_admin')
             ->whereIn('permission_id', $permissionIds)
             ->count());
+        $this->assertSame(6, DB::table('role_menus')
+            ->where('role_id', 'rol_c_super_admin')
+            ->whereIn('menu_id', $dashboardMenuIds)
+            ->count());
+        $this->assertSame(2, DB::table('role_menus')
+            ->where('role_id', 'rol_c_super_admin')
+            ->whereIn('menu_id', $priceRuleMenuIds)
+            ->count());
+        $this->assertSame(2, DB::table('role_permissions')
+            ->where('role_id', 'rol_c_super_admin')
+            ->whereIn('permission_id', $partnerPermissionIds)
+            ->count());
+        $this->assertDatabaseHas('role_menus', [
+            'role_id' => 'rol_c_super_admin',
+            'menu_id' => $centralMaintenanceMenuId,
+        ]);
 
         $rewardPermissionId = (string) DB::table('permissions')
             ->where('scope_type', 'central')
@@ -244,7 +350,7 @@ class RbacMenuSeederTest extends TestCase
         ]);
     }
 
-    public function test_reseeding_grants_tenant_winners_to_partner_owner_roles(): void
+    public function test_reseeding_grants_tenant_winners_maintenance_and_announcements_to_partner_owner_roles(): void
     {
         DB::table('partners')->insert([
             [
@@ -325,6 +431,24 @@ class RbacMenuSeederTest extends TestCase
             ->whereIn('code', ['winners', 'exchange_reward'])
             ->pluck('id')
             ->all();
+        $maintenancePermissionIds = DB::table('permissions')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['maintenance.view', 'maintenance.update', 'maintenance.schedule', 'maintenance.bypass'])
+            ->pluck('id')
+            ->all();
+        $maintenanceMenuId = (string) DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->where('code', 'maintenance')
+            ->value('id');
+        $announcementPermissionIds = DB::table('permissions')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['announcement.view', 'announcement.manage'])
+            ->pluck('id')
+            ->all();
+        $announcementMenuId = (string) DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->where('code', 'announcements')
+            ->value('id');
 
         foreach (['rol_t_owner', 'rol_t_owner_partner'] as $roleId) {
             foreach ($rewardClaimPermissionIds as $permissionId) {
@@ -339,6 +463,26 @@ class RbacMenuSeederTest extends TestCase
                     'menu_id' => $menuId,
                 ]);
             }
+            foreach ($maintenancePermissionIds as $permissionId) {
+                $this->assertDatabaseHas('role_permissions', [
+                    'role_id' => $roleId,
+                    'permission_id' => $permissionId,
+                ]);
+            }
+            $this->assertDatabaseHas('role_menus', [
+                'role_id' => $roleId,
+                'menu_id' => $maintenanceMenuId,
+            ]);
+            foreach ($announcementPermissionIds as $permissionId) {
+                $this->assertDatabaseHas('role_permissions', [
+                    'role_id' => $roleId,
+                    'permission_id' => $permissionId,
+                ]);
+            }
+            $this->assertDatabaseHas('role_menus', [
+                'role_id' => $roleId,
+                'menu_id' => $announcementMenuId,
+            ]);
         }
     }
 

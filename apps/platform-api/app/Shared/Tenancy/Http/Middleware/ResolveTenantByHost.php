@@ -44,7 +44,7 @@ class ResolveTenantByHost
         }
 
         if (
-            $record->tenant_status !== config('platform.tenant_resolution.active_tenant_status', 'active')
+            ! $this->tenantStatusIsResolvable((string) $record->tenant_status)
             || $record->partner_status !== config('platform.tenant_resolution.active_partner_status', 'active')
         ) {
             return $this->error('tenant_inactive', 'Tenant is not active.', 409, $request);
@@ -59,6 +59,11 @@ class ResolveTenantByHost
     private function normalizeHost(string $host): string
     {
         return TenantHostNormalizer::normalize($host);
+    }
+
+    private function tenantStatusIsResolvable(string $status): bool
+    {
+        return in_array($status, [config('platform.tenant_resolution.active_tenant_status', 'active'), 'maintenance'], true);
     }
 
     private function error(string $code, string $message, int $status, Request $request): JsonResponse

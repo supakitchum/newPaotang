@@ -103,6 +103,33 @@ class CustomerTopupTest extends TestCase
         $this->assertSame(2, DB::table('topup_requests')->where('tenant_id', 'ten_cust_topup')->count());
     }
 
+    public function test_CustomerWallet_ledger_lists_current_customer_movements(): void
+    {
+        $world = $this->prepareReservedCart('par_cust_wallet', 'ten_cust_wallet', 'customer-wallet.m5.test', 'gam_cust_wallet', '0804005333', 730301);
+        DB::table('wallet_ledger')
+            ->where('wallet_id', $world['wallet_id'])
+            ->where('reference_type', 'test_seed')
+            ->update([
+                'posted_at' => now()->subMinute(),
+                'created_at' => now()->subMinute(),
+                'updated_at' => now()->subMinute(),
+            ]);
+
+        $order = $this->checkoutWallet($world, 'customer-wallet-ledger-checkout');
+
+        $response = $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/wallet/ledger?limit=5&sort_by=created_at&sort_dir=desc')
+            ->assertOk()
+            ->assertJsonPath('data.0.reference_type', 'order')
+            ->assertJsonPath('data.0.reference_id', $order['id'])
+            ->assertJsonPath('data.0.amount.amount', -8000)
+            ->json();
+
+        $this->assertContains('test_seed', array_column($response['data'], 'reference_type'));
+        $this->assertSame('ten_cust_wallet', $response['data'][0]['tenant_id']);
+        $this->assertSame($world['auth']['user']['id'], $response['data'][0]['customer_id']);
+    }
+
     public function test_CustomerTopup_accepts_slip_uploads_and_exposes_admin_preview_metadata(): void
     {
         $disk = (string) config('lottery_images.disk', 'lottery_images');

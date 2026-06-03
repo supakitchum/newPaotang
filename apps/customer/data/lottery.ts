@@ -99,14 +99,14 @@ export const thaiBankOptions = [
 export const menuSections = [
   {
     title: 'ประวัติ',
-    items: ['ประวัติการซื้อสลากฯ', { label: 'ประวัติขึ้นเงินรางวัลสลากดิจิทัล', to: '/reward-claims' }, { label: 'ระบบตัวแทนจำหน่าย', to: '/affiliate' }]
+    items: [{ label: 'ประวัติการซื้อสลากฯ', to: '/purchase-history' }, { label: 'ประวัติขึ้นเงินรางวัลสลากดิจิทัล', to: '/reward-claims' }, { label: 'ระบบตัวแทนจำหน่าย', to: '/affiliate' }]
   },
   {
     title: 'ตั้งค่ารับเงินรางวัล',
-    items: [{ label: 'ช่องทางรับเงินรางวัล', to: '/profile/reward-bank' }, { label: 'ขึ้นเงินรางวัลอัตโนมัติ', badge: 'แนะนำ' }, 'ที่อยู่ใบเสร็จรับเงิน/ใบกำกับภาษี']
+    items: [{ label: 'ช่องทางรับเงินรางวัล', to: '/profile/reward-bank' }, { label: 'ขึ้นเงินรางวัลอัตโนมัติ', to: '/profile/auto-reward', badge: 'แนะนำ' }]
   },
   {
     title: 'เกี่ยวกับแอปฯ GLO',
-    items: ['ข้อตกลงและเงื่อนไข', 'ข้อควรรู้การซื้อ-ขายสลากฯ', 'วิธีซื้อขายสลากฯ และการติดต่อ']
+    items: [{ label: 'ข้อตกลงและเงื่อนไข', to: '/terms' }, { label: 'ข้อควรรู้การซื้อ-ขายสลากฯ', to: '/lottery-knowledge' }, 'วิธีซื้อขายสลากฯ และการติดต่อ']
   }
 ]

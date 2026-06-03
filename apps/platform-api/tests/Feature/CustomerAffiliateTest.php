@@ -30,6 +30,7 @@ class CustomerAffiliateTest extends TestCase
                     'account_name' => 'Customer Affiliate',
                     'account_number' => '1234567890',
                 ],
+                'pin' => '246810',
             ], [
                 'Idempotency-Key' => 'customer-affiliate-bank-profile',
             ])

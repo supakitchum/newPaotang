@@ -28,6 +28,7 @@ use App\Support\PublicUrl;
 use App\Support\YoutubeLiveUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class RewardService
@@ -1370,7 +1371,6 @@ class RewardService
         $result = RewardResult::query()
             ->join('games', 'games.id', '=', 'reward_results.game_id')
             ->whereIn('reward_results.status', self::PUBLIC_LIVE_RESULT_STATUSES)
-            ->whereIn('games.status', self::PUBLIC_RESULT_GAME_STATUSES)
             ->select('reward_results.*')
             ->orderByDesc('games.draw_at')
             ->orderByDesc('reward_results.updated_at')
@@ -1388,7 +1388,6 @@ class RewardService
             ->join('games', 'games.id', '=', 'reward_results.game_id')
             ->where('reward_results.game_id', $gameId)
             ->whereIn('reward_results.status', self::PUBLIC_LIVE_RESULT_STATUSES)
-            ->whereIn('games.status', self::PUBLIC_RESULT_GAME_STATUSES)
             ->select('reward_results.*')
             ->orderByDesc('reward_results.updated_at')
             ->first();
@@ -1826,6 +1825,7 @@ class RewardService
             'reward_version' => $version,
             'published_at' => $publishedAt->toISOString(),
         ]);
+        $this->createAutomaticRewardClaimsForResult($rewardResultId, $publishedAt);
         $this->broadcastRewardLiveUpdate($rewardResultId);
 
         return $this->rewardResult($rewardResultId) ?? [];
@@ -3518,6 +3518,128 @@ class RewardService
             $rows,
             fn (object $row): bool => (string) $row->reward_result_status === 'published' && in_array((string) $row->status, ['pending', 'verified'], true),
         ));
+    }
+
+    private function createAutomaticRewardClaimsForResult(string $rewardResultId, mixed $submittedAt): void
+    {
+        if (! Schema::hasColumn('customers', 'auto_reward_claim_enabled') || ! Schema::hasColumn('customers', 'auto_reward_claim_payout_method')) {
+            return;
+        }
+
+        $rows = WinningTicket::query()
+            ->join('tickets', function ($join): void {
+                $join->on('tickets.id', '=', 'winning_tickets.ticket_id')
+                    ->on('tickets.tenant_id', '=', 'winning_tickets.tenant_id');
+            })
+            ->join('customers', function ($join): void {
+                $join->on('customers.id', '=', 'tickets.customer_id')
+                    ->on('customers.tenant_id', '=', 'tickets.tenant_id');
+            })
+            ->where('winning_tickets.reward_result_id', $rewardResultId)
+            ->where('customers.auto_reward_claim_enabled', true)
+            ->whereIn('winning_tickets.status', ['pending', 'verified'])
+            ->select(
+                'winning_tickets.*',
+                'tickets.customer_id as ticket_customer_id',
+                'customers.auto_reward_claim_payout_method',
+                'customers.reward_payout_bank_account_json',
+            )
+            ->orderBy('winning_tickets.tenant_id')
+            ->orderBy('winning_tickets.ticket_id')
+            ->orderBy('winning_tickets.id')
+            ->get()
+            ->all();
+
+        if ($rows === []) {
+            return;
+        }
+
+        $grouped = [];
+
+        foreach ($rows as $row) {
+            $key = (string) $row->tenant_id.':'.(string) $row->ticket_id;
+            $grouped[$key][] = $row;
+        }
+
+        foreach ($grouped as $ticketRows) {
+            $ticketRows = $this->sortWinningRows($ticketRows);
+            $winning = $ticketRows[0] ?? null;
+
+            if ($winning === null) {
+                continue;
+            }
+
+            $tenantId = (string) $winning->tenant_id;
+            $ticketId = (string) $winning->ticket_id;
+            $customerId = (string) $winning->ticket_customer_id;
+
+            if ($customerId === '' || RewardClaim::where('tenant_id', $tenantId)->where('ticket_id', $ticketId)->whereNotIn('status', ['rejected', 'cancelled'])->exists()) {
+                continue;
+            }
+
+            $payoutMethod = $this->normalizeAutomaticRewardPayoutMethod($winning->auto_reward_claim_payout_method ?? null);
+            $bankAccount = [];
+            $walletId = null;
+
+            if ($payoutMethod === 'bank_transfer') {
+                $bankAccount = $this->decodeJsonObject($winning->reward_payout_bank_account_json ?? null);
+
+                if (! $this->hasUsableBankAccount($bankAccount)) {
+                    continue;
+                }
+            } else {
+                $walletId = $this->customerAuth->ensurePrimaryWallet($tenantId, $customerId);
+            }
+
+            $claimId = 'rcl_'.Str::ulid()->toBase32();
+            $priceRuleSnapshot = $winning->price_rule_snapshot_json;
+            $priceRuleSnapshotJson = is_array($priceRuleSnapshot) ? json_encode($priceRuleSnapshot, JSON_THROW_ON_ERROR) : $priceRuleSnapshot;
+            $normalized = [
+                'source' => 'auto_reward_claim',
+                'reward_result_id' => $rewardResultId,
+                'ticket_id' => $ticketId,
+                'payout_method' => $payoutMethod,
+            ];
+
+            RewardClaim::query()->insert([
+                'id' => $claimId,
+                'tenant_id' => $tenantId,
+                'customer_id' => $customerId,
+                'ticket_id' => $ticketId,
+                'winning_ticket_id' => (string) $winning->id,
+                'game_id' => (string) $winning->game_id,
+                'wallet_id' => $walletId,
+                'payout_ledger_id' => null,
+                'reference' => 'RWD-'.strtoupper(substr($claimId, -10)),
+                'status' => 'submitted',
+                'payout_method' => $payoutMethod,
+                'prize_amount' => $this->sumWinningAmount($ticketRows, 'amount'),
+                'base_prize_amount' => $this->sumWinningAmount($ticketRows, 'base_amount', 'amount'),
+                'adjustment_amount' => $this->sumWinningAmount($ticketRows, 'adjustment_amount'),
+                'tenant_price_rule_id' => $winning->tenant_price_rule_id,
+                'price_rule_snapshot_json' => $priceRuleSnapshotJson,
+                'currency' => (string) $winning->currency,
+                'bank_account_json' => $bankAccount === [] ? null : json_encode($bankAccount, JSON_THROW_ON_ERROR),
+                'customer_note' => null,
+                'admin_note' => null,
+                'idempotency_key' => null,
+                'payload_hash' => $this->idempotency->payloadHash($normalized),
+                'reviewed_by_admin_id' => null,
+                'paid_by_admin_id' => null,
+                'submitted_at' => $submittedAt,
+                'reviewed_at' => null,
+                'paid_at' => null,
+                'created_at' => $submittedAt,
+                'updated_at' => $submittedAt,
+            ]);
+
+            $this->queueRewardClaimUpdatedBroadcast($tenantId, $claimId);
+        }
+    }
+
+    private function normalizeAutomaticRewardPayoutMethod(mixed $value): string
+    {
+        return trim((string) $value) === 'bank_transfer' ? 'bank_transfer' : 'wallet_credit';
     }
 
     private function queueRewardClaimUpdatedBroadcast(string $tenantId, string $claimId): void

@@ -254,22 +254,41 @@ const normalizeCartOrder = (cart: AnyRecord | null | undefined) => {
   }
 }
 
-const normalizePagination = (meta: AnyRecord | null | undefined, page = 1, perPage = 20) => ({
-  seed: meta?.next_cursor || null,
-  next_cursor: meta?.next_cursor || null,
-  page,
-  current_page: page,
-  total_page: meta?.has_more ? page + 1 : page,
-  last_page: meta?.has_more ? page + 1 : page,
-  per_page: perPage,
-  total: 0
-})
+const normalizePagination = (meta: AnyRecord | null | undefined, page = 1, perPage = 20) => {
+  const currentPage = Number(meta?.current_page ?? page)
+  const lastPage = Number(meta?.last_page ?? (meta?.has_more ? currentPage + 1 : currentPage))
+  const normalizedPerPage = Number(meta?.per_page ?? perPage)
+  const total = Number(meta?.total ?? 0)
+
+  return {
+    seed: meta?.next_cursor || null,
+    next_cursor: meta?.next_cursor || null,
+    page: Number.isFinite(currentPage) ? currentPage : page,
+    current_page: Number.isFinite(currentPage) ? currentPage : page,
+    total_page: Number.isFinite(lastPage) ? lastPage : page,
+    last_page: Number.isFinite(lastPage) ? lastPage : page,
+    per_page: Number.isFinite(normalizedPerPage) ? normalizedPerPage : perPage,
+    total: Number.isFinite(total) ? total : 0
+  }
+}
 
 const normalizeWallet = (wallet: AnyRecord) => ({
   ...wallet,
   type: wallet.type === 'primary' ? 1 : wallet.type,
   balance: moneyToDisplayNumber(wallet.balance)
 })
+
+const normalizeWalletLedger = (entry: AnyRecord | null | undefined) => {
+  if (!entry) {
+    return null
+  }
+
+  return {
+    ...entry,
+    amount: moneyToDisplayNumber(entry.amount),
+    balance_after: moneyToDisplayNumber(entry.balance_after)
+  }
+}
 
 const topupStatusToLegacy = (status: unknown) => {
   const value = String(status || '')
@@ -509,6 +528,9 @@ const normalizeOrder = (order: AnyRecord | null | undefined) => {
   }
 
   const lotteries = Array.isArray(order.tickets) ? order.tickets.map(normalizeTicket) : []
+  const game = order.game && typeof order.game === 'object'
+    ? normalizeGame(order.game)
+    : (lotteries.find((ticket: AnyRecord) => ticket.game)?.game || null)
 
   return {
     ...order,
@@ -516,6 +538,8 @@ const normalizeOrder = (order: AnyRecord | null | undefined) => {
     amount: moneyToDisplayNumber(order.total),
     price: moneyToDisplayNumber(order.total),
     updated_at: order.paid_at || order.updated_at || order.created_at,
+    game,
+    ticket_count: Number(order.ticket_count ?? lotteries.length),
     lotteries,
     wallet: order.wallet ? normalizeWallet(order.wallet) : null
   }
@@ -759,6 +783,10 @@ export const usePlatformApi = () => {
     })
   }
 
+  const newsModal = async () => unwrapData<AnyRecord>(await axios.get('/public/news/modal'))
+
+  const newsDetail = async (slug: string) => unwrapData<AnyRecord>(await axios.get(`/public/news/${encodeURIComponent(slug)}`))
+
   const rewardLegacy = async (gameId?: string | number | null) => {
     try {
       const endpoint = gameId ? `/public/results/${gameId}` : '/public/results/latest'
@@ -942,6 +970,17 @@ export const usePlatformApi = () => {
     })
   }
 
+  const walletLedgerLegacy = async (params: AnyRecord = {}) => {
+    const response = await axios.get('/customer/wallet/ledger', { params })
+    const payload = normalizeResponse(response)
+    const limit = Number(params.limit || params.per_page || 20)
+
+    return {
+      entries: Array.isArray(payload.data) ? payload.data.map(normalizeWalletLedger).filter(Boolean) : [],
+      pagination: normalizePagination(payload.meta, Number(params.page || 1), Number.isFinite(limit) ? limit : 20)
+    }
+  }
+
   const normalizeCheckoutReservationIds = (input: string | number | Array<string | number> | AnyRecord | null | undefined) => {
     if (Array.isArray(input)) {
       return input.map((id) => String(id || '').trim()).filter(Boolean)
@@ -993,12 +1032,26 @@ export const usePlatformApi = () => {
 
     return {
       order,
-      game: null,
+      game: order?.game || null,
       wallet: order?.wallet || null,
-      count: Array.isArray(order?.lotteries) ? order.lotteries.length : 0,
+      count: order?.ticket_count || (Array.isArray(order?.lotteries) ? order.lotteries.length : 0),
       total: order?.total || 0,
       reference: order?.reference || (order?.id ? `ORDER-${order.id}` : ''),
       paid_at: order?.paid_at || order?.updated_at
+    }
+  }
+
+  const orderHistoryLegacy = async (params: AnyRecord = {}) => {
+    const response = await axios.get('/customer/orders', { params })
+    const payload = normalizeResponse(response)
+    const limit = Number(params.limit || params.per_page || 20)
+    const orders = Array.isArray(payload.data) ? payload.data.map(normalizeOrder).filter(Boolean) : []
+
+    return {
+      orders,
+      histories: orders,
+      data: orders,
+      pagination: normalizePagination(payload.meta, Number(params.page || 1), Number.isFinite(limit) ? limit : 20)
     }
   }
 
@@ -1170,6 +1223,8 @@ export const usePlatformApi = () => {
 
   const trackAffiliateReferralClick = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/public/affiliate/referrals/click', payload))
 
+  const trackPublicVisit = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/public/monitor/visit', payload))
+
   const applyAffiliateReferral = async (ref: string, payload: AnyRecord = {}) => unwrapData<AnyRecord>(await axios.post('/customer/affiliate/referrals/apply', {
     ...payload,
     ref
@@ -1212,6 +1267,8 @@ export const usePlatformApi = () => {
     searchStockLegacy,
     storesLegacy,
     newsLegacy,
+    newsModal,
+    newsDetail,
     rewardLegacy,
     rewardLiveLegacy,
     login,
@@ -1230,8 +1287,10 @@ export const usePlatformApi = () => {
     reserveLegacy,
     releaseReservationLegacy,
     walletLegacy,
+    walletLedgerLegacy,
     checkoutLegacy,
     orderReceiptLegacy,
+    orderHistoryLegacy,
     ticketsLegacy,
     ticketDetail,
     ticketRewardStatus,
@@ -1248,6 +1307,7 @@ export const usePlatformApi = () => {
     affiliateOverview,
     registerAffiliate,
     trackAffiliateReferralClick,
+    trackPublicVisit,
     applyAffiliateReferral,
     affiliateCommissions,
     affiliatePayouts,

@@ -203,6 +203,27 @@ class PartnerProvisioningController extends Controller
             : response()->json($partner);
     }
 
+    public function unsuspend(Request $request, string $partner_id): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'partner.suspend');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        $partner = $this->partners->unsuspendPartner($partner_id, $request->all(), $context, $request);
+
+        return $partner === null
+            ? ApiErrorResponse::notFound($request)
+            : response()->json($partner);
+    }
+
     /**
      * @return AdminSessionContext|JsonResponse
      */

@@ -2,6 +2,8 @@
 
 namespace App\Modules\Maintenance\Services;
 
+use App\Models\Partner;
+use App\Models\PartnerCentralMaintenanceSetting;
 use App\Models\PartnerTenant;
 use App\Models\PartnerTenantMaintenanceBypass;
 use App\Models\PartnerTenantMaintenanceEvent;
@@ -12,6 +14,7 @@ use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class MaintenanceService
@@ -34,6 +37,88 @@ class MaintenanceService
         }
 
         return $this->settingResource($this->ensureSetting($tenant), (string) $tenant->status);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function settingForPartner(string $partnerId): ?array
+    {
+        $partner = Partner::find($partnerId);
+
+        if ($partner === null) {
+            return null;
+        }
+
+        if (! $this->partnerMaintenanceTableExists()) {
+            return $this->defaultPartnerMaintenanceResource($partnerId, (string) $partner->status);
+        }
+
+        $setting = PartnerCentralMaintenanceSetting::query()->where('partner_id', $partnerId)->first();
+
+        return $setting === null
+            ? $this->defaultPartnerMaintenanceResource($partnerId, (string) $partner->status)
+            : $this->partnerSettingResource($setting, (string) $partner->status);
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
+     */
+    public function centralTenantMaintenanceList(array $queryParams): array
+    {
+        $limit = $this->limit($queryParams['limit'] ?? null);
+        $query = PartnerTenant::query()
+            ->join('partners', 'partners.id', '=', 'partner_tenants.partner_id')
+            ->leftJoin('partner_tenant_domains', function ($join): void {
+                $join->on('partner_tenant_domains.tenant_id', '=', 'partner_tenants.id')
+                    ->where('partner_tenant_domains.is_primary', true);
+            })
+            ->select([
+                'partner_tenants.id as tenant_id',
+                'partner_tenants.code as tenant_code',
+                'partner_tenants.name as tenant_name',
+                'partner_tenants.status as tenant_status',
+                'partner_tenants.updated_at as tenant_updated_at',
+                'partners.id as partner_id',
+                'partners.code as partner_code',
+                'partners.name as partner_name',
+                'partners.status as partner_status',
+                'partner_tenant_domains.id as domain_id',
+                'partner_tenant_domains.host as domain_host',
+                'partner_tenant_domains.status as domain_status',
+            ])
+            ->orderBy('partners.code')
+            ->orderBy('partner_tenants.code');
+
+        $q = strtolower(trim((string) ($queryParams['q'] ?? '')));
+        if ($q !== '') {
+            $query->where(function ($nested) use ($q): void {
+                $nested->whereRaw('LOWER(partners.code) like ?', ['%'.$q.'%'])
+                    ->orWhereRaw('LOWER(partners.name) like ?', ['%'.$q.'%'])
+                    ->orWhereRaw('LOWER(partner_tenants.code) like ?', ['%'.$q.'%'])
+                    ->orWhereRaw('LOWER(partner_tenants.name) like ?', ['%'.$q.'%'])
+                    ->orWhereRaw('LOWER(partner_tenant_domains.host) like ?', ['%'.$q.'%']);
+            });
+        }
+
+        $status = strtolower(trim((string) ($queryParams['status'] ?? '')));
+        if ($status !== '') {
+            $query->where(function ($nested) use ($status): void {
+                $nested->whereRaw('LOWER(partners.status) = ?', [$status])
+                    ->orWhereRaw('LOWER(partner_tenants.status) = ?', [$status]);
+            });
+        }
+
+        $rows = $query->limit($limit)->get()->all();
+
+        return [
+            'data' => array_map(fn (object $row): array => $this->centralTenantMaintenanceResource($row), $rows),
+            'meta' => [
+                'next_cursor' => null,
+                'has_more' => false,
+            ],
+        ];
     }
 
     /**
@@ -100,9 +185,39 @@ class MaintenanceService
         ];
     }
 
-    public function shouldBlock(array $state, string $operation): bool
+    /**
+     * @return array<string, mixed>
+     */
+    public function stateForPartner(string $partnerId, string $partnerStatus = 'active'): array
+    {
+        if (! $this->partnerMaintenanceTableExists()) {
+            return $this->defaultPartnerMaintenanceResource($partnerId, $partnerStatus);
+        }
+
+        $setting = PartnerCentralMaintenanceSetting::query()->where('partner_id', $partnerId)->first();
+
+        return $setting === null
+            ? $this->defaultPartnerMaintenanceResource($partnerId, $partnerStatus)
+            : $this->partnerSettingResource($setting, $partnerStatus);
+    }
+
+    public function partnerBoIsBlockedByCentralMaintenance(string $partnerId): bool
+    {
+        return (bool) ($this->stateForPartner($partnerId)['active'] ?? false);
+    }
+
+    public function shouldBlock(array $state, string $operation, ?string $path = null): bool
     {
         if (! (bool) ($state['active'] ?? false)) {
+            return false;
+        }
+
+        $pathCandidates = $this->maintenancePathCandidates($path);
+        if ($pathCandidates !== [] && $this->matchesAnyMaintenancePattern($pathCandidates, $state['blocked_route_patterns'] ?? [])) {
+            return true;
+        }
+
+        if ($pathCandidates !== [] && $this->matchesAnyMaintenancePattern($pathCandidates, $state['allowed_routes'] ?? [])) {
             return false;
         }
 
@@ -135,7 +250,7 @@ class MaintenanceService
             $now = now();
             $status = (string) $payload['status'];
             $mode = (string) $payload['mode'];
-            $active = $status === 'active' || (string) $tenant->status === 'maintenance';
+            $active = $status === 'active';
             $settingId = (string) $previous->id;
 
             $updates = [
@@ -163,8 +278,23 @@ class MaintenanceService
 
             PartnerTenantMaintenanceSetting::query()->where('id', $settingId)->update($updates);
 
+            $tenantStatus = (string) $tenant->status;
+            if ($status === 'active' && $tenantStatus === 'active') {
+                PartnerTenant::query()->where('id', $tenantId)->update([
+                    'status' => 'maintenance',
+                    'updated_at' => $now,
+                ]);
+                $tenantStatus = 'maintenance';
+            } elseif (in_array($status, ['inactive', 'ended', 'cancelled'], true) && $tenantStatus === 'maintenance') {
+                PartnerTenant::query()->where('id', $tenantId)->update([
+                    'status' => 'active',
+                    'updated_at' => $now,
+                ]);
+                $tenantStatus = 'active';
+            }
+
             $current = PartnerTenantMaintenanceSetting::where('id', $settingId)->first();
-            $resource = $this->settingResource($current, (string) $tenant->status);
+            $resource = $this->settingResource($current, $tenantStatus);
 
             $this->syncLegacySettings($tenant, $resource);
             $this->insertMaintenanceEvent($tenantId, $settingId, 'maintenance.updated', $actor, $payload, $resource);
@@ -194,6 +324,84 @@ class MaintenanceService
                 ],
                 tenantId: $tenantId,
                 partnerId: (string) $tenant->partner_id,
+                requestId: $request->header('X-Request-Id'),
+                ipAddress: $request->ip(),
+                userAgent: $request->userAgent(),
+            );
+
+            return $resource;
+        });
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>|null
+     */
+    public function updatePartnerSetting(string $partnerId, array $payload, AdminSessionContext $actor, Request $request): ?array
+    {
+        if (! $this->partnerMaintenanceTableExists()) {
+            return null;
+        }
+
+        return DB::transaction(function () use ($partnerId, $payload, $actor, $request): ?array {
+            $partner = Partner::query()->where('id', $partnerId)->lockForUpdate()->first();
+
+            if ($partner === null) {
+                return null;
+            }
+
+            $previous = $this->ensurePartnerSetting($partner);
+            $now = now();
+            $status = (string) $payload['status'];
+            $settingId = (string) $previous->id;
+            $updates = [
+                'status' => $status,
+                'message' => $payload['message'] ?? null,
+                'reason' => (string) $payload['reason'],
+                'ticket_id' => $payload['ticket_id'] ?? null,
+                'scheduled_start_at' => $this->dateOrNull($payload['scheduled_start_at'] ?? null),
+                'expected_end_at' => $this->dateOrNull($payload['expected_end_at'] ?? null),
+                'retry_after_seconds' => $payload['retry_after_seconds'] ?? null,
+                'updated_by_admin_id' => $actor->adminUser['id'],
+                'updated_at' => $now,
+            ];
+
+            if ($status === 'active') {
+                $updates['started_at'] = $now;
+                $updates['ended_at'] = null;
+            }
+
+            if (in_array($status, ['inactive', 'ended', 'cancelled'], true)) {
+                $updates['ended_at'] = $now;
+            }
+
+            PartnerCentralMaintenanceSetting::query()->where('id', $settingId)->update($updates);
+
+            $current = PartnerCentralMaintenanceSetting::where('id', $settingId)->first();
+            $resource = $this->partnerSettingResource($current, (string) $partner->status);
+            $auditAction = $status === 'active'
+                ? 'partner_maintenance.enabled'
+                : ((string) $previous->status === 'active' ? 'partner_maintenance.disabled' : 'partner_maintenance.updated');
+
+            $this->auditLogger->logAdminWrite(
+                actorId: $actor->adminUser['id'],
+                scopeType: 'central',
+                action: $auditAction,
+                targetType: 'partner_central_maintenance_setting',
+                targetId: $settingId,
+                payload: [
+                    'idempotency_key' => $request->header('Idempotency-Key'),
+                    'previous' => [
+                        'status' => $previous->status,
+                    ],
+                    'current' => [
+                        'status' => $resource['status'],
+                        'reason' => $resource['reason'],
+                        'ticket_id' => $resource['ticket_id'],
+                    ],
+                ],
+                tenantId: null,
+                partnerId: (string) $partner->id,
                 requestId: $request->header('X-Request-Id'),
                 ipAddress: $request->ip(),
                 userAgent: $request->userAgent(),
@@ -460,12 +668,44 @@ class MaintenanceService
         return PartnerTenantMaintenanceSetting::find($settingId);
     }
 
+    private function ensurePartnerSetting(object $partner): object
+    {
+        $setting = PartnerCentralMaintenanceSetting::query()->where('partner_id', (string) $partner->id)->first();
+
+        if ($setting !== null) {
+            return $setting;
+        }
+
+        $settingId = 'pcm_'.Str::ulid()->toBase32();
+        $now = now();
+
+        PartnerCentralMaintenanceSetting::query()->create([
+            'id' => $settingId,
+            'partner_id' => (string) $partner->id,
+            'status' => 'inactive',
+            'message' => null,
+            'reason' => null,
+            'ticket_id' => null,
+            'scheduled_start_at' => null,
+            'started_at' => null,
+            'expected_end_at' => null,
+            'ended_at' => null,
+            'retry_after_seconds' => null,
+            'created_by_admin_id' => null,
+            'updated_by_admin_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return PartnerCentralMaintenanceSetting::find($settingId);
+    }
+
     /**
      * @return array<string, mixed>
      */
     private function settingResource(object $setting, string $tenantStatus): array
     {
-        $active = (string) $setting->status === 'active' || $tenantStatus === 'maintenance';
+        $active = (string) $setting->status === 'active';
 
         return [
             'id' => (string) $setting->id,
@@ -485,6 +725,66 @@ class MaintenanceService
             'retry_after_seconds' => $setting->retry_after_seconds === null ? null : (int) $setting->retry_after_seconds,
             'allowed_routes' => $this->decodeJsonList($setting->allowed_routes_json),
             'blocked_route_patterns' => $this->decodeJsonList($setting->blocked_route_patterns_json),
+            'created_at' => $this->dateString($setting->created_at),
+            'updated_at' => $this->dateString($setting->updated_at),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function defaultPartnerMaintenanceResource(string $partnerId, string $partnerStatus): array
+    {
+        return [
+            'id' => null,
+            'partner_id' => $partnerId,
+            'partner_status' => $partnerStatus,
+            'source' => 'central_partner',
+            'scope' => 'partner_bo',
+            'status' => 'inactive',
+            'active' => false,
+            'mode' => 'partner_bo_only',
+            'message' => null,
+            'reason' => null,
+            'reason_label' => null,
+            'ticket_id' => null,
+            'ticket_public_ref' => null,
+            'scheduled_start_at' => null,
+            'started_at' => null,
+            'expected_end_at' => null,
+            'ended_at' => null,
+            'retry_after_seconds' => null,
+            'created_at' => null,
+            'updated_at' => null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function partnerSettingResource(object $setting, string $partnerStatus): array
+    {
+        $active = (string) $setting->status === 'active';
+
+        return [
+            'id' => (string) $setting->id,
+            'partner_id' => (string) $setting->partner_id,
+            'partner_status' => $partnerStatus,
+            'source' => 'central_partner',
+            'scope' => 'partner_bo',
+            'status' => (string) $setting->status,
+            'active' => $active,
+            'mode' => 'partner_bo_only',
+            'message' => $setting->message,
+            'reason' => $setting->reason,
+            'reason_label' => $setting->reason,
+            'ticket_id' => $setting->ticket_id,
+            'ticket_public_ref' => $setting->ticket_id,
+            'scheduled_start_at' => $this->dateString($setting->scheduled_start_at),
+            'started_at' => $this->dateString($setting->started_at),
+            'expected_end_at' => $this->dateString($setting->expected_end_at),
+            'ended_at' => $this->dateString($setting->ended_at),
+            'retry_after_seconds' => $setting->retry_after_seconds === null ? null : (int) $setting->retry_after_seconds,
             'created_at' => $this->dateString($setting->created_at),
             'updated_at' => $this->dateString($setting->updated_at),
         ];
@@ -535,6 +835,41 @@ class MaintenanceService
             'revoked_at' => $this->dateString($bypass->revoked_at),
             'created_at' => $this->dateString($bypass->created_at),
             'updated_at' => $this->dateString($bypass->updated_at),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function centralTenantMaintenanceResource(object $row): array
+    {
+        $maintenance = $this->stateForTenant((string) $row->tenant_id, (string) $row->tenant_status);
+        $partnerMaintenance = $this->stateForPartner((string) $row->partner_id, (string) $row->partner_status);
+
+        return [
+            'id' => (string) $row->tenant_id,
+            'tenant_id' => (string) $row->tenant_id,
+            'tenant_code' => (string) $row->tenant_code,
+            'tenant_name' => (string) $row->tenant_name,
+            'tenant_status' => (string) $row->tenant_status,
+            'partner_id' => (string) $row->partner_id,
+            'partner_code' => (string) $row->partner_code,
+            'partner_name' => (string) $row->partner_name,
+            'partner_status' => (string) $row->partner_status,
+            'domain_id' => $row->domain_id ? (string) $row->domain_id : null,
+            'domain_host' => $row->domain_host ? (string) $row->domain_host : null,
+            'domain_status' => $row->domain_status ? (string) $row->domain_status : null,
+            'maintenance' => $maintenance,
+            'maintenance_status' => (string) ($maintenance['status'] ?? 'inactive'),
+            'maintenance_active' => (bool) ($maintenance['active'] ?? false),
+            'maintenance_mode' => $maintenance['mode'] ?? null,
+            'maintenance_message' => $maintenance['message'] ?? null,
+            'partner_maintenance' => $partnerMaintenance,
+            'partner_maintenance_status' => (string) ($partnerMaintenance['status'] ?? 'inactive'),
+            'partner_maintenance_active' => (bool) ($partnerMaintenance['active'] ?? false),
+            'partner_maintenance_mode' => $partnerMaintenance['mode'] ?? null,
+            'partner_maintenance_message' => $partnerMaintenance['message'] ?? null,
+            'updated_at' => $this->dateString($row->tenant_updated_at),
         ];
     }
 
@@ -621,6 +956,81 @@ class MaintenanceService
     }
 
     /**
+     * @return array<int, string>
+     */
+    private function maintenancePathCandidates(?string $path): array
+    {
+        $normalized = $this->normalizeMaintenancePath($path);
+
+        if ($normalized === null) {
+            return [];
+        }
+
+        $candidates = [$normalized];
+
+        foreach (['/api/v1/customer/', '/api/v1/public/'] as $prefix) {
+            if (str_starts_with($normalized, $prefix)) {
+                $candidates[] = '/'.substr($normalized, strlen($prefix));
+            }
+        }
+
+        return array_values(array_unique(array_filter($candidates)));
+    }
+
+    /**
+     * @param array<int, string> $paths
+     * @param mixed $patterns
+     */
+    private function matchesAnyMaintenancePattern(array $paths, mixed $patterns): bool
+    {
+        $normalizedPatterns = $this->normalizedStringList(is_array($patterns) ? $patterns : []);
+
+        foreach ($normalizedPatterns as $pattern) {
+            $normalizedPattern = $this->normalizeMaintenancePath($pattern);
+
+            if ($normalizedPattern === null) {
+                continue;
+            }
+
+            foreach ($paths as $path) {
+                if ($this->maintenancePathMatches($normalizedPattern, $path)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function maintenancePathMatches(string $pattern, string $path): bool
+    {
+        if ($pattern === $path || Str::is($pattern, $path)) {
+            return true;
+        }
+
+        if (str_ends_with($pattern, '/*') && rtrim(substr($pattern, 0, -2), '/') === rtrim($path, '/')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function normalizeMaintenancePath(?string $path): ?string
+    {
+        $value = trim((string) $path);
+
+        if ($value === '') {
+            return null;
+        }
+
+        $parsedPath = parse_url($value, PHP_URL_PATH);
+        $value = is_string($parsedPath) && $parsedPath !== '' ? $parsedPath : $value;
+        $value = '/'.ltrim($value, '/');
+
+        return $value === '/' ? '/' : rtrim($value, '/');
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function decodeJsonObject(mixed $json): array
@@ -675,5 +1085,10 @@ class MaintenanceService
     private function stableId(string $prefix, string $seed): string
     {
         return $prefix.'_'.substr(sha1($prefix.':'.$seed), 0, 20);
+    }
+
+    private function partnerMaintenanceTableExists(): bool
+    {
+        return Schema::hasTable('partner_central_maintenance_settings');
     }
 }

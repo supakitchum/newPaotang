@@ -55,6 +55,33 @@ class TenantRewardPriceRuleService
     }
 
     /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function centralSettingRows(string $gameId): array
+    {
+        return array_values(array_map(
+            fn (array $baseRow): array => $this->centralSettingRowFromBase($baseRow),
+            $this->basePrizeRows($gameId),
+        ));
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function centralSettingRow(string $rowId): ?array
+    {
+        $identity = $this->settingIdentityFromId($rowId);
+
+        if ($identity === null) {
+            return null;
+        }
+
+        $baseRow = $this->basePrizeRows((string) $identity['game_id'])[(string) $identity['prize_type']] ?? null;
+
+        return $baseRow === null ? null : $this->centralSettingRowFromBase($baseRow);
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     public function settingRow(string $tenantId, string $rowId): ?array
@@ -455,6 +482,34 @@ class TenantRewardPriceRuleService
             'source' => $baseRow['source'] ?? 'central_reward_template',
             'status' => 'active',
             'updated_at' => $rule?->updated_at ?? ($baseRow['updated_at'] ?? null),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $baseRow
+     * @return array<string, mixed>
+     */
+    private function centralSettingRowFromBase(array $baseRow): array
+    {
+        $gameId = (string) $baseRow['game_id'];
+        $prizeType = (string) $baseRow['prize_type'];
+        $currency = (string) ($baseRow['central_reward_amount']['currency'] ?? ThaiGovernmentLotteryRewardTemplate::CURRENCY);
+        $baseAmount = (int) ($baseRow['central_reward_amount']['amount'] ?? 0);
+
+        return [
+            'id' => $this->settingRowId($gameId, $prizeType),
+            'game_id' => $gameId,
+            'prize_type' => $prizeType,
+            'prize_label' => (string) $baseRow['prize_label'],
+            'prize_count' => (int) $baseRow['prize_count'],
+            'digits' => (int) $baseRow['digits'],
+            'base_source' => self::BASE_SOURCE_CENTRAL_REWARD,
+            'central_reward_amount' => $this->money($baseAmount, $currency),
+            'payout_amount' => $this->money($baseAmount, $currency),
+            'reward_result_id' => $baseRow['reward_result_id'] ?? null,
+            'source' => $baseRow['source'] ?? 'central_reward_template',
+            'status' => 'active',
+            'updated_at' => $baseRow['updated_at'] ?? null,
         ];
     }
 

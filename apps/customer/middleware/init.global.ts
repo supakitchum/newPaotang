@@ -6,11 +6,15 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const { token, user, restoreAuthState } = useAuth()
   const isPrivatePage = requiresCustomerAuth(to.path)
 
-  await fetchSiteConfig()
+  const siteConfig = await fetchSiteConfig({ force: process.client })
   useTenantSeo({
     path: to.path,
     privatePage: isPrivatePage
   })
+
+  if (to.path === '/maintenance' && siteConfig && !siteConfig.maintenance?.active) {
+    return navigateTo('/')
+  }
 
   if (to.path !== '/maintenance' && isRouteBlockedByMaintenance(to.path)) {
     return navigateTo('/maintenance')

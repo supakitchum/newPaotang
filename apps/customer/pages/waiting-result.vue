@@ -14,12 +14,12 @@
         </div>
 
         <section class="waiting-result-result" aria-live="polite">
-          <section v-if="isRewardLoading" class="result-card waiting-result-state">
+          <section v-if="isRewardLoading" class="result-card result-card-featured waiting-result-state">
             <i class="bi bi-arrow-repeat" />
             <span>กำลังโหลดผลรางวัล</span>
           </section>
 
-          <section v-else-if="rewardErrorMessage" class="result-card waiting-result-state">
+          <section v-else-if="rewardErrorMessage" class="result-card result-card-featured waiting-result-state">
             <i class="bi bi-exclamation-circle text-danger" />
             <span>{{ rewardErrorMessage }}</span>
             <button class="outline-pill waiting-result-retry" type="button" @click="fetchReward">
@@ -28,17 +28,13 @@
           </section>
 
           <ResultSummaryCard
-              v-else-if="hasRewardSummary"
+              v-else
               :date="rewardDrawDate"
               :result="rewardSummary"
               :unofficial="isUnofficialReward"
               link="/result/full"
+              variant="featured"
           />
-
-          <section v-else class="result-card waiting-result-state">
-            <i class="bi bi-hourglass-split text-primary" />
-            <span>{{ rewardEmptyMessage }}</span>
-          </section>
         </section>
 
         <section class="waiting-result-live" aria-labelledby="waiting-result-live-title">
@@ -47,7 +43,7 @@
             <h2 id="waiting-result-live-title">ถ่ายทอดสดประกาศผล</h2>
           </div>
 
-          <div v-if="youtubeEmbedUrl" class="waiting-result-live-frame">
+          <div v-if="youtubeEmbedUrl" class="waiting-result-live-frame" :class="{ 'is-alert-open': alertState.visible }">
             <iframe
                 :src="youtubeEmbedUrl"
                 title="ถ่ายทอดสดประกาศผลรางวัล"
@@ -92,8 +88,8 @@ const runtimeConfig = useRuntimeConfig()
 const route = useRoute()
 const { currentGame, ensureAppInit } = useAppInit()
 const { config: siteConfig, fetchSiteConfig } = useSiteConfig()
-const { showAlert } = useAppAlert()
-const { isDisplayableRewardNumber, toSummary } = useLotteryReward()
+const { alertState, showAlert } = useAppAlert()
+const { isResolvedRewardNumber, toSummary } = useLotteryReward()
 
 const rewardGame = ref<LotteryRewardGame | null>(null)
 const isRewardLoading = ref(true)
@@ -119,21 +115,27 @@ const normalizeDisplayText = (value: unknown) => {
 
 const currentGameName = computed(() => normalizeDisplayText(currentGame.value?.name) || 'รอข้อมูลเกมปัจจุบัน')
 const currentRewardGameId = computed(() => normalizeDisplayText(currentGame.value?.id))
-const rewardSummary = computed(() => toSummary(rewardGame.value))
+const fallbackRewardGame = computed<LotteryRewardGame>(() => ({
+  id: currentGame.value?.id || 'pending',
+  name: normalizeDisplayText(currentGame.value?.name) || currentGameName.value,
+  status: Number(currentGame.value?.status) || 1,
+  rewards: []
+}))
+const rewardDisplayGame = computed(() => rewardGame.value || fallbackRewardGame.value)
+const rewardSummary = computed(() => toSummary(rewardDisplayGame.value))
 const rewardDrawDate = computed(() => normalizeDisplayText(rewardGame.value?.name) || currentGameName.value)
-const rewardEmptyMessage = computed(() => 'ยังไม่มีข้อมูลผลรางวัลล่าสุด')
 const isUnofficialReward = computed(() => Boolean(rewardGame.value) && Number(rewardGame.value?.status) !== 2)
 const youtubeLiveUrl = computed(() => (
   normalizeDisplayText(siteConfig.value?.live?.waiting_result_youtube_url)
   || normalizeDisplayText(runtimeConfig.public.waitingResultYoutubeUrl)
 ))
 const youtubeEmbedUrl = computed(() => sanitizeYoutubeEmbedUrl(youtubeLiveUrl.value))
-const hasRewardSummary = computed(() => [
+const hasResolvedRewardSummary = computed(() => [
   rewardSummary.value.first,
   rewardSummary.value.last2,
   ...rewardSummary.value.front3,
   ...rewardSummary.value.last3
-].some(isDisplayableRewardNumber))
+].some(isResolvedRewardNumber))
 const rewardBelongsToCurrentGame = computed(() => {
   if (!currentRewardGameId.value) {
     return Boolean(rewardGame.value)
@@ -141,7 +143,7 @@ const rewardBelongsToCurrentGame = computed(() => {
 
   return normalizeDisplayText(rewardGame.value?.id) === currentRewardGameId.value
 })
-const hasCurrentGameRewardResult = computed(() => hasRewardSummary.value && rewardBelongsToCurrentGame.value)
+const hasCurrentGameRewardResult = computed(() => hasResolvedRewardSummary.value && rewardBelongsToCurrentGame.value)
 const waitingResultTitle = computed(() => hasCurrentGameRewardResult.value ? 'ออกรางวัลแล้ว' : 'รอประกาศผลรางวัล')
 
 const consumeSaleClosedNotice = async () => {
@@ -313,6 +315,16 @@ onMounted(async () => {
   width: min(100%, 520px);
 }
 
+.waiting-result-result :deep(.result-number-list) {
+  justify-content: center;
+}
+
+.waiting-result-result :deep(.result-number-list span) {
+  display: inline-flex;
+  justify-content: center;
+  text-align: center;
+}
+
 .waiting-result-state {
   min-height: 168px;
   display: grid;
@@ -377,6 +389,10 @@ onMounted(async () => {
   width: 100%;
   height: 100%;
   border: 0;
+}
+
+.waiting-result-live-frame.is-alert-open iframe {
+  pointer-events: none;
 }
 
 .waiting-result-live-empty {

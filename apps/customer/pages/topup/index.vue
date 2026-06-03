@@ -1,6 +1,6 @@
 <template>
   <MobileShell time="12:59">
-    <BlueHeader title="เติมเงินเข้า G-Wallet" back-to="/checkout" :min-height="waitingDeposit ? '340px' : '100vh'">
+    <BlueHeader title="เติมเงินเข้า G-Wallet" :back-to="topupBackTo" :min-height="waitingDeposit ? '340px' : '100vh'">
       <h2 class="fs-5 fw-bold mt-4 mb-3">เลือกช่องทางการเติมเงิน</h2>
       <div class="topup-channels">
         <button
@@ -194,6 +194,7 @@ type TopupChannel = 'qr' | 'credit' | 'bank_transfer'
 import type { DepositHistory, WebsiteBank } from '~/composables/useTopup'
 
 const platformApi = usePlatformApi()
+const route = useRoute()
 const { showAlert } = useAppAlert()
 const { toNumber, formatMoney, formatDate } = useTopup()
 const { isAuthenticated } = useAuth()
@@ -298,6 +299,12 @@ const waitingHasSlip = computed(() => Boolean(
   || waitingDeposit.value?.slip_thumb_url
   || waitingDeposit.value?.slip
 ))
+const topupBackTo = computed(() => {
+  const value = Array.isArray(route.query.back) ? route.query.back[0] : route.query.back
+  const target = String(value || '').trim()
+
+  return ['/', '/checkout', '/my-wallet', '/profile'].includes(target) ? target : '/my-wallet'
+})
 
 useCustomerStockRealtime({
   enabled: isAuthenticated,

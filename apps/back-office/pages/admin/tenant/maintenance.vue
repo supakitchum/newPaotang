@@ -14,7 +14,7 @@
     <AdminAlert v-if="retryAfter" type="warning" :message="`Maintenance is active. Retry-After: ${retryAfter} seconds.`" />
 
     <AdminLoader v-if="loading" />
-    <div v-else class="row">
+    <div v-else class="row g-4">
       <div class="col-xl-7">
         <AdminFormSection title="Maintenance setting">
           <form class="row g-3" @submit.prevent="save">
@@ -28,9 +28,9 @@
             <div class="col-md-6">
               <label class="form-label">Mode</label>
               <select v-model="form.mode" class="form-select" :class="invalidClass('mode')">
-                <option v-for="mode in modes" :key="mode" :value="mode">{{ titleize(mode) }}</option>
+                <option v-for="mode in availableModes" :key="mode" :value="mode">{{ titleize(mode) }}</option>
               </select>
-              <div class="invalid-feedback">{{ fieldError('mode') }}</div>
+              <div class="invalid-feedback">{{ fieldError('mode') || activeModeError }}</div>
             </div>
             <div class="col-12">
               <label class="form-label">Message</label>
@@ -38,9 +38,19 @@
               <div class="invalid-feedback">{{ fieldError('message') }}</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Reason</label>
-              <input v-model="form.reason" class="form-control" :class="invalidClass('reason')" />
+              <label class="form-label">Change reason</label>
+              <input v-model="form.reason" class="form-control" :class="invalidClass('reason')" placeholder="Required for audit trail" />
               <div class="invalid-feedback">{{ fieldError('reason') }}</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Ticket ID</label>
+              <input v-model="form.ticket_id" class="form-control" :class="invalidClass('ticket_id')" placeholder="Optional support ticket" />
+              <div class="invalid-feedback">{{ fieldError('ticket_id') }}</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Scheduled start</label>
+              <input v-model="form.scheduled_start_at" type="datetime-local" class="form-control" :class="invalidClass('scheduled_start_at')" />
+              <div class="invalid-feedback">{{ fieldError('scheduled_start_at') }}</div>
             </div>
             <div class="col-md-6">
               <label class="form-label">Expected end</label>
@@ -52,8 +62,20 @@
               <input v-model.number="form.retry_after_seconds" type="number" min="0" class="form-control" :class="invalidClass('retry_after_seconds')" />
               <div class="invalid-feedback">{{ fieldError('retry_after_seconds') }}</div>
             </div>
-            <div class="col-md-6 d-flex align-items-end">
-              <button class="btn btn-primary btn-wave w-100" type="submit" :disabled="saving || !tenantId || !form.reason.trim()">
+            <div class="col-md-6">
+              <label class="form-label">Allowed API routes</label>
+              <textarea v-model="form.allowed_routes" class="form-control" rows="4" :class="invalidClass('allowed_routes')" placeholder="/api/v1/public/site-config" />
+              <div class="invalid-feedback">{{ fieldError('allowed_routes') }}</div>
+              <div class="form-text">One route or wildcard pattern per line. These routes stay open while maintenance is active.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Blocked API route patterns</label>
+              <textarea v-model="form.blocked_route_patterns" class="form-control" rows="4" :class="invalidClass('blocked_route_patterns')" placeholder="/api/v1/customer/checkout&#10;/api/v1/customer/reservations*" />
+              <div class="invalid-feedback">{{ fieldError('blocked_route_patterns') }}</div>
+              <div class="form-text">One route or wildcard pattern per line. These routes are blocked even if the mode is narrower.</div>
+            </div>
+            <div class="col-12 d-flex justify-content-end">
+              <button class="btn btn-primary btn-wave" type="submit" :disabled="saveDisabled">
                 <span v-if="saving" class="spinner-border spinner-border-sm me-2" />
                 Save maintenance
               </button>
@@ -65,17 +87,17 @@
           <form class="row g-3" @submit.prevent="createBypass">
             <div class="col-md-4">
               <label class="form-label">Actor type</label>
-              <select v-model="bypass.actor_type" class="form-select" :class="invalidClass('actor_type')">
+              <select v-model="bypass.actor_type" class="form-select" :class="bypassInvalidClass('actor_type')">
                 <option value="customer">Customer</option>
                 <option value="tenant_admin">Tenant admin</option>
                 <option value="support_session">Support session</option>
               </select>
-              <div class="invalid-feedback">{{ fieldError('actor_type') }}</div>
+              <div class="invalid-feedback">{{ bypassFieldError('actor_type') }}</div>
             </div>
             <div class="col-md-8">
               <label class="form-label">Actor ID</label>
-              <input v-model="bypass.actor_id" class="form-control" :class="invalidClass('actor_id')" />
-              <div class="invalid-feedback">{{ fieldError('actor_id') }}</div>
+              <input v-model="bypass.actor_id" class="form-control" :class="bypassInvalidClass('actor_id')" />
+              <div class="invalid-feedback">{{ bypassFieldError('actor_id') }}</div>
             </div>
             <div class="col-md-6">
               <label class="form-label">Reason</label>
@@ -115,8 +137,34 @@
               <dd class="col-7"><AdminStatusBadge :status="setting.active" :label="setting.active ? 'Active' : 'Inactive'" /></dd>
               <dt class="col-5">Mode</dt>
               <dd class="col-7">{{ titleize(setting.mode || '-') }}</dd>
+              <dt class="col-5">Message</dt>
+              <dd class="col-7">{{ setting.message || '-' }}</dd>
+              <dt class="col-5">Reason</dt>
+              <dd class="col-7">{{ setting.reason || '-' }}</dd>
+              <dt class="col-5">Ticket</dt>
+              <dd class="col-7">{{ setting.ticket_id || '-' }}</dd>
+              <dt class="col-5">Scheduled start</dt>
+              <dd class="col-7">{{ formatDateTime(setting.scheduled_start_at) }}</dd>
+              <dt class="col-5">Started</dt>
+              <dd class="col-7">{{ formatDateTime(setting.started_at) }}</dd>
               <dt class="col-5">Expected end</dt>
               <dd class="col-7">{{ formatDateTime(setting.expected_end_at) }}</dd>
+              <dt class="col-5">Ended</dt>
+              <dd class="col-7">{{ formatDateTime(setting.ended_at) }}</dd>
+              <dt class="col-5">Allowed routes</dt>
+              <dd class="col-7">
+                <div v-if="stringList(setting.allowed_routes).length" class="d-flex flex-column gap-1">
+                  <code v-for="route in stringList(setting.allowed_routes)" :key="route" class="small">{{ route }}</code>
+                </div>
+                <span v-else>-</span>
+              </dd>
+              <dt class="col-5">Blocked patterns</dt>
+              <dd class="col-7">
+                <div v-if="stringList(setting.blocked_route_patterns).length" class="d-flex flex-column gap-1">
+                  <code v-for="route in stringList(setting.blocked_route_patterns)" :key="route" class="small">{{ route }}</code>
+                </div>
+                <span v-else>-</span>
+              </dd>
               <dt class="col-5">Updated</dt>
               <dd class="col-7">{{ formatDateTime(setting.updated_at) }}</dd>
             </dl>
@@ -129,7 +177,23 @@
           </div>
           <div class="card-body">
             <AdminEmptyState v-if="!events.length" title="No events" message="Maintenance audit events will appear after changes." icon="ri-history-line" />
-            <AdminTimeline v-else :items="events" />
+            <ul v-else class="list-unstyled mb-0">
+              <li v-for="item in events" :key="item.id || item.created_at" class="d-flex gap-3 pb-3">
+                <span class="avatar avatar-sm bg-primary-transparent text-primary rounded-circle flex-shrink-0">
+                  <i class="ri-time-line" />
+                </span>
+                <div class="flex-fill">
+                  <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <span class="fw-semibold">{{ titleize(item.event_type || 'maintenance event') }}</span>
+                    <AdminStatusBadge :status="item.status" />
+                    <span class="badge bg-light text-default">{{ titleize(item.mode || '-') }}</span>
+                  </div>
+                  <div v-if="item.reason" class="text-muted small mt-1">{{ item.reason }}</div>
+                  <div v-if="item.ticket_id" class="text-muted fs-12">Ticket: {{ item.ticket_id }}</div>
+                  <div class="text-muted fs-12">{{ formatDateTime(item.created_at || item.updated_at) }}</div>
+                </div>
+              </li>
+            </ul>
             <AdminPagination
               class="mt-3"
               :next-cursor="eventMeta.next_cursor"
@@ -238,8 +302,12 @@ const form = reactive<any>({
   mode: 'scheduled',
   message: '',
   reason: '',
+  ticket_id: '',
+  scheduled_start_at: '',
   expected_end_at: '',
   retry_after_seconds: null,
+  allowed_routes: '',
+  blocked_route_patterns: '',
 })
 const bypass = reactive<any>({
   actor_type: 'customer',
@@ -255,17 +323,38 @@ const revokeConfirm = reactive<{ open: boolean, row: any }>({
 
 const alertType = (err: any) => err?.status === 403 ? 'warning' : err?.status === 503 ? 'warning' : 'danger'
 const fieldError = (field: string) => validation.value[field]?.[0] || ''
-const invalidClass = (field: string) => fieldError(field) ? 'is-invalid' : ''
 const bypassFieldError = (field: string) => bypassValidation.value[field]?.[0] || ''
 const bypassInvalidClass = (field: string) => bypassFieldError(field) ? 'is-invalid' : ''
 const toApiDate = (value: string) => value ? new Date(value).toISOString() : null
 const bypassTicketMissing = computed(() => !String(bypass.ticket_id || '').trim())
+const activeModeError = computed(() => (
+  form.status === 'active' && form.mode === 'scheduled'
+    ? 'Active maintenance must use a blocking mode.'
+    : ''
+))
+const invalidClass = (field: string) => fieldError(field) || (field === 'mode' && activeModeError.value) ? 'is-invalid' : ''
+const availableModes = computed(() => form.status === 'active' ? modes.filter((mode) => mode !== 'scheduled') : modes)
+const saveDisabled = computed(() => Boolean(
+  saving.value
+  || !tenantId.value
+  || !String(form.reason || '').trim()
+  || activeModeError.value,
+))
 const bypassSubmitDisabled = computed(() => Boolean(
   saving.value
   || !tenantId.value
   || !String(bypass.reason || '').trim()
   || bypassTicketMissing.value,
 ))
+
+const stringList = (value: any) => Array.isArray(value)
+  ? value.map((item) => String(item || '').trim()).filter(Boolean)
+  : []
+
+const linesToList = (value: string) => String(value || '')
+  .split(/\r?\n/g)
+  .map((item) => item.trim())
+  .filter(Boolean)
 
 const applySetting = (payload: any) => {
   setting.value = payload?.data || payload
@@ -274,8 +363,12 @@ const applySetting = (payload: any) => {
   form.mode = setting.value.mode || 'scheduled'
   form.message = setting.value.message || ''
   form.reason = setting.value.reason || ''
+  form.ticket_id = setting.value.ticket_id || ''
+  form.scheduled_start_at = setting.value.scheduled_start_at ? setting.value.scheduled_start_at.slice(0, 16) : ''
   form.expected_end_at = setting.value.expected_end_at ? setting.value.expected_end_at.slice(0, 16) : ''
   form.retry_after_seconds = setting.value.retry_after_seconds
+  form.allowed_routes = stringList(setting.value.allowed_routes).join('\n')
+  form.blocked_route_patterns = stringList(setting.value.blocked_route_patterns).join('\n')
 }
 
 const loadSetting = async () => {
@@ -388,8 +481,12 @@ const save = async () => {
         mode: form.mode,
         message: form.message,
         reason: form.reason,
+        ticket_id: form.ticket_id,
+        scheduled_start_at: toApiDate(form.scheduled_start_at),
         expected_end_at: toApiDate(form.expected_end_at),
         retry_after_seconds: form.retry_after_seconds,
+        allowed_routes: linesToList(form.allowed_routes),
+        blocked_route_patterns: linesToList(form.blocked_route_patterns),
       },
     })
     applySetting(response)
@@ -432,6 +529,10 @@ const createBypass = async () => {
         expires_at: toApiDate(bypass.expires_at),
       },
     })
+    bypass.actor_id = ''
+    bypass.reason = ''
+    bypass.ticket_id = ''
+    bypass.expires_at = ''
     await Promise.all([loadBypasses(), loadEvents()])
   } catch (err: any) {
     error.value = err
@@ -471,6 +572,12 @@ const confirmRevokeBypass = async (reason: string) => {
     saving.value = false
   }
 }
+
+watch(() => form.status, (status) => {
+  if (status === 'active' && form.mode === 'scheduled') {
+    form.mode = 'full_site'
+  }
+})
 
 onMounted(loadAll)
 </script>

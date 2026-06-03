@@ -12,6 +12,7 @@ use App\Support\CustomerNo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class CustomerAuthService
@@ -213,6 +214,14 @@ class CustomerAuthService
      */
     public function updateProfile(CustomerSessionContext $context, array $payload, Request $request): array
     {
+        if (array_key_exists('reward_payout_bank_account', $payload) || array_key_exists('bank_account', $payload)) {
+            $pinResult = $this->verifyPinForContext($context, trim((string) ($payload['pin'] ?? '')), false);
+
+            if (($pinResult['error'] ?? null) !== null) {
+                return $pinResult;
+            }
+        }
+
         $normalized = array_filter([
             'name' => array_key_exists('name', $payload) ? trim((string) $payload['name']) : null,
             'first_name' => array_key_exists('first_name', $payload) ? trim((string) $payload['first_name']) : null,
@@ -227,6 +236,23 @@ class CustomerAuthService
             $normalized['reward_payout_bank_account_json'] = $bankAccount === []
                 ? null
                 : json_encode($bankAccount, JSON_THROW_ON_ERROR);
+        }
+
+        if (array_key_exists('auto_reward_claim', $payload) || array_key_exists('auto_reward_claim_enabled', $payload) || array_key_exists('auto_reward_claim_payout_method', $payload)) {
+            if (! Schema::hasColumn('customers', 'auto_reward_claim_enabled') || ! Schema::hasColumn('customers', 'auto_reward_claim_payout_method')) {
+                return ['error' => 'resource_conflict'];
+            }
+
+            $autoReward = is_array($payload['auto_reward_claim'] ?? null) ? $payload['auto_reward_claim'] : [];
+            $enabled = array_key_exists('enabled', $autoReward)
+                ? filter_var($autoReward['enabled'], FILTER_VALIDATE_BOOLEAN)
+                : filter_var($payload['auto_reward_claim_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $method = $this->normalizeAutoRewardClaimPayoutMethod(
+                $autoReward['payout_method'] ?? $autoReward['type'] ?? $payload['auto_reward_claim_payout_method'] ?? null,
+            );
+
+            $normalized['auto_reward_claim_enabled'] = $enabled;
+            $normalized['auto_reward_claim_payout_method'] = $enabled ? $method : null;
         }
 
         $idempotencyKey = (string) $request->header('Idempotency-Key');
@@ -642,11 +668,31 @@ class CustomerAuthService
             'status' => $customer->status ?? null,
             'avatar_url' => $customer->avatar_url ?? null,
             'reward_payout_bank_account' => $this->decodedBankAccount($customer->reward_payout_bank_account_json ?? null),
+            'auto_reward_claim' => [
+                'enabled' => (bool) ($customer->auto_reward_claim_enabled ?? false),
+                'payout_method' => $this->normalizeAutoRewardClaimPayoutMethod($customer->auto_reward_claim_payout_method ?? null),
+                'type' => $this->autoRewardClaimType($customer->auto_reward_claim_payout_method ?? null),
+            ],
             'has_pin' => $hasPin,
             'pin_verified' => $pinVerified,
             'pin_required' => $hasPin && ! $pinVerified,
             'pin_setup_required' => ! $hasPin,
         ];
+    }
+
+    private function normalizeAutoRewardClaimPayoutMethod(mixed $value): string
+    {
+        $method = trim((string) $value);
+
+        return match ($method) {
+            'bank', 'bank_transfer' => 'bank_transfer',
+            default => 'wallet_credit',
+        };
+    }
+
+    private function autoRewardClaimType(mixed $value): string
+    {
+        return $this->normalizeAutoRewardClaimPayoutMethod($value) === 'bank_transfer' ? 'bank_transfer' : 'wallet';
     }
 
     private function newCustomerNo(string $tenantId): string

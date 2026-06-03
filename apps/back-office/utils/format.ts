@@ -8,6 +8,7 @@ export type AdminDisplayType =
   | 'object-summary'
   | 'percent'
   | 'permission-list'
+  | 'reward-money'
   | string
 
 type MoneyValue = {
@@ -94,6 +95,23 @@ export const formatMoney = (value: MoneyValue | number | string | null | undefin
   return `${moneyFormatter.format(displayAmount)} ${currencyLabel}`
 }
 
+export const formatRewardMoney = (value: MoneyValue | number | string | null | undefined, currency = 'THB') => {
+  if (isEmptyAdminValue(value)) {
+    return '-'
+  }
+
+  const amount = isMoneyValue(value) ? value.amount : value
+  const resolvedCurrency = String((isMoneyValue(value) ? value.currency : currency) || 'THB').toUpperCase()
+  const numericAmount = Number(amount)
+
+  if (!Number.isFinite(numericAmount)) {
+    return String(amount)
+  }
+
+  const currencyLabel = resolvedCurrency === 'THB' ? 'บาท' : resolvedCurrency
+  return `${numberFormatter.format(Math.round(numericAmount))} ${currencyLabel}`
+}
+
 export const summarizeObject = (value: Record<string, unknown> | null | undefined) => {
   if (!value || !Object.keys(value).length) {
     return '-'
@@ -140,6 +158,10 @@ export const summarizeArray = (value: unknown[] | null | undefined) => {
 export const formatAdminValue = (value: unknown, type?: AdminDisplayType, key?: string): string => {
   if (isEmptyAdminValue(value)) {
     return '-'
+  }
+
+  if (type === 'reward-money') {
+    return formatRewardMoney(value as MoneyValue | number | string)
   }
 
   if (type === 'money' || isMoneyValue(value)) {

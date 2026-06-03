@@ -56,6 +56,64 @@
 
       <AdminApiState v-if="meta && !meta.has_live_result && !visibleRows.length" message="Waiting for lotto-scraper live result data or confirmed winners." />
 
+      <div v-if="pageScope === 'central'" class="card custom-card np-live-result-card">
+        <div class="card-header d-flex flex-wrap align-items-start justify-content-between gap-2">
+          <div>
+            <h6 class="card-title mb-1">Realtime reward results</h6>
+            <p class="text-muted fs-12 mb-0">Live prize numbers from lotto-scraper for the selected game.</p>
+          </div>
+          <div class="d-flex flex-wrap align-items-center justify-content-end gap-2">
+            <AdminStatusBadge :status="liveResultBadgeStatus" :label="liveResultStatusLabel" />
+            <span v-if="liveResultUpdatedAt" class="text-muted fs-12">
+              Updated {{ formatDateTime(liveResultUpdatedAt) }}
+            </span>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          <div v-if="!livePrizeRows.length" class="p-3 text-muted">
+            No realtime reward results yet.
+          </div>
+          <div v-else class="table-responsive">
+            <table class="table table-hover mb-0 np-live-result-table">
+              <thead>
+                <tr>
+                  <th scope="col">Prize</th>
+                  <th scope="col">Numbers</th>
+                  <th scope="col" class="text-end">Payout</th>
+                  <th scope="col" class="text-end">Count</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in livePrizeRows" :key="row.key">
+                  <td>
+                    <div class="fw-semibold">{{ row.label }}</div>
+                    <div v-if="row.pendingCount" class="text-muted fs-12">
+                      {{ formatNumber(row.pendingCount) }} pending
+                    </div>
+                  </td>
+                  <td>
+                    <div class="np-live-result-numbers">
+                      <span v-for="number in row.visibleNumbers" :key="`${row.key}-${number}`" class="badge bg-light text-dark border np-live-result-number">
+                        {{ number }}
+                      </span>
+                      <span v-if="row.hiddenCount" class="badge bg-secondary-transparent text-secondary">
+                        +{{ formatNumber(row.hiddenCount) }}
+                      </span>
+                    </div>
+                  </td>
+                  <td class="text-end fw-semibold">{{ row.payoutLabel }}</td>
+                  <td class="text-end">{{ formatNumber(row.count) }}</td>
+                  <td>
+                    <AdminStatusBadge :status="row.badgeStatus" :label="row.statusLabel" />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <AdminDataTable
         :title="winnerTableTitle"
         :columns="winnerColumns"
@@ -133,6 +191,7 @@ const route = useRoute()
 const games = ref<any[]>([])
 const rowsRaw = ref<any[]>([])
 const meta = ref<any>(null)
+const liveResult = ref<any>(null)
 const loadingGames = ref(false)
 const loadingWinners = ref(false)
 const error = ref<any>(null)
@@ -229,6 +288,46 @@ const prizeTabs = computed(() => {
 const prizeBreakdownRows = computed(() => (
   Array.isArray(meta.value?.prize_breakdown) ? meta.value.prize_breakdown : []
 ))
+
+const liveResultData = computed(() => liveResult.value || meta.value?.live_result || null)
+
+const liveResultStatusValue = computed(() => String(
+  liveResultData.value?.status
+  || liveResultData.value?.official_status
+  || (meta.value?.has_live_result ? 'live_draft' : 'pending')
+).trim())
+
+const liveResultBadgeStatus = computed(() => {
+  const status = liveResultStatusValue.value
+  if (status === 'published' || status === 'confirmed') {
+    return 'approved'
+  }
+  if (status === 'failed') {
+    return 'failed'
+  }
+  if (status === 'pending') {
+    return 'pending'
+  }
+
+  return 'processing'
+})
+
+const liveResultStatusLabel = computed(() => {
+  const status = liveResultStatusValue.value
+  const labels: Record<string, string> = {
+    live_draft: 'Live draft',
+    live_unconfirmed: 'Live unconfirmed',
+    published: 'Confirmed',
+    confirmed: 'Confirmed',
+    pending: 'Waiting for result',
+  }
+
+  return labels[status] || titleize(status || 'pending')
+})
+
+const liveResultUpdatedAt = computed(() => liveResultData.value?.updated_at || meta.value?.updated_at || '')
+
+const livePrizeRows = computed(() => buildLivePrizeRows(liveResultData.value))
 
 const activePrizeLabel = computed(() => (
   prizeTabs.value.find((tab) => tab.key === activePrizeTab.value)?.label || 'All prizes'
@@ -339,12 +438,14 @@ async function loadGames() {
     if (!selectedGameId.value) {
       rowsRaw.value = []
       meta.value = null
+      liveResult.value = null
     }
   } catch (err) {
     error.value = err
     games.value = []
     rowsRaw.value = []
     meta.value = null
+    liveResult.value = null
   } finally {
     loadingGames.value = false
   }
@@ -354,6 +455,7 @@ async function refreshWinners(options: { silent?: boolean } = {}) {
   if (!selectedGameId.value) {
     rowsRaw.value = []
     meta.value = null
+    liveResult.value = null
     return
   }
 
@@ -365,6 +467,7 @@ async function loadWinners(options: { silent?: boolean } = {}) {
   if (!gameId) {
     rowsRaw.value = []
     meta.value = null
+    liveResult.value = null
     return
   }
 
@@ -406,6 +509,7 @@ async function runWinnersRequest(gameId: string, showLoader: boolean) {
 
     rowsRaw.value = extractItems(response)
     meta.value = response?.meta || null
+    liveResult.value = normalizeLiveResult(meta.value?.live_result || null)
     lastWinnersLoadedAt = Date.now()
     lastWinnersLoadedGameId = gameId
   } catch (err) {
@@ -423,6 +527,20 @@ function handleRealtimeResult(payload: any) {
   const payloadGameId = String(payload?.game_id || '').trim()
   if (payloadGameId && payloadGameId !== selectedGameId.value) {
     return
+  }
+
+  const normalized = normalizeLiveResult(payload)
+  if (normalized) {
+    const merged = mergeLiveResults(liveResult.value || meta.value?.live_result || null, normalized)
+    liveResult.value = merged
+    meta.value = {
+      ...(meta.value || {}),
+      has_live_result: true,
+      live_result: merged,
+      completion_percent: merged?.completion_percent ?? meta.value?.completion_percent,
+      source: merged?.source ?? meta.value?.source,
+      updated_at: merged?.updated_at || meta.value?.updated_at,
+    }
   }
 
   scheduleWinnersRefresh()
@@ -503,6 +621,160 @@ function rewardPrizeDisplayLabel(value: any) {
 
   const label = rewardPrizeLabel(prizeType)
   return label === prizeType ? titleize(prizeType) : label
+}
+
+function normalizeLiveResult(value: any) {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const prizes = Array.isArray(value.prizes) ? value.prizes : []
+
+  return {
+    ...value,
+    prizes,
+  }
+}
+
+function mergeLiveResults(currentValue: any, nextValue: any) {
+  const current = normalizeLiveResult(currentValue)
+  const next = normalizeLiveResult(nextValue)
+  if (!current) {
+    return next
+  }
+  if (!next) {
+    return current
+  }
+
+  const nextPrizeTypes = new Set(next.prizes.map((prize: any) => normalizePrizeType(prize?.prize_type)).filter(Boolean))
+  const preservedPrizes = current.prizes.filter((prize: any) => !nextPrizeTypes.has(normalizePrizeType(prize?.prize_type)))
+
+  return {
+    ...current,
+    ...next,
+    prizes: [
+      ...preservedPrizes,
+      ...next.prizes,
+    ],
+  }
+}
+
+function buildLivePrizeRows(result: any) {
+  const prizes = Array.isArray(result?.prizes) ? result.prizes : []
+  const groups = new Map<string, any>()
+
+  prizes.forEach((prize: any) => {
+    const prizeType = normalizePrizeType(prize?.prize_type)
+    if (!prizeType) {
+      return
+    }
+
+    const group = groups.get(prizeType) || {
+      key: prizeType,
+      type: prizeType,
+      label: rewardPrizeDisplayLabel(prizeType),
+      numbers: [],
+      count: 0,
+      pendingCount: 0,
+      amount: prize?.amount || prize?.payout_amount || null,
+      sortOrder: livePrizeSortOrder(prizeType),
+      status: 'live_draft',
+    }
+
+    const number = livePrizeNumber(prize)
+    if (number) {
+      group.numbers.push(number)
+    }
+    if (isLivePrizePending(prize)) {
+      group.pendingCount += 1
+    }
+    if (!group.amount && (prize?.amount || prize?.payout_amount)) {
+      group.amount = prize?.amount || prize?.payout_amount
+    }
+    group.count += 1
+    group.status = livePrizeStatus(result, group)
+    groups.set(prizeType, group)
+  })
+
+  return Array.from(groups.values())
+    .map((group) => {
+      const uniqueNumbers = Array.from(new Set(group.numbers))
+      const visibleNumbers = uniqueNumbers.slice(0, 12)
+      const badgeStatus = livePrizeBadgeStatus(group.status, group.pendingCount, group.count)
+
+      return {
+        ...group,
+        numbers: uniqueNumbers,
+        visibleNumbers,
+        hiddenCount: Math.max(uniqueNumbers.length - visibleNumbers.length, 0),
+        payoutLabel: formatLivePrizeMoney(group.amount),
+        badgeStatus,
+        statusLabel: livePrizeStatusLabel(badgeStatus),
+      }
+    })
+    .sort((left, right) => (
+      compareValues(left.sortOrder, right.sortOrder)
+      || compareValues(left.label, right.label)
+    ))
+}
+
+function livePrizeSortOrder(prizeType: string) {
+  const index = thaiLotteryPrizeDefinitions.findIndex((definition) => definition.type === prizeType)
+  return index >= 0 ? index : thaiLotteryPrizeDefinitions.length + 1
+}
+
+function livePrizeNumber(prize: any) {
+  const number = String(prize?.prize_number ?? prize?.number ?? '').trim()
+  if (!number || number.startsWith('pending_')) {
+    return ''
+  }
+
+  return number
+}
+
+function isLivePrizePending(prize: any) {
+  return Boolean(prize?.is_pending) || String(prize?.prize_number || '').startsWith('pending_')
+}
+
+function livePrizeStatus(result: any, group: any) {
+  if (group.pendingCount >= group.count) {
+    return 'pending'
+  }
+
+  return String(result?.status || result?.official_status || 'live_draft')
+}
+
+function livePrizeBadgeStatus(status: string, pendingCount: number, count: number) {
+  if (pendingCount >= count) {
+    return 'pending'
+  }
+  if (status === 'published' || status === 'confirmed') {
+    return 'approved'
+  }
+  if (status === 'failed') {
+    return 'failed'
+  }
+
+  return 'processing'
+}
+
+function livePrizeStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    approved: 'Confirmed',
+    failed: 'Failed',
+    pending: 'Pending',
+    processing: 'Live',
+  }
+
+  return labels[status] || titleize(status)
+}
+
+function formatLivePrizeMoney(value: any) {
+  if (!value) {
+    return '-'
+  }
+
+  return formatMoney(moneyAmount(value), moneyCurrency(value))
 }
 
 function winnerTicketCount(prizeType: string) {
@@ -819,5 +1091,27 @@ function formatNumber(value: any) {
   display: inline-flex;
   gap: .5rem;
   min-height: 2.375rem;
+}
+
+.np-live-result-table th {
+  color: var(--text-muted);
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.np-live-result-numbers {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .375rem;
+  min-width: 12rem;
+}
+
+.np-live-result-number {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: .8125rem;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 </style>

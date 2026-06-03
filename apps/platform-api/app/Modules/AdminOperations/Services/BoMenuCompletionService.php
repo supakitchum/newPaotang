@@ -669,6 +669,60 @@ class BoMenuCompletionService
     }
 
     /**
+     * @param array<string, mixed> $queryParams
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
+     */
+    public function listCentralRewardPayoutRules(array $queryParams): array
+    {
+        $gameId = trim((string) ($queryParams['game_id'] ?? '')) ?: $this->latestOpenPriceRuleGameId();
+
+        if ($gameId === null) {
+            return [
+                'data' => [],
+                'meta' => [
+                    'next_cursor' => null,
+                    'has_more' => false,
+                    'default_game_id' => null,
+                ],
+            ];
+        }
+
+        return $this->paginateArrayRows(
+            $this->rewardPriceRules->centralSettingRows($gameId),
+            $queryParams,
+            ['default_game_id' => $gameId],
+        );
+    }
+
+    /**
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
+     */
+    public function listCentralRewardPayoutRuleGames(): array
+    {
+        $defaultGameId = $this->latestOpenPriceRuleGameId();
+        $rows = Game::query()
+            ->orderByRaw("CASE WHEN status = 'open' THEN 0 ELSE 1 END")
+            ->orderByDesc('draw_at')
+            ->limit(100)
+            ->get()
+            ->map(fn (object $game): array => $this->priceRuleGameResource($game, $defaultGameId))
+            ->all();
+
+        return [
+            'data' => $rows,
+            'meta' => ['default_game_id' => $defaultGameId],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function findCentralRewardPayoutRule(string $priceRuleId): ?array
+    {
+        return $this->rewardPriceRules->centralSettingRow($priceRuleId);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function tenantLiveSettings(string $tenantId): array

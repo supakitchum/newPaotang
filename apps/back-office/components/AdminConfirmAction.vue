@@ -295,7 +295,7 @@
 
 <script setup lang="ts">
 import type { OperationFormField, OperationOption } from '~/composables/useAdminOperationsCatalog'
-import { formatAdminValue, formatMoney } from '~/utils/format'
+import { formatAdminValue, formatMoney, formatRewardMoney } from '~/utils/format'
 
 const props = defineProps<{
   modelValue: boolean
@@ -430,7 +430,7 @@ const validationMessagesByField = computed(() => {
       continue
     }
 
-    if (field.type === 'number' || field.type === 'money') {
+    if (field.type === 'number' || field.type === 'money' || field.type === 'reward-money') {
       const value = numberOrNull(formState[field.key])
       if (value !== null && field.min !== undefined && value < Number(field.min)) {
         add(field.key, `${field.label} must be at least ${field.min}.`)
@@ -773,6 +773,10 @@ const normalizeInitialValue = (field: OperationFormField, value: any) => {
     return minorUnitToMajor(value)
   }
 
+  if (field.type === 'reward-money') {
+    return wholeBahtValue(value)
+  }
+
   if (field.type === 'stock-set-distribution') {
     return normalizeStockSetDistribution(value, field)
   }
@@ -834,6 +838,16 @@ const minorUnitToMajor = (value: any) => {
   return Number.isFinite(parsed) ? parsed / 100 : ''
 }
 
+const wholeBahtValue = (value: any) => {
+  const amount = typeof value === 'object' && value !== null ? value.amount : value
+  if (amount === undefined || amount === null || amount === '') {
+    return ''
+  }
+
+  const parsed = Number(amount)
+  return Number.isFinite(parsed) ? Math.round(parsed) : ''
+}
+
 const normalizeSubmitFormValues = () => {
   const values: Record<string, any> = { ...formState }
 
@@ -869,7 +883,7 @@ const fieldColumnClass = (field: OperationFormField) => (
 ) ? 'col-12' : 'col-md-6'
 
 const inputType = (field: OperationFormField) => {
-  if (field.type === 'number' || field.type === 'money') return 'number'
+  if (field.type === 'number' || field.type === 'money' || field.type === 'reward-money') return 'number'
   if (field.type === 'datetime-local') return 'datetime-local'
   if (field.type === 'date') return 'date'
   if (field.type === 'password') return 'password'
@@ -921,6 +935,9 @@ const formatContextValue = (key: string, value: any) => {
   if (value === undefined || value === null || value === '') return '-'
   if (isMoneyAmountPath(key)) {
     const root = key.slice(0, -'.amount'.length)
+    if (isRewardMoneyRoot(root)) {
+      return formatRewardMoney(value, getPath(sourceRecord.value, `${root}.currency`) || 'THB')
+    }
     return formatMoney({
       amount: value,
       currency: getPath(sourceRecord.value, `${root}.currency`) || 'THB',
@@ -939,6 +956,7 @@ const contextLabel = (key: string) => {
 }
 
 const isMoneyAmountPath = (key: string) => key.endsWith('.amount')
+const isRewardMoneyRoot = (key: string) => ['central_reward_amount', 'partner_payout_amount', 'adjustment_amount', 'payout_amount'].includes(key)
 const isCurrencyPathForMoneyAmount = (key: string, moneyAmountRoots: Set<string>) => (
   key.endsWith('.currency')
   && moneyAmountRoots.has(key.slice(0, -'.currency'.length))

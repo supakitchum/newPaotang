@@ -358,6 +358,37 @@ class BoMenuCompletionController extends Controller
             : $context;
     }
 
+    public function centralRewardPayoutRulesIndex(Request $request): JsonResponse
+    {
+        $context = $this->centralContext($request, 'price_rule.view');
+
+        return $context instanceof AdminSessionContext
+            ? response()->json($this->completion->listCentralRewardPayoutRules($request->query()))
+            : $context;
+    }
+
+    public function centralRewardPayoutRuleGames(Request $request): JsonResponse
+    {
+        $context = $this->centralContext($request, 'price_rule.view');
+
+        return $context instanceof AdminSessionContext
+            ? response()->json($this->completion->listCentralRewardPayoutRuleGames())
+            : $context;
+    }
+
+    public function centralRewardPayoutRulesShow(Request $request, string $payout_rule_id): JsonResponse
+    {
+        $context = $this->centralContext($request, 'price_rule.view');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $resource = $this->completion->findCentralRewardPayoutRule($payout_rule_id);
+
+        return $resource === null ? ApiErrorResponse::notFound($request) : response()->json($resource);
+    }
+
     public function priceRulesIndex(Request $request): JsonResponse
     {
         $context = $this->tenantContext($request, 'price_rule.view');

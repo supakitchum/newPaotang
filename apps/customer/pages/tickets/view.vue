@@ -52,7 +52,6 @@ definePageMeta({
   requiresAuth: true
 })
 
-const router = useRouter()
 const route = useRoute()
 const { currentDrawDate } = useAppInit()
 const {
@@ -107,11 +106,6 @@ const formatPrizeAmount = (amount: number) => {
 }
 
 const goBack = () => {
-  if (process.client && window.history.length > 1) {
-    router.back()
-    return
-  }
-
   navigateTo(isHistoryView.value ? '/tickets/history' : '/tickets')
 }
 

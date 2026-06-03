@@ -38,12 +38,12 @@ export type OperationOption = string | {
   close_at?: string
   server_time?: string
 }
-export type OperationOptionSource = 'central-games' | 'central-winner-games' | 'central-sale-price-games' | 'central-partners' | 'central-billing-plans' | 'central-admin-roles' | 'tenant-admin-roles' | 'allocation-partners' | 'allocation-tenants' | 'allocation-games' | 'tenant-stock-games' | 'tenant-price-rule-games' | 'tenant-sale-price-games' | 'tenant-customers' | 'tenant-affiliates' | 'tenant-affiliate-programs'
+export type OperationOptionSource = 'central-games' | 'central-winner-games' | 'central-sale-price-games' | 'central-reward-payout-rule-games' | 'central-partners' | 'central-billing-plans' | 'central-admin-roles' | 'tenant-admin-roles' | 'allocation-partners' | 'allocation-tenants' | 'allocation-games' | 'tenant-stock-games' | 'tenant-price-rule-games' | 'tenant-sale-price-games' | 'tenant-customers' | 'tenant-affiliates' | 'tenant-affiliate-programs'
 
 export type OperationColumn = {
   key: string
   label: string
-  type?: 'text' | 'status' | 'datetime' | 'money' | 'json' | 'customer' | 'customer_name' | 'number' | 'image' | 'boolean' | 'percent' | 'array' | 'object-summary' | 'permission-list'
+  type?: 'text' | 'status' | 'datetime' | 'money' | 'reward-money' | 'json' | 'customer' | 'customer_name' | 'number' | 'image' | 'boolean' | 'percent' | 'array' | 'object-summary' | 'permission-list'
   fallbackKeys?: string[]
   options?: OperationOption[]
 }
@@ -67,7 +67,7 @@ export type OperationFilter = {
 export type OperationFormField = {
   key: string
   label: string
-  type?: 'text' | 'number' | 'money' | 'textarea' | 'json' | 'select' | 'checkbox' | 'checkbox-group' | 'date' | 'datetime-local' | 'datetime-range' | 'lines' | 'password' | 'color' | 'prize-lines' | 'reward-prize-grid' | 'reward-prize-number-grid' | 'reward-prize-amount-grid' | 'stock-set-distribution' | 'stock-sale-limits' | 'stock-partner-distribution' | 'stock-partner-limits'
+  type?: 'text' | 'number' | 'money' | 'reward-money' | 'textarea' | 'json' | 'select' | 'checkbox' | 'checkbox-group' | 'date' | 'datetime-local' | 'datetime-range' | 'lines' | 'password' | 'color' | 'prize-lines' | 'reward-prize-grid' | 'reward-prize-number-grid' | 'reward-prize-amount-grid' | 'stock-set-distribution' | 'stock-sale-limits' | 'stock-partner-distribution' | 'stock-partner-limits'
   sourceKey?: string
   rangeStartKey?: string
   rangeEndKey?: string
@@ -349,11 +349,30 @@ const baseReportFilters: OperationFilter[] = [
   { key: 'cursor', label: 'Cursor' },
   { key: 'limit', label: 'Limit', type: 'number' },
 ]
+const centralDrawScopedReportKeys = new Set(['overview', 'sales', 'orders', 'stock', 'wallet', 'commission', 'rewards'])
+const tenantDrawScopedReportKeys = new Set(['overview', 'sales', 'orders', 'stock', 'wallet', 'commission', 'rewards'])
 const centralReportFilters: OperationFilter[] = [
-  { key: 'tenant_id', label: 'Tenant ID' },
+  { key: 'tenant_id', label: 'Partner store', type: 'select', optionSource: 'allocation-tenants', emptyOptionLabel: 'All partner stores' },
   { key: 'date_from', label: 'From', type: 'date' },
   { key: 'date_to', label: 'To', type: 'date' },
   { key: 'group_by', label: 'Group by', type: 'select', options: ['day', 'week', 'month', 'tenant', 'game', 'status'] },
+  { key: 'cursor', label: 'Cursor' },
+  { key: 'limit', label: 'Limit', type: 'number' },
+]
+const centralDrawReportFilters: OperationFilter[] = [
+  { key: 'tenant_id', label: 'Partner store', type: 'select', optionSource: 'allocation-tenants', emptyOptionLabel: 'All partner stores' },
+  { key: 'game_id', label: 'Game / draw', type: 'select', optionSource: 'central-games', emptyOptionLabel: 'All draws' },
+  { key: 'date_from', label: 'From', type: 'date' },
+  { key: 'date_to', label: 'To', type: 'date' },
+  { key: 'group_by', label: 'Group by', type: 'select', options: ['day', 'week', 'month', 'tenant', 'game', 'status'] },
+  { key: 'cursor', label: 'Cursor' },
+  { key: 'limit', label: 'Limit', type: 'number' },
+]
+const tenantDrawReportFilters: OperationFilter[] = [
+  { key: 'game_id', label: 'Game / draw', type: 'select', optionSource: 'tenant-stock-games', emptyOptionLabel: 'All draws' },
+  { key: 'date_from', label: 'From', type: 'date' },
+  { key: 'date_to', label: 'To', type: 'date' },
+  { key: 'group_by', label: 'Group by', type: 'select', options: ['day', 'week', 'month', 'game', 'status'] },
   { key: 'cursor', label: 'Cursor' },
   { key: 'limit', label: 'Limit', type: 'number' },
 ]
@@ -571,7 +590,7 @@ const commissionRuleActionContext = ['id', 'tenant_id', 'affiliate_program_id', 
 const commissionTransactionActionContext = ['id', 'tenant_id', 'receiver_customer_no', 'receiver_customer.name', 'buyer_customer_no', 'buyer_customer.name', 'affiliate_account_id', 'order_id', 'commission_rule_id', 'transaction_type', 'status', 'amount.amount', 'amount.currency', 'calculated_at', 'approved_at']
 const seoPageActionContext = ['id', 'tenant_id', 'path', 'title', 'status', 'robots', 'canonical_url', 'og_image_url', 'metadata', 'updated_at']
 const redirectActionContext = ['id', 'tenant_id', 'source_path', 'target_url', 'status_code', 'status', 'metadata', 'updated_at']
-const reportExportContext = ['scope', 'report_key', 'tenant_id', 'date_from', 'date_to', 'group_by', 'filters']
+const reportExportContext = ['scope', 'report_key', 'tenant_id', 'game_id', 'date_from', 'date_to', 'group_by', 'filters']
 const adminUserActionContext = ['id', 'tenant_id', 'name', 'email', 'phone', 'status', 'roles.0.id', 'roles.0.name', 'permissions.0']
 const roleActionContext = ['id', 'tenant_id', 'code', 'name', 'status', 'permissions.0', 'permissions.1', 'system_role']
 const domainActionContext = ['id', 'tenant_id', 'host', 'type', 'status', 'is_primary', 'readiness.local_only']
@@ -700,6 +719,8 @@ const tenantPermissionOptions = permissionOptions({
   'seo.view': 'View SEO settings',
   'seo.update': 'Update SEO settings',
   'seo.redirect.manage': 'Manage tenant redirects',
+  'announcement.view': 'View tenant announcements',
+  'announcement.manage': 'Manage tenant announcements',
   'maintenance.view': 'View maintenance settings',
   'maintenance.update': 'Update maintenance settings',
   'maintenance.schedule': 'Schedule maintenance',
@@ -901,6 +922,17 @@ const systemSettingsFields: OperationFormField[] = [
   { key: 'settings.release_gate_note', label: 'Release gate note', sourceKey: 'settings.release_gate_note' },
   { key: 'settings.bo_menu_completion_backend_gaps', label: 'BO backend gap status', sourceKey: 'settings.bo_menu_completion_backend_gaps' },
 ]
+const defaultTermsContentPlaceholder = [
+  'ข้อตกลงการใช้งาน',
+  '1. {ชื่อเว็บไซต์}เป็นระบบจำหน่ายลอตเตอรี่ออนไลน์',
+  '2. บริษัทไม่สนับสนุนการจำหน่ายสลากให้กับบุคคลที่มีอายุไม่ถึง 20 ปี',
+  '3. บริษัทสนับสนุนผู้ไม่มีรายได้ ผู้พิการ ในการเป็นตัวแทนจำหน่ายลอตเตอรี่ออนไลน์',
+  '4. บริษัทเก็บรักษาสลากที่ลูกค้าซื้อเพื่อความปลอดภัย รวมถึงการขึ้นรางวัลให้กับลูกค้า',
+  '5. หากผู้ซื้อนำรูปภาพสลากหรือสลากจริงไปขายต่อ ทางบริษัทไม่มีส่วนเกี่ยวข้องและไม่รับผิดชอบความเสียหายในทุกกรณี',
+  '6. หลังจาก ทำรายการ และ กดปุ่ม " ชำระเงิน " ทางบริษัทถือว่า ผู้สั่งซื้อได้รับทราบ ข้อตกลงและเงื่อนไขต่างๆของบริษัทเป็นที่เรียบร้อย',
+  '7. บริษัทขอสงวนสิทธิ์ ขึ้นเงินรางวัลให้ลูกค้าที่ซื้อกับระบบ ในกรณีลูกค้าถูกรางวัล โดยไม่มีค่าใช้จ่ายใดๆ ทั้งสิ้น',
+  '8. ลูกค้าสามารถยกเลิกการสั่งซื้อสลากได้ภายใน 15 นาทีทุกกรณี หากเกินระยะเวลาที่กำหนด บริษัทขอสงวนสิทธิ์ไม่คืนเงินค่าสลากทุกกรณี',
+].join('\n')
 const tenantSettingsFields: OperationFormField[] = [
   { key: 'site.site_name', label: 'Site name', required: true },
   { key: 'site.display_name', label: 'Display name' },
@@ -908,6 +940,7 @@ const tenantSettingsFields: OperationFormField[] = [
   { key: 'site.timezone', label: 'Timezone', defaultValue: 'Asia/Bangkok' },
   { key: 'site.support_email', label: 'Support email' },
   { key: 'site.support_phone', label: 'Support phone' },
+  { key: 'legal.terms_content', label: 'Terms and conditions', type: 'textarea', sourceKey: 'legal.terms_content', placeholder: defaultTermsContentPlaceholder, help: 'Shown on the customer Terms page. Leave blank to use the default text with the current site name.' },
   { key: 'seo.default_title', label: 'SEO title' },
   { key: 'seo.default_description', label: 'SEO description', type: 'textarea' },
   { key: 'seo.default_keywords', label: 'SEO keywords', type: 'lines', sourceKey: 'seo.default_keywords', placeholder: 'lottery\nlucky' },
@@ -946,10 +979,10 @@ const priceRuleUpdateFields: OperationFormField[] = [
   {
     key: 'partner_payout_amount',
     label: 'Partner payout amount (THB)',
-    type: 'money',
+    type: 'reward-money',
     sourceKey: 'partner_payout_amount.amount',
     min: 0,
-    step: 0.01,
+    step: 1,
     required: true,
     help: 'Final payout for this prize in the selected game. The backend stores only the delta from Central Reward for reports.',
   },
@@ -1503,9 +1536,9 @@ const tenant: OperationResource[] = [
     columns: [
       { key: 'prize_label', label: 'Reward' },
       { key: 'prize_count', label: 'Count', type: 'number' },
-      { key: 'central_reward_amount', label: 'Central payout', type: 'money' },
-      { key: 'partner_payout_amount', label: 'Partner payout', type: 'money' },
-      { key: 'adjustment_amount', label: 'Delta', type: 'money' },
+      { key: 'central_reward_amount', label: 'Central payout', type: 'reward-money' },
+      { key: 'partner_payout_amount', label: 'Partner payout', type: 'reward-money' },
+      { key: 'adjustment_amount', label: 'Delta', type: 'reward-money' },
       { key: 'source', label: 'Source' },
       { key: 'updated_at', label: 'Updated', type: 'datetime' },
     ],
@@ -2648,7 +2681,9 @@ const central: OperationResource[] = [
         ],
       },
       { key: 'lottery-branding', label: 'Lottery branding', route: adminUiRoute('central', 'partners/{id}/lottery-branding'), variant: 'success', contextFields: partnerActionContext },
-      { key: 'suspend', label: 'Suspend', endpoint: '/admin/central/partners/{partner_id}/suspend', variant: 'warning', reason: true, contextFields: partnerActionContext },
+      { key: 'maintenance', label: 'Maintenance', route: adminUiRoute('central', 'maintenance?partner_id={id}'), variant: 'info', contextFields: partnerActionContext },
+      { key: 'suspend', label: 'Suspend', endpoint: '/admin/central/partners/{partner_id}/suspend', variant: 'warning', reason: true, enabledStatuses: ['active', 'draft'], hideWhenDisabled: true, contextFields: partnerActionContext },
+      { key: 'unsuspend', label: 'Unsuspend', endpoint: '/admin/central/partners/{partner_id}/unsuspend', variant: 'success', reason: true, enabledStatuses: ['suspended'], hideWhenDisabled: true, contextFields: partnerActionContext },
     ],
     collectionActions: [{
       key: 'create',
@@ -2814,7 +2849,13 @@ const central: OperationResource[] = [
         endpoint: '/admin/central/stock/imports',
         reason: true,
         formFields: [
-          gameSelectField(true),
+          gameSelectField(true, 'Current game', {
+            defaultValueSource: 'current-game',
+            currentOnly: true,
+            hideEmptyOption: true,
+            emptyOptionLabel: 'No current game',
+            help: 'Import stock only for the current open draw. Older draws are read-only.',
+          }),
           {
             key: 'items',
             label: 'Full numbers',
@@ -2831,6 +2872,7 @@ const central: OperationResource[] = [
         label: 'Generate stock',
         endpoint: '/admin/central/stock/generate',
         reason: true,
+        optionalReason: true,
         formFields: [
           gameSelectField(true, 'Current game', {
             defaultValueSource: 'current-game',
@@ -2989,6 +3031,27 @@ const central: OperationResource[] = [
       endpoint: '/admin/central/sale-price-rules',
       formFields: centralSalePriceRuleFields,
     }],
+  },
+  {
+    scope: 'central',
+    slug: 'reward-payout-rules',
+    title: 'Reward Payout Rules',
+    group: 'Central Rewards',
+    listEndpoint: '/admin/central/reward-payout-rules',
+    detailEndpoint: '/admin/central/reward-payout-rules/{payout_rule_id}',
+    idParam: 'payout_rule_id',
+    idKey: 'id',
+    columns: [
+      { key: 'prize_label', label: 'Reward' },
+      { key: 'prize_count', label: 'Count', type: 'number' },
+      { key: 'digits', label: 'Digits', type: 'number' },
+      { key: 'central_reward_amount', label: 'Default payout', type: 'reward-money' },
+      { key: 'source', label: 'Source' },
+      { key: 'updated_at', label: 'Updated', type: 'datetime' },
+    ],
+    filters: cursorFilters([{ key: 'game_id', label: 'Game', type: 'select', optionSource: 'central-reward-payout-rule-games', hideEmptyOption: true, emptyOptionLabel: 'No open game' }]),
+    confirmContextFields: ['game_id', 'prize_type', 'prize_label', 'prize_count', 'central_reward_amount.amount', 'source', 'updated_at'],
+    detailRenderer: 'price-rule',
   },
   {
     scope: 'central',
@@ -3218,7 +3281,7 @@ const central: OperationResource[] = [
     ...settingsResource('central', 'system-settings', 'System Settings', '/admin/central/system-settings'),
     settingsFields: systemSettingsFields,
   },
-  reportIndex('central', ['overview', 'sales', 'stock', 'wallet', 'commission', 'rewards', 'settlement', 'partner_usage', 'audit']),
+  reportIndex('central', ['overview', 'sales', 'orders', 'customers', 'stock', 'wallet', 'commission', 'rewards', 'settlement', 'partner_usage', 'partners', 'audit']),
 ]
 
 const resources = [...tenant, ...central]
@@ -3262,14 +3325,14 @@ export const useAdminOperationsCatalog = () => {
           title: `${titleizeReport(reportKey)} Report`,
           mode: 'report-detail' as OperationMode,
           listEndpoint: `/admin/${scope}/reports/${reportKey}`,
-          filters: index?.filters || [],
+          filters: reportFiltersFor(scope, reportKey, index?.filters || []),
           collectionActions: [{
             key: 'export',
             label: 'Export report',
             endpoint: `/admin/${scope}/reports/${reportKey}/exports`,
             reason: true,
             contextFields: reportExportContext,
-            formFields: reportExportFields(scope),
+            formFields: reportExportFields(scope, reportKey),
           }],
         } as OperationResource,
         mode: 'report-detail' as OperationMode,
@@ -3545,12 +3608,30 @@ function reportIndex(scope: AdminScope, reportKeys: string[]): OperationResource
   }
 }
 
-function reportExportFields(scope: AdminScope): OperationFormField[] {
+function reportFiltersFor(scope: AdminScope, reportKey: string, fallback: OperationFilter[]): OperationFilter[] {
+  if (scope !== 'central') {
+    return tenantDrawScopedReportKeys.has(reportKey) ? tenantDrawReportFilters : fallback
+  }
+
+  return centralDrawScopedReportKeys.has(reportKey) ? centralDrawReportFilters : centralReportFilters
+}
+
+function reportExportFields(scope: AdminScope, reportKey?: string): OperationFormField[] {
+  const centralSupportsDrawFilter = scope === 'central' && reportKey && centralDrawScopedReportKeys.has(reportKey)
+  const tenantSupportsDrawFilter = scope === 'tenant' && reportKey && tenantDrawScopedReportKeys.has(reportKey)
+
   return [
     { key: 'format', label: 'Format', type: 'select', options: ['csv', 'xlsx', 'pdf'], defaultValue: 'csv', required: true },
     ...(scope === 'central'
-      ? [{ key: 'tenant_id', label: 'Tenant ID', sourceKey: 'tenant_id', placeholder: 'Optional tenant drill-down' } as OperationFormField]
-      : []),
+      ? [
+          { key: 'tenant_id', label: 'Partner store', type: 'select', optionSource: 'allocation-tenants', sourceKey: 'tenant_id', emptyOptionLabel: 'All partner stores' } as OperationFormField,
+          ...(centralSupportsDrawFilter
+            ? [{ key: 'game_id', label: 'Game / draw', type: 'select', optionSource: 'central-games', sourceKey: 'game_id', emptyOptionLabel: 'All draws' } as OperationFormField]
+            : []),
+        ]
+      : tenantSupportsDrawFilter
+        ? [{ key: 'game_id', label: 'Game / draw', type: 'select', optionSource: 'tenant-stock-games', sourceKey: 'game_id', emptyOptionLabel: 'All draws' } as OperationFormField]
+        : []),
     { key: 'date_from', label: 'From', type: 'date', sourceKey: 'date_from' },
     { key: 'date_to', label: 'To', type: 'date', sourceKey: 'date_to' },
     { key: 'filters.group_by', label: 'Group by', type: 'select', sourceKey: 'group_by', options: scope === 'central' ? ['day', 'week', 'month', 'tenant', 'game', 'status'] : ['day', 'week', 'month', 'game', 'status'] },

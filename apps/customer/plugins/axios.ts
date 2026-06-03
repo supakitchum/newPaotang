@@ -70,6 +70,7 @@ export default defineNuxtPlugin({
     })
 
     let refreshPromise: Promise<any> | null = null
+    let isHandlingMaintenance = false
     const refreshCustomerSession = async () => {
       if (!refreshPromise) {
         refreshPromise = refreshAuthToken().finally(() => {
@@ -92,6 +93,23 @@ export default defineNuxtPlugin({
         if (apiError && !error.response.data.message) {
           error.response.data.message = apiError.message || 'กรุณาลองใหม่อีกครั้ง'
           error.response.data.code = apiError.code
+        }
+
+        if (status === 503 && String(apiError?.code || '') === 'maintenance_active') {
+          if (process.client && route.path !== '/maintenance' && !isHandlingMaintenance) {
+            isHandlingMaintenance = true
+            showAlert({
+              title: 'ปิดปรับปรุงระบบ',
+              message: apiError?.message || 'ระบบอยู่ระหว่างปิดปรับปรุง กรุณากลับมาใหม่อีกครั้ง',
+              variant: 'warning'
+            })
+
+            await nuxtApp.runWithContext(() => navigateTo('/maintenance', { replace: true }))
+
+            setTimeout(() => {
+              isHandlingMaintenance = false
+            }, 500)
+          }
         }
 
         if (['pin_required', 'pin_setup_required', 'pin_locked'].includes(String(apiError?.code || '')) && !requestUrl.startsWith('/customer/auth/pin/')) {

@@ -119,6 +119,7 @@ for (const removedGenerateField of [
 for (const requiredGenerateField of [
   "key: 'set_distribution'",
   "defaultValueSource: 'stock-set-distribution-default'",
+  'optionalReason: true',
 ]) {
   if (!generateActionBlock.includes(requiredGenerateField)) {
     failures.push(`Virtual-only stock generation field is missing: ${requiredGenerateField}`)
@@ -219,6 +220,11 @@ for (const token of [
 for (const token of [
   'isStockGenerationRoute',
   'currentCentralGameOption',
+  'stockManagerSelectedOldGame',
+  'stockManagerOldGameWriteDisabledReason',
+  'isStockImportAction',
+  'isCentralStockRecallAction',
+  'isOldStockRow',
   'applyCurrentGameFilterDefault',
   'stockGenerationFiltersWithCurrentGame',
   'status: \'open\'',

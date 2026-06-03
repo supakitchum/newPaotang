@@ -274,6 +274,74 @@ class CentralStockTest extends TestCase
         $this->assertNotSame($batch['id'], $import['id']);
     }
 
+    public function test_CentralStock_old_games_are_view_only_for_stock_changes(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertGame('gam_stock_old', 'closed');
+        $this->insertGame('gam_stock_current', 'open');
+        $this->insertBaseLotteryNumbers(['000000', '000001']);
+        $this->insertStockItems('gam_stock_old', 1, 42);
+
+        $login = $this->createCentralSession([
+            'stock.view',
+            'stock.generate',
+            'stock.recall',
+        ], 'adm_stock_old', 'stock-old@example.test');
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/stock?game_id=gam_stock_old&limit=5', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.game_id', 'gam_stock_old');
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/stock/generate', [
+                'game_id' => 'gam_stock_old',
+                'generation_mode' => 'virtual_profile',
+                'set_distribution' => [],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'stock-generate-old',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.fields.game_id.0', 'The game_id field must reference an open game.');
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/stock/imports', [
+                'game_id' => 'gam_stock_old',
+                'items' => [
+                    ['full_number' => '000099'],
+                ],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'stock-import-old',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.fields.game_id.0', 'The game_id field must reference an open game.');
+
+        $stockItemId = (string) DB::table('stock_items')
+            ->where('game_id', 'gam_stock_old')
+            ->value('id');
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/stock/'.$stockItemId.'/recall', [
+                'reason' => 'old_draw_recall',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'stock-recall-old',
+            ])
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'resource_conflict');
+
+        $this->assertDatabaseHas('stock_items', [
+            'id' => $stockItemId,
+            'status' => 'available',
+            'recall_reason' => null,
+        ]);
+    }
+
     public function test_CentralStock_summary_widgets_aggregate_coverage_filters_and_permissions(): void
     {
         $this->seedDefaultRbac();

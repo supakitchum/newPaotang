@@ -18,6 +18,23 @@ type AdminSiteConfigSite = {
   display_name?: string | null
 }
 
+type AdminSiteConfigMaintenance = {
+  active?: boolean
+  source?: string | null
+  scope?: string | null
+  status?: string | null
+  mode?: string | null
+  message?: string | null
+  reason?: string | null
+  reason_label?: string | null
+  ticket_id?: string | null
+  scheduled_start_at?: string | null
+  started_at?: string | null
+  expected_end_at?: string | null
+  ended_at?: string | null
+  retry_after_seconds?: number | null
+}
+
 type AdminSiteConfig = {
   mode?: 'central' | 'partner'
   partner?: AdminSiteConfigParty | null
@@ -25,6 +42,7 @@ type AdminSiteConfig = {
   domain?: AdminSiteConfigDomain | null
   brand?: AdminSiteConfigBrand | null
   site?: AdminSiteConfigSite | null
+  maintenance?: AdminSiteConfigMaintenance | null
 }
 
 export const useAdminSiteConfig = () => {
@@ -82,6 +100,14 @@ export const useAdminSiteConfig = () => {
     || ''
   ))
   const logoUrl = computed(() => cleanText(config.value?.brand?.logo_url))
+  const maintenance = computed(() => config.value?.maintenance || null)
+  const maintenanceActive = computed(() => Boolean(maintenance.value?.active))
+  const maintenanceMessage = computed(() => (
+    cleanText(maintenance.value?.message)
+    || 'Partner Back Office is temporarily unavailable for central maintenance.'
+  ))
+  const maintenanceExpectedEndAt = computed(() => cleanText(maintenance.value?.expected_end_at))
+  const maintenanceStatus = computed(() => cleanText(maintenance.value?.status))
 
   return {
     config,
@@ -89,6 +115,11 @@ export const useAdminSiteConfig = () => {
     error,
     displayName,
     logoUrl,
+    maintenance,
+    maintenanceActive,
+    maintenanceMessage,
+    maintenanceExpectedEndAt,
+    maintenanceStatus,
     load,
     clear,
   }

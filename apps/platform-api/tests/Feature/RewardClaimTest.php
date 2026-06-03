@@ -17,6 +17,88 @@ class RewardClaimTest extends TestCase
     use M7RewardFixtures;
     use RefreshDatabase;
 
+    public function test_RewardClaim_auto_claims_are_created_on_publish_for_wallet_and_bank_settings(): void
+    {
+        $walletWorld = $this->prepareRewardWorld('par_auto_wallet', 'ten_auto_wallet', 'auto-wallet.m7.test', 'gam_auto_wallet', '0807201100', 791101);
+
+        $this->withToken($walletWorld['auth']['token'])
+            ->patchJson('http://'.$walletWorld['host'].'/api/v1/customer/profile', [
+                'auto_reward_claim' => [
+                    'enabled' => true,
+                    'type' => 'wallet',
+                ],
+            ], [
+                'Idempotency-Key' => 'auto-reward-wallet-profile',
+            ])
+            ->assertOk()
+            ->assertJsonPath('auto_reward_claim.enabled', true)
+            ->assertJsonPath('auto_reward_claim.payout_method', 'wallet_credit')
+            ->assertJsonPath('auto_reward_claim.type', 'wallet');
+
+        $this->publishReward($walletWorld, keySuffix: 'auto-wallet');
+
+        $walletClaim = DB::table('reward_claims')
+            ->where('tenant_id', $walletWorld['tenant_id'])
+            ->where('ticket_id', $walletWorld['ticket_id'])
+            ->first();
+
+        $this->assertNotNull($walletClaim);
+        $this->assertSame('submitted', $walletClaim->status);
+        $this->assertSame('wallet_credit', $walletClaim->payout_method);
+        $this->assertSame($walletWorld['wallet_id'], $walletClaim->wallet_id);
+        $this->assertSame(6000000, (int) $walletClaim->prize_amount);
+
+        $this->withToken($walletWorld['auth']['token'])
+            ->getJson('http://'.$walletWorld['host'].'/api/v1/customer/tickets/'.$walletWorld['ticket_id'].'/reward-status')
+            ->assertOk()
+            ->assertJsonPath('status', 'claim_submitted')
+            ->assertJsonPath('claim_status', 'submitted')
+            ->assertJsonPath('reward_claim_id', $walletClaim->id);
+
+        $tenantViewer = $this->tenantAdmin($walletWorld, ['reward_claim.view'], 'auto-wallet-view');
+        $this->withToken($tenantViewer['access_token'])
+            ->getJson('/api/v1/admin/tenant/reward-claims?section=pending', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => $walletWorld['tenant_id'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $walletClaim->id);
+
+        $bankWorld = $this->prepareRewardWorld('par_auto_bank', 'ten_auto_bank', 'auto-bank.m7.test', 'gam_auto_bank', '0807201200', 791201);
+
+        $this->withToken($bankWorld['auth']['token'])
+            ->patchJson('http://'.$bankWorld['host'].'/api/v1/customer/profile', [
+                'reward_payout_bank_account' => [
+                    'bank_name' => 'ธนาคารกรุงไทย',
+                    'account_name' => 'M5 Customer',
+                    'account_number' => '006123456789',
+                ],
+                'auto_reward_claim' => [
+                    'enabled' => true,
+                    'type' => 'bank_transfer',
+                ],
+                'pin' => '246810',
+            ], [
+                'Idempotency-Key' => 'auto-reward-bank-profile',
+            ])
+            ->assertOk()
+            ->assertJsonPath('auto_reward_claim.enabled', true)
+            ->assertJsonPath('auto_reward_claim.payout_method', 'bank_transfer');
+
+        $this->publishReward($bankWorld, keySuffix: 'auto-bank');
+
+        $bankClaim = DB::table('reward_claims')
+            ->where('tenant_id', $bankWorld['tenant_id'])
+            ->where('ticket_id', $bankWorld['ticket_id'])
+            ->first();
+
+        $this->assertNotNull($bankClaim);
+        $this->assertSame('submitted', $bankClaim->status);
+        $this->assertSame('bank_transfer', $bankClaim->payout_method);
+        $this->assertNull($bankClaim->wallet_id);
+        $this->assertStringContainsString('006123456789', (string) $bankClaim->bank_account_json);
+    }
+
     public function test_RewardClaim_customer_status_claim_and_tenant_approve_pay_are_scoped_idempotent_and_ledger_based(): void
     {
         $world = $this->prepareRewardWorld('par_reward_claim', 'ten_reward_claim', 'reward-claim.m7.test', 'gam_reward_claim', '0807200000', 790201);
@@ -380,9 +462,9 @@ class RewardClaimTest extends TestCase
             ->assertJsonPath('summary.reward_base_total.amount', 6000000)
             ->assertJsonPath('summary.reward_adjustment_total.amount', -100000)
             ->assertJsonPath('summary.reward_payout_total.amount', 5900000)
-            ->assertJsonPath('rows.0.base_prize_amount', 6000000)
-            ->assertJsonPath('rows.0.adjustment_amount', -100000)
-            ->assertJsonPath('rows.0.prize_amount', 5900000);
+            ->assertJsonPath('rows.0.base_prize_amount.amount', 6000000)
+            ->assertJsonPath('rows.0.adjustment_amount.amount', -100000)
+            ->assertJsonPath('rows.0.prize_amount.amount', 5900000);
     }
 
     public function test_RewardClaim_approve_bank_transfer_marks_paid_out_without_wallet_credit(): void

@@ -157,7 +157,8 @@ const emit = defineEmits<{
 const platformApi = usePlatformApi()
 const route = useRoute()
 const { isAuthenticated } = useAuth()
-const { items, addBookedLottery, removeLottery, setCartItems } = useCart()
+const { items, hasItems, isExpired, addBookedLottery, removeLottery, setCartItems } = useCart()
+const { currentGame, refreshAppInit, isSaleClosedNow } = useAppInit()
 const { showAlert } = useAppAlert()
 const isBooking = ref(false)
 const isCancelling = ref(false)
@@ -221,6 +222,7 @@ const selectButtonText = computed(() => {
   return isBooking.value ? 'กำลังจอง' : 'เลือก'
 })
 const sellerName = computed(() => props.ticket.store_name ?? props.ticket.seller ?? '')
+const hasPayableCart = computed(() => hasItems.value && !isExpired.value)
 
 const openUnavailableModal = (shouldRemove = true) => {
   shouldRemoveUnavailableTicket.value = shouldRemove
@@ -243,6 +245,37 @@ const showCancelError = () => {
     message: 'กรุณาลองใหม่อีกครั้ง',
     variant: 'error'
   })
+}
+
+const reservationErrorCode = (error: any) => error?.response?.data?.error?.code || error?.response?.data?.code || ''
+
+const handleSaleClosedBookingAttempt = async (options: { refresh?: boolean } = {}) => {
+  if (options.refresh) {
+    await refreshAppInit()
+  }
+
+  if (!currentGame.value || !isSaleClosedNow()) {
+    return false
+  }
+
+  if (hasPayableCart.value) {
+    showAlert({
+      title: 'หมดเวลาจำหน่ายสลากแล้ว',
+      message: 'ขณะนี้หมดเวลาจำหน่ายสลากแล้ว กรุณาชำระเงินก่อนหมดเวลาชำระ',
+      variant: 'warning'
+    })
+    await navigateTo('/cart')
+    return true
+  }
+
+  showAlert({
+    title: 'หมดเวลาจำหน่ายสลากแล้ว',
+    message: 'ขณะนี้หมดเวลาจำหน่ายสลากแล้ว',
+    variant: 'warning'
+  })
+  await navigateTo('/waiting-result')
+
+  return true
 }
 
 const handleCancelBooking = async () => {
@@ -291,6 +324,10 @@ const handleBooking = async () => {
   isBooking.value = true
 
   try {
+    if (await handleSaleClosedBookingAttempt()) {
+      return
+    }
+
     const response = await platformApi.reserveLegacy(props.ticket)
 
     if (response.data.code !== 0) {
@@ -310,8 +347,12 @@ const handleBooking = async () => {
 
     addBookedLottery(bookedTicket, response.data.exp, response.data.server_time || response.data.result?.reservation?.server_time || null)
     emit('booked', bookedTicket)
-  } catch (e) {
-    console.log(e)
+  } catch (error: any) {
+    if (reservationErrorCode(error) === 'reservation_unavailable' && await handleSaleClosedBookingAttempt({ refresh: true })) {
+      return
+    }
+
+    console.log(error)
     openUnavailableModal(false)
   } finally {
     isBooking.value = false

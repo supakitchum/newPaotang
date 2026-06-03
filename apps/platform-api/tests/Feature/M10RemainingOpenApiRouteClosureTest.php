@@ -35,6 +35,8 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
             'DELETE api/v1/admin/tenant/payment-channels/{payment_channel_id}',
             'GET|HEAD api/v1/public/seo/page',
             'GET|HEAD api/v1/public/news',
+            'GET|HEAD api/v1/public/news/modal',
+            'GET|HEAD api/v1/public/news/{slug}',
             'GET|HEAD api/v1/public/stores',
             'GET|HEAD api/v1/admin/tenant/seo',
             'PATCH api/v1/admin/tenant/seo',
@@ -46,6 +48,12 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
             'POST api/v1/admin/tenant/redirects',
             'PATCH api/v1/admin/tenant/redirects/{redirect_id}',
             'DELETE api/v1/admin/tenant/redirects/{redirect_id}',
+            'GET|HEAD api/v1/admin/tenant/announcements',
+            'POST api/v1/admin/tenant/announcements',
+            'GET|HEAD api/v1/admin/tenant/announcements/{announcement_id}',
+            'PATCH api/v1/admin/tenant/announcements/{announcement_id}',
+            'DELETE api/v1/admin/tenant/announcements/{announcement_id}',
+            'POST api/v1/admin/tenant/announcements/{announcement_id}/image',
             'POST api/v1/customer/realtime/auth',
         ] as $expected) {
             $this->assertContains($expected, $routes);
@@ -264,7 +272,7 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
         $this->getJson('http://seo.m10.test/api/v1/public/news')
             ->assertOk()
             ->assertJsonPath('data', [])
-            ->assertJsonPath('content_source_status', 'not_configured');
+            ->assertJsonPath('content_source_status', 'empty');
 
         $this->withToken($tenant['access_token'])
             ->deleteJson('/api/v1/admin/tenant/seo/pages/'.$page['id'], [], $headers + ['Idempotency-Key' => 'seo-page-delete-m10'])

@@ -54,7 +54,7 @@ class PartnerBoHostResolver
         }
 
         if (
-            $record->tenant_status !== config('platform.tenant_resolution.active_tenant_status', 'active')
+            ! $this->tenantStatusIsResolvable((string) $record->tenant_status)
             || $record->partner_status !== config('platform.tenant_resolution.active_partner_status', 'active')
         ) {
             return [
@@ -97,5 +97,10 @@ class PartnerBoHostResolver
     private function normalizeHost(string $host): string
     {
         return TenantHostNormalizer::normalize($host);
+    }
+
+    private function tenantStatusIsResolvable(string $status): bool
+    {
+        return in_array($status, [config('platform.tenant_resolution.active_tenant_status', 'active'), 'maintenance'], true);
     }
 }

@@ -571,6 +571,22 @@ class RewardEngineTest extends TestCase
             ->assertJsonPath('status', 'live_draft')
             ->assertJsonPath('prizes.0.prize_number', $world['ticket_number']);
 
+        DB::table('games')->where('id', $world['game_id'])->update([
+            'status' => 'open',
+            'updated_at' => now(),
+        ]);
+
+        $this->getJson('http://'.$world['host'].'/api/v1/public/results/live/'.$world['game_id'])
+            ->assertOk()
+            ->assertJsonPath('game_id', $world['game_id'])
+            ->assertJsonPath('status', 'live_draft')
+            ->assertJsonPath('prizes.0.prize_number', $world['ticket_number']);
+
+        DB::table('games')->where('id', $world['game_id'])->update([
+            'status' => 'closed',
+            'updated_at' => now(),
+        ]);
+
         $this->getJson('http://'.$world['host'].'/api/v1/public/results/latest')
             ->assertNotFound();
 

@@ -124,6 +124,48 @@ class CommerceService
     }
 
     /**
+     * @param array<string, mixed> $queryParams
+     * @return array<string, mixed>
+     */
+    public function walletLedgerForCustomer(string $tenantId, CustomerSessionContext $customer, array $queryParams): array
+    {
+        $walletId = $this->customerAuth->ensurePrimaryWallet($tenantId, $customer->customerId());
+        $limit = $this->limit($queryParams['limit'] ?? null);
+        $query = WalletLedger::query()
+            ->forTenant($tenantId)
+            ->where('customer_id', $customer->customerId());
+
+        if (($queryParams['wallet_id'] ?? null) !== null && trim((string) $queryParams['wallet_id']) !== '') {
+            $query->where('wallet_id', trim((string) $queryParams['wallet_id']));
+        } else {
+            $query->where('wallet_id', $walletId);
+        }
+
+        if (($queryParams['entry_type'] ?? null) !== null && trim((string) $queryParams['entry_type']) !== '') {
+            $query->where('entry_type', trim((string) $queryParams['entry_type']));
+        }
+
+        if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
+            $query->where('id', '>', trim((string) $queryParams['cursor']));
+        }
+
+        $this->applyWalletLedgerSort($query, $queryParams);
+        $query->limit($limit + 1);
+
+        $rows = $query->get()->all();
+        $hasMore = count($rows) > $limit;
+        $rows = array_slice($rows, 0, $limit);
+
+        return [
+            'data' => array_map(fn (object $ledger): array => $this->ledgerResource($ledger), $rows),
+            'meta' => [
+                'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->id : null,
+                'has_more' => $hasMore,
+            ],
+        ];
+    }
+
+    /**
      * @param array<string, mixed> $payload
      * @return array<string, array<int, string>>
      */
@@ -239,6 +281,33 @@ class CommerceService
 
             return ['resource' => $order, 'status' => $status];
         });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function customerOrders(string $tenantId, CustomerSessionContext $customer, array $queryParams): array
+    {
+        $perPage = max(1, min(100, (int) ($queryParams['per_page'] ?? $queryParams['limit'] ?? 20)));
+        $page = max(1, (int) ($queryParams['page'] ?? 1));
+        $query = Order::query()
+            ->forTenant($tenantId)
+            ->where('customer_id', $customer->customerId())
+            ->whereIn('payment_status', ['paid', 'refunded'])
+            ->orderByRaw('COALESCE(paid_at, created_at) DESC')
+            ->orderByDesc('id');
+        $total = (clone $query)->count();
+        $rows = $query->offset(($page - 1) * $perPage)->limit($perPage)->get()->all();
+
+        return [
+            'data' => array_map(fn (object $order): array => $this->orderResource($order), $rows),
+            'meta' => [
+                'current_page' => $page,
+                'last_page' => (int) ceil($total / $perPage),
+                'per_page' => $perPage,
+                'total' => $total,
+            ],
+        ];
     }
 
     /**
@@ -2255,20 +2324,61 @@ class CommerceService
 
     private function orderResource(object $order): array
     {
-        $tickets = Ticket::query()->where('order_id', $order->id)->orderBy('id')->get()->all();
+        $tickets = Ticket::query()->where('order_id', $order->id)->with('game')->orderBy('id')->get()->all();
         $wallet = $order->wallet_id === null ? null : Wallet::where('id', $order->wallet_id)->first();
         $payment = Payment::where('order_id', $order->id)->first();
 
         return [
             'id' => (string) $order->id,
             'status' => (string) $order->status,
+            'payment_status' => (string) $order->payment_status,
+            'payment_method' => (string) $order->payment_method,
             'total' => $this->money((int) $order->total_amount, (string) $order->currency),
             'redirect_url' => $payment?->redirect_url,
+            'ticket_count' => count($tickets),
             'tickets' => array_map(fn (object $ticket): array => $this->ticketResource($ticket), $tickets),
+            'game' => $this->orderGameResource($order),
             'paid_at' => $order->paid_at,
             'reference' => $order->reference,
             'wallet' => $wallet === null ? null : $this->walletResource($wallet),
+            'payment' => $payment === null ? null : [
+                'id' => (string) $payment->id,
+                'provider' => (string) $payment->provider,
+                'status' => (string) $payment->status,
+                'reference' => $payment->reference,
+                'provider_reference' => $payment->provider_reference,
+                'paid_at' => $payment->paid_at,
+            ],
             'store' => null,
+            'created_at' => $order->created_at,
+            'updated_at' => $order->updated_at,
+        ];
+    }
+
+    private function orderGameResource(object $order): ?array
+    {
+        $game = DB::table('games')->where('id', $order->game_id)->first([
+            'id',
+            'code',
+            'name',
+            'sale_start_at',
+            'draw_at',
+            'close_at',
+            'status',
+        ]);
+
+        if ($game === null) {
+            return null;
+        }
+
+        return [
+            'id' => (string) $game->id,
+            'code' => (string) $game->code,
+            'name' => (string) $game->name,
+            'sale_start_at' => $game->sale_start_at,
+            'draw_at' => $game->draw_at,
+            'close_at' => $game->close_at,
+            'status' => (string) $game->status,
         ];
     }
 

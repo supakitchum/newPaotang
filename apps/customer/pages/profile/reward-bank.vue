@@ -1,11 +1,23 @@
 <template>
-  <MobileShell active-nav="menu" show-bottom-nav>
+  <PinKeypadScreen
+    v-if="bankStep === 'pin'"
+    title="ใส่รหัส PIN 6 หลัก"
+    subtitle="เพื่อบันทึกบัญชีรับเงินรางวัล"
+    :digits="pinDigits"
+    :error="pinError"
+    :disabled="isSaving"
+    @append="appendPinDigit"
+    @remove="removePinDigit"
+    @back="bankStep = 'form'"
+  />
+
+  <MobileShell v-else active-nav="menu" show-bottom-nav>
     <BlueHeader title="บัญชีรับเงินรางวัล" back-to="/profile" min-height="214px">
       <div class="reward-bank-hero">
         <span class="reward-bank-icon"><i class="bi bi-bank2" /></span>
         <div>
-          <p>ช่องทางรับเงิน</p>
-          <h1>ใช้บัญชีนี้สำหรับรับเงินรางวัลและถอนค่าคอมมิชชัน</h1>
+          <h1>ช่องทางรับเงิน</h1>
+          <p>ใช้สำหรับรับเงินจากระบบ</p>
         </div>
       </div>
     </BlueHeader>
@@ -81,13 +93,23 @@ const route = useRoute()
 const { restoreAuthState, setAuthUser } = useAuth()
 const { showAlert } = useAppAlert()
 
+type BankPayload = {
+  bank_name: string
+  account_name: string
+  account_number: string
+}
+
 const isLoading = ref(false)
 const isSaving = ref(false)
 const bankName = ref('')
 const accountName = ref('')
 const accountNumber = ref('')
+const bankStep = ref<'form' | 'pin'>('form')
+const pinDigits = ref('')
+const pinError = ref('')
+const pendingBankPayload = ref<BankPayload | null>(null)
 
-const bankPayload = computed(() => ({
+const bankPayload = computed<BankPayload>(() => ({
   bank_name: bankName.value.trim(),
   account_name: accountName.value.trim(),
   account_number: accountNumber.value.trim()
@@ -137,7 +159,7 @@ const loadProfile = async () => {
   }
 }
 
-const saveBankAccount = async () => {
+const saveBankAccount = () => {
   sanitizeAccountNumber()
 
   if (!bankPayload.value.bank_name || !bankPayload.value.account_name || !bankPayload.value.account_number) {
@@ -149,13 +171,31 @@ const saveBankAccount = async () => {
     return
   }
 
+  pendingBankPayload.value = { ...bankPayload.value }
+  pinDigits.value = ''
+  pinError.value = ''
+  bankStep.value = 'pin'
+}
+
+const submitBankAccount = async () => {
+  const payload = pendingBankPayload.value || bankPayload.value
+
+  if (!payload.bank_name || !payload.account_name || !payload.account_number || pinDigits.value.length !== 6) {
+    return
+  }
+
   isSaving.value = true
   try {
     const profile = await platformApi.updateProfile({
-      reward_payout_bank_account: bankPayload.value
+      reward_payout_bank_account: payload,
+      pin: pinDigits.value
     })
     setAuthUser(profile || {})
     hydrateBankAccount(profile)
+    bankStep.value = 'form'
+    pendingBankPayload.value = null
+    pinDigits.value = ''
+    pinError.value = ''
     showAlert({
       title: 'บันทึกบัญชีรับเงินแล้ว',
       message: 'บัญชีนี้จะใช้รับเงินรางวัลและถอนค่าคอมมิชชัน',
@@ -167,6 +207,30 @@ const saveBankAccount = async () => {
       await navigateTo(redirect)
     }
   } catch (error: any) {
+    pinDigits.value = ''
+    const code = error?.response?.data?.error?.code || error?.response?.data?.code
+
+    if (code === 'pin_invalid') {
+      pinError.value = 'PIN ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง'
+      return
+    }
+
+    if (code === 'pin_locked') {
+      pinError.value = 'กรอก PIN ผิดเกินกำหนด กรุณารอสักครู่แล้วลองใหม่'
+      return
+    }
+
+    if (code === 'pin_setup_required') {
+      pinError.value = 'กรุณาตั้งค่า PIN ก่อนบันทึกบัญชีรับเงิน'
+      return
+    }
+
+    if (code === 'pin_required') {
+      pinError.value = 'กรุณากรอก PIN ก่อนบันทึกบัญชีรับเงิน'
+      return
+    }
+
+    bankStep.value = 'form'
     showAlert({
       title: 'บันทึกบัญชีไม่สำเร็จ',
       message: error?.response?.data?.message || 'กรุณาตรวจสอบข้อมูลบัญชีแล้วลองใหม่',
@@ -175,6 +239,24 @@ const saveBankAccount = async () => {
   } finally {
     isSaving.value = false
   }
+}
+
+const appendPinDigit = async (digit: string) => {
+  if (!/^\d$/.test(digit) || pinDigits.value.length >= 6 || isSaving.value) {
+    return
+  }
+
+  pinError.value = ''
+  pinDigits.value = `${pinDigits.value}${digit}`
+
+  if (pinDigits.value.length === 6) {
+    await submitBankAccount()
+  }
+}
+
+const removePinDigit = () => {
+  pinError.value = ''
+  pinDigits.value = pinDigits.value.slice(0, -1)
 }
 
 onMounted(loadProfile)

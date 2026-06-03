@@ -3,6 +3,7 @@
 namespace App\Modules\Auth\Http\Controllers;
 
 use App\Modules\Auth\Services\AdminAuthService;
+use App\Modules\Maintenance\Services\MaintenanceService;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Auth\ApiErrorResponse;
 use App\Shared\Http\RequestHeaderValidator;
@@ -18,6 +19,7 @@ class AdminAuthController extends Controller
         private readonly AdminAuthService $auth,
         private readonly RequestHeaderValidator $headers,
         private readonly PartnerBoHostResolver $partnerBoHosts,
+        private readonly MaintenanceService $maintenance,
     ) {
     }
 
@@ -118,6 +120,18 @@ class AdminAuthController extends Controller
             );
         }
 
-        return $resolved['context'];
+        $context = $resolved['context'];
+
+        if ($context !== null) {
+            $maintenance = $this->maintenance->stateForPartner((string) $context['partner_id']);
+
+            if ((bool) ($maintenance['active'] ?? false)) {
+                $retryAfter = $maintenance['retry_after_seconds'] ?? null;
+
+                return ApiErrorResponse::partnerMaintenanceActive($request, $retryAfter === null ? null : (int) $retryAfter);
+            }
+        }
+
+        return $context;
     }
 }

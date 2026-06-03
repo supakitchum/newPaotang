@@ -7,6 +7,7 @@ use App\Modules\Rbac\Http\Controllers\AdminMenuController;
 use App\Modules\AdminOperations\Http\Controllers\AdminOperationsController;
 use App\Modules\AdminOperations\Http\Controllers\AssetController;
 use App\Modules\AdminOperations\Http\Controllers\BoMenuCompletionController;
+use App\Modules\AdminOperations\Http\Controllers\TenantAnnouncementController;
 use App\Modules\AdminOperations\Http\Controllers\TenantPaymentSettingsController;
 use App\Modules\AdminOperations\Http\Controllers\TenantSeoController;
 use App\Modules\Rbac\Http\Controllers\AdminRoleController;
@@ -33,6 +34,7 @@ use App\Modules\Partner\Http\Controllers\PartnerSyncController;
 use App\Modules\CentralStock\Http\Controllers\PartnerQuotaController;
 use App\Modules\PublicSite\Http\Controllers\PublicGameController;
 use App\Modules\PublicSite\Http\Controllers\PublicContentController;
+use App\Modules\PublicSite\Http\Controllers\PublicVisitController;
 use App\Modules\Reward\Http\Controllers\PublicRewardController;
 use App\Modules\PublicSite\Http\Controllers\PublicSiteConfigController;
 use App\Modules\PartnerStore\Http\Controllers\PublicStockImageController;
@@ -42,6 +44,7 @@ use App\Modules\Growth\Http\Controllers\ReportController;
 use App\Modules\Tenancy\Http\Controllers\TenantConfigurationController;
 use App\Modules\Commerce\Http\Controllers\TenantCommerceController;
 use App\Modules\Growth\Http\Controllers\TenantGrowthController;
+use App\Modules\Maintenance\Http\Controllers\CentralMaintenanceController;
 use App\Modules\Maintenance\Http\Controllers\TenantMaintenanceController;
 use App\Modules\Reward\Http\Controllers\TenantRewardClaimController;
 use App\Modules\Reward\Http\Controllers\TenantRewardWinnersController;
@@ -60,7 +63,10 @@ Route::get('/public/admin-site-config', [PublicSiteConfigController::class, 'adm
 Route::get('/public/site-config', [PublicSiteConfigController::class, 'show']);
 Route::get('/public/seo/page', [PublicContentController::class, 'seoPage']);
 Route::get('/public/news', [PublicContentController::class, 'news']);
+Route::get('/public/news/modal', [PublicContentController::class, 'newsModal']);
+Route::get('/public/news/{slug}', [PublicContentController::class, 'newsDetail']);
 Route::get('/public/stores', [PublicContentController::class, 'stores']);
+Route::post('/public/monitor/visit', [PublicVisitController::class, 'track']);
 Route::get('/public/games/current', [PublicGameController::class, 'current']);
 Route::get('/public/stock/search', [PublicStockSearchController::class, 'index']);
 Route::get('/public/stock/images/{token}.webp', [PublicStockImageController::class, 'show']);
@@ -88,6 +94,8 @@ Route::post('/customer/realtime/auth', [CustomerRealtimeController::class, 'auth
 Route::get('/customer/cart', [CustomerCommerceController::class, 'cart'])->middleware('customer.auth');
 Route::post('/customer/checkout', [CustomerCommerceController::class, 'checkout'])->middleware('customer.auth');
 Route::get('/customer/wallet', [CustomerCommerceController::class, 'wallet'])->middleware('customer.auth');
+Route::get('/customer/wallet/ledger', [CustomerCommerceController::class, 'walletLedger'])->middleware('customer.auth');
+Route::get('/customer/orders', [CustomerCommerceController::class, 'orders'])->middleware('customer.auth');
 Route::get('/customer/orders/{order_id}', [CustomerCommerceController::class, 'order'])->middleware('customer.auth');
 Route::get('/customer/tickets', [CustomerCommerceController::class, 'tickets'])->middleware('customer.auth');
 Route::get('/customer/tickets/history', [CustomerCommerceController::class, 'ticketHistory'])->middleware('customer.auth');
@@ -136,6 +144,9 @@ Route::post('/auth/admin/2fa/verify', [AdminAccountSecurityController::class, 'v
 Route::get('/admin/central/menu', [AdminMenuController::class, 'central'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/dashboard/summary', [AdminOperationsController::class, 'centralDashboardSummary'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/dashboard/{section}/summary', [AdminOperationsController::class, 'centralDashboardSection'])
+    ->whereIn('section', ['sales', 'partner', 'wallet', 'payout', 'monitor'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/realtime/auth', [AdminOperationsController::class, 'centralRealtimeAuth'])
     ->middleware(['admin.auth', 'admin.scope:central']);
@@ -207,6 +218,12 @@ Route::get('/admin/central/sale-price-rules/{sale_price_rule_id}', [AdminSalePri
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::patch('/admin/central/sale-price-rules/{sale_price_rule_id}', [AdminSalePriceRuleController::class, 'centralUpdate'])
     ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/reward-payout-rule-games', [BoMenuCompletionController::class, 'centralRewardPayoutRuleGames'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/reward-payout-rules', [BoMenuCompletionController::class, 'centralRewardPayoutRulesIndex'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/reward-payout-rules/{payout_rule_id}', [BoMenuCompletionController::class, 'centralRewardPayoutRulesShow'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/assets/uploads', [AssetController::class, 'centralUpload'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/assets/{asset_id}', [AssetController::class, 'centralShow'])
@@ -214,6 +231,16 @@ Route::get('/admin/central/assets/{asset_id}', [AssetController::class, 'central
 Route::post('/admin/central/assets/{asset_id}/commit', [AssetController::class, 'centralCommit'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/assets/{asset_id}/local-upload', [AssetController::class, 'centralLocalUpload'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/maintenance', [CentralMaintenanceController::class, 'index'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/partner-maintenance/{partner_id}', [CentralMaintenanceController::class, 'partnerShow'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::put('/admin/central/partner-maintenance/{partner_id}', [CentralMaintenanceController::class, 'partnerUpdate'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/maintenance/{tenant_id}', [CentralMaintenanceController::class, 'show'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::put('/admin/central/maintenance/{tenant_id}', [CentralMaintenanceController::class, 'update'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/partners', [PartnerProvisioningController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:central']);
@@ -234,6 +261,8 @@ Route::post('/admin/central/partners/{partner_id}/lottery-branding/preview', [Pa
 Route::post('/admin/central/partners/{partner_id}/provision', [PartnerProvisioningController::class, 'provision'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/partners/{partner_id}/suspend', [PartnerProvisioningController::class, 'suspend'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/partners/{partner_id}/unsuspend', [PartnerProvisioningController::class, 'unsuspend'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/partner-api-clients', [PartnerApiClientController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:central']);
@@ -485,6 +514,18 @@ Route::post('/admin/tenant/redirects', [TenantSeoController::class, 'createRedir
 Route::patch('/admin/tenant/redirects/{redirect_id}', [TenantSeoController::class, 'updateRedirect'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::delete('/admin/tenant/redirects/{redirect_id}', [TenantSeoController::class, 'deleteRedirect'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/announcements', [TenantAnnouncementController::class, 'index'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/announcements', [TenantAnnouncementController::class, 'store'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/announcements/{announcement_id}', [TenantAnnouncementController::class, 'show'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::patch('/admin/tenant/announcements/{announcement_id}', [TenantAnnouncementController::class, 'update'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::delete('/admin/tenant/announcements/{announcement_id}', [TenantAnnouncementController::class, 'destroy'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/announcements/{announcement_id}/image', [TenantAnnouncementController::class, 'uploadImage'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/stock', [TenantStockController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);

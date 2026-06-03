@@ -2,6 +2,7 @@
   <NuxtLayout>
     <NuxtPage />
   </NuxtLayout>
+  <AnnouncementModal />
   <AppSplashScreen />
   <AppAlert />
 </template>
@@ -14,6 +15,7 @@ const hasRouteRealtime = computed(() => (
   || route.path.startsWith('/buy/')
   || route.path === '/stores/lotteries'
   || route.path === '/topup'
+  || route.path === '/my-wallet'
 ))
 const shouldUseGlobalPresence = computed(() => isAuthenticated.value && !hasRouteRealtime.value)
 
@@ -23,4 +25,6 @@ useCustomerStockRealtime({
 })
 
 useSaleClosureGuard()
+useMaintenanceGuard()
+usePublicVisitMonitor()
 </script>

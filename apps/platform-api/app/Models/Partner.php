@@ -59,6 +59,11 @@ class Partner extends BaseModel
         return $this->hasOne(PartnerMonitoringProfile::class, 'partner_id');
     }
 
+    public function centralMaintenanceSetting(): HasOne
+    {
+        return $this->hasOne(PartnerCentralMaintenanceSetting::class, 'partner_id');
+    }
+
     public function settlements(): HasMany
     {
         return $this->hasMany(PartnerSettlement::class, 'partner_id');

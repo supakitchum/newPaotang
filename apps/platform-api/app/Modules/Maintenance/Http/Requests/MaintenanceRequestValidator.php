@@ -35,6 +35,15 @@ class MaintenanceRequestValidator
             $errors['mode'][] = 'The mode field is invalid.';
         }
 
+        if (
+            ! $this->blank($payload['status'] ?? null)
+            && ! $this->blank($payload['mode'] ?? null)
+            && (string) $payload['status'] === 'active'
+            && (string) $payload['mode'] === 'scheduled'
+        ) {
+            $errors['mode'][] = 'The mode field must be a blocking maintenance mode when status is active.';
+        }
+
         $this->maxString($errors, $payload, 'reason', 1000);
         $this->maxString($errors, $payload, 'message', 1000);
         $this->maxString($errors, $payload, 'ticket_id', 128);
@@ -56,6 +65,45 @@ class MaintenanceRequestValidator
         foreach (['allowed_routes', 'blocked_route_patterns'] as $field) {
             if (array_key_exists($field, $payload) && ! $this->stringList($payload[$field])) {
                 $errors[$field][] = 'The '.$field.' field must be an array of strings.';
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    public function partnerMaintenanceUpdateErrors(array $payload): array
+    {
+        $errors = [];
+
+        foreach (['status', 'reason'] as $field) {
+            if ($this->blank($payload[$field] ?? null)) {
+                $errors[$field][] = 'The '.$field.' field is required.';
+            }
+        }
+
+        if (! $this->blank($payload['status'] ?? null) && ! in_array((string) $payload['status'], self::MAINTENANCE_STATUSES, true)) {
+            $errors['status'][] = 'The status field is invalid.';
+        }
+
+        $this->maxString($errors, $payload, 'reason', 1000);
+        $this->maxString($errors, $payload, 'message', 1000);
+        $this->maxString($errors, $payload, 'ticket_id', 128);
+
+        foreach (['scheduled_start_at', 'expected_end_at'] as $field) {
+            if (! $this->blank($payload[$field] ?? null) && strtotime((string) $payload[$field]) === false) {
+                $errors[$field][] = 'The '.$field.' field must be a valid date-time.';
+            }
+        }
+
+        if (array_key_exists('retry_after_seconds', $payload)) {
+            $retryAfter = filter_var($payload['retry_after_seconds'], FILTER_VALIDATE_INT);
+
+            if ($payload['retry_after_seconds'] !== null && ($retryAfter === false || $retryAfter < 0 || $retryAfter > 86400)) {
+                $errors['retry_after_seconds'][] = 'The retry_after_seconds field must be between 0 and 86400.';
             }
         }
 

@@ -682,7 +682,7 @@ import AdminTenantStockCoverage from '~/components/AdminTenantStockCoverage.vue'
 import AdminTenantStockDetail from '~/components/AdminTenantStockDetail.vue'
 import AdminTopupDetail from '~/components/AdminTopupDetail.vue'
 import AdminWalletDetail from '~/components/AdminWalletDetail.vue'
-import { formatAdminValue, formatDateTime, formatMoney, titleize } from '~/utils/format'
+import { formatAdminValue, formatDateTime, formatMoney, formatRewardMoney, titleize } from '~/utils/format'
 
 const props = defineProps<{
   scope: 'tenant' | 'central'
@@ -812,6 +812,7 @@ const optionSourceOptions = reactive<Record<OperationOptionSource, OperationOpti
   'central-games': [],
   'central-winner-games': [],
   'central-sale-price-games': [],
+  'central-reward-payout-rule-games': [],
   'central-partners': [],
   'central-billing-plans': [],
   'central-admin-roles': [],
@@ -830,6 +831,7 @@ const optionSourceLoading = reactive<Record<OperationOptionSource, boolean>>({
   'central-games': false,
   'central-winner-games': false,
   'central-sale-price-games': false,
+  'central-reward-payout-rule-games': false,
   'central-partners': false,
   'central-billing-plans': false,
   'central-admin-roles': false,
@@ -871,9 +873,15 @@ const isStockPatternCoverageRoute = computed(() => props.scope === 'central' && 
 const isAllocationsRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'allocations')
 const isWinnersRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'winners')
 const isTenantStockRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'stock')
+const isTenantDrawReportRoute = computed(() => Boolean(
+  props.scope === 'tenant'
+  && mode.value === 'report-detail'
+  && (resource.value?.filters || []).some((filter) => filter.key === 'game_id' && filter.optionSource === 'tenant-stock-games'),
+))
 const isTenantTopupsRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'topups')
 const isTenantExchangeRewardRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'exchange-reward')
 const isPriceRulesRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'price-rules')
+const isCentralRewardPayoutRulesRoute = computed(() => props.scope === 'central' && resource.value?.slug === 'reward-payout-rules')
 const isSalePriceRulesRoute = computed(() => resource.value?.slug === 'sale-price-rules')
 const showListSections = computed(() => Boolean(resource.value?.listSections?.length && mode.value === 'list'))
 const activeRelatedLists = computed(() => showListSections.value ? (resource.value?.listSections || []) : (resource.value?.relatedLists || []))
@@ -1109,10 +1117,45 @@ useAdminRealtimeSubscription({
 const currentCentralGameOption = computed(() => singleCurrentGameOption(optionSourceOptions['central-games'] || []))
 const currentCentralWinnerGameOption = computed(() => latestDefaultOrCurrentGameOption(optionSourceOptions['central-winner-games'] || []))
 const currentCentralSalePriceGameOption = computed(() => latestDefaultOrCurrentGameOption(optionSourceOptions['central-sale-price-games'] || []))
+const currentCentralRewardPayoutRuleGameOption = computed(() => latestDefaultOrCurrentGameOption(optionSourceOptions['central-reward-payout-rule-games'] || []))
 const currentAllocationGameOption = computed(() => latestCurrentGameOption(optionSourceOptions['allocation-games'] || []))
 const currentTenantStockGameOption = computed(() => latestTenantStockGameOption(optionSourceOptions['tenant-stock-games'] || []))
 const currentTenantPriceRuleGameOption = computed(() => latestTenantPriceRuleGameOption(optionSourceOptions['tenant-price-rule-games'] || []))
 const currentTenantSalePriceGameOption = computed(() => latestDefaultOrCurrentGameOption(optionSourceOptions['tenant-sale-price-games'] || []))
+const currentCentralGameId = computed(() => currentCentralGameOption.value ? String(optionValue(currentCentralGameOption.value)) : '')
+const selectedStockTableGameOption = computed(() => (
+  (optionSourceOptions['central-games'] || [])
+    .find((option) => String(optionValue(option)) === selectedStockTableGameId.value) || null
+))
+const stockManagerSelectedGameIsCurrent = computed(() => {
+  if (!selectedStockTableGameId.value) {
+    return false
+  }
+
+  if (isCurrentGameOption(selectedStockTableGameOption.value)) {
+    return true
+  }
+
+  return Boolean(currentCentralGameId.value && selectedStockTableGameId.value === currentCentralGameId.value)
+})
+const stockManagerSelectedOldGame = computed(() => Boolean(
+  isStockGenerationRoute.value
+  && selectedStockTableGameId.value
+  && !stockManagerSelectedGameIsCurrent.value,
+))
+const stockManagerOldGameWriteDisabledReason = computed(() => (
+  stockManagerSelectedOldGame.value
+    ? 'Selected game is an old draw. Stock is read-only; choose the current open game to import, recall, or generate stock.'
+    : ''
+))
+const stockManagerWriteBlocked = computed(() => Boolean(
+  stockManagerSelectedOldGame.value
+  || (isStockGenerationRoute.value && !currentCentralGameOption.value),
+))
+const stockManagerWriteDisabledReason = computed(() => (
+  stockManagerOldGameWriteDisabledReason.value
+  || (isStockGenerationRoute.value && !currentCentralGameOption.value ? 'No single current game is available for stock changes.' : '')
+))
 const allocationSummaryCards = computed(() => {
   const game = currentAllocationGameOption.value
   const isLoading = optionSourceLoading['allocation-games']
@@ -1156,14 +1199,20 @@ const stockSetDistributionDefault = computed(() => (
 const shouldDefaultStockGenerationGame = computed(() => Boolean(isStockGenerationRoute.value && mode.value === 'list'))
 const stockGenerationGenerateBlocked = computed(() => Boolean(
   showStockGenerationProgress.value
-  && (stockGenerationHasActiveBatch.value || !currentCentralGameOption.value),
+  && (stockGenerationHasActiveBatch.value || stockManagerWriteBlocked.value),
 ))
 const stockGenerationGenerateDisabledReason = computed(() => {
   if (!showStockGenerationProgress.value) {
     return ''
   }
+  if (stockManagerOldGameWriteDisabledReason.value) {
+    return stockManagerOldGameWriteDisabledReason.value
+  }
   if (stockGenerationHasActiveBatch.value) {
     return 'A stock generation batch is already queued or processing for this game.'
+  }
+  if (stockManagerWriteDisabledReason.value) {
+    return stockManagerWriteDisabledReason.value
   }
   if (!currentCentralGameOption.value) {
     return 'No single current game is available for stock generation.'
@@ -1171,7 +1220,15 @@ const stockGenerationGenerateDisabledReason = computed(() => {
   return ''
 })
 const stockGenerateCurrentGameMessage = computed(() => {
-  if (!shouldDefaultStockGenerationGame.value || optionSourceLoading['central-games'] || currentCentralGameOption.value) {
+  if (!shouldDefaultStockGenerationGame.value || optionSourceLoading['central-games']) {
+    return ''
+  }
+
+  if (stockManagerSelectedOldGame.value) {
+    return 'This old draw is read-only. You can view stock, but import, recall, and generate actions are disabled.'
+  }
+
+  if (currentCentralGameOption.value) {
     return ''
   }
 
@@ -1454,16 +1511,6 @@ const loadPreviousPage = () => {
 const hydrateFilters = (items: OperationFilter[]) => items.map((item) => {
   const options = item.optionSource ? hydratedOptions(item.optionSource, item.options) : item.options
 
-  if (shouldDefaultStockGenerationGame.value && item.key === 'game_id' && item.optionSource === 'central-games') {
-    const currentGame = currentCentralGameOption.value
-    return {
-      ...item,
-      options: currentGame ? [currentGame] : [],
-      hideEmptyOption: Boolean(currentGame),
-      emptyOptionLabel: currentGame ? item.emptyOptionLabel : 'No current game',
-    }
-  }
-
   if (isAllocationsRoute.value && item.key === 'game_id' && item.optionSource === 'allocation-games') {
     const currentGame = currentAllocationGameOption.value
     return {
@@ -1509,11 +1556,17 @@ const currentGameOptionForSource = (source?: OperationOptionSource) => {
   if (source === 'central-winner-games') {
     return currentCentralWinnerGameOption.value
   }
+  if (source === 'central-reward-payout-rule-games') {
+    return currentCentralRewardPayoutRuleGameOption.value
+  }
   if (source === 'tenant-sale-price-games') {
     return currentTenantSalePriceGameOption.value
   }
   if (source === 'tenant-price-rule-games') {
     return currentTenantPriceRuleGameOption.value
+  }
+  if (source === 'tenant-stock-games') {
+    return currentTenantStockGameOption.value
   }
 
   return currentCentralGameOption.value
@@ -1530,6 +1583,14 @@ const hydrateActions = (actions: OperationAction[] = []) => actions.map((action)
       ...hydrated,
       disabled: stockGenerationGenerateBlocked.value,
       disabledReason: stockGenerationGenerateDisabledReason.value,
+    }
+  }
+
+  if (isStockImportAction(hydrated)) {
+    return {
+      ...hydrated,
+      disabled: stockManagerWriteBlocked.value,
+      disabledReason: stockManagerWriteDisabledReason.value,
     }
   }
 
@@ -1664,6 +1725,11 @@ const loadOptionSource = async (source: OperationOptionSource) => {
       optionSourceOptions[source] = normalizeGameOptions(extractItems(response))
     } else if (source === 'central-sale-price-games') {
       const response = await api.apiFetch('/admin/central/sale-price-games', {
+        scope: 'central',
+      })
+      optionSourceOptions[source] = normalizeGameOptions(extractItems(response))
+    } else if (source === 'central-reward-payout-rule-games') {
+      const response = await api.apiFetch('/admin/central/reward-payout-rule-games', {
         scope: 'central',
       })
       optionSourceOptions[source] = normalizeGameOptions(extractItems(response))
@@ -2065,21 +2131,19 @@ const mergeOptions = (base: OperationOption[], next: OperationOption[]) => {
   return merged
 }
 
+const isCurrentGameOption = (option: OperationOption | null | undefined) => (
+  typeof option === 'object'
+  && option !== null
+  && (option.isCurrent || String(option.status || '').toLowerCase() === 'open')
+)
+
 const singleCurrentGameOption = (options: OperationOption[]) => {
-  const currentOptions = options.filter((option) => (
-    typeof option === 'object'
-    && option !== null
-    && (option.isCurrent || String(option.status || '').toLowerCase() === 'open')
-  ))
+  const currentOptions = options.filter(isCurrentGameOption)
 
   return currentOptions.length === 1 ? currentOptions[0] : null
 }
 
-const latestCurrentGameOption = (options: OperationOption[]) => options.find((option) => (
-  typeof option === 'object'
-  && option !== null
-  && (option.isCurrent || String(option.status || '').toLowerCase() === 'open')
-)) || null
+const latestCurrentGameOption = (options: OperationOption[]) => options.find(isCurrentGameOption) || null
 
 const latestTenantStockGameOption = (options: OperationOption[]) => options.find((option) => (
   typeof option === 'object'
@@ -2100,12 +2164,24 @@ const latestDefaultOrCurrentGameOption = (options: OperationOption[]) => options
 )) || latestCurrentGameOption(options) || options[0] || null
 
 const applyCurrentGameFilterDefault = () => {
-  filters.value = routeFiltersWithCurrentGame(filters.value)
+  filters.value = tenantReportFiltersWithCurrentGame(routeFiltersWithCurrentGame(filters.value))
 }
 
 const routeFiltersWithCurrentGame = (next: Record<string, any>) => (
-  winnerFiltersWithDefaultGame(salePriceRuleFiltersWithCurrentGame(priceRuleFiltersWithCurrentGame(tenantStockFiltersWithCurrentGame(allocationFiltersWithCurrentGame(stockGenerationFiltersWithCurrentGame(next))))))
+  winnerFiltersWithDefaultGame(rewardPayoutRuleFiltersWithCurrentGame(salePriceRuleFiltersWithCurrentGame(priceRuleFiltersWithCurrentGame(tenantStockFiltersWithCurrentGame(allocationFiltersWithCurrentGame(stockGenerationFiltersWithCurrentGame(next)))))))
 )
+
+const tenantReportFiltersWithCurrentGame = (next: Record<string, any>) => {
+  if (!isTenantDrawReportRoute.value || !isBlank(next.game_id)) {
+    return next
+  }
+
+  const currentGame = latestCurrentGameOption(optionSourceOptions['tenant-stock-games'] || [])
+  return {
+    ...next,
+    game_id: currentGame ? optionValue(currentGame) : '',
+  }
+}
 
 const stockGenerationFiltersWithCurrentGame = (next: Record<string, any>) => {
   if (!shouldDefaultStockGenerationGame.value || !isBlank(next.game_id)) {
@@ -2171,6 +2247,18 @@ const priceRuleFiltersWithCurrentGame = (next: Record<string, any>) => {
   }
 }
 
+const rewardPayoutRuleFiltersWithCurrentGame = (next: Record<string, any>) => {
+  if (!isCentralRewardPayoutRulesRoute.value || !isBlank(next.game_id)) {
+    return next
+  }
+
+  const currentGame = currentCentralRewardPayoutRuleGameOption.value
+  return {
+    ...next,
+    game_id: currentGame ? optionValue(currentGame) : '',
+  }
+}
+
 const salePriceRuleFiltersWithCurrentGame = (next: Record<string, any>) => {
   if (!isSalePriceRulesRoute.value || !isBlank(next.game_id)) {
     return next
@@ -2188,6 +2276,31 @@ const salePriceRuleFiltersWithCurrentGame = (next: Record<string, any>) => {
 const isStockGenerateAction = (action: OperationAction | null | undefined) => (
   Boolean(action && isStockGenerationRoute.value && action.key === 'generate' && action.endpoint === '/admin/central/stock/generate')
 )
+
+const isStockImportAction = (action: OperationAction | null | undefined) => (
+  Boolean(action && isStockGenerationRoute.value && action.key === 'import' && action.endpoint === '/admin/central/stock/imports')
+)
+
+const isCentralStockRecallAction = (action: OperationAction | null | undefined) => (
+  Boolean(action && isStockGenerationRoute.value && action.key === 'recall' && action.endpoint === '/admin/central/stock/{stock_item_id}/recall')
+)
+
+const stockRowGameId = (row: any) => String((row?.__raw || row || {}).game_id || selectedStockTableGameId.value || '').trim()
+
+const isOldStockRow = (row: any) => {
+  const gameId = stockRowGameId(row)
+  if (!gameId) {
+    return false
+  }
+
+  const option = (optionSourceOptions['central-games'] || [])
+    .find((candidate) => String(optionValue(candidate)) === gameId)
+  if (isCurrentGameOption(option)) {
+    return false
+  }
+
+  return !currentCentralGameId.value || gameId !== currentCentralGameId.value
+}
 
 const stockGenerationBatchFromResponse = (response: any) => {
   const data = extractData(response)
@@ -3207,6 +3320,11 @@ const normalizePayloadField = (field: OperationFormField, value: any) => {
     return Math.round(Number(value) * 100)
   }
 
+  if (field.type === 'reward-money') {
+    if (value === '' || value === undefined || value === null) return undefined
+    return Math.round(Number(value))
+  }
+
   if (field.type === 'number') {
     if (value === '' || value === undefined || value === null) return undefined
     return Number(value)
@@ -3393,6 +3511,10 @@ const normalizeInitialFieldValue = (field: OperationFormField, value: any) => {
     return minorUnitToMajor(value)
   }
 
+  if (field.type === 'reward-money') {
+    return wholeBahtValue(value)
+  }
+
   if (field.type === 'stock-set-distribution') {
     return normalizeStockSetDistribution(value, field)
   }
@@ -3537,6 +3659,7 @@ const buildCollectionContext = () => {
       resource: resource.value?.title,
       report_key: reportKey,
       tenant_id: currentFilters.tenant_id || (props.scope === 'tenant' ? session.currentTenantId.value : undefined),
+      game_id: currentFilters.game_id,
       date_from: currentFilters.date_from,
       date_to: currentFilters.date_to,
       group_by: currentFilters.group_by,
@@ -3634,7 +3757,7 @@ const getFirstPath = (value: any, paths: string[]) => {
 const fieldId = (key: string) => `admin-operation-${key.replace(/[^a-z0-9_-]/gi, '-')}`
 
 const inputType = (field: OperationFormField) => {
-  if (field.type === 'number' || field.type === 'money') return 'number'
+  if (field.type === 'number' || field.type === 'money' || field.type === 'reward-money') return 'number'
   if (field.type === 'datetime-local') return 'datetime-local'
   if (field.type === 'date') return 'date'
   if (field.type === 'password') return 'password'
@@ -3648,6 +3771,7 @@ const formatValue = (value: any, type?: string) => {
   if (type === 'customer') return formatCustomerValue(value)
   if (type === 'customer_name') return formatCustomerNameValue(value)
   if (type === 'money') return formatMoney(value)
+  if (type === 'reward-money') return formatRewardMoney(value)
   return formatAdminValue(value, type, '')
 }
 
@@ -3678,6 +3802,14 @@ const rowActionsForRow = (row: any) => hydratedActions.value
   .filter((action) => !action.hideWhenDisabled || !isActionDisabled(action, row))
 
 const rowSpecificAction = (action: OperationAction, row: any): OperationAction => {
+  if (isCentralStockRecallAction(action) && isOldStockRow(row)) {
+    return {
+      ...action,
+      disabled: true,
+      disabledReason: 'Old draw stock is read-only. Recall is available only for the current open game.',
+    }
+  }
+
   if (resource.value?.scope === 'central' && resource.value.slug === 'partners' && action.key === 'provision' && partnerHasTenant(row)) {
     return {
       ...action,
@@ -3751,6 +3883,16 @@ const minorUnitToMajor = (value: any) => {
 
   const parsed = Number(amount)
   return Number.isFinite(parsed) ? parsed / 100 : ''
+}
+
+const wholeBahtValue = (value: any) => {
+  const amount = typeof value === 'object' && value !== null ? value.amount : value
+  if (amount === undefined || amount === null || amount === '') {
+    return ''
+  }
+
+  const parsed = Number(amount)
+  return Number.isFinite(parsed) ? Math.round(parsed) : ''
 }
 
 const formatDateTimeLocalValue = (value: any) => {

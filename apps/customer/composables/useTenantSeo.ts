@@ -8,7 +8,7 @@ export interface TenantSeoInput {
   privatePage?: boolean
 }
 
-const privateRoutePatterns = ['/cart', '/checkout', '/success', '/topup', '/tickets', '/profile', '/affiliate', '/login', '/register', '/line/callback']
+const privateRoutePatterns = ['/cart', '/checkout', '/success', '/topup', '/my-wallet', '/purchase-history', '/tickets', '/profile', '/affiliate', '/login', '/register', '/line/callback']
 
 const isPrivatePath = (path: string) => privateRoutePatterns.some((privatePath) => path === privatePath || path.startsWith(`${privatePath}/`))
 

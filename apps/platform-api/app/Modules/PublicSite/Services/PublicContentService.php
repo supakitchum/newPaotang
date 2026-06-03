@@ -3,6 +3,7 @@
 namespace App\Modules\PublicSite\Services;
 
 use App\Models\LocalStockItem;
+use App\Modules\AdminOperations\Services\TenantAnnouncementService;
 use App\Modules\AdminOperations\Services\TenantSeoService;
 use App\Modules\Tenancy\Services\TenantConfigurationService;
 use Illuminate\Http\Request;
@@ -12,6 +13,7 @@ class PublicContentService
     public function __construct(
         private readonly TenantConfigurationService $configuration,
         private readonly TenantSeoService $seo,
+        private readonly TenantAnnouncementService $announcements,
     ) {
     }
 
@@ -57,11 +59,50 @@ class PublicContentService
         }
 
         return [
+            'resource' => $this->announcements->publicList(
+                (string) $site['data']['tenant_id'],
+                $this->limit($request->query('limit')),
+            ),
+        ];
+    }
+
+    /**
+     * @return array{resource?: array<string, mixed>, error?: array{status: int, code: string, message: string}}
+     */
+    public function newsModal(Request $request): array
+    {
+        $site = $this->siteConfig($request);
+
+        if (isset($site['error'])) {
+            return ['error' => $site['error']];
+        }
+
+        $announcement = $this->announcements->publicModal((string) $site['data']['tenant_id']);
+
+        return [
             'resource' => [
-                'data' => [],
-                'content_source_status' => 'not_configured',
+                'data' => $announcement,
+                'content_source_status' => $announcement === null ? 'empty' : 'configured',
             ],
         ];
+    }
+
+    /**
+     * @return array{resource?: array<string, mixed>, error?: array{status: int, code: string, message: string}}
+     */
+    public function newsDetail(Request $request, string $slug): array
+    {
+        $site = $this->siteConfig($request);
+
+        if (isset($site['error'])) {
+            return ['error' => $site['error']];
+        }
+
+        $announcement = $this->announcements->publicFindBySlug((string) $site['data']['tenant_id'], $slug);
+
+        return $announcement === null
+            ? ['error' => ['status' => 404, 'code' => 'news_not_found', 'message' => 'News was not found.']]
+            : ['resource' => $announcement];
     }
 
     /**

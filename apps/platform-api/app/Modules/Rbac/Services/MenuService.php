@@ -61,17 +61,29 @@ class MenuService
             ],
         ])->all();
 
-        $tree = [];
+        $childrenByParent = [];
 
         foreach ($menus as $menu) {
             if ($menu->parent_id !== null && isset($items[$menu->parent_id])) {
-                $items[$menu->parent_id]['children'][] = $items[$menu->id];
+                $childrenByParent[(string) $menu->parent_id][] = (string) $menu->id;
                 continue;
             }
 
-            $tree[] = $items[$menu->id];
+            $childrenByParent['__root__'][] = (string) $menu->id;
         }
 
-        return array_values($tree);
+        $build = function (string $parentId) use (&$build, $childrenByParent, $items): array {
+            $nodes = [];
+
+            foreach ($childrenByParent[$parentId] ?? [] as $menuId) {
+                $node = $items[$menuId];
+                $node['children'] = $build($menuId);
+                $nodes[] = $node;
+            }
+
+            return $nodes;
+        };
+
+        return $build('__root__');
     }
 }

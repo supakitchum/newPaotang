@@ -33,6 +33,8 @@ class Customer extends BaseModel
         'pin_last_verified_at',
         'avatar_url',
         'reward_payout_bank_account_json',
+        'auto_reward_claim_enabled',
+        'auto_reward_claim_payout_method',
         'last_login_at',
     ];
 
@@ -48,6 +50,7 @@ class Customer extends BaseModel
         'pin_locked_until' => 'datetime',
         'pin_last_verified_at' => 'datetime',
         'reward_payout_bank_account_json' => 'array',
+        'auto_reward_claim_enabled' => 'boolean',
     ];
 
     public function authSessions(): HasMany

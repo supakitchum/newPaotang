@@ -93,7 +93,7 @@ class PartnerStoreService
 
         if (
             $operation !== null
-            && $this->maintenance->shouldBlock($maintenance, $operation)
+            && $this->maintenance->shouldBlock($maintenance, $operation, $request->path())
             && ! $this->hasActiveMaintenanceBypass($tenantId, $request)
         ) {
             return [
