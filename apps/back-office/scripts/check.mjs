@@ -179,6 +179,9 @@ const adminApiState = existsSync(join(root, 'components/AdminApiState.vue'))
 const tenantMaintenancePage = existsSync(join(root, 'pages/admin/tenant/maintenance.vue'))
   ? readFileSync(join(root, 'pages/admin/tenant/maintenance.vue'), 'utf8')
   : ''
+const tenantAnnouncementsPage = existsSync(join(root, 'pages/admin/tenant/announcements.vue'))
+  ? readFileSync(join(root, 'pages/admin/tenant/announcements.vue'), 'utf8')
+  : ''
 const centralDashboardPage = existsSync(join(root, 'pages/admin/central/dashboard/index.vue'))
   ? readFileSync(join(root, 'pages/admin/central/dashboard/index.vue'), 'utf8')
   : ''
@@ -553,6 +556,7 @@ for (const evidence of [
   ['P3 tenant sync processed filter', operationsCatalog.includes("slug: 'sync-logs'") && operationsCatalog.includes("statusFilter(['pending', 'running', 'completed', 'processed', 'failed'])")],
   ['P4 administration security settings workflows', operationsCatalog.includes('function adminUserResource') && operationsCatalog.includes('function roleManagementResource') && operationsCatalog.includes('const adminUserCreateFields') && operationsCatalog.includes('const roleCreateFields') && operationsCatalog.includes('const tenantSettingsFields') && operationsCatalog.includes('const tenantThemeFields') && operationsCatalog.includes('const tenantDomainCreateFields') && operationsCatalog.includes("secondarySettings") && operationsPage.includes('isMenuManagement') && operationsPage.includes('saveMenuTree') && operationsPage.includes('loadSecondarySettings') && existsSync(join(root, 'components/AdminMenuTreeEditor.vue')) && readFileSync(join(root, 'components/AdminMenuTreeEditor.vue'), 'utf8').includes('Save menu')],
   ['tenant legal terms settings workflow', operationsCatalog.includes('defaultTermsContentPlaceholder') && operationsCatalog.includes("key: 'legal.terms_content'") && operationsCatalog.includes("sourceKey: 'legal.terms_content'") && operationsCatalog.includes("label: 'Terms and conditions'")],
+  ['tenant announcements use create/edit modal workflow', tenantAnnouncementsPage.includes('formModalOpen') && tenantAnnouncementsPage.includes('openCreateModal') && tenantAnnouncementsPage.includes('openEditModal(row)') && tenantAnnouncementsPage.includes('class="modal fade show np-ann-modal"') && !tenantAnnouncementsPage.includes('col-xl-5')],
   ['settings update method support', operationsPage.includes('resource.value.updateMethod') && operationsCatalog.includes("updateMethod?: 'PATCH' | 'PUT' | 'POST'")],
   ['menu management PUT resources', operationsCatalog.includes("settingsResource('tenant', 'menu-management', 'Menu Management', '/admin/tenant/menu-management', 'PUT')") && operationsCatalog.includes("settingsResource('central', 'menu-management', 'Menu Management', '/admin/central/menu-management', 'PUT')")],
 ]) {

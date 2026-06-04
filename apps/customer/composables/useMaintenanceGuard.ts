@@ -1,7 +1,6 @@
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 const MAINTENANCE_PATH = '/maintenance'
-const REFRESH_INTERVAL_MS = 5000
 
 export const useMaintenanceGuard = () => {
   if (!process.client) {
@@ -12,11 +11,11 @@ export const useMaintenanceGuard = () => {
   const {
     config,
     fetchSiteConfig,
+    setSiteConfig,
     isMaintenanceActive,
     isRouteBlockedByMaintenance
   } = useSiteConfig()
   const checking = ref(false)
-  let timer: ReturnType<typeof setInterval> | null = null
 
   const redirectIfBlocked = async (force = false) => {
     if (checking.value) {
@@ -25,7 +24,9 @@ export const useMaintenanceGuard = () => {
 
     checking.value = true
     try {
-      await fetchSiteConfig({ force })
+      if (!config.value || force) {
+        await fetchSiteConfig({ force })
+      }
 
       if (route.path === MAINTENANCE_PATH && config.value && !isMaintenanceActive.value) {
         await navigateTo('/', { replace: true })
@@ -40,16 +41,54 @@ export const useMaintenanceGuard = () => {
     }
   }
 
-  const refreshWhenVisible = () => {
-    if (document.visibilityState === 'visible') {
-      void redirectIfBlocked(true)
+  const applySiteConfigPatch = (payload: Record<string, any>) => {
+    if (!payload || typeof payload !== 'object' || !config.value) {
+      return
     }
+
+    const tenantId = String(payload.tenant_id || '').trim()
+    const currentTenantId = String(config.value.tenant_id || '').trim()
+    if (tenantId && currentTenantId && tenantId !== currentTenantId) {
+      return
+    }
+
+    const maintenance = payload.maintenance
+    if (!maintenance || typeof maintenance !== 'object' || Array.isArray(maintenance)) {
+      return
+    }
+
+    const currentTimestamps = config.value.timestamps
+    const timestamps = currentTimestamps && typeof currentTimestamps === 'object' && !Array.isArray(currentTimestamps)
+      ? currentTimestamps
+      : {}
+
+    setSiteConfig({
+      ...config.value,
+      maintenance: {
+        ...(config.value.maintenance || {}),
+        ...maintenance,
+      },
+      timestamps: {
+        ...timestamps,
+        site_config_realtime_at: payload.updated_at || new Date().toISOString(),
+      },
+    })
+
+    void redirectIfBlocked(false)
   }
+
+  useCustomerStockRealtime({
+    enabled: computed(() => Boolean(config.value?.tenant_id)),
+    onSiteConfig: applySiteConfigPatch,
+    onReconnect: () => {
+      void redirectIfBlocked(true)
+    },
+  })
 
   watch(
     () => route.fullPath,
     () => {
-      void redirectIfBlocked(true)
+      void redirectIfBlocked(false)
     }
   )
 
@@ -61,23 +100,6 @@ export const useMaintenanceGuard = () => {
   )
 
   onMounted(() => {
-    void redirectIfBlocked(true)
-
-    timer = setInterval(() => {
-      void redirectIfBlocked(true)
-    }, REFRESH_INTERVAL_MS)
-
-    document.addEventListener('visibilitychange', refreshWhenVisible)
-    window.addEventListener('focus', refreshWhenVisible)
-  })
-
-  onBeforeUnmount(() => {
-    if (timer) {
-      clearInterval(timer)
-      timer = null
-    }
-
-    document.removeEventListener('visibilitychange', refreshWhenVisible)
-    window.removeEventListener('focus', refreshWhenVisible)
+    void redirectIfBlocked(false)
   })
 }

@@ -10,10 +10,12 @@ use App\Models\PartnerTenantMaintenanceEvent;
 use App\Models\PartnerTenantMaintenanceSetting;
 use App\Models\PartnerTenantSetting;
 use App\Models\SyncOutbox;
+use App\Modules\Maintenance\Events\TenantSiteConfigUpdated;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -299,6 +301,7 @@ class MaintenanceService
             $this->syncLegacySettings($tenant, $resource);
             $this->insertMaintenanceEvent($tenantId, $settingId, 'maintenance.updated', $actor, $payload, $resource);
             $this->insertOutboxEvent($tenant, $settingId, $request, $resource, (string) $actor->adminUser['id']);
+            $this->broadcastSiteConfigUpdated($tenant, $resource);
             $auditAction = $active
                 ? 'maintenance.enabled'
                 : ((string) $previous->status === 'active' ? 'maintenance.disabled' : 'maintenance.updated');
@@ -1090,5 +1093,25 @@ class MaintenanceService
     private function partnerMaintenanceTableExists(): bool
     {
         return Schema::hasTable('partner_central_maintenance_settings');
+    }
+
+    /**
+     * @param array<string, mixed> $maintenance
+     */
+    private function broadcastSiteConfigUpdated(object $tenant, array $maintenance): void
+    {
+        try {
+            TenantSiteConfigUpdated::dispatch([
+                'tenant_id' => (string) $tenant->id,
+                'partner_id' => (string) $tenant->partner_id,
+                'maintenance' => $maintenance,
+                'updated_at' => now()->toISOString(),
+            ]);
+        } catch (\Throwable $exception) {
+            Log::warning('Customer site-config realtime broadcast failed.', [
+                'tenant_id' => (string) $tenant->id,
+                'message' => $exception->getMessage(),
+            ]);
+        }
     }
 }

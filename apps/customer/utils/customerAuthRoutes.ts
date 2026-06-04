@@ -6,6 +6,7 @@ const publicCustomerRoutes = new Set([
   '/maintenance',
   '/terms',
   '/lottery-knowledge',
+  '/activities',
   '/countdown',
   '/result',
   '/result/full',
@@ -13,6 +14,14 @@ const publicCustomerRoutes = new Set([
   '/waiting-result',
 ])
 
-export const isPublicCustomerRoute = (path: string) => publicCustomerRoutes.has(path)
+const publicCustomerRoutePrefixes = [
+  '/news/',
+  '/activities/',
+]
+
+export const isPublicCustomerRoute = (path: string) => (
+  publicCustomerRoutes.has(path)
+  || publicCustomerRoutePrefixes.some((prefix) => path.startsWith(prefix))
+)
 
 export const requiresCustomerAuth = (path: string) => !isPublicCustomerRoute(path)

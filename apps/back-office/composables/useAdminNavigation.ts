@@ -51,6 +51,8 @@ const scopedRouteOverrides: Record<string, string> = {
   'tenant:price_rules': '/admin/tenant/price-rules',
   'tenant:customers': '/admin/tenant/customers',
   'tenant:announcements': '/admin/tenant/announcements',
+  'tenant:activities': '/admin/tenant/activities',
+  'tenant:activity_claims': '/admin/tenant/activity-claims',
   'tenant:winners': '/admin/tenant/winners',
   'tenant:exchange_reward': '/admin/tenant/exchange-reward',
   'tenant:agent_quotas': '/admin/tenant/growth/agent-quotas',

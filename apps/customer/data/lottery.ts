@@ -99,7 +99,7 @@ export const thaiBankOptions = [
 export const menuSections = [
   {
     title: 'ประวัติ',
-    items: [{ label: 'ประวัติการซื้อสลากฯ', to: '/purchase-history' }, { label: 'ประวัติขึ้นเงินรางวัลสลากดิจิทัล', to: '/reward-claims' }, { label: 'ระบบตัวแทนจำหน่าย', to: '/affiliate' }]
+    items: [{ label: 'ประวัติการซื้อสลากฯ', to: '/purchase-history' }, { label: 'ประวัติขึ้นเงินรางวัลสลากดิจิทัล', to: '/reward-claims' }, { label: 'กิจกรรม', to: '/activities', badge: 'ใหม่' }, { label: 'ระบบตัวแทนจำหน่าย', to: '/affiliate' }]
   },
   {
     title: 'ตั้งค่ารับเงินรางวัล',

@@ -522,6 +522,80 @@ const normalizeRewardClaim = (claim: AnyRecord | null | undefined) => {
   }
 }
 
+const normalizeActivityMoney = (value: unknown) => moneyToDisplayNumber(value)
+
+const normalizeActivity = (activity: AnyRecord | null | undefined) => {
+  if (!activity) {
+    return null
+  }
+
+  const config = activity.config && typeof activity.config === 'object' ? activity.config : {}
+  const prizes = config.prizes && typeof config.prizes === 'object' ? config.prizes : {}
+
+  return {
+    ...activity,
+    image: activity.image_full_url || activity.image_thumb_url || activity.cover_url || activity.cover || '',
+    image_thumb: activity.image_thumb_url || activity.cover_url || activity.cover || activity.image_full_url || '',
+    config: activity.type === 'cashback'
+      ? {
+          ...config,
+          fixed_amount: normalizeActivityMoney(config.fixed_amount),
+          min_purchase_amount: normalizeActivityMoney(config.min_purchase_amount),
+          cashback_percent: Number(config.cashback_percent_bps || 0) / 100
+        }
+      : {
+          ...config,
+          prizes: {
+            first_prize_last2: normalizeActivityMoney(prizes.first_prize_last2),
+            first_prize_last3: normalizeActivityMoney(prizes.first_prize_last3),
+            last2: normalizeActivityMoney(prizes.last2)
+          }
+        },
+    cashback_progress: activity.cashback_progress
+      ? {
+          ...activity.cashback_progress,
+          purchase_amount: normalizeActivityMoney(activity.cashback_progress.purchase_amount),
+          min_purchase_amount: normalizeActivityMoney(activity.cashback_progress.min_purchase_amount)
+        }
+      : null
+  }
+}
+
+function normalizeActivityAward(
+  award: AnyRecord | null | undefined,
+  options: { includeClaim?: boolean } = { includeClaim: true }
+) {
+  if (!award) {
+    return null
+  }
+
+  return {
+    ...award,
+    amount: normalizeActivityMoney(award.amount),
+    claim: options.includeClaim !== false && award.claim
+      ? normalizeActivityClaim(award.claim, { includeAward: false })
+      : null
+  }
+}
+
+function normalizeActivityClaim(
+  claim: AnyRecord | null | undefined,
+  options: { includeAward?: boolean } = { includeAward: true }
+): AnyRecord | null {
+  if (!claim) {
+    return null
+  }
+
+  return {
+    ...claim,
+    claim_amount: normalizeActivityMoney(claim.claim_amount || claim.amount),
+    amount: normalizeActivityMoney(claim.amount || claim.claim_amount),
+    award: options.includeAward !== false && claim.award
+      ? normalizeActivityAward(claim.award, { includeClaim: false })
+      : null
+  }
+}
+
 const normalizeOrder = (order: AnyRecord | null | undefined) => {
   if (!order) {
     return null
@@ -786,6 +860,19 @@ export const usePlatformApi = () => {
   const newsModal = async () => unwrapData<AnyRecord>(await axios.get('/public/news/modal'))
 
   const newsDetail = async (slug: string) => unwrapData<AnyRecord>(await axios.get(`/public/news/${encodeURIComponent(slug)}`))
+
+  const activitiesPublic = async (params: AnyRecord = {}) => {
+    const response = await axios.get('/public/activities', { params })
+    const payload = normalizeResponse(response)
+
+    return {
+      data: Array.isArray(payload.data) ? payload.data.map(normalizeActivity).filter(Boolean) : [],
+      meta: payload.meta || null,
+      content_source_status: payload.content_source_status || 'empty'
+    }
+  }
+
+  const activityPublic = async (slug: string) => normalizeActivity(unwrapData<AnyRecord>(await axios.get(`/public/activities/${encodeURIComponent(slug)}`)))
 
   const rewardLegacy = async (gameId?: string | number | null) => {
     try {
@@ -1116,6 +1203,48 @@ export const usePlatformApi = () => {
     headers: idempotencyHeaders('customer-reward-claim')
   })))
 
+  const customerActivities = async (params: AnyRecord = {}) => {
+    const response = await axios.get('/customer/activities', { params })
+    const payload = normalizeResponse(response)
+
+    return {
+      data: Array.isArray(payload.data) ? payload.data.map(normalizeActivity).filter(Boolean) : [],
+      meta: payload.meta || null
+    }
+  }
+
+  const customerActivity = async (activityId: string | number) => normalizeActivity(unwrapData<AnyRecord>(await axios.get(`/customer/activities/${activityId}`)))
+
+  const activityRights = async (activityId: string | number) => unwrapData<AnyRecord>(await axios.get(`/customer/activities/${activityId}/rights`))
+
+  const createActivityEntry = async (activityId: string | number, payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post(`/customer/activities/${activityId}/entries`, payload, {
+    headers: idempotencyHeaders('customer-activity-entry')
+  }))
+
+  const activityAwards = async (params: AnyRecord = {}) => {
+    const response = await axios.get('/customer/activity-awards', { params })
+    const payload = normalizeResponse(response)
+
+    return {
+      data: Array.isArray(payload.data) ? payload.data.map(normalizeActivityAward).filter(Boolean) : [],
+      meta: payload.meta || null
+    }
+  }
+
+  const activityClaims = async (params: AnyRecord = {}) => {
+    const response = await axios.get('/customer/activity-claims', { params })
+    const payload = normalizeResponse(response)
+
+    return {
+      data: Array.isArray(payload.data) ? payload.data.map(normalizeActivityClaim).filter(Boolean) : [],
+      meta: payload.meta || null
+    }
+  }
+
+  const createActivityClaim = async (payload: AnyRecord) => normalizeActivityClaim(unwrapData<AnyRecord>(await axios.post('/customer/activity-claims', payload, {
+    headers: idempotencyHeaders('customer-activity-claim')
+  })))
+
   const topupOverviewLegacy = async (params: AnyRecord = {}) => {
     const response = await axios.get('/customer/topups', { params })
     const payload = normalizeResponse(response)
@@ -1269,6 +1398,8 @@ export const usePlatformApi = () => {
     newsLegacy,
     newsModal,
     newsDetail,
+    activitiesPublic,
+    activityPublic,
     rewardLegacy,
     rewardLiveLegacy,
     login,
@@ -1297,6 +1428,13 @@ export const usePlatformApi = () => {
     rewardClaims,
     rewardClaim,
     createRewardClaim,
+    customerActivities,
+    customerActivity,
+    activityRights,
+    createActivityEntry,
+    activityAwards,
+    activityClaims,
+    createActivityClaim,
     topupOverviewLegacy,
     topupDetailLegacy,
     createTopupLegacy,

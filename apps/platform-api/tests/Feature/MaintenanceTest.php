@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Modules\Maintenance\Events\TenantSiteConfigUpdated;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Tests\Support\PartnerStoreFixtures;
 use Tests\TestCase;
 
@@ -352,6 +354,7 @@ class MaintenanceTest extends TestCase
             'partner.view',
             'partner.update',
         ], 'adm_m9_central', 'm9-central-owner@example.test');
+        Event::fake([TenantSiteConfigUpdated::class]);
 
         $this->withToken($central['access_token'])
             ->getJson('/api/v1/admin/central/maintenance?q=m9-central', [
@@ -376,6 +379,13 @@ class MaintenanceTest extends TestCase
             ->assertJsonPath('status', 'active')
             ->assertJsonPath('mode', 'customer_web_only')
             ->assertJsonPath('active', true);
+
+        Event::assertDispatched(
+            TenantSiteConfigUpdated::class,
+            fn (TenantSiteConfigUpdated $event): bool => ($event->payload['tenant_id'] ?? null) === 'ten_m9_central'
+                && ($event->payload['maintenance']['active'] ?? null) === true
+                && ($event->payload['maintenance']['mode'] ?? null) === 'customer_web_only'
+        );
 
         $this->assertDatabaseHas('partner_tenants', [
             'id' => 'ten_m9_central',

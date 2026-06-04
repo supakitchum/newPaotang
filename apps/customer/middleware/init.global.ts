@@ -6,7 +6,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const { token, user, restoreAuthState } = useAuth()
   const isPrivatePage = requiresCustomerAuth(to.path)
 
-  const siteConfig = await fetchSiteConfig({ force: process.client })
+  const siteConfig = await fetchSiteConfig()
   useTenantSeo({
     path: to.path,
     privatePage: isPrivatePage

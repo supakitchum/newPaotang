@@ -76,44 +76,39 @@
         ยังไม่มีข้อมูลผลรางวัล
       </section>
 
-      <section v-if="newsItems.length" class="home-news-slider" aria-label="ข่าวสารและกิจกรรม">
-        <a
-          class="home-news-slide"
-          :href="currentNewsLink"
-          :target="currentNewsLinkTarget"
-          rel="noopener"
-          @click="handleNewsClick"
-        >
-          <img v-if="currentNewsCover" :src="currentNewsCover" :alt="currentNews?.title || 'ข่าวสารและกิจกรรม'">
-          <div v-else class="home-news-image-fallback" />
-          <div class="home-news-caption">
-            <div class="home-news-kicker">ข่าวสารและกิจกรรม</div>
-            <h2>{{ currentNews?.title }}</h2>
-          </div>
-        </a>
-
-        <template v-if="newsItems.length > 1">
-          <button class="home-news-nav is-prev" type="button" aria-label="ก่อนหน้า" @click="previousNews">
-            <i class="bi bi-chevron-left" />
-          </button>
-          <button class="home-news-nav is-next" type="button" aria-label="ถัดไป" @click="nextNews">
-            <i class="bi bi-chevron-right" />
-          </button>
-          <div class="home-news-dots" aria-hidden="true">
-            <span
-              v-for="(_, index) in newsItems"
-              :key="`news-dot-${index}`"
-              :class="{ active: index === activeNewsIndex }"
-            />
-          </div>
-        </template>
+      <section v-if="newsItems.length" class="home-news-section" aria-label="ข่าวสารและกิจกรรม">
+        <div class="home-news-heading">
+          <h2>เรื่องเด่น</h2>
+          <span><i class="bi bi-images" /></span>
+        </div>
+        <div class="home-news-rail">
+          <a
+            v-for="(news, index) in newsItems"
+            :key="newsKey(news, index)"
+            class="home-news-card"
+            :href="newsLink(news)"
+            :target="newsTarget(news)"
+            rel="noopener"
+            @click="handleNewsClick($event, news)"
+          >
+            <img v-if="newsCover(news)" :src="newsCover(news)" :alt="news.title || 'ข่าวสารและกิจกรรม'">
+            <div v-else class="home-news-image-fallback" />
+            <div class="home-news-card-body">
+              <h3>{{ news.title || 'ข่าวประชาสัมพันธ์' }}</h3>
+              <time v-if="newsPublishedLabel(news)" class="home-news-card-time" :datetime="newsPublishedIso(news)">
+                {{ newsPublishedLabel(news) }}
+              </time>
+              <p v-if="news.detail || news.summary">{{ news.detail || news.summary }}</p>
+            </div>
+          </a>
+        </div>
       </section>
     </section>
   </MobileShell>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { luckyDigits } from '~/data/lottery'
 import type { LotteryRewardGame } from '~/composables/useLotteryReward'
 
@@ -121,7 +116,15 @@ interface NewsItem {
   id?: number
   title?: string
   detail?: string | null
+  summary?: string | null
   cover?: string
+  cover_url?: string
+  image_thumb_url?: string
+  image_full_url?: string
+  slug?: string
+  display_start_at?: string | null
+  created_at?: string | null
+  updated_at?: string | null
   url?: string | null
   button?: unknown
 }
@@ -142,8 +145,6 @@ const isRewardLoading = ref(true)
 const newsItems = ref<NewsItem[]>([])
 const wallets = ref<Array<Record<string, any>>>([])
 const isWalletLoading = ref(false)
-const activeNewsIndex = ref(0)
-let newsTimer: ReturnType<typeof setInterval> | null = null
 
 const hasRewardResult = (game: LotteryRewardGame | null | undefined) => {
   if (!game) {
@@ -173,10 +174,7 @@ const apiAssetBaseUrl = computed(() => {
   const baseUrl = config.public.apiBaseUrl || ''
   return `${baseUrl}`.replace(/\/api\/v\d+\/?$/i, '').replace(/\/api\/?$/i, '').replace(/\/$/, '')
 })
-const currentNews = computed(() => newsItems.value[activeNewsIndex.value] || null)
-const currentNewsCover = computed(() => {
-  const cover = currentNews.value?.cover || ''
-
+const normalizeAssetUrl = (cover: string) => {
   if (!cover) {
     return ''
   }
@@ -191,9 +189,7 @@ const currentNewsCover = computed(() => {
     : `upload/${normalizedCover}`
 
   return `${apiAssetBaseUrl.value}/${uploadPath}`
-})
-const currentNewsLink = computed(() => currentNews.value?.url || '#')
-const currentNewsLinkTarget = computed(() => /^https?:\/\//i.test(currentNewsLink.value) ? '_blank' : '_self')
+}
 const primaryWallet = computed(() => (
   wallets.value.find((wallet) => Number(wallet.type) === 1) || wallets.value[0] || null
 ))
@@ -204,8 +200,43 @@ const customerNoLabel = computed(() => {
   return customerNo ? `รหัสสมาชิก : ${customerNo}` : 'รหัสสมาชิก : -'
 })
 
-const handleNewsClick = (event: MouseEvent) => {
-  if (currentNewsLink.value === '#') {
+const newsKey = (news: NewsItem, index: number) => String(news.id || news.slug || news.url || news.title || `news-${index}`)
+const newsCover = (news: NewsItem) => normalizeAssetUrl(news.image_thumb_url || news.cover || news.cover_url || news.image_full_url || '')
+const newsLink = (news: NewsItem) => {
+  if (news.url) {
+    return news.url
+  }
+
+  if (news.slug) {
+    return `/news/${encodeURIComponent(news.slug)}`
+  }
+
+  return '#'
+}
+const newsTarget = (news: NewsItem) => /^https?:\/\//i.test(newsLink(news)) ? '_blank' : '_self'
+const newsPublishedValue = (news: NewsItem) => news.display_start_at || news.created_at || news.updated_at || ''
+const newsPublishedIso = (news: NewsItem) => {
+  const value = newsPublishedValue(news)
+  if (!value) return ''
+  const date = new Date(String(value))
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString()
+}
+const newsPublishedLabel = (news: NewsItem) => {
+  const value = newsPublishedValue(news)
+  if (!value) return ''
+
+  const date = new Date(String(value))
+  if (Number.isNaN(date.getTime())) return ''
+
+  return new Intl.DateTimeFormat('th-TH', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Asia/Bangkok'
+  }).format(date)
+}
+
+const handleNewsClick = (event: MouseEvent, news: NewsItem) => {
+  if (newsLink(news) === '#') {
     event.preventDefault()
   }
 }
@@ -237,49 +268,12 @@ const fetchReward = async () => {
   }
 }
 
-const stopNewsTimer = () => {
-  if (newsTimer) {
-    clearInterval(newsTimer)
-    newsTimer = null
-  }
-}
-
-const startNewsTimer = () => {
-  stopNewsTimer()
-
-  if (newsItems.value.length <= 1) {
-    return
-  }
-
-  newsTimer = setInterval(() => {
-    nextNews()
-  }, 5000)
-}
-
-const nextNews = () => {
-  if (!newsItems.value.length) {
-    return
-  }
-
-  activeNewsIndex.value = (activeNewsIndex.value + 1) % newsItems.value.length
-}
-
-const previousNews = () => {
-  if (!newsItems.value.length) {
-    return
-  }
-
-  activeNewsIndex.value = (activeNewsIndex.value - 1 + newsItems.value.length) % newsItems.value.length
-}
-
 const fetchNews = async () => {
   try {
     const response = await platformApi.newsLegacy()
 
     if (response.data?.code === 0 && Array.isArray(response.data.result)) {
       newsItems.value = response.data.result
-      activeNewsIndex.value = 0
-      startNewsTimer()
     }
   } catch (error) {
     console.log(error)
@@ -323,8 +317,6 @@ onMounted(() => {
   fetchNews()
   void fetchWallet()
 })
-
-onBeforeUnmount(stopNewsTimer)
 </script>
 
 <style scoped>
@@ -389,108 +381,119 @@ onBeforeUnmount(stopNewsTimer)
   background: #eaf5ff;
 }
 
-.home-news-slider {
-  position: relative;
-  overflow: hidden;
-  border-radius: 8px;
-  background: #e9eef6;
-  box-shadow: 0 10px 24px rgba(33, 55, 85, .08);
+.home-news-section {
+  margin-top: 18px;
 }
 
-.home-news-slide {
-  position: relative;
-  min-height: 168px;
-  display: block;
-  color: #fff;
+.home-news-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.home-news-heading h2 {
+  margin: 0;
+  color: #17335f;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.home-news-heading span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #0b69dc;
+  background: #eaf5ff;
+}
+
+.home-news-rail {
+  display: flex;
+  gap: 12px;
+  margin-inline: -16px;
+  overflow-x: auto;
+  padding: 0 16px 8px;
+  scroll-padding-inline: 16px;
+  scrollbar-width: none;
+}
+
+.home-news-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.home-news-card {
+  flex: 0 0 min(72vw, 238px);
+  overflow: hidden;
+  border: 1px solid #dbe7f5;
+  border-radius: 14px;
+  color: #17335f;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(33, 55, 85, .08);
+  scroll-snap-align: start;
   text-decoration: none;
 }
 
-.home-news-slide img {
+.home-news-card img,
+.home-news-image-fallback {
   width: 100%;
-  height: 190px;
+  height: 126px;
   display: block;
   object-fit: cover;
 }
 
 .home-news-image-fallback {
-  width: 100%;
-  height: 190px;
-  background: linear-gradient(135deg, #0a87f5 0%, #20385f 100%);
+  background:
+    radial-gradient(circle at 78% 22%, rgba(255, 210, 64, .72), transparent 24%),
+    linear-gradient(135deg, #0a87f5 0%, #20385f 100%);
 }
 
-.home-news-slide::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(8, 32, 66, 0) 28%, rgba(8, 32, 66, .74) 100%);
+.home-news-card-body {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
 }
 
-.home-news-caption {
-  position: absolute;
-  z-index: 2;
-  right: 18px;
-  bottom: 18px;
-  left: 18px;
-}
-
-.home-news-kicker {
-  margin-bottom: 4px;
-  font-size: 12px;
-  font-weight: 700;
-  opacity: .88;
-}
-
-.home-news-caption h2 {
+.home-news-card h3 {
+  display: -webkit-box;
   margin: 0;
-  font-size: 20px;
+  overflow: hidden;
+  color: #17335f;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.38;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.home-news-card-time {
+  color: #8a97a7;
+  font-size: 11px;
   font-weight: 800;
   line-height: 1.2;
 }
 
-.home-news-nav {
-  position: absolute;
-  z-index: 3;
-  top: 50%;
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 50%;
-  color: #1f375f;
-  background: rgba(255, 255, 255, .9);
-  transform: translateY(-50%);
+.home-news-card p {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
-.home-news-nav.is-prev {
-  left: 10px;
-}
-
-.home-news-nav.is-next {
-  right: 10px;
-}
-
-.home-news-dots {
-  position: absolute;
-  z-index: 3;
-  right: 0;
-  bottom: 8px;
-  left: 0;
+.home-news-card-footer {
   display: flex;
-  justify-content: center;
-  gap: 6px;
-}
-
-.home-news-dots span {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, .55);
-}
-
-.home-news-dots span.active {
-  width: 18px;
-  background: #fff;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #0b69dc;
+  font-size: 12px;
+  font-weight: 900;
 }
 
 @media (max-width: 520px) {

@@ -8,6 +8,7 @@ type CustomerStockRealtimeOptions = {
   onAvailability?: (payload: any) => void
   onPrice?: (payload: any) => void
   onTopup?: (payload: any) => void
+  onSiteConfig?: (payload: any) => void
   includePresence?: RealtimeValue<boolean>
   onReconnect?: () => void
 }
@@ -50,6 +51,13 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
 
     return `private-customer.tenant.${tenantId.value}.customer.${customerId.value}.topups`
   })
+  const siteConfigChannelName = computed(() => {
+    if (!options.onSiteConfig || !tenantId.value) {
+      return ''
+    }
+
+    return `customer.tenant.${tenantId.value}.site-config`
+  })
   const presenceChannelName = computed(() => {
     if (!includePresence.value || !tenantId.value || !isAuthenticated.value) {
       return ''
@@ -57,7 +65,13 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
 
     return `presence-customer.tenant.${tenantId.value}.customers`
   })
-  const channelNames = computed(() => [stockChannelName.value, salePriceChannelName.value, topupChannelName.value, presenceChannelName.value].filter(Boolean))
+  const channelNames = computed(() => [
+    stockChannelName.value,
+    salePriceChannelName.value,
+    topupChannelName.value,
+    siteConfigChannelName.value,
+    presenceChannelName.value
+  ].filter(Boolean))
   const shouldSubscribe = computed(() => Boolean(import.meta.client && enabled.value && tenantId.value && channelNames.value.length))
 
   let socket: WebSocket | null = null
@@ -204,6 +218,11 @@ export const useCustomerStockRealtime = (options: CustomerStockRealtimeOptions) 
     if (normalizedEvent === 'topup.updated') {
       lastEventAt.value = new Date().toISOString()
       options.onTopup?.(parseRealtimeData(message.data))
+    }
+
+    if (normalizedEvent === 'site-config.updated') {
+      lastEventAt.value = new Date().toISOString()
+      options.onSiteConfig?.(parseRealtimeData(message.data))
     }
   }
 

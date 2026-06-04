@@ -16,7 +16,7 @@ class RbacMenuSeederTest extends TestCase
         $this->seed(DefaultRbacMenuSeeder::class);
 
         $this->assertSame(44, DB::table('permissions')->where('scope_type', 'central')->count());
-        $this->assertSame(71, DB::table('permissions')->where('scope_type', 'tenant')->count());
+        $this->assertSame(73, DB::table('permissions')->where('scope_type', 'tenant')->count());
 
         $this->assertDatabaseHas('permissions', [
             'scope_type' => 'central',
@@ -45,7 +45,7 @@ class RbacMenuSeederTest extends TestCase
         $this->seed(DefaultRbacMenuSeeder::class);
 
         $this->assertSame(31, DB::table('admin_menus')->where('scope_type', 'central')->count());
-        $this->assertSame(35, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
+        $this->assertSame(37, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
 
         $dashboardParentId = (string) DB::table('admin_menus')
             ->where('scope_type', 'central')
@@ -158,6 +158,26 @@ class RbacMenuSeederTest extends TestCase
             'route' => '/admin/tenant/announcements',
             'category' => 'Store Operations',
             'required_permission_code' => 'announcement.view',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('admin_menus', [
+            'scope_type' => 'tenant',
+            'code' => 'activities',
+            'label' => 'Activities',
+            'route' => '/admin/tenant/activities',
+            'category' => 'Store Operations',
+            'required_permission_code' => 'activity.view',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('admin_menus', [
+            'scope_type' => 'tenant',
+            'code' => 'activity_claims',
+            'label' => 'Activity Claims',
+            'route' => '/admin/tenant/activity-claims',
+            'category' => 'Store Operations',
+            'required_permission_code' => 'activity.view',
             'status' => 'active',
         ]);
 
@@ -449,6 +469,15 @@ class RbacMenuSeederTest extends TestCase
             ->where('scope_type', 'tenant')
             ->where('code', 'announcements')
             ->value('id');
+        $activityPermissionIds = DB::table('permissions')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['activity.view', 'activity.manage'])
+            ->pluck('id')
+            ->all();
+        $activityMenuId = (string) DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->where('code', 'activities')
+            ->value('id');
 
         foreach (['rol_t_owner', 'rol_t_owner_partner'] as $roleId) {
             foreach ($rewardClaimPermissionIds as $permissionId) {
@@ -482,6 +511,16 @@ class RbacMenuSeederTest extends TestCase
             $this->assertDatabaseHas('role_menus', [
                 'role_id' => $roleId,
                 'menu_id' => $announcementMenuId,
+            ]);
+            foreach ($activityPermissionIds as $permissionId) {
+                $this->assertDatabaseHas('role_permissions', [
+                    'role_id' => $roleId,
+                    'permission_id' => $permissionId,
+                ]);
+            }
+            $this->assertDatabaseHas('role_menus', [
+                'role_id' => $roleId,
+                'menu_id' => $activityMenuId,
             ]);
         }
     }

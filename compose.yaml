@@ -245,7 +245,7 @@ services:
       dockerfile: Dockerfile
       target: development
     working_dir: /app
-    command: sh -lc "mkdir -p /tmp/newpaotang-customer-nuxt && ln -sfn /app/node_modules /tmp/newpaotang-customer-nuxt/node_modules && npm run dev -- --host 0.0.0.0 --port 3000"
+    command: sh -lc "mkdir -p /tmp/newpaotang-customer-nuxt && ln -sfn /app/node_modules /tmp/node_modules && ln -sfn /app/node_modules /tmp/newpaotang-customer-nuxt/node_modules && npm run dev -- --host 0.0.0.0 --port 3000"
     environment:
       NUXT_PUBLIC_API_BASE_URL: /api/v1
       NUXT_PLATFORM_API_INTERNAL_BASE_URL: http://platform-api:8000/api/v1
@@ -259,6 +259,8 @@ services:
       - "3000:3000"
     volumes:
       - ./apps/customer:/app
+      - ./apps:/apps:ro
+      - ./apps/platform-api:/platform-api:ro
       - customer-node-modules:/app/node_modules
       - customer-nuxt:/app/.nuxt
 
@@ -268,7 +270,7 @@ services:
       dockerfile: Dockerfile
       target: deps
     working_dir: /app
-    command: npm run dev
+    command: sh -lc "mkdir -p /tmp/newpaotang-back-office-nuxt && ln -sfn /app/node_modules /tmp/node_modules && ln -sfn /app/node_modules /tmp/newpaotang-back-office-nuxt/node_modules && npm run dev"
     environment:
       VITE_ADMIN_API_BASE: /api/v1
       VITE_ADMIN_REALTIME_URL: http://localhost:8080

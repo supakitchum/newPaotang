@@ -35,6 +35,7 @@ use Database\Seeders\DefaultRbacMenuSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class PrepareK6BaselineCommand extends Command
@@ -317,7 +318,7 @@ class PrepareK6BaselineCommand extends Command
         $customerRefreshToken = 'npa_crt_'.Str::random(64);
         $partnerToken = 'npa_pt_'.Str::random(64);
 
-        AdminAuthSession::query()->insert([
+        $adminSessionRow = [
             'id' => 'ads_k6_'.$runId,
             'admin_user_id' => $adminId,
             'access_token_hash' => hash('sha256', $adminToken),
@@ -330,10 +331,15 @@ class PrepareK6BaselineCommand extends Command
             'revoked_at' => null,
             'refreshed_from_id' => null,
             'last_used_at' => null,
-            'pin_verified_at' => $now,
             'created_at' => $now,
             'updated_at' => $now,
-        ]);
+        ];
+
+        if (Schema::hasColumn('admin_auth_sessions', 'pin_verified_at')) {
+            $adminSessionRow['pin_verified_at'] = $now;
+        }
+
+        AdminAuthSession::query()->insert($adminSessionRow);
 
         CustomerAuthSession::query()->insert([
             'id' => 'cas_k6_'.$runId,

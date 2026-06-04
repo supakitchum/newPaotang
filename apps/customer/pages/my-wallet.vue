@@ -141,6 +141,10 @@ const transactionTitle = (entry: WalletLedgerEntry) => {
     return 'รับเงินรางวัลสลากฯ'
   }
 
+  if (referenceType.includes('activity_claim')) {
+    return entry.reason?.includes('เงินคืน') ? 'เงินคืนกิจกรรม' : 'รางวัลกิจกรรม'
+  }
+
   if (referenceType.includes('order_refund') || referenceType.includes('order_cancel')) {
     return 'คืนเงินเข้ากระเป๋า'
   }

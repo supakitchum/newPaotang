@@ -15,6 +15,7 @@ use App\Models\SyncOutbox;
 use App\Models\Ticket;
 use App\Models\Wallet;
 use App\Models\WinningTicket;
+use App\Jobs\ProcessTenantActivitiesForGameJob;
 use App\Modules\Reward\Events\RewardClaimUpdated;
 use App\Modules\Reward\Events\RewardLiveResultUpdated;
 use App\Shared\Audit\AuditLogger;
@@ -1826,6 +1827,8 @@ class RewardService
             'published_at' => $publishedAt->toISOString(),
         ]);
         $this->createAutomaticRewardClaimsForResult($rewardResultId, $publishedAt);
+        ProcessTenantActivitiesForGameJob::dispatch((string) $fresh->game_id, 'lucky');
+        ProcessTenantActivitiesForGameJob::dispatch((string) $fresh->game_id, 'cashback')->delay($publishedAt->copy()->addHour());
         $this->broadcastRewardLiveUpdate($rewardResultId);
 
         return $this->rewardResult($rewardResultId) ?? [];

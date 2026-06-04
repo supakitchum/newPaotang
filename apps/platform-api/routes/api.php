@@ -3,6 +3,9 @@
 use App\Modules\Auth\Http\Controllers\AdminAccountSecurityController;
 use App\Modules\Auth\Http\Controllers\AdminAuthController;
 use App\Modules\Auth\Http\Controllers\CustomerRealtimeController;
+use App\Modules\Activities\Http\Controllers\CustomerActivityController;
+use App\Modules\Activities\Http\Controllers\PublicActivityController;
+use App\Modules\Activities\Http\Controllers\TenantActivityController;
 use App\Modules\Rbac\Http\Controllers\AdminMenuController;
 use App\Modules\AdminOperations\Http\Controllers\AdminOperationsController;
 use App\Modules\AdminOperations\Http\Controllers\AssetController;
@@ -65,6 +68,8 @@ Route::get('/public/seo/page', [PublicContentController::class, 'seoPage']);
 Route::get('/public/news', [PublicContentController::class, 'news']);
 Route::get('/public/news/modal', [PublicContentController::class, 'newsModal']);
 Route::get('/public/news/{slug}', [PublicContentController::class, 'newsDetail']);
+Route::get('/public/activities', [PublicActivityController::class, 'index']);
+Route::get('/public/activities/{slug}', [PublicActivityController::class, 'show']);
 Route::get('/public/stores', [PublicContentController::class, 'stores']);
 Route::post('/public/monitor/visit', [PublicVisitController::class, 'track']);
 Route::get('/public/games/current', [PublicGameController::class, 'current']);
@@ -104,6 +109,13 @@ Route::get('/customer/tickets/{ticket_id}', [CustomerCommerceController::class, 
 Route::get('/customer/reward-claims', [CustomerRewardController::class, 'claims'])->middleware('customer.auth');
 Route::post('/customer/reward-claims', [CustomerRewardController::class, 'createClaim'])->middleware('customer.auth');
 Route::get('/customer/reward-claims/{claim_id}', [CustomerRewardController::class, 'claim'])->middleware('customer.auth');
+Route::get('/customer/activities', [CustomerActivityController::class, 'index'])->middleware('customer.auth');
+Route::get('/customer/activities/{activity_id}', [CustomerActivityController::class, 'show'])->middleware('customer.auth');
+Route::get('/customer/activities/{activity_id}/rights', [CustomerActivityController::class, 'rights'])->middleware('customer.auth');
+Route::post('/customer/activities/{activity_id}/entries', [CustomerActivityController::class, 'storeEntry'])->middleware('customer.auth');
+Route::get('/customer/activity-awards', [CustomerActivityController::class, 'awards'])->middleware('customer.auth');
+Route::get('/customer/activity-claims', [CustomerActivityController::class, 'claims'])->middleware('customer.auth');
+Route::post('/customer/activity-claims', [CustomerActivityController::class, 'createClaim'])->middleware('customer.auth');
 Route::get('/customer/topups', [CustomerCommerceController::class, 'topups'])->middleware('customer.auth');
 Route::post('/customer/topups', [CustomerCommerceController::class, 'createTopup'])->middleware('customer.auth');
 Route::post('/customer/topups/credit', [CustomerCommerceController::class, 'createCreditTopup'])->middleware('customer.auth');
@@ -526,6 +538,32 @@ Route::patch('/admin/tenant/announcements/{announcement_id}', [TenantAnnouncemen
 Route::delete('/admin/tenant/announcements/{announcement_id}', [TenantAnnouncementController::class, 'destroy'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/announcements/{announcement_id}/image', [TenantAnnouncementController::class, 'uploadImage'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/activities', [TenantActivityController::class, 'index'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/activities', [TenantActivityController::class, 'store'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/activity-claims', [TenantActivityController::class, 'claims'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/activity-claims/{claim_id}', [TenantActivityController::class, 'claim'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/activity-claims/{claim_id}/approve', [TenantActivityController::class, 'approveClaim'])
+    ->middleware(['admin.auth', 'admin.scope:tenant', 'support.block:payout_approve']);
+Route::post('/admin/tenant/activity-claims/{claim_id}/reject', [TenantActivityController::class, 'rejectClaim'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/activity-claims/{claim_id}/pay', [TenantActivityController::class, 'payClaim'])
+    ->middleware(['admin.auth', 'admin.scope:tenant', 'support.block:payout_approve']);
+Route::get('/admin/tenant/activities/{activity_id}', [TenantActivityController::class, 'show'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::patch('/admin/tenant/activities/{activity_id}', [TenantActivityController::class, 'update'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::delete('/admin/tenant/activities/{activity_id}', [TenantActivityController::class, 'destroy'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/activities/{activity_id}/image', [TenantActivityController::class, 'uploadImage'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/activities/{activity_id}/entries', [TenantActivityController::class, 'entries'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/activities/{activity_id}/awards', [TenantActivityController::class, 'awards'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/stock', [TenantStockController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);

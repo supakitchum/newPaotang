@@ -2,7 +2,7 @@
   <div>
     <AdminPageHeader title="Announcements" :breadcrumbs="['Admin', 'Tenant', 'Announcements']">
       <template #actions>
-        <button class="btn btn-light btn-wave" type="button" @click="resetForm">
+        <button class="btn btn-light btn-wave" type="button" @click="openCreateModal">
           <i class="ri-add-line me-1" />
           New announcement
         </button>
@@ -17,80 +17,82 @@
     <AdminAlert v-if="error" :type="alertType(error)" :message="error.message" :details="error.details" />
     <AdminAlert v-if="successMessage" type="success" :message="successMessage" dismissible @dismiss="successMessage = ''" />
 
-    <div class="row g-4">
-      <div class="col-xl-7">
-        <div class="card custom-card">
-          <div class="card-header align-items-center gap-3">
-            <div class="card-title">Announcement list</div>
-            <div class="ms-auto d-flex flex-wrap gap-2">
-              <input v-model="filters.q" class="form-control form-control-sm np-ann-search" placeholder="Search title or slug" @keyup.enter="loadAnnouncements">
-              <select v-model="filters.status" class="form-select form-select-sm np-ann-status" @change="loadAnnouncements">
-                <option value="">All statuses</option>
-                <option v-for="status in statuses" :key="status" :value="status">{{ titleize(status) }}</option>
-              </select>
-            </div>
-          </div>
-          <div class="card-body">
-            <AdminDataTable
-              :columns="columns"
-              :rows="announcements"
-              :loading="loading"
-              empty-title="No announcements"
-              empty-message="Create the first customer-facing announcement for this partner."
-              sortable
-              embedded
-              :sort-key="sort.key"
-              :sort-direction="sort.direction"
-              @sort-change="handleSort"
-            >
-              <template #cell-title="{ row }">
-                <button class="btn btn-link p-0 fw-semibold text-start" type="button" @click="selectAnnouncement(row)">
-                  {{ row.title }}
-                </button>
-                <div class="text-muted fs-12">{{ row.slug }}</div>
-              </template>
-              <template #cell-modal_enabled="{ row }">
-                <AdminStatusBadge :status="row.modal_enabled" :label="row.modal_enabled ? 'Modal' : 'Hidden'" />
-              </template>
-              <template #cell-important="{ row }">
-                <span v-if="row.important" class="badge bg-warning-transparent text-warning">Important</span>
-                <span v-else class="text-muted">-</span>
-              </template>
-              <template #cell-display_window="{ row }">
-                <div>{{ formatDateTime(row.display_start_at) }}</div>
-                <div class="text-muted fs-12">to {{ formatDateTime(row.display_end_at) }}</div>
-              </template>
-              <template #rowActions="{ row }">
-                <button class="btn btn-sm btn-primary-light btn-wave" type="button" @click="selectAnnouncement(row)">
-                  Edit
-                </button>
-              </template>
-            </AdminDataTable>
-            <AdminPagination
-              class="mt-3"
-              :next-cursor="meta.next_cursor"
-              :has-previous="pageState.index > 0"
-              :loading="loading"
-              @previous="loadPreviousPage"
-              @next="loadNextPage"
-            />
-          </div>
+    <div class="card custom-card">
+      <div class="card-header align-items-center gap-3">
+        <div class="card-title">Announcement list</div>
+        <div class="ms-auto d-flex flex-wrap gap-2">
+          <input v-model="filters.q" class="form-control form-control-sm np-ann-search" placeholder="Search title or slug" @keyup.enter="loadAnnouncements">
+          <select v-model="filters.status" class="form-select form-select-sm np-ann-status" @change="loadAnnouncements">
+            <option value="">All statuses</option>
+            <option v-for="status in statuses" :key="status" :value="status">{{ titleize(status) }}</option>
+          </select>
         </div>
       </div>
+      <div class="card-body">
+        <AdminDataTable
+          :columns="columns"
+          :rows="announcements"
+          :loading="loading"
+          empty-title="No announcements"
+          empty-message="Create the first customer-facing announcement for this partner."
+          sortable
+          embedded
+          :sort-key="sort.key"
+          :sort-direction="sort.direction"
+          @sort-change="handleSort"
+        >
+          <template #cell-title="{ row }">
+            <button class="btn btn-link p-0 fw-semibold text-start" type="button" @click="openEditModal(row)">
+              {{ row.title }}
+            </button>
+            <div class="text-muted fs-12">{{ row.slug }}</div>
+          </template>
+          <template #cell-modal_enabled="{ row }">
+            <AdminStatusBadge :status="row.modal_enabled" :label="row.modal_enabled ? 'Modal' : 'Hidden'" />
+          </template>
+          <template #cell-important="{ row }">
+            <span v-if="row.important" class="badge bg-warning-transparent text-warning">Important</span>
+            <span v-else class="text-muted">-</span>
+          </template>
+          <template #cell-display_window="{ row }">
+            <div>{{ formatDateTime(row.display_start_at) }}</div>
+            <div class="text-muted fs-12">to {{ formatDateTime(row.display_end_at) }}</div>
+          </template>
+          <template #rowActions="{ row }">
+            <button class="btn btn-sm btn-primary-light btn-wave" type="button" @click="openEditModal(row)">
+              Edit
+            </button>
+          </template>
+        </AdminDataTable>
+        <AdminPagination
+          class="mt-3"
+          :next-cursor="meta.next_cursor"
+          :has-previous="pageState.index > 0"
+          :loading="loading"
+          @previous="loadPreviousPage"
+          @next="loadNextPage"
+        />
+      </div>
+    </div>
 
-      <div class="col-xl-5">
-        <div class="card custom-card">
-          <div class="card-header">
-            <div class="card-title">{{ form.id ? 'Edit announcement' : 'Create announcement' }}</div>
+    <div v-if="formModalOpen" class="modal fade show np-ann-modal" tabindex="-1" role="dialog" aria-modal="true">
+      <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <div>
+              <h5 class="modal-title">{{ form.id ? 'Edit announcement' : 'Create announcement' }}</h5>
+              <div class="text-muted fs-12">Customer modal image, schedule, and detail page content</div>
+            </div>
+            <button class="btn-close" type="button" aria-label="Close" :disabled="saving" @click="closeFormModal" />
           </div>
-          <div class="card-body">
+          <div class="modal-body">
             <form class="row g-3" @submit.prevent="saveAnnouncement">
-              <div class="col-12">
+              <div class="col-12 col-lg-7">
                 <label class="form-label">Title</label>
                 <input v-model="form.title" class="form-control" :class="invalidClass('title')" placeholder="Customer-facing title">
                 <div class="invalid-feedback">{{ fieldError('title') }}</div>
               </div>
-              <div class="col-12">
+              <div class="col-12 col-lg-5">
                 <label class="form-label">Slug</label>
                 <input v-model="form.slug" class="form-control" :class="invalidClass('slug')" placeholder="Auto-generated from title if blank">
                 <div class="invalid-feedback">{{ fieldError('slug') }}</div>
@@ -148,41 +150,43 @@
                   <img :src="previewUrl || form.image_thumb_url" alt="Announcement preview">
                 </div>
               </div>
-              <div class="col-12 d-flex flex-wrap justify-content-between gap-2">
-                <button v-if="form.id" class="btn btn-danger-light btn-wave" type="button" :disabled="saving" @click="archiveAnnouncement">
-                  <i class="ri-archive-line me-1" />
-                  Archive
-                </button>
-                <span v-else />
-                <div class="d-flex gap-2">
-                  <button class="btn btn-light btn-wave" type="button" :disabled="saving" @click="resetForm">Reset</button>
-                  <button class="btn btn-primary btn-wave" type="submit" :disabled="saveDisabled">
-                    <span v-if="saving" class="spinner-border spinner-border-sm me-2" />
-                    Save announcement
-                  </button>
+              <div class="col-12">
+                <div class="np-ann-behavior">
+                  <div>
+                    <span class="text-muted fs-12 d-block">Modal pick</span>
+                    <span>Important first, otherwise random active news</span>
+                  </div>
+                  <div>
+                    <span class="text-muted fs-12 d-block">Audience</span>
+                    <span>Guests and logged-in customers</span>
+                  </div>
+                  <div>
+                    <span class="text-muted fs-12 d-block">Detail path</span>
+                    <code>/news/{{ form.slug || 'slug' }}</code>
+                  </div>
                 </div>
               </div>
+              <button class="d-none" type="submit" aria-hidden="true" tabindex="-1" />
             </form>
           </div>
-        </div>
-
-        <div class="card custom-card">
-          <div class="card-header">
-            <div class="card-title">Customer behavior</div>
-          </div>
-          <div class="card-body">
-            <dl class="row mb-0">
-              <dt class="col-5">Modal pick</dt>
-              <dd class="col-7">Important first, otherwise random active news</dd>
-              <dt class="col-5">Audience</dt>
-              <dd class="col-7">Guests and logged-in customers</dd>
-              <dt class="col-5">Detail path</dt>
-              <dd class="col-7"><code>/news/{{ form.slug || 'slug' }}</code></dd>
-            </dl>
+          <div class="modal-footer justify-content-between">
+            <button v-if="form.id" class="btn btn-danger-light btn-wave" type="button" :disabled="saving" @click="archiveAnnouncement">
+              <i class="ri-archive-line me-1" />
+              Archive
+            </button>
+            <span v-else />
+            <div class="d-flex gap-2">
+              <button class="btn btn-light btn-wave" type="button" :disabled="saving" @click="resetForm">Reset</button>
+              <button class="btn btn-primary btn-wave" type="button" :disabled="saveDisabled" @click="saveAnnouncement">
+                <span v-if="saving" class="spinner-border spinner-border-sm me-2" />
+                Save announcement
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
+    <div v-if="formModalOpen" class="modal-backdrop fade show np-ann-modal-backdrop" />
   </div>
 </template>
 
@@ -214,6 +218,7 @@ const successMessage = ref('')
 const announcements = ref<Announcement[]>([])
 const meta = ref<Record<string, any>>({})
 const pageState = ref({ index: 0, cursors: [''] })
+const formModalOpen = ref(false)
 const sort = reactive({ key: 'created_at', direction: 'desc' as 'asc' | 'desc' })
 const filters = reactive({ q: '', status: '' })
 const fieldErrors = ref<Record<string, string[]>>({})
@@ -315,6 +320,22 @@ const selectAnnouncement = (row: Announcement) => {
   fieldErrors.value = {}
 }
 
+const openCreateModal = () => {
+  resetForm()
+  formModalOpen.value = true
+}
+
+const openEditModal = (row: Announcement) => {
+  selectAnnouncement(row)
+  formModalOpen.value = true
+}
+
+const closeFormModal = () => {
+  if (saving.value) return
+  formModalOpen.value = false
+  resetForm()
+}
+
 const resetForm = () => {
   clearPreview()
   Object.assign(form, defaultForm())
@@ -355,6 +376,8 @@ const saveAnnouncement = async () => {
 
     successMessage.value = 'Announcement saved.'
     await loadAnnouncements(pageState.value.cursors[pageState.value.index] || '')
+    formModalOpen.value = false
+    resetForm()
   } catch (err: any) {
     error.value = err
     fieldErrors.value = normalizeFieldErrors(err)
@@ -378,6 +401,7 @@ const archiveAnnouncement = async () => {
       body: { reason: 'Archived from announcement manager' },
     })
     successMessage.value = 'Announcement archived.'
+    formModalOpen.value = false
     resetForm()
     await loadAnnouncements(pageState.value.cursors[pageState.value.index] || '')
   } catch (err: any) {
@@ -482,6 +506,7 @@ const alertType = (err: any) => ([403, 409, 422].includes(Number(err?.status)) ?
 
 watch(tenantId, () => {
   resetForm()
+  formModalOpen.value = false
   pageState.value = { index: 0, cursors: [''] }
   void loadAnnouncements()
 }, { immediate: true })
@@ -515,5 +540,30 @@ onBeforeUnmount(() => {
   max-height: 360px;
   max-width: 100%;
   object-fit: contain;
+}
+
+.np-ann-modal {
+  display: block;
+  z-index: 2000;
+}
+
+.np-ann-modal-backdrop {
+  z-index: 1990;
+}
+
+.np-ann-behavior {
+  background: #f8fafc;
+  border: 1px solid #edf1f7;
+  border-radius: .65rem;
+  display: grid;
+  gap: .85rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: .9rem;
+}
+
+@media (max-width: 991.98px) {
+  .np-ann-behavior {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

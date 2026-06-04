@@ -71,6 +71,7 @@ class DefaultRbacMenuSeeder extends Seeder
         $this->grantTenantWinnerMenuToPartnerOwners($now);
         $this->grantTenantMaintenanceToPartnerOwners($now);
         $this->grantTenantAnnouncementsToPartnerOwners($now);
+        $this->grantTenantActivitiesToPartnerOwners($now);
     }
 
     /**
@@ -180,6 +181,8 @@ class DefaultRbacMenuSeeder extends Seeder
                 'seo.redirect.manage' => 'Manage tenant redirects',
                 'announcement.view' => 'View tenant announcements',
                 'announcement.manage' => 'Manage tenant announcements',
+                'activity.view' => 'View tenant activities',
+                'activity.manage' => 'Manage tenant activities',
                 'maintenance.view' => 'View maintenance settings',
                 'maintenance.update' => 'Update maintenance settings',
                 'maintenance.schedule' => 'Schedule maintenance',
@@ -262,6 +265,8 @@ class DefaultRbacMenuSeeder extends Seeder
                 'affiliate_attributions' => 'affiliate_attribution.view',
                 'commission_rules' => 'commission_rule.view',
                 'announcements' => 'announcement.view',
+                'activities' => 'activity.view',
+                'activity_claims' => 'activity.view',
                 'seo_settings' => 'seo.view',
                 'maintenance' => 'maintenance.view',
                 'support_access_logs' => 'support_access.audit',
@@ -379,6 +384,8 @@ class DefaultRbacMenuSeeder extends Seeder
             'tenant:agent_quotas' => '/admin/tenant/growth/agents',
             'tenant:payment_settings' => '/admin/tenant/payment-settings',
             'tenant:announcements' => '/admin/tenant/announcements',
+            'tenant:activities' => '/admin/tenant/activities',
+            'tenant:activity_claims' => '/admin/tenant/activity-claims',
             'tenant:affiliate_programs' => '/admin/tenant/growth/affiliate-programs',
             'tenant:affiliate_accounts' => '/admin/tenant/growth/affiliates',
             'tenant:affiliate_links' => '/admin/tenant/growth/affiliate-links',
@@ -480,7 +487,9 @@ class DefaultRbacMenuSeeder extends Seeder
             'tenant:exchange_reward',
             'tenant:winners',
             'tenant:payment_settings' => 'Store Operations',
-            'tenant:announcements' => 'Store Operations',
+            'tenant:announcements',
+            'tenant:activities',
+            'tenant:activity_claims' => 'Store Operations',
             'tenant:agents',
             'tenant:agent_quotas',
             'tenant:affiliate_programs',
@@ -522,6 +531,7 @@ class DefaultRbacMenuSeeder extends Seeder
             str_contains($code, 'billing') || str_contains($code, 'settlement') || str_contains($code, 'payout') => 'ri-bank-card-line',
             str_contains($code, 'alert') || str_contains($code, 'monitoring') => 'ri-notification-3-line',
             str_contains($code, 'announcement') => 'ri-megaphone-line',
+            str_contains($code, 'activity') => 'ri-gift-line',
             str_contains($code, 'report') || str_contains($code, 'usage') => 'ri-bar-chart-box-line',
             str_contains($code, 'audit') || str_contains($code, 'log') => 'ri-history-line',
             str_contains($code, 'admin_user') => 'ri-user-settings-line',
@@ -958,6 +968,67 @@ class DefaultRbacMenuSeeder extends Seeder
         $menuIds = DB::table('admin_menus')
             ->where('scope_type', 'tenant')
             ->where('code', 'announcements')
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($menuIds !== []) {
+            $menuRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($menuIds as $menuId) {
+                    $menuRows[] = [
+                        'role_id' => $roleId,
+                        'menu_id' => $menuId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_menus')->insertOrIgnore($menuRows);
+        }
+
+        $this->bumpPermissionCacheVersions($roleIds, $now);
+    }
+
+    private function grantTenantActivitiesToPartnerOwners(mixed $now): void
+    {
+        $roleIds = DB::table('roles')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['owner_partner', 'owner'])
+            ->pluck('id')
+            ->all();
+
+        if ($roleIds === []) {
+            return;
+        }
+
+        $permissionIds = DB::table('permissions')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['activity.view', 'activity.manage'])
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($permissionIds !== []) {
+            $permissionRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($permissionIds as $permissionId) {
+                    $permissionRows[] = [
+                        'role_id' => $roleId,
+                        'permission_id' => $permissionId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_permissions')->insertOrIgnore($permissionRows);
+        }
+
+        $menuIds = DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['activities', 'activity_claims'])
             ->where('status', 'active')
             ->pluck('id')
             ->all();
