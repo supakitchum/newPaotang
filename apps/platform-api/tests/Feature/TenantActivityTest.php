@@ -46,11 +46,155 @@ class TenantActivityTest extends TestCase
         $this->assertSame('resource_conflict', $second['error'] ?? null);
     }
 
+    public function test_lucky_board_cumulative_rights_are_ticket_blocks_consumed_across_activities(): void
+    {
+        $service = app(TenantActivityService::class);
+        $this->insertActivePartnerTenantWithDomain('par_act_blocks', 'ten_act_blocks', 'act-blocks.test');
+        $this->insertGame('gam_act_blocks', 'open');
+        $this->issueCustomerToken('ten_act_blocks', 'cus_act_blocks');
+        $this->insertLuckyActivity('ten_act_blocks', 'gam_act_blocks', 'act_lucky_15', thresholdTickets: 15);
+        $this->insertLuckyActivity('ten_act_blocks', 'gam_act_blocks', 'act_lucky_20', thresholdTickets: 20);
+        $this->insertPaidOrderWithTickets(
+            'par_act_blocks',
+            'ten_act_blocks',
+            'gam_act_blocks',
+            'cus_act_blocks',
+            'ord_blocks_30',
+            array_map(fn (int $index): string => (string) (123400 + $index), range(1, 30)),
+            240000,
+        );
+
+        $context = $this->customerContext('ten_act_blocks', 'cus_act_blocks');
+        $first = $service->customerRights('ten_act_blocks', $context, 'act_lucky_15');
+        $second = $service->customerRights('ten_act_blocks', $context, 'act_lucky_20');
+
+        $this->assertSame(2, $first['earned_count']);
+        $this->assertSame(2, $first['remaining_count']);
+        $this->assertSame(1, $second['earned_count']);
+        $this->assertSame(1, $second['remaining_count']);
+
+        $entry = $service->createCustomerEntry('ten_act_blocks', $context, 'act_lucky_20', [
+            'prediction_type' => 'first_prize_last2',
+            'selected_number' => '20',
+        ]);
+        $this->assertSame(201, $entry['status'] ?? null);
+
+        $blocked = $service->customerRights('ten_act_blocks', $context, 'act_lucky_15');
+        $this->assertSame(0, $blocked['earned_count']);
+        $this->assertSame(0, $blocked['remaining_count']);
+        $this->assertSame(10, $blocked['available_ticket_count']);
+
+        $conflict = $service->createCustomerEntry('ten_act_blocks', $context, 'act_lucky_15', [
+            'prediction_type' => 'first_prize_last2',
+            'selected_number' => '15',
+        ]);
+        $this->assertSame('resource_conflict', $conflict['error'] ?? null);
+
+        $this->insertPaidOrderWithTickets(
+            'par_act_blocks',
+            'ten_act_blocks',
+            'gam_act_blocks',
+            'cus_act_blocks',
+            'ord_blocks_5',
+            array_map(fn (int $index): string => (string) (223400 + $index), range(1, 5)),
+            40000,
+        );
+
+        $afterTopup = $service->customerRights('ten_act_blocks', $context, 'act_lucky_15');
+        $this->assertSame(1, $afterTopup['earned_count']);
+        $this->assertSame(1, $afterTopup['remaining_count']);
+        $this->assertSame(15, $afterTopup['available_ticket_count']);
+    }
+
+    public function test_lucky_board_numbers_are_reserved_globally_and_exposed_for_customer_board(): void
+    {
+        $service = app(TenantActivityService::class);
+        $this->insertActivePartnerTenantWithDomain('par_act_reserved', 'ten_act_reserved', 'act-reserved.test');
+        $this->insertGame('gam_act_reserved', 'open');
+        $this->issueCustomerToken('ten_act_reserved', 'cus_act_reserved_one');
+        $this->issueCustomerToken('ten_act_reserved', 'cus_act_reserved_two');
+        $this->insertLuckyActivity('ten_act_reserved', 'gam_act_reserved', 'act_lucky_reserved', thresholdTickets: 1);
+        $this->insertPaidOrderWithTickets('par_act_reserved', 'ten_act_reserved', 'gam_act_reserved', 'cus_act_reserved_one', 'ord_reserved_one', ['423456'], 8000);
+        $this->insertPaidOrderWithTickets('par_act_reserved', 'ten_act_reserved', 'gam_act_reserved', 'cus_act_reserved_two', 'ord_reserved_two', ['523456'], 8000);
+
+        $first = $service->createCustomerEntry('ten_act_reserved', $this->customerContext('ten_act_reserved', 'cus_act_reserved_one'), 'act_lucky_reserved', [
+            'prediction_type' => 'first_prize_last2',
+            'selected_number' => '56',
+        ]);
+        $this->assertSame(201, $first['status'] ?? null);
+
+        $duplicate = $service->createCustomerEntry('ten_act_reserved', $this->customerContext('ten_act_reserved', 'cus_act_reserved_two'), 'act_lucky_reserved', [
+            'prediction_type' => 'first_prize_last2',
+            'selected_number' => '56',
+        ]);
+        $this->assertSame('resource_conflict', $duplicate['error'] ?? null);
+
+        $detail = $service->publicFindBySlug('ten_act_reserved', 'act-lucky-reserved');
+        $this->assertSame(100, $detail['number_board']['total_count'] ?? null);
+        $this->assertSame(1, $detail['number_board']['reserved_count'] ?? null);
+        $this->assertSame(99, $detail['number_board']['remaining_count'] ?? null);
+        $this->assertContains('56', $detail['number_board']['reserved_numbers'] ?? []);
+
+        $list = $service->publicList('ten_act_reserved');
+        $this->assertSame(99, $list['data'][0]['number_board']['remaining_count'] ?? null);
+        $this->assertArrayNotHasKey('reserved_numbers', $list['data'][0]['number_board']);
+    }
+
+    public function test_lucky_board_single_order_rights_consume_ticket_blocks_from_the_same_order(): void
+    {
+        $service = app(TenantActivityService::class);
+        $this->insertActivePartnerTenantWithDomain('par_act_order_blocks', 'ten_act_order_blocks', 'act-order-blocks.test');
+        $this->insertGame('gam_act_order_blocks', 'open');
+        $this->issueCustomerToken('ten_act_order_blocks', 'cus_act_order_blocks');
+        $this->insertLuckyActivity('ten_act_order_blocks', 'gam_act_order_blocks', 'act_order_5', thresholdTickets: 5, eligibilityRule: 'single_order_exact_tickets');
+        $this->insertLuckyActivity('ten_act_order_blocks', 'gam_act_order_blocks', 'act_order_10', thresholdTickets: 10, eligibilityRule: 'single_order_exact_tickets');
+        $this->insertPaidOrderWithTickets(
+            'par_act_order_blocks',
+            'ten_act_order_blocks',
+            'gam_act_order_blocks',
+            'cus_act_order_blocks',
+            'ord_single_15',
+            array_map(fn (int $index): string => (string) (323400 + $index), range(1, 15)),
+            120000,
+        );
+
+        $context = $this->customerContext('ten_act_order_blocks', 'cus_act_order_blocks');
+        $five = $service->customerRights('ten_act_order_blocks', $context, 'act_order_5');
+        $ten = $service->customerRights('ten_act_order_blocks', $context, 'act_order_10');
+
+        $this->assertSame(3, $five['earned_count']);
+        $this->assertSame(3, $five['remaining_count']);
+        $this->assertSame(1, $ten['earned_count']);
+        $this->assertSame(1, $ten['remaining_count']);
+
+        $firstEntry = $service->createCustomerEntry('ten_act_order_blocks', $context, 'act_order_5', [
+            'prediction_type' => 'first_prize_last2',
+            'selected_number' => '05',
+        ]);
+        $this->assertSame(201, $firstEntry['status'] ?? null);
+
+        $tenAfterFive = $service->customerRights('ten_act_order_blocks', $context, 'act_order_10');
+        $this->assertSame(1, $tenAfterFive['remaining_count']);
+        $this->assertSame(10, $tenAfterFive['available_ticket_count']);
+
+        $secondEntry = $service->createCustomerEntry('ten_act_order_blocks', $context, 'act_order_10', [
+            'prediction_type' => 'first_prize_last2',
+            'selected_number' => '10',
+        ]);
+        $this->assertSame(201, $secondEntry['status'] ?? null);
+
+        $fiveAfterTen = $service->customerRights('ten_act_order_blocks', $context, 'act_order_5');
+        $this->assertSame(1, $fiveAfterTen['used_count']);
+        $this->assertSame(0, $fiveAfterTen['remaining_count']);
+        $this->assertSame(0, $fiveAfterTen['available_ticket_count']);
+    }
+
     public function test_lucky_award_can_be_claimed_and_partner_approval_credits_wallet(): void
     {
         $service = app(TenantActivityService::class);
         $this->insertActivePartnerTenantWithDomain('par_act_claim', 'ten_act_claim', 'act-claim.test');
         $this->insertGame('gam_act_claim', 'open');
+        $this->markActivityResultReady('gam_act_claim');
         $this->issueCustomerToken('ten_act_claim', 'cus_act_claim');
         $this->insertLuckyActivity('ten_act_claim', 'gam_act_claim', 'act_lucky_claim', thresholdTickets: 1, firstPrizeLast2Amount: 50000);
         $this->insertPaidOrderWithTickets('par_act_claim', 'ten_act_claim', 'gam_act_claim', 'cus_act_claim', 'ord_claim', ['123456'], 8000);
@@ -94,6 +238,7 @@ class TenantActivityTest extends TestCase
         $service = app(TenantActivityService::class);
         $this->insertActivePartnerTenantWithDomain('par_act_auto', 'ten_act_auto', 'act-auto.test');
         $this->insertGame('gam_act_auto', 'open');
+        $this->markActivityResultReady('gam_act_auto');
         $this->issueCustomerToken('ten_act_auto', 'cus_act_auto');
         DB::table('customers')->where('id', 'cus_act_auto')->update([
             'auto_reward_claim_enabled' => true,
@@ -154,6 +299,8 @@ class TenantActivityTest extends TestCase
         ], $actor, Request::create('/api/v1/admin/tenant/activities', 'POST'));
 
         $this->assertArrayHasKey('resource', $lucky);
+        $this->assertMatchesRegularExpression('/^par-act-config-[a-z0-9]{5}$/', $lucky['resource']['slug']);
+        $this->assertNotSame('lucky-selector', $lucky['resource']['slug']);
         $this->assertDatabaseHas('tenant_activity_lucky_configs', [
             'activity_id' => $lucky['resource']['id'],
             'first_prize_last2_enabled' => false,
@@ -178,6 +325,8 @@ class TenantActivityTest extends TestCase
         ], $actor, Request::create('/api/v1/admin/tenant/activities', 'POST'));
 
         $this->assertArrayHasKey('resource', $cashback);
+        $this->assertMatchesRegularExpression('/^par-act-config-[a-z0-9]{5}$/', $cashback['resource']['slug']);
+        $this->assertNotSame('amount-minimum-cashback', $cashback['resource']['slug']);
         $this->assertDatabaseHas('tenant_activity_cashback_configs', [
             'activity_id' => $cashback['resource']['id'],
             'min_ticket_count' => 0,
@@ -190,11 +339,15 @@ class TenantActivityTest extends TestCase
         $service = app(TenantActivityService::class);
         $this->insertActivePartnerTenantWithDomain('par_act_cashback', 'ten_act_cashback', 'act-cashback.test');
         $this->insertGame('gam_act_cashback', 'closed');
+        $this->markActivityResultReady('gam_act_cashback');
         $this->issueCustomerToken('ten_act_cashback', 'cus_act_cashback');
         $this->insertCashbackActivity('ten_act_cashback', 'gam_act_cashback', 'act_cashback_percent', 'percent', 1000, 0, 1, 10000, 10);
         $this->insertCashbackActivity('ten_act_cashback', 'gam_act_cashback', 'act_cashback_fixed', 'fixed', 0, 1000, 1, 10000, 1);
         $this->insertPaidOrderWithTickets('par_act_cashback', 'ten_act_cashback', 'gam_act_cashback', 'cus_act_cashback', 'ord_cashback', ['223456', '223457'], 16000);
         $this->insertPublishedRewardResult('gam_act_cashback', 'rwr_act_cashback', '999999', '88');
+
+        $detail = $service->customerActivity('ten_act_cashback', $this->customerContext('ten_act_cashback', 'cus_act_cashback'), 'act_cashback_percent');
+        $this->assertSame(1600, $detail['cashback_progress']['estimated_amount']['amount'] ?? null);
 
         $this->assertSame(['lucky_awards' => 0, 'cashback_awards' => 1], $service->processGame('gam_act_cashback', 'cashback'));
         $this->assertSame(['lucky_awards' => 0, 'cashback_awards' => 0], $service->processGame('gam_act_cashback', 'cashback'));
@@ -208,6 +361,29 @@ class TenantActivityTest extends TestCase
             'status' => 'claimable',
         ]);
         $this->assertSame(1, DB::table('tenant_activity_awards')->where('tenant_id', 'ten_act_cashback')->where('type', 'cashback')->count());
+    }
+
+    public function test_activity_processing_waits_until_five_pm_on_draw_date(): void
+    {
+        $service = app(TenantActivityService::class);
+        $this->insertActivePartnerTenantWithDomain('par_act_schedule', 'ten_act_schedule', 'act-schedule.test');
+        $this->insertGame('gam_act_schedule', 'open');
+        $this->issueCustomerToken('ten_act_schedule', 'cus_act_schedule');
+        $this->insertLuckyActivity('ten_act_schedule', 'gam_act_schedule', 'act_lucky_schedule', thresholdTickets: 1, firstPrizeLast2Amount: 50000);
+        $this->insertPaidOrderWithTickets('par_act_schedule', 'ten_act_schedule', 'gam_act_schedule', 'cus_act_schedule', 'ord_schedule', ['123456'], 8000);
+
+        $customer = $this->customerContext('ten_act_schedule', 'cus_act_schedule');
+        $service->createCustomerEntry('ten_act_schedule', $customer, 'act_lucky_schedule', [
+            'prediction_type' => 'first_prize_last2',
+            'selected_number' => '56',
+        ]);
+        $this->insertPublishedRewardResult('gam_act_schedule', 'rwr_act_schedule', '123456', '99');
+
+        $this->assertSame(['lucky_awards' => 0, 'cashback_awards' => 0], $service->processGame('gam_act_schedule', 'lucky'));
+        $this->assertDatabaseMissing('tenant_activity_awards', [
+            'tenant_id' => 'ten_act_schedule',
+            'activity_id' => 'act_lucky_schedule',
+        ]);
     }
 
     private function customerContext(string $tenantId, string $customerId): CustomerSessionContext
@@ -246,12 +422,21 @@ class TenantActivityTest extends TestCase
         return $request;
     }
 
+    private function markActivityResultReady(string $gameId): void
+    {
+        DB::table('games')->where('id', $gameId)->update([
+            'draw_at' => now()->subDay(),
+            'updated_at' => now(),
+        ]);
+    }
+
     private function insertLuckyActivity(
         string $tenantId,
         string $gameId,
         string $activityId,
         int $thresholdTickets,
         int $firstPrizeLast2Amount = 10000,
+        string $eligibilityRule = 'cumulative_tickets',
     ): void {
         $this->insertActivity($tenantId, $gameId, $activityId, 'lucky_board', 1);
         DB::table('tenant_activity_lucky_configs')->insert([
@@ -259,7 +444,7 @@ class TenantActivityTest extends TestCase
             'first_prize_last2_enabled' => true,
             'first_prize_last3_enabled' => false,
             'last2_enabled' => false,
-            'eligibility_rule' => 'cumulative_tickets',
+            'eligibility_rule' => $eligibilityRule,
             'threshold_tickets' => $thresholdTickets,
             'first_prize_last2_amount' => $firstPrizeLast2Amount,
             'first_prize_last3_amount' => 0,
@@ -329,6 +514,7 @@ class TenantActivityTest extends TestCase
         int $totalAmount,
     ): void {
         $localIds = $this->syncAllocatedStockToLocal($partnerId, $tenantId, $gameId, count($numbers), $orderId, (int) $numbers[0], 'store_'.$tenantId);
+        $localIds = array_slice($localIds, -count($numbers));
         $reservationId = 'res_'.substr(sha1($orderId), 0, 20);
         DB::table('stock_reservations')->insert([
             'id' => $reservationId,

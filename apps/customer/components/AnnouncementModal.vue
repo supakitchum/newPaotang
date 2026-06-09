@@ -19,6 +19,11 @@ const loaded = ref(false)
 const announcement = ref<Record<string, any> | null>(null)
 
 const imageUrl = computed(() => announcement.value?.image_full_url || announcement.value?.image_thumb_url || announcement.value?.cover_url || announcement.value?.cover || '')
+const suppressAnnouncementModal = computed(() => (
+  route.path === '/news'
+  || route.path.startsWith('/news/')
+  || route.path.startsWith('/maintenance')
+))
 
 const announcementFromResponse = (response: Record<string, any> | null | undefined) => {
   if (!response || typeof response !== 'object') {
@@ -48,7 +53,7 @@ const openDetail = async () => {
 }
 
 const loadAnnouncement = async () => {
-  if (!import.meta.client || loaded.value || route.path.startsWith('/maintenance')) {
+  if (!import.meta.client || loaded.value || suppressAnnouncementModal.value) {
     return
   }
 

@@ -85,6 +85,7 @@
 
 <script setup lang="ts">
 import {ref} from 'vue'
+import {handlesCustomerPinInline} from '~/utils/customerAuthRoutes'
 
 definePageMeta({
   requiresAuth: false,
@@ -120,6 +121,22 @@ const needsPinUnlock = (response: Record<string, any>) => Boolean(
   response?.pin_required ||
   response?.user?.pin_setup_required ||
   response?.user?.pin_required
+)
+
+const needsPinSetup = (response: Record<string, any>) => Boolean(
+  response?.pin_setup_required ||
+  response?.user?.pin_setup_required
+)
+
+const needsPinVerification = (response: Record<string, any>) => Boolean(
+  response?.pin_required ||
+  response?.user?.pin_required
+)
+
+const shouldUseInlinePinRedirect = (response: Record<string, any>, redirect: string) => (
+  !needsPinSetup(response) &&
+  needsPinVerification(response) &&
+  handlesCustomerPinInline(redirect)
 )
 
 const registerTo = computed(() => {
@@ -161,10 +178,17 @@ const handleSubmit = async () => {
       await applyStoredRef()
 
       if (needsPinUnlock(response)) {
+        const redirect = getSafeRedirect()
+
+        if (shouldUseInlinePinRedirect(response, redirect)) {
+          await navigateTo(redirect)
+          return
+        }
+
         await navigateTo({
           path: '/pin',
           query: {
-            redirect: getSafeRedirect()
+            redirect
           }
         })
         return

@@ -107,6 +107,6 @@ export const menuSections = [
   },
   {
     title: 'เกี่ยวกับแอปฯ GLO',
-    items: [{ label: 'ข้อตกลงและเงื่อนไข', to: '/terms' }, { label: 'ข้อควรรู้การซื้อ-ขายสลากฯ', to: '/lottery-knowledge' }, 'วิธีซื้อขายสลากฯ และการติดต่อ']
+    items: [{ label: 'ข่าวสาร', to: '/news' }, { label: 'ข้อตกลงและเงื่อนไข', to: '/terms' }, { label: 'ข้อควรรู้การซื้อ-ขายสลากฯ', to: '/lottery-knowledge' }, 'วิธีซื้อขายสลากฯ และการติดต่อ']
   }
 ]

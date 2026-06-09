@@ -59,6 +59,35 @@
         </div>
       </section>
 
+      <section v-if="activityItems.length" class="home-activities-section" aria-label="กิจกรรม">
+        <div class="home-section-heading">
+          <h2>กิจกรรม</h2>
+          <NuxtLink to="/activities">ดูทั้งหมด</NuxtLink>
+        </div>
+        <div class="home-activities-rail">
+          <NuxtLink
+            v-for="(activity, index) in activityItems"
+            :key="activityKey(activity, index)"
+            class="home-activity-card"
+            :to="`/activities/${encodeURIComponent(String(activity.slug || ''))}`"
+          >
+            <img v-if="activityImage(activity)" :src="activityImage(activity)" :alt="activity.name || 'กิจกรรม'">
+            <div v-else class="home-activity-image-fallback">
+              <i class="bi bi-stars" />
+            </div>
+            <div class="home-activity-card-body">
+              <div class="home-activity-card-top">
+                <span>{{ activityTypeLabel(activity) }}</span>
+                <i class="bi bi-chevron-right" />
+              </div>
+              <h3>{{ activity.name || 'กิจกรรมพิเศษ' }}</h3>
+              <p>{{ activityConditionText(activity) }}</p>
+              <small>{{ activityMeta(activity) }}</small>
+            </div>
+          </NuxtLink>
+        </div>
+      </section>
+
       <section v-if="isRewardLoading" class="result-card mb-3 text-center muted-text">
         กำลังโหลดผลรางวัล
       </section>
@@ -78,7 +107,7 @@
 
       <section v-if="newsItems.length" class="home-news-section" aria-label="ข่าวสารและกิจกรรม">
         <div class="home-news-heading">
-          <h2>เรื่องเด่น</h2>
+          <h2>ข่าวสาร</h2>
           <span><i class="bi bi-images" /></span>
         </div>
         <div class="home-news-rail">
@@ -111,6 +140,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { luckyDigits } from '~/data/lottery'
 import type { LotteryRewardGame } from '~/composables/useLotteryReward'
+import { activityConditionText, formatActivityBaht } from '~/utils/activityDisplay'
 
 interface NewsItem {
   id?: number
@@ -129,6 +159,22 @@ interface NewsItem {
   button?: unknown
 }
 
+interface ActivityItem {
+  id?: string | number
+  name?: string
+  slug?: string
+  type?: string
+  image?: string
+  image_thumb?: string
+  image_thumb_url?: string
+  image_full_url?: string
+  cover?: string
+  cover_url?: string
+  number_board?: Record<string, unknown> | null
+  cashback_progress?: Record<string, unknown> | null
+  config?: Record<string, unknown> | null
+}
+
 definePageMeta({
   requiresAuth: false
 })
@@ -143,6 +189,7 @@ const latestGame = ref<LotteryRewardGame | null>(null)
 const historyGames = ref<LotteryRewardGame[]>([])
 const isRewardLoading = ref(true)
 const newsItems = ref<NewsItem[]>([])
+const activityItems = ref<ActivityItem[]>([])
 const wallets = ref<Array<Record<string, any>>>([])
 const isWalletLoading = ref(false)
 
@@ -214,6 +261,7 @@ const newsLink = (news: NewsItem) => {
   return '#'
 }
 const newsTarget = (news: NewsItem) => /^https?:\/\//i.test(newsLink(news)) ? '_blank' : '_self'
+const isExternalNewsLink = (link: string) => /^https?:\/\//i.test(link)
 const newsPublishedValue = (news: NewsItem) => news.display_start_at || news.created_at || news.updated_at || ''
 const newsPublishedIso = (news: NewsItem) => {
   const value = newsPublishedValue(news)
@@ -236,9 +284,39 @@ const newsPublishedLabel = (news: NewsItem) => {
 }
 
 const handleNewsClick = (event: MouseEvent, news: NewsItem) => {
-  if (newsLink(news) === '#') {
+  const link = newsLink(news)
+
+  if (link === '#') {
     event.preventDefault()
+    return
   }
+
+  if (!isExternalNewsLink(link)) {
+    event.preventDefault()
+    void navigateTo(link)
+  }
+}
+
+const activityKey = (activity: ActivityItem, index: number) => String(activity.id || activity.slug || activity.name || `activity-${index}`)
+const activityImage = (activity: ActivityItem) => normalizeAssetUrl(activity.image_thumb || activity.image_thumb_url || activity.cover || activity.cover_url || activity.image || activity.image_full_url || '')
+const activityTypeLabel = (activity: ActivityItem) => String(activity.type || '') === 'cashback' ? 'รับเงินคืน' : 'แผงเลขนำโชค'
+const activityMeta = (activity: ActivityItem) => {
+  if (String(activity.type || '') === 'cashback') {
+    const progress = activity.cashback_progress && typeof activity.cashback_progress === 'object' ? activity.cashback_progress : {}
+    const estimated = Number(progress.estimated_amount || 0)
+
+    return estimated > 0 ? `คาดว่าจะได้รับ ${formatActivityBaht(estimated)}` : 'ตรวจสิทธิ์เงินคืนหลังออกผล'
+  }
+
+  const board = activity.number_board && typeof activity.number_board === 'object' ? activity.number_board : {}
+  const total = Number(board.total_count || 0)
+  const remaining = Number(board.remaining_count)
+  const fallbackRemaining = Math.max(0, total - Number(board.reserved_count || 0))
+  const safeRemaining = Number.isFinite(remaining) && remaining >= 0 ? remaining : fallbackRemaining
+
+  return total > 0
+    ? `เหลือ ${safeRemaining.toLocaleString('th-TH', { maximumFractionDigits: 0 })} เลขให้เลือก`
+    : 'เลือกเลขนำโชคเข้าร่วมกิจกรรม'
 }
 
 const fetchReward = async () => {
@@ -280,6 +358,16 @@ const fetchNews = async () => {
   }
 }
 
+const fetchActivities = async () => {
+  try {
+    const response = await platformApi.activitiesPublic({ limit: 10 })
+    activityItems.value = Array.isArray(response.data) ? response.data : []
+  } catch (error) {
+    console.log(error)
+    activityItems.value = []
+  }
+}
+
 const fetchWallet = async () => {
   if (!isAuthenticated.value) {
     wallets.value = []
@@ -315,6 +403,7 @@ watch(isAuthenticated, (authenticated) => {
 onMounted(() => {
   fetchReward()
   fetchNews()
+  fetchActivities()
   void fetchWallet()
 })
 </script>
@@ -383,6 +472,144 @@ onMounted(() => {
 
 .home-news-section {
   margin-top: 18px;
+}
+
+.home-activities-section {
+  margin: 0 0 18px;
+}
+
+.home-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.home-section-heading h2 {
+  margin: 0;
+  color: #17335f;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.home-section-heading a {
+  color: #0b69dc;
+  font-size: 13px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.home-activities-rail {
+  display: flex;
+  gap: 12px;
+  margin-inline: -16px;
+  overflow-x: auto;
+  padding: 0 16px 8px;
+  scroll-padding-inline: 16px;
+  scrollbar-width: none;
+}
+
+.home-activities-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.home-activity-card {
+  flex: 0 0 min(84vw, 336px);
+  min-height: 132px;
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid #dbe7f5;
+  border-radius: 14px;
+  color: #17335f;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(33, 55, 85, .08);
+  scroll-snap-align: start;
+  text-decoration: none;
+}
+
+.home-activity-card img,
+.home-activity-image-fallback {
+  width: 100%;
+  height: 100%;
+  min-height: 132px;
+  display: block;
+  object-fit: cover;
+}
+
+.home-activity-image-fallback {
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background:
+    radial-gradient(circle at 74% 18%, rgba(255, 210, 64, .82), transparent 25%),
+    linear-gradient(135deg, #0b84ed 0%, #11a584 100%);
+  font-size: 32px;
+}
+
+.home-activity-card-body {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 12px;
+}
+
+.home-activity-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.home-activity-card-top span {
+  min-height: 23px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  color: #075ec9;
+  background: #eaf5ff;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0 9px;
+}
+
+.home-activity-card-top i {
+  flex: 0 0 auto;
+  color: #0b69dc;
+  font-size: 16px;
+}
+
+.home-activity-card h3 {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: #17335f;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.home-activity-card p {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.38;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.home-activity-card small {
+  color: #0b69dc;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.2;
 }
 
 .home-news-heading {

@@ -90,7 +90,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { UserTicket, UserTicketGame } from '~/composables/useUserTickets'
 
 definePageMeta({
@@ -183,15 +183,38 @@ const fetchHistoryPage = async (page = 1) => {
   } finally {
     isLoading.value = false
     isLoadingMore.value = false
+    void maybeLoadNextPageIfNeeded()
   }
 }
 
-const loadNextPage = () => {
-  if (!hasMore.value || isLoading.value || isLoadingMore.value || showOnlyWinning.value) {
+const loadNextPage = async () => {
+  if (!hasMore.value || isLoading.value || isLoadingMore.value) {
     return
   }
 
-  fetchHistoryPage(currentPage.value + 1)
+  await fetchHistoryPage(currentPage.value + 1)
+}
+
+const scrollRoot = () => {
+  if (!process.client) {
+    return null
+  }
+
+  return loadMoreSentinel.value?.closest('.app-scroll') as HTMLElement | null
+}
+
+const maybeLoadNextPageIfNeeded = async () => {
+  await nextTick()
+
+  const root = scrollRoot()
+
+  if (!root || loadError.value || !hasMore.value || isLoading.value || isLoadingMore.value) {
+    return
+  }
+
+  if (root.scrollHeight <= root.clientHeight + 220) {
+    await loadNextPage()
+  }
 }
 
 const setupLoadObserver = async () => {
@@ -202,15 +225,22 @@ const setupLoadObserver = async () => {
   }
 
   loadObserver?.disconnect()
+  const root = scrollRoot()
+
   loadObserver = new IntersectionObserver((entries) => {
     if (entries.some((entry) => entry.isIntersecting)) {
-      loadNextPage()
+      void loadNextPage()
     }
   }, {
-    rootMargin: '180px 0px'
+    root,
+    rootMargin: '240px 0px 280px'
   })
   loadObserver.observe(loadMoreSentinel.value)
 }
+
+watch(showOnlyWinning, () => {
+  void maybeLoadNextPageIfNeeded()
+})
 
 onMounted(async () => {
   try {

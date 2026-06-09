@@ -120,17 +120,16 @@ class TenantActivityService
             return ['error' => 'not_found'];
         }
 
+        $tenant->loadMissing('partner');
+
         $normalized = $this->basePayload($payload, true);
+        $normalized['slug'] = $this->generateActivitySlug($tenant);
         $errors = $this->baseErrors($tenantId, $normalized, true);
         $configPayload = $this->configPayload((string) ($normalized['type'] ?? ''), $payload);
         $errors = array_replace_recursive($errors, $this->configErrors((string) ($normalized['type'] ?? ''), $configPayload));
 
         if ($errors !== []) {
             return ['error' => 'validation_failed', 'errors' => $errors];
-        }
-
-        if (TenantActivity::query()->forTenant($tenantId)->where('slug', $normalized['slug'])->exists()) {
-            return ['error' => 'resource_conflict'];
         }
 
         return DB::transaction(function () use ($tenantId, $normalized, $configPayload, $payload, $actor, $request, $tenant): array {
@@ -319,7 +318,7 @@ class TenantActivityService
 
         return [
             'data' => array_map(function (object $row) use ($tenantId, $customer): array {
-                $resource = $this->publicResource($row, true);
+                $resource = $this->publicResource($row);
                 $resource['rights'] = $row->type === 'lucky_board'
                     ? $this->rightsSummary($tenantId, $customer->customerId(), (string) $row->id)
                     : null;
@@ -409,12 +408,24 @@ class TenantActivityService
             $duplicate = TenantActivityEntry::query()
                 ->forTenant($tenantId)
                 ->where('activity_id', $activity->id)
-                ->where('customer_id', $customer->customerId())
                 ->where('prediction_type', $predictionType)
                 ->where('selected_number', $selectedNumber)
+                ->where('status', '!=', 'cancelled')
                 ->exists();
 
             if ($duplicate) {
+                return ['error' => 'resource_conflict'];
+            }
+
+            Customer::query()
+                ->where('tenant_id', $tenantId)
+                ->whereKey($customer->customerId())
+                ->lockForUpdate()
+                ->first();
+
+            $allocation = $this->allocateLuckyRight($tenantId, $customer->customerId(), $activity);
+
+            if ($allocation === null) {
                 return ['error' => 'resource_conflict'];
             }
 
@@ -430,9 +441,9 @@ class TenantActivityService
                 'selected_number' => $selectedNumber,
                 'status' => 'submitted',
                 'rights_rule' => $config?->eligibility_rule,
-                'rights_source_type' => $config?->eligibility_rule,
-                'rights_source_id' => null,
-                'metadata_json' => null,
+                'rights_source_type' => $allocation['source_type'],
+                'rights_source_id' => $allocation['source_id'],
+                'metadata_json' => $allocation['metadata'],
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -824,11 +835,23 @@ class TenantActivityService
             return ['lucky_awards' => 0, 'cashback_awards' => 0];
         }
 
+        $resultAt = $this->activityResultAtForGame((string) $result->game_id);
+        if ($resultAt !== null && now()->lt($resultAt)) {
+            return ['lucky_awards' => 0, 'cashback_awards' => 0];
+        }
+
         $luckyAwards = in_array($mode, ['all', 'lucky'], true) ? $this->processLuckyBoardForResult($result) : 0;
         $cashbackAwards = in_array($mode, ['all', 'cashback'], true) ? $this->processCashbackForResult($result) : 0;
         $this->createAutomaticActivityClaimsForGame((string) $result->game_id);
 
         return ['lucky_awards' => $luckyAwards, 'cashback_awards' => $cashbackAwards];
+    }
+
+    public function activityResultAtForGame(string $gameId): ?Carbon
+    {
+        $drawAt = Game::query()->whereKey($gameId)->value('draw_at');
+
+        return $this->activityResultAt($drawAt);
     }
 
     private function processLuckyBoardForResult(RewardResult $result): int
@@ -1102,13 +1125,8 @@ class TenantActivityService
     private function basePayload(array $payload, bool $creating, ?object $existing = null): array
     {
         $name = array_key_exists('name', $payload) ? trim((string) $payload['name']) : null;
-        $slugSource = array_key_exists('slug', $payload)
-            ? (string) $payload['slug']
-            : ($creating && $name !== null ? $name : null);
-
         return array_filter([
             'name' => $name,
-            'slug' => $slugSource === null ? null : $this->normalizeSlug($slugSource),
             'game_id' => array_key_exists('game_id', $payload) ? trim((string) $payload['game_id']) : ($creating ? '' : null),
             'type' => array_key_exists('type', $payload) ? trim((string) $payload['type']) : ($creating ? 'lucky_board' : null),
             'status' => array_key_exists('status', $payload) ? trim((string) $payload['status']) : ($creating ? 'draft' : null),
@@ -1127,7 +1145,7 @@ class TenantActivityService
     {
         $errors = [];
 
-        foreach (['name', 'slug', 'game_id', 'type'] as $field) {
+        foreach (['name', 'game_id', 'type'] as $field) {
             if ($creating && (! array_key_exists($field, $payload) || trim((string) $payload[$field]) === '')) {
                 $errors[$field][] = 'The '.$field.' field is required.';
             }
@@ -1313,11 +1331,18 @@ class TenantActivityService
             ];
         }
 
-        $ticketCount = $this->paidTicketCount($tenantId, (string) $activity->game_id, $customerId);
-        $qualifyingOrderCount = $this->qualifyingExactOrderCount($tenantId, (string) $activity->game_id, $customerId, (int) $config->threshold_tickets);
-        $earned = (string) $config->eligibility_rule === 'single_order_exact_tickets'
-            ? $qualifyingOrderCount
-            : ($ticketCount >= (int) $config->threshold_tickets ? 1 : 0);
+        $threshold = max(1, (int) $config->threshold_tickets);
+        $orders = $this->paidOrderTicketSummaries($tenantId, (string) $activity->game_id, $customerId);
+        $ticketCount = array_sum(array_map(fn (array $order): int => (int) $order['ticket_count'], $orders));
+        $usedByOrder = $this->usedLuckyTicketCountsByOrder($tenantId, (string) $activity->game_id, $customerId);
+        $usedByOtherOrder = $this->usedLuckyTicketCountsByOrder($tenantId, (string) $activity->game_id, $customerId, $activityId);
+        $rule = (string) $config->eligibility_rule;
+        $earned = $rule === 'single_order_exact_tickets'
+            ? $this->singleOrderRightsFromOrders($orders, $usedByOtherOrder, $threshold)
+            : intdiv(max(0, $ticketCount - array_sum($usedByOtherOrder)), $threshold);
+        $remaining = $rule === 'single_order_exact_tickets'
+            ? $this->singleOrderRightsFromOrders($orders, $usedByOrder, $threshold)
+            : intdiv(max(0, $ticketCount - array_sum($usedByOrder)), $threshold);
         $used = TenantActivityEntry::query()
             ->forTenant($tenantId)
             ->where('activity_id', $activityId)
@@ -1328,11 +1353,15 @@ class TenantActivityService
         return [
             'earned_count' => (int) $earned,
             'used_count' => (int) $used,
-            'remaining_count' => max(0, (int) $earned - (int) $used),
+            'remaining_count' => max(0, (int) $remaining),
             'ticket_count' => $ticketCount,
-            'qualifying_order_count' => $qualifyingOrderCount,
-            'eligibility_rule' => (string) $config->eligibility_rule,
-            'threshold_tickets' => (int) $config->threshold_tickets,
+            'available_ticket_count' => max(0, $ticketCount - array_sum($usedByOrder)),
+            'consumed_ticket_count' => array_sum($usedByOrder),
+            'qualifying_order_count' => $rule === 'single_order_exact_tickets'
+                ? $this->singleOrderQualifyingOrderCount($orders, $usedByOtherOrder, $threshold)
+                : 0,
+            'eligibility_rule' => $rule,
+            'threshold_tickets' => $threshold,
         ];
     }
 
@@ -1343,6 +1372,10 @@ class TenantActivityService
     {
         $config = $activity->cashbackConfig;
         $summary = $this->paidCustomerSummary($tenantId, (string) $activity->game_id, $customerId);
+        $eligible = $config !== null && $this->passesCashbackConfig($summary, $config);
+        $estimatedAmount = $summary !== null && $config !== null
+            ? max(0, $this->cashbackAmount((int) $summary->purchase_amount, $config))
+            : 0;
 
         return [
             'ticket_count' => (int) ($summary?->ticket_count ?? 0),
@@ -1350,7 +1383,9 @@ class TenantActivityService
             'minimum_type' => $this->cashbackMinimumTypeFromConfig($config),
             'min_ticket_count' => $this->cashbackMinimumTypeFromConfig($config) === 'tickets' ? (int) ($config?->min_ticket_count ?? 0) : 0,
             'min_purchase_amount' => $this->money($this->cashbackMinimumTypeFromConfig($config) === 'amount' ? (int) ($config?->min_purchase_amount ?? 0) : 0),
-            'eligible_by_purchase' => $config === null ? false : $this->passesCashbackConfig($summary, $config),
+            'eligible_by_purchase' => $eligible,
+            'estimated_amount' => $this->money($eligible ? $estimatedAmount : 0, (string) ($config?->currency ?? 'THB')),
+            'potential_amount' => $this->money($estimatedAmount, (string) ($config?->currency ?? 'THB')),
         ];
     }
 
@@ -1381,6 +1416,31 @@ class TenantActivityService
             ->count('tickets.id');
     }
 
+    /**
+     * @return array<int, array{id: string, ticket_count: int}>
+     */
+    private function paidOrderTicketSummaries(string $tenantId, string $gameId, string $customerId): array
+    {
+        return Order::query()
+            ->join('tickets', 'tickets.order_id', '=', 'orders.id')
+            ->where('orders.tenant_id', $tenantId)
+            ->where('orders.game_id', $gameId)
+            ->where('orders.customer_id', $customerId)
+            ->where('orders.status', 'paid')
+            ->where('orders.payment_status', 'paid')
+            ->select(['orders.id'])
+            ->selectRaw('COUNT(tickets.id) as ticket_count')
+            ->groupBy('orders.id', 'orders.created_at')
+            ->orderBy('orders.created_at')
+            ->orderBy('orders.id')
+            ->get()
+            ->map(fn (object $order): array => [
+                'id' => (string) $order->id,
+                'ticket_count' => (int) $order->ticket_count,
+            ])
+            ->all();
+    }
+
     private function qualifyingExactOrderCount(string $tenantId, string $gameId, string $customerId, int $threshold): int
     {
         return Order::query()
@@ -1395,6 +1455,184 @@ class TenantActivityService
             ->havingRaw('COUNT(tickets.id) = ?', [$threshold])
             ->get()
             ->count();
+    }
+
+    /**
+     * @return array{source_type: string, source_id: string|null, metadata: array<string, mixed>}|null
+     */
+    private function allocateLuckyRight(string $tenantId, string $customerId, object $activity): ?array
+    {
+        $config = $activity->luckyConfig;
+
+        if ($config === null) {
+            return null;
+        }
+
+        $threshold = max(1, (int) $config->threshold_tickets);
+        $orders = $this->paidOrderTicketSummaries($tenantId, (string) $activity->game_id, $customerId);
+        $usedByOrder = $this->usedLuckyTicketCountsByOrder($tenantId, (string) $activity->game_id, $customerId);
+        $rule = (string) $config->eligibility_rule;
+        $allocations = $rule === 'single_order_exact_tickets'
+            ? $this->allocateSingleOrderTickets($orders, $usedByOrder, $threshold)
+            : $this->allocateCumulativeTickets($orders, $usedByOrder, $threshold);
+
+        if ($allocations === []) {
+            return null;
+        }
+
+        $sourceType = $rule === 'single_order_exact_tickets' ? 'order_tickets' : 'ticket_pool';
+
+        return [
+            'source_type' => $sourceType,
+            'source_id' => count($allocations) === 1 ? (string) $allocations[0]['order_id'] : null,
+            'metadata' => [
+                'rights_rule' => $rule,
+                'threshold_tickets' => $threshold,
+                'ticket_count_consumed' => array_sum(array_map(fn (array $allocation): int => (int) $allocation['ticket_count'], $allocations)),
+                'allocations' => $allocations,
+            ],
+        ];
+    }
+
+    /**
+     * @param array<int, array{id: string, ticket_count: int}> $orders
+     * @param array<string, int> $usedByOrder
+     * @return array<int, array{order_id: string, ticket_count: int}>
+     */
+    private function allocateCumulativeTickets(array $orders, array $usedByOrder, int $threshold): array
+    {
+        $remaining = $threshold;
+        $allocations = [];
+
+        foreach ($orders as $order) {
+            $available = max(0, (int) $order['ticket_count'] - (int) ($usedByOrder[$order['id']] ?? 0));
+            if ($available < 1) {
+                continue;
+            }
+
+            $take = min($available, $remaining);
+            $allocations[] = [
+                'order_id' => (string) $order['id'],
+                'ticket_count' => $take,
+            ];
+            $remaining -= $take;
+
+            if ($remaining === 0) {
+                return $allocations;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param array<int, array{id: string, ticket_count: int}> $orders
+     * @param array<string, int> $usedByOrder
+     * @return array<int, array{order_id: string, ticket_count: int}>
+     */
+    private function allocateSingleOrderTickets(array $orders, array $usedByOrder, int $threshold): array
+    {
+        foreach ($orders as $order) {
+            $available = max(0, (int) $order['ticket_count'] - (int) ($usedByOrder[$order['id']] ?? 0));
+            if ($available >= $threshold) {
+                return [[
+                    'order_id' => (string) $order['id'],
+                    'ticket_count' => $threshold,
+                ]];
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param array<int, array{id: string, ticket_count: int}> $orders
+     * @param array<string, int> $usedByOrder
+     */
+    private function singleOrderRightsFromOrders(array $orders, array $usedByOrder, int $threshold): int
+    {
+        return array_sum(array_map(
+            fn (array $order): int => intdiv(max(0, (int) $order['ticket_count'] - (int) ($usedByOrder[$order['id']] ?? 0)), $threshold),
+            $orders,
+        ));
+    }
+
+    /**
+     * @param array<int, array{id: string, ticket_count: int}> $orders
+     * @param array<string, int> $usedByOrder
+     */
+    private function singleOrderQualifyingOrderCount(array $orders, array $usedByOrder, int $threshold): int
+    {
+        return count(array_filter(
+            $orders,
+            fn (array $order): bool => max(0, (int) $order['ticket_count'] - (int) ($usedByOrder[$order['id']] ?? 0)) >= $threshold,
+        ));
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function usedLuckyTicketCountsByOrder(string $tenantId, string $gameId, string $customerId, ?string $excludeActivityId = null): array
+    {
+        $orders = $this->paidOrderTicketSummaries($tenantId, $gameId, $customerId);
+        $usedByOrder = array_fill_keys(array_map(fn (array $order): string => (string) $order['id'], $orders), 0);
+        $entries = TenantActivityEntry::query()
+            ->forTenant($tenantId)
+            ->where('game_id', $gameId)
+            ->where('customer_id', $customerId)
+            ->where('status', '!=', 'cancelled')
+            ->with(['activity.luckyConfig'])
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get()
+            ->all();
+
+        foreach ($entries as $entry) {
+            if ($excludeActivityId !== null && (string) $entry->activity_id === $excludeActivityId) {
+                continue;
+            }
+
+            $threshold = max(1, (int) ($entry->activity?->luckyConfig?->threshold_tickets ?? 1));
+            $this->applyEntryTicketConsumption($usedByOrder, $orders, $entry, $threshold);
+        }
+
+        return $usedByOrder;
+    }
+
+    /**
+     * @param array<string, int> $usedByOrder
+     * @param array<int, array{id: string, ticket_count: int}> $orders
+     */
+    private function applyEntryTicketConsumption(array &$usedByOrder, array $orders, object $entry, int $threshold): void
+    {
+        $metadata = $this->decodeJsonObject($entry->metadata_json ?? null);
+        $allocations = is_array($metadata['allocations'] ?? null) ? $metadata['allocations'] : [];
+
+        if ($allocations !== []) {
+            foreach ($allocations as $allocation) {
+                if (! is_array($allocation)) {
+                    continue;
+                }
+
+                $orderId = (string) ($allocation['order_id'] ?? '');
+                $ticketCount = max(0, (int) ($allocation['ticket_count'] ?? 0));
+                if ($orderId !== '' && array_key_exists($orderId, $usedByOrder) && $ticketCount > 0) {
+                    $usedByOrder[$orderId] += $ticketCount;
+                }
+            }
+
+            return;
+        }
+
+        $sourceId = (string) ($entry->rights_source_id ?? '');
+        if ($sourceId !== '' && array_key_exists($sourceId, $usedByOrder)) {
+            $usedByOrder[$sourceId] += $threshold;
+            return;
+        }
+
+        foreach ($this->allocateCumulativeTickets($orders, $usedByOrder, $threshold) as $allocation) {
+            $usedByOrder[(string) $allocation['order_id']] += (int) $allocation['ticket_count'];
+        }
     }
 
     private function paidCustomerSummary(string $tenantId, string $gameId, string $customerId): ?object
@@ -1761,6 +1999,7 @@ class TenantActivityService
         $fullUrl = PublicUrl::normalizeAssetUrl($fullAsset?->public_url);
         $thumbUrl = PublicUrl::normalizeAssetUrl($thumbAsset?->public_url) ?: $fullUrl;
         $game = $row->relationLoaded('game') ? $row->game : null;
+        $resultAt = $this->activityResultAt($game?->draw_at ?? null);
         $resource = [
             'id' => (string) $row->id,
             'tenant_id' => (string) $row->tenant_id,
@@ -1778,6 +2017,8 @@ class TenantActivityService
             'cover' => $thumbUrl,
             'cover_url' => $thumbUrl,
             'url' => '/activities/'.(string) $row->slug,
+            'result_at' => $resultAt?->toIso8601String(),
+            'result_time_label' => '17:00',
             'game' => $game === null ? null : [
                 'id' => (string) $game->id,
                 'name' => $game->name ?? $game->draw_label ?? (string) $game->id,
@@ -1809,11 +2050,95 @@ class TenantActivityService
         $resource = $this->resource($row);
         $resource['description'] = $this->activityDescription($row);
 
+        if ((string) $row->type === 'lucky_board') {
+            $resource['number_board'] = $this->luckyBoardResource($row, $includeBody);
+        }
+
         if (! $includeBody) {
             unset($resource['metadata']);
         }
 
         return $resource;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function luckyBoardResource(object $row, bool $includeReservedNumbers = false): array
+    {
+        $config = $row->relationLoaded('luckyConfig') ? $row->luckyConfig : null;
+        $predictionTypes = [$this->selectedPredictionTypeFromConfig($config)];
+        $reservedByType = $this->reservedLuckyNumbersByPredictionType((string) $row->tenant_id, (string) $row->id, $predictionTypes);
+        $types = [];
+
+        foreach ($predictionTypes as $predictionType) {
+            $digits = $predictionType === 'first_prize_last3' ? 3 : 2;
+            $totalCount = $digits === 3 ? 1000 : 100;
+            $reservedNumbers = $reservedByType[$predictionType] ?? [];
+            $payload = [
+                'prediction_type' => $predictionType,
+                'digits' => $digits,
+                'total_count' => $totalCount,
+                'reserved_count' => count($reservedNumbers),
+                'remaining_count' => max(0, $totalCount - count($reservedNumbers)),
+            ];
+
+            if ($includeReservedNumbers) {
+                $payload['reserved_numbers'] = $reservedNumbers;
+            }
+
+            $types[$predictionType] = $payload;
+        }
+
+        $selected = $types[$predictionTypes[0]];
+
+        return $selected + [
+            'types' => $types,
+        ];
+    }
+
+    /**
+     * @param array<int, string> $predictionTypes
+     * @return array<string, array<int, string>>
+     */
+    private function reservedLuckyNumbersByPredictionType(string $tenantId, string $activityId, array $predictionTypes): array
+    {
+        if ($predictionTypes === []) {
+            return [];
+        }
+
+        $rows = TenantActivityEntry::query()
+            ->forTenant($tenantId)
+            ->where('activity_id', $activityId)
+            ->whereIn('prediction_type', $predictionTypes)
+            ->where('status', '!=', 'cancelled')
+            ->select(['prediction_type', 'selected_number'])
+            ->distinct()
+            ->orderBy('prediction_type')
+            ->orderBy('selected_number')
+            ->get()
+            ->all();
+        $reserved = [];
+
+        foreach ($rows as $row) {
+            $predictionType = (string) $row->prediction_type;
+            $digits = $predictionType === 'first_prize_last3' ? 3 : 2;
+            $number = preg_replace('/\D+/', '', (string) $row->selected_number) ?? '';
+
+            if ($number === '') {
+                continue;
+            }
+
+            $reserved[$predictionType][] = str_pad($number, $digits, '0', STR_PAD_LEFT);
+        }
+
+        foreach ($reserved as $predictionType => $numbers) {
+            $numbers = array_values(array_unique($numbers));
+            sort($numbers, SORT_STRING);
+            $reserved[$predictionType] = $numbers;
+        }
+
+        return $reserved;
     }
 
     /**
@@ -1981,6 +2306,33 @@ class TenantActivityService
         }
 
         return substr($slug !== '' ? $slug : 'activity-'.Str::lower(Str::random(8)), 0, 180);
+    }
+
+    private function generateActivitySlug(object $tenant): string
+    {
+        $prefix = $this->normalizeSlug((string) ($tenant->partner?->code ?? $tenant->partner_id ?? $tenant->code ?? 'partner'));
+        $prefix = substr($prefix !== '' ? $prefix : 'partner', 0, 32);
+
+        for ($attempt = 0; $attempt < 30; $attempt++) {
+            $slug = $prefix.'-'.Str::lower(Str::random(5));
+
+            if (! TenantActivity::query()->forTenant((string) $tenant->id)->where('slug', $slug)->exists()) {
+                return $slug;
+            }
+        }
+
+        return $prefix.'-'.Str::lower(substr(Str::ulid()->toBase32(), -8));
+    }
+
+    private function activityResultAt(mixed $drawAt): ?Carbon
+    {
+        if ($drawAt === null || trim((string) $drawAt) === '') {
+            return null;
+        }
+
+        return Carbon::parse($drawAt)
+            ->timezone('Asia/Bangkok')
+            ->setTime(17, 0, 0);
     }
 
     private function boolValue(mixed $value): bool

@@ -4,6 +4,7 @@ const publicCustomerRoutes = new Set([
   '/register',
   '/line/callback',
   '/maintenance',
+  '/news',
   '/terms',
   '/lottery-knowledge',
   '/activities',
@@ -19,9 +20,15 @@ const publicCustomerRoutePrefixes = [
   '/activities/',
 ]
 
+const inlinePinCustomerRoutes = new Set([
+  '/affiliate',
+])
+
 export const isPublicCustomerRoute = (path: string) => (
   publicCustomerRoutes.has(path)
   || publicCustomerRoutePrefixes.some((prefix) => path.startsWith(prefix))
 )
+
+export const handlesCustomerPinInline = (path: string) => inlinePinCustomerRoutes.has(path)
 
 export const requiresCustomerAuth = (path: string) => !isPublicCustomerRoute(path)

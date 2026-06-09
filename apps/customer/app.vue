@@ -8,6 +8,8 @@
 </template>
 
 <script setup lang="ts">
+import { requiresCustomerAuth } from '~/utils/customerAuthRoutes'
+
 const { isAuthenticated } = useAuth()
 const route = useRoute()
 const hasRouteRealtime = computed(() => (
@@ -17,7 +19,7 @@ const hasRouteRealtime = computed(() => (
   || route.path === '/topup'
   || route.path === '/my-wallet'
 ))
-const shouldUseGlobalPresence = computed(() => isAuthenticated.value && !hasRouteRealtime.value)
+const shouldUseGlobalPresence = computed(() => isAuthenticated.value && requiresCustomerAuth(route.path) && !hasRouteRealtime.value)
 
 useCustomerStockRealtime({
   enabled: shouldUseGlobalPresence,

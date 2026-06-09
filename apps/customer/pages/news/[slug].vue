@@ -1,6 +1,6 @@
 <template>
-  <MobileShell active-nav="home">
-    <BlueHeader title="ข่าวประชาสัมพันธ์" back-to="/" min-height="214px" />
+  <MobileShell active-nav="home" show-bottom-nav>
+    <BlueHeader title="ข่าวประชาสัมพันธ์" back-to="/news" min-height="214px" />
 
     <section class="content-sheet flush news-detail-sheet">
       <article v-if="announcement" class="news-detail-card">
@@ -19,7 +19,7 @@
       <section v-else class="news-detail-card news-detail-empty">
         <h1>ไม่พบข่าวประชาสัมพันธ์</h1>
         <p>ข่าวนี้อาจหมดช่วงเวลาแสดงผลหรือถูกปิดใช้งานแล้ว</p>
-        <NuxtLink class="primary-pill" to="/">กลับหน้าแรก</NuxtLink>
+        <NuxtLink class="primary-pill" to="/news">กลับหน้าข่าวสาร</NuxtLink>
       </section>
     </section>
   </MobileShell>
@@ -84,7 +84,7 @@ useTenantSeo({
 <style scoped>
 .news-detail-sheet {
   margin-top: -54px;
-  padding: 0 16px calc(42px + env(safe-area-inset-bottom));
+  padding: 0 16px calc(96px + env(safe-area-inset-bottom));
 }
 
 .news-detail-card {

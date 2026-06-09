@@ -1827,11 +1827,25 @@ class RewardService
             'published_at' => $publishedAt->toISOString(),
         ]);
         $this->createAutomaticRewardClaimsForResult($rewardResultId, $publishedAt);
-        ProcessTenantActivitiesForGameJob::dispatch((string) $fresh->game_id, 'lucky');
-        ProcessTenantActivitiesForGameJob::dispatch((string) $fresh->game_id, 'cashback')->delay($publishedAt->copy()->addHour());
+        $activityResultAt = $this->tenantActivityResultAt((string) $fresh->game_id) ?? $publishedAt;
+        ProcessTenantActivitiesForGameJob::dispatch((string) $fresh->game_id, 'lucky')->delay($activityResultAt);
+        ProcessTenantActivitiesForGameJob::dispatch((string) $fresh->game_id, 'cashback')->delay($activityResultAt);
         $this->broadcastRewardLiveUpdate($rewardResultId);
 
         return $this->rewardResult($rewardResultId) ?? [];
+    }
+
+    private function tenantActivityResultAt(string $gameId): mixed
+    {
+        $drawAt = Game::query()->whereKey($gameId)->value('draw_at');
+
+        if ($drawAt === null || trim((string) $drawAt) === '') {
+            return null;
+        }
+
+        return \Illuminate\Support\Carbon::parse($drawAt)
+            ->timezone('Asia/Bangkok')
+            ->setTime(17, 0, 0);
     }
 
     /**

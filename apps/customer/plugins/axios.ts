@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { normalizeTenantHost, tenantHostScope } from '~/utils/tenantHost'
+import { handlesCustomerPinInline } from '~/utils/customerAuthRoutes'
 
 const createRequestId = () => {
   const randomValue = typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -112,10 +113,11 @@ export default defineNuxtPlugin({
           }
         }
 
-        if (['pin_required', 'pin_setup_required', 'pin_locked'].includes(String(apiError?.code || '')) && !requestUrl.startsWith('/customer/auth/pin/')) {
+        const pinErrorCode = String(apiError?.code || '')
+        if (['pin_required', 'pin_setup_required', 'pin_locked'].includes(pinErrorCode) && !requestUrl.startsWith('/customer/auth/pin/')) {
           setPinVerified(false)
 
-          if (process.client && route.path !== '/pin') {
+          if (process.client && route.path !== '/pin' && !(pinErrorCode === 'pin_required' && handlesCustomerPinInline(route.path))) {
             await nuxtApp.runWithContext(() => navigateTo({
               path: '/pin',
               query: {

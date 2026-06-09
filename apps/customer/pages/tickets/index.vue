@@ -189,15 +189,38 @@ const fetchTicketPage = async (page = 1) => {
   } finally {
     isLoadingInitial.value = false
     isLoadingMore.value = false
+    void maybeLoadNextPageIfNeeded()
   }
 }
 
-const loadNextPage = () => {
+const loadNextPage = async () => {
   if (!hasMore.value || isLoadingInitial.value || isLoadingMore.value) {
     return
   }
 
-  fetchTicketPage(currentPage.value + 1)
+  await fetchTicketPage(currentPage.value + 1)
+}
+
+const scrollRoot = () => {
+  if (!process.client) {
+    return null
+  }
+
+  return loadMoreSentinel.value?.closest('.app-scroll') as HTMLElement | null
+}
+
+const maybeLoadNextPageIfNeeded = async () => {
+  await nextTick()
+
+  const root = scrollRoot()
+
+  if (!root || loadError.value || !hasMore.value || isLoadingInitial.value || isLoadingMore.value) {
+    return
+  }
+
+  if (root.scrollHeight <= root.clientHeight + 220) {
+    await loadNextPage()
+  }
 }
 
 const setupLoadObserver = async () => {
@@ -208,12 +231,15 @@ const setupLoadObserver = async () => {
   }
 
   loadObserver?.disconnect()
+  const root = scrollRoot()
+
   loadObserver = new IntersectionObserver((entries) => {
     if (entries.some((entry) => entry.isIntersecting)) {
-      loadNextPage()
+      void loadNextPage()
     }
   }, {
-    rootMargin: '180px 0px'
+    root,
+    rootMargin: '240px 0px 280px'
   })
   loadObserver.observe(loadMoreSentinel.value)
 }

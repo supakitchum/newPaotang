@@ -256,19 +256,27 @@ const normalizeCartOrder = (cart: AnyRecord | null | undefined) => {
 
 const normalizePagination = (meta: AnyRecord | null | undefined, page = 1, perPage = 20) => {
   const currentPage = Number(meta?.current_page ?? page)
-  const lastPage = Number(meta?.last_page ?? (meta?.has_more ? currentPage + 1 : currentPage))
   const normalizedPerPage = Number(meta?.per_page ?? perPage)
   const total = Number(meta?.total ?? 0)
+  const lastPage = Number(meta?.last_page ?? (total > 0 && normalizedPerPage > 0 ? Math.ceil(total / normalizedPerPage) : (meta?.has_more ? currentPage + 1 : currentPage)))
+  const nextCursor = meta?.next_cursor || meta?.next_page_url || null
+  const hasMore = Boolean(meta?.has_more ?? (nextCursor !== null))
 
   return {
-    seed: meta?.next_cursor || null,
-    next_cursor: meta?.next_cursor || null,
+    seed: nextCursor,
+    next_cursor: nextCursor,
+    nextPageUrl: nextCursor,
     page: Number.isFinite(currentPage) ? currentPage : page,
     current_page: Number.isFinite(currentPage) ? currentPage : page,
+    currentPage: Number.isFinite(currentPage) ? currentPage : page,
     total_page: Number.isFinite(lastPage) ? lastPage : page,
     last_page: Number.isFinite(lastPage) ? lastPage : page,
+    lastPage: Number.isFinite(lastPage) ? lastPage : page,
     per_page: Number.isFinite(normalizedPerPage) ? normalizedPerPage : perPage,
-    total: Number.isFinite(total) ? total : 0
+    perPage: Number.isFinite(normalizedPerPage) ? normalizedPerPage : perPage,
+    total: Number.isFinite(total) ? total : 0,
+    has_more: hasMore,
+    hasMore
   }
 }
 
@@ -555,7 +563,9 @@ const normalizeActivity = (activity: AnyRecord | null | undefined) => {
       ? {
           ...activity.cashback_progress,
           purchase_amount: normalizeActivityMoney(activity.cashback_progress.purchase_amount),
-          min_purchase_amount: normalizeActivityMoney(activity.cashback_progress.min_purchase_amount)
+          min_purchase_amount: normalizeActivityMoney(activity.cashback_progress.min_purchase_amount),
+          estimated_amount: normalizeActivityMoney(activity.cashback_progress.estimated_amount),
+          potential_amount: normalizeActivityMoney(activity.cashback_progress.potential_amount)
         }
       : null
   }
@@ -1150,6 +1160,7 @@ export const usePlatformApi = () => {
       axios.get(input.history ? '/customer/tickets/history' : '/customer/tickets', {
         params: {
           ...(input.cursor ? { cursor: input.cursor } : {}),
+          ...(input.page ? { page: input.page } : {}),
           ...(input.status !== undefined && input.status !== null && String(input.status) !== '' ? { status: input.status } : {}),
           limit: input.limit || 20
         }
@@ -1160,13 +1171,14 @@ export const usePlatformApi = () => {
     const tickets = Array.isArray(payload.data) ? payload.data.map(normalizeTicket) : []
     const ticketGame = tickets.find((ticket) => ticket.game)?.game || null
     const game = normalizeGame(ticketGame || (input.history ? null : activeGame || currentGameState.value))
+    const pagination = normalizePagination(payload.meta, input.page || 1, input.limit || 20)
 
     return {
       tickets,
       game,
       games: game ? [game] : [],
-      pagination: normalizePagination(payload.meta, input.page || 1, input.limit || 20),
-      totalTicketCount: tickets.length
+      pagination,
+      totalTicketCount: pagination.total || tickets.length
     }
   }
 

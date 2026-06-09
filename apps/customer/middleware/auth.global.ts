@@ -1,4 +1,4 @@
-import { isPublicCustomerRoute } from '~/utils/customerAuthRoutes'
+import { handlesCustomerPinInline, isPublicCustomerRoute } from '~/utils/customerAuthRoutes'
 
 const getSafeRedirect = (value: unknown) => {
   if (typeof value !== 'string') {
@@ -16,6 +16,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const requiresAuth = !isPublicCustomerRoute(to.path)
   const guestOnly = to.meta.guestOnly === true
   const isPinPage = to.path === '/pin'
+  const handlesPinInline = handlesCustomerPinInline(to.path)
   const {
     isAuthenticated,
     refreshToken,
@@ -85,7 +86,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
   }
 
-  if (requiresAuth && !isPinPage && (pinSetupRequired.value || pinRequired.value)) {
+  if (requiresAuth && !isPinPage && (pinSetupRequired.value || (pinRequired.value && !handlesPinInline))) {
     const restored = await restoreOrRefreshSession(true)
 
     if (!restored) {
@@ -102,8 +103,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (guestOnly && isAuthenticated.value) {
     const redirect = getSafeRedirect(to.query.redirect)
+    const redirectHandlesPinInline = handlesCustomerPinInline(redirect)
 
-    if (pinSetupRequired.value || pinRequired.value) {
+    if (pinSetupRequired.value || (pinRequired.value && !redirectHandlesPinInline)) {
       return navigateTo({
         path: '/pin',
         query: {

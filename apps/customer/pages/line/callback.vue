@@ -16,6 +16,7 @@
 <script setup lang="ts">
 import {onMounted, ref} from 'vue'
 import type {AuthUser} from '~/composables/useAuth'
+import {handlesCustomerPinInline} from '~/utils/customerAuthRoutes'
 
 interface LineCallbackResponse {
   code: number
@@ -68,11 +69,27 @@ const needsPinUnlock = (response: LineCallbackResponse) => Boolean(
   response?.user?.pin_required
 )
 
+const responseNeedsPinSetup = (response: LineCallbackResponse) => Boolean(
+  response?.pin_setup_required ||
+  response?.user?.pin_setup_required
+)
+
+const responseNeedsPinVerification = (response: LineCallbackResponse) => Boolean(
+  response?.pin_required ||
+  response?.user?.pin_required
+)
+
+const shouldUseInlinePinRedirect = (response: LineCallbackResponse, redirectTo: string) => (
+  !responseNeedsPinSetup(response) &&
+  responseNeedsPinVerification(response) &&
+  handlesCustomerPinInline(redirectTo)
+)
+
 onMounted(async () => {
   if (isAuthenticated.value) {
     const redirectTo = getSafeRedirect(lineRedirect.value)
 
-    if (pinSetupRequired.value || pinRequired.value) {
+    if (pinSetupRequired.value || (pinRequired.value && !handlesCustomerPinInline(redirectTo))) {
       await navigateToPin(redirectTo)
       return
     }
@@ -92,7 +109,15 @@ onMounted(async () => {
       await applyStoredRef()
 
       if (needsPinUnlock(response)) {
-        await navigateToPin(getSafeRedirect(lineRedirect.value))
+        const redirectTo = getSafeRedirect(lineRedirect.value)
+
+        if (shouldUseInlinePinRedirect(response, redirectTo)) {
+          clearLineRedirect()
+          await navigateTo(redirectTo)
+          return
+        }
+
+        await navigateToPin(redirectTo)
         return
       }
 

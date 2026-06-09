@@ -330,6 +330,7 @@ class CommerceService
     public function customerTickets(string $tenantId, CustomerSessionContext $customer, array $queryParams, bool $history = false): array
     {
         $limit = $this->limit($queryParams['limit'] ?? null);
+        $page = max(1, (int) ($queryParams['page'] ?? 1));
         $historyGameId = $history ? $this->customerTicketHistoryGameId($tenantId, $customer->customerId(), $queryParams) : null;
         $currentGameId = $history ? null : $this->customerCurrentTicketGameId($tenantId, $customer->customerId());
 
@@ -339,6 +340,10 @@ class CommerceService
                 'meta' => [
                     'next_cursor' => null,
                     'has_more' => false,
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'per_page' => $limit,
+                    'total' => 0,
                 ],
             ];
         }
@@ -346,9 +351,7 @@ class CommerceService
         $query = Ticket::query()
             ->forTenant($tenantId)
             ->where('customer_id', $customer->customerId())
-            ->with(['localStockItem', 'game'])
-            ->orderBy('id')
-            ->limit($limit + 1);
+            ->with(['localStockItem', 'game']);
 
         if ($history) {
             $query->where('game_id', $historyGameId);
@@ -362,11 +365,17 @@ class CommerceService
             $query->where('status', trim((string) $queryParams['status']));
         }
 
+        $total = (clone $query)->count();
+
         if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
             $query->where('id', '>', trim((string) $queryParams['cursor']));
         }
 
-        $rows = $query->get()->all();
+        $rows = $query
+            ->orderBy('id')
+            ->limit($limit + 1)
+            ->get()
+            ->all();
         $hasMore = count($rows) > $limit;
         $rows = array_slice($rows, 0, $limit);
 
@@ -375,6 +384,10 @@ class CommerceService
             'meta' => [
                 'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->id : null,
                 'has_more' => $hasMore,
+                'current_page' => $page,
+                'last_page' => max(1, (int) ceil($total / $limit)),
+                'per_page' => $limit,
+                'total' => $total,
             ],
         ];
     }

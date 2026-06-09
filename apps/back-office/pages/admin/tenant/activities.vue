@@ -201,9 +201,9 @@
                 <div class="invalid-feedback">{{ fieldError('name') }}</div>
               </div>
               <div class="col-12 col-lg-5">
-                <label class="form-label">Slug</label>
-                <input v-model="form.slug" class="form-control" :class="invalidClass('slug')" placeholder="Auto-generated from name if blank">
-                <div class="invalid-feedback">{{ fieldError('slug') }}</div>
+                <label class="form-label">Activity code</label>
+                <input :value="form.slug || 'Generated after save'" class="form-control" disabled>
+                <div class="form-text">Generated automatically from partner code.</div>
               </div>
               <div class="col-md-4">
                 <label class="form-label">Game</label>
@@ -241,8 +241,8 @@
                 <div class="col-md-6">
                   <label class="form-label">Eligibility rule</label>
                   <select v-model="form.config.eligibility_rule" class="form-select" :class="invalidClass('config.eligibility_rule')">
-                    <option value="cumulative_tickets">Cumulative tickets reaches N once</option>
-                    <option value="single_order_exact_tickets">Single order exactly N tickets</option>
+                    <option value="cumulative_tickets">Every N cumulative tickets gives 1 right</option>
+                    <option value="single_order_exact_tickets">Every N tickets in one order gives 1 right</option>
                   </select>
                   <div class="invalid-feedback">{{ fieldError('config.eligibility_rule') }}</div>
                 </div>
@@ -743,7 +743,6 @@ const buildPayload = () => {
 
   return {
     name: String(form.name || '').trim(),
-    slug: String(form.slug || '').trim() || undefined,
     game_id: form.game_id,
     type: form.type,
     status: form.status,
@@ -824,8 +823,8 @@ const configSummary = (row: AnyRecord) => {
 
 const rightsSummary = (row: AnyRecord) => {
   const config = row.config || {}
-  const rule = config.eligibility_rule === 'single_order_exact_tickets' ? 'Exact order' : 'Cumulative'
-  return `${rule} ${Number(config.threshold_tickets || 1)} tickets = 1 right`
+  const rule = config.eligibility_rule === 'single_order_exact_tickets' ? 'Per order' : 'Cumulative'
+  return `${rule}: every ${Number(config.threshold_tickets || 1)} tickets = 1 right`
 }
 
 const gameLabel = (game: AnyRecord) => `${game.name || game.code || game.id}${game.status ? ` (${game.status})` : ''}`
