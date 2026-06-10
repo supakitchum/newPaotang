@@ -49,6 +49,9 @@ use App\Modules\Commerce\Http\Controllers\TenantCommerceController;
 use App\Modules\Growth\Http\Controllers\TenantGrowthController;
 use App\Modules\Maintenance\Http\Controllers\CentralMaintenanceController;
 use App\Modules\Maintenance\Http\Controllers\TenantMaintenanceController;
+use App\Modules\LineNotifications\Http\Controllers\CustomerLineNotificationController;
+use App\Modules\LineNotifications\Http\Controllers\TenantLineNotificationController;
+use App\Modules\TelegramNotifications\Http\Controllers\CentralTelegramNotificationController;
 use App\Modules\Reward\Http\Controllers\TenantRewardClaimController;
 use App\Modules\Reward\Http\Controllers\TenantRewardWinnersController;
 use App\Modules\PartnerStore\Http\Controllers\TenantReservationController;
@@ -86,6 +89,7 @@ Route::post('/customer/auth/register', [CustomerAuthController::class, 'register
 Route::post('/customer/auth/login', [CustomerAuthController::class, 'login']);
 Route::post('/customer/auth/line/login', [CustomerLineAuthController::class, 'login']);
 Route::get('/customer/auth/line/callback', [CustomerLineAuthController::class, 'callback']);
+Route::post('/customer/auth/line/link-phone', [CustomerLineAuthController::class, 'linkPhone']);
 Route::post('/customer/auth/refresh', [CustomerAuthController::class, 'refresh']);
 Route::post('/customer/auth/logout', [CustomerAuthController::class, 'logout'])->middleware('customer.auth');
 Route::get('/customer/auth/me', [CustomerAuthController::class, 'me'])->middleware('customer.auth');
@@ -95,6 +99,9 @@ Route::post('/customer/auth/pin/verify', [CustomerAuthController::class, 'verify
 Route::post('/customer/auth/pin/change', [CustomerAuthController::class, 'changePin'])->middleware('customer.auth');
 Route::get('/customer/profile', [CustomerAuthController::class, 'profile'])->middleware('customer.auth');
 Route::patch('/customer/profile', [CustomerAuthController::class, 'updateProfile'])->middleware('customer.auth');
+Route::get('/customer/line-notifications', [CustomerLineNotificationController::class, 'show'])->middleware('customer.auth');
+Route::patch('/customer/line-notifications', [CustomerLineNotificationController::class, 'update'])->middleware('customer.auth');
+Route::delete('/customer/line-notifications', [CustomerLineNotificationController::class, 'disconnect'])->middleware('customer.auth');
 Route::post('/customer/realtime/auth', [CustomerRealtimeController::class, 'authorize'])->middleware('customer.auth');
 Route::get('/customer/cart', [CustomerCommerceController::class, 'cart'])->middleware('customer.auth');
 Route::post('/customer/checkout', [CustomerCommerceController::class, 'checkout'])->middleware('customer.auth');
@@ -253,6 +260,29 @@ Route::put('/admin/central/partner-maintenance/{partner_id}', [CentralMaintenanc
 Route::get('/admin/central/maintenance/{tenant_id}', [CentralMaintenanceController::class, 'show'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::put('/admin/central/maintenance/{tenant_id}', [CentralMaintenanceController::class, 'update'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/telegram-notifications/bot', [CentralTelegramNotificationController::class, 'show'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::put('/admin/central/telegram-notifications/bot', [CentralTelegramNotificationController::class, 'updateBot'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::delete('/admin/central/telegram-notifications/bot', [CentralTelegramNotificationController::class, 'disconnectBot'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/telegram-notifications/chats/sync', [CentralTelegramNotificationController::class, 'syncChats'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/telegram-notifications/chats', [CentralTelegramNotificationController::class, 'chats'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/telegram-notifications/test-send', [CentralTelegramNotificationController::class, 'testSend'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/telegram-notifications/routes', [CentralTelegramNotificationController::class, 'routes'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::put('/admin/central/telegram-notifications/routes', [CentralTelegramNotificationController::class, 'updateRoutes'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/telegram-notifications/templates', [CentralTelegramNotificationController::class, 'templates'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::patch('/admin/central/telegram-notifications/templates/{event_key}', [CentralTelegramNotificationController::class, 'updateTemplate'])
+    ->where('event_key', '.*')
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/telegram-notifications/deliveries', [CentralTelegramNotificationController::class, 'deliveries'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/partners', [PartnerProvisioningController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:central']);
@@ -538,6 +568,26 @@ Route::patch('/admin/tenant/announcements/{announcement_id}', [TenantAnnouncemen
 Route::delete('/admin/tenant/announcements/{announcement_id}', [TenantAnnouncementController::class, 'destroy'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/announcements/{announcement_id}/image', [TenantAnnouncementController::class, 'uploadImage'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/line-notifications', [TenantLineNotificationController::class, 'show'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::put('/admin/tenant/line-notifications/connection', [TenantLineNotificationController::class, 'updateConnection'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::delete('/admin/tenant/line-notifications/connection', [TenantLineNotificationController::class, 'disconnectConnection'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/line-notifications/templates', [TenantLineNotificationController::class, 'templates'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::patch('/admin/tenant/line-notifications/templates/{event_key}', [TenantLineNotificationController::class, 'updateTemplate'])
+    ->where('event_key', '.*')
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/line-notifications/templates/{event_key}/preview', [TenantLineNotificationController::class, 'previewTemplate'])
+    ->where('event_key', '.*')
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/line-notifications/customers', [TenantLineNotificationController::class, 'linkedCustomers'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/line-notifications/deliveries', [TenantLineNotificationController::class, 'deliveries'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/line-notifications/test-send', [TenantLineNotificationController::class, 'testSend'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/activities', [TenantActivityController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);

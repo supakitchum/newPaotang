@@ -134,6 +134,46 @@ class CustomerAuthService
         return $this->issueSession((string) $tenant['tenant_id'], (string) $customer->id);
     }
 
+    public function createLineCustomer(array $tenant, array $payload): object
+    {
+        $tenantId = (string) $tenant['tenant_id'];
+        $now = now();
+        $name = trim((string) ($payload['name'] ?? ''));
+        $firstName = trim((string) ($payload['first_name'] ?? ''));
+        $lastName = trim((string) ($payload['last_name'] ?? ''));
+
+        if ($name === '') {
+            $name = trim($firstName.' '.$lastName);
+        }
+
+        if ($name === '') {
+            $name = 'LINE Customer';
+        }
+
+        $customerId = 'cus_'.Str::ulid()->toBase32();
+
+        Customer::query()->insert([
+            'id' => $customerId,
+            'tenant_id' => $tenantId,
+            'customer_no' => $this->newCustomerNo($tenantId),
+            'phone' => trim((string) ($payload['phone'] ?? '')),
+            'email' => $this->nullableLower($payload['email'] ?? null),
+            'password_hash' => Hash::make((string) ($payload['password'] ?? '')),
+            'avatar_url' => trim((string) ($payload['avatar_url'] ?? '')) ?: null,
+            'name' => $name,
+            'first_name' => $firstName !== '' ? $firstName : null,
+            'last_name' => $lastName !== '' ? $lastName : null,
+            'status' => 'active',
+            'last_login_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $this->ensurePrimaryWallet($tenantId, $customerId);
+
+        return Customer::query()->where('id', $customerId)->firstOrFail();
+    }
+
     /**
      * @param array<string, mixed> $tenant
      * @return array<string, mixed>|null

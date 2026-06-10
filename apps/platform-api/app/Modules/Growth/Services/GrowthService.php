@@ -29,6 +29,7 @@ use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Auth\CustomerSessionContext;
 use App\Shared\Idempotency\IdempotencyService;
+use App\Modules\TelegramNotifications\Services\CentralTelegramNotificationService;
 use App\Support\CustomerNo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -55,6 +56,7 @@ class GrowthService
     public function __construct(
         private readonly AuditLogger $auditLogger,
         private readonly IdempotencyService $idempotency,
+        private readonly CentralTelegramNotificationService $telegramNotifications,
     ) {
     }
 
@@ -1167,7 +1169,10 @@ class GrowthService
                     'updated_at' => $now,
                 ]);
 
-                return ['resource' => $this->payoutResource(AffiliatePayout::query()->where('tenant_id', $tenantId)->where('id', $payoutId)->first()), 'status' => 201];
+                $resource = $this->payoutResource(AffiliatePayout::query()->where('tenant_id', $tenantId)->where('id', $payoutId)->first());
+                $this->telegramNotifications->enqueue($tenantId, 'commission.submitted', 'affiliate_payout', $payoutId, $this->telegramPayoutVariables($tenantId, $resource));
+
+                return ['resource' => $resource, 'status' => 201];
             },
         );
     }
@@ -1582,7 +1587,10 @@ class GrowthService
 
                 $this->auditAdmin($actor, $request, 'payout.created', 'affiliate_payout', $payoutId, $normalized, $tenantId);
 
-                return ['resource' => $this->payoutResource(AffiliatePayout::where('id', $payoutId)->first()), 'status' => 201];
+                $resource = $this->payoutResource(AffiliatePayout::where('id', $payoutId)->first());
+                $this->telegramNotifications->enqueue($tenantId, 'commission.submitted', 'affiliate_payout', $payoutId, $this->telegramPayoutVariables($tenantId, $resource));
+
+                return ['resource' => $resource, 'status' => 201];
             },
         );
     }
@@ -6024,6 +6032,38 @@ class GrowthService
             'approved_at' => $this->iso($row->approved_at),
             'created_at' => $this->iso($row->created_at),
             'updated_at' => $this->iso($row->updated_at),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $payout
+     * @return array<string, mixed>
+     */
+    private function telegramPayoutVariables(string $tenantId, array $payout): array
+    {
+        $affiliateId = (string) ($payout['affiliate_account_id'] ?? $payout['affiliate_id'] ?? '');
+        $affiliate = $affiliateId === ''
+            ? null
+            : AffiliateAccount::query()->where('tenant_id', $tenantId)->whereKey($affiliateId)->first();
+        $amount = (int) ($payout['amount']['amount'] ?? 0);
+        $method = (string) ($payout['payout_method'] ?? '');
+
+        return [
+            'event' => [
+                'title' => 'มีรายการคอมมิชชันรอตรวจสอบ',
+                'occurred_at' => $this->telegramNotifications->occurredAt($payout['created_at'] ?? null),
+            ],
+            'tenant' => ['name' => $this->telegramNotifications->tenantName($tenantId)],
+            'commission' => [
+                'customer_name' => (string) ($affiliate?->name ?? $affiliateId),
+                'type_label' => match ($method) {
+                    'wallet_credit' => 'ฝากคอมเข้ากระเป๋า',
+                    'manual_cash' => 'จ่ายคอมเงินสด',
+                    default => 'ถอนคอมมิชชัน',
+                },
+                'reference' => (string) ($payout['id'] ?? ''),
+                'amount_baht' => $this->telegramNotifications->baht($amount),
+            ],
         ];
     }
 

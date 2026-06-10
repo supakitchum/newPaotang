@@ -991,6 +991,22 @@ export const usePlatformApi = () => {
     })
   }
 
+  const lineLinkPhone = async (payload: AnyRecord) => {
+    const response = await axios.post('/customer/auth/line/link-phone', payload)
+    const data = unwrapData<AnyRecord>(response)
+
+    return withLegacyData({
+      code: 0,
+      ...data
+    })
+  }
+
+  const lineNotificationSettings = async () => unwrapData<AnyRecord>(await axios.get('/customer/line-notifications'))
+
+  const updateLineNotificationSettings = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.patch('/customer/line-notifications', payload))
+
+  const disconnectLineNotifications = async () => unwrapData<AnyRecord>(await axios.delete('/customer/line-notifications'))
+
   const loadProfile = async () => unwrapData<AnyRecord>(await axios.get('/customer/profile'))
 
   const updateProfile = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.patch('/customer/profile', payload, {
@@ -1425,6 +1441,10 @@ export const usePlatformApi = () => {
     register,
     lineLogin,
     lineCallback,
+    lineLinkPhone,
+    lineNotificationSettings,
+    updateLineNotificationSettings,
+    disconnectLineNotifications,
     loadProfile,
     updateProfile,
     reserveLegacy,

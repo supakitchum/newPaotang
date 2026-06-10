@@ -19,6 +19,8 @@ use App\Models\Ticket;
 use App\Models\WinningTicket;
 use App\Modules\Auth\Services\CustomerAuthService;
 use App\Modules\Commerce\Services\CommerceService;
+use App\Modules\LineNotifications\Services\TenantLineNotificationService;
+use App\Modules\TelegramNotifications\Services\CentralTelegramNotificationService;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Auth\CustomerSessionContext;
@@ -47,6 +49,8 @@ class TenantActivityService
         private readonly AuditLogger $auditLogger,
         private readonly CustomerAuthService $customerAuth,
         private readonly CommerceService $commerce,
+        private readonly TenantLineNotificationService $lineNotifications,
+        private readonly CentralTelegramNotificationService $telegramNotifications,
     ) {
     }
 
@@ -448,8 +452,12 @@ class TenantActivityService
                 'updated_at' => now(),
             ]);
 
+            $resource = $this->entryResource(TenantActivityEntry::query()->whereKey($entryId)->first());
+            $this->lineNotifications->enqueue($tenantId, $customer->customerId(), 'activity.entry.created', 'tenant_activity_entry', $entryId, $this->lineActivityEntryVariables($tenantId, $activity, $resource));
+            $this->telegramNotifications->enqueue($tenantId, 'activity.entry.created', 'tenant_activity_entry', $entryId, $this->telegramActivityEntryVariables($tenantId, $customer->customerId(), $activity, $resource));
+
             return [
-                'resource' => $this->entryResource(TenantActivityEntry::query()->whereKey($entryId)->first()),
+                'resource' => $resource,
                 'status' => 201,
             ];
         });
@@ -780,7 +788,10 @@ class TenantActivityService
             ]);
             TenantActivityAward::query()->whereKey((string) $claim->activity_award_id)->update(['status' => 'paid', 'updated_at' => $now]);
 
-            return ['resource' => $this->tenantClaim($tenantId, $claimId)];
+            $resource = $this->tenantClaim($tenantId, $claimId);
+            $this->lineNotifications->enqueue($tenantId, (string) ($resource['customer']['id'] ?? $claim->customer_id), 'activity_claim.status_updated', 'activity_claim', $claimId, $this->lineActivityClaimVariables($tenantId, $resource ?: [], 'จ่ายเงินกิจกรรมแล้ว'));
+
+            return ['resource' => $resource];
         });
     }
 
@@ -811,7 +822,10 @@ class TenantActivityService
             ]);
             TenantActivityAward::query()->whereKey((string) $claim->activity_award_id)->update(['status' => 'claimable', 'updated_at' => $now]);
 
-            return ['resource' => $this->tenantClaim($tenantId, $claimId)];
+            $resource = $this->tenantClaim($tenantId, $claimId);
+            $this->lineNotifications->enqueue($tenantId, (string) ($resource['customer']['id'] ?? $claim->customer_id), 'activity_claim.status_updated', 'activity_claim', $claimId, $this->lineActivityClaimVariables($tenantId, $resource ?: [], 'ไม่อนุมัติ'));
+
+            return ['resource' => $resource];
         });
     }
 
@@ -843,8 +857,73 @@ class TenantActivityService
         $luckyAwards = in_array($mode, ['all', 'lucky'], true) ? $this->processLuckyBoardForResult($result) : 0;
         $cashbackAwards = in_array($mode, ['all', 'cashback'], true) ? $this->processCashbackForResult($result) : 0;
         $this->createAutomaticActivityClaimsForGame((string) $result->game_id);
+        $this->enqueueTelegramActivityResults($result, $mode);
 
         return ['lucky_awards' => $luckyAwards, 'cashback_awards' => $cashbackAwards];
+    }
+
+    private function enqueueTelegramActivityResults(RewardResult $result, string $mode): void
+    {
+        $activities = TenantActivity::query()
+            ->where('game_id', $result->game_id)
+            ->where('status', 'active')
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get()
+            ->groupBy('tenant_id');
+
+        $game = Game::query()->whereKey((string) $result->game_id)->first();
+        $drawLabel = $game?->draw_at === null
+            ? (string) ($game?->name ?? '-')
+            : Carbon::parse((string) $game->draw_at)->timezone('Asia/Bangkok')->format('d/m/Y');
+
+        foreach ($activities as $tenantId => $tenantActivities) {
+            $lines = [];
+
+            foreach ($tenantActivities as $activity) {
+                if ((string) $activity->type === 'lucky_board' && in_array($mode, ['all', 'lucky'], true)) {
+                    $count = TenantActivityAward::query()
+                        ->where('activity_id', $activity->id)
+                        ->where('type', 'lucky_board')
+                        ->count();
+                    $amount = (int) TenantActivityAward::query()
+                        ->where('activity_id', $activity->id)
+                        ->where('type', 'lucky_board')
+                        ->sum('amount');
+                    $lines[] = $count > 0
+                        ? '- '.$activity->name.': มีผู้ชนะ '.$count.' คน รวม '.$this->telegramNotifications->baht($amount).' บาท'
+                        : '- '.$activity->name.': ไม่มีผู้ชนะ';
+                }
+
+                if ((string) $activity->type === 'cashback' && in_array($mode, ['all', 'cashback'], true)) {
+                    $count = TenantActivityAward::query()
+                        ->where('activity_id', $activity->id)
+                        ->where('type', 'cashback')
+                        ->count();
+                    $amount = (int) TenantActivityAward::query()
+                        ->where('activity_id', $activity->id)
+                        ->where('type', 'cashback')
+                        ->sum('amount');
+                    $lines[] = '- '.$activity->name.': มีผู้ได้รับเงินคืน '.$count.' คน รวม '.$this->telegramNotifications->baht($amount).' บาท';
+                }
+            }
+
+            if ($lines === []) {
+                continue;
+            }
+
+            $this->telegramNotifications->enqueue((string) $tenantId, 'activity.result.published', 'tenant_activity_result', (string) $result->game_id.':'.(string) $tenantId.':'.$mode, [
+                'event' => [
+                    'title' => 'ผลกิจกรรมออกแล้ว',
+                    'occurred_at' => $this->telegramNotifications->occurredAt(),
+                ],
+                'tenant' => ['name' => $this->telegramNotifications->tenantName((string) $tenantId)],
+                'activity' => [
+                    'draw_label' => $drawLabel,
+                    'summary' => implode("\n", $lines),
+                ],
+            ]);
+        }
     }
 
     public function activityResultAtForGame(string $gameId): ?Carbon
@@ -2362,6 +2441,90 @@ class TenantActivityService
     private function money(int $amount, string $currency = 'THB'): array
     {
         return ['amount' => $amount, 'currency' => $currency];
+    }
+
+    /**
+     * @param array<string, mixed> $entry
+     * @return array<string, mixed>
+     */
+    private function lineActivityEntryVariables(string $tenantId, object $activity, array $entry): array
+    {
+        $customer = Customer::query()
+            ->where('tenant_id', $tenantId)
+            ->where('id', $entry['customer_id'] ?? '')
+            ->first();
+
+        return [
+            'event' => ['title' => 'เข้าร่วมกิจกรรมสำเร็จ'],
+            'tenant' => ['name' => (string) (PartnerTenant::query()->where('id', $tenantId)->value('name') ?: 'Partner')],
+            'customer' => [
+                'name' => (string) ($customer?->name ?? ''),
+                'phone' => (string) ($customer?->phone ?? ''),
+            ],
+            'activity' => [
+                'name' => (string) ($activity->name ?? ''),
+                'selected_number' => (string) ($entry['selected_number'] ?? ''),
+                'prediction_type' => $this->predictionTypeLabel((string) ($entry['prediction_type'] ?? '')),
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $claim
+     * @return array<string, mixed>
+     */
+    private function lineActivityClaimVariables(string $tenantId, array $claim, string $statusLabel): array
+    {
+        $customer = is_array($claim['customer'] ?? null) ? $claim['customer'] : [];
+        $amount = $claim['claim_amount']['amount'] ?? $claim['amount']['amount'] ?? 0;
+        $reason = trim((string) ($claim['admin_note'] ?? ''));
+
+        return [
+            'event' => ['title' => 'แจ้งเตือนเงินกิจกรรม'],
+            'tenant' => ['name' => (string) (PartnerTenant::query()->where('id', $tenantId)->value('name') ?: 'Partner')],
+            'customer' => [
+                'name' => (string) ($customer['name'] ?? ''),
+                'phone' => (string) ($customer['phone'] ?? ''),
+            ],
+            'claim' => [
+                'reference' => (string) ($claim['reference'] ?? $claim['id'] ?? ''),
+                'amount_baht' => number_format(((int) $amount) / 100, 2),
+                'status_label' => $statusLabel,
+                'reason' => $reason === '' ? '' : 'เหตุผล: '.$reason,
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $entry
+     * @return array<string, mixed>
+     */
+    private function telegramActivityEntryVariables(string $tenantId, string $customerId, object $activity, array $entry): array
+    {
+        return [
+            'event' => [
+                'title' => 'ลูกค้าเข้าร่วมกิจกรรม',
+                'occurred_at' => $this->telegramNotifications->occurredAt($entry['created_at'] ?? null),
+            ],
+            'tenant' => ['name' => $this->telegramNotifications->tenantName($tenantId)],
+            'customer' => $this->telegramNotifications->customerVariables($tenantId, $customerId),
+            'activity' => [
+                'name' => (string) ($activity->name ?? ''),
+                'prediction_type_label' => $this->predictionTypeLabel((string) ($entry['prediction_type'] ?? '')),
+                'selected_number' => (string) ($entry['selected_number'] ?? ''),
+                'rights_used' => '1 สิทธิ์',
+            ],
+        ];
+    }
+
+    private function predictionTypeLabel(string $type): string
+    {
+        return match ($type) {
+            'first_prize_last2' => 'ทายเลข 2 ตัวรางวัลที่ 1',
+            'first_prize_last3' => 'ทายเลข 3 ตัวรางวัลที่ 1',
+            'last2' => 'ทายเลข 2 ตัวท้าย',
+            default => $type,
+        };
     }
 
     /**

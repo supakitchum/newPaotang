@@ -11,6 +11,11 @@
     </BlueHeader>
 
     <section id="transactions" class="content-sheet flush my-wallet-sheet">
+      <NuxtLink class="my-wallet-topup-cta" :to="topupRoute">
+        <i class="bi bi-plus-lg" />
+        <span>เติมเงิน</span>
+      </NuxtLink>
+
       <div class="my-wallet-section-head">
         <div>
           <h2>ประวัติรายการเดินเงินล่าสุด</h2>
@@ -81,6 +86,12 @@ const wallets = ref<Array<Record<string, any>>>([])
 const ledgerEntries = ref<WalletLedgerEntry[]>([])
 const isWalletLoading = ref(false)
 const isLedgerLoading = ref(false)
+const topupRoute = {
+  path: '/topup',
+  query: {
+    back: '/my-wallet'
+  }
+}
 
 const primaryWallet = computed(() => (
   wallets.value.find((wallet) => Number(wallet.type) === 1) || wallets.value[0] || null
@@ -258,6 +269,26 @@ onMounted(() => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.my-wallet-topup-cta {
+  align-items: center;
+  background: linear-gradient(135deg, #0b8ff0, #075ec9);
+  border-radius: 999px;
+  box-shadow: 0 12px 24px rgba(7, 94, 201, .22);
+  color: #fff;
+  display: inline-flex;
+  font-size: 17px;
+  font-weight: 900;
+  gap: 8px;
+  justify-content: center;
+  min-height: 52px;
+  text-decoration: none;
+  width: 100%;
+}
+
+.my-wallet-topup-cta i {
+  font-size: 19px;
 }
 
 .my-wallet-section-head h2 {

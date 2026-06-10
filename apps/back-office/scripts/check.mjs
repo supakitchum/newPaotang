@@ -182,6 +182,9 @@ const tenantMaintenancePage = existsSync(join(root, 'pages/admin/tenant/maintena
 const tenantAnnouncementsPage = existsSync(join(root, 'pages/admin/tenant/announcements.vue'))
   ? readFileSync(join(root, 'pages/admin/tenant/announcements.vue'), 'utf8')
   : ''
+const tenantLineNotificationsPage = existsSync(join(root, 'pages/admin/tenant/line-notifications.vue'))
+  ? readFileSync(join(root, 'pages/admin/tenant/line-notifications.vue'), 'utf8')
+  : ''
 const centralDashboardPage = existsSync(join(root, 'pages/admin/central/dashboard/index.vue'))
   ? readFileSync(join(root, 'pages/admin/central/dashboard/index.vue'), 'utf8')
   : ''
@@ -295,6 +298,13 @@ for (const evidence of [
   ['template notice blocker', templateNotice.includes('Legal Agreement & Copyright Notice.txt') && templateNotice.includes('not a replacement') && templateNotice.includes('client delivery')],
   ['backend menu icon support', adminNavigation.includes('category?: string') && adminNavigation.includes('safeIcon') && adminNavigation.includes('item.icon')],
   ['maintenance bypass list support', tenantMaintenancePage.includes("api.apiFetch('/admin/tenant/maintenance/bypasses'") && tenantMaintenancePage.includes("status: 'active'") && tenantMaintenancePage.includes('bypassMeta') && tenantMaintenancePage.includes('support_session')],
+  ['LINE notification edit modal is visible without Bootstrap JS', tenantLineNotificationsPage.includes('templateModalOpen') && tenantLineNotificationsPage.includes('modal fade show d-block np-line-modal')],
+  ['LINE notification edit modal stays above its backdrop', tenantLineNotificationsPage.includes('.np-line-modal {\n  z-index: 12010;') && tenantLineNotificationsPage.includes('.np-line-modal-backdrop {\n  z-index: 12000;')],
+  ['LINE notification connection save error stays retryable', tenantLineNotificationsPage.includes('lineConnectionSaveError') && tenantLineNotificationsPage.includes('กด Save ใหม่อีกครั้ง') && tenantLineNotificationsPage.includes('savingConnection.value = false')],
+  ['LINE notification 422 errors render alerts instead of breaking save state', tenantLineNotificationsPage.includes('const alertType') && tenantLineNotificationsPage.includes('422') && tenantLineNotificationsPage.includes(':message="error.message"')],
+  ['LINE notification connection lets tenant configure LIFF ID', tenantLineNotificationsPage.includes('LINE LIFF ID') && tenantLineNotificationsPage.includes('connectionForm.liff_id') && tenantLineNotificationsPage.includes('Used when customers open the storefront from LINE LIFF')],
+  ['LINE notification connection can be disconnected from tenant BO', tenantLineNotificationsPage.includes('ยกเลิกการเชื่อมต่อ') && tenantLineNotificationsPage.includes('disconnectConnection') && tenantLineNotificationsPage.includes("method: 'DELETE'") && tenantLineNotificationsPage.includes("'/admin/tenant/line-notifications/connection'")],
+  ['LINE notification callback URL uses backend storefront value instead of BO origin', tenantLineNotificationsPage.includes('Customer callback URL') && tenantLineNotificationsPage.includes('connection.value.callback_url') && !tenantLineNotificationsPage.includes('window.location.origin')],
 ]) {
   if (!evidence[1]) {
     failures.push(`Production readiness guardrail missing: ${evidence[0]}`)

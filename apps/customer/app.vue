@@ -26,6 +26,12 @@ useCustomerStockRealtime({
   includePresence: true,
 })
 
+const lineLiff = useLineLiff()
+
+onMounted(() => {
+  void lineLiff.initialize()
+})
+
 useSaleClosureGuard()
 useMaintenanceGuard()
 usePublicVisitMonitor()

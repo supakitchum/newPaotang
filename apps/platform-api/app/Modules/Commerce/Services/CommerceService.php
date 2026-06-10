@@ -26,6 +26,8 @@ use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Modules\Auth\Services\CustomerAuthService;
 use App\Modules\Growth\Services\GrowthService;
+use App\Modules\LineNotifications\Services\TenantLineNotificationService;
+use App\Modules\TelegramNotifications\Services\CentralTelegramNotificationService;
 use App\Modules\PartnerStore\Services\VirtualLotteryImageService;
 use App\Modules\PartnerStore\Services\VirtualStockService;
 use App\Modules\Pricing\Services\LotterySalePriceService;
@@ -70,6 +72,8 @@ class CommerceService
         private readonly VirtualLotteryImageService $virtualImages,
         private readonly LotterySalePriceService $salePrices,
         private readonly GrowthService $growth,
+        private readonly TenantLineNotificationService $lineNotifications,
+        private readonly CentralTelegramNotificationService $telegramNotifications,
     ) {
     }
 
@@ -667,6 +671,8 @@ class CommerceService
             $resource = $this->topupResource(TopupRequest::where('id', $topupId)->first());
             $this->idempotency->storeResponse($tenantId, 'customer', $customer->customerId(), $credit ? 'customer.topups.credit' : 'customer.topups.create', $idempotencyKey, $normalized, 201, $resource);
             $this->queueTopupUpdatedBroadcast($tenantId, $topupId);
+            $this->lineNotifications->enqueue($tenantId, $customer->customerId(), 'topup.created', 'topup_request', $topupId, $this->lineTopupVariables($tenantId, $resource));
+            $this->telegramNotifications->enqueue($tenantId, 'topup.submitted', 'topup_request', $topupId, $this->telegramTopupVariables($tenantId, $resource));
 
             return ['resource' => $resource, 'status' => 201];
         });
@@ -1452,6 +1458,7 @@ class CommerceService
             $this->idempotency->storeResponse($tenantId, 'tenant_admin', $actor->adminUser['id'], $routeKey.':'.$topupId, $idempotencyKey, $payload, 200, $resource, $permissionCode);
             $this->auditAdmin($actor, $request, $auditAction, 'topup_request', $topupId, $payload, $tenantId);
             $this->queueTopupUpdatedBroadcast($tenantId, $topupId);
+            $this->lineNotifications->enqueue($tenantId, (string) ($resource['customer']['id'] ?? $resource['customer_id'] ?? $topup->customer_id), 'topup.status_updated', 'topup_request', $topupId, $this->lineTopupVariables($tenantId, $resource));
 
             return ['resource' => $resource, 'status' => 200];
         });
@@ -1933,6 +1940,8 @@ class CommerceService
             'currency' => 'THB',
             'ticket_ids' => $ticketIds,
         ]);
+        $this->lineNotifications->enqueue((string) $tenant['tenant_id'], $customer->customerId(), 'order.paid', 'order', $orderId, $this->lineOrderVariables((string) $tenant['tenant_id'], $orderId, count($ticketIds), $totalAmount));
+        $this->telegramNotifications->enqueue((string) $tenant['tenant_id'], 'order.paid', 'order', $orderId, $this->telegramOrderVariables((string) $tenant['tenant_id'], $orderId, count($ticketIds), $totalAmount));
 
         $this->insertOutboxEvent('stock.sold.v1', (string) $tenant['tenant_id'], (string) $tenant['partner_id'], $gameId, 'order', $orderId, $idempotencyKey, $request->header('X-Request-Id'), [
             'order_id' => $orderId,
@@ -3179,6 +3188,135 @@ class CommerceService
             ipAddress: $request->ip(),
             userAgent: $request->userAgent(),
         );
+    }
+
+    /**
+     * @param array<string, mixed> $topup
+     * @return array<string, mixed>
+     */
+    private function lineTopupVariables(string $tenantId, array $topup): array
+    {
+        $customerId = (string) ($topup['customer']['id'] ?? $topup['customer_id'] ?? '');
+        $customer = $customerId !== '' ? Customer::query()->where('tenant_id', $tenantId)->where('id', $customerId)->first() : null;
+        $amount = $topup['amount']['amount'] ?? $topup['amount'] ?? 0;
+        $reason = trim((string) ($topup['admin_note'] ?? $topup['reason'] ?? ''));
+
+        return [
+            'event' => ['title' => 'แจ้งเตือนรายการเติมเงิน'],
+            'tenant' => ['name' => (string) (PartnerTenant::query()->where('id', $tenantId)->value('name') ?: 'Partner')],
+            'customer' => [
+                'name' => (string) ($customer?->name ?? ''),
+                'phone' => (string) ($customer?->phone ?? ''),
+            ],
+            'topup' => [
+                'reference' => (string) ($topup['reference'] ?? $topup['id'] ?? ''),
+                'amount_baht' => $this->lineBaht($amount),
+                'status_label' => $this->lineStatusLabel((string) ($topup['status'] ?? '')),
+                'reason' => $reason === '' ? '' : 'เหตุผล: '.$reason,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function lineOrderVariables(string $tenantId, string $orderId, int $ticketCount, int $totalAmount): array
+    {
+        $order = Order::query()->where('tenant_id', $tenantId)->where('id', $orderId)->first();
+        $customer = $order === null ? null : Customer::query()->where('tenant_id', $tenantId)->where('id', $order->customer_id)->first();
+
+        return [
+            'event' => ['title' => 'ซื้อสลากสำเร็จ'],
+            'tenant' => ['name' => (string) (PartnerTenant::query()->where('id', $tenantId)->value('name') ?: 'Partner')],
+            'customer' => [
+                'name' => (string) ($customer?->name ?? ''),
+                'phone' => (string) ($customer?->phone ?? ''),
+            ],
+            'order' => [
+                'reference' => (string) ($order?->reference ?: $orderId),
+                'amount_baht' => $this->lineBaht($totalAmount),
+                'ticket_count' => (string) $ticketCount,
+            ],
+        ];
+    }
+
+    private function lineStatusLabel(string $status): string
+    {
+        return match ($status) {
+            'succeeded', 'approved' => 'อนุมัติแล้ว',
+            'failed', 'rejected', 'reversed' => 'ไม่อนุมัติ',
+            'cancelled' => 'ยกเลิก',
+            'expired' => 'หมดอายุ',
+            'processing' => 'กำลังดำเนินการ',
+            default => 'รอตรวจสอบ',
+        };
+    }
+
+    /**
+     * @param array<string, mixed> $topup
+     * @return array<string, mixed>
+     */
+    private function telegramTopupVariables(string $tenantId, array $topup): array
+    {
+        $customerId = (string) ($topup['customer']['id'] ?? $topup['customer_id'] ?? '');
+        $amount = (int) ($topup['amount']['amount'] ?? $topup['amount'] ?? 0);
+
+        return [
+            'event' => [
+                'title' => 'มีรายการเติมเงินรอตรวจสอบ',
+                'occurred_at' => $this->telegramNotifications->occurredAt($topup['created_at'] ?? null),
+            ],
+            'tenant' => ['name' => $this->telegramNotifications->tenantName($tenantId)],
+            'customer' => $this->telegramNotifications->customerVariables($tenantId, $customerId),
+            'topup' => [
+                'reference' => (string) ($topup['reference'] ?? $topup['id'] ?? ''),
+                'amount_baht' => $this->telegramNotifications->baht($amount),
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function telegramOrderVariables(string $tenantId, string $orderId, int $ticketCount, int $totalAmount): array
+    {
+        $order = Order::query()->where('tenant_id', $tenantId)->where('id', $orderId)->first();
+        $game = $order === null ? null : DB::table('games')->where('id', $order->game_id)->first(['name', 'draw_at']);
+
+        return [
+            'event' => [
+                'title' => 'ลูกค้าซื้อสลากสำเร็จ',
+                'occurred_at' => $this->telegramNotifications->occurredAt($order?->paid_at ?? $order?->created_at ?? null),
+            ],
+            'tenant' => ['name' => $this->telegramNotifications->tenantName($tenantId)],
+            'customer' => $this->telegramNotifications->customerVariables($tenantId, $order?->customer_id === null ? null : (string) $order->customer_id),
+            'order' => [
+                'reference' => (string) ($order?->reference ?: $orderId),
+                'ticket_count' => (string) $ticketCount,
+                'amount_baht' => $this->telegramNotifications->baht($totalAmount),
+                'draw_label' => $this->telegramDrawLabel($game),
+            ],
+        ];
+    }
+
+    private function telegramDrawLabel(?object $game): string
+    {
+        if ($game === null) {
+            return '-';
+        }
+
+        if (($game->draw_at ?? null) !== null) {
+            return Carbon::parse((string) $game->draw_at)->timezone('Asia/Bangkok')->format('d/m/Y');
+        }
+
+        return (string) ($game->name ?? '-');
+    }
+
+    private function lineBaht(mixed $amount): string
+    {
+        $value = is_array($amount) ? (int) ($amount['amount'] ?? 0) : (int) $amount;
+
+        return number_format($value / 100, 2);
     }
 
     private function limit(mixed $value): int

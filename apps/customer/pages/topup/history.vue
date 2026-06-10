@@ -25,19 +25,28 @@
       <div v-else class="topup-history-stack">
         <div class="topup-history-list">
           <article v-for="history in histories" :key="`${history.id || history.created_at}-${history.amount}`" class="topup-history-card">
-            <div class="topup-history-card-head">
-              <span class="topup-history-id">รายการ #{{ history.id || '-' }}</span>
-              <span :class="['topup-status', getStatusClass(history.status)]">{{ getStatusText(history.status) }}</span>
+            <div :class="['topup-history-icon', getStatusClass(history.status)]">
+              <i class="bi" :class="statusIcon(history.status)" />
             </div>
-            <div class="topup-history-card-body">
-              <strong>{{ formatMoney(toNumber(history.amount)) }} บาท</strong>
-              <span v-if="toNumber(history.bonus_amount) > 0" class="topup-history-bonus">
-                โบนัส {{ formatMoney(toNumber(history.bonus_amount)) }} บาท
-              </span>
+
+            <div class="topup-history-main">
+              <div class="topup-history-title-row">
+                <strong>เติมเงินเข้า G-Wallet</strong>
+                <span :class="['topup-status', getStatusClass(history.status)]">{{ getStatusText(history.status) }}</span>
+              </div>
+              <div class="topup-history-meta">
+                <span>รายการ #{{ history.id || '-' }}</span>
+                <span>{{ formatDate(history.transfer_at || history.created_at) }}</span>
+              </div>
+              <div v-if="toNumber(history.bonus_amount) > 0" class="topup-history-bonus">
+                <i class="bi bi-stars" />
+                <span>โบนัส {{ formatMoney(toNumber(history.bonus_amount)) }} บาท</span>
+              </div>
             </div>
-            <div class="topup-history-date">
-              <i class="bi bi-calendar3" />
-              <span>{{ formatDate(history.transfer_at || history.created_at) }}</span>
+
+            <div class="topup-history-amount">
+              <strong>{{ formatMoney(toNumber(history.amount)) }}</strong>
+              <span>บาท</span>
             </div>
           </article>
         </div>
@@ -104,6 +113,24 @@ const visiblePages = computed(() => {
   return Array.from({ length: end - start + 1 }, (_, index) => start + index)
 })
 
+const statusIcon = (status?: number | string) => {
+  const value = Number(status)
+
+  if (value === 1) {
+    return 'bi-check2'
+  }
+
+  if (value === 2) {
+    return 'bi-hourglass-split'
+  }
+
+  if (value === 0) {
+    return 'bi-x-lg'
+  }
+
+  return 'bi-wallet2'
+}
+
 const fetchHistories = async (page = currentPage.value) => {
   isLoading.value = true
 
@@ -168,9 +195,11 @@ onMounted(fetchHistories)
 
 .topup-history-page {
   display: grid;
-  gap: 12px;
-  padding-right: 16px;
-  padding-left: 16px;
+  min-height: 660px;
+  padding: 24px 20px 56px;
+  background: #fff;
+  border-radius: 18px 18px 0 0;
+  align-content: start;
 }
 
 .topup-history-page > * {
@@ -233,43 +262,64 @@ onMounted(fetchHistories)
 
 .topup-history-stack {
   display: grid;
-  gap: 12px;
+  gap: 20px;
 }
 
 .topup-history-list {
   display: grid;
-  gap: 10px;
 }
 
 .topup-history-card {
+  align-items: center;
+  border-bottom: 1px solid #e8edf4;
+  color: inherit;
   display: grid;
-  gap: 8px;
-  padding: 12px 14px;
-  border: 1px solid #e7edf5;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 8px 20px rgba(22, 46, 82, .08);
+  gap: 14px;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  min-height: 96px;
+  padding: 0 0 18px;
 }
 
-.topup-history-card-head,
-.topup-history-card-body,
-.topup-history-date {
-  display: flex;
+.topup-history-card + .topup-history-card {
+  padding-top: 18px;
+}
+
+.topup-history-card:last-child {
+  border-bottom: 0;
+}
+
+.topup-history-icon {
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 21px;
+  height: 46px;
+  justify-content: center;
+  width: 46px;
+}
+
+.topup-history-main {
+  display: grid;
+  gap: 7px;
   min-width: 0;
 }
 
-.topup-history-card-body {
-  align-items: baseline;
+.topup-history-title-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-width: 0;
 }
 
-.topup-history-card-body strong {
+.topup-history-title-row strong {
   color: #17335f;
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 900;
-  line-height: 1;
+  line-height: 1.2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -282,44 +332,54 @@ onMounted(fetchHistories)
   white-space: nowrap;
 }
 
-.topup-history-id {
-  min-width: 0;
+.topup-history-meta {
   color: #64748b;
-  font-size: 13px;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
   font-weight: 700;
-  line-height: 1.2;
+  gap: 4px 10px;
+  line-height: 1.25;
+  min-width: 0;
 }
 
-.topup-history-bonus {
-  padding: 4px 8px;
-  border-radius: 999px;
-  color: #047857;
-  background: #e6f8ef;
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1.2;
+.topup-history-meta span {
+  min-width: 0;
+}
+
+.topup-history-amount {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+  min-width: 86px;
+}
+
+.topup-history-amount strong {
+  color: #17335f;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
   white-space: nowrap;
 }
 
-.topup-history-date {
-  justify-content: flex-start;
+.topup-history-amount span {
   color: #64748b;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 800;
+}
+
+.topup-history-bonus {
+  align-items: center;
+  background: #e6f8ef;
+  border-radius: 999px;
+  color: #047857;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 5px;
+  justify-self: start;
   line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.topup-history-date i {
-  flex: 0 0 auto;
-  color: #0b69dc;
-}
-
-.topup-history-date span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  padding: 5px 8px;
   white-space: nowrap;
 }
 
@@ -372,5 +432,29 @@ onMounted(fetchHistories)
 .status-unknown {
   color: #64748b;
   background: #eef2f7;
+}
+
+@media (max-width: 360px) {
+  .topup-history-card {
+    align-items: start;
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .topup-history-icon {
+    font-size: 19px;
+    height: 42px;
+    width: 42px;
+  }
+
+  .topup-history-amount {
+    grid-column: 2;
+    justify-items: start;
+    min-width: 0;
+  }
+
+  .topup-history-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 </style>

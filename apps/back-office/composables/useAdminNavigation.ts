@@ -47,10 +47,12 @@ const scopedRouteOverrides: Record<string, string> = {
   'central:admin_users': '/admin/central/admin-users',
   'central:roles_permissions': '/admin/central/roles',
   'central:menu_management': '/admin/central/menu-management',
+  'central:telegram_notifications': '/admin/central/telegram-notifications',
   'central:system_settings': '/admin/central/system-settings',
   'tenant:price_rules': '/admin/tenant/price-rules',
   'tenant:customers': '/admin/tenant/customers',
   'tenant:announcements': '/admin/tenant/announcements',
+  'tenant:line_notifications': '/admin/tenant/line-notifications',
   'tenant:activities': '/admin/tenant/activities',
   'tenant:activity_claims': '/admin/tenant/activity-claims',
   'tenant:winners': '/admin/tenant/winners',
@@ -123,6 +125,7 @@ export const useAdminNavigation = () => {
 
     const key = item.key || ''
     if (key.includes('announcement')) return 'ri-megaphone-line'
+    if (key.includes('line_notification')) return 'ri-line-line'
     if (key.includes('maintenance')) return 'ri-tools-line'
     if (key.includes('support')) return 'ri-customer-service-2-line'
     if (key.includes('audit')) return 'ri-history-line'

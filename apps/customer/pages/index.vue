@@ -501,12 +501,17 @@ onMounted(() => {
 
 .home-activities-rail {
   display: flex;
-  gap: 12px;
+  gap: clamp(10px, 3vw, 14px);
+  width: calc(100% + 32px);
+  max-width: calc(100% + 32px);
   margin-inline: -16px;
   overflow-x: auto;
-  padding: 0 16px 8px;
+  overflow-y: hidden;
+  padding: 0 16px 10px;
   scroll-padding-inline: 16px;
+  scroll-snap-type: x proximity;
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 .home-activities-rail::-webkit-scrollbar {
@@ -514,10 +519,13 @@ onMounted(() => {
 }
 
 .home-activity-card {
-  flex: 0 0 min(84vw, 336px);
-  min-height: 132px;
+  box-sizing: border-box;
+  flex: 0 0 clamp(268px, 78vw, 360px);
+  min-width: 0;
+  max-width: calc(100vw - 36px);
+  min-height: clamp(122px, 34vw, 142px);
   display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
+  grid-template-columns: clamp(92px, 32%, 124px) minmax(0, 1fr);
   overflow: hidden;
   border: 1px solid #dbe7f5;
   border-radius: 14px;
@@ -532,7 +540,7 @@ onMounted(() => {
 .home-activity-image-fallback {
   width: 100%;
   height: 100%;
-  min-height: 132px;
+  min-height: clamp(122px, 34vw, 142px);
   display: block;
   object-fit: cover;
 }
@@ -550,9 +558,9 @@ onMounted(() => {
 .home-activity-card-body {
   min-width: 0;
   display: grid;
-  gap: 6px;
+  gap: clamp(4px, 1.4vw, 6px);
   align-content: start;
-  padding: 12px;
+  padding: clamp(10px, 3vw, 12px);
 }
 
 .home-activity-card-top {
@@ -563,9 +571,12 @@ onMounted(() => {
 }
 
 .home-activity-card-top span {
+  max-width: 100%;
+  min-width: 0;
   min-height: 23px;
   display: inline-flex;
   align-items: center;
+  overflow: hidden;
   border-radius: 999px;
   color: #075ec9;
   background: #eaf5ff;
@@ -573,6 +584,8 @@ onMounted(() => {
   font-weight: 900;
   line-height: 1;
   padding: 0 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .home-activity-card-top i {
@@ -606,10 +619,14 @@ onMounted(() => {
 }
 
 .home-activity-card small {
+  min-width: 0;
+  overflow: hidden;
   color: #0b69dc;
   font-size: 11px;
   font-weight: 900;
   line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .home-news-heading {
@@ -734,6 +751,52 @@ onMounted(() => {
 
   .home-guest-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 360px) {
+  .home-activities-rail {
+    width: calc(100% + 24px);
+    max-width: calc(100% + 24px);
+    margin-inline: -12px;
+    padding-inline: 12px;
+    scroll-padding-inline: 12px;
+  }
+
+  .home-activity-card {
+    flex-basis: calc(100vw - 36px);
+    grid-template-columns: 88px minmax(0, 1fr);
+  }
+
+  .home-activity-card-top span {
+    min-height: 21px;
+    padding-inline: 8px;
+    font-size: 10px;
+  }
+
+  .home-activity-card h3 {
+    font-size: 14px;
+    line-height: 1.28;
+  }
+
+  .home-activity-card p {
+    font-size: 11px;
+    line-height: 1.32;
+  }
+}
+
+@media (min-width: 768px) {
+  .home-activities-rail {
+    width: 100%;
+    max-width: 100%;
+    margin-inline: 0;
+    padding-inline: 0;
+    scroll-padding-inline: 0;
+  }
+
+  .home-activity-card {
+    flex-basis: clamp(300px, 44%, 376px);
+    max-width: none;
   }
 }
 </style>

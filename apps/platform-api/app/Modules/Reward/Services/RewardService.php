@@ -11,6 +11,7 @@ use App\Models\RewardPrize;
 use App\Models\RewardPublishLog;
 use App\Models\RewardResult;
 use App\Models\PlatformSystemSetting;
+use App\Models\PartnerTenant;
 use App\Models\SyncOutbox;
 use App\Models\Ticket;
 use App\Models\Wallet;
@@ -23,6 +24,8 @@ use App\Shared\Auth\AdminSessionContext;
 use App\Modules\Auth\Services\CustomerAuthService;
 use App\Shared\Auth\CustomerSessionContext;
 use App\Modules\Commerce\Services\CommerceService;
+use App\Modules\LineNotifications\Services\TenantLineNotificationService;
+use App\Modules\TelegramNotifications\Services\CentralTelegramNotificationService;
 use App\Shared\Idempotency\IdempotencyService;
 use App\Support\CustomerNo;
 use App\Support\PublicUrl;
@@ -58,6 +61,8 @@ class RewardService
         private readonly CustomerAuthService $customerAuth,
         private readonly CommerceService $commerce,
         private readonly TenantRewardPriceRuleService $tenantRewardPriceRules,
+        private readonly TenantLineNotificationService $lineNotifications,
+        private readonly CentralTelegramNotificationService $telegramNotifications,
     ) {
     }
 
@@ -2149,6 +2154,8 @@ class RewardService
             $resource = $this->claimResource(RewardClaim::where('id', $claimId)->first());
             $this->idempotency->storeResponse($tenantId, 'customer', $customer->customerId(), $routeKey, $idempotencyKey, $normalized, 201, $resource);
             $this->queueRewardClaimUpdatedBroadcast($tenantId, $claimId);
+            $this->lineNotifications->enqueue($tenantId, $customer->customerId(), 'reward_claim.submitted', 'reward_claim', $claimId, $this->lineClaimVariables($tenantId, $resource, 'ส่งคำขอขึ้นเงินรางวัลแล้ว'));
+            $this->telegramNotifications->enqueue($tenantId, 'reward_claim.submitted', 'reward_claim', $claimId, $this->telegramClaimVariables($tenantId, $resource));
 
             return ['resource' => $resource, 'status' => 201];
         });
@@ -2598,6 +2605,7 @@ class RewardService
             $this->idempotency->storeResponse($tenantId, 'tenant_admin', $actor->adminUser['id'], $route, $idempotencyKey, $payload, 200, $resource, $permissionCode);
             $this->auditAdmin($actor, $request, $auditAction, 'reward_claim', $claimId, $payload, $tenantId);
             $this->queueRewardClaimUpdatedBroadcast($tenantId, $claimId);
+            $this->lineNotifications->enqueue($tenantId, (string) ($resource['customer']['id'] ?? $claim->customer_id), 'reward_claim.status_updated', 'reward_claim', $claimId, $this->lineClaimVariables($tenantId, $resource, $this->lineRewardClaimStatusLabel((string) ($resource['status'] ?? $claim->status))));
 
             return ['resource' => $resource, 'status' => 200];
         });
@@ -3781,6 +3789,68 @@ class RewardService
         }
 
         return $base;
+    }
+
+    /**
+     * @param array<string, mixed> $claim
+     * @return array<string, mixed>
+     */
+    private function lineClaimVariables(string $tenantId, array $claim, string $statusLabel): array
+    {
+        $customer = is_array($claim['customer'] ?? null) ? $claim['customer'] : [];
+        $amount = $claim['prize_amount']['amount'] ?? $claim['claim_amount']['amount'] ?? 0;
+        $reason = trim((string) ($claim['admin_note'] ?? ''));
+
+        return [
+            'event' => ['title' => 'แจ้งเตือนการขึ้นเงินรางวัล'],
+            'tenant' => ['name' => (string) (PartnerTenant::query()->where('id', $tenantId)->value('name') ?: 'Partner')],
+            'customer' => [
+                'name' => (string) ($customer['name'] ?? ''),
+                'phone' => (string) ($customer['phone'] ?? ''),
+            ],
+            'claim' => [
+                'reference' => (string) ($claim['reference'] ?? $claim['id'] ?? ''),
+                'amount_baht' => number_format(((int) $amount) / 100, 2),
+                'status_label' => $statusLabel,
+                'reason' => $reason === '' ? '' : 'เหตุผล: '.$reason,
+            ],
+        ];
+    }
+
+    private function lineRewardClaimStatusLabel(string $status): string
+    {
+        return match ($status) {
+            'approved', 'paid' => 'จ่ายเงินรางวัลแล้ว',
+            'rejected' => 'ไม่อนุมัติ',
+            'under_review' => 'กำลังตรวจสอบ',
+            default => 'รอตรวจสอบ',
+        };
+    }
+
+    /**
+     * @param array<string, mixed> $claim
+     * @return array<string, mixed>
+     */
+    private function telegramClaimVariables(string $tenantId, array $claim): array
+    {
+        $customer = is_array($claim['customer'] ?? null) ? $claim['customer'] : [];
+        $amount = (int) ($claim['prize_amount']['amount'] ?? $claim['claim_amount']['amount'] ?? 0);
+
+        return [
+            'event' => [
+                'title' => 'มีรายการขึ้นเงินรางวัลรอตรวจสอบ',
+                'occurred_at' => $this->telegramNotifications->occurredAt($claim['submitted_at'] ?? $claim['created_at'] ?? null),
+            ],
+            'tenant' => ['name' => $this->telegramNotifications->tenantName($tenantId)],
+            'customer' => [
+                'name' => (string) ($customer['name'] ?? ''),
+                'phone' => (string) ($customer['phone'] ?? ''),
+            ],
+            'claim' => [
+                'reference' => (string) ($claim['reference'] ?? $claim['id'] ?? ''),
+                'amount_baht' => $this->telegramNotifications->baht($amount),
+            ],
+        ];
     }
 
     private function limit(mixed $value): int

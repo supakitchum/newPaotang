@@ -65,6 +65,12 @@ export interface SiteConfig {
   legal?: {
     terms_content?: string
   }
+  line?: {
+    liff_id?: string | null
+    liff_enabled?: boolean
+    bot_basic_id?: string | null
+    add_friend_url?: string | null
+  }
   [key: string]: unknown
 }
 

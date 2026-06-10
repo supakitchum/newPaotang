@@ -5,6 +5,8 @@ namespace App\Modules\Auth\Http\Controllers;
 use App\Modules\Auth\Services\CustomerLineAuthService;
 use App\Modules\PartnerStore\Services\PartnerStoreService;
 use App\Shared\Auth\ApiErrorResponse;
+use App\Shared\Auth\CustomerSessionContext;
+use App\Shared\Auth\CustomerSessionResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -14,6 +16,7 @@ class CustomerLineAuthController extends Controller
     public function __construct(
         private readonly PartnerStoreService $partnerStore,
         private readonly CustomerLineAuthService $lineAuth,
+        private readonly CustomerSessionResolver $sessions,
     ) {
     }
 
@@ -38,7 +41,21 @@ class CustomerLineAuthController extends Controller
             return $tenant;
         }
 
-        $result = $this->lineAuth->callback($tenant, $request->query(), $request);
+        $currentCustomer = $this->optionalCustomerContext($request, (string) $tenant['tenant_id']);
+        $result = $this->lineAuth->callback($tenant, $request->query(), $request, $currentCustomer);
+
+        return $this->result($request, $result);
+    }
+
+    public function linkPhone(Request $request): JsonResponse
+    {
+        $tenant = $this->tenantContext($request);
+
+        if ($tenant instanceof JsonResponse) {
+            return $tenant;
+        }
+
+        $result = $this->lineAuth->linkPhone($tenant, $request->all());
 
         return $this->result($request, $result);
     }
@@ -65,6 +82,14 @@ class CustomerLineAuthController extends Controller
         return match ($result['error'] ?? null) {
             'validation_failed' => ApiErrorResponse::validationFailed($request, $result['details']['fields'] ?? []),
             'authentication_required' => ApiErrorResponse::authenticationRequired($request),
+            'resource_conflict' => ApiErrorResponse::resourceConflict($request),
+            'provider_exchange_failed' => ApiErrorResponse::make(
+                $request,
+                422,
+                $result['error'],
+                'LINE login could not be completed.',
+                $result['details'] ?? [],
+            ),
             'provider_not_configured', 'provider_exchange_blocked' => ApiErrorResponse::make(
                 $request,
                 503,
@@ -74,6 +99,11 @@ class CustomerLineAuthController extends Controller
             ),
             default => response()->json($result['resource'] ?? [], $result['status'] ?? 200),
         };
+    }
+
+    private function optionalCustomerContext(Request $request, string $tenantId): ?CustomerSessionContext
+    {
+        return $this->sessions->resolveAccessToken($request->bearerToken(), $tenantId);
     }
 
     /**

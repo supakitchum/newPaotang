@@ -8,6 +8,7 @@ use App\Models\PartnerTenantFeatureFlag;
 use App\Models\PartnerTenantSetting;
 use App\Models\PartnerTenantTheme;
 use App\Models\PlatformSystemSetting;
+use App\Models\TenantLineChannel;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Modules\Maintenance\Services\MaintenanceService;
@@ -16,6 +17,7 @@ use App\Shared\Tenancy\TenantHostNormalizer;
 use App\Support\YoutubeLiveUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class TenantConfigurationService
 {
@@ -373,6 +375,7 @@ class TenantConfigurationService
             'api' => $this->apiPayload($settings),
             'live' => $this->livePayload($settings),
             'legal' => $this->legalPayload($settings),
+            'line' => $this->linePayload((string) $record->tenant_id),
             'timestamps' => [
                 'config_version' => max((int) $settings->config_version, (int) $theme->config_version),
                 'updated_at' => max((string) $settings->updated_at, (string) $theme->updated_at),
@@ -436,6 +439,37 @@ class TenantConfigurationService
             'brand' => $this->brandPayload($theme),
             'theme' => $this->themePayload($theme),
             'config_version' => (int) $theme->config_version,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function linePayload(string $tenantId): array
+    {
+        $empty = [
+            'liff_id' => null,
+            'liff_enabled' => false,
+            'bot_basic_id' => null,
+            'add_friend_url' => null,
+        ];
+
+        if (! Schema::hasTable('tenant_line_channels')) {
+            return $empty;
+        }
+
+        $channel = TenantLineChannel::query()
+            ->where('tenant_id', $tenantId)
+            ->where('status', 'active')
+            ->first();
+        $liffId = trim((string) ($channel?->liff_id ?? ''));
+        $botBasicId = trim((string) ($channel?->bot_basic_id ?? ''));
+
+        return [
+            'liff_id' => $liffId !== '' ? $liffId : null,
+            'liff_enabled' => $liffId !== '',
+            'bot_basic_id' => $botBasicId !== '' ? $botBasicId : null,
+            'add_friend_url' => $botBasicId !== '' ? 'https://line.me/R/ti/p/@'.ltrim($botBasicId, '@') : null,
         ];
     }
 

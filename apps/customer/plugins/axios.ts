@@ -88,7 +88,7 @@ export default defineNuxtPlugin({
         const status = error.response?.status
         const requestUrl = error.config?.url || ''
         const apiError = error.response?.data?.error
-        const isLoginRequest = requestUrl.startsWith('/customer/auth/login')
+        const isLoginRequest = requestUrl.startsWith('/customer/auth/login') || requestUrl.startsWith('/customer/auth/line/')
         const isRefreshRequest = requestUrl.startsWith('/customer/auth/refresh')
 
         if (apiError && !error.response.data.message) {

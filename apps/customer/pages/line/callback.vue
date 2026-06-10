@@ -14,7 +14,7 @@
 </template>
 
 <script setup lang="ts">
-import {onMounted, ref} from 'vue'
+import {computed, onMounted, ref} from 'vue'
 import type {AuthUser} from '~/composables/useAuth'
 import {handlesCustomerPinInline} from '~/utils/customerAuthRoutes'
 
@@ -23,6 +23,9 @@ interface LineCallbackResponse {
   token: string
   refresh_token?: string
   user: AuthUser
+  line_link_required?: boolean
+  link_token?: string
+  line_profile?: Record<string, any>
   pin_required?: boolean
   pin_setup_required?: boolean
   order_id?: string
@@ -39,6 +42,12 @@ const {lineRedirect, isAuthenticated, pinSetupRequired, pinRequired, setAuthSess
 const { applyStoredRef } = useAffiliateReferral()
 const {refreshAppInit} = useAppInit()
 const statusText = ref('กรุณารอสักครู่ ระบบกำลังยืนยันข้อมูลจาก LINE')
+const hasLineCallbackParams = computed(() => (
+  typeof route.query.code === 'string' &&
+  route.query.code.trim() !== '' &&
+  typeof route.query.state === 'string' &&
+  route.query.state.trim() !== ''
+))
 
 const getSafeRedirect = (value: unknown) => {
   if (typeof value !== 'string') {
@@ -86,7 +95,7 @@ const shouldUseInlinePinRedirect = (response: LineCallbackResponse, redirectTo: 
 )
 
 onMounted(async () => {
-  if (isAuthenticated.value) {
+  if (isAuthenticated.value && !hasLineCallbackParams.value) {
     const redirectTo = getSafeRedirect(lineRedirect.value)
 
     if (pinSetupRequired.value || (pinRequired.value && !handlesCustomerPinInline(redirectTo))) {
@@ -101,10 +110,28 @@ onMounted(async () => {
     return
   }
 
+  if (!hasLineCallbackParams.value) {
+    statusText.value = 'ไม่พบข้อมูลยืนยันจาก LINE กรุณาลองเชื่อมต่อใหม่อีกครั้ง'
+    return
+  }
+
   try {
     const response = await platformApi.lineCallback(route.query) as LineCallbackResponse
 
     if (response.code === 0) {
+      if (response.line_link_required && response.link_token) {
+        const redirectTo = getSafeRedirect(lineRedirect.value)
+        await navigateTo({
+          path: '/line/link-phone',
+          query: {
+            token: response.link_token,
+            redirect: redirectTo,
+            name: response.line_profile?.display_name || ''
+          }
+        })
+        return
+      }
+
       setAuthSession(response)
       await applyStoredRef()
 

@@ -66,12 +66,14 @@ class DefaultRbacMenuSeeder extends Seeder
 
         $this->grantCentralDashboardMenusToDefaultRoles($now);
         $this->grantCentralMaintenanceToSuperAdmins($now);
+        $this->grantCentralTelegramNotificationsToSuperAdmins($now);
         $this->grantSalePricePermissionsToDefaultRoles($now);
         $this->grantWinnerMenuToPlatformOwner($now);
         $this->grantTenantWinnerMenuToPartnerOwners($now);
         $this->grantTenantMaintenanceToPartnerOwners($now);
         $this->grantTenantAnnouncementsToPartnerOwners($now);
         $this->grantTenantActivitiesToPartnerOwners($now);
+        $this->grantTenantLineNotificationsToPartnerOwners($now);
     }
 
     /**
@@ -125,6 +127,8 @@ class DefaultRbacMenuSeeder extends Seeder
                 'system.settings.manage' => 'Manage platform settings',
                 'asset.manage' => 'Manage central asset upload intents',
                 'support_access.audit' => 'View support access audits',
+                'telegram_notification.view' => 'View Telegram notification settings',
+                'telegram_notification.manage' => 'Manage Telegram notification settings and routes',
             ]),
             ...$this->scopedPermissions('tenant', [
                 'dashboard.view' => 'View tenant dashboard',
@@ -181,6 +185,8 @@ class DefaultRbacMenuSeeder extends Seeder
                 'seo.redirect.manage' => 'Manage tenant redirects',
                 'announcement.view' => 'View tenant announcements',
                 'announcement.manage' => 'Manage tenant announcements',
+                'line_notification.view' => 'View tenant LINE notification settings',
+                'line_notification.manage' => 'Manage LINE notification settings and templates',
                 'activity.view' => 'View tenant activities',
                 'activity.manage' => 'Manage tenant activities',
                 'maintenance.view' => 'View maintenance settings',
@@ -241,6 +247,7 @@ class DefaultRbacMenuSeeder extends Seeder
                 'admin_users' => 'admin_user.manage',
                 'roles_permissions' => 'role.manage',
                 'menu_management' => 'menu.manage',
+                'telegram_notifications' => 'telegram_notification.view',
                 'system_settings' => 'system.settings.manage',
             ]),
             ...$this->scopedMenus('tenant', [
@@ -265,6 +272,7 @@ class DefaultRbacMenuSeeder extends Seeder
                 'affiliate_attributions' => 'affiliate_attribution.view',
                 'commission_rules' => 'commission_rule.view',
                 'announcements' => 'announcement.view',
+                'line_notifications' => 'line_notification.view',
                 'activities' => 'activity.view',
                 'activity_claims' => 'activity.view',
                 'seo_settings' => 'seo.view',
@@ -368,6 +376,7 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:admin_users',
             'central:roles_permissions',
             'central:menu_management',
+            'central:telegram_notifications' => '/admin/central/telegram-notifications',
             'central:system_settings' => '/admin/central/dashboard',
             'tenant:dashboard' => '/admin/tenant/dashboard',
             'tenant:local_stock' => '/admin/tenant/stock',
@@ -384,6 +393,7 @@ class DefaultRbacMenuSeeder extends Seeder
             'tenant:agent_quotas' => '/admin/tenant/growth/agents',
             'tenant:payment_settings' => '/admin/tenant/payment-settings',
             'tenant:announcements' => '/admin/tenant/announcements',
+            'tenant:line_notifications' => '/admin/tenant/line-notifications',
             'tenant:activities' => '/admin/tenant/activities',
             'tenant:activity_claims' => '/admin/tenant/activity-claims',
             'tenant:affiliate_programs' => '/admin/tenant/growth/affiliate-programs',
@@ -440,6 +450,14 @@ class DefaultRbacMenuSeeder extends Seeder
             return 'Central Maintenance';
         }
 
+        if ($code === 'line_notifications') {
+            return 'LINE Notifications';
+        }
+
+        if ($code === 'telegram_notifications') {
+            return 'Telegram Notifications';
+        }
+
         return str($code)->replace('_', ' ')->title()->toString();
     }
 
@@ -474,6 +492,7 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:admin_users',
             'central:roles_permissions',
             'central:menu_management',
+            'central:telegram_notifications',
             'central:system_settings' => 'Administration',
             'tenant:local_stock',
             'tenant:price_rules',
@@ -488,6 +507,7 @@ class DefaultRbacMenuSeeder extends Seeder
             'tenant:winners',
             'tenant:payment_settings' => 'Store Operations',
             'tenant:announcements',
+            'tenant:line_notifications',
             'tenant:activities',
             'tenant:activity_claims' => 'Store Operations',
             'tenant:agents',
@@ -531,6 +551,8 @@ class DefaultRbacMenuSeeder extends Seeder
             str_contains($code, 'billing') || str_contains($code, 'settlement') || str_contains($code, 'payout') => 'ri-bank-card-line',
             str_contains($code, 'alert') || str_contains($code, 'monitoring') => 'ri-notification-3-line',
             str_contains($code, 'announcement') => 'ri-megaphone-line',
+            str_contains($code, 'telegram') => 'ri-telegram-line',
+            str_contains($code, 'line_notification') => 'ri-line-line',
             str_contains($code, 'activity') => 'ri-gift-line',
             str_contains($code, 'report') || str_contains($code, 'usage') => 'ri-bar-chart-box-line',
             str_contains($code, 'audit') || str_contains($code, 'log') => 'ri-history-line',
@@ -723,6 +745,68 @@ class DefaultRbacMenuSeeder extends Seeder
         $menuIds = DB::table('admin_menus')
             ->where('scope_type', 'central')
             ->where('code', 'maintenance')
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($menuIds !== []) {
+            $menuRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($menuIds as $menuId) {
+                    $menuRows[] = [
+                        'role_id' => $roleId,
+                        'menu_id' => $menuId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_menus')->insertOrIgnore($menuRows);
+        }
+
+        $this->bumpPermissionCacheVersions($roleIds, $now);
+    }
+
+    private function grantCentralTelegramNotificationsToSuperAdmins(mixed $now): void
+    {
+        $roleIds = DB::table('roles')
+            ->where('scope_type', 'central')
+            ->whereNull('tenant_id')
+            ->whereIn('code', ['super_admin'])
+            ->pluck('id')
+            ->all();
+
+        if ($roleIds === []) {
+            return;
+        }
+
+        $permissionIds = DB::table('permissions')
+            ->where('scope_type', 'central')
+            ->whereIn('code', ['telegram_notification.view', 'telegram_notification.manage'])
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($permissionIds !== []) {
+            $permissionRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($permissionIds as $permissionId) {
+                    $permissionRows[] = [
+                        'role_id' => $roleId,
+                        'permission_id' => $permissionId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_permissions')->insertOrIgnore($permissionRows);
+        }
+
+        $menuIds = DB::table('admin_menus')
+            ->where('scope_type', 'central')
+            ->where('code', 'telegram_notifications')
             ->where('status', 'active')
             ->pluck('id')
             ->all();
@@ -1029,6 +1113,67 @@ class DefaultRbacMenuSeeder extends Seeder
         $menuIds = DB::table('admin_menus')
             ->where('scope_type', 'tenant')
             ->whereIn('code', ['activities', 'activity_claims'])
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($menuIds !== []) {
+            $menuRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($menuIds as $menuId) {
+                    $menuRows[] = [
+                        'role_id' => $roleId,
+                        'menu_id' => $menuId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_menus')->insertOrIgnore($menuRows);
+        }
+
+        $this->bumpPermissionCacheVersions($roleIds, $now);
+    }
+
+    private function grantTenantLineNotificationsToPartnerOwners(mixed $now): void
+    {
+        $roleIds = DB::table('roles')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['owner_partner', 'owner'])
+            ->pluck('id')
+            ->all();
+
+        if ($roleIds === []) {
+            return;
+        }
+
+        $permissionIds = DB::table('permissions')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['line_notification.view', 'line_notification.manage'])
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($permissionIds !== []) {
+            $permissionRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($permissionIds as $permissionId) {
+                    $permissionRows[] = [
+                        'role_id' => $roleId,
+                        'permission_id' => $permissionId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_permissions')->insertOrIgnore($permissionRows);
+        }
+
+        $menuIds = DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->where('code', 'line_notifications')
             ->where('status', 'active')
             ->pluck('id')
             ->all();

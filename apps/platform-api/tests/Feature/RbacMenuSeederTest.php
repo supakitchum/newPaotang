@@ -15,8 +15,8 @@ class RbacMenuSeederTest extends TestCase
     {
         $this->seed(DefaultRbacMenuSeeder::class);
 
-        $this->assertSame(44, DB::table('permissions')->where('scope_type', 'central')->count());
-        $this->assertSame(73, DB::table('permissions')->where('scope_type', 'tenant')->count());
+        $this->assertSame(46, DB::table('permissions')->where('scope_type', 'central')->count());
+        $this->assertSame(75, DB::table('permissions')->where('scope_type', 'tenant')->count());
 
         $this->assertDatabaseHas('permissions', [
             'scope_type' => 'central',
@@ -38,14 +38,28 @@ class RbacMenuSeederTest extends TestCase
             'name' => 'View central sale price rules',
             'status' => 'active',
         ]);
+
+        $this->assertDatabaseHas('permissions', [
+            'scope_type' => 'tenant',
+            'code' => 'line_notification.manage',
+            'name' => 'Manage LINE notification settings and templates',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('permissions', [
+            'scope_type' => 'central',
+            'code' => 'telegram_notification.manage',
+            'name' => 'Manage Telegram notification settings and routes',
+            'status' => 'active',
+        ]);
     }
 
     public function test_default_menus_seed_with_documented_permission_codes(): void
     {
         $this->seed(DefaultRbacMenuSeeder::class);
 
-        $this->assertSame(31, DB::table('admin_menus')->where('scope_type', 'central')->count());
-        $this->assertSame(37, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
+        $this->assertSame(32, DB::table('admin_menus')->where('scope_type', 'central')->count());
+        $this->assertSame(38, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
 
         $dashboardParentId = (string) DB::table('admin_menus')
             ->where('scope_type', 'central')
@@ -181,6 +195,16 @@ class RbacMenuSeederTest extends TestCase
             'status' => 'active',
         ]);
 
+        $this->assertDatabaseHas('admin_menus', [
+            'scope_type' => 'tenant',
+            'code' => 'line_notifications',
+            'label' => 'LINE Notifications',
+            'route' => '/admin/tenant/line-notifications',
+            'category' => 'Store Operations',
+            'required_permission_code' => 'line_notification.view',
+            'status' => 'active',
+        ]);
+
         $this->assertDatabaseMissing('admin_menus', [
             'scope_type' => 'central',
             'code' => 'master_stock',
@@ -205,6 +229,16 @@ class RbacMenuSeederTest extends TestCase
             'route' => '/admin/central/maintenance',
             'category' => 'Partner Operations',
             'required_permission_code' => 'partner.view',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('admin_menus', [
+            'scope_type' => 'central',
+            'code' => 'telegram_notifications',
+            'label' => 'Telegram Notifications',
+            'route' => '/admin/central/telegram-notifications',
+            'category' => 'Administration',
+            'required_permission_code' => 'telegram_notification.view',
             'status' => 'active',
         ]);
 
@@ -478,6 +512,15 @@ class RbacMenuSeederTest extends TestCase
             ->where('scope_type', 'tenant')
             ->where('code', 'activities')
             ->value('id');
+        $linePermissionIds = DB::table('permissions')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['line_notification.view', 'line_notification.manage'])
+            ->pluck('id')
+            ->all();
+        $lineMenuId = (string) DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->where('code', 'line_notifications')
+            ->value('id');
 
         foreach (['rol_t_owner', 'rol_t_owner_partner'] as $roleId) {
             foreach ($rewardClaimPermissionIds as $permissionId) {
@@ -521,6 +564,16 @@ class RbacMenuSeederTest extends TestCase
             $this->assertDatabaseHas('role_menus', [
                 'role_id' => $roleId,
                 'menu_id' => $activityMenuId,
+            ]);
+            foreach ($linePermissionIds as $permissionId) {
+                $this->assertDatabaseHas('role_permissions', [
+                    'role_id' => $roleId,
+                    'permission_id' => $permissionId,
+                ]);
+            }
+            $this->assertDatabaseHas('role_menus', [
+                'role_id' => $roleId,
+                'menu_id' => $lineMenuId,
             ]);
         }
     }
