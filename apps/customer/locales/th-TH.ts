@@ -1,0 +1,41 @@
+export default {
+  common: {
+    language: 'ภาษา',
+    thai: 'ไทย',
+    english: 'English',
+    loading: 'กำลังโหลด',
+    retry: 'ลองใหม่',
+    close: 'ปิด',
+    back: 'กลับ',
+    search: 'ค้นหา',
+    viewAll: 'ดูทั้งหมด',
+  },
+  nav: {
+    home: 'หน้าหลัก',
+    tickets: 'สลากฯ ของฉัน',
+    menu: 'อื่นๆ',
+  },
+  profile: {
+    fallbackName: 'ผู้ใช้งาน',
+    memberCode: 'รหัสสมาชิก : {code}',
+    loadFailedTitle: 'โหลดข้อมูลโปรไฟล์ไม่สำเร็จ',
+    loadFailedMessage: 'กรุณาลองใหม่อีกครั้ง',
+    languageTitle: 'ภาษาในการใช้งาน',
+    languageSubtitle: 'เลือกภาษาสำหรับหน้าเว็บและข้อความจากระบบ',
+  },
+  errors: {
+    generic: 'กรุณาลองใหม่อีกครั้ง',
+    maintenanceTitle: 'ปิดปรับปรุงระบบ',
+    maintenanceMessage: 'ระบบอยู่ระหว่างปิดปรับปรุง กรุณากลับมาใหม่อีกครั้ง',
+    sessionExpiredTitle: 'เซสชันหมดอายุ',
+    sessionExpiredMessage: 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง',
+  },
+  news: {
+    title: 'ข่าวสาร',
+    loading: 'กำลังโหลดข่าวสาร',
+    emptyTitle: 'ยังไม่มีข่าวสารในขณะนี้',
+    emptyDescription: 'เมื่อมีประกาศใหม่จากร้านค้า คุณจะเห็นรายการได้ที่หน้านี้',
+    category: 'ข่าวสาร',
+    fallbackTitle: 'ข่าวประชาสัมพันธ์',
+  },
+}

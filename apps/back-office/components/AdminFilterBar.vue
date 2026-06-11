@@ -5,8 +5,8 @@
         <div v-for="filter in filters" :key="filter.key" class="col-sm-6 col-lg-3">
           <label class="form-label">{{ filter.label }}</label>
           <select v-if="filter.type === 'select'" v-model="draft[filter.key]" class="form-select">
-            <option v-if="!filter.hideEmptyOption" value="">{{ filter.emptyOptionLabel || 'All' }}</option>
-            <option v-else-if="!visibleOptions(filter).length" value="" disabled>{{ filter.emptyOptionLabel || 'No options available' }}</option>
+            <option v-if="!filter.hideEmptyOption" value="">{{ filter.emptyOptionLabel || translateReportText('All', locale) }}</option>
+            <option v-else-if="!visibleOptions(filter).length" value="" disabled>{{ filter.emptyOptionLabel || translateReportText('No options available', locale) }}</option>
             <option
               v-for="option in visibleOptions(filter)"
               :key="optionValue(option)"
@@ -27,7 +27,7 @@
         <div class="col-sm-6 col-lg-3">
           <button class="btn btn-outline-primary btn-wave w-100" type="button" @click="$emit('apply', cleanDraft())">
             <i class="ri-filter-3-line me-1" />
-            Apply filters
+            {{ translateReportText('Apply filters', locale) }}
           </button>
         </div>
       </div>
@@ -38,6 +38,7 @@
 <script setup lang="ts">
 import type { OperationFilter } from '~/composables/useAdminOperationsCatalog'
 import { titleize } from '~/utils/format'
+import { translateReportText } from '~/utils/reportI18n'
 
 const props = defineProps<{
   filters: OperationFilter[]
@@ -50,6 +51,7 @@ defineEmits<{
 }>()
 
 const draft = reactive<Record<string, any>>({})
+const { locale } = useAdminLocale()
 
 watch(() => props.modelValue, (value) => {
   for (const filter of props.filters) {

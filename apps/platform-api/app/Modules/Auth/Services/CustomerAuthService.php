@@ -269,6 +269,7 @@ class CustomerAuthService
             'phone' => array_key_exists('phone', $payload) ? trim((string) $payload['phone']) : null,
             'email' => array_key_exists('email', $payload) ? $this->nullableLower($payload['email']) : null,
             'avatar_url' => array_key_exists('avatar_url', $payload) ? ($payload['avatar_url'] ?: null) : null,
+            'preferred_locale' => array_key_exists('preferred_locale', $payload) ? $this->normalizeLocale($payload['preferred_locale']) : null,
         ], fn (mixed $value): bool => $value !== null);
 
         if (array_key_exists('reward_payout_bank_account', $payload) || array_key_exists('bank_account', $payload)) {
@@ -706,6 +707,7 @@ class CustomerAuthService
             'phone' => $customer->phone,
             'email' => $customer->email ?? null,
             'status' => $customer->status ?? null,
+            'preferred_locale' => $customer->preferred_locale ?? null,
             'avatar_url' => $customer->avatar_url ?? null,
             'reward_payout_bank_account' => $this->decodedBankAccount($customer->reward_payout_bank_account_json ?? null),
             'auto_reward_claim' => [
@@ -733,6 +735,17 @@ class CustomerAuthService
     private function autoRewardClaimType(mixed $value): string
     {
         return $this->normalizeAutoRewardClaimPayoutMethod($value) === 'bank_transfer' ? 'bank_transfer' : 'wallet';
+    }
+
+    private function normalizeLocale(mixed $value): ?string
+    {
+        $locale = str_replace('_', '-', strtolower(trim((string) $value)));
+
+        return match ($locale) {
+            'th', 'th-th' => 'th-TH',
+            'en', 'en-us', 'en-gb' => 'en-US',
+            default => null,
+        };
     }
 
     private function newCustomerNo(string $tenantId): string

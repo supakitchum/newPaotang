@@ -12,8 +12,10 @@ class AdminUser extends BaseModel
     protected $fillable = [
         'id',
         'email',
+        'username',
         'password_hash',
         'status',
+        'preferred_locale',
         'created_at',
         'updated_at',
         'name',

@@ -6,7 +6,7 @@
     <main class="main-content app-content">
       <div class="container-fluid">
         <AdminProtectedContent :show="canRenderAdminContent">
-          <AdminAlert v-if="error" type="warning" :message="error.message || 'Unable to load backend menu.'" dismissible @dismiss="error = null" />
+          <AdminAlert v-if="error" type="warning" :message="error.message || t('menus.sidebar.loadError')" dismissible @dismiss="error = null" />
           <slot />
         </AdminProtectedContent>
       </div>
@@ -22,6 +22,7 @@ const navigation = useAdminNavigation()
 const { navigationMenus, loading, error, loadMenus } = navigation
 const session = useAdminSession()
 const route = useRoute()
+const { t } = useAdminLocale()
 const { ready, markReady } = useAdminClientReady()
 const adminSessionRedirectTimeoutMs = 3000
 const clientReady = computed(() => ready.value)

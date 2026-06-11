@@ -12,6 +12,7 @@ type ApiOptions = {
 export const useAdminApi = () => {
   const session = useAdminSession()
   const hostMode = useAdminHostMode()
+  const adminLocale = useAdminLocale()
   const { showSuccessAlert } = useAdminSuccessAlert()
   const apiBase = computed(() => hostMode.adminApiBase.value)
 
@@ -26,6 +27,8 @@ export const useAdminApi = () => {
 
     const headers: Record<string, string> = {
       Accept: 'application/json',
+      'Accept-Language': adminLocale.locale.value,
+      'X-Locale': adminLocale.locale.value,
       'X-Request-Id': requestId(),
     }
 
@@ -69,7 +72,7 @@ export const useAdminApi = () => {
       const status = error?.response?.status || error?.status || 500
       const body = error?.data || error?.response?._data || {}
       const code = body?.error?.code || `http_${status}`
-      const message = readableApiMessage(status, code, body?.error?.message)
+      const message = readableApiMessage(status, code, body?.error?.message, adminLocale.t)
       const details = body?.error?.details || {}
       const retryAfter = error?.response?.headers?.get?.('Retry-After') || null
 
@@ -155,28 +158,28 @@ export const useAdminApi = () => {
   }
 }
 
-const readableApiMessage = (status: number, code: string, message?: string) => {
+const readableApiMessage = (status: number, code: string, message: string | undefined, t: (key: string) => string) => {
   if (code === 'retired_flow') {
     return typeof message === 'string' && message.trim()
       ? message.trim()
-      : 'This workflow has been retired. Use the current virtual stock percent workflow instead.'
+      : t('errors.retiredFlow')
   }
 
-  return typeof message === 'string' && message.trim() ? message.trim() : readableError(status)
+  return typeof message === 'string' && message.trim() ? message.trim() : readableError(status, t)
 }
 
-const readableError = (status: number) => {
+const readableError = (status: number, t: (key: string) => string) => {
   const map: Record<number, string> = {
-    401: 'Authentication is required.',
-    403: 'You do not have permission to perform this action.',
-    409: 'The requested operation conflicts with current data.',
-    410: 'This workflow has been retired.',
-    422: 'The request payload is invalid.',
-    429: 'Too many requests. Please wait and retry.',
-    503: 'The service is temporarily unavailable.',
+    401: t('errors.authenticationRequired'),
+    403: t('errors.permissionDenied'),
+    409: t('errors.conflict'),
+    410: t('errors.retired'),
+    422: t('errors.validation'),
+    429: t('errors.rateLimited'),
+    503: t('errors.unavailable'),
   }
 
-  return map[status] || 'The request failed.'
+  return map[status] || t('errors.failed')
 }
 
 const isWriteMethod = (method: string) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)

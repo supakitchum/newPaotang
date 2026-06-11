@@ -19,6 +19,7 @@ use App\Modules\CentralStock\Http\Controllers\CentralAllocationController;
 use App\Modules\CentralStock\Http\Controllers\CentralGameController;
 use App\Modules\CentralStock\Http\Controllers\LotteryImageOperationsController;
 use App\Modules\Reward\Http\Controllers\CentralRewardController;
+use App\Modules\Reward\Http\Controllers\CentralRewardEntryController;
 use App\Modules\Growth\Http\Controllers\CentralSettlementController;
 use App\Modules\CentralStock\Http\Controllers\CentralStockController;
 use App\Modules\Auth\Http\Controllers\CustomerAuthController;
@@ -52,6 +53,9 @@ use App\Modules\Maintenance\Http\Controllers\TenantMaintenanceController;
 use App\Modules\LineNotifications\Http\Controllers\CustomerLineNotificationController;
 use App\Modules\LineNotifications\Http\Controllers\TenantLineNotificationController;
 use App\Modules\TelegramNotifications\Http\Controllers\CentralTelegramNotificationController;
+use App\Modules\Translations\Http\Controllers\CentralTranslationController;
+use App\Modules\Translations\Http\Controllers\PublicTranslationController;
+use App\Modules\StorageConnections\Http\Controllers\CentralStorageConnectionController;
 use App\Modules\Reward\Http\Controllers\TenantRewardClaimController;
 use App\Modules\Reward\Http\Controllers\TenantRewardWinnersController;
 use App\Modules\PartnerStore\Http\Controllers\TenantReservationController;
@@ -67,6 +71,7 @@ Route::post('/internal/reward-ingest/sanook', [InternalRewardIngestController::c
 
 Route::get('/public/admin-site-config', [PublicSiteConfigController::class, 'admin']);
 Route::get('/public/site-config', [PublicSiteConfigController::class, 'show']);
+Route::get('/public/translations', [PublicTranslationController::class, 'bundle']);
 Route::get('/public/seo/page', [PublicContentController::class, 'seoPage']);
 Route::get('/public/news', [PublicContentController::class, 'news']);
 Route::get('/public/news/modal', [PublicContentController::class, 'newsModal']);
@@ -144,6 +149,7 @@ Route::post('/auth/admin/login', [AdminAuthController::class, 'login']);
 Route::post('/auth/admin/refresh', [AdminAuthController::class, 'refresh']);
 Route::post('/auth/admin/logout', [AdminAuthController::class, 'logout'])->middleware('admin.auth');
 Route::get('/auth/admin/me', [AdminAuthController::class, 'me'])->middleware('admin.auth');
+Route::patch('/auth/admin/me', [AdminAuthController::class, 'updateMe'])->middleware('admin.auth');
 Route::post('/auth/admin/password/forgot', [AdminAccountSecurityController::class, 'forgotPassword']);
 Route::post('/auth/admin/password/reset', [AdminAccountSecurityController::class, 'resetPassword']);
 Route::post('/auth/admin/password/change', [AdminAccountSecurityController::class, 'changePassword'])
@@ -159,6 +165,9 @@ Route::post('/auth/admin/2fa/enable', [AdminAccountSecurityController::class, 'e
 Route::post('/auth/admin/2fa/recovery-codes', [AdminAccountSecurityController::class, 'rotateRecoveryCodes'])
     ->middleware(['admin.auth', 'support.block:change_2fa']);
 Route::post('/auth/admin/2fa/verify', [AdminAccountSecurityController::class, 'verifyTwoFactor']);
+
+Route::get('/admin/translations/runtime', [CentralTranslationController::class, 'runtime'])
+    ->middleware('admin.auth');
 
 Route::get('/admin/central/menu', [AdminMenuController::class, 'central'])
     ->middleware(['admin.auth', 'admin.scope:central']);
@@ -284,6 +293,40 @@ Route::patch('/admin/central/telegram-notifications/templates/{event_key}', [Cen
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/telegram-notifications/deliveries', [CentralTelegramNotificationController::class, 'deliveries'])
     ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/storage-connections/aws-s3', [CentralStorageConnectionController::class, 'show'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::put('/admin/central/storage-connections/aws-s3', [CentralStorageConnectionController::class, 'update'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::put('/admin/central/storage-connections/upload-routes', [CentralStorageConnectionController::class, 'updateRoutes'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::delete('/admin/central/storage-connections/aws-s3', [CentralStorageConnectionController::class, 'disconnect'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/storage-connections/aws-s3/test', [CentralStorageConnectionController::class, 'test'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/translations/runtime', [CentralTranslationController::class, 'runtime'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/translations/languages', [CentralTranslationController::class, 'languages'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::match(['post', 'patch'], '/admin/central/translations/languages', [CentralTranslationController::class, 'upsertLanguage'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/translations/keys', [CentralTranslationController::class, 'keys'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::patch('/admin/central/translations/drafts/{key_id}', [CentralTranslationController::class, 'saveDraft'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/translations/deploy-requests', [CentralTranslationController::class, 'deployRequests'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/translations/deploy-requests', [CentralTranslationController::class, 'createDeployRequest'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/translations/deploy-requests/{id}/submit', [CentralTranslationController::class, 'submitDeployRequest'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/translations/deploy-requests/{id}/cancel', [CentralTranslationController::class, 'cancelDeployRequest'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/translations/deploy-requests/{id}/preview-session', [CentralTranslationController::class, 'previewSession'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/translations/deploy-requests/{id}/approve', [CentralTranslationController::class, 'approve'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/translations/deploy-requests/{id}/reject', [CentralTranslationController::class, 'reject'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/partners', [PartnerProvisioningController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/partners', [PartnerProvisioningController::class, 'store'])
@@ -358,6 +401,8 @@ Route::post('/admin/central/stock/{stock_item_id}/recall', [CentralStockControll
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/lottery-images/readiness', [LotteryImageOperationsController::class, 'readiness'])
     ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/lottery-images/games', [LotteryImageOperationsController::class, 'games'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/lottery-images/background-asset-sets', [LotteryImageOperationsController::class, 'backgroundSets'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/lottery-images/background-asset-sets/import-zip', [LotteryImageOperationsController::class, 'importBackgroundZip'])
@@ -409,6 +454,20 @@ Route::post('/admin/central/allocations/{allocation_id}/cancel', [CentralAllocat
 Route::get('/admin/central/winners/games', [CentralRewardController::class, 'winnerGames'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/winners', [CentralRewardController::class, 'winners'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/reward-entry/sessions/current', [CentralRewardEntryController::class, 'current'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/reward-entry/owner-queue', [CentralRewardEntryController::class, 'ownerQueue'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/reward-entry/sessions/{session_id}', [CentralRewardEntryController::class, 'show'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::put('/admin/central/reward-entry/sessions/{session_id}/submission', [CentralRewardEntryController::class, 'saveSubmission'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/reward-entry/sessions/{session_id}/submit', [CentralRewardEntryController::class, 'submit'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/reward-entry/sessions/{session_id}/comparison', [CentralRewardEntryController::class, 'comparison'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/reward-entry/sessions/{session_id}/resolve', [CentralRewardEntryController::class, 'resolve'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/rewards', [CentralRewardController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:central']);

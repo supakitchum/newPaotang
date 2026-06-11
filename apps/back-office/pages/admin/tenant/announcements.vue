@@ -87,9 +87,27 @@
           </div>
           <div class="modal-body">
             <form class="row g-3" @submit.prevent="saveAnnouncement">
+              <div class="col-12">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                  <label class="form-label mb-0">Localized content</label>
+                  <div class="btn-group btn-group-sm" role="group" aria-label="Announcement language tabs">
+                    <button
+                      v-for="option in localeOptions"
+                      :key="option.value"
+                      class="btn"
+                      :class="contentLocale === option.value ? 'btn-primary' : 'btn-outline-primary'"
+                      type="button"
+                      @click="contentLocale = option.value"
+                    >
+                      {{ option.label }}
+                    </button>
+                  </div>
+                </div>
+                <div class="form-text">The public API returns the matching language and falls back to Thai/default content if blank.</div>
+              </div>
               <div class="col-12 col-lg-7">
-                <label class="form-label">Title</label>
-                <input v-model="form.title" class="form-control" :class="invalidClass('title')" placeholder="Customer-facing title">
+                <label class="form-label">Title ({{ localeLabel(contentLocale) }})</label>
+                <input v-model="form.title_i18n[contentLocale]" class="form-control" :class="invalidClass('title')" placeholder="Customer-facing title">
                 <div class="invalid-feedback">{{ fieldError('title') }}</div>
               </div>
               <div class="col-12 col-lg-5">
@@ -130,13 +148,13 @@
                 </label>
               </div>
               <div class="col-12">
-                <label class="form-label">Summary</label>
-                <textarea v-model="form.summary" class="form-control" rows="2" :class="invalidClass('summary')" />
+                <label class="form-label">Summary ({{ localeLabel(contentLocale) }})</label>
+                <textarea v-model="form.summary_i18n[contentLocale]" class="form-control" rows="2" :class="invalidClass('summary')" />
                 <div class="invalid-feedback">{{ fieldError('summary') }}</div>
               </div>
               <div class="col-12">
-                <label class="form-label">Body</label>
-                <textarea v-model="form.body" class="form-control" rows="6" :class="invalidClass('body')" placeholder="Full detail shown on the customer news page." />
+                <label class="form-label">Body ({{ localeLabel(contentLocale) }})</label>
+                <textarea v-model="form.body_i18n[contentLocale]" class="form-control" rows="6" :class="invalidClass('body')" placeholder="Full detail shown on the customer news page." />
                 <div class="invalid-feedback">{{ fieldError('body') }}</div>
               </div>
               <div class="col-12">
@@ -201,6 +219,10 @@ const api = useAdminApi()
 const session = useAdminSession()
 const tenantId = computed(() => session.currentTenantId.value)
 const statuses = ['draft', 'active', 'inactive', 'archived']
+const localeOptions = [
+  { value: 'th-TH', label: 'TH' },
+  { value: 'en-US', label: 'EN' },
+] as const
 const columns = [
   { key: 'title', label: 'Title' },
   { key: 'status', label: 'Status', type: 'status' },
@@ -219,6 +241,7 @@ const announcements = ref<Announcement[]>([])
 const meta = ref<Record<string, any>>({})
 const pageState = ref({ index: 0, cursors: [''] })
 const formModalOpen = ref(false)
+const contentLocale = ref<'th-TH' | 'en-US'>('th-TH')
 const sort = reactive({ key: 'created_at', direction: 'desc' as 'asc' | 'desc' })
 const filters = reactive({ q: '', status: '' })
 const fieldErrors = ref<Record<string, string[]>>({})
@@ -230,7 +253,7 @@ const form = reactive<Record<string, any>>(defaultForm())
 const saveDisabled = computed(() => (
   saving.value
   || !tenantId.value
-  || !String(form.title || '').trim()
+  || !firstLocalizedValue(form.title_i18n, form.title)
   || Boolean(imageError.value)
 ))
 
@@ -238,9 +261,12 @@ function defaultForm() {
   return {
     id: '',
     title: '',
+    title_i18n: localizedDefaults(),
     slug: '',
     summary: '',
+    summary_i18n: localizedDefaults(),
     body: '',
+    body_i18n: localizedDefaults(),
     status: 'draft',
     modal_enabled: true,
     important: false,
@@ -314,6 +340,9 @@ const selectAnnouncement = (row: Announcement) => {
   clearPreview()
   Object.assign(form, defaultForm(), {
     ...row,
+    title_i18n: localizedFrom(row.title_i18n, row.title),
+    summary_i18n: localizedFrom(row.summary_i18n, row.summary),
+    body_i18n: localizedFrom(row.body_i18n, row.body),
     display_start_at: toDateTimeLocal(row.display_start_at),
     display_end_at: toDateTimeLocal(row.display_end_at),
   })
@@ -426,10 +455,13 @@ const uploadImage = async (announcementId: string) => {
 }
 
 const buildPayload = () => ({
-  title: String(form.title || '').trim(),
+  title: firstLocalizedValue(form.title_i18n, form.title),
+  title_i18n: normalizedLocalized(form.title_i18n),
   slug: String(form.slug || '').trim() || undefined,
-  summary: String(form.summary || '').trim() || null,
-  body: String(form.body || '').trim() || null,
+  summary: firstLocalizedValue(form.summary_i18n, form.summary) || null,
+  summary_i18n: normalizedLocalized(form.summary_i18n),
+  body: firstLocalizedValue(form.body_i18n, form.body) || null,
+  body_i18n: normalizedLocalized(form.body_i18n),
   status: form.status || 'draft',
   modal_enabled: Boolean(form.modal_enabled),
   important: Boolean(form.important),
@@ -503,6 +535,29 @@ const formatDateTime = (value: string | null | undefined) => {
 
 const titleize = (value: string) => String(value || '-').replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
 const alertType = (err: any) => ([403, 409, 422].includes(Number(err?.status)) ? 'warning' : 'danger')
+const localeLabel = (value: 'th-TH' | 'en-US') => localeOptions.find((option) => option.value === value)?.label || value
+const localizedDefaults = () => ({ 'th-TH': '', 'en-US': '' })
+const localizedFrom = (value: any, fallback = '') => {
+  const next = localizedDefaults()
+  if (value && typeof value === 'object') {
+    next['th-TH'] = String(value['th-TH'] || value.th || '')
+    next['en-US'] = String(value['en-US'] || value.en || '')
+  }
+  if (!next['th-TH'] && fallback) {
+    next['th-TH'] = String(fallback)
+  }
+  return next
+}
+const firstLocalizedValue = (value: any, fallback = '') => String(
+  value?.['th-TH']
+  || value?.['en-US']
+  || fallback
+  || '',
+).trim()
+const normalizedLocalized = (value: any) => ({
+  'th-TH': String(value?.['th-TH'] || '').trim(),
+  'en-US': String(value?.['en-US'] || '').trim(),
+})
 
 watch(tenantId, () => {
   resetForm()

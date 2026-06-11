@@ -21,6 +21,7 @@ class Customer extends BaseModel
         'first_name',
         'last_name',
         'status',
+        'preferred_locale',
         'created_at',
         'updated_at',
         'email',

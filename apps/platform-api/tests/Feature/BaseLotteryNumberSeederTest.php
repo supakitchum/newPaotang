@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use Database\Seeders\BaseLotteryNumberSeeder;
-use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -12,11 +11,11 @@ class BaseLotteryNumberSeederTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_DatabaseSeeder_seeds_base_lottery_numbers_when_source_is_configured(): void
+    public function test_BaseLotteryNumberSeeder_seeds_base_lottery_numbers_when_source_is_configured(): void
     {
         config(['platform.stock_generation.base_lottery_numbers_path' => $this->fixturePath()]);
 
-        $this->seed(DatabaseSeeder::class);
+        $this->seed(BaseLotteryNumberSeeder::class);
 
         $this->assertSame(3, DB::table('base_lottery_numbers')->count());
         $this->assertSame('001100', DB::table('base_lottery_numbers')->min('full_number'));

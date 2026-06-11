@@ -2,7 +2,7 @@
 
 namespace App\Support;
 
-use Illuminate\Support\Facades\Storage;
+use App\Modules\StorageConnections\Services\RuntimeStorageService;
 
 final class PublicUrl
 {
@@ -14,7 +14,13 @@ final class PublicUrl
             return rtrim($baseUrl, '/').'/'.ltrim($key, '/');
         }
 
-        return self::normalizeAssetUrl(Storage::disk((string) config('lottery_images.disk', 'lottery_images'))->url($key));
+        try {
+            $storage = app(RuntimeStorageService::class);
+
+            return self::normalizeAssetUrl($storage->publicUrl($storage->routeForStorageKey($key), $key));
+        } catch (\Throwable) {
+            return self::normalizeAssetUrl(self::absolute(rtrim((string) config('app.url', 'http://localhost:8000'), '/').'/api/v1/public/assets/'.ltrim($key, '/')));
+        }
     }
 
     public static function normalizeAssetUrl(mixed $url): ?string

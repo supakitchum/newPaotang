@@ -2,6 +2,7 @@
 
 namespace App\Modules\CentralStock\Http\Controllers;
 
+use App\Modules\CentralStock\Services\CentralStockService;
 use App\Modules\CentralStock\Services\LotteryImageOperationsService;
 use App\Modules\Rbac\Services\PermissionService;
 use App\Shared\Auth\AdminSessionContext;
@@ -17,9 +18,15 @@ class LotteryImageOperationsController extends Controller
     public function __construct(
         private readonly PermissionService $permissions,
         private readonly LotteryImageOperationsService $operations,
+        private readonly CentralStockService $centralStock,
         private readonly RequestHeaderValidator $headers,
         private readonly IdempotencyService $idempotency,
     ) {
+    }
+
+    public function games(Request $request): JsonResponse
+    {
+        return $this->read($request, 'asset.manage', fn (): array => $this->centralStock->listGames($request->query()));
     }
 
     public function readiness(Request $request): JsonResponse

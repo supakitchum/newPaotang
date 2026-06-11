@@ -25,6 +25,7 @@ const scopedRouteOverrides: Record<string, string> = {
   'central:dashboard_wallet': '/admin/central/dashboard/wallet',
   'central:dashboard_payout': '/admin/central/dashboard/payout',
   'central:dashboard_monitor': '/admin/central/dashboard/monitor',
+  'central:reward_entry': '/admin/central/reward-entry',
   'central:rewards': '/admin/central/rewards',
   'central:winners': '/admin/central/winners',
   'central:reward_payout_rules': '/admin/central/reward-payout-rules',
@@ -48,6 +49,8 @@ const scopedRouteOverrides: Record<string, string> = {
   'central:roles_permissions': '/admin/central/roles',
   'central:menu_management': '/admin/central/menu-management',
   'central:telegram_notifications': '/admin/central/telegram-notifications',
+  'central:storage_connections': '/admin/central/storage-connections',
+  'central:translations': '/admin/central/translations',
   'central:system_settings': '/admin/central/system-settings',
   'tenant:price_rules': '/admin/tenant/price-rules',
   'tenant:customers': '/admin/tenant/customers',
@@ -71,10 +74,11 @@ const scopedRouteOverrides: Record<string, string> = {
 export const useAdminNavigation = () => {
   const api = useAdminApi()
   const session = useAdminSession()
+  const { t } = useAdminLocale()
   const menus = useState<AdminMenuItem[]>('admin-menus', () => [])
   const loading = useState('admin-menus-loading', () => false)
   const error = useState<any>('admin-menus-error', () => null)
-  const navigationMenus = computed(() => buildMenuTree(menus.value))
+  const navigationMenus = computed(() => translateMenuTree(buildMenuTree(menus.value), session.currentScope.value, t))
 
   const loadMenus = async () => {
     session.restore()
@@ -126,11 +130,13 @@ export const useAdminNavigation = () => {
     const key = item.key || ''
     if (key.includes('announcement')) return 'ri-megaphone-line'
     if (key.includes('line_notification')) return 'ri-line-line'
+    if (key.includes('storage')) return 'ri-database-2-line'
     if (key.includes('maintenance')) return 'ri-tools-line'
     if (key.includes('support')) return 'ri-customer-service-2-line'
     if (key.includes('audit')) return 'ri-history-line'
     if (key.includes('role') || key.includes('permission')) return 'ri-shield-user-line'
     if (key.includes('stock')) return 'ri-archive-stack-line'
+    if (key.includes('reward') || key.includes('winner') || key.includes('prize')) return 'ri-trophy-line'
     if (key.includes('lottery') || key.includes('image')) return 'ri-image-2-line'
     if (key.includes('partner')) return 'ri-building-4-line'
     return item.children?.length ? 'ri-folder-2-line' : 'ri-dashboard-line'
@@ -189,6 +195,53 @@ const buildMenuTree = (items: AdminMenuItem[]) => {
   })
 
   return groups
+}
+
+const translateMenuTree = (items: AdminMenuItem[], scope: string, translate: (key: string) => string): AdminMenuItem[] => (
+  items.map((item) => {
+    const children = Array.isArray(item.children) ? translateMenuTree(item.children, scope, translate) : []
+    const isCategory = item.key.startsWith('category:')
+
+    return {
+      ...item,
+      label: isCategory
+        ? translatedCategoryLabel(item.label, translate)
+        : translatedMenuLabel(scope, item.key, item.label, translate),
+      children,
+    }
+  })
+)
+
+const translatedMenuLabel = (scope: string, key: string, fallback: string, translate: (key: string) => string) => {
+  const scopedKey = `menus.items.${scope}.${key}`
+  const scopedLabel = translate(scopedKey)
+
+  if (scopedLabel !== scopedKey) {
+    return scopedLabel
+  }
+
+  return fallback
+}
+
+const translatedCategoryLabel = (category: string, translate: (key: string) => string) => {
+  const categoryKey = categoryTranslationKey(category)
+  const translationKey = `menus.categories.${categoryKey}`
+  const translated = translate(translationKey)
+
+  return translated !== translationKey ? translated : category
+}
+
+const categoryTranslationKey = (category: string) => {
+  const parts = category
+    .trim()
+    .replace(/&/g, ' and ')
+    .split(/[^a-z0-9]+/i)
+    .filter(Boolean)
+    .map((part) => part.toLowerCase())
+
+  return parts.map((part, index) => (
+    index === 0 ? part : `${part.charAt(0).toUpperCase()}${part.slice(1)}`
+  )).join('')
 }
 
 const retiredCentralMenuKeys = new Set(['master_stock', 'partner_quotas', 'stock_recall', 'partner_provisioning'])

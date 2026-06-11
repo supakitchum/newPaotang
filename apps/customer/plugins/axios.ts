@@ -18,6 +18,7 @@ export default defineNuxtPlugin({
     const requestHeaders = process.server ? useRequestHeaders(['host']) : {}
     const { token: authToken, refreshToken, clearAuthToken, setPinVerified, refreshAuthToken } = useAuth()
     const { showAlert } = useAppAlert()
+    const { localeHeader, t } = useLocale()
     const publicApiBaseUrl = String(config.public.apiBaseUrl || '/api/v1')
     const tenantHost = normalizeTenantHost(process.server ? requestHeaders.host : (process.client ? window.location.host : ''))
     const runtimeApiBaseUrl = useState<string>(`platform_api_base_url_${tenantHostScope(tenantHost)}`, () => publicApiBaseUrl)
@@ -43,6 +44,8 @@ export default defineNuxtPlugin({
       request.baseURL = resolveApiBaseUrl()
 
       request.headers.set('Accept', 'application/json')
+      request.headers.set('Accept-Language', localeHeader.value)
+      request.headers.set('X-Locale', localeHeader.value)
       request.headers.set('X-Request-Id', createRequestId())
 
       if (process.server && tenantHost) {
@@ -100,8 +103,8 @@ export default defineNuxtPlugin({
           if (process.client && route.path !== '/maintenance' && !isHandlingMaintenance) {
             isHandlingMaintenance = true
             showAlert({
-              title: 'ปิดปรับปรุงระบบ',
-              message: apiError?.message || 'ระบบอยู่ระหว่างปิดปรับปรุง กรุณากลับมาใหม่อีกครั้ง',
+              title: t('errors.maintenanceTitle'),
+              message: apiError?.message || t('errors.maintenanceMessage'),
               variant: 'warning'
             })
 
@@ -152,8 +155,8 @@ export default defineNuxtPlugin({
           if (process.client && !isHandlingUnauthorized) {
             isHandlingUnauthorized = true
             showAlert({
-              title: 'เซสชันหมดอายุ',
-              message: 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง',
+              title: t('errors.sessionExpiredTitle'),
+              message: t('errors.sessionExpiredMessage'),
               variant: 'warning'
             })
 

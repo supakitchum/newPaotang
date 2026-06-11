@@ -15,9 +15,12 @@ class TenantAnnouncement extends BaseModel
         'id',
         'tenant_id',
         'title',
+        'title_i18n',
         'slug',
         'summary',
+        'summary_i18n',
         'body',
+        'body_i18n',
         'status',
         'modal_enabled',
         'important',
@@ -37,6 +40,9 @@ class TenantAnnouncement extends BaseModel
         'display_start_at' => 'datetime',
         'display_end_at' => 'datetime',
         'sort_order' => 'integer',
+        'title_i18n' => 'array',
+        'summary_i18n' => 'array',
+        'body_i18n' => 'array',
         'metadata_json' => 'array',
     ];
 

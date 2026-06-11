@@ -87,6 +87,7 @@ class AdminSessionResolver
                 'email' => (string) $adminUser->email,
                 'phone' => $adminUser->phone,
                 'status' => (string) $adminUser->status,
+                'preferred_locale' => $adminUser->preferred_locale ?? null,
                 'two_factor_enabled' => (bool) $adminUser->two_factor_enabled,
             ],
             scopes: $this->authService->scopesForAdmin((string) $adminUser->id),

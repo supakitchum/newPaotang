@@ -3,7 +3,7 @@
     <AdminOperationHeader
       v-if="resource"
       :scope="scope"
-      :group="resource.group"
+      :group="pageGroup"
       :title="pageTitle"
     >
       <template #actions>
@@ -31,8 +31,8 @@
             <div class="card-body">
               <div class="d-flex align-items-center justify-content-between">
                 <div>
-                  <p class="text-muted mb-1">Report</p>
-                  <h6 class="mb-0">{{ titleize(key) }}</h6>
+                  <p class="text-muted mb-1">{{ translateReportText('Report', reportLocale) }}</p>
+                  <h6 class="mb-0">{{ reportKeyLabel(key, reportLocale) }}</h6>
                 </div>
                 <i class="ri-bar-chart-box-line fs-24 text-primary" />
               </div>
@@ -683,6 +683,7 @@ import AdminTenantStockDetail from '~/components/AdminTenantStockDetail.vue'
 import AdminTopupDetail from '~/components/AdminTopupDetail.vue'
 import AdminWalletDetail from '~/components/AdminWalletDetail.vue'
 import { formatAdminValue, formatDateTime, formatMoney, formatRewardMoney, titleize } from '~/utils/format'
+import { reportIndexTitle, reportKeyLabel, reportTitle, translateReportActions, translateReportFilters, translateReportText } from '~/utils/reportI18n'
 
 const props = defineProps<{
   scope: 'tenant' | 'central'
@@ -692,6 +693,8 @@ const route = useRoute()
 const api = useAdminApi()
 const session = useAdminSession()
 const catalog = useAdminOperationsCatalog()
+const adminLocale = useAdminLocale()
+const reportLocale = computed(() => adminLocale.locale.value)
 
 const loading = ref(false)
 const saving = ref(false)
@@ -861,7 +864,19 @@ const mode = computed(() => resolved.value.mode)
 const recordId = computed(() => resolved.value.id)
 const scopeLabel = computed(() => props.scope === 'tenant' ? 'Tenant' : 'Central')
 const scopeBasePath = computed(() => `/admin/${props.scope}`)
-const pageTitle = computed(() => mode.value === 'detail' ? `${resource.value?.title || 'Detail'} detail` : resource.value?.title || 'Operations')
+const pageGroup = computed(() => (mode.value === 'report-index' || mode.value === 'report-detail')
+  ? reportIndexTitle(props.scope, reportLocale.value)
+  : resource.value?.group || 'Operations')
+const pageTitle = computed(() => {
+  if (mode.value === 'report-index') {
+    return reportIndexTitle(props.scope, reportLocale.value)
+  }
+  if (mode.value === 'report-detail') {
+    return reportTitle(recordId.value || resource.value?.title || 'report', reportLocale.value)
+  }
+
+  return mode.value === 'detail' ? `${resource.value?.title || 'Detail'} detail` : resource.value?.title || 'Operations'
+})
 const listPath = computed(() => resource.value ? `${scopeBasePath.value}/${resource.value.slug}` : scopeBasePath.value)
 const canReload = computed(() => Boolean(resource.value && mode.value !== 'report-index' && !resource.value.apiGap && !detailGap.value && !isStockPatternCoverageRoute.value))
 const hasDetailRoute = computed(() => Boolean(resource.value?.detailEndpoint || resource.value?.detailFromList || resource.value?.detailApiGap))
@@ -1235,7 +1250,10 @@ const stockGenerateCurrentGameMessage = computed(() => {
   return 'No single current draw/current game is available. Open exactly one game with status open before generating stock.'
 })
 const hydratedFilters = computed(() => hydrateFilters(resource.value?.filters || []))
-const hydratedCollectionActions = computed(() => hydrateActions(resource.value?.collectionActions || []))
+const hydratedCollectionActions = computed(() => {
+  const actions = hydrateActions(resource.value?.collectionActions || [])
+  return mode.value === 'report-detail' ? translateReportActions(actions, reportLocale.value) : actions
+})
 const hydratedActions = computed(() => hydrateActions(resource.value?.actions || []))
 const detailActions = computed(() => {
   const row = detail.value ? { ...detail.value, __id: recordId.value } : null
@@ -1284,7 +1302,7 @@ const reportFilters = computed(() => resource.value?.filters?.length ? resource.
   { key: 'cursor', label: 'Cursor' },
   { key: 'limit', label: 'Limit', type: 'number' as const },
 ])
-const hydratedReportFilters = computed(() => hydrateFilters(reportFilters.value))
+const hydratedReportFilters = computed(() => translateReportFilters(hydrateFilters(reportFilters.value), reportLocale.value))
 const stockTicketColumns = [
   { key: 'id', label: 'Ticket' },
   { key: 'full_number', label: 'Number' },
@@ -2520,7 +2538,9 @@ const openCollectionAction = (action: OperationAction) => {
   confirm.row = buildCollectionContext()
   confirm.related = null
   confirm.title = action.label
-  confirm.message = `Confirm ${action.label.toLowerCase()} for ${resource.value?.title || 'this page'}.`
+  confirm.message = mode.value === 'report-detail' && String(reportLocale.value).toLowerCase().startsWith('th')
+    ? `ยืนยัน${action.label}สำหรับ${pageTitle.value}`
+    : `Confirm ${action.label.toLowerCase()} for ${resource.value?.title || 'this page'}.`
   actionError.value = null
 }
 

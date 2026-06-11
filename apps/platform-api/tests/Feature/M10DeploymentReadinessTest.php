@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use Database\Seeders\BaseLotteryNumberSeeder;
 use Database\Seeders\DatabaseSeeder;
+use Database\Seeders\DemoTenantSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\Console\Command\Command as SymfonyCommand;
@@ -16,7 +18,11 @@ class M10DeploymentReadinessTest extends TestCase
     {
         config(['platform.stock_generation.base_lottery_numbers_path' => $this->baseLotteryFixturePath()]);
 
-        $this->seed(DatabaseSeeder::class);
+        $this->seed([
+            DatabaseSeeder::class,
+            DemoTenantSeeder::class,
+            BaseLotteryNumberSeeder::class,
+        ]);
 
         $this->artisan('platform:smoke')
             ->expectsOutput('app: ok')

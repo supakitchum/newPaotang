@@ -20,6 +20,7 @@ use App\Models\WinningTicket;
 use App\Modules\Auth\Services\CustomerAuthService;
 use App\Modules\Commerce\Services\CommerceService;
 use App\Modules\LineNotifications\Services\TenantLineNotificationService;
+use App\Modules\StorageConnections\Services\RuntimeStorageService;
 use App\Modules\TelegramNotifications\Services\CentralTelegramNotificationService;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
@@ -30,7 +31,6 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class TenantActivityService
@@ -50,6 +50,7 @@ class TenantActivityService
         private readonly CustomerAuthService $customerAuth,
         private readonly CommerceService $commerce,
         private readonly TenantLineNotificationService $lineNotifications,
+        private readonly RuntimeStorageService $storage,
         private readonly CentralTelegramNotificationService $telegramNotifications,
     ) {
     }
@@ -1206,6 +1207,7 @@ class TenantActivityService
         $name = array_key_exists('name', $payload) ? trim((string) $payload['name']) : null;
         return array_filter([
             'name' => $name,
+            'name_i18n' => array_key_exists('name_i18n', $payload) ? $this->normalizedLocalizedText($payload['name_i18n']) : null,
             'game_id' => array_key_exists('game_id', $payload) ? trim((string) $payload['game_id']) : ($creating ? '' : null),
             'type' => array_key_exists('type', $payload) ? trim((string) $payload['type']) : ($creating ? 'lucky_board' : null),
             'status' => array_key_exists('status', $payload) ? trim((string) $payload['status']) : ($creating ? 'draft' : null),
@@ -1248,6 +1250,10 @@ class TenantActivityService
 
         if (array_key_exists('sort_order', $payload) && $payload['sort_order'] === false) {
             $errors['sort_order'][] = 'The sort_order field must be an integer.';
+        }
+
+        if (array_key_exists('name_i18n', $payload) && ! is_array($payload['name_i18n'])) {
+            $errors['name_i18n'][] = 'The name_i18n field must be an object keyed by locale.';
         }
 
         if (array_key_exists('game_id', $payload) && trim((string) $payload['game_id']) !== '') {
@@ -2034,7 +2040,8 @@ class TenantActivityService
         $extension = $extension !== '' ? $extension : 'img';
         $storageKey = 'tenants/'.$tenantId.'/activities/'.$activityId.'/'.$variant.'.'.$extension;
 
-        Storage::disk((string) config('lottery_images.disk', 'lottery_images'))->put(
+        $storageKey = $this->storage->put(
+            RuntimeStorageService::ROUTE_ACTIVITY_IMAGES,
             $storageKey,
             $payload['bytes'],
             ['ContentType' => $payload['content_type']],
@@ -2053,11 +2060,11 @@ class TenantActivityService
             'status' => 'committed',
             'storage_key' => $storageKey,
             'upload_url' => null,
-            'public_url' => PublicUrl::asset($storageKey),
+            'public_url' => $this->storage->publicUrl(RuntimeStorageService::ROUTE_ACTIVITY_IMAGES, $storageKey),
             'metadata_json' => $payload['metadata'] + [
                 'activity_id' => $activityId,
                 'variant' => $variant,
-                'storage_disk' => (string) config('lottery_images.disk', 'lottery_images'),
+                'storage_route' => RuntimeStorageService::ROUTE_ACTIVITY_IMAGES,
             ],
             'expires_at' => null,
             'committed_at' => now(),
@@ -2085,6 +2092,7 @@ class TenantActivityService
             'game_id' => (string) $row->game_id,
             'name' => (string) $row->name,
             'title' => (string) $row->name,
+            'name_i18n' => $this->decodedLocalizedText($row->name_i18n ?? null),
             'slug' => (string) $row->slug,
             'type' => (string) $row->type,
             'status' => (string) $row->status,
@@ -2127,6 +2135,9 @@ class TenantActivityService
     private function publicResource(object $row, bool $includeBody = false): array
     {
         $resource = $this->resource($row);
+        $localizedName = $this->localizedText($row->name_i18n ?? null, $row->name) ?? (string) $row->name;
+        $resource['name'] = $localizedName;
+        $resource['title'] = $localizedName;
         $resource['description'] = $this->activityDescription($row);
 
         if ((string) $row->type === 'lucky_board') {
@@ -2263,6 +2274,14 @@ class TenantActivityService
 
     private function activityDescription(object $row): string
     {
+        $locale = $this->canonicalLocale(app()->getLocale()) ?? 'th-TH';
+
+        if ($locale === 'en-US') {
+            return (string) $row->type === 'cashback'
+                ? 'Cashback activity for eligible customers who do not win any prize.'
+                : 'Lucky board activity. Pick your favorite number using rights earned from purchases.';
+        }
+
         return (string) $row->type === 'cashback'
             ? 'กิจกรรมรับเงินคืนสำหรับลูกค้าที่เข้าเงื่อนไขและไม่ถูกรางวัล'
             : 'กิจกรรมแผงเลขนำโชค เลือกเลขที่ชอบตามสิทธิ์จากยอดซื้อ';
@@ -2519,6 +2538,15 @@ class TenantActivityService
 
     private function predictionTypeLabel(string $type): string
     {
+        if (($this->canonicalLocale(app()->getLocale()) ?? 'th-TH') === 'en-US') {
+            return match ($type) {
+                'first_prize_last2' => 'Guess 2 digits from first prize',
+                'first_prize_last3' => 'Guess 3 digits from first prize',
+                'last2' => 'Guess last 2 digits',
+                default => $type,
+            };
+        }
+
         return match ($type) {
             'first_prize_last2' => 'ทายเลข 2 ตัวรางวัลที่ 1',
             'first_prize_last3' => 'ทายเลข 3 ตัวรางวัลที่ 1',
@@ -2605,6 +2633,66 @@ class TenantActivityService
         $limit = filter_var($value, FILTER_VALIDATE_INT);
 
         return $limit === false ? 20 : max(1, min(100, $limit));
+    }
+
+    /**
+     * @param mixed $value
+     * @return array<string, string>
+     */
+    private function normalizedLocalizedText(mixed $value): array
+    {
+        if (is_string($value) && trim($value) !== '') {
+            $decoded = json_decode($value, true);
+            $value = is_array($decoded) ? $decoded : [];
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($value as $locale => $text) {
+            $canonicalLocale = $this->canonicalLocale($locale);
+            $string = trim((string) $text);
+
+            if ($canonicalLocale !== null && $string !== '') {
+                $normalized[$canonicalLocale] = $string;
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param mixed $value
+     * @return array<string, string>
+     */
+    private function decodedLocalizedText(mixed $value): array
+    {
+        return $this->normalizedLocalizedText($value);
+    }
+
+    private function localizedText(mixed $localized, mixed $fallback): ?string
+    {
+        $translations = $this->normalizedLocalizedText($localized);
+        $locale = $this->canonicalLocale(app()->getLocale()) ?? 'th-TH';
+        $fallbackText = trim((string) $fallback);
+
+        return $translations[$locale]
+            ?? $translations['th-TH']
+            ?? ($fallbackText !== '' ? $fallbackText : null);
+    }
+
+    private function canonicalLocale(mixed $value): ?string
+    {
+        $locale = str_replace('_', '-', strtolower(trim((string) $value)));
+
+        return match ($locale) {
+            'th', 'th-th' => 'th-TH',
+            'en', 'en-us', 'en-gb' => 'en-US',
+            default => null,
+        };
     }
 
     /**

@@ -7,12 +7,12 @@ use App\Models\PlatformAsset;
 use App\Models\TenantAnnouncement;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
+use App\Modules\StorageConnections\Services\RuntimeStorageService;
 use App\Support\PublicUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class TenantAnnouncementService
@@ -21,7 +21,10 @@ class TenantAnnouncementService
     private const MAX_IMAGE_BYTES = 8_388_608;
     private const PURPOSE = 'tenant_announcement_image';
 
-    public function __construct(private readonly AuditLogger $auditLogger)
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly RuntimeStorageService $storage,
+    )
     {
     }
 
@@ -328,9 +331,12 @@ class TenantAnnouncementService
         return array_filter([
             'tenant_id' => $payload['tenant_id'] ?? null,
             'title' => $title,
+            'title_i18n' => array_key_exists('title_i18n', $payload) ? $this->normalizedLocalizedText($payload['title_i18n']) : null,
             'slug' => $slugSource === null ? null : $this->normalizeSlug($slugSource),
             'summary' => array_key_exists('summary', $payload) ? $this->nullableString($payload['summary']) : null,
+            'summary_i18n' => array_key_exists('summary_i18n', $payload) ? $this->normalizedLocalizedText($payload['summary_i18n']) : null,
             'body' => array_key_exists('body', $payload) ? $this->nullableString($payload['body']) : null,
+            'body_i18n' => array_key_exists('body_i18n', $payload) ? $this->normalizedLocalizedText($payload['body_i18n']) : null,
             'status' => array_key_exists('status', $payload) ? trim((string) $payload['status']) : ($creating ? 'draft' : null),
             'modal_enabled' => array_key_exists('modal_enabled', $payload) ? (bool) filter_var($payload['modal_enabled'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) : ($creating ? true : null),
             'important' => array_key_exists('important', $payload) ? (bool) filter_var($payload['important'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) : ($creating ? false : null),
@@ -375,6 +381,12 @@ class TenantAnnouncementService
 
         if (array_key_exists('sort_order', $payload) && $payload['sort_order'] === false) {
             $errors['sort_order'][] = 'The sort_order field must be an integer.';
+        }
+
+        foreach (['title_i18n', 'summary_i18n', 'body_i18n'] as $field) {
+            if (array_key_exists($field, $payload) && ! is_array($payload[$field])) {
+                $errors[$field][] = 'The '.$field.' field must be an object keyed by locale.';
+            }
         }
 
         foreach (['display_start_at', 'display_end_at'] as $field) {
@@ -490,7 +502,8 @@ class TenantAnnouncementService
         $extension = $extension !== '' ? $extension : 'img';
         $storageKey = 'tenants/'.$tenantId.'/announcements/'.$announcementId.'/'.$variant.'.'.$extension;
 
-        Storage::disk((string) config('lottery_images.disk', 'lottery_images'))->put(
+        $storageKey = $this->storage->put(
+            RuntimeStorageService::ROUTE_ANNOUNCEMENT_IMAGES,
             $storageKey,
             $payload['bytes'],
             ['ContentType' => $payload['content_type']],
@@ -509,11 +522,11 @@ class TenantAnnouncementService
             'status' => 'committed',
             'storage_key' => $storageKey,
             'upload_url' => null,
-            'public_url' => PublicUrl::asset($storageKey),
+            'public_url' => $this->storage->publicUrl(RuntimeStorageService::ROUTE_ANNOUNCEMENT_IMAGES, $storageKey),
             'metadata_json' => $payload['metadata'] + [
                 'announcement_id' => $announcementId,
                 'variant' => $variant,
-                'storage_disk' => (string) config('lottery_images.disk', 'lottery_images'),
+                'storage_route' => RuntimeStorageService::ROUTE_ANNOUNCEMENT_IMAGES,
             ],
             'expires_at' => null,
             'committed_at' => now(),
@@ -538,9 +551,12 @@ class TenantAnnouncementService
             'id' => (string) $row->id,
             'tenant_id' => (string) $row->tenant_id,
             'title' => (string) $row->title,
+            'title_i18n' => $this->decodedLocalizedText($row->title_i18n ?? null),
             'slug' => (string) $row->slug,
             'summary' => $row->summary,
+            'summary_i18n' => $this->decodedLocalizedText($row->summary_i18n ?? null),
             'body' => $row->body,
+            'body_i18n' => $this->decodedLocalizedText($row->body_i18n ?? null),
             'status' => (string) $row->status,
             'modal_enabled' => (bool) $row->modal_enabled,
             'important' => (bool) $row->important,
@@ -566,6 +582,12 @@ class TenantAnnouncementService
     private function publicResource(object $row, bool $includeBody = false): array
     {
         $resource = $this->resource($row);
+        $resource['title'] = $this->localizedText($row->title_i18n ?? null, $row->title) ?? '';
+        $resource['summary'] = $this->localizedText($row->summary_i18n ?? null, $row->summary);
+
+        if ($includeBody) {
+            $resource['body'] = $this->localizedText($row->body_i18n ?? null, $row->body);
+        }
 
         if (! $includeBody) {
             unset($resource['body']);
@@ -620,6 +642,66 @@ class TenantAnnouncementService
         $limit = filter_var($value, FILTER_VALIDATE_INT);
 
         return $limit === false ? 20 : max(1, min(100, $limit));
+    }
+
+    /**
+     * @param mixed $value
+     * @return array<string, string>
+     */
+    private function normalizedLocalizedText(mixed $value): array
+    {
+        if (is_string($value) && trim($value) !== '') {
+            $decoded = json_decode($value, true);
+            $value = is_array($decoded) ? $decoded : [];
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($value as $locale => $text) {
+            $canonicalLocale = $this->canonicalLocale($locale);
+            $string = trim((string) $text);
+
+            if ($canonicalLocale !== null && $string !== '') {
+                $normalized[$canonicalLocale] = $string;
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param mixed $value
+     * @return array<string, string>
+     */
+    private function decodedLocalizedText(mixed $value): array
+    {
+        return $this->normalizedLocalizedText($value);
+    }
+
+    private function localizedText(mixed $localized, mixed $fallback): ?string
+    {
+        $translations = $this->normalizedLocalizedText($localized);
+        $locale = $this->canonicalLocale(app()->getLocale()) ?? 'th-TH';
+        $fallbackText = trim((string) $fallback);
+
+        return $translations[$locale]
+            ?? $translations['th-TH']
+            ?? ($fallbackText !== '' ? $fallbackText : null);
+    }
+
+    private function canonicalLocale(mixed $value): ?string
+    {
+        $locale = str_replace('_', '-', strtolower(trim((string) $value)));
+
+        return match ($locale) {
+            'th', 'th-th' => 'th-TH',
+            'en', 'en-us', 'en-gb' => 'en-US',
+            default => null,
+        };
     }
 
     /**

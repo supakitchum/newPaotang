@@ -6,15 +6,18 @@ use App\Models\LocalStockItem;
 use App\Models\PartnerLotteryBrandingAssetSet;
 use App\Models\StockItem;
 use App\Modules\CentralStock\Services\LotteryImageGenerator;
+use App\Modules\StorageConnections\Services\RuntimeStorageService;
 use App\Support\PublicUrl;
-use Illuminate\Support\Facades\Storage;
 
 class VirtualLotteryImageService
 {
     private const TOKEN_VERSION = 1;
     private const VARIANTS = ['thumb', 'full'];
 
-    public function __construct(private readonly LotteryImageGenerator $images)
+    public function __construct(
+        private readonly LotteryImageGenerator $images,
+        private readonly RuntimeStorageService $storage,
+    )
     {
     }
 
@@ -75,9 +78,8 @@ class VirtualLotteryImageService
         }
 
         $key = $this->cacheObjectKey($payload);
-        $disk = Storage::disk((string) config('lottery_images.disk', 'lottery_images'));
 
-        if (! $disk->exists($key)) {
+        if (! $this->storage->exists(RuntimeStorageService::ROUTE_LOTTERY_IMAGES, $key)) {
             try {
                 $bytes = $this->renderBytes($context, $variant);
                 $this->images->storeObject($key, $bytes);
@@ -87,7 +89,7 @@ class VirtualLotteryImageService
         }
 
         return [
-            'bytes' => $disk->get($key),
+            'bytes' => $this->storage->get(RuntimeStorageService::ROUTE_LOTTERY_IMAGES, $key),
             'status' => 200,
             'headers' => [
                 'Content-Type' => (string) config('lottery_images.content_type', 'image/webp'),

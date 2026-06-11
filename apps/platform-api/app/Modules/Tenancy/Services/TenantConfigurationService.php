@@ -243,6 +243,12 @@ class TenantConfigurationService
             $errors['terms_content'][] = 'The terms_content field must be text.';
         }
 
+        foreach (['site_name_i18n', 'display_name_i18n', 'maintenance_message_i18n', 'terms_content_i18n'] as $field) {
+            if (array_key_exists($field, $updates) && ! is_array($updates[$field])) {
+                $errors[$field][] = 'The '.$field.' field must be an object keyed by locale.';
+            }
+        }
+
         foreach (['maintenance_allowed_routes_json', 'maintenance_blocked_route_patterns_json'] as $field) {
             if (array_key_exists($field, $updates) && ! is_array($updates[$field])) {
                 $errors[$field][] = 'The '.$field.' field must be an array of strings.';
@@ -487,7 +493,9 @@ class TenantConfigurationService
             'id' => $this->stableId('pts', (string) $tenant->id),
             'tenant_id' => (string) $tenant->id,
             'site_name' => (string) $tenant->name,
+            'site_name_i18n' => null,
             'display_name' => null,
+            'display_name_i18n' => null,
             'locale' => 'th-TH',
             'timezone' => 'Asia/Bangkok',
             'support_email' => null,
@@ -502,6 +510,7 @@ class TenantConfigurationService
             'maintenance_active' => false,
             'maintenance_mode' => null,
             'maintenance_message' => null,
+            'maintenance_message_i18n' => null,
             'maintenance_expected_end_at' => null,
             'maintenance_retry_after_seconds' => null,
             'maintenance_allowed_routes_json' => json_encode([], JSON_THROW_ON_ERROR),
@@ -511,6 +520,7 @@ class TenantConfigurationService
             'asset_cdn_base_url' => $this->canonicalUrl($this->primaryHost((string) $tenant->id)),
             'waiting_result_youtube_url' => null,
             'terms_content' => null,
+            'terms_content_i18n' => null,
             'config_version' => 1,
             'created_at' => $now,
             'updated_at' => $now,
@@ -563,7 +573,9 @@ class TenantConfigurationService
             'id' => $this->stableId('pts', (string) $tenant->id),
             'tenant_id' => (string) $tenant->id,
             'site_name' => (string) $tenant->name,
+            'site_name_i18n' => null,
             'display_name' => null,
+            'display_name_i18n' => null,
             'locale' => 'th-TH',
             'timezone' => 'Asia/Bangkok',
             'support_email' => null,
@@ -578,6 +590,7 @@ class TenantConfigurationService
             'maintenance_active' => false,
             'maintenance_mode' => null,
             'maintenance_message' => null,
+            'maintenance_message_i18n' => null,
             'maintenance_expected_end_at' => null,
             'maintenance_retry_after_seconds' => null,
             'maintenance_allowed_routes_json' => '[]',
@@ -587,6 +600,7 @@ class TenantConfigurationService
             'asset_cdn_base_url' => $this->canonicalUrl($this->primaryHost((string) $tenant->id)),
             'waiting_result_youtube_url' => null,
             'terms_content' => null,
+            'terms_content_i18n' => null,
             'config_version' => 1,
             'created_at' => $now,
             'updated_at' => $now,
@@ -641,6 +655,12 @@ class TenantConfigurationService
             }
         }
 
+        foreach (['site_name_i18n', 'display_name_i18n'] as $field) {
+            if (array_key_exists($field, $payload) || array_key_exists($field, $site)) {
+                $updates[$field] = $payload[$field] ?? $site[$field];
+            }
+        }
+
         foreach (['default_title', 'title_template', 'default_description', 'robots_default', 'sitemap_enabled', 'robots_enabled'] as $field) {
             if (array_key_exists($field, $payload) || array_key_exists($field, $seo)) {
                 $updates[$field] = $payload[$field] ?? $seo[$field];
@@ -665,6 +685,10 @@ class TenantConfigurationService
             if (array_key_exists($input, $maintenance)) {
                 $updates[$column] = $maintenance[$input];
             }
+        }
+
+        if (array_key_exists('message_i18n', $maintenance) || array_key_exists('maintenance_message_i18n', $maintenance)) {
+            $updates['maintenance_message_i18n'] = $maintenance['message_i18n'] ?? $maintenance['maintenance_message_i18n'];
         }
 
         foreach ($maintenanceMap as $input => $column) {
@@ -709,6 +733,10 @@ class TenantConfigurationService
             $updates['terms_content'] = $payload['terms_content'] === null ? null : trim((string) $payload['terms_content']);
         }
 
+        if (array_key_exists('terms_content_i18n', $legal) || array_key_exists('terms_content_i18n', $payload)) {
+            $updates['terms_content_i18n'] = $legal['terms_content_i18n'] ?? $payload['terms_content_i18n'];
+        }
+
         return $updates;
     }
 
@@ -743,9 +771,19 @@ class TenantConfigurationService
      */
     private function serializeSettingsUpdates(array $updates): array
     {
-        foreach (['default_keywords_json', 'maintenance_allowed_routes_json', 'maintenance_blocked_route_patterns_json'] as $jsonField) {
+        foreach ([
+            'default_keywords_json',
+            'maintenance_allowed_routes_json',
+            'maintenance_blocked_route_patterns_json',
+        ] as $jsonField) {
             if (array_key_exists($jsonField, $updates)) {
                 $updates[$jsonField] = json_encode($this->normalizedStringList($updates[$jsonField]), JSON_THROW_ON_ERROR);
+            }
+        }
+
+        foreach (['site_name_i18n', 'display_name_i18n', 'maintenance_message_i18n', 'terms_content_i18n'] as $jsonField) {
+            if (array_key_exists($jsonField, $updates)) {
+                $updates[$jsonField] = json_encode($this->normalizedLocalizedText($updates[$jsonField]), JSON_THROW_ON_ERROR);
             }
         }
 
@@ -758,8 +796,10 @@ class TenantConfigurationService
     private function sitePayload(object $settings): array
     {
         return [
-            'site_name' => (string) $settings->site_name,
-            'display_name' => $settings->display_name,
+            'site_name' => $this->localizedText($settings->site_name_i18n ?? null, (string) $settings->site_name),
+            'display_name' => $this->localizedText($settings->display_name_i18n ?? null, $settings->display_name),
+            'site_name_i18n' => $this->decodedLocalizedText($settings->site_name_i18n ?? null),
+            'display_name_i18n' => $this->decodedLocalizedText($settings->display_name_i18n ?? null),
             'locale' => (string) $settings->locale,
             'timezone' => (string) $settings->timezone,
             'support_email' => $settings->support_email,
@@ -821,7 +861,8 @@ class TenantConfigurationService
         return [
             'active' => $active,
             'mode' => $settings->maintenance_mode,
-            'message' => $settings->maintenance_message,
+            'message' => $this->localizedText($settings->maintenance_message_i18n ?? null, $settings->maintenance_message),
+            'message_i18n' => $this->decodedLocalizedText($settings->maintenance_message_i18n ?? null),
             'expected_end_at' => $settings->maintenance_expected_end_at,
             'retry_after_seconds' => $settings->maintenance_retry_after_seconds,
             'allowed_routes' => $this->decodeJsonList($settings->maintenance_allowed_routes_json),
@@ -848,6 +889,7 @@ class TenantConfigurationService
     {
         return [
             'terms_content' => $this->termsContent($settings),
+            'terms_content_i18n' => $this->decodedLocalizedText($settings->terms_content_i18n ?? null),
         ];
     }
 
@@ -882,15 +924,15 @@ class TenantConfigurationService
 
     private function termsContent(object $settings): string
     {
-        $custom = trim((string) ($settings->terms_content ?? ''));
+        $custom = trim((string) $this->localizedText($settings->terms_content_i18n ?? null, $settings->terms_content ?? ''));
 
         return $custom !== '' ? $custom : $this->defaultTermsContent($this->siteDisplayName($settings));
     }
 
     private function siteDisplayName(object $settings): string
     {
-        $displayName = trim((string) ($settings->display_name ?? ''));
-        $siteName = trim((string) ($settings->site_name ?? ''));
+        $displayName = trim((string) $this->localizedText($settings->display_name_i18n ?? null, $settings->display_name ?? ''));
+        $siteName = trim((string) $this->localizedText($settings->site_name_i18n ?? null, $settings->site_name ?? ''));
 
         return $displayName !== '' ? $displayName : ($siteName !== '' ? $siteName : 'เว็บไซต์นี้');
     }
@@ -1049,5 +1091,66 @@ class TenantConfigurationService
         $decoded = json_decode((string) $json, true);
 
         return is_array($decoded) ? $this->normalizedStringList($decoded) : [];
+    }
+
+    /**
+     * @param mixed $value
+     * @return array<string, string>
+     */
+    private function normalizedLocalizedText(mixed $value): array
+    {
+        if (is_string($value) && trim($value) !== '') {
+            $decoded = json_decode($value, true);
+            $value = is_array($decoded) ? $decoded : [];
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($value as $locale => $text) {
+            $canonicalLocale = $this->canonicalLocale($locale);
+            $string = trim((string) $text);
+
+            if ($canonicalLocale !== null && $string !== '') {
+                $normalized[$canonicalLocale] = $string;
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param mixed $value
+     * @return array<string, string>
+     */
+    private function decodedLocalizedText(mixed $value): array
+    {
+        return $this->normalizedLocalizedText($value);
+    }
+
+    private function localizedText(mixed $localized, mixed $fallback): ?string
+    {
+        $translations = $this->normalizedLocalizedText($localized);
+        $locale = $this->canonicalLocale(app()->getLocale()) ?? 'th-TH';
+        $fallbackLocale = 'th-TH';
+        $fallbackText = trim((string) $fallback);
+
+        return $translations[$locale]
+            ?? $translations[$fallbackLocale]
+            ?? ($fallbackText !== '' ? $fallbackText : null);
+    }
+
+    private function canonicalLocale(mixed $value): ?string
+    {
+        $locale = str_replace('_', '-', strtolower(trim((string) $value)));
+
+        return match ($locale) {
+            'th', 'th-th' => 'th-TH',
+            'en', 'en-us', 'en-gb' => 'en-US',
+            default => null,
+        };
     }
 }

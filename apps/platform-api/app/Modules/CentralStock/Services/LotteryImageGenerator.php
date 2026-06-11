@@ -8,8 +8,8 @@ use App\Models\LotteryImageMixSetting;
 use App\Models\PartnerLotteryBrandingAssetSet;
 use App\Models\PlatformSystemSetting;
 use App\Models\StockItem;
+use App\Modules\StorageConnections\Services\RuntimeStorageService;
 use App\Support\PublicUrl;
-use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 class LotteryImageGenerator
@@ -41,6 +41,10 @@ class LotteryImageGenerator
 
     /** @var array<string, array<string, int|string|null>>|null */
     private ?array $layoutCache = null;
+
+    public function __construct(private readonly RuntimeStorageService $storage)
+    {
+    }
 
     /**
      * @param array<int, string> $stockIds
@@ -137,7 +141,7 @@ class LotteryImageGenerator
 
     public function storeObject(string $key, string $bytes): void
     {
-        Storage::disk((string) config('lottery_images.disk', 'lottery_images'))->put($key, $bytes, [
+        $this->storage->put(RuntimeStorageService::ROUTE_LOTTERY_IMAGES, $key, $bytes, [
             'ContentType' => (string) config('lottery_images.content_type', 'image/webp'),
             'CacheControl' => (string) config('lottery_images.cache_control', 'public, max-age=31536000, immutable'),
         ]);
@@ -646,13 +650,11 @@ class LotteryImageGenerator
         }
 
         try {
-            $disk = Storage::disk((string) config('lottery_images.disk', 'lottery_images'));
-
-            if (! $disk->exists($storagePath)) {
+            if (! $this->storage->exists(RuntimeStorageService::ROUTE_LOTTERY_IMAGES, $storagePath)) {
                 return null;
             }
 
-            $bytes = $disk->get($storagePath);
+            $bytes = $this->storage->get(RuntimeStorageService::ROUTE_LOTTERY_IMAGES, $storagePath);
         } catch (\Throwable) {
             return null;
         }
@@ -1067,7 +1069,7 @@ class LotteryImageGenerator
     private function storagePathExists(string $storagePath): bool
     {
         try {
-            return Storage::disk((string) config('lottery_images.disk', 'lottery_images'))->exists($storagePath);
+            return $this->storage->exists(RuntimeStorageService::ROUTE_LOTTERY_IMAGES, $storagePath);
         } catch (\Throwable) {
             return false;
         }

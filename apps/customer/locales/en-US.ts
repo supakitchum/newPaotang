@@ -1,0 +1,41 @@
+export default {
+  common: {
+    language: 'Language',
+    thai: 'ไทย',
+    english: 'English',
+    loading: 'Loading',
+    retry: 'Try again',
+    close: 'Close',
+    back: 'Back',
+    search: 'Search',
+    viewAll: 'View all',
+  },
+  nav: {
+    home: 'Home',
+    tickets: 'My Tickets',
+    menu: 'More',
+  },
+  profile: {
+    fallbackName: 'Customer',
+    memberCode: 'Member ID: {code}',
+    loadFailedTitle: 'Could not load profile',
+    loadFailedMessage: 'Please try again.',
+    languageTitle: 'Display language',
+    languageSubtitle: 'Choose the language for this app and system messages.',
+  },
+  errors: {
+    generic: 'Please try again.',
+    maintenanceTitle: 'System maintenance',
+    maintenanceMessage: 'The system is under maintenance. Please come back later.',
+    sessionExpiredTitle: 'Session expired',
+    sessionExpiredMessage: 'Please sign in again.',
+  },
+  news: {
+    title: 'News',
+    loading: 'Loading news',
+    emptyTitle: 'No news right now',
+    emptyDescription: 'New partner announcements will appear here.',
+    category: 'News',
+    fallbackTitle: 'Announcement',
+  },
+}

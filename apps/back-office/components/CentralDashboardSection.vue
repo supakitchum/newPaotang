@@ -45,7 +45,7 @@
 
       <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div class="text-muted fs-12">
-          {{ filterCaption }} · Generated {{ formatDateTime(summary?.generated_at) }}
+          {{ filterCaption }} · {{ dashboardPhrase('Generated') }} {{ formatDateTime(summary?.generated_at) }}
         </div>
         <div v-if="summary?.notes?.guest_sessions" class="text-muted fs-12">
           {{ summary.notes.guest_sessions }}
@@ -149,7 +149,7 @@
                           </span>
                           <div>
                             <span class="d-block fw-medium mb-1">{{ row.label }}</span>
-                            <span class="d-block fs-11 text-muted">{{ formatNumber(row.share) }}% of sales</span>
+                            <span class="d-block fs-11 text-muted">{{ formatNumber(row.share) }}% {{ dashboardPhrase('of sales') }}</span>
                           </div>
                         </div>
                         <div class="text-end">
@@ -223,7 +223,7 @@
                           <div v-for="(row, index) in group.rows" :key="`${group.key}-${row.number}`" class="np-sales-popular-row">
                             <span class="np-sales-popular-rank">{{ index + 1 }}</span>
                             <strong>{{ row.number }}</strong>
-                            <span class="np-sales-popular-count">{{ formatNumber(row.ticket_count || row.value || 0) }} ใบ</span>
+                          <span class="np-sales-popular-count">{{ formatNumber(row.ticket_count || row.value || 0) }} {{ dashboardPhrase('tickets_unit') }}</span>
                             <span
                               :class="['np-sales-popular-delta', popularNumberDeltaClass(row)]"
                               :title="popularNumberDeltaTitle(row)"
@@ -259,7 +259,7 @@
                       </thead>
                       <tbody>
                         <tr v-for="row in setDistributionRows" :key="row.set_size">
-                          <td class="fw-semibold">{{ row.label || `ชุด ${row.set_size} ใบ` }}</td>
+                          <td class="fw-semibold">{{ row.label || setSizeLabel(row.set_size) }}</td>
                           <td class="text-end">{{ formatNumber(row.percent || 0) }}%</td>
                           <td class="text-end">{{ formatNumber(row.set_count || row.value || 0) }}</td>
                           <td class="text-end">{{ formatNumber(row.ticket_capacity || 0) }}</td>
@@ -328,7 +328,7 @@
                           <td>
                             <AdminStatusBadge :status="row.status || 'paid'" />
                           </td>
-                          <td class="text-end">{{ row.amount ? formatMoney(row.amount) : '-' }}</td>
+                          <td class="text-end">{{ row.amount ? formatDashboardMoney(row.amount) : '-' }}</td>
                           <td>
                             <div>
                               <i class="ri-bank-card-line me-1 fs-14" />{{ row.meta || 'Payment' }}
@@ -342,7 +342,7 @@
                 </div>
                 <div class="card-footer py-2">
                   <div class="d-flex align-items-center">
-                    <div>Showing {{ salesSortedOrderRows.length }} Entries <i class="bi bi-arrow-right ms-2 fw-semibold" /></div>
+                    <div>{{ dashboardPhrase('Showing') }} {{ salesSortedOrderRows.length }} {{ dashboardPhrase('Entries') }} <i class="bi bi-arrow-right ms-2 fw-semibold" /></div>
                     <div class="ms-auto text-muted fs-12">{{ filterCaption }}</div>
                   </div>
                 </div>
@@ -363,7 +363,7 @@
                       <i :class="metric.icon" />
                     </span>
                     <div class="flex-fill min-w-0">
-                      <div class="fw-medium fs-13 mb-1 text-dark np-sales-card-label">{{ metric.label }}</div>
+                      <div class="fw-medium fs-13 mb-1 text-dark np-sales-card-label">{{ partnerMetricLabel(metric) }}</div>
                       <div :class="['fs-22 fw-semibold mb-1', salesMetricTextClass(metric.tone)]">
                         {{ partnerMetricValue(metric) }}
                       </div>
@@ -384,13 +384,13 @@
               <div class="card custom-card h-100">
                 <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
                   <div>
-                    <div class="card-title mb-1">Partner Sales Comparison</div>
-                    <p class="text-muted fs-12 mb-0">ยอดขายรวมของแต่ละ Partner ในช่วง filter ปัจจุบัน</p>
+                    <div class="card-title mb-1">{{ dashboardPhrase('Partner Sales Comparison') }}</div>
+                    <p class="text-muted fs-12 mb-0">{{ dashboardPhrase('Partner sales amount by partner for the selected filter.') }}</p>
                   </div>
                   <span class="fs-12 text-muted fw-medium bg-light rounded p-1">{{ partnerSalesChartScopeLabel }}</span>
                 </div>
                 <div class="card-body">
-                  <div v-if="!partnerSalesChartRows.length" class="np-dashboard-empty">No partner sales yet.</div>
+                  <div v-if="!partnerSalesChartRows.length" class="np-dashboard-empty">{{ dashboardPhrase('No partner sales yet.') }}</div>
                   <AdminApexChart
                     v-else
                     :key="partnerSalesChartKey"
@@ -407,13 +407,13 @@
               <div class="card custom-card h-100">
                 <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
                   <div>
-                    <div class="card-title mb-1">New Members By Partner</div>
-                    <p class="text-muted fs-12 mb-0">จำนวนสมาชิกใหม่แยกตาม Partner</p>
+                    <div class="card-title mb-1">{{ dashboardPhrase('New Members By Partner') }}</div>
+                    <p class="text-muted fs-12 mb-0">{{ dashboardPhrase('New members by partner for the selected filter.') }}</p>
                   </div>
                   <span class="fs-12 text-muted fw-medium bg-light rounded p-1">{{ partnerMembersChartScopeLabel }}</span>
                 </div>
                 <div class="card-body">
-                  <div v-if="!partnerMemberChartRows.length" class="np-dashboard-empty">No new members yet.</div>
+                  <div v-if="!partnerMemberChartRows.length" class="np-dashboard-empty">{{ dashboardPhrase('No new members yet.') }}</div>
                   <AdminApexChart
                     v-else
                     :key="partnerMembersChartKey"
@@ -430,13 +430,13 @@
               <div class="card custom-card h-100">
                 <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
                   <div>
-                    <div class="card-title mb-1">Affiliate Accounts By Partner</div>
-                    <p class="text-muted fs-12 mb-0">จำนวน Affiliate Account ของแต่ละ Partner ในช่วง filter ปัจจุบัน</p>
+                    <div class="card-title mb-1">{{ dashboardPhrase('Affiliate Accounts By Partner') }}</div>
+                    <p class="text-muted fs-12 mb-0">{{ dashboardPhrase('Affiliate accounts by partner for the selected filter.') }}</p>
                   </div>
                   <span class="fs-12 text-muted fw-medium bg-light rounded p-1">{{ partnerAffiliateChartScopeLabel }}</span>
                 </div>
                 <div class="card-body">
-                  <div v-if="!partnerAffiliateChartRows.length" class="np-dashboard-empty">No affiliate accounts yet.</div>
+                  <div v-if="!partnerAffiliateChartRows.length" class="np-dashboard-empty">{{ dashboardPhrase('No affiliate accounts yet.') }}</div>
                   <AdminApexChart
                     v-else
                     :key="partnerAffiliateChartKey"
@@ -452,21 +452,21 @@
             <div class="col-xl-7">
               <div class="card custom-card h-100 overflow-hidden">
                 <div class="card-header justify-content-between">
-                  <div class="card-title">Partner Performance</div>
-                  <span class="fs-12 text-muted fw-medium bg-light rounded p-1">Sales + tickets</span>
+                  <div class="card-title">{{ dashboardPhrase('Partner Performance') }}</div>
+                  <span class="fs-12 text-muted fw-medium bg-light rounded p-1">{{ dashboardPhrase('Sales + tickets') }}</span>
                 </div>
                 <div class="card-body p-0">
-                  <div v-if="!partnerSalesRows.length" class="p-3 text-muted">No partner performance yet.</div>
+                  <div v-if="!partnerSalesRows.length" class="p-3 text-muted">{{ dashboardPhrase('No partner performance yet.') }}</div>
                   <div v-else class="table-responsive">
                     <table class="table table-hover mb-0">
                       <thead>
                         <tr>
-                          <th>Partner</th>
-                          <th class="text-end">Sales</th>
-                          <th class="text-end">Tickets</th>
-                          <th class="text-end">Orders</th>
-                          <th class="text-end">Customers</th>
-                          <th class="text-end">Change</th>
+                          <th>{{ dashboardPhrase('Partner') }}</th>
+                          <th class="text-end">{{ dashboardPhrase('Sales') }}</th>
+                          <th class="text-end">{{ dashboardPhrase('Tickets') }}</th>
+                          <th class="text-end">{{ dashboardPhrase('Orders') }}</th>
+                          <th class="text-end">{{ dashboardPhrase('Customers') }}</th>
+                          <th class="text-end">{{ dashboardPhrase('Change') }}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -475,7 +475,7 @@
                             <div class="fw-semibold text-truncate">{{ row.name }}</div>
                             <div class="text-muted fs-12 text-truncate">{{ row.code || row.status || '-' }}</div>
                           </td>
-                          <td class="text-end fw-semibold">{{ formatMoney(row.sales_amount) }}</td>
+                          <td class="text-end fw-semibold">{{ formatDashboardMoney(row.sales_amount) }}</td>
                           <td class="text-end">{{ formatNumber(row.ticket_count || 0) }}</td>
                           <td class="text-end">{{ formatNumber(row.order_count || 0) }}</td>
                           <td class="text-end">{{ formatNumber(row.customer_count || 0) }}</td>
@@ -495,10 +495,10 @@
             <div class="col-xl-5">
               <div class="card custom-card h-100">
                 <div class="card-header">
-                  <div class="card-title mb-0">Recent Partner Activity</div>
+                  <div class="card-title mb-0">{{ dashboardPhrase('Recent Partner Activity') }}</div>
                 </div>
                 <div class="card-body">
-                  <div v-if="!recentRows.length" class="np-dashboard-empty">No recent partners yet.</div>
+                  <div v-if="!recentRows.length" class="np-dashboard-empty">{{ dashboardPhrase('No recent partners yet.') }}</div>
                   <div v-else class="list-group list-group-flush np-dashboard-list">
                     <div v-for="row in recentRows" :key="row.id || row.title" class="list-group-item px-0">
                       <div class="d-flex align-items-start justify-content-between gap-3">
@@ -508,7 +508,7 @@
                           <div class="text-muted fs-12">{{ formatDateTime(row.created_at || row.last_seen_at) }}</div>
                         </div>
                         <div class="text-end">
-                          <div v-if="row.amount" class="fw-semibold">{{ formatMoney(row.amount) }}</div>
+                          <div v-if="row.amount" class="fw-semibold">{{ formatDashboardMoney(row.amount) }}</div>
                           <AdminStatusBadge v-if="row.status" :status="row.status" />
                           <div v-else-if="row.value !== undefined" class="fw-semibold">{{ formatNumber(row.value) }}</div>
                         </div>
@@ -540,11 +540,11 @@
                   </div>
                   <div class="np-dashboard-compare">
                     <div>
-                      <span>Previous</span>
+                      <span>{{ dashboardPhrase('Previous') }}</span>
                       <strong>{{ formatMetricValue(hero.previous, heroType) }}</strong>
                     </div>
                     <div>
-                      <span>Change</span>
+                      <span>{{ dashboardPhrase('Change') }}</span>
                       <strong :class="directionClass(hero.delta?.direction)">{{ deltaLabel(hero.delta, heroType) }}</strong>
                     </div>
                   </div>
@@ -565,7 +565,7 @@
                   </div>
                   <p class="text-muted mb-1">{{ metric.label }}</p>
                   <h5 class="mb-0">{{ formatMetricValue(metric.current, metric.type) }}</h5>
-                  <small class="text-muted">Previous {{ formatMetricValue(metric.previous, metric.type) }}</small>
+                  <small class="text-muted">{{ dashboardPhrase('Previous') }} {{ formatMetricValue(metric.previous, metric.type) }}</small>
                 </div>
               </div>
             </div>
@@ -584,7 +584,7 @@
                   </div>
                 </div>
                 <div class="card-body">
-                  <div v-if="!genericTrendChartSeries.length" class="np-dashboard-empty">No trend data yet.</div>
+                  <div v-if="!genericTrendChartSeries.length" class="np-dashboard-empty">{{ dashboardPhrase('No trend data yet.') }}</div>
                   <AdminApexChart
                     v-else
                     type="bar"
@@ -602,7 +602,7 @@
                   <div class="card-title mb-0">{{ breakdownTitle }}</div>
                 </div>
                 <div class="card-body">
-                  <div v-if="!breakdownRows.length" class="np-dashboard-empty">No breakdown data yet.</div>
+                  <div v-if="!breakdownRows.length" class="np-dashboard-empty">{{ dashboardPhrase('No breakdown data yet.') }}</div>
                   <AdminApexChart
                     v-else
                     type="donut"
@@ -640,15 +640,15 @@
                   <div class="card-title mb-0">{{ primaryTableTitle }}</div>
                 </div>
                 <div class="card-body p-0">
-                  <div v-if="!primaryRows.length" class="p-3 text-muted">No data yet.</div>
+                  <div v-if="!primaryRows.length" class="p-3 text-muted">{{ dashboardPhrase('No data yet.') }}</div>
                   <div v-else class="table-responsive">
                     <table class="table table-hover mb-0">
                       <thead>
                         <tr>
-                          <th>Name</th>
-                          <th>Detail</th>
+                          <th>{{ dashboardPhrase('Name') }}</th>
+                          <th>{{ dashboardPhrase('Detail') }}</th>
                           <th class="text-end">{{ primaryValueHeader }}</th>
-                          <th class="text-end">Count</th>
+                          <th class="text-end">{{ dashboardPhrase('Count') }}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -674,7 +674,7 @@
                   <div class="card-title mb-0">{{ recentTableTitle }}</div>
                 </div>
                 <div class="card-body">
-                  <div v-if="!recentRows.length" class="np-dashboard-empty">No recent rows yet.</div>
+                  <div v-if="!recentRows.length" class="np-dashboard-empty">{{ dashboardPhrase('No recent rows yet.') }}</div>
                   <div v-else class="list-group list-group-flush np-dashboard-list">
                     <div v-for="row in recentRows" :key="row.id || row.title" class="list-group-item px-0">
                       <div class="d-flex align-items-start justify-content-between gap-3">
@@ -684,7 +684,7 @@
                           <div class="text-muted fs-12">{{ formatDateTime(row.created_at || row.last_seen_at) }}</div>
                         </div>
                         <div class="text-end">
-                          <div v-if="row.amount" class="fw-semibold">{{ formatMoney(row.amount) }}</div>
+                          <div v-if="row.amount" class="fw-semibold">{{ formatDashboardMoney(row.amount) }}</div>
                           <AdminStatusBadge v-if="row.status" :status="row.status" />
                           <div v-else-if="row.value !== undefined" class="fw-semibold">{{ formatNumber(row.value) }}</div>
                         </div>
@@ -702,7 +702,7 @@
         <div class="np-payout-dashboard">
           <div class="row g-3">
             <div class="col-12">
-              <div class="np-dashboard-section-title">Payout Reward section</div>
+              <div class="np-dashboard-section-title">{{ dashboardPhrase('Payout Reward section') }}</div>
             </div>
 
             <div v-for="metric in payoutRewardKpis" :key="metric.key" class="col-xl-3 col-md-6">
@@ -718,7 +718,7 @@
                   </div>
                   <p class="text-muted mb-1">{{ metric.label }}</p>
                   <h5 class="mb-0">{{ formatMetricValue(metric.current, metric.type) }}</h5>
-                  <small class="text-muted">Previous {{ formatMetricValue(metric.previous, metric.type) }}</small>
+                  <small class="text-muted">{{ dashboardPhrase('Previous') }} {{ formatMetricValue(metric.previous, metric.type) }}</small>
                 </div>
               </div>
             </div>
@@ -727,13 +727,13 @@
               <div class="card custom-card h-100">
                 <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
                   <div>
-                    <div class="card-title mb-1">Reward payout by partner</div>
-                    <p class="text-muted fs-12 mb-0">Partner payout ranking for the selected payout filter.</p>
+                    <div class="card-title mb-1">{{ dashboardPhrase('Reward payout by partner') }}</div>
+                    <p class="text-muted fs-12 mb-0">{{ dashboardPhrase('Partner payout ranking for the selected payout filter.') }}</p>
                   </div>
                   <span class="fs-12 text-muted fw-medium bg-light rounded p-1">{{ payoutPartnerChartScopeLabel }}</span>
                 </div>
                 <div class="card-body">
-                  <div v-if="!payoutPartnerChartRows.length" class="np-dashboard-empty">No reward payout data yet.</div>
+                  <div v-if="!payoutPartnerChartRows.length" class="np-dashboard-empty">{{ dashboardPhrase('No reward payout data yet.') }}</div>
                   <AdminApexChart
                     v-else
                     :key="payoutPartnerChartKey"
@@ -749,10 +749,10 @@
             <div class="col-xl-4">
               <div class="card custom-card h-100">
                 <div class="card-header">
-                  <div class="card-title mb-0">Winning prize type mix</div>
+                  <div class="card-title mb-0">{{ dashboardPhrase('Winning prize type mix') }}</div>
                 </div>
                 <div class="card-body">
-                  <div v-if="!winningTypeRows.length" class="np-dashboard-empty">No winning ticket data yet.</div>
+                  <div v-if="!winningTypeRows.length" class="np-dashboard-empty">{{ dashboardPhrase('No winning ticket data yet.') }}</div>
                   <AdminApexChart
                     v-else
                     type="bar"
@@ -767,11 +767,11 @@
             <div class="col-12">
               <div class="card custom-card overflow-hidden">
                 <div class="card-header justify-content-between">
-                  <div class="card-title">Top partners by payout</div>
-                  <span class="fs-12 text-muted fw-medium bg-light rounded p-1">Sortable datatable</span>
+                  <div class="card-title">{{ dashboardPhrase('Top partners by payout') }}</div>
+                  <span class="fs-12 text-muted fw-medium bg-light rounded p-1">{{ dashboardPhrase('Sortable datatable') }}</span>
                 </div>
                 <div class="card-body p-0">
-                  <div v-if="!sortedPayoutPartnerRows.length" class="p-3 text-muted">No partner payout data yet.</div>
+                  <div v-if="!sortedPayoutPartnerRows.length" class="p-3 text-muted">{{ dashboardPhrase('No partner payout data yet.') }}</div>
                   <div v-else class="table-responsive">
                     <table class="table table-hover mb-0">
                       <thead>
@@ -782,7 +782,7 @@
                               :class="['np-sales-sort-button', { active: payoutPartnerSort.key === header.key }]"
                               @click="setPayoutPartnerSort(header.key)"
                             >
-                              <span>{{ header.label }}</span>
+                              <span>{{ dashboardPhrase(header.label) }}</span>
                               <i :class="payoutPartnerSortIcon(header.key)" />
                             </button>
                           </th>
@@ -794,7 +794,7 @@
                             <div class="fw-semibold text-truncate">{{ row.name }}</div>
                             <div class="text-muted fs-12 text-truncate">{{ row.code || '-' }}</div>
                           </td>
-                          <td class="text-end fw-semibold">{{ formatMoney(row.payout_amount) }}</td>
+                          <td class="text-end fw-semibold">{{ formatDashboardMoney(row.payout_amount) }}</td>
                           <td class="text-end">{{ formatNumber(row.claim_count || 0) }}</td>
                           <td class="text-end text-success fw-semibold">{{ formatNumber(row.approved_count || 0) }}</td>
                           <td class="text-end text-danger fw-semibold">{{ formatNumber(row.rejected_count || 0) }}</td>
@@ -808,7 +808,7 @@
             </div>
 
             <div class="col-12">
-              <div class="np-dashboard-section-title mt-2">Payout Commission section</div>
+              <div class="np-dashboard-section-title mt-2">{{ dashboardPhrase('Payout Commission section') }}</div>
             </div>
 
             <div v-for="metric in payoutCommissionKpis" :key="metric.key" class="col-xl-4 col-md-6">
@@ -824,7 +824,7 @@
                   </div>
                   <p class="text-muted mb-1">{{ metric.label }}</p>
                   <h5 class="mb-0">{{ formatMetricValue(metric.current, metric.type) }}</h5>
-                  <small class="text-muted">Previous {{ formatMetricValue(metric.previous, metric.type) }}</small>
+                  <small class="text-muted">{{ dashboardPhrase('Previous') }} {{ formatMetricValue(metric.previous, metric.type) }}</small>
                 </div>
               </div>
             </div>
@@ -833,13 +833,13 @@
               <div class="card custom-card h-100">
                 <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
                   <div>
-                    <div class="card-title mb-1">Commission by partner</div>
-                    <p class="text-muted fs-12 mb-0">Affiliate commission movement by partner.</p>
+                    <div class="card-title mb-1">{{ dashboardPhrase('Commission by partner') }}</div>
+                    <p class="text-muted fs-12 mb-0">{{ dashboardPhrase('Affiliate commission movement by partner.') }}</p>
                   </div>
                   <span class="fs-12 text-muted fw-medium bg-light rounded p-1">{{ payoutCommissionChartScopeLabel }}</span>
                 </div>
                 <div class="card-body">
-                  <div v-if="!payoutCommissionChartRows.length" class="np-dashboard-empty">No commission data yet.</div>
+                  <div v-if="!payoutCommissionChartRows.length" class="np-dashboard-empty">{{ dashboardPhrase('No commission data yet.') }}</div>
                   <AdminApexChart
                     v-else
                     :key="payoutCommissionChartKey"
@@ -855,17 +855,17 @@
             <div class="col-xl-5">
               <div class="card custom-card h-100 overflow-hidden">
                 <div class="card-header">
-                  <div class="card-title mb-0">Commission partners</div>
+                  <div class="card-title mb-0">{{ dashboardPhrase('Commission partners') }}</div>
                 </div>
                 <div class="card-body p-0">
-                  <div v-if="!payoutCommissionRows.length" class="p-3 text-muted">No commission partner data yet.</div>
+                  <div v-if="!payoutCommissionRows.length" class="p-3 text-muted">{{ dashboardPhrase('No commission partner data yet.') }}</div>
                   <div v-else class="table-responsive">
                     <table class="table table-hover mb-0">
                       <thead>
                         <tr>
-                          <th>Partner</th>
-                          <th class="text-end">Commission</th>
-                          <th class="text-end">Txns</th>
+                          <th>{{ dashboardPhrase('Partner') }}</th>
+                          <th class="text-end">{{ dashboardPhrase('Commission') }}</th>
+                          <th class="text-end">{{ dashboardPhrase('Txns') }}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -874,7 +874,7 @@
                             <div class="fw-semibold text-truncate">{{ row.name }}</div>
                             <div class="text-muted fs-12 text-truncate">{{ row.code || '-' }}</div>
                           </td>
-                          <td class="text-end fw-semibold">{{ formatMoney(row.commission_amount) }}</td>
+                          <td class="text-end fw-semibold">{{ formatDashboardMoney(row.commission_amount) }}</td>
                           <td class="text-end">{{ formatNumber(row.transaction_count || 0) }}</td>
                         </tr>
                       </tbody>
@@ -1320,7 +1320,7 @@
                       <div class="text-muted fs-12">{{ formatDateTime(row.created_at || row.last_seen_at) }}</div>
                     </div>
                     <div class="text-end">
-                      <div v-if="row.amount" class="fw-semibold">{{ formatMoney(row.amount) }}</div>
+                      <div v-if="row.amount" class="fw-semibold">{{ formatDashboardMoney(row.amount) }}</div>
                       <AdminStatusBadge v-if="row.status" :status="row.status" />
                       <div v-else-if="row.value !== undefined" class="fw-semibold">{{ formatNumber(row.value) }}</div>
                     </div>
@@ -1404,6 +1404,7 @@ const props = defineProps<{
 const api = useAdminApi()
 const route = useRoute()
 const router = useRouter()
+const { t, phrase, locale } = useAdminLocale()
 
 const allowedPeriods = new Set(['today', 'yesterday', 'last_7_days', 'previous_draw', 'current_draw', 'this_month', 'this_year'])
 const period = ref(allowedPeriods.has(String(route.query.period || '')) ? String(route.query.period) : defaultPeriodForSection(props.section))
@@ -1437,22 +1438,41 @@ const payoutPartnerHeaders = [
 ]
 
 const section = computed(() => props.section)
-const dashboardTitle = computed(() => summary.value?.title || `${sectionLabel.value} Dashboard`)
-const sectionLabel = computed(() => dashboardSections.value.find((item: any) => item.key === section.value)?.label || 'Sales')
-const dashboardSections = computed(() => summary.value?.sections || fallbackSections)
-const periodOptions = computed(() => summary.value?.filter?.options || (section.value === 'payout' ? fallbackPayoutPeriods : fallbackPeriods))
+const dashboardTitle = computed(() => sectionLabel.value)
+const sectionLabel = computed(() => dashboardSections.value.find((item: any) => item.key === section.value)?.label || translatedDashboardSectionLabel('sales', 'Sales'))
+const dashboardSections = computed(() => (summary.value?.sections || fallbackSections).map((item: any) => ({
+  ...item,
+  label: translatedDashboardSectionLabel(item.key, item.label),
+})))
+const periodOptions = computed(() => (summary.value?.filter?.options || (section.value === 'payout' ? fallbackPayoutPeriods : fallbackPeriods)).map((item: any) => ({
+  ...item,
+  label: dashboardPhrase(item.label),
+})))
 const filterCaption = computed(() => {
   const filter = summary.value?.filter
-  if (!filter) return 'Loading period'
-  return `${filter.label}: ${filter.current?.label || '-'} vs ${filter.previous?.label || '-'}`
+  if (!filter) return dashboardPhrase('Loading period')
+  return `${dashboardPhrase(filter.label)}: ${dashboardPhrase(filter.current?.label || '-')} ${dashboardPhrase('vs')} ${dashboardPhrase(filter.previous?.label || '-')}`
 })
-const hero = computed(() => summary.value?.hero || {})
-const metrics = computed(() => arrayValue(summary.value?.metrics))
+const hero = computed(() => {
+  const source = summary.value?.hero || {}
+  return {
+    ...source,
+    label: dashboardPhrase(source.label),
+    caption: dashboardPhrase(source.caption),
+  }
+})
+const metrics = computed(() => arrayValue(summary.value?.metrics).map((metric: any) => ({
+  ...metric,
+  label: dashboardPhrase(metric.label),
+})))
 const primaryMetric = computed(() => metrics.value[0] || {})
 const primaryTone = computed(() => primaryMetric.value?.tone || 'primary')
 const primaryIcon = computed(() => primaryMetric.value?.icon || 'ri-dashboard-line')
 const heroType = computed(() => typeof hero.value?.value === 'object' && hero.value?.value?.amount !== undefined ? 'money' : 'number')
-const primarySeries = computed(() => arrayValue(summary.value?.charts?.primary_trend?.series).slice(0, 3))
+const primarySeries = computed(() => arrayValue(summary.value?.charts?.primary_trend?.series).slice(0, 3).map((series: any) => ({
+  ...series,
+  label: dashboardPhrase(series.label),
+})))
 const breakdownRows = computed(() => buildBreakdownRows(summary.value?.charts?.secondary_breakdown))
 const primaryRows = computed(() => arrayValue(summary.value?.tables?.top_partners))
 const topTenantRows = computed(() => arrayValue(summary.value?.tables?.top_tenants))
@@ -1502,17 +1522,17 @@ const salesStoreBars = computed(() => {
 const popularNumberGroups = computed(() => {
   const numbers = summary.value?.tables?.popular_numbers || {}
   return [
-    { key: 'back2', label: '2 ท้าย', rows: arrayValue(numbers.back2) },
-    { key: 'back3', label: '3 ท้าย', rows: arrayValue(numbers.back3) },
-    { key: 'front3', label: '3 หน้า', rows: arrayValue(numbers.front3) },
+    { key: 'back2', label: dashboardPhrase('2 ท้าย'), rows: arrayValue(numbers.back2) },
+    { key: 'back3', label: dashboardPhrase('3 ท้าย'), rows: arrayValue(numbers.back3) },
+    { key: 'front3', label: dashboardPhrase('3 หน้า'), rows: arrayValue(numbers.front3) },
   ]
 })
 const salesRevenueChart = computed(() => summary.value?.charts?.sales_ticket_comparison || summary.value?.charts?.primary_trend || {})
 const salesRevenueChartSeries = computed(() => buildApexSeries(salesRevenueChart.value).slice(0, 2))
 const salesRevenueChartOptions = computed(() => lineChartOptions(
   arrayValue(salesRevenueChart.value?.labels),
-  'จำนวนสลากที่ขาย',
-  (value: any) => `${formatNumber(value)} ใบ`,
+  dashboardPhrase('Tickets sold'),
+  (value: any) => `${formatNumber(value)} ${dashboardPhrase('tickets_unit')}`,
   salesRevenueChart.value,
 ))
 const salesPaymentChartSeries = computed(() => salesBreakdownRows.value.map((row: any) => chartScalar(row.value, row.type)))
@@ -1522,7 +1542,7 @@ const salesPaymentChartOptions = computed(() => donutChartOptions(
   salesBreakdownRows.value.map((row: any) => row.color),
 ))
 const salesStoreChartSeries = computed(() => [{
-  name: 'Sales',
+  name: dashboardPhrase('Sales'),
   data: salesTopStores.value.slice(0, 8).map((row: any) => chartScalar(row.value, 'money')),
 }])
 const salesStoreChartOptions = computed(() => horizontalBarChartOptions(
@@ -1542,7 +1562,7 @@ const partnerSalesChartRows = computed(() => groupedPartnerChartRows(partnerSale
 const partnerMemberChartRows = computed(() => groupedPartnerChartRows(partnerMemberRows.value, 'member_count'))
 const partnerAffiliateChartRows = computed(() => groupedPartnerChartRows(partnerAffiliateRows.value, 'new_account_count'))
 const partnerSalesChartSeries = computed(() => [{
-  name: 'ยอดขาย',
+  name: dashboardPhrase('Sales'),
   data: partnerSalesChartRows.value.map((row: any) => chartScalar(row.value, 'money')),
 }])
 const partnerSalesChartOptions = computed(() => verticalPartnerBarChartOptions(
@@ -1551,17 +1571,17 @@ const partnerSalesChartOptions = computed(() => verticalPartnerBarChartOptions(
   ['#5b8ff9'],
 ))
 const partnerMembersChartSeries = computed(() => [{
-  name: 'สมาชิกใหม่',
+  name: dashboardPhrase('New members'),
   data: partnerMemberChartRows.value.map((row: any) => Number(row.member_count || row.value || 0)),
 }])
 const partnerMembersChartOptions = computed(() => verticalPartnerBarChartOptions(
   partnerMemberChartRows.value.map((row: any) => row.name || row.code || '-'),
-  (value: any) => `${formatNumber(value)} คน`,
+  (value: any) => `${formatNumber(value)} ${dashboardPhrase('people_unit')}`,
   ['#2ecc71'],
 ))
 const partnerAffiliateChartSeries = computed(() => [
   {
-    name: 'Affiliate Account',
+    name: dashboardPhrase('Affiliate Account'),
     data: partnerAffiliateChartRows.value.map((row: any) => Number(row.new_account_count || 0)),
   },
 ])
@@ -1573,8 +1593,8 @@ const partnerAffiliateChartOptions = computed(() => verticalPartnerBarChartOptio
 const partnerSalesChartKey = computed(() => partnerChartKey('partner-sales', partnerSalesChartRows.value))
 const partnerMembersChartKey = computed(() => partnerChartKey('partner-members', partnerMemberChartRows.value))
 const partnerAffiliateChartKey = computed(() => partnerChartKey('partner-affiliates', partnerAffiliateChartRows.value))
-const partnerSalesChartScopeLabel = computed(() => partnerChartScopeLabel(partnerSalesRows.value, 'value', 'บาท'))
-const partnerMembersChartScopeLabel = computed(() => partnerChartScopeLabel(partnerMemberRows.value, 'member_count', 'คน'))
+const partnerSalesChartScopeLabel = computed(() => partnerChartScopeLabel(partnerSalesRows.value, 'value', 'baht_unit'))
+const partnerMembersChartScopeLabel = computed(() => partnerChartScopeLabel(partnerMemberRows.value, 'member_count', 'people_unit'))
 const partnerAffiliateChartScopeLabel = computed(() => partnerChartScopeLabel(partnerAffiliateRows.value, 'new_account_count', 'Accounts'))
 const partnerDashboardKey = computed(() => `partner-dashboard:${period.value}:${summaryRevision.value}`)
 const payoutRewardKpis = computed(() => selectMetrics(['reward_payouts', 'winning_liability', 'winning_tickets', 'pending_claims'], 4))
@@ -1582,7 +1602,7 @@ const payoutCommissionKpis = computed(() => selectMetrics(['commissions', 'commi
 const payoutPartnerRows = computed(() => arrayValue(summary.value?.charts?.partner_payout_comparison?.rows || summary.value?.tables?.top_partners))
 const payoutPartnerChartRows = computed(() => groupedPartnerChartRows(payoutPartnerRows.value, 'value'))
 const payoutPartnerChartSeries = computed(() => [{
-  name: 'Reward payout',
+  name: dashboardPhrase('Reward payout'),
   data: payoutPartnerChartRows.value.map((row: any) => chartScalar(row.value, 'money')),
 }])
 const payoutPartnerChartOptions = computed(() => verticalPartnerBarChartOptions(
@@ -1591,21 +1611,21 @@ const payoutPartnerChartOptions = computed(() => verticalPartnerBarChartOptions(
   ['#5b8ff9'],
 ))
 const payoutPartnerChartKey = computed(() => partnerChartKey('payout-partners', payoutPartnerChartRows.value))
-const payoutPartnerChartScopeLabel = computed(() => partnerChartScopeLabel(payoutPartnerRows.value, 'value', 'บาท'))
+const payoutPartnerChartScopeLabel = computed(() => partnerChartScopeLabel(payoutPartnerRows.value, 'value', 'baht_unit'))
 const sortedPayoutPartnerRows = computed(() => [...payoutPartnerRows.value].sort((left: any, right: any) => comparePayoutPartnerRows(left, right)))
 const winningTypeRows = computed(() => arrayValue(summary.value?.charts?.winning_type_breakdown))
 const winningTypeChartSeries = computed(() => [{
-  name: 'Winning tickets',
+  name: dashboardPhrase('Winning tickets'),
   data: winningTypeRows.value.map((row: any) => Number(row.ticket_count || 0)),
 }])
 const winningTypeChartOptions = computed(() => barChartOptions(
-  winningTypeRows.value.map((row: any) => row.label || '-'),
-  (value: any) => `${formatNumber(value)} ใบ`,
+  winningTypeRows.value.map((row: any) => dashboardPhrase(row.label || '-')),
+  (value: any) => `${formatNumber(value)} ${dashboardPhrase('tickets_unit')}`,
 ))
 const payoutCommissionRows = computed(() => arrayValue(summary.value?.charts?.partner_commission_comparison?.rows || summary.value?.tables?.commission_partners))
 const payoutCommissionChartRows = computed(() => groupedPartnerChartRows(payoutCommissionRows.value, 'value'))
 const payoutCommissionChartSeries = computed(() => [{
-  name: 'Commission',
+  name: dashboardPhrase('Commission'),
   data: payoutCommissionChartRows.value.map((row: any) => chartScalar(row.value, 'money')),
 }])
 const payoutCommissionChartOptions = computed(() => verticalPartnerBarChartOptions(
@@ -1614,7 +1634,7 @@ const payoutCommissionChartOptions = computed(() => verticalPartnerBarChartOptio
   ['#2ecc71'],
 ))
 const payoutCommissionChartKey = computed(() => partnerChartKey('payout-commissions', payoutCommissionChartRows.value))
-const payoutCommissionChartScopeLabel = computed(() => partnerChartScopeLabel(payoutCommissionRows.value, 'value', 'บาท'))
+const payoutCommissionChartScopeLabel = computed(() => partnerChartScopeLabel(payoutCommissionRows.value, 'value', 'baht_unit'))
 const genericTrendChartSeries = computed(() => buildApexSeries(summary.value?.charts?.primary_trend).slice(0, 3))
 const genericTrendType = computed(() => arrayValue(summary.value?.charts?.primary_trend?.series)[0]?.type || 'number')
 const genericTrendChartOptions = computed(() => barChartOptions(
@@ -1638,62 +1658,62 @@ const entityChartOptions = computed(() => horizontalBarChartOptions(
   (value: any) => formatChartValue(value, entityChartType.value),
 ))
 
-const primaryChartTitle = computed(() => ({
+const primaryChartTitle = computed(() => dashboardPhrase(({
   sales: 'Sales revenue',
   partner: 'Partner growth',
   wallet: 'Wallet money flow',
   payout: 'Payout trend',
   monitor: 'Usage activity',
-})[section.value])
-const primaryChartSubtitle = computed(() => ({
+})[section.value]))
+const primaryChartSubtitle = computed(() => dashboardPhrase(({
   sales: 'Revenue, tickets, and paid order movement.',
   partner: 'New members, partners, and partner stores.',
   wallet: 'Wallet inflow, outflow, and topup movement.',
   payout: 'Reward payouts, winning liability, and commissions.',
   monitor: 'Guest, member, and admin session activity.',
-})[section.value])
-const breakdownTitle = computed(() => ({
+})[section.value]))
+const breakdownTitle = computed(() => dashboardPhrase(({
   sales: 'Payment methods',
   partner: 'Affiliate statuses',
   wallet: 'Topup channels',
   payout: 'Claim statuses',
   monitor: 'Traffic sources',
-})[section.value])
-const primaryTableTitle = computed(() => ({
+})[section.value]))
+const primaryTableTitle = computed(() => dashboardPhrase(({
   sales: 'Top partners by sales',
   partner: 'Partner performance',
   wallet: 'Top stores by wallet flow',
   payout: 'Top partners by payout',
   monitor: 'Active partner stores',
-})[section.value])
-const recentTableTitle = computed(() => ({
+})[section.value]))
+const recentTableTitle = computed(() => dashboardPhrase(({
   sales: 'Recent paid orders',
   partner: 'Recent partners',
   wallet: 'Recent wallet ledger',
   payout: 'Recent reward claims',
   monitor: 'Online admins and owner partners',
-})[section.value])
-const primaryValueHeader = computed(() => ({
+})[section.value]))
+const primaryValueHeader = computed(() => dashboardPhrase(({
   sales: 'Sales',
   partner: 'Sales',
   wallet: 'Inflow',
   payout: 'Payout',
   monitor: 'Online',
-})[section.value])
-const entityChartTitle = computed(() => ({
+})[section.value]))
+const entityChartTitle = computed(() => dashboardPhrase(({
   sales: 'Top performance',
   partner: 'Partner sales ranking',
   wallet: 'Wallet flow by store',
   payout: 'Reward payout by partner',
   monitor: 'Active partner stores',
-})[section.value])
-const entityChartSubtitle = computed(() => ({
+})[section.value]))
+const entityChartSubtitle = computed(() => dashboardPhrase(({
   sales: 'Leading partners and stores for the selected period.',
   partner: 'Partners ranked by paid lottery sales in the selected period.',
   wallet: 'Stores with the highest wallet inflow in the selected period.',
   payout: 'Partners with the highest reward payout amount in the selected period.',
   monitor: 'Stores with live member or guest activity in the last 15 minutes.',
-})[section.value])
+})[section.value]))
 
 watch(() => route.query.period, (value) => {
   const next = allowedPeriods.has(String(value || '')) ? String(value) : defaultPeriodForSection(props.section)
@@ -1823,7 +1843,7 @@ function payoutPartnerSortValue(row: any, key: string) {
 
 function buildApexSeries(chart: any) {
   return arrayValue(chart?.series).map((item: any, index: number) => ({
-    name: item.label || `Series ${index + 1}`,
+    name: dashboardPhrase(item.label || `Series ${index + 1}`),
     data: arrayValue(item.values).map((value: any) => chartScalar(value, item.type)),
   }))
 }
@@ -1863,7 +1883,7 @@ function salesRevenueTooltipLabel(value: any, index: number, chart: any) {
   const previousLabel = arrayValue(chart.previous_date_labels)[index]
   if (!currentLabel && !previousLabel) return String(value || '-')
 
-  return `${value || '-'} · Current ${currentLabel || '-'} · Previous ${previousLabel || '-'}`
+  return `${value || '-'} · ${dashboardPhrase('Current')} ${currentLabel || '-'} · ${dashboardPhrase('Previous')} ${previousLabel || '-'}`
 }
 
 function barChartOptions(categories: any[], formatter: (value: any) => string) {
@@ -1953,7 +1973,7 @@ function donutChartOptions(labels: string[], formatter: (value: any) => string, 
             value: { show: true, formatter },
             total: {
               show: true,
-              label: 'Total',
+              label: dashboardPhrase('Total'),
               formatter: (chart: any) => formatter(chart.globals.seriesTotals.reduce((sum: number, value: number) => sum + value, 0)),
             },
           },
@@ -1970,8 +1990,17 @@ function buildBreakdownRows(rows: any) {
   const max = Math.max(...values.map((row: any) => Number(row.value || 0)), 1)
   return values.map((row: any) => ({
     ...row,
+    label: dashboardPhrase(payoutBreakdownLabel(row.label)),
     percent: Math.max(4, Math.round((Number(row.value || 0) / max) * 100)),
   }))
+}
+
+function payoutBreakdownLabel(label: any) {
+  if (section.value !== 'payout') return label
+
+  return {
+    Paid: 'Paid payout',
+  }[String(label || '')] || label
 }
 
 function selectMetrics(keys: string[], fallbackLimit: number) {
@@ -1982,22 +2011,24 @@ function selectMetrics(keys: string[], fallbackLimit: number) {
 }
 
 function salesMetricLabel(metric: any) {
-  return {
-    tickets_sold: 'จำนวนสลากที่ขายได้',
-    sales_amount: 'จำนวนเงินที่ขายได้',
-    paid_customers: 'จำนวนลูกค้าที่ซื้อ',
-    selling_partners: 'จำนวน Partner ที่ขายได้',
-    paid_orders: 'จำนวนออเดอร์ที่ชำระแล้ว',
-    average_order: 'ยอดเฉลี่ยต่อออเดอร์',
+  const label = {
+    tickets_sold: 'Tickets sold',
+    sales_amount: 'Sales amount',
+    paid_customers: 'Paid customers',
+    selling_partners: 'Selling partners',
+    paid_orders: 'Paid orders',
+    average_order: 'Average order',
   }[metric?.key] || metric?.label || '-'
+
+  return dashboardPhrase(label)
 }
 
 function salesMetricValue(metric: any) {
   const value = formatMetricValue(metric?.current, metric?.type)
 
   return {
-    tickets_sold: `${value} ใบ`,
-    paid_customers: `${value} คน`,
+    tickets_sold: `${value} ${dashboardPhrase('tickets_unit')}`,
+    paid_customers: `${value} ${dashboardPhrase('people_unit')}`,
   }[metric?.key] || value
 }
 
@@ -2005,8 +2036,24 @@ function partnerMetricValue(metric: any) {
   const value = formatMetricValue(metric?.current, metric?.type)
 
   return {
-    partner_sales_tickets: `${value} ใบ`,
+    partner_sales_tickets: `${value} ${dashboardPhrase('tickets_unit')}`,
   }[metric?.key] || value
+}
+
+function partnerMetricLabel(metric: any) {
+  const label = {
+    partner_sales_amount: { en: 'Partner sales amount', th: 'ยอดขายของพาร์ทเนอร์ทั้งหมด' },
+    partner_sales_tickets: { en: 'Partner tickets sold', th: 'จำนวนสลากที่พาร์ทเนอร์ขายได้' },
+    new_partners: { en: 'New partners', th: 'พาร์ทเนอร์ใหม่' },
+    affiliate_accounts: { en: 'Affiliate accounts', th: 'บัญชี Affiliate' },
+    new_affiliate_accounts: { en: 'New affiliate accounts', th: 'บัญชี Affiliate ใหม่' },
+  }[metric?.key] || metric?.label || '-'
+
+  if (typeof label === 'object') {
+    return locale.value === 'th-TH' ? label.th : label.en
+  }
+
+  return dashboardPhrase(label)
 }
 
 function salesMetricTextClass(tone: string) {
@@ -2034,7 +2081,7 @@ function deltaPercentLabel(delta: any) {
 function popularNumberDeltaLabel(row: any) {
   const percent = row?.ticket_count_delta_percent
   if (percent === null || percent === undefined) {
-    return Number(row?.previous_ticket_count || 0) === 0 && Number(row?.ticket_count || row?.value || 0) > 0 ? 'ใหม่' : '0%'
+    return Number(row?.previous_ticket_count || 0) === 0 && Number(row?.ticket_count || row?.value || 0) > 0 ? dashboardPhrase('New') : '0%'
   }
 
   const value = Number(percent || 0)
@@ -2050,13 +2097,13 @@ function popularNumberDeltaClass(row: any) {
 }
 
 function popularNumberDeltaTitle(row: any) {
-  return `เทียบช่วงก่อน: ${formatNumber(row?.previous_ticket_count || 0)} ใบ`
+  return `${dashboardPhrase('Previous')}: ${formatNumber(row?.previous_ticket_count || 0)} ${dashboardPhrase('tickets_unit')}`
 }
 
 function setDistributionDeltaLabel(row: any) {
   const percent = row?.sold_set_delta_percent
   if (percent === null || percent === undefined) {
-    return Number(row?.previous_sold_set_count || 0) === 0 && Number(row?.sold_set_count || 0) > 0 ? 'ใหม่' : '0%'
+    return Number(row?.previous_sold_set_count || 0) === 0 && Number(row?.sold_set_count || 0) > 0 ? dashboardPhrase('New') : '0%'
   }
 
   const value = Number(percent || 0)
@@ -2072,7 +2119,7 @@ function setDistributionDeltaClass(row: any) {
 }
 
 function setDistributionDeltaTitle(row: any) {
-  return `ขายช่วงนี้ ${formatNumber(row?.sold_set_count || 0)} ชุด / ช่วงเทียบ ${formatNumber(row?.previous_sold_set_count || 0)} ชุด`
+  return `${dashboardPhrase('Current')}: ${formatNumber(row?.sold_set_count || 0)} ${dashboardPhrase('sets_unit')} / ${dashboardPhrase('Previous')}: ${formatNumber(row?.previous_sold_set_count || 0)} ${dashboardPhrase('sets_unit')}`
 }
 
 function partnerRowDeltaLabel(row: any, prefix: string) {
@@ -2080,7 +2127,7 @@ function partnerRowDeltaLabel(row: any, prefix: string) {
   if (percent === null || percent === undefined) {
     const previous = Number(row?.[`previous_${prefix}_count`] ?? row?.[`previous_${prefix}_amount`]?.amount ?? 0)
     const current = Number(row?.[`${prefix}_count`] ?? row?.value ?? 0)
-    return previous === 0 && current > 0 ? 'ใหม่' : '0%'
+    return previous === 0 && current > 0 ? dashboardPhrase('New') : '0%'
   }
 
   const value = Number(percent || 0)
@@ -2134,8 +2181,12 @@ function ellipsisLabel(value: any, limit = 16) {
 
 function rowMoney(row: any) {
   const value = row.sales_amount || row.inflow_amount || row.payout_amount || row.amount
-  if (value) return formatMoney(value)
+  if (value) return formatDashboardMoney(value)
   return formatNumber(row.value || 0)
+}
+
+function formatDashboardMoney(value: any) {
+  return localizeMoneyText(formatMoney(value))
 }
 
 function deltaLabel(delta: any, type: string, compact = false) {
@@ -2147,13 +2198,13 @@ function deltaLabel(delta: any, type: string, compact = false) {
 
 function formatMetricValue(value: any, type = 'number') {
   if (value === null || value === undefined) return '-'
-  if (type === 'money') return formatMoney(toMoneyValue(value))
-  if (typeof value === 'object' && value?.amount !== undefined) return formatMoney(value)
+  if (type === 'money') return localizeMoneyText(formatMoney(toMoneyValue(value)))
+  if (typeof value === 'object' && value?.amount !== undefined) return localizeMoneyText(formatMoney(value))
   return formatNumber(value)
 }
 
 function formatAnyValue(value: any, type = 'number') {
-  return type === 'money' ? formatMoney(toMoneyValue(value)) : formatNumber(value)
+  return type === 'money' ? localizeMoneyText(formatMoney(toMoneyValue(value))) : formatNumber(value)
 }
 
 function chartScalar(value: any, type = 'number') {
@@ -2162,7 +2213,15 @@ function chartScalar(value: any, type = 'number') {
 }
 
 function formatChartValue(value: any, type = 'number') {
-  return type === 'money' ? `${formatNumber(value)} บาท` : formatNumber(value)
+  return type === 'money' ? `${formatNumber(value)} ${dashboardPhrase('baht_unit')}` : formatNumber(value)
+}
+
+function localizeMoneyText(value: string) {
+  return String(value || '').replace(/\s*บาท/g, ` ${dashboardPhrase('baht_unit')}`)
+}
+
+function dashboardPhrase(value: any) {
+  return phrase(String(value || '').replace(/\s+/g, ' ').trim())
 }
 
 function groupedPartnerChartRows(rows: any[], valueKey: string) {
@@ -2179,8 +2238,8 @@ function groupedPartnerChartRows(rows: any[], valueKey: string) {
     ...visibleRows,
     {
       id: `others-${valueKey}`,
-      code: `${overflowRows.length} partners`,
-      name: 'Others',
+      code: `${overflowRows.length} ${dashboardPhrase('partners_unit')}`,
+      name: dashboardPhrase('Others'),
       value: overflowValue,
       [valueKey]: overflowValue,
     },
@@ -2189,9 +2248,15 @@ function groupedPartnerChartRows(rows: any[], valueKey: string) {
 
 function partnerChartScopeLabel(rows: any[], valueKey: string, unit: string) {
   const activeCount = rows.filter((row: any) => partnerChartNumericValue(row, valueKey) > 0).length
-  const scope = activeCount > partnerChartLimit ? `Top ${partnerChartLimit} + Others` : `${formatNumber(activeCount)} Partners`
+  const scope = activeCount > partnerChartLimit
+    ? `${dashboardPhrase('Top')} ${partnerChartLimit} + ${dashboardPhrase('Others')}`
+    : `${formatNumber(activeCount)} ${dashboardPhrase('Partners')}`
 
-  return `${scope} · ${unit}`
+  return `${scope} · ${dashboardPhrase(unit)}`
+}
+
+function setSizeLabel(setSize: any) {
+  return `${dashboardPhrase('Set')} ${formatNumber(setSize || 0)} ${dashboardPhrase('tickets_unit')}`
 }
 
 function partnerChartNumericValue(row: any, valueKey: string) {
@@ -2272,6 +2337,13 @@ const fallbackPayoutPeriods = [
   { key: 'this_month', label: 'This month' },
   { key: 'this_year', label: 'This year' },
 ]
+
+function translatedDashboardSectionLabel(key: string, fallback: string) {
+  const translationKey = `menus.items.central.dashboard_${key}`
+  const translated = t(translationKey)
+
+  return translated !== translationKey ? translated : fallback
+}
 </script>
 
 <style scoped>

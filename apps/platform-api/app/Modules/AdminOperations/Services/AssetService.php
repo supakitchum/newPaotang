@@ -6,11 +6,11 @@ use App\Models\PartnerTenant;
 use App\Models\PlatformAsset;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
+use App\Modules\StorageConnections\Services\RuntimeStorageService;
 use App\Support\PublicUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class AssetService
@@ -34,7 +34,10 @@ class AssetService
         'other',
     ];
 
-    public function __construct(private readonly AuditLogger $auditLogger)
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly RuntimeStorageService $storage,
+    )
     {
     }
 
@@ -155,7 +158,9 @@ class AssetService
 
             /** @var UploadedFile $file */
             $stored = $this->localUploadPayload($asset, $file);
-            Storage::disk((string) config('lottery_images.disk', 'lottery_images'))->put(
+            $routeKey = $this->storage->routeForPlatformAsset((string) $asset->purpose, $scopeType);
+            $storageKey = $this->storage->put(
+                $routeKey,
                 (string) $asset->storage_key,
                 $stored['bytes'],
                 ['ContentType' => $stored['content_type']],
@@ -168,9 +173,10 @@ class AssetService
                     'content_type' => $stored['content_type'],
                     'size_bytes' => $stored['size_bytes'],
                     'file_name' => $stored['file_name'],
+                    'storage_key' => $storageKey,
                     'metadata_json' => array_replace_recursive($metadata, [
                         'storage_boundary' => 'local_dev_uploaded',
-                        'storage_disk' => (string) config('lottery_images.disk', 'lottery_images'),
+                        'storage_route' => $routeKey,
                         'production_storage_ready' => false,
                         'local_uploaded_at' => now()->toISOString(),
                     ], $stored['metadata']),
@@ -524,7 +530,7 @@ class AssetService
 
     private function publicAssetUrl(string $key): string
     {
-        return PublicUrl::asset($key);
+        return $this->storage->publicUrl($this->storage->routeForStorageKey($key), $key);
     }
 
     /**

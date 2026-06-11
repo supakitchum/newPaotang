@@ -9,11 +9,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            DefaultRbacMenuSeeder::class,
-            BootstrapAdminSeeder::class,
-            DemoTenantSeeder::class,
-            DefaultSalePriceRuleSeeder::class,
-            BaseLotteryNumberSeeder::class,
+            InitialSystemSeeder::class,
         ]);
     }
 }

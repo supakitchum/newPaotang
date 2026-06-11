@@ -58,6 +58,10 @@ body {
 
 .np-sidebar-backdrop {
   display: none;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  background: transparent;
 }
 
 .np-support-token {
@@ -194,6 +198,7 @@ body {
     max-width: calc(100vw - 2rem);
     transform: translateX(-100%);
     transition: transform 0.2s ease;
+    z-index: 1045;
   }
 
   [dir='rtl'] .app-sidebar {
@@ -220,9 +225,21 @@ body {
   [data-toggled='open'] .np-sidebar-backdrop {
     display: block;
     position: fixed;
+    width: 100vw;
+    height: 100dvh;
     inset: 0;
     background: rgba(15, 23, 42, 0.35);
+    cursor: pointer;
     z-index: 1035;
+  }
+
+  [data-toggled='open'] body {
+    overflow: hidden;
+  }
+
+  [data-toggled='open'] .page {
+    position: relative !important;
+    transform: none !important;
   }
 
   .app-content {

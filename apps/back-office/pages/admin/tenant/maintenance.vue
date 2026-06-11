@@ -33,8 +33,23 @@
               <div class="invalid-feedback">{{ fieldError('mode') || activeModeError }}</div>
             </div>
             <div class="col-12">
-              <label class="form-label">Message</label>
-              <textarea v-model="form.message" class="form-control" rows="3" :class="invalidClass('message')" />
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                <label class="form-label mb-0">Message ({{ localeLabel(contentLocale) }})</label>
+                <div class="btn-group btn-group-sm" role="group" aria-label="Maintenance message language tabs">
+                  <button
+                    v-for="option in localeOptions"
+                    :key="option.value"
+                    class="btn"
+                    :class="contentLocale === option.value ? 'btn-primary' : 'btn-outline-primary'"
+                    type="button"
+                    @click="contentLocale = option.value"
+                  >
+                    {{ option.label }}
+                  </button>
+                </div>
+              </div>
+              <textarea v-model="form.message_i18n[contentLocale]" class="form-control" rows="3" :class="invalidClass('message')" />
+              <div class="form-text">Customer maintenance responses use the selected language and fall back to Thai/default if blank.</div>
               <div class="invalid-feedback">{{ fieldError('message') }}</div>
             </div>
             <div class="col-md-6">
@@ -297,10 +312,16 @@ const lastBypass = ref<any>(null)
 
 const statuses = ['inactive', 'scheduled', 'active', 'ended', 'cancelled']
 const modes = ['full_site', 'customer_web_only', 'admin_only', 'checkout_payment_only', 'read_only', 'scheduled']
+const localeOptions = [
+  { value: 'th-TH', label: 'TH' },
+  { value: 'en-US', label: 'EN' },
+] as const
+const contentLocale = ref<'th-TH' | 'en-US'>('th-TH')
 const form = reactive<any>({
   status: 'inactive',
   mode: 'scheduled',
   message: '',
+  message_i18n: { 'th-TH': '', 'en-US': '' },
   reason: '',
   ticket_id: '',
   scheduled_start_at: '',
@@ -322,6 +343,28 @@ const revokeConfirm = reactive<{ open: boolean, row: any }>({
 })
 
 const alertType = (err: any) => err?.status === 403 ? 'warning' : err?.status === 503 ? 'warning' : 'danger'
+const localeLabel = (value: 'th-TH' | 'en-US') => localeOptions.find((option) => option.value === value)?.label || value
+const localizedFrom = (value: any, fallback = '') => {
+  const next = { 'th-TH': '', 'en-US': '' }
+  if (value && typeof value === 'object') {
+    next['th-TH'] = String(value['th-TH'] || value.th || '')
+    next['en-US'] = String(value['en-US'] || value.en || '')
+  }
+  if (!next['th-TH'] && fallback) {
+    next['th-TH'] = String(fallback)
+  }
+  return next
+}
+const firstLocalizedValue = (value: any, fallback = '') => String(
+  value?.['th-TH']
+  || value?.['en-US']
+  || fallback
+  || '',
+).trim()
+const normalizedLocalized = (value: any) => ({
+  'th-TH': String(value?.['th-TH'] || '').trim(),
+  'en-US': String(value?.['en-US'] || '').trim(),
+})
 const fieldError = (field: string) => validation.value[field]?.[0] || ''
 const bypassFieldError = (field: string) => bypassValidation.value[field]?.[0] || ''
 const bypassInvalidClass = (field: string) => bypassFieldError(field) ? 'is-invalid' : ''
@@ -362,6 +405,7 @@ const applySetting = (payload: any) => {
   form.status = setting.value.status || 'inactive'
   form.mode = setting.value.mode || 'scheduled'
   form.message = setting.value.message || ''
+  form.message_i18n = localizedFrom(setting.value.message_i18n, setting.value.message)
   form.reason = setting.value.reason || ''
   form.ticket_id = setting.value.ticket_id || ''
   form.scheduled_start_at = setting.value.scheduled_start_at ? setting.value.scheduled_start_at.slice(0, 16) : ''
@@ -479,7 +523,8 @@ const save = async () => {
       body: {
         status: form.status,
         mode: form.mode,
-        message: form.message,
+        message: firstLocalizedValue(form.message_i18n, form.message),
+        message_i18n: normalizedLocalized(form.message_i18n),
         reason: form.reason,
         ticket_id: form.ticket_id,
         scheduled_start_at: toApiDate(form.scheduled_start_at),

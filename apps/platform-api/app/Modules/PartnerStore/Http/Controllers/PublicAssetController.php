@@ -2,9 +2,9 @@
 
 namespace App\Modules\PartnerStore\Http\Controllers;
 
+use App\Modules\StorageConnections\Services\RuntimeStorageService;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Storage;
 
 class PublicAssetController extends Controller
 {
@@ -15,6 +15,10 @@ class PublicAssetController extends Controller
         'tenants/',
     ];
 
+    public function __construct(private readonly RuntimeStorageService $storage)
+    {
+    }
+
     public function show(string $path): Response
     {
         $path = ltrim(rawurldecode($path), '/');
@@ -23,21 +27,26 @@ class PublicAssetController extends Controller
             return response('', 404, ['Cache-Control' => 'no-store']);
         }
 
-        $disk = Storage::disk((string) config('lottery_images.disk', 'lottery_images'));
+        $routeKey = $this->storage->routeForStorageKey($path);
 
-        if (! $disk->exists($path)) {
+        if (! $this->storage->exists($routeKey, $path)) {
             return response('', 404, ['Cache-Control' => 'no-store']);
         }
 
-        return response((string) $disk->get($path), 200, [
-            'Content-Type' => $disk->mimeType($path) ?: (string) config('lottery_images.content_type', 'image/webp'),
+        $bytes = $this->storage->get($routeKey, $path);
+        if ($bytes === null) {
+            return response('', 404, ['Cache-Control' => 'no-store']);
+        }
+
+        return response($bytes, 200, [
+            'Content-Type' => $this->storage->mimeType($routeKey, $path) ?: (string) config('lottery_images.content_type', 'image/webp'),
             'Cache-Control' => (string) config('lottery_images.cache_control', 'public, max-age=31536000, immutable'),
         ]);
     }
 
     private function hasAllowedPrefix(string $path): bool
     {
-        foreach (self::ALLOWED_PREFIXES as $prefix) {
+        foreach (array_merge(self::ALLOWED_PREFIXES, $this->storage->publicAllowedPrefixes()) as $prefix) {
             if (str_starts_with($path, $prefix)) {
                 return true;
             }

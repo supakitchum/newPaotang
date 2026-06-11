@@ -15,7 +15,7 @@ class RbacMenuSeederTest extends TestCase
     {
         $this->seed(DefaultRbacMenuSeeder::class);
 
-        $this->assertSame(46, DB::table('permissions')->where('scope_type', 'central')->count());
+        $this->assertSame(55, DB::table('permissions')->where('scope_type', 'central')->count());
         $this->assertSame(75, DB::table('permissions')->where('scope_type', 'tenant')->count());
 
         $this->assertDatabaseHas('permissions', [
@@ -52,13 +52,34 @@ class RbacMenuSeederTest extends TestCase
             'name' => 'Manage Telegram notification settings and routes',
             'status' => 'active',
         ]);
+
+        $this->assertDatabaseHas('permissions', [
+            'scope_type' => 'central',
+            'code' => 'translation.approve_deploy',
+            'name' => 'Preview, approve, or reject translation deploy requests',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('permissions', [
+            'scope_type' => 'central',
+            'code' => 'reward_entry.resolve',
+            'name' => 'Resolve reward entry submissions into final reward results',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('permissions', [
+            'scope_type' => 'central',
+            'code' => 'storage_connection.manage',
+            'name' => 'Manage platform object storage connection settings',
+            'status' => 'active',
+        ]);
     }
 
     public function test_default_menus_seed_with_documented_permission_codes(): void
     {
         $this->seed(DefaultRbacMenuSeeder::class);
 
-        $this->assertSame(32, DB::table('admin_menus')->where('scope_type', 'central')->count());
+        $this->assertSame(36, DB::table('admin_menus')->where('scope_type', 'central')->count());
         $this->assertSame(38, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
 
         $dashboardParentId = (string) DB::table('admin_menus')
@@ -94,6 +115,16 @@ class RbacMenuSeederTest extends TestCase
                 'status' => 'active',
             ]);
         }
+
+        $this->assertDatabaseHas('admin_menus', [
+            'scope_type' => 'central',
+            'code' => 'storage_connections',
+            'label' => 'Storage Connections',
+            'route' => '/admin/central/storage-connections',
+            'category' => 'Administration',
+            'required_permission_code' => 'storage_connection.view',
+            'status' => 'active',
+        ]);
 
         $this->assertDatabaseHas('admin_menus', [
             'scope_type' => 'central',
@@ -142,6 +173,26 @@ class RbacMenuSeederTest extends TestCase
             'route' => '/admin/central/winners',
             'category' => 'Lottery Operations',
             'required_permission_code' => 'reward.view',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('admin_menus', [
+            'scope_type' => 'central',
+            'code' => 'reward_entry',
+            'label' => 'Result Entry',
+            'route' => '/admin/central/reward-entry',
+            'category' => 'Lottery Operations',
+            'required_permission_code' => 'reward_entry.view',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('admin_menus', [
+            'scope_type' => 'central',
+            'code' => 'lottery_images',
+            'label' => 'Lottery Images',
+            'route' => '/admin/central/lottery-images',
+            'category' => 'Lottery Operations',
+            'required_permission_code' => 'asset.manage',
             'status' => 'active',
         ]);
 
@@ -239,6 +290,16 @@ class RbacMenuSeederTest extends TestCase
             'route' => '/admin/central/telegram-notifications',
             'category' => 'Administration',
             'required_permission_code' => 'telegram_notification.view',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('admin_menus', [
+            'scope_type' => 'central',
+            'code' => 'translations',
+            'label' => 'Translation Center',
+            'route' => '/admin/central/translations',
+            'category' => 'Administration',
+            'required_permission_code' => 'translation.view',
             'status' => 'active',
         ]);
 
@@ -363,6 +424,28 @@ class RbacMenuSeederTest extends TestCase
             ->whereIn('code', ['dashboard', 'dashboard_sales', 'dashboard_partner', 'dashboard_wallet', 'dashboard_payout', 'dashboard_monitor'])
             ->pluck('id')
             ->all();
+        $translationPermissionIds = DB::table('permissions')
+            ->where('scope_type', 'central')
+            ->whereIn('code', ['translation.view', 'translation.edit', 'translation.request_deploy', 'translation.approve_deploy'])
+            ->pluck('id')
+            ->all();
+        $translationApprovePermissionId = (string) DB::table('permissions')
+            ->where('scope_type', 'central')
+            ->where('code', 'translation.approve_deploy')
+            ->value('id');
+        $translationMenuId = (string) DB::table('admin_menus')
+            ->where('scope_type', 'central')
+            ->where('code', 'translations')
+            ->value('id');
+        $rewardEntryPermissionIds = DB::table('permissions')
+            ->where('scope_type', 'central')
+            ->whereIn('code', ['reward_entry.view', 'reward_entry.submit', 'reward_entry.resolve'])
+            ->pluck('id')
+            ->all();
+        $rewardEntryMenuId = (string) DB::table('admin_menus')
+            ->where('scope_type', 'central')
+            ->where('code', 'reward_entry')
+            ->value('id');
 
         $this->assertSame(2, DB::table('role_permissions')
             ->where('role_id', 'rol_c_super_admin')
@@ -402,6 +485,81 @@ class RbacMenuSeederTest extends TestCase
             'role_id' => 'rol_c_super_admin',
             'menu_id' => $winnerMenuId,
         ]);
+
+        $this->assertSame(4, DB::table('role_permissions')
+            ->where('role_id', 'rol_c_super_admin')
+            ->whereIn('permission_id', $translationPermissionIds)
+            ->count());
+        $this->assertDatabaseHas('role_menus', [
+            'role_id' => 'rol_c_super_admin',
+            'menu_id' => $translationMenuId,
+        ]);
+        $this->assertSame(3, DB::table('role_permissions')
+            ->where('role_id', 'rol_c_super_admin')
+            ->whereIn('permission_id', $rewardEntryPermissionIds)
+            ->count());
+        $this->assertDatabaseHas('role_menus', [
+            'role_id' => 'rol_c_super_admin',
+            'menu_id' => $rewardEntryMenuId,
+        ]);
+
+        $translatorPermissionIds = DB::table('permissions')
+            ->where('scope_type', 'central')
+            ->whereIn('code', ['translation.view', 'translation.edit', 'translation.request_deploy'])
+            ->pluck('id')
+            ->all();
+        $this->assertDatabaseHas('roles', [
+            'id' => 'rol_c_translator',
+            'scope_type' => 'central',
+            'tenant_id' => null,
+            'code' => 'translator',
+            'status' => 'active',
+        ]);
+        $this->assertSame(3, DB::table('role_permissions')
+            ->where('role_id', 'rol_c_translator')
+            ->whereIn('permission_id', $translatorPermissionIds)
+            ->count());
+        $this->assertSame(0, DB::table('role_permissions')
+            ->where('role_id', 'rol_c_translator')
+            ->where('permission_id', $translationApprovePermissionId)
+            ->count());
+        $this->assertSame(1, DB::table('role_menus')
+            ->where('role_id', 'rol_c_translator')
+            ->where('menu_id', $translationMenuId)
+            ->count());
+
+        $resultOfficerPermissionIds = DB::table('permissions')
+            ->where('scope_type', 'central')
+            ->whereIn('code', ['reward_entry.view', 'reward_entry.submit'])
+            ->pluck('id')
+            ->all();
+        $rewardEntryResolvePermissionId = (string) DB::table('permissions')
+            ->where('scope_type', 'central')
+            ->where('code', 'reward_entry.resolve')
+            ->value('id');
+        $this->assertDatabaseHas('roles', [
+            'id' => 'rol_c_result_officer',
+            'scope_type' => 'central',
+            'tenant_id' => null,
+            'code' => 'result_officer',
+            'status' => 'active',
+        ]);
+        $this->assertSame(2, DB::table('role_permissions')
+            ->where('role_id', 'rol_c_result_officer')
+            ->whereIn('permission_id', $resultOfficerPermissionIds)
+            ->count());
+        $this->assertSame(0, DB::table('role_permissions')
+            ->where('role_id', 'rol_c_result_officer')
+            ->where('permission_id', $rewardEntryResolvePermissionId)
+            ->count());
+        $this->assertSame(1, DB::table('role_menus')
+            ->where('role_id', 'rol_c_result_officer')
+            ->where('menu_id', $rewardEntryMenuId)
+            ->count());
+        $this->assertSame(0, DB::table('role_menus')
+            ->where('role_id', 'rol_c_result_officer')
+            ->where('menu_id', $winnerMenuId)
+            ->count());
     }
 
     public function test_reseeding_grants_tenant_winners_maintenance_and_announcements_to_partner_owner_roles(): void

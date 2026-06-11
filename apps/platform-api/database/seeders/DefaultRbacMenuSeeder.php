@@ -67,6 +67,10 @@ class DefaultRbacMenuSeeder extends Seeder
         $this->grantCentralDashboardMenusToDefaultRoles($now);
         $this->grantCentralMaintenanceToSuperAdmins($now);
         $this->grantCentralTelegramNotificationsToSuperAdmins($now);
+        $this->grantCentralStorageConnectionsToSuperAdmins($now);
+        $this->grantCentralTranslationsToRoles($now);
+        $this->grantCentralRewardEntryToRoles($now);
+        $this->grantCentralLotteryUploaderToRoles($now);
         $this->grantSalePricePermissionsToDefaultRoles($now);
         $this->grantWinnerMenuToPlatformOwner($now);
         $this->grantTenantWinnerMenuToPartnerOwners($now);
@@ -95,6 +99,9 @@ class DefaultRbacMenuSeeder extends Seeder
                 'reward.publish' => 'Publish rewards',
                 'reward.correct' => 'Correct published rewards through correction flow',
                 'reward.audit' => 'View reward audit',
+                'reward_entry.view' => 'View central reward entry sessions',
+                'reward_entry.submit' => 'Submit independent reward entry results',
+                'reward_entry.resolve' => 'Resolve reward entry submissions into final reward results',
                 'price_rule.view' => 'View central sale price rules',
                 'price_rule.manage' => 'Manage central sale price rules',
                 'stock.view' => 'View stock manager',
@@ -129,6 +136,12 @@ class DefaultRbacMenuSeeder extends Seeder
                 'support_access.audit' => 'View support access audits',
                 'telegram_notification.view' => 'View Telegram notification settings',
                 'telegram_notification.manage' => 'Manage Telegram notification settings and routes',
+                'storage_connection.view' => 'View platform object storage connection settings',
+                'storage_connection.manage' => 'Manage platform object storage connection settings',
+                'translation.view' => 'View system translation center',
+                'translation.edit' => 'Edit system translation drafts',
+                'translation.request_deploy' => 'Submit translation deploy requests',
+                'translation.approve_deploy' => 'Preview, approve, or reject translation deploy requests',
             ]),
             ...$this->scopedPermissions('tenant', [
                 'dashboard.view' => 'View tenant dashboard',
@@ -224,11 +237,13 @@ class DefaultRbacMenuSeeder extends Seeder
                 'dashboard_payout' => 'dashboard.view',
                 'dashboard_monitor' => 'dashboard.view',
                 'games' => 'game.view',
+                'reward_entry' => 'reward_entry.view',
                 'rewards' => 'reward.view',
                 'winners' => 'reward.view',
                 'prize_checking' => 'reward.view',
                 'sale_price_rules' => 'price_rule.view',
                 'reward_payout_rules' => 'price_rule.view',
+                'lottery_images' => 'asset.manage',
                 'stock_generation' => 'stock.generate',
                 'stock_settings' => 'stock.generate',
                 'partners' => 'partner.view',
@@ -248,6 +263,8 @@ class DefaultRbacMenuSeeder extends Seeder
                 'roles_permissions' => 'role.manage',
                 'menu_management' => 'menu.manage',
                 'telegram_notifications' => 'telegram_notification.view',
+                'storage_connections' => 'storage_connection.view',
+                'translations' => 'translation.view',
                 'system_settings' => 'system.settings.manage',
             ]),
             ...$this->scopedMenus('tenant', [
@@ -352,12 +369,14 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:dashboard_payout' => '/admin/central/dashboard/payout',
             'central:dashboard_monitor' => '/admin/central/dashboard/monitor',
             'central:games' => '/admin/central/games',
+            'central:reward_entry' => '/admin/central/reward-entry',
             'central:winners' => '/admin/central/winners',
             'tenant:winners' => '/admin/tenant/winners',
             'central:rewards',
             'central:prize_checking' => '/admin/central/rewards',
             'central:sale_price_rules' => '/admin/central/sale-price-rules',
             'central:reward_payout_rules' => '/admin/central/reward-payout-rules',
+            'central:lottery_images' => '/admin/central/lottery-images',
             'central:stock_generation' => '/admin/central/stock',
             'central:stock_settings' => '/admin/central/stock-settings',
             'central:partners' => '/admin/central/partners',
@@ -377,6 +396,8 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:roles_permissions',
             'central:menu_management',
             'central:telegram_notifications' => '/admin/central/telegram-notifications',
+            'central:storage_connections' => '/admin/central/storage-connections',
+            'central:translations' => '/admin/central/translations',
             'central:system_settings' => '/admin/central/dashboard',
             'tenant:dashboard' => '/admin/tenant/dashboard',
             'tenant:local_stock' => '/admin/tenant/stock',
@@ -458,6 +479,18 @@ class DefaultRbacMenuSeeder extends Seeder
             return 'Telegram Notifications';
         }
 
+        if ($code === 'storage_connections') {
+            return 'Storage Connections';
+        }
+
+        if ($code === 'translations') {
+            return 'Translation Center';
+        }
+
+        if ($code === 'reward_entry') {
+            return 'Result Entry';
+        }
+
         return str($code)->replace('_', ' ')->title()->toString();
     }
 
@@ -469,11 +502,13 @@ class DefaultRbacMenuSeeder extends Seeder
 
         return match ($scopeType.':'.$code) {
             'central:games',
+            'central:reward_entry',
             'central:rewards',
             'central:winners',
             'central:prize_checking',
             'central:sale_price_rules',
             'central:reward_payout_rules',
+            'central:lottery_images',
             'central:stock_generation',
             'central:stock_settings',
             'central:allocations' => 'Lottery Operations',
@@ -493,6 +528,8 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:roles_permissions',
             'central:menu_management',
             'central:telegram_notifications',
+            'central:storage_connections',
+            'central:translations',
             'central:system_settings' => 'Administration',
             'tenant:local_stock',
             'tenant:price_rules',
@@ -545,6 +582,7 @@ class DefaultRbacMenuSeeder extends Seeder
             $code === 'dashboard_payout' => 'ri-bank-card-line',
             $code === 'dashboard_monitor' => 'ri-pulse-line',
             str_contains($code, 'stock') || str_contains($code, 'allocation') => 'ri-archive-stack-line',
+            str_contains($code, 'image') => 'ri-image-2-line',
             str_contains($code, 'reward') || str_contains($code, 'prize') || str_contains($code, 'winner') => 'ri-trophy-line',
             str_contains($code, 'partner') => 'ri-building-4-line',
             str_contains($code, 'quota') => 'ri-speed-up-line',
@@ -552,6 +590,8 @@ class DefaultRbacMenuSeeder extends Seeder
             str_contains($code, 'alert') || str_contains($code, 'monitoring') => 'ri-notification-3-line',
             str_contains($code, 'announcement') => 'ri-megaphone-line',
             str_contains($code, 'telegram') => 'ri-telegram-line',
+            str_contains($code, 'storage') => 'ri-database-2-line',
+            str_contains($code, 'translation') => 'ri-translate-2',
             str_contains($code, 'line_notification') => 'ri-line-line',
             str_contains($code, 'activity') => 'ri-gift-line',
             str_contains($code, 'report') || str_contains($code, 'usage') => 'ri-bar-chart-box-line',
@@ -828,6 +868,356 @@ class DefaultRbacMenuSeeder extends Seeder
         }
 
         $this->bumpPermissionCacheVersions($roleIds, $now);
+    }
+
+    private function grantCentralStorageConnectionsToSuperAdmins(mixed $now): void
+    {
+        $roleIds = DB::table('roles')
+            ->where('scope_type', 'central')
+            ->whereNull('tenant_id')
+            ->whereIn('code', ['super_admin'])
+            ->pluck('id')
+            ->all();
+
+        if ($roleIds === []) {
+            return;
+        }
+
+        $permissionIds = DB::table('permissions')
+            ->where('scope_type', 'central')
+            ->whereIn('code', ['storage_connection.view', 'storage_connection.manage'])
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($permissionIds !== []) {
+            $permissionRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($permissionIds as $permissionId) {
+                    $permissionRows[] = [
+                        'role_id' => $roleId,
+                        'permission_id' => $permissionId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_permissions')->insertOrIgnore($permissionRows);
+        }
+
+        $menuIds = DB::table('admin_menus')
+            ->where('scope_type', 'central')
+            ->where('code', 'storage_connections')
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($menuIds !== []) {
+            $menuRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($menuIds as $menuId) {
+                    $menuRows[] = [
+                        'role_id' => $roleId,
+                        'menu_id' => $menuId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_menus')->insertOrIgnore($menuRows);
+        }
+
+        $this->bumpPermissionCacheVersions($roleIds, $now);
+    }
+
+    private function grantCentralTranslationsToRoles(mixed $now): void
+    {
+        $translatorRole = DB::table('roles')->where('id', 'rol_c_translator')->first();
+
+        if ($translatorRole) {
+            DB::table('roles')
+                ->where('id', 'rol_c_translator')
+                ->update([
+                    'scope_type' => 'central',
+                    'tenant_id' => null,
+                    'code' => 'translator',
+                    'name' => 'Translator / นักแปลภาษา',
+                    'status' => 'active',
+                    'updated_at' => $now,
+                ]);
+        } else {
+            DB::table('roles')->insert([
+                'id' => 'rol_c_translator',
+                'scope_type' => 'central',
+                'tenant_id' => null,
+                'code' => 'translator',
+                'name' => 'Translator / นักแปลภาษา',
+                'status' => 'active',
+                'version' => 1,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
+        $translatorRoleIds = DB::table('roles')
+            ->where('scope_type', 'central')
+            ->whereNull('tenant_id')
+            ->where('code', 'translator')
+            ->pluck('id')
+            ->all();
+
+        $superAdminRoleIds = DB::table('roles')
+            ->where('scope_type', 'central')
+            ->whereNull('tenant_id')
+            ->whereIn('code', ['super_admin'])
+            ->pluck('id')
+            ->all();
+
+        $this->grantPermissionsToRoles($translatorRoleIds, ['translation.view', 'translation.edit', 'translation.request_deploy'], $now);
+        $this->grantPermissionsToRoles($superAdminRoleIds, ['translation.view', 'translation.edit', 'translation.request_deploy', 'translation.approve_deploy'], $now);
+
+        $menuIds = DB::table('admin_menus')
+            ->where('scope_type', 'central')
+            ->where('code', 'translations')
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        $roleIds = array_values(array_unique([...$translatorRoleIds, ...$superAdminRoleIds]));
+        if ($roleIds !== [] && $menuIds !== []) {
+            $rows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($menuIds as $menuId) {
+                    $rows[] = [
+                        'role_id' => $roleId,
+                        'menu_id' => $menuId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_menus')->insertOrIgnore($rows);
+        }
+
+        if ($roleIds !== []) {
+            $this->bumpPermissionCacheVersions($roleIds, $now);
+        }
+    }
+
+    private function grantCentralRewardEntryToRoles(mixed $now): void
+    {
+        $resultOfficerRole = DB::table('roles')->where('id', 'rol_c_result_officer')->first();
+
+        if ($resultOfficerRole) {
+            DB::table('roles')
+                ->where('id', 'rol_c_result_officer')
+                ->update([
+                    'scope_type' => 'central',
+                    'tenant_id' => null,
+                    'code' => 'result_officer',
+                    'name' => 'Result Officer / นักออกผล',
+                    'status' => 'active',
+                    'updated_at' => $now,
+                ]);
+        } else {
+            DB::table('roles')->insert([
+                'id' => 'rol_c_result_officer',
+                'scope_type' => 'central',
+                'tenant_id' => null,
+                'code' => 'result_officer',
+                'name' => 'Result Officer / นักออกผล',
+                'status' => 'active',
+                'version' => 1,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
+        $resultOfficerRoleIds = DB::table('roles')
+            ->where('scope_type', 'central')
+            ->whereNull('tenant_id')
+            ->where('code', 'result_officer')
+            ->pluck('id')
+            ->all();
+
+        $superAdminRoleIds = DB::table('roles')
+            ->where('scope_type', 'central')
+            ->whereNull('tenant_id')
+            ->whereIn('code', ['super_admin'])
+            ->pluck('id')
+            ->all();
+
+        $this->grantPermissionsToRoles($resultOfficerRoleIds, ['reward_entry.view', 'reward_entry.submit'], $now);
+        $this->grantPermissionsToRoles($superAdminRoleIds, ['reward_entry.view', 'reward_entry.submit', 'reward_entry.resolve'], $now);
+
+        $menuIds = DB::table('admin_menus')
+            ->where('scope_type', 'central')
+            ->where('code', 'reward_entry')
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        $roleIds = array_values(array_unique([...$resultOfficerRoleIds, ...$superAdminRoleIds]));
+        if ($roleIds !== [] && $menuIds !== []) {
+            $rows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($menuIds as $menuId) {
+                    $rows[] = [
+                        'role_id' => $roleId,
+                        'menu_id' => $menuId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_menus')->insertOrIgnore($rows);
+        }
+
+        if ($roleIds !== []) {
+            $this->bumpPermissionCacheVersions($roleIds, $now);
+        }
+    }
+
+    private function grantCentralLotteryUploaderToRoles(mixed $now): void
+    {
+        $uploaderRole = DB::table('roles')->where('id', 'rol_c_lottery_uploader')->first();
+
+        if ($uploaderRole) {
+            DB::table('roles')
+                ->where('id', 'rol_c_lottery_uploader')
+                ->update([
+                    'scope_type' => 'central',
+                    'tenant_id' => null,
+                    'code' => 'lottery_uploader',
+                    'name' => 'Lottery Image Uploader / ผู้อัปโหลดรูปสลาก',
+                    'status' => 'active',
+                    'updated_at' => $now,
+                ]);
+        } else {
+            DB::table('roles')->insert([
+                'id' => 'rol_c_lottery_uploader',
+                'scope_type' => 'central',
+                'tenant_id' => null,
+                'code' => 'lottery_uploader',
+                'name' => 'Lottery Image Uploader / ผู้อัปโหลดรูปสลาก',
+                'status' => 'active',
+                'version' => 1,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
+        $uploaderRoleIds = DB::table('roles')
+            ->where('scope_type', 'central')
+            ->whereNull('tenant_id')
+            ->where('code', 'lottery_uploader')
+            ->pluck('id')
+            ->all();
+
+        $superAdminRoleIds = DB::table('roles')
+            ->where('scope_type', 'central')
+            ->whereNull('tenant_id')
+            ->whereIn('code', ['super_admin'])
+            ->pluck('id')
+            ->all();
+
+        $this->revokePermissionsFromRoles($uploaderRoleIds, ['game.view']);
+        $this->grantPermissionsToRoles($uploaderRoleIds, ['stock.view', 'asset.manage'], $now);
+        $this->grantPermissionsToRoles($superAdminRoleIds, ['game.view', 'stock.view', 'asset.manage'], $now);
+
+        $menuIds = DB::table('admin_menus')
+            ->where('scope_type', 'central')
+            ->where('code', 'lottery_images')
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        $roleIds = array_values(array_unique([...$uploaderRoleIds, ...$superAdminRoleIds]));
+        if ($roleIds !== [] && $menuIds !== []) {
+            $rows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($menuIds as $menuId) {
+                    $rows[] = [
+                        'role_id' => $roleId,
+                        'menu_id' => $menuId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_menus')->insertOrIgnore($rows);
+        }
+
+        if ($roleIds !== []) {
+            $this->bumpPermissionCacheVersions($roleIds, $now);
+        }
+    }
+
+    /**
+     * @param array<int, string> $roleIds
+     * @param array<int, string> $permissionCodes
+     */
+    private function grantPermissionsToRoles(array $roleIds, array $permissionCodes, mixed $now): void
+    {
+        if ($roleIds === []) {
+            return;
+        }
+
+        $permissionIds = DB::table('permissions')
+            ->where('scope_type', 'central')
+            ->whereIn('code', $permissionCodes)
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($permissionIds === []) {
+            return;
+        }
+
+        $rows = [];
+        foreach ($roleIds as $roleId) {
+            foreach ($permissionIds as $permissionId) {
+                $rows[] = [
+                    'role_id' => $roleId,
+                    'permission_id' => $permissionId,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+        }
+
+        DB::table('role_permissions')->insertOrIgnore($rows);
+    }
+
+    /**
+     * @param array<int, string> $roleIds
+     * @param array<int, string> $permissionCodes
+     */
+    private function revokePermissionsFromRoles(array $roleIds, array $permissionCodes): void
+    {
+        if ($roleIds === [] || $permissionCodes === []) {
+            return;
+        }
+
+        $permissionIds = DB::table('permissions')
+            ->where('scope_type', 'central')
+            ->whereIn('code', $permissionCodes)
+            ->pluck('id')
+            ->all();
+
+        if ($permissionIds === []) {
+            return;
+        }
+
+        DB::table('role_permissions')
+            ->whereIn('role_id', $roleIds)
+            ->whereIn('permission_id', $permissionIds)
+            ->delete();
     }
 
     private function grantWinnerMenuToPlatformOwner(mixed $now): void

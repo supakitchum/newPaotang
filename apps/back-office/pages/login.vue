@@ -20,37 +20,37 @@
                   </div>
                   <AdminAlert v-if="notice" type="warning" :message="notice" dismissible @dismiss="notice = ''" />
                   <AdminAlert v-if="error" type="danger" :message="error.message" :details="error.details" dismissible @dismiss="error = null" />
-                  <AdminAlert v-if="isPartnerBoMode && siteConfigError" type="warning" message="Unable to load partner branding. You can still sign in." dismissible @dismiss="siteConfigError = null" />
+                  <AdminAlert v-if="isPartnerBoMode && siteConfigError" type="warning" :message="t('login.brandingWarning')" dismissible @dismiss="siteConfigError = null" />
                   <form @submit.prevent="submit">
                     <div class="mb-3">
-                      <label class="form-label">Email</label>
-                      <input v-model="form.email" type="email" class="form-control" autocomplete="username" required />
+                      <label class="form-label">{{ t('common.usernameEmail') }}</label>
+                      <input v-model="form.email" type="text" class="form-control" autocomplete="username" required />
                     </div>
                     <div class="mb-3">
-                      <label class="form-label">Password</label>
+                      <label class="form-label">{{ t('common.password') }}</label>
                       <input v-model="form.password" type="password" class="form-control" autocomplete="current-password" required />
                     </div>
                     <div v-if="!isPartnerBoMode" class="mb-0" data-central-login-scope-controls>
                       <div>
-                        <label class="form-label">Scope</label>
+                        <label class="form-label">{{ t('common.scope') }}</label>
                         <select v-model="form.scope" class="form-select">
-                          <option value="central">Central</option>
-                          <option value="tenant">Tenant</option>
+                          <option value="central">{{ t('common.central') }}</option>
+                          <option value="tenant">{{ t('common.tenant') }}</option>
                         </select>
                       </div>
                     </div>
                     <div v-else class="alert alert-primary d-flex align-items-center mb-0" data-partner-login-tenant-only>
                       <i class="ri-building-line me-2" />
-                      <span>Tenant admin access for {{ partnerDisplayName }}</span>
+                      <span>{{ t('login.tenantOnly') }} {{ partnerDisplayName }}</span>
                     </div>
                     <button class="btn btn-primary btn-wave w-100 mt-4" type="submit" :disabled="loading">
                       <span v-if="loading" class="spinner-border spinner-border-sm me-2" />
-                      Sign in
+                      {{ t('common.signIn') }}
                     </button>
                   </form>
                   <div class="alert alert-info mt-4 mb-0">
                     <i class="ri-shield-check-line me-2" />
-                    Backend authorization remains the source of truth after login.
+                    {{ t('login.sourceOfTruth') }}
                   </div>
                 </div>
               </div>
@@ -67,6 +67,7 @@ definePageMeta({ layout: false })
 
 const api = useAdminApi()
 const session = useAdminSession()
+const { t } = useAdminLocale()
 const hostMode = useAdminHostMode()
 const adminSiteConfig = useAdminSiteConfig()
 const route = useRoute()
@@ -75,17 +76,17 @@ const error = ref<any>(null)
 const notice = ref('')
 const isPartnerBoMode = computed(() => hostMode.isPartnerBoHost.value)
 const partnerDisplayName = computed(() => adminSiteConfig.displayName.value || 'Partner Back Office')
-const loginHeroTitle = computed(() => isPartnerBoMode.value ? partnerDisplayName.value : 'NewPaotang Back Office')
+const loginHeroTitle = computed(() => isPartnerBoMode.value ? partnerDisplayName.value : t('login.heroTitle'))
 const loginHeroSubtitle = computed(() => (
   isPartnerBoMode.value
-    ? 'Secure tenant operations for this partner domain.'
-    : 'Central and tenant operations, rendered through backend RBAC menus and Meno dashboard patterns.'
+    ? t('login.partnerHeroSubtitle')
+    : t('login.heroSubtitle')
 ))
-const loginTitle = computed(() => isPartnerBoMode.value ? `${partnerDisplayName.value} sign in` : 'Admin sign in')
+const loginTitle = computed(() => isPartnerBoMode.value ? `${partnerDisplayName.value} ${t('login.partnerTitleSuffix')}` : t('login.title'))
 const loginSubtitle = computed(() => (
   isPartnerBoMode.value
-    ? 'Use an approved tenant admin account.'
-    : 'Use an approved central or tenant admin account.'
+    ? t('login.partnerSubtitle')
+    : t('login.subtitle')
 ))
 const defaultLoginLogoUrl = '/admin-template/assets/images/brand-logos/desktop-logo.png'
 const loginLogoUrl = computed(() => isPartnerBoMode.value ? adminSiteConfig.logoUrl.value || defaultLoginLogoUrl : defaultLoginLogoUrl)
@@ -123,7 +124,7 @@ onMounted(async () => {
 
   if (isPartnerBoMode.value && !session.ensurePartnerTenantSession()) {
     session.clear()
-    notice.value = notice.value || 'This partner Back Office requires a tenant admin account for this domain.'
+      notice.value = notice.value || t('login.partnerRequiresTenant')
     return
   }
 
@@ -136,7 +137,7 @@ onMounted(async () => {
     navigateTo(afterLoginPath(isPartnerBoMode.value ? 'tenant' : session.currentScope.value))
   } catch {
     session.clear()
-    notice.value = notice.value || 'Session expired. Please sign in again.'
+    notice.value = notice.value || t('login.sessionExpired')
   }
 })
 
@@ -168,11 +169,16 @@ const submit = async () => {
 
 const afterLoginPath = (scope: 'central' | 'tenant') => {
   const target = safeRedirectTarget(route.query.redirect, scope)
+  const landing = session.landingPath(scope)
   if (isPartnerBoMode.value) {
-    return target || '/admin/tenant/dashboard'
+    return target || landing
   }
 
-  return target || (scope === 'tenant' ? '/admin/tenant/dashboard' : '/admin/central/dashboard')
+  if (session.usesTranslationCenterLanding(scope) || session.usesRewardEntryLanding(scope)) {
+    return target === landing ? target : landing
+  }
+
+  return target || landing
 }
 
 const safeRedirectTarget = (value: unknown, scope: 'central' | 'tenant') => {

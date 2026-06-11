@@ -13,6 +13,7 @@ const forwardHeaders = [
 
 const responseHeaders = [
   'content-type',
+  'content-language',
   'date',
   'retry-after',
   'x-request-id',
@@ -109,7 +110,7 @@ export default defineEventHandler(async (event) => {
   const response = await requestPlatformApi(targetUrl, method, headers, body)
 
   setResponseStatus(event, response.statusCode, response.statusMessage)
-  setHeader(event, 'vary', 'Host')
+  setHeader(event, 'vary', 'Host, Accept-Language')
 
   for (const headerName of responseHeaders) {
     const value = response.headers[headerName]

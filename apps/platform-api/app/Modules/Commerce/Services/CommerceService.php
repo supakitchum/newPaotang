@@ -27,6 +27,7 @@ use App\Shared\Auth\AdminSessionContext;
 use App\Modules\Auth\Services\CustomerAuthService;
 use App\Modules\Growth\Services\GrowthService;
 use App\Modules\LineNotifications\Services\TenantLineNotificationService;
+use App\Modules\StorageConnections\Services\RuntimeStorageService;
 use App\Modules\TelegramNotifications\Services\CentralTelegramNotificationService;
 use App\Modules\PartnerStore\Services\VirtualLotteryImageService;
 use App\Modules\PartnerStore\Services\VirtualStockService;
@@ -41,7 +42,6 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class CommerceService
@@ -73,6 +73,7 @@ class CommerceService
         private readonly LotterySalePriceService $salePrices,
         private readonly GrowthService $growth,
         private readonly TenantLineNotificationService $lineNotifications,
+        private readonly RuntimeStorageService $storage,
         private readonly CentralTelegramNotificationService $telegramNotifications,
     ) {
     }
@@ -758,12 +759,7 @@ class CommerceService
 
             TopupRequest::query()->where('id', $topupId)->update($updates);
 
-            $disk = Storage::disk((string) config('lottery_images.disk', 'lottery_images'));
-            foreach ($oldPaths as $path) {
-                if ($path !== '') {
-                    $disk->delete($path);
-                }
-            }
+            $this->storage->delete(RuntimeStorageService::ROUTE_PAYMENT_SLIPS, $oldPaths);
 
             $resource = $this->topupResource(TopupRequest::where('id', $topupId)->first());
             $this->idempotency->storeResponse($tenantId, 'customer', $customer->customerId(), 'customer.topups.slip:'.$topupId, $idempotencyKey, $normalized, 200, $resource);
@@ -1563,17 +1559,13 @@ class CommerceService
             ->limit(max(1, min(500, $limit)))
             ->get()
             ->all();
-        $disk = Storage::disk((string) config('lottery_images.disk', 'lottery_images'));
         $pruned = 0;
 
         foreach ($rows as $row) {
-            foreach ([$row->slip_storage_path, $row->slip_thumb_storage_path] as $path) {
-                $path = trim((string) $path);
-
-                if ($path !== '') {
-                    $disk->delete($path);
-                }
-            }
+            $this->storage->delete(RuntimeStorageService::ROUTE_PAYMENT_SLIPS, [
+                (string) $row->slip_storage_path,
+                (string) $row->slip_thumb_storage_path,
+            ]);
 
             TopupRequest::query()
                 ->where('id', $row->id)
@@ -2587,14 +2579,23 @@ class CommerceService
         $basePath = 'tenants/'.$tenantId.'/topup-slips';
         $storagePath = $basePath.'/'.$topupId.'-'.$token.'.webp';
         $thumbStoragePath = $basePath.'/'.$topupId.'-'.$token.'-thumb.webp';
-        $disk = Storage::disk((string) config('lottery_images.disk', 'lottery_images'));
 
-        $disk->put($storagePath, $slip['bytes'], ['ContentType' => 'image/webp']);
-        $disk->put($thumbStoragePath, $slip['thumb_bytes'], ['ContentType' => 'image/webp']);
+        $storagePath = $this->storage->put(
+            RuntimeStorageService::ROUTE_PAYMENT_SLIPS,
+            $storagePath,
+            $slip['bytes'],
+            ['ContentType' => 'image/webp'],
+        );
+        $thumbStoragePath = $this->storage->put(
+            RuntimeStorageService::ROUTE_PAYMENT_SLIPS,
+            $thumbStoragePath,
+            $slip['thumb_bytes'],
+            ['ContentType' => 'image/webp'],
+        );
 
         return [
-            'url' => PublicUrl::asset($storagePath),
-            'thumb_url' => PublicUrl::asset($thumbStoragePath),
+            'url' => $this->storage->publicUrl(RuntimeStorageService::ROUTE_PAYMENT_SLIPS, $storagePath),
+            'thumb_url' => $this->storage->publicUrl(RuntimeStorageService::ROUTE_PAYMENT_SLIPS, $thumbStoragePath),
             'storage_path' => $storagePath,
             'thumb_storage_path' => $thumbStoragePath,
             'expires_at' => now()->addDays(30),

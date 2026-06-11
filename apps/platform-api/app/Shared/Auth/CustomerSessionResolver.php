@@ -71,6 +71,7 @@ class CustomerSessionResolver
                 'email' => $customer->email ?? null,
                 'avatar_url' => $customer->avatar_url ?? null,
                 'status' => (string) $customer->status,
+                'preferred_locale' => $customer->preferred_locale ?? null,
                 'has_pin' => is_string($customer->pin_hash) && $customer->pin_hash !== '',
             ],
         );

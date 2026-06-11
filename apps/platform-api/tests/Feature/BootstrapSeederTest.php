@@ -11,13 +11,35 @@ class BootstrapSeederTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_database_seeder_creates_bootstrap_admin_and_three_demo_tenants(): void
+    public function test_database_seeder_creates_initial_system_without_demo_partners(): void
     {
         $this->seed(DatabaseSeeder::class);
 
         $this->assertDatabaseHas('admin_users', [
             'id' => 'adm_platform_owner',
-            'email' => 'admin@newpaotang.test',
+            'email' => 'superadmin@newpaotang.test',
+            'username' => 'superadmin',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('admin_users', [
+            'id' => 'adm_translator',
+            'email' => 'translator@newpaotang.test',
+            'username' => 'translator',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('admin_users', [
+            'id' => 'adm_result_officer',
+            'email' => 'result@newpaotang.test',
+            'username' => 'result',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('admin_users', [
+            'id' => 'adm_lottery_uploader',
+            'email' => 'uploader@newpaotang.test',
+            'username' => 'uploader',
             'status' => 'active',
         ]);
 
@@ -28,24 +50,16 @@ class BootstrapSeederTest extends TestCase
             'status' => 'active',
         ]);
 
-        $this->assertSame(3, DB::table('partners')->where('code', 'like', 'demo_%')->count());
-        $this->assertSame(3, DB::table('partner_tenants')->where('code', 'like', 'demo_%')->count());
-        $this->assertSame(3, DB::table('partner_tenant_domains')->where('host', 'like', '%.newpaotang.test')->where('status', 'active')->count());
-
-        foreach (['ten_demo_alpha', 'ten_demo_beta', 'ten_demo_gamma'] as $tenantId) {
-            $this->assertDatabaseHas('partner_tenant_settings', ['tenant_id' => $tenantId]);
-            $this->assertDatabaseHas('partner_tenant_themes', ['tenant_id' => $tenantId]);
-            $this->assertDatabaseHas('partner_tenant_maintenance_settings', ['tenant_id' => $tenantId, 'status' => 'inactive']);
-            $this->assertDatabaseHas('partner_tenant_deployment_profiles', ['tenant_id' => $tenantId, 'status' => 'active']);
-        }
-
-        foreach (['par_demo_alpha', 'par_demo_beta', 'par_demo_gamma'] as $partnerId) {
-            $this->assertDatabaseHas('partner_monitoring_profiles', ['partner_id' => $partnerId, 'status' => 'active']);
-            $this->assertDatabaseHas('partner_alert_policies', ['partner_id' => $partnerId, 'policy_key' => 'default_health', 'status' => 'active']);
-            $this->assertDatabaseHas('partner_health_checks', ['partner_id' => $partnerId, 'check_key' => 'site_config']);
-            $this->assertDatabaseHas('partner_usage_meters', ['partner_id' => $partnerId, 'meter_key' => 'api_requests', 'status' => 'active']);
-            $this->assertDatabaseHas('partner_usage_meters', ['partner_id' => $partnerId, 'meter_key' => 'queue_jobs', 'status' => 'active']);
-        }
+        $this->assertSame(0, DB::table('partners')->count());
+        $this->assertSame(0, DB::table('partner_tenants')->count());
+        $this->assertSame(0, DB::table('partner_tenant_domains')->count());
+        $this->assertDatabaseHas('system_languages', ['locale' => 'th-TH', 'status' => 'active', 'is_default' => true]);
+        $this->assertDatabaseHas('system_languages', ['locale' => 'en-US', 'status' => 'active']);
+        $this->assertDatabaseHas('system_translation_keys', ['surface' => 'back-office', 'translation_key' => 'menus.items.central.dashboard']);
+        $this->assertDatabaseHas('system_translation_keys', ['surface' => 'back-office', 'translation_key' => 'account.changePassword']);
+        $this->assertDatabaseHas('permissions', ['scope_type' => 'central', 'code' => 'storage_connection.manage']);
+        $this->assertDatabaseHas('admin_menus', ['scope_type' => 'central', 'code' => 'storage_connections', 'route' => '/admin/central/storage-connections']);
+        $this->assertDatabaseHas('admin_menus', ['scope_type' => 'central', 'code' => 'lottery_images', 'route' => '/admin/central/lottery-images']);
     }
 
     public function test_seeded_central_and_tenant_accounts_can_login(): void
@@ -53,8 +67,8 @@ class BootstrapSeederTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $central = $this->postJson('/api/v1/auth/admin/login', [
-            'email' => 'admin@newpaotang.test',
-            'password' => 'NewPaotangAdmin!2026',
+            'email' => 'superadmin',
+            'password' => '1234',
             'scope' => 'central',
         ])
             ->assertOk()
@@ -63,20 +77,53 @@ class BootstrapSeederTest extends TestCase
             ->json();
 
         $this->assertContains('partner.view', $central['scopes'][0]['permissions']);
+        $this->assertContains('storage_connection.manage', $central['scopes'][0]['permissions']);
 
-        $tenant = $this->postJson('/api/v1/auth/admin/login', [
-            'email' => 'owner@alpha.newpaotang.test',
-            'password' => 'NewPaotangTenant!2026',
-            'scope' => 'tenant',
-            'tenant_id' => 'ten_demo_alpha',
+        $translator = $this->postJson('/api/v1/auth/admin/login', [
+            'email' => 'translator',
+            'password' => '1234',
+            'scope' => 'central',
         ])
             ->assertOk()
-            ->assertJsonPath('user.id', 'adm_demo_alpha_owner')
-            ->assertJsonPath('scopes.0.scope', 'tenant')
-            ->assertJsonPath('scopes.0.tenant_id', 'ten_demo_alpha')
+            ->assertJsonPath('user.id', 'adm_translator')
+            ->assertJsonPath('scopes.0.scope', 'central')
             ->json();
 
-        $this->assertContains('order.view', $tenant['scopes'][0]['permissions']);
+        $this->assertContains('translation.edit', $translator['scopes'][0]['permissions']);
+        $this->assertContains('translation.request_deploy', $translator['scopes'][0]['permissions']);
+        $this->assertNotContains('translation.approve_deploy', $translator['scopes'][0]['permissions']);
+
+        $resultOfficer = $this->postJson('/api/v1/auth/admin/login', [
+            'email' => 'result',
+            'password' => '1234',
+            'scope' => 'central',
+        ])
+            ->assertOk()
+            ->assertJsonPath('user.id', 'adm_result_officer')
+            ->assertJsonPath('scopes.0.scope', 'central')
+            ->json();
+
+        $this->assertContains('reward_entry.view', $resultOfficer['scopes'][0]['permissions']);
+        $this->assertContains('reward_entry.submit', $resultOfficer['scopes'][0]['permissions']);
+        $this->assertNotContains('reward_entry.resolve', $resultOfficer['scopes'][0]['permissions']);
+        $this->assertNotContains('reward.view', $resultOfficer['scopes'][0]['permissions']);
+
+        $uploader = $this->postJson('/api/v1/auth/admin/login', [
+            'email' => 'uploader',
+            'password' => '1234',
+            'scope' => 'central',
+        ])
+            ->assertOk()
+            ->assertJsonPath('user.id', 'adm_lottery_uploader')
+            ->assertJsonPath('scopes.0.scope', 'central')
+            ->json();
+
+        $this->assertContains('stock.view', $uploader['scopes'][0]['permissions']);
+        $this->assertContains('asset.manage', $uploader['scopes'][0]['permissions']);
+        $this->assertNotContains('game.view', $uploader['scopes'][0]['permissions']);
+        $this->assertNotContains('dashboard.view', $uploader['scopes'][0]['permissions']);
+        $this->assertNotContains('stock.generate', $uploader['scopes'][0]['permissions']);
+        $this->assertNotContains('reward.view', $uploader['scopes'][0]['permissions']);
     }
 
     public function test_seeded_menu_routes_support_back_office_navigation(): void

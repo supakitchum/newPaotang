@@ -6,6 +6,7 @@ use App\Models\PartnerAlertEvent;
 use App\Models\PartnerDailyUsageSummary;
 use App\Shared\Observability\ObservabilityCatalog;
 use Database\Seeders\DatabaseSeeder;
+use Database\Seeders\DemoTenantSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\Console\Command\Command as SymfonyCommand;
@@ -40,7 +41,7 @@ class M10ProductionObservabilityAlertingTest extends TestCase
 
     public function test_Default_alert_policies_are_seeded_for_each_demo_partner(): void
     {
-        $this->seed(DatabaseSeeder::class);
+        $this->seed([DatabaseSeeder::class, DemoTenantSeeder::class]);
 
         $catalog = new ObservabilityCatalog();
         $required = array_merge(['default_health'], $catalog->requiredAlertPolicyKeys());
@@ -58,7 +59,7 @@ class M10ProductionObservabilityAlertingTest extends TestCase
 
     public function test_Alert_check_dry_run_includes_partner_tenant_labels_and_writes_no_events(): void
     {
-        $this->seed(DatabaseSeeder::class);
+        $this->seed([DatabaseSeeder::class, DemoTenantSeeder::class]);
         $this->insertHighErrorSummary();
 
         $exitCode = Artisan::call('platform:alerts:check', ['--dry-run' => true, '--format' => 'json']);
@@ -83,7 +84,7 @@ class M10ProductionObservabilityAlertingTest extends TestCase
 
     public function test_Alert_check_can_write_safe_local_database_event_with_redacted_payload(): void
     {
-        $this->seed(DatabaseSeeder::class);
+        $this->seed([DatabaseSeeder::class, DemoTenantSeeder::class]);
         $this->insertHighErrorSummary();
         config([
             'platform.alerts.enabled' => true,

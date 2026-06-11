@@ -18,6 +18,7 @@ class TenantActivity extends BaseModel
         'tenant_id',
         'game_id',
         'name',
+        'name_i18n',
         'slug',
         'type',
         'status',
@@ -31,6 +32,7 @@ class TenantActivity extends BaseModel
 
     protected $casts = [
         'sort_order' => 'integer',
+        'name_i18n' => 'array',
         'metadata_json' => 'array',
     ];
 

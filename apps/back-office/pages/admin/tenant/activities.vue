@@ -195,9 +195,27 @@
           </div>
           <div class="modal-body">
             <form class="row g-3" @submit.prevent="saveActivity">
+              <div class="col-12">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                  <label class="form-label mb-0">Localized content</label>
+                  <div class="btn-group btn-group-sm" role="group" aria-label="Activity language tabs">
+                    <button
+                      v-for="option in localeOptions"
+                      :key="option.value"
+                      class="btn"
+                      :class="contentLocale === option.value ? 'btn-primary' : 'btn-outline-primary'"
+                      type="button"
+                      @click="contentLocale = option.value"
+                    >
+                      {{ option.label }}
+                    </button>
+                  </div>
+                </div>
+                <div class="form-text">Customer activity pages use the selected language and fall back to Thai/default if blank.</div>
+              </div>
               <div class="col-12 col-lg-7">
-                <label class="form-label">Activity name</label>
-                <input v-model="form.name" class="form-control" :class="invalidClass('name')" placeholder="Customer-facing campaign name">
+                <label class="form-label">Activity name ({{ localeLabel(contentLocale) }})</label>
+                <input v-model="form.name_i18n[contentLocale]" class="form-control" :class="invalidClass('name')" placeholder="Customer-facing campaign name">
                 <div class="invalid-feedback">{{ fieldError('name') }}</div>
               </div>
               <div class="col-12 col-lg-5">
@@ -356,6 +374,10 @@ const api = useAdminApi()
 const session = useAdminSession()
 const tenantId = computed(() => session.currentTenantId.value)
 const statuses = ['draft', 'active', 'inactive', 'archived']
+const localeOptions = [
+  { value: 'th-TH', label: 'TH' },
+  { value: 'en-US', label: 'EN' },
+] as const
 const predictionTypeOptions = [
   { value: 'first_prize_last2', label: 'First prize last 2 digits' },
   { value: 'first_prize_last3', label: 'First prize last 3 digits' },
@@ -403,6 +425,7 @@ const pageState = ref({ index: 0, cursors: [''] })
 const sort = reactive({ key: 'created_at', direction: 'desc' as 'asc' | 'desc' })
 const filters = reactive({ q: '', status: '', type: '' })
 const formModalOpen = ref(false)
+const contentLocale = ref<'th-TH' | 'en-US'>('th-TH')
 const fieldErrors = ref<Record<string, string[]>>({})
 const selectedImage = ref<File | null>(null)
 const previewUrl = ref('')
@@ -417,7 +440,7 @@ const claims = ref<AnyRecord[]>([])
 const saveDisabled = computed(() => (
   saving.value
   || !tenantId.value
-  || !String(form.name || '').trim()
+  || !firstLocalizedValue(form.name_i18n, form.name)
   || !String(form.game_id || '').trim()
   || Boolean(imageError.value)
 ))
@@ -426,6 +449,7 @@ function defaultForm() {
   return {
     id: '',
     name: '',
+    name_i18n: localizedDefaults(),
     slug: '',
     game_id: '',
     type: 'lucky_board',
@@ -584,6 +608,7 @@ const openEditModal = (row: AnyRecord) => {
   Object.assign(form, defaultForm(), {
     id: row.id,
     name: row.name,
+    name_i18n: localizedFrom(row.name_i18n, row.name),
     slug: row.slug,
     game_id: row.game_id,
     type: row.type,
@@ -742,7 +767,8 @@ const buildPayload = () => {
       }
 
   return {
-    name: String(form.name || '').trim(),
+    name: firstLocalizedValue(form.name_i18n, form.name),
+    name_i18n: normalizedLocalized(form.name_i18n),
     game_id: form.game_id,
     type: form.type,
     status: form.status,
@@ -857,6 +883,29 @@ const bahtToMinor = (value: any) => Math.max(0, Math.round(Number(value || 0) * 
 const formatMoney = (value: any) => `${minorToBaht(value).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท`
 const titleize = (value: string) => String(value || '-').replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
 const alertType = (err: any) => ([403, 409, 422].includes(Number(err?.status)) ? 'warning' : 'danger')
+const localeLabel = (value: 'th-TH' | 'en-US') => localeOptions.find((option) => option.value === value)?.label || value
+const localizedDefaults = () => ({ 'th-TH': '', 'en-US': '' })
+const localizedFrom = (value: any, fallback = '') => {
+  const next = localizedDefaults()
+  if (value && typeof value === 'object') {
+    next['th-TH'] = String(value['th-TH'] || value.th || '')
+    next['en-US'] = String(value['en-US'] || value.en || '')
+  }
+  if (!next['th-TH'] && fallback) {
+    next['th-TH'] = String(fallback)
+  }
+  return next
+}
+const firstLocalizedValue = (value: any, fallback = '') => String(
+  value?.['th-TH']
+  || value?.['en-US']
+  || fallback
+  || '',
+).trim()
+const normalizedLocalized = (value: any) => ({
+  'th-TH': String(value?.['th-TH'] || '').trim(),
+  'en-US': String(value?.['en-US'] || '').trim(),
+})
 
 watch(tenantId, () => {
   resetForm()

@@ -32,8 +32,8 @@
             :class="{ 'is-invalid': fieldValidationMessages(field).length }"
             :disabled="fieldDisabled(field)"
           >
-            <option v-if="!field.hideEmptyOption" value="">{{ field.emptyOptionLabel || 'Select' }}</option>
-            <option v-else-if="!visibleOptions(field).length" value="" disabled>{{ field.emptyOptionLabel || 'No options available' }}</option>
+            <option v-if="!field.hideEmptyOption" value="">{{ field.emptyOptionLabel || translateReportText('Select', locale) }}</option>
+            <option v-else-if="!visibleOptions(field).length" value="" disabled>{{ field.emptyOptionLabel || translateReportText('No options available', locale) }}</option>
             <option
               v-for="option in visibleOptions(field)"
               :key="optionValue(option)"
@@ -49,7 +49,7 @@
             :class="{ 'is-invalid': fieldValidationMessages(field).length }"
           >
             <div v-if="!visibleOptions(field).length" class="text-muted small">
-              {{ field.emptyOptionLabel || 'No options available' }}
+              {{ field.emptyOptionLabel || translateReportText('No options available', locale) }}
             </div>
             <div v-else class="np-checkbox-grid">
               <label
@@ -296,6 +296,7 @@
 <script setup lang="ts">
 import type { OperationFormField, OperationOption } from '~/composables/useAdminOperationsCatalog'
 import { formatAdminValue, formatMoney, formatRewardMoney } from '~/utils/format'
+import { translateReportText } from '~/utils/reportI18n'
 
 const props = defineProps<{
   modelValue: boolean
@@ -321,6 +322,7 @@ const reason = ref('')
 const payloadJson = ref('')
 const formState = reactive<Record<string, any>>({})
 const api = useAdminApi()
+const { locale } = useAdminLocale()
 const allocationPartnerOptions = ref<OperationOption[]>([])
 const allocationTenantOptions = ref<OperationOption[]>([])
 const allocationOptionLoading = ref(false)

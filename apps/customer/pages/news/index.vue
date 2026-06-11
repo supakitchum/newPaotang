@@ -1,17 +1,17 @@
 <template>
   <MobileShell active-nav="home" show-bottom-nav>
-    <BlueHeader title="ข่าวสาร" back-to="/profile" min-height="214px" />
+    <BlueHeader :title="t('news.title')" back-to="/profile" min-height="214px" />
 
     <section class="content-sheet flush news-list-sheet">
       <div v-if="isLoading" class="news-list-state">
         <span class="spinner-border spinner-border-sm" />
-        <p>กำลังโหลดข่าวสาร</p>
+        <p>{{ t('news.loading') }}</p>
       </div>
 
       <div v-else-if="newsItems.length === 0" class="news-list-empty">
         <i class="bi bi-newspaper" />
-        <h1>ยังไม่มีข่าวสารในขณะนี้</h1>
-        <p>เมื่อมีประกาศใหม่จากร้านค้า คุณจะเห็นรายการได้ที่หน้านี้</p>
+        <h1>{{ t('news.emptyTitle') }}</h1>
+        <p>{{ t('news.emptyDescription') }}</p>
       </div>
 
       <div v-else class="news-list">
@@ -24,13 +24,13 @@
           rel="noopener"
           @click="handleNewsClick($event, news)"
         >
-          <img v-if="newsCover(news)" :src="newsCover(news)" :alt="news.title || 'ข่าวสาร'">
+          <img v-if="newsCover(news)" :src="newsCover(news)" :alt="news.title || t('news.title')">
           <div v-else class="news-list-image-fallback">
             <i class="bi bi-megaphone-fill" />
           </div>
           <div class="news-list-card-body">
-            <span>ข่าวสาร</span>
-            <h2>{{ news.title || 'ข่าวประชาสัมพันธ์' }}</h2>
+            <span>{{ t('news.category') }}</span>
+            <h2>{{ news.title || t('news.fallbackTitle') }}</h2>
             <time v-if="newsPublishedLabel(news)" :datetime="newsPublishedIso(news)">
               {{ newsPublishedLabel(news) }}
             </time>
@@ -66,6 +66,7 @@ definePageMeta({
 
 const platformApi = usePlatformApi()
 const config = useRuntimeConfig()
+const { locale, t } = useLocale()
 const newsItems = ref<NewsItem[]>([])
 const isLoading = ref(true)
 
@@ -120,7 +121,7 @@ const newsPublishedLabel = (news: NewsItem) => {
   const date = new Date(String(value))
   if (Number.isNaN(date.getTime())) return ''
 
-  return new Intl.DateTimeFormat('th-TH', {
+  return new Intl.DateTimeFormat(locale.value, {
     dateStyle: 'medium',
     timeStyle: 'short',
     timeZone: 'Asia/Bangkok'
@@ -160,8 +161,8 @@ const loadNews = async () => {
 onMounted(loadNews)
 
 useTenantSeo({
-  title: 'ข่าวสาร',
-  description: 'ข่าวสารและประกาศจากร้านค้า',
+  title: t('news.title'),
+  description: t('news.emptyDescription'),
   canonicalPath: '/news'
 })
 </script>

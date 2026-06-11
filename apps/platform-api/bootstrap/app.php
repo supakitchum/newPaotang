@@ -17,10 +17,12 @@ use App\Console\Commands\ProcessRewardCheckCommand;
 use App\Console\Commands\ProcessSoldSyncCommand;
 use App\Console\Commands\SeedBaseLotteryNumbersCommand;
 use App\Console\Commands\SeedRuntimeMockDataCommand;
+use App\Console\Commands\SyncStaticTranslationsCommand;
 use App\Modules\SupportAccess\Http\Middleware\BlockSensitiveSupportImpersonation;
 use App\Shared\Auth\Http\Middleware\AuthenticateAdmin;
 use App\Shared\Auth\Http\Middleware\AuthenticateCustomer;
 use App\Shared\Auth\Http\Middleware\RequireAdminScope;
+use App\Shared\Localization\Http\Middleware\SetApiLocale;
 use App\Shared\Tenancy\Http\Middleware\NormalizeRequestHost;
 use App\Shared\Tenancy\Http\Middleware\ResolveTenantByHost;
 use Illuminate\Foundation\Application;
@@ -54,9 +56,11 @@ return Application::configure(basePath: dirname(__DIR__))
         LotteryImageReadinessCommand::class,
         PruneTopupSlipsCommand::class,
         SeedRuntimeMockDataCommand::class,
+        SyncStaticTranslationsCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(NormalizeRequestHost::class);
+        $middleware->append(SetApiLocale::class);
 
         $middleware->alias([
             'admin.auth' => AuthenticateAdmin::class,

@@ -155,6 +155,22 @@
                 <label class="form-label">Display name</label>
                 <input v-model="settingsForm.display_name" class="form-control" type="text" :disabled="!primaryTenant">
               </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Site name (TH)</label>
+                <input v-model="settingsForm.site_name_i18n_th" class="form-control" type="text" :disabled="!primaryTenant">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Site name (EN)</label>
+                <input v-model="settingsForm.site_name_i18n_en" class="form-control" type="text" :disabled="!primaryTenant">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Display name (TH)</label>
+                <input v-model="settingsForm.display_name_i18n_th" class="form-control" type="text" :disabled="!primaryTenant">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Display name (EN)</label>
+                <input v-model="settingsForm.display_name_i18n_en" class="form-control" type="text" :disabled="!primaryTenant">
+              </div>
               <div class="col-12 col-md-3">
                 <label class="form-label">Locale</label>
                 <input v-model="settingsForm.locale" class="form-control" type="text" :disabled="!primaryTenant">
@@ -226,10 +242,26 @@
                 <label class="form-label">Maintenance message</label>
                 <textarea v-model="settingsForm.maintenance_message" class="form-control" rows="2" :disabled="!primaryTenant" />
               </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Maintenance message (TH)</label>
+                <textarea v-model="settingsForm.maintenance_message_i18n_th" class="form-control" rows="3" :disabled="!primaryTenant" />
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Maintenance message (EN)</label>
+                <textarea v-model="settingsForm.maintenance_message_i18n_en" class="form-control" rows="3" :disabled="!primaryTenant" />
+              </div>
               <div class="col-12">
                 <label class="form-label">Terms and conditions</label>
                 <textarea v-model="settingsForm.terms_content" class="form-control" rows="6" :disabled="!primaryTenant" />
                 <div class="form-text">Shown on the customer Terms page. Leave blank to use the default text with the current site name.</div>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Terms and conditions (TH)</label>
+                <textarea v-model="settingsForm.terms_content_i18n_th" class="form-control" rows="6" :disabled="!primaryTenant" />
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Terms and conditions (EN)</label>
+                <textarea v-model="settingsForm.terms_content_i18n_en" class="form-control" rows="6" :disabled="!primaryTenant" />
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label">Realtime URL</label>
@@ -586,7 +618,9 @@ function buildSectionPayload(section: SectionKey) {
     settings: {
       site: {
         site_name: settingsForm.site_name,
+        site_name_i18n: localizedPayload(settingsForm.site_name_i18n_th, settingsForm.site_name_i18n_en),
         display_name: nullable(settingsForm.display_name),
+        display_name_i18n: localizedPayload(settingsForm.display_name_i18n_th, settingsForm.display_name_i18n_en),
         locale: settingsForm.locale,
         timezone: settingsForm.timezone,
         support_email: nullable(settingsForm.support_email),
@@ -605,6 +639,7 @@ function buildSectionPayload(section: SectionKey) {
         active: Boolean(settingsForm.maintenance_active),
         mode: nullable(settingsForm.maintenance_mode),
         message: nullable(settingsForm.maintenance_message),
+        message_i18n: localizedPayload(settingsForm.maintenance_message_i18n_th, settingsForm.maintenance_message_i18n_en),
         retry_after_seconds: nullableNumber(settingsForm.maintenance_retry_after_seconds),
       },
       api: {
@@ -614,6 +649,7 @@ function buildSectionPayload(section: SectionKey) {
       },
       legal: {
         terms_content: nullable(settingsForm.terms_content),
+        terms_content_i18n: localizedPayload(settingsForm.terms_content_i18n_th, settingsForm.terms_content_i18n_en),
       },
     },
     theme: {
@@ -673,7 +709,11 @@ function resetForms() {
   })
   assignForm(settingsForm, {
     site_name: valueOrDefault(settings?.site?.site_name, tenant.name || record.name || ''),
+    site_name_i18n_th: valueOrEmpty(settings?.site?.site_name_i18n?.['th-TH']),
+    site_name_i18n_en: valueOrEmpty(settings?.site?.site_name_i18n?.['en-US']),
     display_name: valueOrEmpty(settings?.site?.display_name),
+    display_name_i18n_th: valueOrEmpty(settings?.site?.display_name_i18n?.['th-TH']),
+    display_name_i18n_en: valueOrEmpty(settings?.site?.display_name_i18n?.['en-US']),
     locale: valueOrDefault(settings?.site?.locale, 'th-TH'),
     timezone: valueOrDefault(settings?.site?.timezone, 'Asia/Bangkok'),
     support_email: valueOrEmpty(settings?.site?.support_email),
@@ -688,11 +728,15 @@ function resetForms() {
     maintenance_active: Boolean(settings?.maintenance?.active ?? false),
     maintenance_mode: valueOrEmpty(settings?.maintenance?.mode),
     maintenance_message: valueOrEmpty(settings?.maintenance?.message),
+    maintenance_message_i18n_th: valueOrEmpty(settings?.maintenance?.message_i18n?.['th-TH']),
+    maintenance_message_i18n_en: valueOrEmpty(settings?.maintenance?.message_i18n?.['en-US']),
     maintenance_retry_after_seconds: settings?.maintenance?.retry_after_seconds ?? '',
     api_base_url: valueOrDefault(settings?.api?.base_url, '/api/v1'),
     realtime_url: valueOrEmpty(settings?.api?.realtime_url),
     asset_cdn_base_url: valueOrEmpty(settings?.api?.asset_cdn_base_url),
     terms_content: valueOrEmpty(settings?.legal?.terms_content),
+    terms_content_i18n_th: valueOrEmpty(settings?.legal?.terms_content_i18n?.['th-TH']),
+    terms_content_i18n_en: valueOrEmpty(settings?.legal?.terms_content_i18n?.['en-US']),
   })
   assignForm(themeForm, {
     logo_url: valueOrEmpty(theme?.brand?.logo_url),
@@ -828,6 +872,13 @@ function valueOrDefault(value: any, fallback: any) {
 
 function nullable(value: any) {
   return value === undefined || value === null || value === '' ? null : value
+}
+
+function localizedPayload(thValue: any, enValue: any) {
+  return {
+    'th-TH': String(thValue || '').trim(),
+    'en-US': String(enValue || '').trim(),
+  }
 }
 
 function nullableNumber(value: any) {

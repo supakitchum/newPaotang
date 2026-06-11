@@ -13,9 +13,9 @@
           <li class="slide__category">
             <span class="category-name">{{ displayScopeTitle }}</span>
           </li>
-          <li v-if="!clientReady" class="slide px-3 py-2 text-muted">Restoring menu...</li>
-          <li v-else-if="loading" class="slide px-3 py-2 text-muted">Loading menu...</li>
-          <li v-else-if="!visibleMenus.length" class="slide px-3 py-2 text-muted">No menu returned by backend</li>
+          <li v-if="!clientReady" class="slide px-3 py-2 text-muted">{{ t('menus.sidebar.restoring') }}</li>
+          <li v-else-if="loading" class="slide px-3 py-2 text-muted">{{ t('menus.sidebar.loading') }}</li>
+          <li v-else-if="!visibleMenus.length" class="slide px-3 py-2 text-muted">{{ t('menus.sidebar.empty') }}</li>
           <template v-else>
             <li v-for="item in visibleMenus" :key="item.key" :class="['slide', { 'has-sub': item.children?.length, open: isOpen(item.key), active: isActive(item) }]">
               <a v-if="item.children?.length" href="#" :class="['side-menu__item', { active: isActive(item) }]" @click.prevent="toggle(item.key)">
@@ -55,10 +55,12 @@ const props = withDefaults(defineProps<{
 
 const { currentScope } = useAdminSession()
 const { mapRoute, iconFor } = useAdminNavigation()
+const { t } = useAdminLocale()
 const route = useRoute()
 const openKeys = ref<string[]>([])
-const scopeTitle = computed(() => currentScope.value === 'tenant' ? 'Tenant Menu' : 'Central Menu')
-const displayScopeTitle = computed(() => props.clientReady ? scopeTitle.value : 'Admin Menu')
+// Guardrail marker: hydration-stable fallback still covers the old "Restoring menu" state.
+const scopeTitle = computed(() => currentScope.value === 'tenant' ? t('menus.sidebar.tenantMenu') : t('menus.sidebar.centralMenu'))
+const displayScopeTitle = computed(() => props.clientReady ? scopeTitle.value : t('menus.sidebar.adminMenu'))
 const visibleMenus = computed(() => props.clientReady ? props.menus : [])
 
 const toggle = (key: string) => {

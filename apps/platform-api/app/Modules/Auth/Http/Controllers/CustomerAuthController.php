@@ -123,6 +123,11 @@ class CustomerAuthController extends Controller
         }
 
         $payload = $request->all();
+        $localeErrors = $this->preferredLocaleErrors($payload);
+        if ($localeErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $localeErrors);
+        }
+
         if ($this->profileUpdateRequiresPin($payload)) {
             $pinErrors = $this->pinErrors($payload);
 
@@ -270,6 +275,28 @@ class CustomerAuthController extends Controller
     {
         return array_key_exists('reward_payout_bank_account', $payload)
             || array_key_exists('bank_account', $payload);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    private function preferredLocaleErrors(array $payload): array
+    {
+        if (! array_key_exists('preferred_locale', $payload)) {
+            return [];
+        }
+
+        $locale = str_replace('_', '-', strtolower(trim((string) $payload['preferred_locale'])));
+
+        if (! in_array($locale, ['th', 'th-th', 'en', 'en-us', 'en-gb'], true)) {
+            return ['preferred_locale' => [__('validation.in', [
+                'attribute' => __('validation.attributes.preferred_locale'),
+                'values' => 'th-TH, en-US',
+            ])]];
+        }
+
+        return [];
     }
 
     /**

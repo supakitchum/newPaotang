@@ -632,6 +632,9 @@ const centralPermissionOptions = permissionOptions({
   'reward.publish': 'Publish rewards',
   'reward.correct': 'Correct published rewards through correction flow',
   'reward.audit': 'View reward audit',
+  'reward_entry.view': 'View central reward entry sessions',
+  'reward_entry.submit': 'Submit independent reward entry results',
+  'reward_entry.resolve': 'Resolve reward entry submissions',
   'price_rule.view': 'View central sale price rules',
   'price_rule.manage': 'Manage central sale price rules',
   'stock.view': 'View stock manager',
@@ -664,6 +667,8 @@ const centralPermissionOptions = permissionOptions({
   'system.settings.manage': 'Manage platform settings',
   'asset.manage': 'Manage central asset upload intents',
   'support_access.audit': 'View support access audits',
+  'storage_connection.view': 'View platform storage connections',
+  'storage_connection.manage': 'Manage platform storage connections',
 })
 
 const tenantPermissionOptions = permissionOptions({
@@ -935,12 +940,18 @@ const defaultTermsContentPlaceholder = [
 ].join('\n')
 const tenantSettingsFields: OperationFormField[] = [
   { key: 'site.site_name', label: 'Site name', required: true },
+  { key: 'site.site_name_i18n.th-TH', label: 'Site name (TH)', sourceKey: 'site.site_name_i18n.th-TH' },
+  { key: 'site.site_name_i18n.en-US', label: 'Site name (EN)', sourceKey: 'site.site_name_i18n.en-US' },
   { key: 'site.display_name', label: 'Display name' },
+  { key: 'site.display_name_i18n.th-TH', label: 'Display name (TH)', sourceKey: 'site.display_name_i18n.th-TH' },
+  { key: 'site.display_name_i18n.en-US', label: 'Display name (EN)', sourceKey: 'site.display_name_i18n.en-US' },
   { key: 'site.locale', label: 'Locale', defaultValue: 'th-TH' },
   { key: 'site.timezone', label: 'Timezone', defaultValue: 'Asia/Bangkok' },
   { key: 'site.support_email', label: 'Support email' },
   { key: 'site.support_phone', label: 'Support phone' },
   { key: 'legal.terms_content', label: 'Terms and conditions', type: 'textarea', sourceKey: 'legal.terms_content', placeholder: defaultTermsContentPlaceholder, help: 'Shown on the customer Terms page. Leave blank to use the default text with the current site name.' },
+  { key: 'legal.terms_content_i18n.th-TH', label: 'Terms and conditions (TH)', type: 'textarea', sourceKey: 'legal.terms_content_i18n.th-TH', placeholder: defaultTermsContentPlaceholder },
+  { key: 'legal.terms_content_i18n.en-US', label: 'Terms and conditions (EN)', type: 'textarea', sourceKey: 'legal.terms_content_i18n.en-US', placeholder: 'Terms of use' },
   { key: 'seo.default_title', label: 'SEO title' },
   { key: 'seo.default_description', label: 'SEO description', type: 'textarea' },
   { key: 'seo.default_keywords', label: 'SEO keywords', type: 'lines', sourceKey: 'seo.default_keywords', placeholder: 'lottery\nlucky' },
@@ -950,6 +961,8 @@ const tenantSettingsFields: OperationFormField[] = [
   { key: 'maintenance.active', label: 'Maintenance active', type: 'checkbox', sourceKey: 'maintenance.active', defaultValue: false },
   { key: 'maintenance.mode', label: 'Maintenance mode', type: 'select', options: maintenanceModeOptions, sourceKey: 'maintenance.mode' },
   { key: 'maintenance.message', label: 'Maintenance message', type: 'textarea', sourceKey: 'maintenance.message' },
+  { key: 'maintenance.message_i18n.th-TH', label: 'Maintenance message (TH)', type: 'textarea', sourceKey: 'maintenance.message_i18n.th-TH' },
+  { key: 'maintenance.message_i18n.en-US', label: 'Maintenance message (EN)', type: 'textarea', sourceKey: 'maintenance.message_i18n.en-US' },
   { key: 'maintenance.retry_after_seconds', label: 'Retry after seconds', type: 'number', sourceKey: 'maintenance.retry_after_seconds', min: 0, step: 1 },
   { key: 'maintenance.allowed_routes', label: 'Allowed routes', type: 'lines', sourceKey: 'maintenance.allowed_routes', placeholder: '/\n/login' },
   { key: 'maintenance.blocked_route_patterns', label: 'Blocked route patterns', type: 'lines', sourceKey: 'maintenance.blocked_route_patterns', placeholder: '/checkout/*' },

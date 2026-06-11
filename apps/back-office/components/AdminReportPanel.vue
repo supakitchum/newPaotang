@@ -2,7 +2,7 @@
   <div>
     <div class="card custom-card">
       <div class="card-header d-flex align-items-center justify-content-between">
-        <div class="card-title">Report summary</div>
+        <div class="card-title">{{ translateReportText('Report summary', locale) }}</div>
         <span v-if="metadata" class="badge bg-light text-default">{{ metadata }}</span>
       </div>
       <div class="card-body">
@@ -15,7 +15,11 @@
             </div>
           </div>
         </div>
-        <AdminEmptyState v-else title="No report summary" message="No summary values were returned for this report." />
+        <AdminEmptyState
+          v-else
+          :title="translateReportText('No report summary', locale)"
+          :message="translateReportText('No summary values were returned for this report.', locale)"
+        />
       </div>
     </div>
 
@@ -24,8 +28,8 @@
         <div class="card custom-card mb-0">
           <div class="card-header">
             <div>
-              <div class="card-title mb-1">{{ section.title }}</div>
-              <p v-if="section.description" class="text-muted fs-12 mb-0">{{ section.description }}</p>
+              <div class="card-title mb-1">{{ translateReportText(section.title, locale) }}</div>
+              <p v-if="section.description" class="text-muted fs-12 mb-0">{{ translateReportText(section.description, locale) }}</p>
             </div>
           </div>
           <div class="card-body">
@@ -39,38 +43,47 @@
             </div>
             <AdminDataTable
               v-else
-              :columns="sectionColumns(section)"
+              :columns="translatedSectionColumns(section)"
               :rows="sortedSectionRows(section, sectionIndex)"
               :embedded="true"
               :sortable="sectionRows(section).length > 1"
               :sort-key="sectionSortKey(section, sectionIndex)"
               :sort-direction="sectionSortDirection(section, sectionIndex)"
-              empty-title="No section rows"
-              empty-message="No data was returned for this report section."
+              :empty-title="translateReportText('No section rows', locale)"
+              :empty-message="translateReportText('No data was returned for this report section.', locale)"
               @sort-change="setSectionSort(section, sectionIndex, $event)"
-            />
+            >
+              <template v-for="column in translatedSectionColumns(section)" :key="column.key" #[`cell-${column.key}`]="{ value }">
+                {{ formatReportValue(value, column) }}
+              </template>
+            </AdminDataTable>
           </div>
         </div>
       </div>
     </div>
 
     <AdminDataTable
-      title="Report rows"
-      :columns="rowColumns"
+      :title="translateReportText('Report rows', locale)"
+      :columns="translatedRowColumns"
       :rows="rowValues"
       :loading="loading"
       :sortable="rawRows.length > 1"
       :sort-key="mainSort.key"
       :sort-direction="mainSort.direction"
-      empty-title="No report rows"
-      empty-message="No row-level report data was returned for the selected filters."
+      :empty-title="translateReportText('No report rows', locale)"
+      :empty-message="translateReportText('No row-level report data was returned for the selected filters.', locale)"
       @sort-change="setMainSort"
-    />
+    >
+      <template v-for="column in translatedRowColumns" :key="column.key" #[`cell-${column.key}`]="{ value }">
+        {{ formatReportValue(value, column) }}
+      </template>
+    </AdminDataTable>
   </div>
 </template>
 
 <script setup lang="ts">
 import { formatAdminValue, labelize } from '~/utils/format'
+import { translateReportColumns, translateReportFieldLabel, translateReportText, translateReportValue } from '~/utils/reportI18n'
 
 const props = defineProps<{
   data: any
@@ -82,6 +95,7 @@ type ReportSort = {
   direction: 'asc' | 'desc'
 }
 
+const { locale } = useAdminLocale()
 const report = computed(() => props.data || {})
 const metadata = computed(() => {
   if (!report.value.report_key) return ''
@@ -91,8 +105,8 @@ const metadata = computed(() => {
 const summaryItems = computed(() => Object.entries(report.value.summary || {})
   .map(([key, value]) => ({
     key,
-    label: labelize(key),
-    value: formatAdminValue(value, undefined, key),
+    label: translateReportFieldLabel(key, labelize(key), locale.value),
+    value: formatReportValue(value, { key }),
   })))
 const sections = computed(() => Array.isArray(report.value.sections) ? report.value.sections : [])
 const rawRows = computed(() => Array.isArray(report.value.rows) ? report.value.rows : [])
@@ -104,6 +118,7 @@ const rowColumns = computed(() => {
   const keys = Array.from(new Set(rawRows.value.flatMap((row: any) => Object.keys(row || {}))))
   return keys.map((key) => ({ key, label: labelize(key) }))
 })
+const translatedRowColumns = computed(() => translateReportColumns(rowColumns.value, locale.value))
 const mainSort = reactive<ReportSort>({ key: '', direction: 'asc' })
 const sectionSorts = reactive<Record<string, ReportSort>>({})
 const rowValues = computed(() => sortRows(rawRows.value, rowColumns.value, mainSort))
@@ -113,8 +128,8 @@ const sectionItems = (section: any) => {
 
   return section.items.map((item: any) => ({
     key: item.key || item.label,
-    label: item.label || labelize(item.key || ''),
-    value: formatAdminValue(item.value, item.type, item.key),
+    label: translateReportFieldLabel(item.key || item.label, item.label || labelize(item.key || ''), locale.value),
+    value: formatReportValue(item.value, item),
   }))
 }
 
@@ -129,6 +144,7 @@ const sectionColumns = (section: any) => {
 }
 
 const sectionKey = (section: any, index: number) => String(section?.key || section?.title || `section-${index}`)
+const translatedSectionColumns = (section: any) => translateReportColumns(sectionColumns(section), locale.value)
 
 const sectionSort = (section: any, index: number): ReportSort => {
   const key = sectionKey(section, index)
@@ -186,6 +202,8 @@ const sortValue = (value: any, column: any) => {
 
   return String(value).toLowerCase()
 }
+
+const formatReportValue = (value: any, column: any) => translateReportValue(formatAdminValue(value, column?.type, column?.key), locale.value)
 
 const compareValues = (left: any, right: any) => {
   if (left === right) return 0

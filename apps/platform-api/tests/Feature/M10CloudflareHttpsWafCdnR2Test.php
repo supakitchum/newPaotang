@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Database\Seeders\DatabaseSeeder;
+use Database\Seeders\DemoTenantSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,7 @@ class M10CloudflareHttpsWafCdnR2Test extends TestCase
 
     public function test_Cloudflare_readiness_command_redacts_config_and_requires_ticket_image_evidence(): void
     {
-        $this->seed(DatabaseSeeder::class);
+        $this->seed([DatabaseSeeder::class, DemoTenantSeeder::class]);
         config($this->configuredCloudflareReadinessConfig());
 
         $exitCode = Artisan::call('platform:cloudflare:readiness', ['--format' => 'json']);
@@ -67,7 +68,7 @@ class M10CloudflareHttpsWafCdnR2Test extends TestCase
 
     public function test_Explicit_ticket_image_path_evidence_removes_image_path_blocker_without_production_approval(): void
     {
-        $this->seed(DatabaseSeeder::class);
+        $this->seed([DatabaseSeeder::class, DemoTenantSeeder::class]);
         config($this->configuredCloudflareReadinessConfig('/tickets/qa-redaction-safe.png'));
 
         $exitCode = Artisan::call('platform:cloudflare:readiness', ['--format' => 'json']);
@@ -95,7 +96,7 @@ class M10CloudflareHttpsWafCdnR2Test extends TestCase
 
     public function test_Base_url_does_not_satisfy_ticket_image_cdn_evidence(): void
     {
-        $this->seed(DatabaseSeeder::class);
+        $this->seed([DatabaseSeeder::class, DemoTenantSeeder::class]);
         putenv('BASE_URL=https://api.fake-redaction.test');
         $_ENV['BASE_URL'] = 'https://api.fake-redaction.test';
         $_SERVER['BASE_URL'] = 'https://api.fake-redaction.test';

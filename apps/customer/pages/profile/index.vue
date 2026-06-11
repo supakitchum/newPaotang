@@ -10,6 +10,13 @@
       </div>
     </BlueHeader>
     <section class="content-sheet profile-sheet">
+      <section class="profile-language-card mb-4">
+        <div>
+          <h2>{{ t('profile.languageTitle') }}</h2>
+          <p>{{ t('profile.languageSubtitle') }}</p>
+        </div>
+        <LanguageSwitcher />
+      </section>
       <section v-for="section in menuSections" :key="section.title" class="mb-4">
         <h2 class="fs-6 fw-medium muted-text mb-3">{{ section.title }}</h2>
         <template v-for="item in section.items" :key="menuItemKey(item)">
@@ -42,13 +49,14 @@ definePageMeta({
 
 const { user, restoreAuthState } = useAuth()
 const { showAlert } = useAppAlert()
+const { t } = useLocale()
 const profile = ref<Record<string, any> | null>(user.value)
 
-const displayName = computed(() => profile.value?.name || profile.value?.full_name || 'ผู้ใช้งาน')
+const displayName = computed(() => profile.value?.name || profile.value?.full_name || t('profile.fallbackName'))
 const customerNoText = computed(() => {
   const customerNo = profile.value?.customer_no || profile.value?.member_no || profile.value?.id || ''
 
-  return `รหัสสมาชิก : ${customerNo || '-'}`
+  return t('profile.memberCode', { code: customerNo || '-' })
 })
 type ProfileMenuItem = string | { label: string, to?: string, badge?: string }
 const menuItemLabel = (item: ProfileMenuItem) => typeof item === 'string' ? item : item.label
@@ -61,8 +69,8 @@ onMounted(async () => {
     profile.value = await restoreAuthState(true)
   } catch (error: any) {
     showAlert({
-      title: 'โหลดข้อมูลโปรไฟล์ไม่สำเร็จ',
-      message: error?.response?.data?.message || 'กรุณาลองใหม่อีกครั้ง',
+      title: t('profile.loadFailedTitle'),
+      message: error?.response?.data?.message || t('profile.loadFailedMessage'),
       variant: 'error'
     })
   }
@@ -95,6 +103,40 @@ onMounted(async () => {
 .profile-sheet {
   margin-top: 0;
   padding-top: 24px;
+}
+
+.profile-language-card {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #dbe7f5;
+  border-radius: 16px;
+  box-shadow: 0 12px 28px rgba(33, 55, 85, .08);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 16px;
+}
+
+.profile-language-card h2 {
+  color: #17335f;
+  font-size: 16px;
+  font-weight: 900;
+  margin: 0 0 4px;
+}
+
+.profile-language-card p {
+  color: #6d7f98;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+  margin: 0;
+}
+
+@media (max-width: 360px) {
+  .profile-language-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 .menu-row-main {

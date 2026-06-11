@@ -12,6 +12,7 @@ type AdminUser = {
   email: string
   phone?: string | null
   status?: string
+  preferred_locale?: string | null
   two_factor_enabled?: boolean
 }
 
@@ -98,6 +99,9 @@ export const useAdminSession = () => {
           ...parsed,
           restored: true,
         }
+        if (session.value.user?.preferred_locale) {
+          useAdminLocale().applyProfileLocale(session.value.user.preferred_locale)
+        }
       } else {
         clearSessionCookie()
         session.value = { ...emptySession(), restored: true }
@@ -123,6 +127,20 @@ export const useAdminSession = () => {
       activeScope,
       activeTenantId: activeScope === 'tenant' ? activeTenantId : null,
       restored: true,
+    }
+    if (session.value.user?.preferred_locale) {
+      useAdminLocale().applyProfileLocale(session.value.user.preferred_locale)
+    }
+    persist()
+  }
+
+  const updateUser = (user: AdminUser) => {
+    session.value.user = {
+      ...(session.value.user || user),
+      ...user,
+    }
+    if (user.preferred_locale) {
+      useAdminLocale().applyProfileLocale(user.preferred_locale)
     }
     persist()
   }
@@ -177,6 +195,41 @@ export const useAdminSession = () => {
     item.scope === scope
     && (scope !== 'tenant' || !tenantId || item.tenant_id === tenantId)
   ))
+  const usesTranslationCenterLanding = (scope: 'central' | 'tenant' = session.value.activeScope) => (
+    scope === 'central'
+    && currentPermissions.value.includes('translation.view')
+    && !currentPermissions.value.includes('dashboard.view')
+  )
+  const usesRewardEntryLanding = (scope: 'central' | 'tenant' = session.value.activeScope) => (
+    scope === 'central'
+    && currentPermissions.value.includes('reward_entry.view')
+    && !currentPermissions.value.includes('dashboard.view')
+  )
+  const usesLotteryImagesLanding = (scope: 'central' | 'tenant' = session.value.activeScope) => (
+    scope === 'central'
+    && currentPermissions.value.includes('asset.manage')
+    && currentPermissions.value.includes('stock.view')
+    && !currentPermissions.value.includes('dashboard.view')
+  )
+  const landingPath = (scope: 'central' | 'tenant' = session.value.activeScope) => {
+    if (scope === 'tenant') {
+      return '/admin/tenant/dashboard'
+    }
+
+    if (usesTranslationCenterLanding(scope)) {
+      return '/admin/central/translations'
+    }
+
+    if (usesRewardEntryLanding(scope)) {
+      return '/admin/central/reward-entry'
+    }
+
+    if (usesLotteryImagesLanding(scope)) {
+      return '/admin/central/lottery-images'
+    }
+
+    return '/admin/central/dashboard'
+  }
 
   const clear = () => {
     session.value = { ...emptySession(), restored: true }
@@ -219,11 +272,16 @@ export const useAdminSession = () => {
     restore,
     persist,
     applyAuthPayload,
+    updateUser,
     setScope,
     alignScopeForPath,
     ensurePartnerTenantSession,
     hasPermission,
     hasScope,
+    usesTranslationCenterLanding,
+    usesRewardEntryLanding,
+    usesLotteryImagesLanding,
+    landingPath,
     clear,
     rememberAuthNotice,
     consumeAuthNotice,

@@ -104,6 +104,24 @@ class AdminAuthController extends Controller
         return response()->json($profile);
     }
 
+    public function updateMe(Request $request): JsonResponse
+    {
+        $context = $request->attributes->get('admin_session');
+
+        if (! $context instanceof AdminSessionContext) {
+            return ApiErrorResponse::authenticationRequired($request);
+        }
+
+        $profile = $this->auth->updatePreferredLocale($context, $request->input('preferred_locale'));
+
+        return $profile === null
+            ? ApiErrorResponse::validationFailed($request, ['preferred_locale' => [__('validation.in', [
+                'attribute' => __('validation.attributes.preferred_locale'),
+                'values' => 'th-TH, en-US',
+            ])]])
+            : response()->json($profile);
+    }
+
     /**
      * @return array<string, mixed>|null|JsonResponse
      */

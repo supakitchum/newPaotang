@@ -88,6 +88,11 @@ export const useAuth = () => {
     userCookie.value = value
     hasRestoredUser.value = true
 
+    const preferredLocale = (value as Record<string, unknown>).preferred_locale
+    if (preferredLocale) {
+      void useLocale().setLocale(preferredLocale, { persistProfile: false })
+    }
+
     if ((value as Record<string, unknown>).pin_verified === false) {
       setPinVerified(false)
     }

@@ -2,7 +2,7 @@
   <div>
     <AdminPageHeader title="Lottery Image Operations" :breadcrumbs="['Admin', 'Central', 'Lottery Images']">
       <template #actions>
-        <NuxtLink to="/admin/central/games" class="btn btn-light btn-wave">
+        <NuxtLink v-if="canViewGames" to="/admin/central/games" class="btn btn-light btn-wave">
           <i class="ri-gamepad-line me-1" />
           Games
         </NuxtLink>
@@ -886,6 +886,7 @@ type LayoutResponse = {
 const route = useRoute()
 const api = useAdminApi()
 const session = useAdminSession()
+const canViewGames = computed(() => session.currentPermissions.value.includes('game.view'))
 
 const zipUploadMaxBytes = 500 * 1024 * 1024
 const zipUploadMaxLabel = '500 MB'
@@ -1207,7 +1208,7 @@ const loadGames = async () => {
   gamesError.value = null
 
   try {
-    const response = await api.apiFetch('/admin/central/games', { scope: 'central' })
+    const response = await api.apiFetch('/admin/central/lottery-images/games', { scope: 'central' })
     games.value = extractItems(response).map(normalizeGame).filter((game) => game.id)
     gamesLoaded.value = true
   } catch (err) {

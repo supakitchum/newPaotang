@@ -2,6 +2,7 @@
 
 namespace App\Shared\Auth;
 
+use App\Modules\Translations\Services\SystemTranslationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -15,7 +16,7 @@ class ApiErrorResponse
         return response()->json([
             'error' => [
                 'code' => $code,
-                'message' => $message,
+                'message' => self::localizedMessage($code, $message),
                 'details' => $details,
                 'request_id' => $request->header('X-Request-Id'),
             ],
@@ -120,8 +121,25 @@ class ApiErrorResponse
             $request,
             422,
             'validation_failed',
-            'The request payload is invalid.',
+            self::localizedMessage('validation_failed', 'The request payload is invalid.'),
             ['fields' => $fields],
         );
+    }
+
+    private static function localizedMessage(string $code, string $fallback): string
+    {
+        try {
+            $runtime = SystemTranslationService::runtimeMessage('api.errors.'.$code, '');
+            if (trim($runtime) !== '') {
+                return $runtime;
+            }
+        } catch (\Throwable) {
+            // Translation tables may not exist during bootstrap or migration.
+        }
+
+        $key = 'api.errors.'.$code;
+        $translated = __($key);
+
+        return $translated === $key ? $fallback : $translated;
     }
 }

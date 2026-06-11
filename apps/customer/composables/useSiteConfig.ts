@@ -154,6 +154,10 @@ export const useSiteConfig = () => {
     config.value = siteConfig
 
     applyTheme(siteConfig)
+
+    if (siteConfig?.site?.locale) {
+      useLocale().applyDefaultLocale(siteConfig.site.locale)
+    }
   }
 
   const fetchSiteConfig = async (options: { force?: boolean } = {}) => {

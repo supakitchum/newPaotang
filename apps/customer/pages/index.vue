@@ -108,7 +108,7 @@
       <section v-if="newsItems.length" class="home-news-section" aria-label="ข่าวสารและกิจกรรม">
         <div class="home-news-heading">
           <h2>ข่าวสาร</h2>
-          <span><i class="bi bi-images" /></span>
+          <NuxtLink to="/news">ดูทั้งหมด</NuxtLink>
         </div>
         <div class="home-news-rail">
           <a
@@ -475,7 +475,9 @@ onMounted(() => {
 }
 
 .home-activities-section {
-  margin: 0 0 18px;
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto 18px;
 }
 
 .home-section-heading {
@@ -643,14 +645,11 @@ onMounted(() => {
   font-weight: 900;
 }
 
-.home-news-heading span {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
+.home-news-heading a {
   color: #0b69dc;
-  background: #eaf5ff;
+  font-size: 13px;
+  font-weight: 900;
+  text-decoration: none;
 }
 
 .home-news-rail {
@@ -787,16 +786,22 @@ onMounted(() => {
 
 @media (min-width: 768px) {
   .home-activities-rail {
+    display: flex;
+    gap: 14px;
     width: 100%;
     max-width: 100%;
     margin-inline: 0;
-    padding-inline: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 0 10px;
     scroll-padding-inline: 0;
+    scroll-snap-type: x proximity;
   }
 
   .home-activity-card {
-    flex-basis: clamp(300px, 44%, 376px);
+    flex: 0 0 clamp(280px, 32%, 360px);
     max-width: none;
+    scroll-snap-align: start;
   }
 }
 </style>

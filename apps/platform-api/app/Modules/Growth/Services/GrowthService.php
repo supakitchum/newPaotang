@@ -1790,7 +1790,7 @@ class GrowthService
     public function listSettlements(array $queryParams): array
     {
         $this->refreshSettlements($queryParams);
-        $query = PartnerSettlement::query();
+        $query = PartnerSettlement::query()->with(['partner', 'tenant', 'approvedByAdmin']);
 
         foreach (['partner_id', 'tenant_id', 'status'] as $field) {
             if (($queryParams[$field] ?? null) !== null && trim((string) $queryParams[$field]) !== '') {
@@ -1803,7 +1803,7 @@ class GrowthService
 
     public function settlement(string $settlementId): ?array
     {
-        $row = PartnerSettlement::find($settlementId);
+        $row = PartnerSettlement::query()->with(['partner', 'tenant', 'approvedByAdmin'])->find($settlementId);
 
         return $row === null ? null : $this->settlementResource($row);
     }
@@ -1829,6 +1829,8 @@ class GrowthService
                 }
 
                 if ($row->status === 'approved') {
+                    $row->loadMissing(['partner', 'tenant', 'approvedByAdmin']);
+
                     return ['resource' => $this->settlementResource($row), 'status' => 200];
                 }
 
@@ -1845,7 +1847,7 @@ class GrowthService
                     'updated_at' => now(),
                 ])->save();
 
-                $resource = $this->settlementResource($row->refresh());
+                $resource = $this->settlementResource($row->refresh()->load(['partner', 'tenant', 'approvedByAdmin']));
                 $this->auditAdmin($actor, $request, 'settlement.approved', 'partner_settlement', $settlementId, $payload, (string) $row->tenant_id, (string) $row->partner_id);
 
                 return ['resource' => $resource, 'status' => 200];
@@ -6099,7 +6101,11 @@ class GrowthService
         return [
             'id' => (string) $row->id,
             'partner_id' => (string) $row->partner_id,
+            'partner_name' => (string) ($row->partner?->name ?? ''),
+            'partner_code' => (string) ($row->partner?->code ?? ''),
             'tenant_id' => (string) $row->tenant_id,
+            'tenant_name' => (string) ($row->tenant?->name ?? ''),
+            'tenant_code' => (string) ($row->tenant?->code ?? ''),
             'status' => (string) $row->status,
             'sales_amount' => $this->money((int) $row->sales_amount, (string) $row->currency),
             'commission_amount' => $this->money((int) $row->commission_amount, (string) $row->currency),
@@ -6108,6 +6114,7 @@ class GrowthService
             'period_from' => $row->period_from,
             'period_to' => $row->period_to,
             'approved_by_admin_id' => $row->approved_by_admin_id,
+            'approved_by_admin_name' => (string) ($row->approvedByAdmin?->name ?? ''),
             'approved_at' => $this->iso($row->approved_at),
             'summary' => $this->decodeJson($row->summary_json),
             'created_at' => $this->iso($row->created_at),

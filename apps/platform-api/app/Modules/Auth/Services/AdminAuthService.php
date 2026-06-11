@@ -15,6 +15,7 @@ use App\Shared\Tenancy\PartnerBoHostResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AdminAuthService
@@ -33,20 +34,26 @@ class AdminAuthService
     }
 
     /**
-     * @param array{email?: string, password?: string, scope?: string|null, tenant_id?: string|null} $payload
+     * @param array{email?: string, username?: string, password?: string, scope?: string|null, tenant_id?: string|null} $payload
      * @return array<string, mixed>|null
      */
     public function login(array $payload, Request $request, ?array $partnerBoContext = null): ?array
     {
-        $email = strtolower(trim((string) ($payload['email'] ?? '')));
+        $login = strtolower(trim((string) ($payload['email'] ?? $payload['username'] ?? '')));
         $password = (string) ($payload['password'] ?? '');
 
-        if ($email === '' || $password === '') {
+        if ($login === '' || $password === '') {
             return null;
         }
 
-        $adminUser = AdminUser::where('email', $email)
-            ->where('status', 'active')
+        $adminUser = AdminUser::where('status', 'active')
+            ->where(function ($query) use ($login): void {
+                $query->where('email', $login);
+
+                if (Schema::hasColumn('admin_users', 'username')) {
+                    $query->orWhere('username', $login);
+                }
+            })
             ->first();
 
         if ($adminUser === null || ! Hash::check($password, (string) $adminUser->password_hash)) {
@@ -82,7 +89,8 @@ class AdminAuthService
             targetType: 'admin_auth_session',
             targetId: $response['session_id'],
             payload: [
-                'email' => $email,
+                'login' => $login,
+                'email' => $admin['email'],
                 'scope' => $activeScope['scope'],
                 'tenant_id' => $activeScope['tenant_id'],
                 'password' => $password,
@@ -243,6 +251,37 @@ class AdminAuthService
             'scopes' => $this->visibleScopesForPartnerBo($context->scopes, $partnerBoContext),
             'active_scope' => $context->activeScope(),
             'active_tenant_id' => $context->activeTenantId(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function updatePreferredLocale(AdminSessionContext $context, mixed $preferredLocale): ?array
+    {
+        $locale = $this->normalizeLocale($preferredLocale);
+
+        if ($locale === null) {
+            return null;
+        }
+
+        AdminUser::query()
+            ->where('id', $context->adminUser['id'])
+            ->update([
+                'preferred_locale' => $locale,
+                'updated_at' => now(),
+            ]);
+
+        $adminUser = AdminUser::whereKey($context->adminUser['id'])->first();
+
+        if ($adminUser === null) {
+            return null;
+        }
+
+        $admin = $this->adminToArray($adminUser);
+
+        return [
+            'user' => $this->profileFromAdmin($admin),
         ];
     }
 
@@ -635,6 +674,7 @@ class AdminAuthService
             'email' => (string) $adminUser->email,
             'phone' => $adminUser->phone,
             'status' => (string) $adminUser->status,
+            'preferred_locale' => $adminUser->preferred_locale ?? null,
             'two_factor_enabled' => (bool) $adminUser->two_factor_enabled,
         ];
     }
@@ -651,8 +691,20 @@ class AdminAuthService
             'email' => $admin['email'],
             'phone' => $admin['phone'],
             'status' => $admin['status'],
+            'preferred_locale' => $admin['preferred_locale'] ?? null,
             'two_factor_enabled' => $admin['two_factor_enabled'],
         ];
+    }
+
+    private function normalizeLocale(mixed $value): ?string
+    {
+        $locale = str_replace('_', '-', strtolower(trim((string) $value)));
+
+        return match ($locale) {
+            'th', 'th-th' => 'th-TH',
+            'en', 'en-us', 'en-gb' => 'en-US',
+            default => null,
+        };
     }
 
     private function newToken(string $prefix): string

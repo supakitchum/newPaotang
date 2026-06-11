@@ -4,17 +4,17 @@
       <template #actions>
         <NuxtLink to="/admin/tenant/stock" class="btn btn-light btn-wave">
           <i class="ri-stack-line me-1" />
-          Stock
+          {{ dashboardPhrase('Stock') }}
         </NuxtLink>
         <button class="btn btn-primary btn-wave" type="button" :disabled="loading" @click="load">
           <span v-if="loading" class="spinner-border spinner-border-sm me-1" />
           <i v-else class="ri-refresh-line me-1" />
-          Refresh
+          {{ dashboardPhrase('Refresh') }}
         </button>
       </template>
     </AdminPageHeader>
 
-    <AdminAlert v-if="!tenantId" type="warning" message="Select a tenant scope before opening tenant pages." />
+    <AdminAlert v-if="!tenantId" type="warning" :message="dashboardPhrase('Select a tenant scope before opening tenant pages.')" />
     <AdminAlert v-if="error" :type="error.status === 403 ? 'warning' : 'danger'" :message="error.message" :details="error.details" />
     <AdminLoader v-if="loading && !summary" />
 
@@ -32,7 +32,7 @@
           </button>
         </div>
         <div class="text-muted fs-12">
-          {{ filterCaption }} · Generated {{ formatDateTime(summary.generated_at) }}
+          {{ filterCaption }} · {{ dashboardPhrase('Generated') }} {{ formatDateTime(summary.generated_at) }}
         </div>
       </div>
 
@@ -61,10 +61,10 @@
         <div class="col-xl-8">
           <div class="card custom-card h-100">
             <div class="card-header">
-              <div class="card-title">Sales Trend</div>
+              <div class="card-title">{{ dashboardPhrase('Sales Trend') }}</div>
             </div>
             <div class="card-body">
-              <div v-if="!salesTrendSeries.length" class="np-dashboard-empty">No sales trend data yet.</div>
+              <div v-if="!salesTrendSeries.length" class="np-dashboard-empty">{{ dashboardPhrase('No sales trend data yet.') }}</div>
               <AdminApexChart
                 v-else
                 type="area"
@@ -78,10 +78,10 @@
         <div class="col-xl-4">
           <div class="card custom-card h-100">
             <div class="card-header">
-              <div class="card-title">Payment Method Mix</div>
+              <div class="card-title">{{ dashboardPhrase('Payment Method Mix') }}</div>
             </div>
             <div class="card-body">
-              <div v-if="!paymentRows.length" class="np-dashboard-empty">No payment data yet.</div>
+              <div v-if="!paymentRows.length" class="np-dashboard-empty">{{ dashboardPhrase('No payment data yet.') }}</div>
               <AdminApexChart
                 v-else
                 type="donut"
@@ -96,10 +96,10 @@
         <div class="col-xl-6">
           <div class="card custom-card h-100">
             <div class="card-header">
-              <div class="card-title">Wallet Flow</div>
+              <div class="card-title">{{ dashboardPhrase('Wallet Flow') }}</div>
             </div>
             <div class="card-body">
-              <div v-if="!walletFlowSeries.length" class="np-dashboard-empty">No wallet data yet.</div>
+              <div v-if="!walletFlowSeries.length" class="np-dashboard-empty">{{ dashboardPhrase('No wallet data yet.') }}</div>
               <AdminApexChart
                 v-else
                 type="bar"
@@ -113,10 +113,10 @@
         <div class="col-xl-6">
           <div class="card custom-card h-100">
             <div class="card-header">
-              <div class="card-title">Stock & Reward Status</div>
+              <div class="card-title">{{ dashboardPhrase('Stock & Reward Status') }}</div>
             </div>
             <div class="card-body">
-              <div v-if="!statusChartSeries.length" class="np-dashboard-empty">No status data yet.</div>
+              <div v-if="!statusChartSeries.length" class="np-dashboard-empty">{{ dashboardPhrase('No status data yet.') }}</div>
               <AdminApexChart
                 v-else
                 type="bar"
@@ -133,8 +133,8 @@
         <div class="col-xl-8">
           <div class="card custom-card h-100">
             <div class="card-header justify-content-between">
-              <div class="card-title">Top Lottery Numbers</div>
-              <span class="fs-12 text-muted">Top 10 by sold tickets</span>
+              <div class="card-title">{{ dashboardPhrase('Top Lottery Numbers') }}</div>
+              <span class="fs-12 text-muted">{{ dashboardPhrase('Top 10 by sold tickets') }}</span>
             </div>
             <div class="card-body">
               <div class="row g-3">
@@ -142,14 +142,14 @@
                   <div class="np-number-group">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                       <strong>{{ group.label }}</strong>
-                      <span class="text-muted fs-12">{{ group.rows.length }} items</span>
+                      <span class="text-muted fs-12">{{ group.rows.length }} {{ dashboardPhrase('items') }}</span>
                     </div>
-                    <div v-if="!group.rows.length" class="np-dashboard-empty py-4">No numbers yet.</div>
+                    <div v-if="!group.rows.length" class="np-dashboard-empty py-4">{{ dashboardPhrase('No numbers yet.') }}</div>
                     <div v-else class="np-number-list">
                       <div v-for="(row, index) in group.rows" :key="`${group.key}-${row.number}`" class="np-number-row">
                         <span class="np-rank">{{ index + 1 }}</span>
                         <strong>{{ row.number }}</strong>
-                        <span>{{ formatNumber(row.ticket_count || row.value || 0) }} ใบ</span>
+                        <span>{{ formatNumber(row.ticket_count || row.value || 0) }} {{ dashboardPhrase('tickets_unit') }}</span>
                       </div>
                     </div>
                   </div>
@@ -160,12 +160,12 @@
         </div>
         <div class="col-xl-4">
           <AdminDataTable
-            title="Stock Summary"
+            :title="dashboardPhrase('Stock Summary')"
             :columns="stockColumns"
             :rows="stockRows"
             :embedded="false"
-            empty-title="No stock data"
-            empty-message="Stock will appear after allocation or sync."
+            :empty-title="dashboardPhrase('No stock data')"
+            :empty-message="dashboardPhrase('Stock will appear after allocation or sync.')"
           />
         </div>
       </div>
@@ -173,40 +173,40 @@
       <div class="row g-3">
         <div class="col-12">
           <AdminDataTable
-            title="Recent Orders"
+            :title="dashboardPhrase('Recent Orders')"
             :columns="orderColumns"
             :rows="sortedOrders"
             sortable
             :sort-key="orderSort.key"
             :sort-direction="orderSort.direction"
-            empty-title="No paid orders"
-            empty-message="Paid orders in this tenant and period will appear here."
+            :empty-title="dashboardPhrase('No paid orders')"
+            :empty-message="dashboardPhrase('Paid orders in this tenant and period will appear here.')"
             @sort-change="orderSort = $event"
           />
         </div>
         <div class="col-xl-6">
           <AdminDataTable
-            title="Recent Wallet Ledger"
+            :title="dashboardPhrase('Recent Wallet Ledger')"
             :columns="walletColumns"
             :rows="sortedWalletRows"
             sortable
             :sort-key="walletSort.key"
             :sort-direction="walletSort.direction"
-            empty-title="No wallet movement"
-            empty-message="Wallet ledger rows for this period will appear here."
+            :empty-title="dashboardPhrase('No wallet movement')"
+            :empty-message="dashboardPhrase('Wallet ledger rows for this period will appear here.')"
             @sort-change="walletSort = $event"
           />
         </div>
         <div class="col-xl-6">
           <AdminDataTable
-            title="Recent Reward Claims"
+            :title="dashboardPhrase('Recent Reward Claims')"
             :columns="rewardColumns"
             :rows="sortedRewardRows"
             sortable
             :sort-key="rewardSort.key"
             :sort-direction="rewardSort.direction"
-            empty-title="No reward claims"
-            empty-message="Reward claims for this tenant and period will appear here."
+            :empty-title="dashboardPhrase('No reward claims')"
+            :empty-message="dashboardPhrase('Reward claims for this tenant and period will appear here.')"
             @sort-change="rewardSort = $event"
           />
         </div>
@@ -214,20 +214,20 @@
 
       <div class="card custom-card">
         <div class="card-header">
-          <div class="card-title">Tenant operations</div>
+          <div class="card-title">{{ dashboardPhrase('Tenant operations') }}</div>
         </div>
         <div class="card-body">
           <div class="row g-3">
             <div class="col-md-6">
               <NuxtLink to="/admin/tenant/maintenance" class="btn btn-outline-primary btn-wave w-100 text-start">
                 <i class="ri-tools-line me-2" />
-                Maintenance controls
+                {{ dashboardPhrase('Maintenance controls') }}
               </NuxtLink>
             </div>
             <div class="col-md-6">
               <NuxtLink to="/admin/tenant/support-access" class="btn btn-outline-primary btn-wave w-100 text-start">
                 <i class="ri-customer-service-2-line me-2" />
-                Support access
+                {{ dashboardPhrase('Support access') }}
               </NuxtLink>
             </div>
           </div>
@@ -251,6 +251,7 @@ const api = useAdminApi()
 const route = useRoute()
 const router = useRouter()
 const session = useAdminSession()
+const { phrase } = useAdminLocale()
 const loading = ref(false)
 const error = ref<any>(null)
 const summary = ref<any>(null)
@@ -268,16 +269,22 @@ const fallbackPeriodOptions = [
   { key: 'previous_draw', label: 'Previous draw' },
 ]
 
-const periodOptions = computed(() => summary.value?.filter?.options?.length ? summary.value.filter.options : fallbackPeriodOptions)
+const periodOptions = computed(() => (summary.value?.filter?.options?.length ? summary.value.filter.options : fallbackPeriodOptions).map((item: any) => ({
+  ...item,
+  label: dashboardPhrase(item.label),
+})))
 const filterCaption = computed(() => {
   const filter = summary.value?.filter
-  if (!filter) return 'No filter loaded'
-  return `${filter.label || period.value}: ${filter.current?.label || '-'} vs ${filter.previous?.label || '-'}`
+  if (!filter) return dashboardPhrase('No filter loaded')
+  return `${dashboardPhrase(filter.label || period.value)}: ${dashboardPhrase(filter.current?.label || '-')} ${dashboardPhrase('vs')} ${dashboardPhrase(filter.previous?.label || '-')}`
 })
 
 const topMetrics = computed(() => {
   const metrics = summary.value?.metrics || []
-  return metrics.slice(0, 8)
+  return metrics.slice(0, 8).map((metric: any) => ({
+    ...metric,
+    label: dashboardPhrase(metric.label),
+  }))
 })
 
 const alerts = computed(() => summary.value?.alerts || [])
@@ -288,9 +295,9 @@ const stockRows = computed(() => summary.value?.tables?.stock_summary || [])
 const popularNumberGroups = computed(() => {
   const groups = summary.value?.tables?.popular_numbers || summary.value?.charts?.top_numbers || {}
   return [
-    { key: 'back2', label: '2 ท้าย', rows: groups.back2 || [] },
-    { key: 'back3', label: '3 ท้าย', rows: groups.back3 || [] },
-    { key: 'front3', label: '3 หน้า', rows: groups.front3 || [] },
+    { key: 'back2', label: dashboardPhrase('2 ท้าย'), rows: groups.back2 || [] },
+    { key: 'back3', label: dashboardPhrase('3 ท้าย'), rows: groups.back3 || [] },
+    { key: 'front3', label: dashboardPhrase('3 หน้า'), rows: groups.front3 || [] },
   ]
 })
 
@@ -334,8 +341,8 @@ const statusChartSeries = computed(() => {
   const stock = summary.value?.charts?.stock_by_status || []
   const rewards = summary.value?.charts?.reward_claims_by_status || []
   return [
-    { name: 'Stock', data: statusLabels.value.map((label) => Number(stock.find((row: any) => row.label === label)?.value || 0)) },
-    { name: 'Reward claims', data: statusLabels.value.map((label) => Number(rewards.find((row: any) => row.label === label)?.value || 0)) },
+    { name: dashboardPhrase('Stock'), data: statusLabels.value.map((label) => Number(stock.find((row: any) => row.label === label)?.value || 0)) },
+    { name: dashboardPhrase('Reward claims'), data: statusLabels.value.map((label) => Number(rewards.find((row: any) => row.label === label)?.value || 0)) },
   ].filter((series) => series.data.some((value: number) => value > 0))
 })
 const statusLabels = computed(() => {
@@ -348,7 +355,7 @@ const statusLabels = computed(() => {
 const salesTrendOptions = computed(() => trendOptions(salesChart.value, 'Sales / tickets'))
 const walletFlowOptions = computed(() => barTrendOptions(walletChart.value, 'Baht', ['#3b82f6', '#ef4444', '#22c55e']))
 const paymentChartOptions = computed(() => ({
-  labels: paymentRows.value.map((row: any) => row.label || 'Unknown'),
+  labels: paymentRows.value.map((row: any) => dashboardPhrase(row.label || 'Unknown')),
   legend: { position: 'bottom' },
   dataLabels: { enabled: false },
   tooltip: {
@@ -406,7 +413,7 @@ function emptyTrend() {
 
 function formatMetricValue(metric: any) {
   if (metric.type === 'money') {
-    return formatAdminValue({ amount: metric.current || 0, currency: 'THB' }, 'money')
+    return localizeMoneyText(formatAdminValue({ amount: metric.current || 0, currency: 'THB' }, 'money'))
   }
   return formatAdminValue(metric.current || 0, metric.type || 'number')
 }
@@ -415,10 +422,10 @@ function metricHint(metric: any) {
   const delta = metric.delta || {}
   const percent = delta.percent
   if (percent === null || percent === undefined) {
-    return 'No previous data'
+    return dashboardPhrase('No previous data')
   }
-  const direction = delta.direction === 'down' ? 'down' : delta.direction === 'up' ? 'up' : 'flat'
-  return `${direction} ${Math.abs(Number(percent)).toLocaleString('th-TH', { maximumFractionDigits: 2 })}% vs previous`
+  const direction = delta.direction === 'down' ? dashboardPhrase('down') : delta.direction === 'up' ? dashboardPhrase('up') : dashboardPhrase('flat')
+  return `${direction} ${Math.abs(Number(percent)).toLocaleString('th-TH', { maximumFractionDigits: 2 })}% ${dashboardPhrase('vs previous')}`
 }
 
 function toneClass(tone?: string) {
@@ -447,9 +454,13 @@ function trendSeries(chart: any, preferredKeys: string[] = []) {
     : series
 
   return filtered.map((row: any) => ({
-    name: row.label || row.key,
+    name: dashboardPhrase(row.label || row.key),
     data: (row.values || []).map((value: any) => chartValue(value, row.type)),
   }))
+}
+
+function dashboardPhrase(value: any) {
+  return phrase(String(value || '').replace(/\s+/g, ' ').trim())
 }
 
 function trendOptions(chart: any, title: string) {
@@ -509,7 +520,11 @@ function chartValue(value: any, type?: string) {
 }
 
 function formatMoneyChart(value: number) {
-  return `${value.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท`
+  return `${value.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${dashboardPhrase('baht_unit')}`
+}
+
+function localizeMoneyText(value: string) {
+  return String(value || '').replace(/\s*บาท/g, ` ${dashboardPhrase('baht_unit')}`)
 }
 
 function formatCompactMoney(value: number) {

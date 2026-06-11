@@ -18,6 +18,7 @@ class PartnerTenantMaintenanceSetting extends BaseModel
         'status',
         'mode',
         'message',
+        'message_i18n',
         'reason',
         'ticket_id',
         'scheduled_start_at',
@@ -39,6 +40,7 @@ class PartnerTenantMaintenanceSetting extends BaseModel
         'expected_end_at' => 'datetime',
         'ended_at' => 'datetime',
         'retry_after_seconds' => 'integer',
+        'message_i18n' => 'array',
         'allowed_routes_json' => 'array',
         'blocked_route_patterns_json' => 'array',
     ];

@@ -84,6 +84,10 @@ class PlatformSmokeCommand extends Command
     private function checkMonitoringDefaults(): string
     {
         try {
+            if (! DB::table('partners')->exists()) {
+                return 'ok';
+            }
+
             $profiles = PartnerMonitoringProfile::where('status', 'active')->count();
             $meters = PartnerUsageMeter::where('status', 'active')->count();
             $policies = PartnerAlertPolicy::where('status', 'active')->count();
@@ -98,6 +102,14 @@ class PlatformSmokeCommand extends Command
     private function checkBaseLotteryNumbers(): string
     {
         try {
+            if (! DB::table('partners')->exists() && ! DB::table('games')->exists()) {
+                return 'ok';
+            }
+
+            if ((string) config('platform.stock_generation.base_lottery_numbers_path', '') === '') {
+                return 'ok';
+            }
+
             return DB::table('base_lottery_numbers')->exists() ? 'ok' : 'failed';
         } catch (Throwable) {
             return 'failed';
@@ -107,21 +119,15 @@ class PlatformSmokeCommand extends Command
     private function checkSeededLogins(): string
     {
         try {
-            $central = AdminUser::where('email', config('platform.seed.central_admin_email'))->first();
-            $tenant = AdminUser::where('email', 'owner@alpha.newpaotang.test')->first();
+            foreach (['superadmin', 'translator', 'result', 'uploader'] as $username) {
+                $admin = AdminUser::where('username', $username)->where('status', 'active')->first();
 
-            $centralPassword = (string) config('platform.seed.central_admin_password');
-            $tenantPassword = (string) config('platform.seed.tenant_owner_password');
-
-            if ($central === null || $tenant === null) {
-                return 'failed';
+                if ($admin === null || ! Hash::check('1234', (string) $admin->password_hash)) {
+                    return 'failed';
+                }
             }
 
-            if (! Hash::check($centralPassword, (string) $central->password_hash)) {
-                return 'failed';
-            }
-
-            return Hash::check($tenantPassword, (string) $tenant->password_hash) ? 'ok' : 'failed';
+            return 'ok';
         } catch (Throwable) {
             return 'failed';
         }

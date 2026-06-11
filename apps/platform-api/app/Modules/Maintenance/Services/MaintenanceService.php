@@ -145,7 +145,8 @@ class MaintenanceService
                 'status' => $active ? 'active' : 'inactive',
                 'active' => $active,
                 'mode' => $this->validMode($legacy->maintenance_mode) ? (string) $legacy->maintenance_mode : 'scheduled',
-                'message' => $legacy->maintenance_message,
+                'message' => $this->localizedText($legacy->maintenance_message_i18n ?? null, $legacy->maintenance_message),
+                'message_i18n' => $this->decodedLocalizedText($legacy->maintenance_message_i18n ?? null),
                 'reason' => null,
                 'reason_label' => null,
                 'ticket_id' => null,
@@ -269,6 +270,10 @@ class MaintenanceService
                 'updated_by_admin_id' => $actor->adminUser['id'],
                 'updated_at' => $now,
             ];
+
+            if (Schema::hasColumn('partner_tenant_maintenance_settings', 'message_i18n')) {
+                $updates['message_i18n'] = json_encode($this->normalizedLocalizedText($payload['message_i18n'] ?? []), JSON_THROW_ON_ERROR);
+            }
 
             if ($status === 'active' && $previous->started_at === null) {
                 $updates['started_at'] = $now;
@@ -603,6 +608,10 @@ class MaintenanceService
             'updated_at' => $now,
         ];
 
+        if (Schema::hasColumn('partner_tenant_settings', 'maintenance_message_i18n')) {
+            $payload['maintenance_message_i18n'] = json_encode($this->normalizedLocalizedText($state['message_i18n'] ?? []), JSON_THROW_ON_ERROR);
+        }
+
         if ($settings !== null) {
             $payload['config_version'] = ((int) $settings->config_version) + 1;
             PartnerTenantSetting::query()->where('tenant_id', $tenant->id)->update($payload);
@@ -647,7 +656,7 @@ class MaintenanceService
         $active = ((bool) ($legacy->maintenance_active ?? false)) || (string) $tenant->status === 'maintenance';
         $settingId = 'mnt_'.Str::ulid()->toBase32();
 
-        PartnerTenantMaintenanceSetting::query()->create([
+        $payload = [
             'id' => $settingId,
             'tenant_id' => (string) $tenant->id,
             'status' => $active ? 'active' : 'inactive',
@@ -666,7 +675,13 @@ class MaintenanceService
             'updated_by_admin_id' => null,
             'created_at' => $now,
             'updated_at' => $now,
-        ]);
+        ];
+
+        if (Schema::hasColumn('partner_tenant_maintenance_settings', 'message_i18n')) {
+            $payload['message_i18n'] = $legacy->maintenance_message_i18n ?? null;
+        }
+
+        PartnerTenantMaintenanceSetting::query()->create($payload);
 
         return PartnerTenantMaintenanceSetting::find($settingId);
     }
@@ -716,7 +731,8 @@ class MaintenanceService
             'status' => (string) $setting->status,
             'active' => $active,
             'mode' => $this->validMode($setting->mode) ? (string) $setting->mode : 'scheduled',
-            'message' => $setting->message,
+            'message' => $this->localizedText($setting->message_i18n ?? null, $setting->message),
+            'message_i18n' => $this->decodedLocalizedText($setting->message_i18n ?? null),
             'reason' => $setting->reason,
             'reason_label' => $setting->reason,
             'ticket_id' => $setting->ticket_id,
@@ -1061,6 +1077,66 @@ class MaintenanceService
             fn (mixed $value): string => trim((string) $value),
             $values,
         ), fn (string $value): bool => $value !== ''));
+    }
+
+    /**
+     * @param mixed $value
+     * @return array<string, string>
+     */
+    private function normalizedLocalizedText(mixed $value): array
+    {
+        if (is_string($value) && trim($value) !== '') {
+            $decoded = json_decode($value, true);
+            $value = is_array($decoded) ? $decoded : [];
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($value as $locale => $text) {
+            $canonicalLocale = $this->canonicalLocale($locale);
+            $string = trim((string) $text);
+
+            if ($canonicalLocale !== null && $string !== '') {
+                $normalized[$canonicalLocale] = $string;
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param mixed $value
+     * @return array<string, string>
+     */
+    private function decodedLocalizedText(mixed $value): array
+    {
+        return $this->normalizedLocalizedText($value);
+    }
+
+    private function localizedText(mixed $localized, mixed $fallback): ?string
+    {
+        $translations = $this->normalizedLocalizedText($localized);
+        $locale = $this->canonicalLocale(app()->getLocale()) ?? 'th-TH';
+        $fallbackText = trim((string) $fallback);
+
+        return $translations[$locale]
+            ?? $translations['th-TH']
+            ?? ($fallbackText !== '' ? $fallbackText : null);
+    }
+
+    private function canonicalLocale(mixed $value): ?string
+    {
+        $locale = str_replace('_', '-', strtolower(trim((string) $value)));
+
+        return match ($locale) {
+            'th', 'th-th' => 'th-TH',
+            'en', 'en-us', 'en-gb' => 'en-US',
+            default => null,
+        };
     }
 
     private function validMode(mixed $mode): bool
