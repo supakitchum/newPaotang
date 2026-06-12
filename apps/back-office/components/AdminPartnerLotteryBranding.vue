@@ -13,7 +13,7 @@
         </button>
         <button class="btn btn-primary btn-wave" type="button" :disabled="!canSave" @click="save">
           <span v-if="saving || anyUploading" class="spinner-border spinner-border-sm me-2" />
-          Save assets
+          Save all assets
         </button>
       </template>
     </AdminPageHeader>
@@ -245,7 +245,7 @@
               </button>
               <button class="btn btn-outline-primary btn-wave" type="button" :disabled="!canUploadSlot(slot.key)" @click="uploadSlot(slot.key)">
                 <span v-if="slotState[slot.key].uploading" class="spinner-border spinner-border-sm me-2" />
-                Upload
+                Upload & save
               </button>
             </div>
           </div>
@@ -260,7 +260,7 @@
           </div>
           <button class="btn btn-primary btn-wave" type="button" :disabled="!canSave" @click="save">
             <span v-if="saving || anyUploading" class="spinner-border spinner-border-sm me-2" />
-            Save assets
+            Save all assets
           </button>
         </div>
       </div>
@@ -293,6 +293,7 @@ type BrandingAsset = {
   storage_key?: string | null
   url?: string | null
   status?: string | null
+  updated_at?: string | null
 }
 
 type BrandingResponse = {
@@ -534,10 +535,13 @@ const canUploadSlot = (slot: BrandingSlot) => {
   return Boolean(state.file && !state.error && !state.uploading && !saving.value && !isLocked.value)
 }
 
-const uploadSlot = async (slot: BrandingSlot): Promise<string | null> => {
+const uploadSlot = async (slot: BrandingSlot, options: { persist?: boolean } = { persist: true }): Promise<string | null> => {
   const state = slotState[slot]
 
   if (state.committedAsset?.asset_id) {
+    if (options.persist !== false) {
+      await persistAssetSet(`Partner branding ${slotLabel(slot)} saved.`)
+    }
     return state.committedAsset.asset_id
   }
 
@@ -587,7 +591,11 @@ const uploadSlot = async (slot: BrandingSlot): Promise<string | null> => {
     })
 
     state.committedAsset = normalizeAsset(committed)
-    saveMessage.value = `${slotLabel(slot)} uploaded.`
+    if (options.persist !== false) {
+      await persistAssetSet(`Partner branding ${slotLabel(slot)} saved.`)
+    } else {
+      saveMessage.value = `${slotLabel(slot)} uploaded.`
+    }
     return state.committedAsset.asset_id || null
   } catch (err: any) {
     state.error = errorMessage(err)
@@ -595,6 +603,56 @@ const uploadSlot = async (slot: BrandingSlot): Promise<string | null> => {
   } finally {
     state.uploading = false
   }
+}
+
+const collectAssetIds = () => {
+  const assetIds: Record<BrandingSlot, string> = {
+    logo_qr: '',
+    right_sidebar: '',
+    logo_bottom: '',
+  }
+  const missing: BrandingSlot[] = []
+
+  for (const slot of slots) {
+    const assetId = assetIdForSlot(slot.key)
+    if (!assetId) {
+      missing.push(slot.key)
+    }
+    assetIds[slot.key] = assetId
+  }
+
+  return { assetIds, missing }
+}
+
+const persistAssetSet = async (successMessage = 'Partner branding assets saved.') => {
+  const { assetIds, missing } = collectAssetIds()
+
+  if (missing.length) {
+    saveMessage.value = `Uploaded. Add ${missing.map(slotLabel).join(', ')} to activate branding.`
+    return null
+  }
+
+  const response = await api.apiFetch<BrandingResponse>(`/admin/central/partners/${encodeURIComponent(props.partnerId)}/lottery-branding-assets`, {
+    method: 'PUT',
+    scope: 'central',
+    idempotencyKey: api.idempotencyKey(),
+    body: {
+      version: version.value || 'v1',
+      assets: {
+        logo_qr: { asset_id: assetIds.logo_qr },
+        right_sidebar: { asset_id: assetIds.right_sidebar },
+        logo_bottom: { asset_id: assetIds.logo_bottom },
+      },
+    },
+  })
+
+  branding.value = response
+  version.value = response.version || version.value || 'v1'
+  previewForm.version = version.value
+  clearPersistedUploads(response)
+  saveMessage.value = successMessage
+
+  return response
 }
 
 const save = async () => {
@@ -605,38 +663,15 @@ const save = async () => {
   saveMessage.value = ''
 
   try {
-    const assetIds: Record<BrandingSlot, string> = {
-      logo_qr: '',
-      right_sidebar: '',
-      logo_bottom: '',
-    }
-
     for (const slot of slots) {
-      const assetId = await uploadSlot(slot.key)
+      const assetId = await uploadSlot(slot.key, { persist: false })
       if (!assetId) {
         slotState[slot.key].error = `${slot.label} is required.`
         throw new Error(`${slot.label} is required.`)
       }
-      assetIds[slot.key] = assetId
     }
 
-    const response = await api.apiFetch<BrandingResponse>(`/admin/central/partners/${encodeURIComponent(props.partnerId)}/lottery-branding-assets`, {
-      method: 'PUT',
-      scope: 'central',
-      idempotencyKey: api.idempotencyKey(),
-      body: {
-        version: version.value || 'v1',
-        assets: {
-          logo_qr: { asset_id: assetIds.logo_qr },
-          right_sidebar: { asset_id: assetIds.right_sidebar },
-          logo_bottom: { asset_id: assetIds.logo_bottom },
-        },
-      },
-    })
-
-    branding.value = response
-    version.value = response.version || version.value || 'v1'
-    saveMessage.value = 'Partner branding assets saved.'
+    await persistAssetSet()
   } catch (err: any) {
     if (!err?.message?.includes?.('is required')) {
       error.value = err
@@ -656,7 +691,8 @@ const assetIdForSlot = (slot: BrandingSlot): string => {
 }
 
 const previewUrlFor = (slot: BrandingSlot) => {
-  return slotState[slot].previewUrl || assetForSlot(slot)?.url || ''
+  const asset = assetForSlot(slot)
+  return slotState[slot].previewUrl || cacheBustedAssetUrl(asset)
 }
 
 const assetMetadata = (slot: BrandingSlot) => {
@@ -746,7 +782,42 @@ const normalizeAsset = (asset: any): BrandingAsset => ({
   storage_key: asset?.storage_key || asset?.storage_path || null,
   url: asset?.url || asset?.public_url || null,
   status: asset?.status || null,
+  updated_at: asset?.updated_at || null,
 })
+
+const cacheBustedAssetUrl = (asset: BrandingAsset | null) => {
+  const url = assetPreviewUrl(asset)
+  if (!url) return ''
+
+  const token = String(asset?.asset_id || asset?.id || asset?.updated_at || branding.value?.updated_at || '').trim()
+  if (!token) return url
+
+  const separator = url.includes('?') ? '&' : '?'
+  return `${url}${separator}v=${encodeURIComponent(token)}`
+}
+
+const assetPreviewUrl = (asset: BrandingAsset | null) => {
+  return publicAssetUrl(asset?.storage_path || asset?.storage_key) || asset?.url || ''
+}
+
+const publicAssetUrl = (path?: string | null) => {
+  const cleaned = String(path || '').trim().replace(/^\/+/, '')
+  if (!cleaned) return ''
+
+  const encodedPath = cleaned.split('/').map((segment) => encodeURIComponent(segment)).join('/')
+  return `${api.apiBase.value}/public/assets/${encodedPath}`
+}
+
+const clearPersistedUploads = (response: BrandingResponse) => {
+  for (const slot of slots) {
+    const persistedAssetId = response.assets?.[slot.key]?.asset_id || response.assets?.[slot.key]?.id
+    const pendingAssetId = slotState[slot.key].committedAsset?.asset_id || slotState[slot.key].committedAsset?.id
+
+    if (persistedAssetId && pendingAssetId && String(persistedAssetId) === String(pendingAssetId)) {
+      clearSlot(slot.key)
+    }
+  }
+}
 
 const alertType = (err: any) => {
   if ([403, 409, 422].includes(Number(err?.status))) {

@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Modules\StorageConnections\Services\RuntimeStorageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\PartnerStoreFixtures;
 use Tests\TestCase;
@@ -137,6 +139,57 @@ class PartnerLotteryBrandingAssetTest extends TestCase
             ])
             ->assertConflict()
             ->assertJsonPath('error.code', 'resource_conflict');
+    }
+
+    public function test_PrivateS3PartnerBrandingAssets_use_public_asset_proxy_urls(): void
+    {
+        config([
+            'app.url' => 'http://platform.test',
+            'lottery_images.local_public_base_url' => 'http://platform.test/api/v1/public/assets',
+        ]);
+
+        DB::table('platform_storage_connections')->updateOrInsert(
+            ['id' => 'storage_aws_s3'],
+            [
+                'provider' => 'aws_s3',
+                'status' => 'active',
+                'bucket' => 'private-branding-bucket',
+                'region' => 'ap-southeast-1',
+                'endpoint' => null,
+                'url' => null,
+                'root_prefix' => 'newPaotang',
+                'visibility' => 'private',
+                'use_path_style_endpoint' => false,
+                'access_key_id_encrypted' => Crypt::encryptString('key'),
+                'secret_access_key_encrypted' => Crypt::encryptString('secret'),
+                'session_token_encrypted' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+        DB::table('platform_storage_routes')->updateOrInsert(
+            ['route_key' => RuntimeStorageService::ROUTE_PARTNER_ASSETS],
+            [
+                'label' => 'Partner assets',
+                'description' => 'Tenant logos, branding assets, and partner-owned attachments.',
+                'driver' => RuntimeStorageService::DRIVER_AWS_S3,
+                'root_prefix' => '',
+                'tenant_scoped' => true,
+                'sort_order' => 50,
+                'metadata_json' => json_encode(['path_hint' => 'tenants/{tenant}/assets or partners/{partner}'], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        $storage = app(RuntimeStorageService::class);
+        $key = 'newPaotang/partners/par_branding/lottery-branding/v1/logo_qr.webp';
+
+        $this->assertSame(
+            'http://platform.test/api/v1/public/assets/'.$key,
+            $storage->publicUrl(RuntimeStorageService::ROUTE_PARTNER_ASSETS, $key),
+        );
+        $this->assertContains('newPaotang/', $storage->publicAllowedPrefixes());
     }
 
     private function insertCentralImageAsset(string $assetId, string $slot): string

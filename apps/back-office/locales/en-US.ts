@@ -293,6 +293,10 @@ export default {
         label: 'Lottery images',
         description: 'Generated lottery ticket images and stock preview assets.',
       },
+      background_assets: {
+        label: 'Background asset sets',
+        description: 'Source, full, and thumbnail background images imported for lottery image composition.',
+      },
       payment_slips: {
         label: 'Payment slips',
         description: 'Customer top-up slip full and thumbnail images.',

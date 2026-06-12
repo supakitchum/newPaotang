@@ -304,6 +304,7 @@ class PartnerLotteryBrandingAssetService
             'storage_path' => $asset->storage_key,
             'url' => PublicUrl::normalizeAssetUrl($asset->public_url),
             'status' => (string) $asset->status,
+            'updated_at' => $asset->updated_at?->toISOString(),
         ];
     }
 }

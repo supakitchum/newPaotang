@@ -791,6 +791,7 @@ class TenantActivityService
 
             $resource = $this->tenantClaim($tenantId, $claimId);
             $this->lineNotifications->enqueue($tenantId, (string) ($resource['customer']['id'] ?? $claim->customer_id), 'activity_claim.status_updated', 'activity_claim', $claimId, $this->lineActivityClaimVariables($tenantId, $resource ?: [], 'จ่ายเงินกิจกรรมแล้ว'));
+            $this->telegramNotifications->enqueue($tenantId, 'activity_claim.status_updated', 'activity_claim', $claimId, $this->telegramActivityClaimVariables($tenantId, $resource ?: [], 'จ่ายเงินกิจกรรมแล้ว'));
 
             return ['resource' => $resource];
         });
@@ -825,6 +826,7 @@ class TenantActivityService
 
             $resource = $this->tenantClaim($tenantId, $claimId);
             $this->lineNotifications->enqueue($tenantId, (string) ($resource['customer']['id'] ?? $claim->customer_id), 'activity_claim.status_updated', 'activity_claim', $claimId, $this->lineActivityClaimVariables($tenantId, $resource ?: [], 'ไม่อนุมัติ'));
+            $this->telegramNotifications->enqueue($tenantId, 'activity_claim.status_updated', 'activity_claim', $claimId, $this->telegramActivityClaimVariables($tenantId, $resource ?: [], 'ไม่อนุมัติ'));
 
             return ['resource' => $resource];
         });
@@ -2508,6 +2510,35 @@ class TenantActivityService
             'claim' => [
                 'reference' => (string) ($claim['reference'] ?? $claim['id'] ?? ''),
                 'amount_baht' => number_format(((int) $amount) / 100, 2),
+                'status_label' => $statusLabel,
+                'reason' => $reason === '' ? '' : 'เหตุผล: '.$reason,
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $claim
+     * @return array<string, mixed>
+     */
+    private function telegramActivityClaimVariables(string $tenantId, array $claim, string $statusLabel): array
+    {
+        $customer = is_array($claim['customer'] ?? null) ? $claim['customer'] : [];
+        $amount = (int) ($claim['claim_amount']['amount'] ?? $claim['amount']['amount'] ?? 0);
+        $reason = trim((string) ($claim['admin_note'] ?? ''));
+
+        return [
+            'event' => [
+                'title' => 'ตรวจสอบรายการขึ้นเงินรางวัลกิจกรรมแล้ว',
+                'occurred_at' => $this->telegramNotifications->occurredAt($claim['paid_at'] ?? $claim['reviewed_at'] ?? $claim['updated_at'] ?? null),
+            ],
+            'tenant' => ['name' => $this->telegramNotifications->tenantName($tenantId)],
+            'customer' => [
+                'name' => (string) ($customer['name'] ?? ''),
+                'phone' => (string) ($customer['phone'] ?? ''),
+            ],
+            'claim' => [
+                'reference' => (string) ($claim['reference'] ?? $claim['id'] ?? ''),
+                'amount_baht' => $this->telegramNotifications->baht($amount),
                 'status_label' => $statusLabel,
                 'reason' => $reason === '' ? '' : 'เหตุผล: '.$reason,
             ],

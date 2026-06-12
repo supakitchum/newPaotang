@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Database\Seeders\BaseLotteryNumberSeeder;
+use Database\Seeders\InitialSystemSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -60,6 +61,19 @@ class BaseLotteryNumberSeederTest extends TestCase
         $this->assertSame(3, DB::table('base_lottery_numbers')->count());
         $this->assertDatabaseMissing('base_lottery_numbers', ['full_number' => '999999']);
         $this->assertDatabaseHas('base_lottery_numbers', ['full_number' => '011200']);
+    }
+
+    public function test_InitialSystemSeeder_seeds_base_lottery_numbers_when_enabled(): void
+    {
+        config([
+            'platform.stock_generation.base_lottery_numbers_path' => $this->fixturePath(),
+            'platform.stock_generation.seed_base_lottery_on_initial_seed' => true,
+        ]);
+
+        $this->seed(InitialSystemSeeder::class);
+
+        $this->assertSame(3, DB::table('base_lottery_numbers')->count());
+        $this->assertDatabaseHas('base_lottery_numbers', ['full_number' => '123456']);
     }
 
     private function fixturePath(): string

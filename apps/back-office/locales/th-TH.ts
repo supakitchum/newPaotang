@@ -293,6 +293,10 @@ export default {
         label: 'รูปสลาก',
         description: 'รูปสลากที่ระบบสร้างและรูป preview ของคลังสลาก',
       },
+      background_assets: {
+        label: 'ชุดภาพพื้นหลังสลาก',
+        description: 'รูปต้นฉบับ full และ thumb ที่ import เพื่อใช้ประกอบรูปสลาก',
+      },
       payment_slips: {
         label: 'รูปสลิปเติมเงิน',
         description: 'รูปสลิปเติมเงินของลูกค้าทั้ง full และ thumb',

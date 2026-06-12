@@ -292,6 +292,10 @@
                   <span>{{ titleize(zipResult.meta?.set_type || '-') }}</span>
                 </div>
                 <div class="d-flex justify-content-between gap-2">
+                  <span class="text-muted">Storage</span>
+                  <span>{{ storageDriverLabel(zipResult.meta?.storage_driver) }}</span>
+                </div>
+                <div class="d-flex justify-content-between gap-2">
                   <span class="text-muted">Detected Images</span>
                   <span>{{ zipResult.meta?.expected_count ?? '-' }}</span>
                 </div>
@@ -371,6 +375,9 @@
               <template #cell-set_type="{ row: set }">
                 <div>{{ titleize(set.set_type || '-') }}</div>
                 <span v-if="set.position" class="text-muted fs-12">Position {{ set.position }}</span>
+              </template>
+              <template #cell-storage_driver="{ row: set }">
+                <AdminStatusBadge :status="set.storage_driver || 'route_default'" :label="storageDriverLabel(set.storage_driver)" />
               </template>
               <template #cell-status="{ row: set }">
                 <div class="d-flex flex-column gap-1">
@@ -741,6 +748,7 @@ import { formatDateTime, titleize } from '~/utils/format'
 type SetType = 'odd' | 'even' | 'charity'
 type AssetSlot = 'source' | 'full' | 'thumb'
 type BackgroundStatus = 'ready' | 'inactive' | 'retired'
+type StorageDriver = 'local' | 'aws_s3'
 type PreviewMode = 'central_unbranded' | 'partner_branded'
 type PreviewVariant = 'full' | 'thumb'
 type LayoutField = 'x' | 'y' | 'width' | 'height' | 'gap' | 'size' | 'angle' | 'rotate'
@@ -773,6 +781,7 @@ type BackgroundAsset = {
   height?: number | null
   size_bytes?: number | null
   storage_available?: boolean
+  storage_driver?: StorageDriver | null
   url?: string | null
   public_url?: string | null
 }
@@ -783,6 +792,7 @@ type BackgroundSet = {
   version: string
   set_type: SetType
   status: BackgroundStatus
+  storage_driver?: StorageDriver | null
   position?: number | null
   ready?: boolean
   generation_ready?: boolean
@@ -806,6 +816,10 @@ type ProductionReadiness = {
   configured: boolean
   disk: string
   disk_driver?: string | null
+  route_key?: string | null
+  route_driver?: string | null
+  connection_active?: boolean
+  connection_status?: string | null
   bucket_present: boolean
   region_present: boolean
   endpoint_present: boolean
@@ -846,6 +860,7 @@ type ZipImportResponse = {
     game_id?: string
     version?: string
     set_type?: SetType
+    storage_driver?: StorageDriver | null
     imported_count?: number
     expected_count?: number
   }
@@ -899,6 +914,7 @@ const assetSlots: Array<{ key: AssetSlot, label: string }> = [
 const assetSetColumns = [
   { key: 'game', label: 'Game / Version' },
   { key: 'set_type', label: 'Set' },
+  { key: 'storage_driver', label: 'Storage' },
   { key: 'status', label: 'Status' },
   { key: 'assets', label: 'Assets' },
   { key: 'updated_at', label: 'Updated' },
@@ -1146,8 +1162,11 @@ const productionItems = computed(() => {
 
   return [
     { key: 'configured', label: 'Configured', value: yesNo(item.configured) },
+    { key: 'route', label: 'Route', value: item.route_key || 'lottery_images' },
+    { key: 'route_driver', label: 'Route Driver', value: item.route_driver || '-' },
     { key: 'disk', label: 'Disk', value: item.disk || '-' },
     { key: 'driver', label: 'Driver', value: item.disk_driver || '-' },
+    { key: 'connection', label: 'Storage Connection', value: item.connection_active ? (item.connection_status || 'active') : 'Not connected' },
     { key: 'bucket', label: 'Bucket', value: yesNo(item.bucket_present) },
     { key: 'region', label: 'Region', value: yesNo(item.region_present) },
     { key: 'endpoint', label: 'Endpoint', value: yesNo(item.endpoint_present) },
@@ -1864,6 +1883,11 @@ const errorMessage = (err: any) => {
 
 const arrayText = (value?: any[] | null) => Array.isArray(value) && value.length ? value.join(', ') : '-'
 const yesNo = (value: boolean) => value ? 'Yes' : 'No'
+const storageDriverLabel = (driver?: string | null) => {
+  if (driver === 'aws_s3') return 'AWS S3'
+  if (driver === 'local') return 'Local'
+  return 'Route default'
+}
 const normalizedPercent = (value: any) => Math.max(0, Math.min(100, Number.isFinite(Number(value)) ? Number(value) : 0))
 
 const formatBytes = (bytes: number) => {

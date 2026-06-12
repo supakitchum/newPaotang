@@ -347,6 +347,10 @@ class VirtualStockService
             return null;
         }
 
+        if (! $this->hasActiveTenantVirtualAllocation($tenantId, $partnerId, $gameId)) {
+            return $this->emptySearchResult($gameId);
+        }
+
         $number = preg_replace('/\D+/', '', trim((string) ($queryParams['number'] ?? ''))) ?? '';
         $mode = (string) ($queryParams['mode'] ?? 'search');
 
@@ -354,16 +358,22 @@ class VirtualStockService
             return $this->searchLocalStockCopyAware($tenantId, $partnerId, $gameId, $profile, $queryParams, $number, $mode, $limit);
         }
 
-        $cursor = max(0, (int) preg_replace('/\D+/', '', (string) ($queryParams['cursor'] ?? '0')));
+        $cursor = $this->decodeTenantStockCursor($queryParams['cursor'] ?? null);
+        $quotaUsage = $cursor['quota_usage'];
+        $trackedQuotaKeys = $this->trackedSearchQuotaKeys($partnerId, $queryParams, $number);
         $rows = [];
         $deferredRandomRows = [];
         $visited = 0;
-        $offset = $cursor;
+        $offset = $cursor['number_offset'];
 
-        foreach ($this->candidateNumbers($queryParams, $number, $mode, $cursor) as $candidate) {
+        foreach ($this->candidateNumbers($queryParams, $number, $mode, $offset) as $candidate) {
             $visited++;
             $offset++;
             $availability = $this->availabilityForNumber($tenantId, $partnerId, $gameId, $candidate, $profile);
+
+            if ($this->searchQuotaDepleted($availability, $trackedQuotaKeys, $quotaUsage)) {
+                break;
+            }
 
             if ($availability['remaining_count'] <= 0) {
                 if ($visited > 50000 && $rows !== []) {
@@ -376,7 +386,12 @@ class VirtualStockService
             $copyIndexes = $this->availableCopyIndexes($partnerId, $candidate, $availability);
 
             foreach ($copyIndexes as $copyIndexOffset => $copyIndex) {
+                if ($this->searchQuotaDepleted($availability, $trackedQuotaKeys, $quotaUsage)) {
+                    break 2;
+                }
+
                 $resource = $this->virtualStockResource($tenantId, $partnerId, $gameId, $candidate, $copyIndex, $availability);
+                $quotaUsage = $this->incrementSearchQuotaUsage($quotaUsage, $availability, $trackedQuotaKeys);
 
                 if ($mode === 'random' && $copyIndexOffset > 0) {
                     $deferredRandomRows[] = $resource;
@@ -406,7 +421,11 @@ class VirtualStockService
             'data' => $rows,
             'meta' => [
                 'game_id' => $gameId,
-                'next_cursor' => $hasMore ? (string) $offset : null,
+                'next_cursor' => $hasMore ? $this->encodeTenantStockCursor([
+                    'number_offset' => $offset,
+                    'copy_offset' => 0,
+                    'quota_usage' => $quotaUsage,
+                ]) : null,
                 'has_more' => $hasMore,
             ],
         ];
@@ -428,6 +447,8 @@ class VirtualStockService
         int $limit,
     ): array {
         $cursor = $this->decodeTenantStockCursor($queryParams['cursor'] ?? null);
+        $quotaUsage = $cursor['quota_usage'];
+        $trackedQuotaKeys = $this->trackedSearchQuotaKeys($partnerId, $queryParams, $number);
         $rows = [];
         $numberOffset = $cursor['number_offset'];
         $firstCandidate = true;
@@ -435,6 +456,11 @@ class VirtualStockService
         foreach ($this->candidateNumbers($queryParams, $number, $mode, $numberOffset) as $candidate) {
             $copyOffset = $firstCandidate ? $cursor['copy_offset'] : 0;
             $availability = $this->availabilityForNumber($tenantId, $partnerId, $gameId, $candidate, $profile);
+
+            if ($this->searchQuotaDepleted($availability, $trackedQuotaKeys, $quotaUsage)) {
+                break;
+            }
+
             $copyIndexes = $availability['remaining_count'] > 0
                 ? $this->availableCopyIndexes($partnerId, $candidate, $availability)
                 : [];
@@ -442,15 +468,21 @@ class VirtualStockService
             $firstCandidate = false;
 
             foreach (array_slice($copyIndexes, $copyOffset) as $localCopyPosition => $copyIndex) {
+                if ($this->searchQuotaDepleted($availability, $trackedQuotaKeys, $quotaUsage)) {
+                    break 2;
+                }
+
                 $nextCopyOffset = $copyOffset + $localCopyPosition + 1;
+                $nextQuotaUsage = $this->incrementSearchQuotaUsage($quotaUsage, $availability, $trackedQuotaKeys);
                 $nextCursor = $nextCopyOffset < $copyCount
-                    ? ['number_offset' => $numberOffset, 'copy_offset' => $nextCopyOffset]
-                    : ['number_offset' => $numberOffset + 1, 'copy_offset' => 0];
+                    ? ['number_offset' => $numberOffset, 'copy_offset' => $nextCopyOffset, 'quota_usage' => $nextQuotaUsage]
+                    : ['number_offset' => $numberOffset + 1, 'copy_offset' => 0, 'quota_usage' => $nextQuotaUsage];
 
                 $rows[] = [
                     'resource' => $this->virtualStockResource($tenantId, $partnerId, $gameId, $candidate, $copyIndex, $availability),
                     'cursor' => $this->encodeTenantStockCursor($nextCursor),
                 ];
+                $quotaUsage = $nextQuotaUsage;
 
                 if (count($rows) >= $limit + 1) {
                     break 2;
@@ -485,6 +517,10 @@ class VirtualStockService
 
         if ($profile === null) {
             return null;
+        }
+
+        if (! $this->hasActiveTenantVirtualAllocation($tenantId, $partnerId, $gameId)) {
+            return $this->emptyTenantStockResult($gameId, $partnerId, $tenantId);
         }
 
         $cursor = $this->decodeTenantStockCursor($queryParams['cursor'] ?? null);
@@ -1021,14 +1057,35 @@ class VirtualStockService
         $back2 = substr($fullNumber, -2);
         $centralLimits = $this->limitSettings($gameId, 'central', 'central');
         $partnerLimits = $this->limitSettings($gameId, 'partner', $partnerId);
+        $patternLimits = [
+            [
+                'key' => $this->searchQuotaKey('central', 'central', 'front3', $front3),
+                'remaining' => $this->remainingForPattern($gameId, 'central', 'central', 'front3', $front3, $centralLimits['front3_limit']),
+            ],
+            [
+                'key' => $this->searchQuotaKey('central', 'central', 'back3', $back3),
+                'remaining' => $this->remainingForPattern($gameId, 'central', 'central', 'back3', $back3, $centralLimits['back3_limit']),
+            ],
+            [
+                'key' => $this->searchQuotaKey('central', 'central', 'back2', $back2),
+                'remaining' => $this->remainingForPattern($gameId, 'central', 'central', 'back2', $back2, $centralLimits['back2_limit']),
+            ],
+            [
+                'key' => $this->searchQuotaKey('partner', $partnerId, 'front3', $front3),
+                'remaining' => $this->remainingForPattern($gameId, 'partner', $partnerId, 'front3', $front3, $partnerLimits['front3_limit']),
+            ],
+            [
+                'key' => $this->searchQuotaKey('partner', $partnerId, 'back3', $back3),
+                'remaining' => $this->remainingForPattern($gameId, 'partner', $partnerId, 'back3', $back3, $partnerLimits['back3_limit']),
+            ],
+            [
+                'key' => $this->searchQuotaKey('partner', $partnerId, 'back2', $back2),
+                'remaining' => $this->remainingForPattern($gameId, 'partner', $partnerId, 'back2', $back2, $partnerLimits['back2_limit']),
+            ],
+        ];
         $remaining = min(
             max(0, $assigned - $fullUsed),
-            $this->remainingForPattern($gameId, 'central', 'central', 'front3', $front3, $centralLimits['front3_limit']),
-            $this->remainingForPattern($gameId, 'central', 'central', 'back3', $back3, $centralLimits['back3_limit']),
-            $this->remainingForPattern($gameId, 'central', 'central', 'back2', $back2, $centralLimits['back2_limit']),
-            $this->remainingForPattern($gameId, 'partner', $partnerId, 'front3', $front3, $partnerLimits['front3_limit']),
-            $this->remainingForPattern($gameId, 'partner', $partnerId, 'back3', $back3, $partnerLimits['back3_limit']),
-            $this->remainingForPattern($gameId, 'partner', $partnerId, 'back2', $back2, $partnerLimits['back2_limit']),
+            ...array_map(fn (array $row): int => (int) $row['remaining'], $patternLimits),
         );
 
         return [
@@ -1036,6 +1093,7 @@ class VirtualStockService
             'partner_assigned_count' => $assigned,
             'partner_copy_indexes' => $assignedCopyIndexes,
             'partner_full_used_count' => $fullUsed,
+            'pattern_limits' => $patternLimits,
             'remaining_count' => max(0, $remaining),
             'availability_status' => $remaining > 0 ? 'available' : 'sold_out',
         ];
@@ -1213,6 +1271,136 @@ class VirtualStockService
             ->first();
 
         return $row === null ? 0 : (int) $row->reserved_count + (int) $row->sold_count;
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private function trackedSearchQuotaKeys(string $partnerId, array $queryParams, string $number): array
+    {
+        $constraints = [];
+        $front3 = preg_replace('/\D+/', '', (string) ($queryParams['front3'] ?? '')) ?? '';
+        $back3 = preg_replace('/\D+/', '', (string) ($queryParams['back3'] ?? '')) ?? '';
+        $back2 = preg_replace('/\D+/', '', (string) ($queryParams['back2'] ?? '')) ?? '';
+
+        if ($front3 !== '') {
+            $constraints['front3'] = substr($front3, 0, 3);
+        }
+
+        if ($back3 !== '') {
+            $constraints['back3'] = substr($back3, 0, 3);
+        }
+
+        if ($back2 !== '') {
+            $constraints['back2'] = substr($back2, 0, 2);
+        }
+
+        $positionalDigits = [];
+        foreach (range(1, 6) as $position) {
+            $digit = trim((string) ($queryParams['d'.$position] ?? ''));
+            $positionalDigits[$position] = preg_match('/^[0-9]$/', $digit) === 1 ? $digit : null;
+        }
+
+        if ($positionalDigits[1] !== null && $positionalDigits[2] !== null && $positionalDigits[3] !== null) {
+            $constraints['front3'] ??= $positionalDigits[1].$positionalDigits[2].$positionalDigits[3];
+        }
+
+        if ($positionalDigits[4] !== null && $positionalDigits[5] !== null && $positionalDigits[6] !== null) {
+            $constraints['back3'] ??= $positionalDigits[4].$positionalDigits[5].$positionalDigits[6];
+        }
+
+        if ($positionalDigits[5] !== null && $positionalDigits[6] !== null) {
+            $constraints['back2'] ??= $positionalDigits[5].$positionalDigits[6];
+        }
+
+        if ($number !== '') {
+            if (strlen($number) >= 6) {
+                $fullNumber = substr($number, 0, 6);
+                $constraints['front3'] ??= substr($fullNumber, 0, 3);
+                $constraints['back3'] ??= substr($fullNumber, -3);
+                $constraints['back2'] ??= substr($fullNumber, -2);
+            } elseif (strlen($number) >= 3) {
+                $constraints['back3'] ??= substr($number, -3);
+                $constraints['back2'] ??= substr($number, -2);
+            } elseif (strlen($number) === 2) {
+                $constraints['back2'] ??= $number;
+            }
+        }
+
+        $keys = [];
+        foreach ($constraints as $dimension => $value) {
+            if (! in_array($dimension, ['front3', 'back3', 'back2'], true) || $value === '') {
+                continue;
+            }
+
+            $keys[$this->searchQuotaKey('central', 'central', $dimension, $value)] = true;
+            $keys[$this->searchQuotaKey('partner', $partnerId, $dimension, $value)] = true;
+        }
+
+        return $keys;
+    }
+
+    private function searchQuotaKey(string $scopeType, string $scopeId, string $dimension, string $value): string
+    {
+        return $scopeType.':'.$scopeId.':'.$dimension.':'.$value;
+    }
+
+    /**
+     * @param array<string, mixed> $availability
+     * @param array<string, true> $trackedQuotaKeys
+     * @param array<string, int> $quotaUsage
+     */
+    private function searchQuotaDepleted(array $availability, array $trackedQuotaKeys, array $quotaUsage): bool
+    {
+        if ($trackedQuotaKeys === []) {
+            return false;
+        }
+
+        foreach ($availability['pattern_limits'] ?? [] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $key = (string) ($row['key'] ?? '');
+            if (! isset($trackedQuotaKeys[$key])) {
+                continue;
+            }
+
+            $remaining = (int) ($row['remaining'] ?? 0);
+            if ($remaining < self::UNLIMITED && ($quotaUsage[$key] ?? 0) >= $remaining) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, int> $quotaUsage
+     * @param array<string, mixed> $availability
+     * @param array<string, true> $trackedQuotaKeys
+     * @return array<string, int>
+     */
+    private function incrementSearchQuotaUsage(array $quotaUsage, array $availability, array $trackedQuotaKeys): array
+    {
+        if ($trackedQuotaKeys === []) {
+            return $quotaUsage;
+        }
+
+        foreach ($availability['pattern_limits'] ?? [] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $key = (string) ($row['key'] ?? '');
+            if (! isset($trackedQuotaKeys[$key])) {
+                continue;
+            }
+
+            $quotaUsage[$key] = ($quotaUsage[$key] ?? 0) + 1;
+        }
+
+        return $quotaUsage;
     }
 
     private function remainingForPattern(string $gameId, string $scopeType, string $scopeId, string $dimension, string $value, int $limit): int
@@ -1400,6 +1588,52 @@ class VirtualStockService
             ->sum('allocated_count');
     }
 
+    private function hasActiveTenantVirtualAllocation(string $tenantId, string $partnerId, string $gameId): bool
+    {
+        return DB::table('partner_stock_allocations')
+            ->where('game_id', $gameId)
+            ->where('partner_id', $partnerId)
+            ->where('tenant_id', $tenantId)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+            ->whereNotNull('allocation_percent_basis_points')
+            ->where('allocation_percent_basis_points', '>', 0)
+            ->where('allocated_count', '>', 0)
+            ->exists();
+    }
+
+    /**
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
+     */
+    private function emptySearchResult(string $gameId): array
+    {
+        return [
+            'data' => [],
+            'meta' => [
+                'game_id' => $gameId,
+                'next_cursor' => null,
+                'has_more' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}
+     */
+    private function emptyTenantStockResult(string $gameId, string $partnerId, string $tenantId): array
+    {
+        return [
+            'data' => [],
+            'meta' => [
+                'game_id' => $gameId,
+                'stock_mode' => 'virtual',
+                'allocated_count' => $this->allocatedCountForPartner($gameId, $partnerId, $tenantId),
+                'used_count' => $this->usedCountForPartner($gameId, $partnerId),
+                'next_cursor' => null,
+                'has_more' => false,
+            ],
+        ];
+    }
+
     private function usedCountForPartner(string $gameId, string $partnerId): int
     {
         return (int) DB::table('virtual_stock_counters')
@@ -1412,39 +1646,56 @@ class VirtualStockService
     }
 
     /**
-     * @return array{number_offset: int, copy_offset: int}
+     * @return array{number_offset: int, copy_offset: int, quota_usage: array<string, int>}
      */
     private function decodeTenantStockCursor(mixed $cursor): array
     {
         if ($cursor === null || trim((string) $cursor) === '') {
-            return ['number_offset' => 0, 'copy_offset' => 0];
+            return ['number_offset' => 0, 'copy_offset' => 0, 'quota_usage' => []];
         }
 
         if (ctype_digit((string) $cursor)) {
-            return ['number_offset' => max(0, (int) $cursor), 'copy_offset' => 0];
+            return ['number_offset' => max(0, (int) $cursor), 'copy_offset' => 0, 'quota_usage' => []];
         }
 
         try {
             $decoded = json_decode((string) base64_decode((string) $cursor, true), true, flags: JSON_THROW_ON_ERROR);
         } catch (\Throwable) {
-            return ['number_offset' => 0, 'copy_offset' => 0];
+            return ['number_offset' => 0, 'copy_offset' => 0, 'quota_usage' => []];
         }
 
         if (! is_array($decoded)) {
-            return ['number_offset' => 0, 'copy_offset' => 0];
+            return ['number_offset' => 0, 'copy_offset' => 0, 'quota_usage' => []];
+        }
+
+        $quotaUsage = [];
+        if (is_array($decoded['quota_usage'] ?? null)) {
+            foreach ($decoded['quota_usage'] as $key => $value) {
+                $key = trim((string) $key);
+                if ($key === '') {
+                    continue;
+                }
+
+                $quotaUsage[$key] = max(0, (int) $value);
+            }
         }
 
         return [
             'number_offset' => max(0, (int) ($decoded['number_offset'] ?? 0)),
             'copy_offset' => max(0, (int) ($decoded['copy_offset'] ?? 0)),
+            'quota_usage' => $quotaUsage,
         ];
     }
 
     /**
-     * @param array{number_offset: int, copy_offset: int} $cursor
+     * @param array{number_offset: int, copy_offset: int, quota_usage?: array<string, int>} $cursor
      */
     private function encodeTenantStockCursor(array $cursor): string
     {
+        if (($cursor['quota_usage'] ?? []) === []) {
+            unset($cursor['quota_usage']);
+        }
+
         return base64_encode(json_encode($cursor, JSON_THROW_ON_ERROR));
     }
 

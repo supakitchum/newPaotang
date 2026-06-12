@@ -70,9 +70,9 @@
         <span>หรือ</span>
       </div>
 
-      <button class="line-login-button" type="button" @click="handleLineLogin">
+      <button class="line-login-button" type="button" :disabled="isSubmitting || isLineSubmitting" @click="handleLineLogin">
         <i class="bi bi-line"/>
-        <span>เข้าสู่ระบบด้วย Line</span>
+        <span>{{ isLineSubmitting ? 'กำลังเชื่อมต่อ LINE' : 'เข้าสู่ระบบด้วย Line' }}</span>
       </button>
 
       <div class="login-register">
@@ -97,12 +97,14 @@ const password = ref('')
 const rememberMe = ref(true)
 const showPassword = ref(false)
 const isSubmitting = ref(false)
+const isLineSubmitting = ref(false)
 const route = useRoute()
 const platformApi = usePlatformApi()
 const {setAuthSession, setLineRedirect} = useAuth()
 const { applyStoredRef } = useAffiliateReferral()
 const {refreshAppInit} = useAppInit()
 const {showAlert} = useAppAlert()
+const lineLiff = useLineLiff()
 
 const getSafeRedirect = () => {
   if (typeof route.query.redirect !== 'string') {
@@ -209,11 +211,57 @@ const handleSubmit = async () => {
 }
 
 const handleLineLogin = async () => {
-  setLineRedirect(getSafeRedirect())
-  const response = await platformApi.lineLogin({store_id: null})
-
-  if (response.code === 0) {
-    await navigateTo(response.url, {external: true})
+  if (isSubmitting.value || isLineSubmitting.value) {
+    return
   }
+
+  isLineSubmitting.value = true
+
+  try {
+    setLineRedirect(getSafeRedirect())
+    const response = await platformApi.lineLogin({store_id: null})
+    const url = typeof response?.url === 'string' ? response.url : ''
+
+    if (response.code === 0 && isSafeLineLoginUrl(url)) {
+      redirectToLineLogin(url)
+      return
+    }
+
+    throw new Error('missing_line_redirect_url')
+  } catch (error: any) {
+    showAlert({
+      title: 'เข้าสู่ระบบด้วย LINE ไม่สำเร็จ',
+      message: error?.response?.data?.message || 'ไม่สามารถเชื่อมต่อ LINE ได้ กรุณาตรวจสอบการตั้งค่า LINE OA แล้วลองใหม่อีกครั้ง',
+      variant: 'error'
+    })
+  } finally {
+    isLineSubmitting.value = false
+  }
+}
+
+const isSafeLineLoginUrl = (value: string) => {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' && url.hostname === 'access.line.me'
+  } catch {
+    return false
+  }
+}
+
+const redirectToLineLogin = (url: string) => {
+  if (!import.meta.client) {
+    void navigateTo(url, { external: true })
+    return
+  }
+
+  if (lineLiff.isLiffClient.value) {
+    const liff = (window as any).liff
+    if (liff?.openWindow) {
+      liff.openWindow({ url, external: true })
+      return
+    }
+  }
+
+  window.location.assign(url)
 }
 </script>

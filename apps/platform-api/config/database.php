@@ -2,6 +2,11 @@
 
 use Illuminate\Support\Str;
 
+$isTestingEnvironment = env('APP_ENV') === 'testing';
+$pgsqlDatabase = $isTestingEnvironment
+    ? env('DB_TEST_DATABASE', env('DB_DATABASE_TEST', 'newpaotang_test'))
+    : env('DB_DATABASE', 'newpaotang');
+
 return [
     'default' => env('DB_CONNECTION', 'pgsql'),
     'connections' => [
@@ -17,7 +22,7 @@ return [
             'url' => env('DB_URL'),
             'host' => env('DB_HOST', 'postgres'),
             'port' => env('DB_PORT', '5432'),
-            'database' => env('DB_DATABASE', 'newpaotang'),
+            'database' => $pgsqlDatabase,
             'username' => env('DB_USERNAME', 'newpaotang'),
             'password' => env('DB_PASSWORD', 'newpaotang'),
             'charset' => env('DB_CHARSET', 'utf8'),

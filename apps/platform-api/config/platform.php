@@ -75,6 +75,10 @@ return [
         'image_dispatch_chunk_size' => max(1, (int) env('STOCK_GENERATE_IMAGE_DISPATCH_CHUNK_SIZE', 500)),
         'base_lottery_numbers_path' => env('BASE_LOTTERY_NUMBERS_PATH', storage_path('app/public/number.json')),
         'base_lottery_seed_chunk' => max(100, min(10000, (int) env('BASE_LOTTERY_SEED_CHUNK', 5000))),
+        'seed_base_lottery_on_initial_seed' => filter_var(
+            env('BASE_LOTTERY_SEED_ON_INITIAL_SEED', env('APP_ENV') !== 'testing'),
+            FILTER_VALIDATE_BOOL,
+        ),
     ],
     'migration_rehearsal' => [
         'source_type' => env('MIGRATION_REHEARSAL_SOURCE_TYPE', 'synthetic_seeded_only'),

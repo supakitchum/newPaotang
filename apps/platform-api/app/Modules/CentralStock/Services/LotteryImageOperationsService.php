@@ -162,6 +162,7 @@ class LotteryImageOperationsService
             'set_type' => trim((string) ($payload['set_type'] ?? '')),
             'status' => trim((string) ($payload['status'] ?? 'ready')),
             'supersede_existing' => filter_var($payload['supersede_existing'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'storage_driver' => $this->storage->driverForRoute(RuntimeStorageService::ROUTE_BACKGROUND_ASSETS),
         ];
         $errors = $this->backgroundZipPayloadErrors($normalized, $zipFile, $request);
 
@@ -198,9 +199,9 @@ class LotteryImageOperationsService
                 $fullBytes = $this->renderBackgroundVariant($file['bytes'], 'full');
                 $thumbBytes = $this->renderBackgroundVariant($file['bytes'], 'thumb');
 
-                $this->storeGeneratedAssetBytes($sourceKey, $file['bytes'], $file['content_type']);
-                $this->storeGeneratedAssetBytes($fullKey, $fullBytes, 'image/webp');
-                $this->storeGeneratedAssetBytes($thumbKey, $thumbBytes, 'image/webp');
+                $sourceKey = $this->storeGeneratedAssetBytes($sourceKey, $file['bytes'], $file['content_type']);
+                $fullKey = $this->storeGeneratedAssetBytes($fullKey, $fullBytes, 'image/webp');
+                $thumbKey = $this->storeGeneratedAssetBytes($thumbKey, $thumbBytes, 'image/webp');
 
                 $sourceAsset = $this->upsertGeneratedPlatformAsset(
                     $sourceKey,
@@ -209,6 +210,7 @@ class LotteryImageOperationsService
                     $file['bytes'],
                     ['width' => $file['width'], 'height' => $file['height'], 'zip_entry' => $file['normalized_name']],
                     $actor,
+                    $normalized['storage_driver'],
                 );
                 $fullAsset = $this->upsertGeneratedPlatformAsset(
                     $fullKey,
@@ -217,6 +219,7 @@ class LotteryImageOperationsService
                     $fullBytes,
                     ['width' => $expected['full']['width'], 'height' => $expected['full']['height'], 'source_zip_entry' => $file['normalized_name']],
                     $actor,
+                    $normalized['storage_driver'],
                 );
                 $thumbAsset = $this->upsertGeneratedPlatformAsset(
                     $thumbKey,
@@ -225,6 +228,7 @@ class LotteryImageOperationsService
                     $thumbBytes,
                     ['width' => $expected['thumb']['width'], 'height' => $expected['thumb']['height'], 'source_zip_entry' => $file['normalized_name']],
                     $actor,
+                    $normalized['storage_driver'],
                 );
                 $existing = LotteryImageBackgroundAssetSet::query()
                     ->where('game_id', $normalized['game_id'])
@@ -270,6 +274,7 @@ class LotteryImageOperationsService
                             'expected_count' => $normalized['expected_count'],
                             'expected_dimensions' => $expected,
                             'supersede_existing' => $normalized['supersede_existing'],
+                            'storage_driver' => $normalized['storage_driver'],
                         ],
                         'created_at' => $existing?->created_at ?? $now,
                         'updated_at' => $now,
@@ -300,6 +305,7 @@ class LotteryImageOperationsService
                         'game_id' => $normalized['game_id'],
                         'version' => $normalized['version'],
                         'set_type' => $normalized['set_type'],
+                        'storage_driver' => $normalized['storage_driver'],
                         'imported_count' => count($resources),
                         'expected_count' => $normalized['expected_count'],
                     ],
@@ -783,23 +789,27 @@ class LotteryImageOperationsService
      */
     public function productionReadiness(): array
     {
-        $disk = (string) config('lottery_images.disk', 'lottery_images');
-        $diskConfig = config('filesystems.disks.'.$disk, []);
-        $driver = is_array($diskConfig) ? (string) ($diskConfig['driver'] ?? '') : '';
+        $storage = $this->storage->readiness(RuntimeStorageService::ROUTE_LOTTERY_IMAGES);
+        $disk = (string) ($storage['disk'] ?? RuntimeStorageService::ROUTE_LOTTERY_IMAGES);
+        $driver = (string) ($storage['disk_driver'] ?? '');
+        $routeDriver = (string) ($storage['route_driver'] ?? RuntimeStorageService::DRIVER_LOCAL);
         $queues = $this->queueReadiness();
         $runtimeReady = extension_loaded('gd') && function_exists('imagewebp');
-        $configured = (bool) config('lottery_images.enabled', true) && is_array($diskConfig) && $diskConfig !== [];
-        $bucketPresent = is_array($diskConfig) && trim((string) ($diskConfig['bucket'] ?? '')) !== '';
-        $regionPresent = is_array($diskConfig) && trim((string) ($diskConfig['region'] ?? '')) !== '';
-        $endpointPresent = is_array($diskConfig) && trim((string) ($diskConfig['endpoint'] ?? '')) !== '';
-        $cdnPresent = trim((string) config('lottery_images.cdn_base_url', '')) !== '';
+        $configured = (bool) config('lottery_images.enabled', true) && (bool) ($storage['configured'] ?? false);
+        $bucketPresent = (bool) ($storage['bucket_present'] ?? false);
+        $regionPresent = (bool) ($storage['region_present'] ?? false);
+        $endpointPresent = (bool) ($storage['endpoint_present'] ?? false);
+        $cdnPresent = (bool) ($storage['cdn_base_url_present'] ?? false);
         $blocking = [];
 
         if (! $configured) {
             $blocking[] = 'lottery_image_generation_not_configured';
         }
-        if ($driver !== 's3') {
-            $blocking[] = 'object_storage_disk_not_s3_compatible';
+        if ($routeDriver !== RuntimeStorageService::DRIVER_AWS_S3 || $driver !== 's3') {
+            $blocking[] = 'object_storage_route_not_s3_compatible';
+        }
+        if ($routeDriver === RuntimeStorageService::DRIVER_AWS_S3 && ! (bool) ($storage['connection_active'] ?? false)) {
+            $blocking[] = 'object_storage_connection_missing';
         }
         if (! $bucketPresent) {
             $blocking[] = 'object_storage_bucket_missing';
@@ -821,13 +831,17 @@ class LotteryImageOperationsService
             'configured' => $configured,
             'disk' => $disk,
             'disk_driver' => $driver === '' ? null : $driver,
+            'route_key' => (string) ($storage['route_key'] ?? RuntimeStorageService::ROUTE_LOTTERY_IMAGES),
+            'route_driver' => $routeDriver,
+            'connection_active' => (bool) ($storage['connection_active'] ?? false),
+            'connection_status' => $storage['connection_status'] ?? null,
             'bucket_present' => $bucketPresent,
             'region_present' => $regionPresent,
             'endpoint_present' => $endpointPresent,
             'cdn_base_url_present' => $cdnPresent,
             'queue_configured' => $queues['queue_configured'],
             'runtime_webp_ready' => $runtimeReady,
-            'secrets_redacted' => true,
+            'secrets_redacted' => (bool) ($storage['secrets_redacted'] ?? true),
             'production_ready' => $blocking === [],
             'blocking_reasons' => $blocking,
             'queues' => $queues,
@@ -958,6 +972,9 @@ class LotteryImageOperationsService
         }
         if (! in_array($payload['status'], self::BACKGROUND_STATUSES, true)) {
             $errors['status'][] = 'The status field must be ready, inactive, or retired.';
+        }
+        if ($payload['storage_driver'] === RuntimeStorageService::DRIVER_AWS_S3 && ! $this->storage->storageDriverAvailable(RuntimeStorageService::DRIVER_AWS_S3)) {
+            $errors['storage_route'][] = 'Background asset storage is configured for AWS S3 but the storage connection is not active.';
         }
         if (! $zipFile instanceof UploadedFile) {
             $contentLength = (int) $request->server('CONTENT_LENGTH', 0);
@@ -1212,9 +1229,9 @@ class LotteryImageOperationsService
         }
     }
 
-    private function storeGeneratedAssetBytes(string $key, string $bytes, string $contentType): void
+    private function storeGeneratedAssetBytes(string $key, string $bytes, string $contentType): string
     {
-        $this->storage->put(RuntimeStorageService::ROUTE_LOTTERY_IMAGES, $key, $bytes, [
+        return $this->storage->put(RuntimeStorageService::ROUTE_BACKGROUND_ASSETS, $key, $bytes, [
             'ContentType' => $contentType,
             'CacheControl' => (string) config('lottery_images.cache_control', 'public, max-age=31536000, immutable'),
         ]);
@@ -1223,7 +1240,7 @@ class LotteryImageOperationsService
     /**
      * @param array<string, mixed> $metadata
      */
-    private function upsertGeneratedPlatformAsset(string $key, string $fileName, string $contentType, string $bytes, array $metadata, AdminSessionContext $actor): PlatformAsset
+    private function upsertGeneratedPlatformAsset(string $key, string $fileName, string $contentType, string $bytes, array $metadata, AdminSessionContext $actor, ?string $storageDriver = null): PlatformAsset
     {
         $assetId = 'ast_'.substr(sha1($key.':'.hash('sha256', $bytes)), 0, 20);
 
@@ -1241,8 +1258,11 @@ class LotteryImageOperationsService
                 'status' => 'committed',
                 'storage_key' => $key,
                 'upload_url' => null,
-                'public_url' => $this->images->publicUrl($key),
-                'metadata_json' => $metadata + ['generated_by' => 'lottery_background_zip_import'],
+                'public_url' => $this->storage->publicUrlUsingDriver(RuntimeStorageService::ROUTE_BACKGROUND_ASSETS, $key, $storageDriver),
+                'metadata_json' => $metadata + [
+                    'generated_by' => 'lottery_background_zip_import',
+                    'storage_driver' => $storageDriver,
+                ],
                 'expires_at' => null,
                 'committed_at' => now(),
                 'updated_at' => now(),
@@ -1421,7 +1441,7 @@ class LotteryImageOperationsService
 
         if (($width === null || $height === null) && $storageAvailable) {
             try {
-                $bytes = $this->storage->get(RuntimeStorageService::ROUTE_LOTTERY_IMAGES, (string) $asset->storage_key);
+                $bytes = $this->storage->get(RuntimeStorageService::ROUTE_BACKGROUND_ASSETS, (string) $asset->storage_key);
                 $info = is_string($bytes) ? @getimagesizefromstring($bytes) : false;
 
                 if (is_array($info)) {
@@ -1487,6 +1507,7 @@ class LotteryImageOperationsService
             'set_type' => (string) $assetSet->set_type,
             'position' => (int) ($assetSet->position ?? 1),
             'status' => (string) $assetSet->status,
+            'storage_driver' => $this->backgroundStorageDriver($assetSet),
             'ready' => (string) $assetSet->status === 'ready' && $missing === [],
             'generation_ready' => $this->images->backgroundReady((string) $assetSet->game_id, (string) $assetSet->version, (string) $assetSet->set_type),
             'missing_assets' => $missing,
@@ -1513,15 +1534,17 @@ class LotteryImageOperationsService
         $widthField = $slot.'_width';
         $heightField = $slot.'_height';
         $sizeField = $slot.'_size_bytes';
+        $storageDriver = $this->backgroundStorageDriver($assetSet);
 
         return [
             'asset_id' => $assetSet->{$assetIdField},
             'storage_path' => $assetSet->{$pathField},
+            'storage_driver' => $storageDriver,
             'content_type' => $assetSet->{$contentTypeField},
             'width' => $assetSet->{$widthField},
             'height' => $assetSet->{$heightField},
             'size_bytes' => $assetSet->{$sizeField},
-            'storage_available' => $this->storageExists((string) $assetSet->{$pathField}),
+            'storage_available' => $this->storageExists((string) $assetSet->{$pathField}, $storageDriver),
         ];
     }
 
@@ -1531,6 +1554,7 @@ class LotteryImageOperationsService
     private function missingAssetsForSet(LotteryImageBackgroundAssetSet $assetSet): array
     {
         $missing = [];
+        $storageDriver = $this->backgroundStorageDriver($assetSet);
 
         foreach (['source', 'full', 'thumb'] as $slot) {
             $assetId = $assetSet->{$slot.'_asset_id'};
@@ -1538,7 +1562,7 @@ class LotteryImageOperationsService
             $width = $assetSet->{$slot.'_width'};
             $height = $assetSet->{$slot.'_height'};
 
-            if ($assetId === null || $path === null || $width === null || $height === null || ! $this->storageExists((string) $path)) {
+            if ($assetId === null || $path === null || $width === null || $height === null || ! $this->storageExists((string) $path, $storageDriver)) {
                 $missing[] = $slot;
             }
         }
@@ -1546,17 +1570,25 @@ class LotteryImageOperationsService
         return $missing;
     }
 
-    private function storageExists(string $storagePath): bool
+    private function storageExists(string $storagePath, ?string $storageDriver = null): bool
     {
         if (trim($storagePath) === '') {
             return false;
         }
 
         try {
-            return $this->storage->exists(RuntimeStorageService::ROUTE_LOTTERY_IMAGES, $storagePath);
+            return $this->storage->existsUsingDriver(RuntimeStorageService::ROUTE_BACKGROUND_ASSETS, $storagePath, $storageDriver);
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    private function backgroundStorageDriver(LotteryImageBackgroundAssetSet $assetSet): ?string
+    {
+        $metadata = is_array($assetSet->metadata_json) ? $assetSet->metadata_json : [];
+        $driver = $this->storageDriverFrom($metadata['storage_driver'] ?? null);
+
+        return $driver ?? $this->storage->driverForRoute(RuntimeStorageService::ROUTE_BACKGROUND_ASSETS);
     }
 
     /**
@@ -1768,6 +1800,15 @@ class LotteryImageOperationsService
         $trimmed = trim((string) $value);
 
         return $trimmed === '' ? null : $trimmed;
+    }
+
+    private function storageDriverFrom(mixed $value): ?string
+    {
+        $driver = trim((string) ($value ?? ''));
+
+        return in_array($driver, [RuntimeStorageService::DRIVER_LOCAL, RuntimeStorageService::DRIVER_AWS_S3], true)
+            ? $driver
+            : null;
     }
 
     /**

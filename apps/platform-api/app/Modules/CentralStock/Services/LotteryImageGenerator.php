@@ -649,12 +649,15 @@ class LotteryImageGenerator
             return null;
         }
 
+        [$storageDriver, $storagePath] = $this->parseStorageImagePath($storagePath);
+        $routeKey = $this->storage->routeForStorageKey($storagePath);
+
         try {
-            if (! $this->storage->exists(RuntimeStorageService::ROUTE_LOTTERY_IMAGES, $storagePath)) {
+            if (! $this->storage->existsUsingDriver($routeKey, $storagePath, $storageDriver)) {
                 return null;
             }
 
-            $bytes = $this->storage->get(RuntimeStorageService::ROUTE_LOTTERY_IMAGES, $storagePath);
+            $bytes = $this->storage->getUsingDriver($routeKey, $storagePath, $storageDriver);
         } catch (\Throwable) {
             return null;
         }
@@ -1050,29 +1053,54 @@ class LotteryImageGenerator
             $path = trim((string) $row->full_storage_path);
             $sourcePath = trim((string) $row->source_storage_path);
             $thumbPath = trim((string) $row->thumb_storage_path);
+            $storageDriver = $this->backgroundStorageDriver($row);
 
             if (
                 $path !== ''
                 && $sourcePath !== ''
                 && $thumbPath !== ''
-                && $this->storagePathExists($path)
-                && $this->storagePathExists($sourcePath)
-                && $this->storagePathExists($thumbPath)
+                && $this->storagePathExists($path, $storageDriver)
+                && $this->storagePathExists($sourcePath, $storageDriver)
+                && $this->storagePathExists($thumbPath, $storageDriver)
             ) {
-                $paths[] = 'storage://'.$path;
+                $paths[] = 'storage://'.($storageDriver === null ? '' : $storageDriver.':').$path;
             }
         }
 
         return $paths;
     }
 
-    private function storagePathExists(string $storagePath): bool
+    private function storagePathExists(string $storagePath, ?string $storageDriver = null): bool
     {
         try {
-            return $this->storage->exists(RuntimeStorageService::ROUTE_LOTTERY_IMAGES, $storagePath);
+            return $this->storage->existsUsingDriver(RuntimeStorageService::ROUTE_BACKGROUND_ASSETS, $storagePath, $storageDriver);
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    /**
+     * @return array{0: string|null, 1: string}
+     */
+    private function parseStorageImagePath(string $path): array
+    {
+        [$candidate, $storagePath] = array_pad(explode(':', $path, 2), 2, '');
+
+        if (in_array($candidate, [RuntimeStorageService::DRIVER_LOCAL, RuntimeStorageService::DRIVER_AWS_S3], true) && $storagePath !== '') {
+            return [$candidate, $storagePath];
+        }
+
+        return [null, $path];
+    }
+
+    private function backgroundStorageDriver(LotteryImageBackgroundAssetSet $assetSet): ?string
+    {
+        $metadata = is_array($assetSet->metadata_json) ? $assetSet->metadata_json : [];
+        $driver = trim((string) ($metadata['storage_driver'] ?? ''));
+
+        return in_array($driver, [RuntimeStorageService::DRIVER_LOCAL, RuntimeStorageService::DRIVER_AWS_S3], true)
+            ? $driver
+            : $this->storage->driverForRoute(RuntimeStorageService::ROUTE_BACKGROUND_ASSETS);
     }
 
     private function minimumBackgroundCount(string $setType): int

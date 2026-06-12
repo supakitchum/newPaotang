@@ -289,6 +289,156 @@ class TenantStockTest extends TestCase
             ->assertJsonPath('owner_customer_id', 'cus_tenant_stock_owner');
     }
 
+    public function test_TenantStock_partner_can_manage_own_coverage_with_central_ceilings(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_tenant_coverage', 'ten_tenant_coverage', 'tenant-coverage.newpaotang.test');
+        $this->insertActivePartnerTenantWithDomain('par_tenant_coverage_other', 'ten_tenant_coverage_other', 'tenant-coverage-other.newpaotang.test');
+        $this->insertGame('gam_tenant_coverage', 'open');
+        $this->insertBaseLotteryNumbers(['123450', '223450']);
+        $this->insertVirtualProfile('gam_tenant_coverage', 2);
+        $this->insertVirtualAllocation('gam_tenant_coverage', 'par_tenant_coverage', 'ten_tenant_coverage', 10000, 2);
+
+        DB::table('stock_sale_limit_settings')->insert([
+            'id' => 'ssl_tenant_cov_central',
+            'game_id' => 'gam_tenant_coverage',
+            'scope_type' => 'central',
+            'scope_id' => 'central',
+            'back2_limit' => 1,
+            'back3_limit' => 1,
+            'front3_limit' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('stock_sale_limit_overrides')->insert([
+            'id' => 'vso_tenant_cov_c_back2_50',
+            'game_id' => 'gam_tenant_coverage',
+            'scope_type' => 'central',
+            'scope_id' => 'central',
+            'dimension' => 'back2',
+            'value' => '50',
+            'limit' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $limited = $this->createTenantSession(
+            'ten_tenant_coverage',
+            'par_tenant_coverage',
+            ['reservation.view'],
+            'adm_cov_limited',
+            'tenant-coverage-limited@example.test',
+        );
+
+        $this->withToken($limited['access_token'])
+            ->putJson('/api/v1/admin/tenant/stock/limit-settings', [
+                'game_id' => 'gam_tenant_coverage',
+                'back2_limit' => 1,
+                'back3_limit' => 1,
+                'front3_limit' => 1,
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_tenant_coverage',
+                'Idempotency-Key' => 'tenant-coverage-denied',
+            ])
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'permission_denied');
+
+        $stockAdmin = $this->createTenantSession(
+            'ten_tenant_coverage',
+            'par_tenant_coverage',
+            ['stock.view'],
+            'adm_cov_stock',
+            'tenant-coverage@example.test',
+        );
+
+        $headers = [
+            'X-Admin-Scope' => 'tenant',
+            'X-Tenant-Id' => 'ten_tenant_coverage',
+        ];
+
+        $this->withToken($stockAdmin['access_token'])
+            ->getJson('/api/v1/admin/tenant/stock/coverage?'.http_build_query([
+                'game_id' => 'gam_tenant_coverage',
+                'dimension' => 'back2',
+                'q' => '50',
+                'limit' => 1,
+            ]), $headers)
+            ->assertOk()
+            ->assertJsonPath('scope_type', 'partner')
+            ->assertJsonPath('scope_id', 'par_tenant_coverage')
+            ->assertJsonPath('central_limits.back2_limit', 1)
+            ->assertJsonPath('data.0.central_limit', 1);
+
+        $this->withToken($stockAdmin['access_token'])
+            ->putJson('/api/v1/admin/tenant/stock/limit-settings', [
+                'game_id' => 'gam_tenant_coverage',
+                'scope_type' => 'central',
+                'scope_id' => 'par_tenant_coverage_other',
+                'back2_limit' => 1,
+                'back3_limit' => 1,
+                'front3_limit' => 1,
+            ], $headers + ['Idempotency-Key' => 'tenant-coverage-limit-save'])
+            ->assertOk()
+            ->assertJsonPath('scope_type', 'partner')
+            ->assertJsonPath('scope_id', 'par_tenant_coverage')
+            ->assertJsonPath('limits.back2_limit', 1);
+
+        $this->assertDatabaseHas('stock_sale_limit_settings', [
+            'game_id' => 'gam_tenant_coverage',
+            'scope_type' => 'partner',
+            'scope_id' => 'par_tenant_coverage',
+            'back2_limit' => 1,
+        ]);
+        $this->assertDatabaseMissing('stock_sale_limit_settings', [
+            'game_id' => 'gam_tenant_coverage',
+            'scope_type' => 'partner',
+            'scope_id' => 'par_tenant_coverage_other',
+        ]);
+
+        $this->withToken($stockAdmin['access_token'])
+            ->putJson('/api/v1/admin/tenant/stock/limit-settings', [
+                'game_id' => 'gam_tenant_coverage',
+                'back2_limit' => 2,
+                'back3_limit' => 1,
+                'front3_limit' => 1,
+            ], $headers + ['Idempotency-Key' => 'tenant-coverage-limit-too-high'])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed');
+
+        $this->withToken($stockAdmin['access_token'])
+            ->putJson('/api/v1/admin/tenant/stock/limit-overrides', [
+                'game_id' => 'gam_tenant_coverage',
+                'dimension' => 'back2',
+                'overrides' => [
+                    ['value' => '50', 'limit' => 1],
+                ],
+            ], $headers + ['Idempotency-Key' => 'tenant-coverage-override-save'])
+            ->assertOk()
+            ->assertJsonPath('scope_type', 'partner')
+            ->assertJsonPath('scope_id', 'par_tenant_coverage');
+
+        $this->assertDatabaseHas('stock_sale_limit_overrides', [
+            'game_id' => 'gam_tenant_coverage',
+            'scope_type' => 'partner',
+            'scope_id' => 'par_tenant_coverage',
+            'dimension' => 'back2',
+            'value' => '50',
+            'limit' => 1,
+        ]);
+
+        $this->withToken($stockAdmin['access_token'])
+            ->putJson('/api/v1/admin/tenant/stock/limit-overrides', [
+                'game_id' => 'gam_tenant_coverage',
+                'dimension' => 'back2',
+                'overrides' => [
+                    ['value' => '50', 'limit' => 2],
+                ],
+            ], $headers + ['Idempotency-Key' => 'tenant-coverage-override-too-high'])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed');
+    }
+
     /**
      * @param array<int, string> $numbers
      */

@@ -113,8 +113,15 @@ useCustomerStockRealtime({
   includePresence: true,
 })
 
+const safeBackPath = computed(() => {
+  const value = Array.isArray(route.query.back) ? route.query.back[0] : route.query.back
+  const path = String(value || '')
+
+  return path.startsWith('/') && !path.startsWith('//') ? path : '/buy'
+})
+
 const goBack = () => {
-  navigateTo('/buy')
+  navigateTo(safeBackPath.value, { replace: true })
 }
 
 const buildSearchPayload = () => {

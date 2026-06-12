@@ -131,6 +131,49 @@ class TelegramNotificationServiceTest extends TestCase
                 && ($body['parse_mode'] ?? null) === 'HTML'
                 && str_contains((string) ($body['text'] ?? ''), '&lt;script&gt;alert(1)&lt;/script&gt;')
                 && ! str_contains((string) ($body['text'] ?? ''), '<script>alert(1)</script>');
+            });
+    }
+
+    public function test_admin_review_event_templates_are_available_and_send_readable_messages(): void
+    {
+        $this->seedTenant();
+        $this->seedBot();
+        $this->seedChatAndRoute('topup.status_updated');
+        Queue::fake();
+
+        $eventKeys = collect($this->service()->show()['templates'] ?? [])->pluck('event_key')->all();
+        $this->assertContains('topup.status_updated', $eventKeys);
+        $this->assertContains('commission.status_updated', $eventKeys);
+        $this->assertContains('reward_claim.status_updated', $eventKeys);
+        $this->assertContains('activity_claim.status_updated', $eventKeys);
+        DB::table('telegram_message_templates')->where('event_key', 'topup.status_updated')->delete();
+
+        $this->service()->enqueue('ten_telegram', 'topup.status_updated', 'topup_request', 'top_reviewed', [
+            'event' => ['title' => 'ตรวจสอบรายการเติมเงินแล้ว', 'occurred_at' => '12/06/2026 12:00'],
+            'tenant' => ['name' => 'Alpha Ops'],
+            'customer' => ['name' => 'สมชาย', 'phone' => '0812345678'],
+            'topup' => ['reference' => 'TOP456', 'amount_baht' => '500.00', 'status_label' => 'อนุมัติแล้ว', 'reason' => ''],
+        ]);
+
+        Queue::assertPushed(SendTelegramNotificationJob::class, 1);
+
+        Http::fake([
+            'api.telegram.org/bottelegram-secret/sendMessage' => Http::response([
+                'ok' => true,
+                'result' => ['message_id' => 100],
+            ], 200),
+        ]);
+
+        $delivery = TelegramNotificationDelivery::query()->firstOrFail();
+        $this->service()->processDelivery((string) $delivery->id);
+
+        Http::assertSent(function ($request): bool {
+            $text = (string) ($request->data()['text'] ?? '');
+
+            return str_contains($text, 'ตรวจสอบรายการเติมเงินแล้ว')
+                && str_contains($text, 'สถานะ: อนุมัติแล้ว')
+                && str_contains($text, 'เลขอ้างอิง: TOP456')
+                && ! str_contains($text, "\n\n");
         });
     }
 

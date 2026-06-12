@@ -9,7 +9,7 @@
         <NuxtLink
           v-if="shouldShowMoreLink"
           class="blue-link"
-          :to="{ path: '/buy/more', query: { number: ticketNumber } }"
+          :to="moreLinkTo"
         >
           ดูเลขนี้เพิ่ม
         </NuxtLink>
@@ -167,6 +167,13 @@ const shouldRemoveUnavailableTicket = ref(false)
 const getTicketNumber = (ticket: Partial<CartLottery>) => getCartLotteryNumber(ticket)
 const ticketNumber = computed(() => getTicketNumber(props.ticket))
 const shouldShowMoreLink = computed(() => props.showMoreLink !== false && route.path !== '/buy/more')
+const moreLinkTo = computed(() => ({
+  path: '/buy/more',
+  query: {
+    number: ticketNumber.value,
+    back: route.fullPath
+  }
+}))
 const cartItem = computed(() => {
   const ticketKeys = getCartLotteryIdentityKeys(props.ticket)
 
@@ -232,7 +239,7 @@ const openUnavailableModal = (shouldRemove = true) => {
 const closeUnavailableModal = () => {
   showUnavailableModal.value = false
 
-  if (shouldRemoveUnavailableTicket.value) {
+  if (shouldRemoveUnavailableTicket.value && !isInCart.value) {
     emit('bookingUnavailable', props.ticket)
   }
 
@@ -248,6 +255,22 @@ const showCancelError = () => {
 }
 
 const reservationErrorCode = (error: any) => error?.response?.data?.error?.code || error?.response?.data?.code || ''
+
+const refreshCartFromServer = async () => {
+  try {
+    const response = await platformApi.loadCartLegacy()
+
+    if (response.data.code === 0) {
+      setCartItems(
+        response.data.carts || [],
+        response.data.result?.cart_order?.exp || null,
+        response.data.server_time || response.data.result?.cart_order?.created_at || null
+      )
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
 
 const handleSaleClosedBookingAttempt = async (options: { refresh?: boolean } = {}) => {
   if (options.refresh) {
@@ -331,7 +354,8 @@ const handleBooking = async () => {
     const response = await platformApi.reserveLegacy(props.ticket)
 
     if (response.data.code !== 0) {
-      openUnavailableModal()
+      await refreshCartFromServer()
+      openUnavailableModal(!isInCart.value)
       return
     }
 
@@ -353,7 +377,8 @@ const handleBooking = async () => {
     }
 
     console.log(error)
-    openUnavailableModal(false)
+    await refreshCartFromServer()
+    openUnavailableModal(!isInCart.value)
   } finally {
     isBooking.value = false
   }

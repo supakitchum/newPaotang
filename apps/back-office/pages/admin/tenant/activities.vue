@@ -884,7 +884,9 @@ const formatMoney = (value: any) => `${minorToBaht(value).toLocaleString('th-TH'
 const titleize = (value: string) => String(value || '-').replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
 const alertType = (err: any) => ([403, 409, 422].includes(Number(err?.status)) ? 'warning' : 'danger')
 const localeLabel = (value: 'th-TH' | 'en-US') => localeOptions.find((option) => option.value === value)?.label || value
-const localizedDefaults = () => ({ 'th-TH': '', 'en-US': '' })
+function localizedDefaults() {
+  return { 'th-TH': '', 'en-US': '' }
+}
 const localizedFrom = (value: any, fallback = '') => {
   const next = localizedDefaults()
   if (value && typeof value === 'object') {

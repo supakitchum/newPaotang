@@ -22,10 +22,14 @@ class CentralTelegramNotificationService
 
     public const EVENT_KEYS = [
         'topup.submitted',
+        'topup.status_updated',
         'commission.submitted',
+        'commission.status_updated',
         'reward_claim.submitted',
+        'reward_claim.status_updated',
         'order.paid',
         'activity.entry.created',
+        'activity_claim.status_updated',
         'activity.result.published',
     ];
 
@@ -416,11 +420,13 @@ class CentralTelegramNotificationService
                 ->where('enabled', true)
                 ->first();
 
-            if (! $bot instanceof TelegramBotConnection || $bot->status !== 'active' || ! $route instanceof TenantTelegramNotificationRoute || ! $template instanceof TelegramMessageTemplate || $this->cleanString($route->chat_id) === '') {
+            if (! $bot instanceof TelegramBotConnection || $bot->status !== 'active' || ! $route instanceof TenantTelegramNotificationRoute || $this->cleanString($route->chat_id) === '') {
                 return;
             }
 
-            $message = $this->renderTemplate($template, $variables);
+            $message = $template instanceof TelegramMessageTemplate
+                ? $this->renderTemplate($template, $variables)
+                : $this->renderTemplateString($this->defaultTemplate($eventKey), $variables);
 
             if ($message === '') {
                 return;
@@ -596,7 +602,12 @@ class CentralTelegramNotificationService
 
     private function renderTemplate(TelegramMessageTemplate $template, array $variables): string
     {
-        return trim((string) preg_replace_callback('/{{\s*([a-zA-Z0-9_.-]+)\s*}}/', function (array $matches) use ($variables): string {
+        return $this->renderTemplateString((string) $template->body_text, $variables);
+    }
+
+    private function renderTemplateString(string $bodyText, array $variables): string
+    {
+        $rendered = (string) preg_replace_callback('/{{\s*([a-zA-Z0-9_.-]+)\s*}}/', function (array $matches) use ($variables): string {
             $value = Arr::get($variables, $matches[1]);
 
             if (is_array($value) || is_object($value)) {
@@ -604,7 +615,12 @@ class CentralTelegramNotificationService
             }
 
             return htmlspecialchars((string) ($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-        }, (string) $template->body_text));
+        }, $bodyText);
+
+        $rendered = (string) preg_replace("/[ \t]+\n/", "\n", $rendered);
+        $rendered = (string) preg_replace("/\n{2,}/", "\n", $rendered);
+
+        return trim($rendered);
     }
 
     private function failDelivery(TelegramNotificationDelivery $delivery, string $code, string $message): void
@@ -696,10 +712,14 @@ class CentralTelegramNotificationService
     {
         return match ($eventKey) {
             'topup.submitted' => ['label' => 'Topup waiting review', 'description' => 'Customer submitted a topup request waiting for tenant review.'],
+            'topup.status_updated' => ['label' => 'Topup reviewed', 'description' => 'Tenant admin approved, rejected, or cancelled a topup request.'],
             'commission.submitted' => ['label' => 'Commission payout waiting review', 'description' => 'Affiliate commission payout/deposit/withdraw request is waiting for tenant review.'],
+            'commission.status_updated' => ['label' => 'Commission payout reviewed', 'description' => 'Tenant admin reviewed an affiliate commission payout/withdrawal.'],
             'reward_claim.submitted' => ['label' => 'Reward claim waiting review', 'description' => 'Customer submitted a reward cashout claim waiting for tenant review.'],
+            'reward_claim.status_updated' => ['label' => 'Reward claim reviewed', 'description' => 'Tenant admin updated a reward cashout claim.'],
             'order.paid' => ['label' => 'Order paid', 'description' => 'Customer purchased lottery tickets successfully.'],
             'activity.entry.created' => ['label' => 'Activity entry created', 'description' => 'Customer joined an activity and selected a number.'],
+            'activity_claim.status_updated' => ['label' => 'Activity payout reviewed', 'description' => 'Tenant admin updated an activity payout claim.'],
             'activity.result.published' => ['label' => 'Activity result published', 'description' => 'Lucky board/cashback activity results were calculated.'],
             default => ['label' => Str::of($eventKey)->replace('.', ' ')->title()->toString(), 'description' => 'Telegram notification event.'],
         };
@@ -709,10 +729,14 @@ class CentralTelegramNotificationService
     {
         return match ($eventKey) {
             'topup.submitted' => "<b>มีรายการเติมเงินรอตรวจสอบ</b>\nร้าน: {{ tenant.name }}\nลูกค้า: {{ customer.name }} {{ customer.phone }}\nยอด: {{ topup.amount_baht }} บาท\nเลขอ้างอิง: {{ topup.reference }}\nเวลา: {{ event.occurred_at }}",
+            'topup.status_updated' => "<b>ตรวจสอบรายการเติมเงินแล้ว</b>\nร้าน: {{ tenant.name }}\nลูกค้า: {{ customer.name }} {{ customer.phone }}\nสถานะ: {{ topup.status_label }}\nยอด: {{ topup.amount_baht }} บาท\nเลขอ้างอิง: {{ topup.reference }}\n{{ topup.reason }}\nเวลา: {{ event.occurred_at }}",
             'commission.submitted' => "<b>มีรายการคอมมิชชันรอตรวจสอบ</b>\nร้าน: {{ tenant.name }}\nลูกค้า/บัญชี: {{ commission.customer_name }}\nประเภท: {{ commission.type_label }}\nยอด: {{ commission.amount_baht }} บาท\nเลขอ้างอิง: {{ commission.reference }}\nเวลา: {{ event.occurred_at }}",
+            'commission.status_updated' => "<b>ตรวจสอบรายการถอนคอมมิชชันแล้ว</b>\nร้าน: {{ tenant.name }}\nลูกค้า/บัญชี: {{ commission.customer_name }}\nประเภท: {{ commission.type_label }}\nสถานะ: {{ commission.status_label }}\nยอด: {{ commission.amount_baht }} บาท\nเลขอ้างอิง: {{ commission.reference }}\n{{ commission.reason }}\nเวลา: {{ event.occurred_at }}",
             'reward_claim.submitted' => "<b>มีรายการขึ้นเงินรางวัลรอตรวจสอบ</b>\nร้าน: {{ tenant.name }}\nลูกค้า: {{ customer.name }} {{ customer.phone }}\nยอด: {{ claim.amount_baht }} บาท\nเลขอ้างอิง: {{ claim.reference }}\nเวลา: {{ event.occurred_at }}",
+            'reward_claim.status_updated' => "<b>ตรวจสอบรายการขึ้นเงินรางวัลแล้ว</b>\nร้าน: {{ tenant.name }}\nลูกค้า: {{ customer.name }} {{ customer.phone }}\nสถานะ: {{ claim.status_label }}\nยอด: {{ claim.amount_baht }} บาท\nเลขอ้างอิง: {{ claim.reference }}\n{{ claim.reason }}\nเวลา: {{ event.occurred_at }}",
             'order.paid' => "<b>ลูกค้าซื้อสลากสำเร็จ</b>\nร้าน: {{ tenant.name }}\nลูกค้า: {{ customer.name }} {{ customer.phone }}\nงวด: {{ order.draw_label }}\nจำนวน: {{ order.ticket_count }} ใบ\nยอด: {{ order.amount_baht }} บาท\nเลขอ้างอิง: {{ order.reference }}\nเวลา: {{ event.occurred_at }}",
             'activity.entry.created' => "<b>ลูกค้าเข้าร่วมกิจกรรม</b>\nร้าน: {{ tenant.name }}\nกิจกรรม: {{ activity.name }}\nประเภท: {{ activity.prediction_type_label }}\nลูกค้า: {{ customer.name }} {{ customer.phone }}\nเลขที่เลือก: {{ activity.selected_number }}\nสิทธิ์ที่ใช้: {{ activity.rights_used }}\nเวลา: {{ event.occurred_at }}",
+            'activity_claim.status_updated' => "<b>ตรวจสอบรายการขึ้นเงินรางวัลกิจกรรมแล้ว</b>\nร้าน: {{ tenant.name }}\nลูกค้า: {{ customer.name }} {{ customer.phone }}\nสถานะ: {{ claim.status_label }}\nยอด: {{ claim.amount_baht }} บาท\nเลขอ้างอิง: {{ claim.reference }}\n{{ claim.reason }}\nเวลา: {{ event.occurred_at }}",
             'activity.result.published' => "<b>ผลกิจกรรมออกแล้ว</b>\nร้าน: {{ tenant.name }}\nงวด: {{ activity.draw_label }}\n{{ activity.summary }}\nเวลา: {{ event.occurred_at }}",
             default => '{{ event.title }}',
         };
@@ -726,8 +750,11 @@ class CentralTelegramNotificationService
             'tenant.name',
             ...match ($eventKey) {
                 'topup.submitted' => ['customer.name', 'customer.phone', 'topup.reference', 'topup.amount_baht'],
+                'topup.status_updated' => ['customer.name', 'customer.phone', 'topup.reference', 'topup.amount_baht', 'topup.status_label', 'topup.reason'],
                 'commission.submitted' => ['commission.customer_name', 'commission.type_label', 'commission.reference', 'commission.amount_baht'],
+                'commission.status_updated' => ['commission.customer_name', 'commission.type_label', 'commission.reference', 'commission.amount_baht', 'commission.status_label', 'commission.reason'],
                 'reward_claim.submitted' => ['customer.name', 'customer.phone', 'claim.reference', 'claim.amount_baht'],
+                'reward_claim.status_updated', 'activity_claim.status_updated' => ['customer.name', 'customer.phone', 'claim.reference', 'claim.amount_baht', 'claim.status_label', 'claim.reason'],
                 'order.paid' => ['customer.name', 'customer.phone', 'order.reference', 'order.ticket_count', 'order.amount_baht', 'order.draw_label'],
                 'activity.entry.created' => ['customer.name', 'customer.phone', 'activity.name', 'activity.prediction_type_label', 'activity.selected_number', 'activity.rights_used'],
                 'activity.result.published' => ['activity.draw_label', 'activity.summary'],

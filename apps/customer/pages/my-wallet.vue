@@ -11,11 +11,6 @@
     </BlueHeader>
 
     <section id="transactions" class="content-sheet flush my-wallet-sheet">
-      <NuxtLink class="my-wallet-topup-cta" :to="topupRoute">
-        <i class="bi bi-plus-lg" />
-        <span>เติมเงิน</span>
-      </NuxtLink>
-
       <div class="my-wallet-section-head">
         <div>
           <h2>ประวัติรายการเดินเงินล่าสุด</h2>
@@ -86,12 +81,6 @@ const wallets = ref<Array<Record<string, any>>>([])
 const ledgerEntries = ref<WalletLedgerEntry[]>([])
 const isWalletLoading = ref(false)
 const isLedgerLoading = ref(false)
-const topupRoute = {
-  path: '/topup',
-  query: {
-    back: '/my-wallet'
-  }
-}
 
 const primaryWallet = computed(() => (
   wallets.value.find((wallet) => Number(wallet.type) === 1) || wallets.value[0] || null
@@ -257,10 +246,11 @@ onMounted(() => {
 
 .my-wallet-sheet {
   display: grid;
-  gap: 14px;
+  align-content: start;
+  grid-auto-rows: max-content;
+  gap: 16px;
   margin-top: 0;
-  padding-right: 16px;
-  padding-left: 16px;
+  padding: 26px 16px 112px;
   background: #f4f6f8;
 }
 
@@ -271,51 +261,33 @@ onMounted(() => {
   gap: 12px;
 }
 
-.my-wallet-topup-cta {
-  align-items: center;
-  background: linear-gradient(135deg, #0b8ff0, #075ec9);
-  border-radius: 999px;
-  box-shadow: 0 12px 24px rgba(7, 94, 201, .22);
-  color: #fff;
-  display: inline-flex;
-  font-size: 17px;
-  font-weight: 900;
-  gap: 8px;
-  justify-content: center;
-  min-height: 52px;
-  text-decoration: none;
-  width: 100%;
-}
-
-.my-wallet-topup-cta i {
-  font-size: 19px;
-}
-
 .my-wallet-section-head h2 {
   margin: 0;
   color: #17335f;
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 900;
+  line-height: 1.2;
 }
 
 .my-wallet-section-head p {
   margin: 4px 0 0;
   color: #718096;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 700;
+  line-height: 1.3;
 }
 
 .my-wallet-refresh {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   display: grid;
-  flex: 0 0 40px;
+  flex: 0 0 42px;
   place-items: center;
   border: 0;
   border-radius: 999px;
   color: #075ec9;
   background: #eaf5ff;
-  font-size: 19px;
+  font-size: 18px;
 }
 
 .my-wallet-refresh:disabled {
@@ -372,17 +344,19 @@ onMounted(() => {
 
 .my-wallet-transactions {
   overflow: hidden;
-  border-radius: 12px;
+  border: 1px solid #e7edf5;
+  border-radius: 16px;
   background: #fff;
-  box-shadow: 0 8px 22px rgba(22, 46, 82, .09);
+  box-shadow: 0 8px 18px rgba(22, 46, 82, .06);
 }
 
 .my-wallet-transaction {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto;
-  gap: 11px;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  gap: 10px;
   align-items: center;
-  padding: 13px 12px;
+  min-height: 82px;
+  padding: 12px 14px;
   border-bottom: 1px solid #edf1f6;
 }
 
@@ -391,12 +365,12 @@ onMounted(() => {
 }
 
 .my-wallet-transaction-icon {
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
   border-radius: 999px;
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .my-wallet-transaction-icon.is-credit {
@@ -417,7 +391,7 @@ onMounted(() => {
 .my-wallet-transaction-main {
   min-width: 0;
   display: grid;
-  gap: 2px;
+  gap: 4px;
 }
 
 .my-wallet-transaction-main strong,
@@ -430,32 +404,36 @@ onMounted(() => {
 
 .my-wallet-transaction-main strong {
   color: #17335f;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 900;
+  line-height: 1.15;
 }
 
 .my-wallet-transaction-main span {
   color: #556987;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 700;
+  line-height: 1.2;
 }
 
 .my-wallet-transaction-main small {
   color: #8a9ab0;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
+  line-height: 1.15;
 }
 
 .my-wallet-transaction-money {
   display: grid;
-  gap: 3px;
-  min-width: 86px;
+  gap: 4px;
+  min-width: 94px;
   text-align: right;
 }
 
 .my-wallet-transaction-money strong {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 900;
+  line-height: 1.15;
 }
 
 .my-wallet-transaction-money strong.is-credit {
@@ -472,8 +450,9 @@ onMounted(() => {
 
 .my-wallet-transaction-money span {
   color: #718096;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
+  line-height: 1.15;
   white-space: nowrap;
 }
 

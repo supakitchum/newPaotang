@@ -245,6 +245,36 @@ class PublicStockSearchTest extends TestCase
         $this->assertSame(1, DB::table('local_stock_items')->where('tenant_id', 'ten_virtual_public')->whereNotNull('virtual_stock_ref')->count());
     }
 
+    public function test_PublicStockSearch_unallocated_virtual_game_returns_empty_without_scanning_candidates(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_unallocated_virtual', 'ten_unallocated_virtual', 'unallocated-virtual.newpaotang.test');
+        $this->insertGame('gam_unallocated_virtual', 'open');
+        $this->insertBaseLotteryNumbers(array_map(
+            fn (int $index): string => str_pad((string) $index, 6, '0', STR_PAD_LEFT),
+            range(1, 250),
+        ));
+        $this->insertVirtualProfile('gam_unallocated_virtual', 250, 250);
+
+        DB::connection()->flushQueryLog();
+        DB::connection()->enableQueryLog();
+
+        $this->getJson('http://unallocated-virtual.newpaotang.test/api/v1/public/stock/search?game_id=gam_unallocated_virtual&mode=random&limit=5')
+            ->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJsonPath('meta.game_id', 'gam_unallocated_virtual')
+            ->assertJsonPath('meta.next_cursor', null)
+            ->assertJsonPath('meta.has_more', false);
+
+        $this->assertLessThan(
+            20,
+            count(DB::connection()->getQueryLog()),
+            'Unallocated virtual stock search should return before scanning base lottery candidates.',
+        );
+
+        DB::connection()->disableQueryLog();
+    }
+
     public function test_PublicStockSearch_hides_virtual_stock_after_game_sale_window_closes(): void
     {
         $this->seedDefaultRbac();
@@ -369,6 +399,198 @@ class PublicStockSearchTest extends TestCase
             'vstock:ten_exact_page:gam_exact_page:654321:2',
         ], $ids);
         $this->assertCount(3, array_unique($ids));
+    }
+
+    public function test_PublicStockSearch_virtual_suffix_search_is_capped_by_partner_pattern_override(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_back2_cap', 'ten_back2_cap', 'back2-cap.newpaotang.test');
+        $this->insertGame('gam_back2_cap', 'open');
+        $this->insertBaseLotteryNumbers(array_map(
+            fn (int $index): string => str_pad((string) ($index * 100), 6, '0', STR_PAD_LEFT),
+            range(0, 9),
+        ));
+        $this->insertVirtualProfile('gam_back2_cap', 10, 10);
+        $this->insertPartnerDistribution('gam_back2_cap', 'par_back2_cap', 'ten_back2_cap', 10000, 10);
+
+        DB::table('stock_sale_limit_overrides')->insert([
+            'id' => 'vso_back2_cap_00',
+            'game_id' => 'gam_back2_cap',
+            'scope_type' => 'partner',
+            'scope_id' => 'par_back2_cap',
+            'dimension' => 'back2',
+            'value' => '00',
+            'limit' => 5,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $allRows = $this->getJson('http://back2-cap.newpaotang.test/api/v1/public/stock/search?'.http_build_query([
+            'game_id' => 'gam_back2_cap',
+            'number' => '00',
+            'limit' => 20,
+        ]))
+            ->assertOk()
+            ->assertJsonCount(5, 'data')
+            ->assertJsonPath('meta.has_more', false)
+            ->json('data');
+
+        $this->assertSame(['00'], array_values(array_unique(array_map(fn (array $row): string => substr((string) $row['full_number'], -2), $allRows))));
+
+        $pageOne = $this->getJson('http://back2-cap.newpaotang.test/api/v1/public/stock/search?'.http_build_query([
+            'game_id' => 'gam_back2_cap',
+            'number' => '00',
+            'limit' => 2,
+        ]))
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.has_more', true)
+            ->json();
+
+        $pageTwo = $this->getJson('http://back2-cap.newpaotang.test/api/v1/public/stock/search?'.http_build_query([
+            'game_id' => 'gam_back2_cap',
+            'number' => '00',
+            'limit' => 2,
+            'cursor' => $pageOne['meta']['next_cursor'],
+        ]))
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.has_more', true)
+            ->json();
+
+        $pageThree = $this->getJson('http://back2-cap.newpaotang.test/api/v1/public/stock/search?'.http_build_query([
+            'game_id' => 'gam_back2_cap',
+            'number' => '00',
+            'limit' => 2,
+            'cursor' => $pageTwo['meta']['next_cursor'],
+        ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.has_more', false)
+            ->json();
+
+        $ids = array_values(array_map(
+            fn (array $row): string => (string) $row['id'],
+            [...$pageOne['data'], ...$pageTwo['data'], ...$pageThree['data']],
+        ));
+
+        $this->assertCount(5, $ids);
+        $this->assertCount(5, array_unique($ids));
+    }
+
+    public function test_PublicStockSearch_virtual_positional_suffix_search_is_capped_by_partner_pattern_override(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_pos_b2_cap', 'ten_pos_b2_cap', 'pos-b2-cap.newpaotang.test');
+        $this->insertGame('gam_pos_b2_cap', 'open');
+        $this->insertBaseLotteryNumbers(array_map(
+            fn (int $index): string => str_pad((string) ($index * 100), 6, '0', STR_PAD_LEFT),
+            range(0, 9),
+        ));
+        $this->insertVirtualProfile('gam_pos_b2_cap', 10, 10);
+        $this->insertPartnerDistribution('gam_pos_b2_cap', 'par_pos_b2_cap', 'ten_pos_b2_cap', 10000, 10);
+
+        DB::table('stock_sale_limit_overrides')->insert([
+            'id' => 'vso_pos_b2_cap_00',
+            'game_id' => 'gam_pos_b2_cap',
+            'scope_type' => 'partner',
+            'scope_id' => 'par_pos_b2_cap',
+            'dimension' => 'back2',
+            'value' => '00',
+            'limit' => 5,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $rows = $this->getJson('http://pos-b2-cap.newpaotang.test/api/v1/public/stock/search?'.http_build_query([
+            'game_id' => 'gam_pos_b2_cap',
+            'd5' => '0',
+            'd6' => '0',
+            'limit' => 20,
+        ]))
+            ->assertOk()
+            ->assertJsonCount(5, 'data')
+            ->assertJsonPath('meta.has_more', false)
+            ->json('data');
+
+        $this->assertSame(['00'], array_values(array_unique(array_map(fn (array $row): string => substr((string) $row['full_number'], -2), $rows))));
+        $this->assertCount(5, array_unique(array_map(fn (array $row): string => (string) $row['id'], $rows)));
+    }
+
+    public function test_PublicStockSearch_virtual_front3_search_is_capped_by_partner_pattern_override(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_front3_cap', 'ten_front3_cap', 'front3-cap.newpaotang.test');
+        $this->insertGame('gam_front3_cap', 'open');
+        $this->insertBaseLotteryNumbers(array_map(
+            fn (int $index): string => '123'.str_pad((string) $index, 3, '0', STR_PAD_LEFT),
+            range(0, 9),
+        ));
+        $this->insertVirtualProfile('gam_front3_cap', 10, 10);
+        $this->insertPartnerDistribution('gam_front3_cap', 'par_front3_cap', 'ten_front3_cap', 10000, 10);
+
+        DB::table('stock_sale_limit_overrides')->insert([
+            'id' => 'vso_front3_cap_123',
+            'game_id' => 'gam_front3_cap',
+            'scope_type' => 'partner',
+            'scope_id' => 'par_front3_cap',
+            'dimension' => 'front3',
+            'value' => '123',
+            'limit' => 4,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $rows = $this->getJson('http://front3-cap.newpaotang.test/api/v1/public/stock/search?'.http_build_query([
+            'game_id' => 'gam_front3_cap',
+            'front3' => '123',
+            'limit' => 20,
+        ]))
+            ->assertOk()
+            ->assertJsonCount(4, 'data')
+            ->assertJsonPath('meta.has_more', false)
+            ->json('data');
+
+        $this->assertSame(['123'], array_values(array_unique(array_map(fn (array $row): string => substr((string) $row['full_number'], 0, 3), $rows))));
+        $this->assertCount(4, array_unique(array_map(fn (array $row): string => (string) $row['id'], $rows)));
+    }
+
+    public function test_PublicStockSearch_virtual_back3_search_is_capped_by_partner_pattern_override(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_back3_cap', 'ten_back3_cap', 'back3-cap.newpaotang.test');
+        $this->insertGame('gam_back3_cap', 'open');
+        $this->insertBaseLotteryNumbers(array_map(
+            fn (int $index): string => str_pad((string) $index, 3, '0', STR_PAD_LEFT).'777',
+            range(0, 9),
+        ));
+        $this->insertVirtualProfile('gam_back3_cap', 10, 10);
+        $this->insertPartnerDistribution('gam_back3_cap', 'par_back3_cap', 'ten_back3_cap', 10000, 10);
+
+        DB::table('stock_sale_limit_overrides')->insert([
+            'id' => 'vso_back3_cap_777',
+            'game_id' => 'gam_back3_cap',
+            'scope_type' => 'partner',
+            'scope_id' => 'par_back3_cap',
+            'dimension' => 'back3',
+            'value' => '777',
+            'limit' => 3,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $rows = $this->getJson('http://back3-cap.newpaotang.test/api/v1/public/stock/search?'.http_build_query([
+            'game_id' => 'gam_back3_cap',
+            'number' => '777',
+            'limit' => 20,
+        ]))
+            ->assertOk()
+            ->assertJsonCount(3, 'data')
+            ->assertJsonPath('meta.has_more', false)
+            ->json('data');
+
+        $this->assertSame(['777'], array_values(array_unique(array_map(fn (array $row): string => substr((string) $row['full_number'], -3), $rows))));
+        $this->assertCount(3, array_unique(array_map(fn (array $row): string => (string) $row['id'], $rows)));
     }
 
     public function test_PublicStockSearch_random_virtual_results_interleave_duplicate_copy_numbers(): void

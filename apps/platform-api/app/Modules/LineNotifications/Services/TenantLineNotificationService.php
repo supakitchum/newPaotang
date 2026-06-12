@@ -702,14 +702,19 @@ class TenantLineNotificationService
 
     public function renderMessages(TenantLineMessageTemplate $template, array $variables): array
     {
+        $eventKey = (string) $template->event_key;
+
         if ($template->message_type === 'text') {
             return [[
                 'type' => 'text',
-                'text' => $this->renderString((string) $template->body_text, $variables),
+                'text' => $this->renderString($this->bodyForRendering((string) $template->body_text, $eventKey), $variables),
             ]];
         }
 
-        $flex = is_array($template->flex_json) ? $template->flex_json : $this->defaultFlexTemplate((string) $template->event_key);
+        $flex = is_array($template->flex_json) ? $template->flex_json : $this->defaultFlexTemplate($eventKey);
+        if ($this->isDefaultFlexTemplate($flex, $eventKey)) {
+            $flex = $this->defaultFlexTemplate($eventKey);
+        }
         $rendered = $this->renderValue($flex, $variables);
 
         return [[
@@ -717,6 +722,36 @@ class TenantLineNotificationService
             'altText' => $this->renderString((string) $template->title, $variables),
             'contents' => $rendered,
         ]];
+    }
+
+    private function bodyForRendering(string $body, string $eventKey): string
+    {
+        $normalizedBody = $this->normalizeLineTemplateText($body);
+        foreach ([$this->legacyDefaultBody($eventKey), $this->defaultBody($eventKey)] as $candidate) {
+            if ($candidate !== '' && $normalizedBody === $this->normalizeLineTemplateText($candidate)) {
+                return $this->defaultBody($eventKey);
+            }
+        }
+
+        return $body;
+    }
+
+    /**
+     * @param array<string, mixed> $flex
+     */
+    private function isDefaultFlexTemplate(array $flex, string $eventKey): bool
+    {
+        $title = Arr::get($flex, 'body.contents.0.text');
+        $body = Arr::get($flex, 'body.contents.1.text');
+
+        return $title === '{{event.title}}'
+            && is_string($body)
+            && $this->bodyForRendering($body, $eventKey) === $this->defaultBody($eventKey);
+    }
+
+    private function normalizeLineTemplateText(string $value): string
+    {
+        return trim((string) preg_replace('/\s+/', ' ', $value));
     }
 
     private function renderValue(mixed $value, array $variables): mixed
@@ -739,7 +774,7 @@ class TenantLineNotificationService
 
     private function renderString(string $value, array $variables): string
     {
-        return (string) preg_replace_callback('/{{\s*([a-zA-Z0-9_.-]+)\s*}}/', function (array $matches) use ($variables): string {
+        $rendered = (string) preg_replace_callback('/{{\s*([a-zA-Z0-9_.-]+)\s*}}/', function (array $matches) use ($variables): string {
             $replacement = Arr::get($variables, $matches[1]);
 
             if (is_array($replacement) || is_object($replacement)) {
@@ -748,6 +783,11 @@ class TenantLineNotificationService
 
             return (string) ($replacement ?? '');
         }, $value);
+
+        $rendered = (string) preg_replace("/[ \t]+\n/", "\n", $rendered);
+        $rendered = (string) preg_replace("/\n{2,}/", "\n", $rendered);
+
+        return trim($rendered);
     }
 
     private function templateForEvent(string $tenantId, string $eventKey): ?TenantLineMessageTemplate
@@ -952,6 +992,20 @@ class TenantLineNotificationService
     private function defaultBody(string $eventKey): string
     {
         return match ($eventKey) {
+            'topup.created' => "รับรายการเติมเงินแล้ว\nยอด: {{topup.amount_baht}} บาท\nเลขอ้างอิง: {{topup.reference}}\nสถานะ: รอตรวจสอบ",
+            'order.paid' => "ซื้อสลากสำเร็จ\nจำนวน: {{order.ticket_count}} ใบ\nยอดชำระ: {{order.amount_baht}} บาท\nเลขอ้างอิง: {{order.reference}}",
+            'activity.entry.created' => "เข้าร่วมกิจกรรมสำเร็จ\nกิจกรรม: {{activity.name}}\nเลขที่เลือก: {{activity.selected_number}}",
+            'reward_claim.submitted' => "รับคำขอขึ้นเงินรางวัลแล้ว\nยอด: {{claim.amount_baht}} บาท\nเลขอ้างอิง: {{claim.reference}}\nสถานะ: รอตรวจสอบ",
+            'topup.status_updated' => "อัปเดตรายการเติมเงิน\nสถานะ: {{topup.status_label}}\nยอด: {{topup.amount_baht}} บาท\nเลขอ้างอิง: {{topup.reference}}\n{{topup.reason}}",
+            'reward_claim.status_updated' => "อัปเดตการขึ้นเงินรางวัล\nสถานะ: {{claim.status_label}}\nยอด: {{claim.amount_baht}} บาท\nเลขอ้างอิง: {{claim.reference}}\n{{claim.reason}}",
+            'activity_claim.status_updated' => "อัปเดตการจ่ายเงินกิจกรรม\nสถานะ: {{claim.status_label}}\nยอด: {{claim.amount_baht}} บาท\nเลขอ้างอิง: {{claim.reference}}\n{{claim.reason}}",
+            default => '{{event.title}}',
+        };
+    }
+
+    private function legacyDefaultBody(string $eventKey): string
+    {
+        return match ($eventKey) {
             'topup.created' => 'รับรายการเติมเงิน {{topup.amount_baht}} บาท เลขที่ {{topup.reference}} แล้ว',
             'order.paid' => 'ซื้อสลากสำเร็จ {{order.ticket_count}} ใบ ยอด {{order.amount_baht}} บาท เลขที่ {{order.reference}}',
             'activity.entry.created' => 'เข้าร่วมกิจกรรม {{activity.name}} เลขที่เลือก {{activity.selected_number}} สำเร็จ',
@@ -959,7 +1013,7 @@ class TenantLineNotificationService
             'topup.status_updated' => 'รายการเติมเงิน {{topup.reference}} เป็นสถานะ {{topup.status_label}} {{topup.reason}}',
             'reward_claim.status_updated' => 'รายการขึ้นเงินรางวัล {{claim.reference}} เป็นสถานะ {{claim.status_label}} {{claim.reason}}',
             'activity_claim.status_updated' => 'รายการจ่ายเงินกิจกรรม {{claim.reference}} เป็นสถานะ {{claim.status_label}} {{claim.reason}}',
-            default => '{{event.title}}',
+            default => '',
         };
     }
 
@@ -986,6 +1040,7 @@ class TenantLineNotificationService
                         'size' => 'sm',
                         'wrap' => true,
                         'color' => '#1F2937',
+                        'margin' => 'md',
                     ],
                     [
                         'type' => 'separator',
@@ -993,7 +1048,14 @@ class TenantLineNotificationService
                     ],
                     [
                         'type' => 'text',
-                        'text' => '{{tenant.name}}',
+                        'text' => 'ลูกค้า: {{customer.name}} {{customer.phone}}',
+                        'size' => 'xs',
+                        'wrap' => true,
+                        'color' => '#6B7280',
+                    ],
+                    [
+                        'type' => 'text',
+                        'text' => 'ร้าน: {{tenant.name}}',
                         'size' => 'xs',
                         'wrap' => true,
                         'color' => '#6B7280',

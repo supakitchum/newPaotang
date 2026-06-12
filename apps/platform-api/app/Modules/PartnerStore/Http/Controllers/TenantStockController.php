@@ -77,6 +77,102 @@ class TenantStockController extends Controller
         ]));
     }
 
+    public function limitOverrides(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'stock.view');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $tenantId = (string) $context->activeTenantId();
+        $partnerId = $this->partnerStore->partnerIdForTenant($tenantId);
+
+        if ($partnerId === null) {
+            return response()->json([
+                'game_id' => $request->query('game_id'),
+                'scope_type' => 'partner',
+                'scope_id' => null,
+                'dimension' => $request->query('dimension', 'back2'),
+                'data' => [],
+            ]);
+        }
+
+        return response()->json($this->centralStock->stockLimitOverrides([
+            ...$request->query(),
+            'scope_type' => 'partner',
+            'scope_id' => $partnerId,
+        ]));
+    }
+
+    public function updateLimitSettings(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'stock.view');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        $partnerId = $this->partnerIdForActiveTenant($request, $context);
+
+        if ($partnerId === null) {
+            return ApiErrorResponse::notFound($request);
+        }
+
+        $payload = [
+            ...$request->all(),
+            'scope_type' => 'partner',
+            'scope_id' => $partnerId,
+        ];
+        $errors = $this->centralStock->validateLimitSettingsPayload($payload);
+
+        if ($errors !== []) {
+            return ApiErrorResponse::validationFailed($request, $errors);
+        }
+
+        return response()->json($this->centralStock->updateStockLimitSettings($payload, $context, $request));
+    }
+
+    public function updateLimitOverrides(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'stock.view');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        $partnerId = $this->partnerIdForActiveTenant($request, $context);
+
+        if ($partnerId === null) {
+            return ApiErrorResponse::notFound($request);
+        }
+
+        $payload = [
+            ...$request->all(),
+            'scope_type' => 'partner',
+            'scope_id' => $partnerId,
+        ];
+        $errors = $this->centralStock->validateLimitOverridePayload($payload);
+
+        if ($errors !== []) {
+            return ApiErrorResponse::validationFailed($request, $errors);
+        }
+
+        return response()->json($this->centralStock->updateStockLimitOverrides($payload, $context, $request));
+    }
+
     public function show(Request $request, string $stock_item_id): JsonResponse
     {
         $context = $this->authorizedContext($request, 'stock.view');
@@ -137,5 +233,15 @@ class TenantStockController extends Controller
         }
 
         return $context;
+    }
+
+    private function partnerIdForActiveTenant(Request $request, AdminSessionContext $context): ?string
+    {
+        $tenantId = (string) $context->activeTenantId();
+        if ($tenantId === '') {
+            return null;
+        }
+
+        return $this->partnerStore->partnerIdForTenant($tenantId);
     }
 }

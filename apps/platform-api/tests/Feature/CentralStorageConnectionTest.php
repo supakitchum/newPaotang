@@ -46,9 +46,11 @@ class CentralStorageConnectionTest extends TestCase
             ->assertJsonPath('connection.configured', true)
             ->assertJsonPath('connection.status', 'active')
             ->assertJsonPath('connection.bucket', 'newpaotang-assets')
-            ->assertJsonPath('routes.1.route_key', 'payment_slips')
-            ->assertJsonPath('routes.1.driver', 'aws_s3')
-            ->assertJsonPath('routes.1.root_prefix', 'slips')
+            ->assertJsonFragment([
+                'route_key' => 'payment_slips',
+                'driver' => 'aws_s3',
+                'root_prefix' => 'slips',
+            ])
             ->assertJsonMissing(['secret_access_key' => 'super-secret-access-key'])
             ->json();
 
@@ -112,9 +114,11 @@ class CentralStorageConnectionTest extends TestCase
             ], ['X-Admin-Scope' => 'central'])
             ->assertOk()
             ->assertJsonPath('connection.bucket', 'newpaotang-assets')
-            ->assertJsonPath('routes.1.route_key', 'payment_slips')
-            ->assertJsonPath('routes.1.driver', 'aws_s3')
-            ->assertJsonPath('routes.1.root_prefix', 'tenant-slips');
+            ->assertJsonFragment([
+                'route_key' => 'payment_slips',
+                'driver' => 'aws_s3',
+                'root_prefix' => 'tenant-slips',
+            ]);
 
         $this->assertDatabaseHas('platform_storage_routes', [
             'route_key' => 'payment_slips',

@@ -177,9 +177,14 @@ async function connectLine() {
   try {
     setLineRedirect('/profile/line-notifications')
     const response = await platformApi.lineLogin({ store_id: null })
-    if (response.code === 0 && response.url) {
-      await navigateTo(response.url, { external: true })
+    const url = typeof response?.url === 'string' ? response.url : ''
+
+    if (response.code === 0 && isSafeLineLoginUrl(url)) {
+      redirectToLineLogin(url)
+      return
     }
+
+    throw new Error('missing_line_redirect_url')
   } catch (error: any) {
     showAlert({
       title: 'เชื่อมต่อ LINE ไม่สำเร็จ',
@@ -189,6 +194,32 @@ async function connectLine() {
   } finally {
     connecting.value = false
   }
+}
+
+function isSafeLineLoginUrl(value: string) {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' && url.hostname === 'access.line.me'
+  } catch {
+    return false
+  }
+}
+
+function redirectToLineLogin(url: string) {
+  if (!import.meta.client) {
+    void navigateTo(url, { external: true })
+    return
+  }
+
+  if (lineLiff.isLiffClient.value) {
+    const liff = (window as any).liff
+    if (liff?.openWindow) {
+      liff.openWindow({ url, external: true })
+      return
+    }
+  }
+
+  window.location.assign(url)
 }
 
 async function saveToggle() {

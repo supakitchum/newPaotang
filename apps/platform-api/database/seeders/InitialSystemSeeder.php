@@ -14,6 +14,10 @@ class InitialSystemSeeder extends Seeder
             BootstrapAdminSeeder::class,
         ]);
 
+        if ((bool) config('platform.stock_generation.seed_base_lottery_on_initial_seed', false)) {
+            $this->call(BaseLotteryNumberSeeder::class);
+        }
+
         app(SystemTranslationService::class)->syncCatalog();
     }
 }

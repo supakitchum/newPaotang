@@ -30,10 +30,10 @@
           </div>
           <div class="col-md-2">
             <label class="form-label" for="stock-pattern-dimension">Dimension</label>
-            <select id="stock-pattern-dimension" v-model="filters.dimension" class="form-select">
-              <option value="back2">Back 2</option>
-              <option value="back3">Back 3</option>
-              <option value="front3">Front 3</option>
+            <select id="stock-pattern-dimension" v-model="filters.dimension" class="form-select" @change="handleDimensionChange">
+              <option v-for="dimension in dimensionOptions" :key="dimension.value" :value="dimension.value">
+                {{ dimension.label }}
+              </option>
             </select>
           </div>
           <div class="col-md-3">
@@ -121,7 +121,22 @@
           <div class="card-body">
             <AdminApiState :error="overrideError" />
             <div class="row g-3">
-              <div class="col-md-5">
+              <div class="col-md-4">
+                <label class="form-label" for="stock-pattern-override-dimension">Pattern type</label>
+                <select
+                  id="stock-pattern-override-dimension"
+                  v-model="filters.dimension"
+                  class="form-select"
+                  :disabled="!filters.game_id"
+                  @change="handleDimensionChange"
+                >
+                  <option v-for="dimension in dimensionOptions" :key="dimension.value" :value="dimension.value">
+                    {{ dimension.label }}
+                  </option>
+                </select>
+                <div class="form-text">{{ activeDimensionDescription }}</div>
+              </div>
+              <div class="col-md-4">
                 <label class="form-label" for="stock-pattern-override-value">Pattern value</label>
                 <input
                   id="stock-pattern-override-value"
@@ -129,10 +144,10 @@
                   class="form-control"
                   :maxlength="overrideValueLength"
                   inputmode="numeric"
-                  placeholder="00"
+                  :placeholder="activeDimensionExample"
                 >
               </div>
-              <div class="col-md-7">
+              <div class="col-md-4">
                 <label class="form-label" for="stock-pattern-override-limit">Override limit</label>
                 <div class="input-group">
                   <input
@@ -283,6 +298,11 @@ const limitFields = [
   { key: 'back3_limit', label: 'Back 3' },
   { key: 'front3_limit', label: 'Front 3' },
 ] as const
+const dimensionOptions = [
+  { value: 'back2', label: '2 ท้าย', description: 'เลขท้าย 2 ตัว เช่น 00-99', example: '00' },
+  { value: 'back3', label: '3 ท้าย', description: 'เลขท้าย 3 ตัว เช่น 000-999', example: '001' },
+  { value: 'front3', label: '3 หน้า', description: 'เลขหน้า 3 ตัว เช่น 000-999', example: '001' },
+] as const
 const coverageDeltaFields = [
   'generated_count',
   'reserved_count',
@@ -322,6 +342,9 @@ const activeDefaults = computed(() => filters.scope_type === 'partner' ? coverag
 const effectiveLimits = computed(() => patternSummary.value?.limits || null)
 const centralLimits = computed(() => centralSummary.value?.limits || coverageDefaults.value.central)
 const overrideValueLength = computed(() => filters.dimension === 'back2' ? 2 : 3)
+const activeDimensionOption = computed(() => dimensionOptions.find((dimension) => dimension.value === filters.dimension) || dimensionOptions[0])
+const activeDimensionDescription = computed(() => activeDimensionOption.value.description)
+const activeDimensionExample = computed(() => activeDimensionOption.value.example)
 const overrideRows = computed(() => normalizeOverrideRows(overridesDetail.value?.data || []))
 const overrideCentralCeiling = computed(() => {
   if (filters.scope_type !== 'partner') {
@@ -482,6 +505,14 @@ function applyCurrentGameDefault() {
 function handleScopeChange() {
   filters.scope_id = filters.scope_type === 'partner' ? '' : 'central'
   resetLimitForm()
+}
+
+function handleDimensionChange() {
+  resetOverrideForm()
+  resetPageState()
+  if (filters.game_id) {
+    void loadPatterns()
+  }
 }
 
 function resetFilters() {

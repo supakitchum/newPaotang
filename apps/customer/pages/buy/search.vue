@@ -106,15 +106,16 @@ const platformApi = usePlatformApi()
 const route = useRoute()
 const { currentDrawDate: displayDrawDate } = useAppInit()
 const { applyPriceUpdateToTickets } = usePriceRealtimePatch()
-const searchDigits = ref<string[]>(['', '', '', '', '', ''])
-const lotteries = ref<LotteryTicket[]>([])
-const pagination = ref<SearchPagination | null>(null)
-const currentGameId = ref('')
+const searchDigits = useState<string[]>('buy_search_digits', () => ['', '', '', '', '', ''])
+const lotteries = useState<LotteryTicket[]>('buy_search_lotteries', () => [])
+const pagination = useState<SearchPagination | null>('buy_search_pagination', () => null)
+const currentGameId = useState<string>('buy_search_game_id', () => '')
 const isSearching = ref(false)
 const isLoadingMore = ref(false)
-const hasSearched = ref(false)
-const lastSearchWasExact = ref(false)
-const searchRandomSeed = ref<string | null>(null)
+const hasSearched = useState<boolean>('buy_search_has_searched', () => false)
+const lastSearchWasExact = useState<boolean>('buy_search_last_exact', () => false)
+const searchRandomSeed = useState<string | null>('buy_search_random_seed', () => null)
+const cachedScrollTop = useState<number>('buy_search_scroll_top', () => 0)
 let scrollContainer: HTMLElement | null = null
 
 const skeletonItems = [1, 2, 3, 4, 5]
@@ -199,6 +200,7 @@ const search = async () => {
   hasSearched.value = true
   lotteries.value = []
   pagination.value = null
+  cachedScrollTop.value = 0
 
   try {
     const digits = buildSearchDigits()
@@ -273,9 +275,11 @@ const clearSearch = () => {
   searchDigits.value = ['', '', '', '', '', '']
   lotteries.value = []
   pagination.value = null
+  currentGameId.value = ''
   hasSearched.value = false
   lastSearchWasExact.value = false
   searchRandomSeed.value = null
+  cachedScrollTop.value = 0
 }
 
 const removeLottery = (ticket: LotteryTicket) => {
@@ -295,9 +299,18 @@ const ticketKey = (ticket: LotteryTicket, index: number) => String(getStockSearc
 onMounted(() => {
   scrollContainer = document.querySelector('.app-scroll')
   scrollContainer?.addEventListener('scroll', handleScroll, {passive: true})
+  requestAnimationFrame(() => {
+    if (scrollContainer && cachedScrollTop.value > 0) {
+      scrollContainer.scrollTop = cachedScrollTop.value
+    }
+  })
 })
 
 onBeforeUnmount(() => {
+  if (scrollContainer) {
+    cachedScrollTop.value = scrollContainer.scrollTop
+  }
+
   scrollContainer?.removeEventListener('scroll', handleScroll)
 })
 </script>

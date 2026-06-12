@@ -3,6 +3,7 @@ const publicCustomerRoutes = new Set([
   '/login',
   '/register',
   '/line/callback',
+  '/line/link-phone',
   '/maintenance',
   '/news',
   '/terms',

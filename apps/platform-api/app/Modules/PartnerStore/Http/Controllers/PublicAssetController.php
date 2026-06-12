@@ -3,6 +3,7 @@
 namespace App\Modules\PartnerStore\Http\Controllers;
 
 use App\Modules\StorageConnections\Services\RuntimeStorageService;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 
@@ -10,6 +11,7 @@ class PublicAssetController extends Controller
 {
     private const ALLOWED_PREFIXES = [
         'lotteries/',
+        'lottery-image-assets/',
         'partners/',
         'central/assets/',
         'tenants/',
@@ -19,7 +21,7 @@ class PublicAssetController extends Controller
     {
     }
 
-    public function show(string $path): Response
+    public function show(Request $request, string $path): Response
     {
         $path = ltrim(rawurldecode($path), '/');
 
@@ -28,18 +30,19 @@ class PublicAssetController extends Controller
         }
 
         $routeKey = $this->storage->routeForStorageKey($path);
+        $storageDriver = $this->storageDriver($request->query('storage_driver'));
 
-        if (! $this->storage->exists($routeKey, $path)) {
+        if (! $this->storage->existsUsingDriver($routeKey, $path, $storageDriver)) {
             return response('', 404, ['Cache-Control' => 'no-store']);
         }
 
-        $bytes = $this->storage->get($routeKey, $path);
+        $bytes = $this->storage->getUsingDriver($routeKey, $path, $storageDriver);
         if ($bytes === null) {
             return response('', 404, ['Cache-Control' => 'no-store']);
         }
 
         return response($bytes, 200, [
-            'Content-Type' => $this->storage->mimeType($routeKey, $path) ?: (string) config('lottery_images.content_type', 'image/webp'),
+            'Content-Type' => $this->storage->mimeTypeUsingDriver($routeKey, $path, $storageDriver) ?: (string) config('lottery_images.content_type', 'image/webp'),
             'Cache-Control' => (string) config('lottery_images.cache_control', 'public, max-age=31536000, immutable'),
         ]);
     }
@@ -53,5 +56,14 @@ class PublicAssetController extends Controller
         }
 
         return false;
+    }
+
+    private function storageDriver(mixed $value): ?string
+    {
+        $driver = trim((string) ($value ?? ''));
+
+        return in_array($driver, [RuntimeStorageService::DRIVER_LOCAL, RuntimeStorageService::DRIVER_AWS_S3], true)
+            ? $driver
+            : null;
     }
 }

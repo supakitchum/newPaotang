@@ -680,6 +680,12 @@ Route::get('/admin/tenant/stock/games', [TenantStockController::class, 'games'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/stock/coverage', [TenantStockController::class, 'coverage'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/stock/limit-overrides', [TenantStockController::class, 'limitOverrides'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::put('/admin/tenant/stock/limit-settings', [TenantStockController::class, 'updateLimitSettings'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::put('/admin/tenant/stock/limit-overrides', [TenantStockController::class, 'updateLimitOverrides'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/stock/exports', [TenantStockController::class, 'exports'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/stock/{stock_item_id}', [TenantStockController::class, 'show'])

@@ -1633,6 +1633,7 @@ class GrowthService
 
                 $resource = $this->payoutResource(AffiliatePayout::where('id', $payoutId)->first());
                 $this->auditAdmin($actor, $request, 'payout.approved', 'affiliate_payout', $payoutId, $payload, $tenantId);
+                $this->telegramNotifications->enqueue($tenantId, 'commission.status_updated', 'affiliate_payout', $payoutId, $this->telegramPayoutVariables($tenantId, $resource, 'อนุมัติแล้ว'));
 
                 return ['resource' => $resource, 'status' => 200];
             },
@@ -6041,7 +6042,7 @@ class GrowthService
      * @param array<string, mixed> $payout
      * @return array<string, mixed>
      */
-    private function telegramPayoutVariables(string $tenantId, array $payout): array
+    private function telegramPayoutVariables(string $tenantId, array $payout, ?string $statusLabel = null): array
     {
         $affiliateId = (string) ($payout['affiliate_account_id'] ?? $payout['affiliate_id'] ?? '');
         $affiliate = $affiliateId === ''
@@ -6049,11 +6050,13 @@ class GrowthService
             : AffiliateAccount::query()->where('tenant_id', $tenantId)->whereKey($affiliateId)->first();
         $amount = (int) ($payout['amount']['amount'] ?? 0);
         $method = (string) ($payout['payout_method'] ?? '');
+        $reason = trim((string) ($payout['admin_note'] ?? ''));
+        $isStatusUpdate = $statusLabel !== null && $statusLabel !== '';
 
         return [
             'event' => [
-                'title' => 'มีรายการคอมมิชชันรอตรวจสอบ',
-                'occurred_at' => $this->telegramNotifications->occurredAt($payout['created_at'] ?? null),
+                'title' => $isStatusUpdate ? 'ตรวจสอบรายการถอนคอมมิชชันแล้ว' : 'มีรายการคอมมิชชันรอตรวจสอบ',
+                'occurred_at' => $this->telegramNotifications->occurredAt($isStatusUpdate ? ($payout['approved_at'] ?? $payout['updated_at'] ?? null) : ($payout['created_at'] ?? null)),
             ],
             'tenant' => ['name' => $this->telegramNotifications->tenantName($tenantId)],
             'commission' => [
@@ -6065,6 +6068,8 @@ class GrowthService
                 },
                 'reference' => (string) ($payout['id'] ?? ''),
                 'amount_baht' => $this->telegramNotifications->baht($amount),
+                'status_label' => $statusLabel ?? 'รอตรวจสอบ',
+                'reason' => $reason === '' ? '' : 'หมายเหตุ: '.$reason,
             ],
         ];
     }

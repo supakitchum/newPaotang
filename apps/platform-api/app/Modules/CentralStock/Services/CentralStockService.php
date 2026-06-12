@@ -570,6 +570,11 @@ class CentralStockService
                 'stock_mode' => 'virtual',
                 'empty' => true,
                 'limits' => $this->publicVirtualLimits($this->defaultStockPatternCoverageForScope($scopeType)),
+                'central_limits' => $this->publicVirtualLimits(
+                    $gameId === null
+                        ? $this->defaultStockPatternCoverageForScope('central')
+                        : $this->virtualLimits($gameId, 'central', 'central'),
+                ),
                 'totals' => $this->emptyVirtualPatternTotals(),
                 'data' => [],
                 'meta' => [
@@ -595,6 +600,8 @@ class CentralStockService
         $pageRows = array_slice($rows, $offset, $limit + 1);
         $hasMore = count($pageRows) > $limit;
         $pageRows = array_slice($pageRows, 0, $limit);
+        $pageRows = $this->withCentralPatternCeilings($pageRows, $resolvedGameId, $dimension, $scopeType);
+        $centralLimits = $this->virtualLimits($resolvedGameId, 'central', 'central');
 
         return [
             'game_id' => $resolvedGameId,
@@ -605,6 +612,7 @@ class CentralStockService
             'stock_mode' => 'virtual',
             'empty' => false,
             'limits' => $this->publicVirtualLimits($limits),
+            'central_limits' => $this->publicVirtualLimits($centralLimits),
             'totals' => array_map(fn (array $rows): array => $this->virtualPatternTotals($rows), $dimensions),
             'data' => $pageRows,
             'meta' => [
@@ -1238,6 +1246,31 @@ class CentralStockService
         }
 
         return $rows;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function withCentralPatternCeilings(array $rows, string $gameId, string $dimension, string $scopeType): array
+    {
+        if ($scopeType !== 'partner' || $rows === []) {
+            return $rows;
+        }
+
+        $field = $dimension.'_limit';
+        $centralDefaultLimit = $this->virtualLimits($gameId, 'central', 'central')[$field];
+        $centralOverrides = $this->virtualLimitOverrideRows($gameId, 'central', 'central', $dimension);
+
+        return array_map(function (array $row) use ($centralDefaultLimit, $centralOverrides): array {
+            $number = (string) ($row['number'] ?? '');
+            $centralLimit = $centralOverrides[$number]['limit'] ?? $centralDefaultLimit;
+
+            return [
+                ...$row,
+                'central_limit' => $this->publicLimitValue($centralLimit),
+            ];
+        }, $rows);
     }
 
     /**

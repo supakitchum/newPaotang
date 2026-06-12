@@ -1455,6 +1455,7 @@ class CommerceService
             $this->auditAdmin($actor, $request, $auditAction, 'topup_request', $topupId, $payload, $tenantId);
             $this->queueTopupUpdatedBroadcast($tenantId, $topupId);
             $this->lineNotifications->enqueue($tenantId, (string) ($resource['customer']['id'] ?? $resource['customer_id'] ?? $topup->customer_id), 'topup.status_updated', 'topup_request', $topupId, $this->lineTopupVariables($tenantId, $resource));
+            $this->telegramNotifications->enqueue($tenantId, 'topup.status_updated', 'topup_request', $topupId, $this->telegramTopupVariables($tenantId, $resource));
 
             return ['resource' => $resource, 'status' => 200];
         });
@@ -3219,6 +3220,38 @@ class CommerceService
     }
 
     /**
+     * @param array<string, mixed> $topup
+     * @return array<string, mixed>
+     */
+    private function telegramTopupVariables(string $tenantId, array $topup): array
+    {
+        $customerId = (string) ($topup['customer']['id'] ?? $topup['customer_id'] ?? '');
+        $amount = (int) ($topup['amount']['amount'] ?? $topup['amount'] ?? 0);
+        $reason = trim((string) ($topup['admin_note'] ?? $topup['reason'] ?? ''));
+        $status = (string) ($topup['status'] ?? '');
+        $isStatusUpdate = in_array($status, ['succeeded', 'failed', 'cancelled', 'expired', 'reversed', 'approved', 'rejected'], true);
+
+        return [
+            'event' => [
+                'title' => $isStatusUpdate ? 'ตรวจสอบรายการเติมเงินแล้ว' : 'มีรายการเติมเงินรอตรวจสอบ',
+                'occurred_at' => $this->telegramNotifications->occurredAt(
+                    $isStatusUpdate
+                        ? ($topup['approved_at'] ?? $topup['rejected_at'] ?? $topup['updated_at'] ?? null)
+                        : ($topup['created_at'] ?? null),
+                ),
+            ],
+            'tenant' => ['name' => $this->telegramNotifications->tenantName($tenantId)],
+            'customer' => $this->telegramNotifications->customerVariables($tenantId, $customerId),
+            'topup' => [
+                'reference' => (string) ($topup['reference'] ?? $topup['id'] ?? ''),
+                'amount_baht' => $this->telegramNotifications->baht($amount),
+                'status_label' => $this->lineStatusLabel($status),
+                'reason' => $reason === '' ? '' : 'เหตุผล: '.$reason,
+            ],
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function lineOrderVariables(string $tenantId, string $orderId, int $ticketCount, int $totalAmount): array
@@ -3251,29 +3284,6 @@ class CommerceService
             'processing' => 'กำลังดำเนินการ',
             default => 'รอตรวจสอบ',
         };
-    }
-
-    /**
-     * @param array<string, mixed> $topup
-     * @return array<string, mixed>
-     */
-    private function telegramTopupVariables(string $tenantId, array $topup): array
-    {
-        $customerId = (string) ($topup['customer']['id'] ?? $topup['customer_id'] ?? '');
-        $amount = (int) ($topup['amount']['amount'] ?? $topup['amount'] ?? 0);
-
-        return [
-            'event' => [
-                'title' => 'มีรายการเติมเงินรอตรวจสอบ',
-                'occurred_at' => $this->telegramNotifications->occurredAt($topup['created_at'] ?? null),
-            ],
-            'tenant' => ['name' => $this->telegramNotifications->tenantName($tenantId)],
-            'customer' => $this->telegramNotifications->customerVariables($tenantId, $customerId),
-            'topup' => [
-                'reference' => (string) ($topup['reference'] ?? $topup['id'] ?? ''),
-                'amount_baht' => $this->telegramNotifications->baht($amount),
-            ],
-        ];
     }
 
     /**

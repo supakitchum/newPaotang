@@ -274,6 +274,40 @@ class LineNotificationServiceTest extends TestCase
         });
     }
 
+    public function test_legacy_default_text_template_renders_as_readable_multiline_message(): void
+    {
+        $this->seedTenant();
+        $this->seedLineChannelAndCustomer();
+
+        $template = \App\Models\TenantLineMessageTemplate::query()
+            ->where('tenant_id', 'ten_line')
+            ->where('event_key', 'topup.status_updated')
+            ->firstOrFail();
+        $template->fill([
+            'message_type' => 'text',
+            'body_text' => 'รายการเติมเงิน {{topup.reference}} เป็นสถานะ {{topup.status_label}} {{topup.reason}}',
+            'updated_at' => now(),
+        ])->save();
+
+        $messages = $this->lineService()->renderMessages($template->refresh(), [
+            'event' => ['title' => 'เติมเงิน'],
+            'tenant' => ['name' => 'Line Tenant'],
+            'customer' => ['name' => 'สมชาย', 'phone' => '0812345678'],
+            'topup' => [
+                'reference' => 'TOP123',
+                'amount_baht' => '500.00',
+                'status_label' => 'อนุมัติแล้ว',
+                'reason' => '',
+            ],
+        ]);
+
+        $this->assertSame('text', $messages[0]['type'] ?? null);
+        $this->assertSame(
+            "อัปเดตรายการเติมเงิน\nสถานะ: อนุมัติแล้ว\nยอด: 500.00 บาท\nเลขอ้างอิง: TOP123",
+            $messages[0]['text'] ?? null,
+        );
+    }
+
     public function test_delivery_reports_missing_app_key_as_specific_line_error(): void
     {
         $this->seedTenant();

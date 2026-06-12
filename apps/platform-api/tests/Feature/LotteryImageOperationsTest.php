@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Jobs\GenerateLotteryImageJob;
 use App\Modules\CentralStock\Services\LotteryImageGenerator;
+use App\Modules\StorageConnections\Services\RuntimeStorageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -265,13 +267,51 @@ class LotteryImageOperationsTest extends TestCase
             ],
         ]);
 
+        DB::table('platform_storage_connections')->updateOrInsert(
+            ['id' => 'storage_aws_s3'],
+            [
+                'provider' => 'aws_s3',
+                'status' => 'active',
+                'bucket' => 'np-launch-lottery-private',
+                'region' => 'ap-southeast-1',
+                'endpoint' => 'https://r2.launch-lottery.example',
+                'url' => 'https://cdn.launch-lottery.example',
+                'root_prefix' => 'lottery-runtime',
+                'visibility' => 'private',
+                'use_path_style_endpoint' => true,
+                'access_key_id_encrypted' => Crypt::encryptString('ACCESS_KEY_SHOULD_NOT_LEAK'),
+                'secret_access_key_encrypted' => Crypt::encryptString('SECRET_KEY_SHOULD_NOT_LEAK'),
+                'session_token_encrypted' => Crypt::encryptString('SESSION_TOKEN_SHOULD_NOT_LEAK'),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+        DB::table('platform_storage_routes')->updateOrInsert(
+            ['route_key' => 'lottery_images'],
+            [
+                'label' => 'Lottery images',
+                'description' => 'Generated lottery ticket images and stock preview assets.',
+                'driver' => 'aws_s3',
+                'root_prefix' => '',
+                'tenant_scoped' => true,
+                'sort_order' => 10,
+                'metadata_json' => json_encode(['path_hint' => 'lotteries/{game}/{batch}/partners/{partner}']),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
         $body = $this->withToken($central['access_token'])
             ->getJson('/api/v1/admin/central/lottery-images/production-readiness', [
                 'X-Admin-Scope' => 'central',
             ])
             ->assertOk()
             ->assertJsonPath('configured', true)
+            ->assertJsonPath('disk', 'storage_connections:lottery_images')
             ->assertJsonPath('disk_driver', 's3')
+            ->assertJsonPath('route_key', 'lottery_images')
+            ->assertJsonPath('route_driver', 'aws_s3')
+            ->assertJsonPath('connection_active', true)
             ->assertJsonPath('bucket_present', true)
             ->assertJsonPath('region_present', true)
             ->assertJsonPath('endpoint_present', true)
@@ -302,8 +342,10 @@ class LotteryImageOperationsTest extends TestCase
     public function test_LotteryImageOps_object_keys_cdn_urls_and_cache_contract_are_stable(): void
     {
         config([
+            'app.env' => 'production',
             'lottery_images.object_prefix' => 'lotteries',
             'lottery_images.cdn_base_url' => 'https://cdn.launch-lottery.example/assets',
+            'lottery_images.local_public_base_url' => '',
             'lottery_images.content_type' => 'image/webp',
             'lottery_images.cache_control' => 'public, max-age=31536000, immutable',
         ]);
@@ -369,12 +411,15 @@ class LotteryImageOperationsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('meta.game_id', $gameId)
             ->assertJsonPath('meta.set_type', 'charity')
+            ->assertJsonPath('meta.storage_driver', 'local')
             ->assertJsonPath('meta.imported_count', 3)
             ->assertJsonPath('meta.expected_count', 3)
             ->assertJsonPath('data.0.position', 1)
+            ->assertJsonPath('data.0.storage_driver', 'local')
             ->assertJsonPath('data.1.position', 2)
             ->assertJsonPath('data.2.position', 3)
             ->assertJsonPath('data.0.assets.source.content_type', 'image/png')
+            ->assertJsonPath('data.0.assets.source.storage_driver', 'local')
             ->assertJsonPath('data.1.assets.source.content_type', 'image/jpeg')
             ->assertJsonPath('data.2.assets.source.content_type', 'image/webp')
             ->assertJsonPath('data.0.assets.source.storage_path', 'lottery-image-assets/games/'.$gameId.'/backgrounds/v2/charity/001/001.png')
@@ -416,6 +461,8 @@ class LotteryImageOperationsTest extends TestCase
         ], JSON_THROW_ON_ERROR);
         $this->assertStringNotContainsString('very-long-background-name', $persistedZipMetadata);
         $this->assertStringContainsString('001.png', $persistedZipMetadata);
+        $this->assertStringContainsString('storage_driver', $persistedZipMetadata);
+        $this->assertStringContainsString('local', $persistedZipMetadata);
         $this->assertTrue(Storage::disk('lottery_images')->exists($response['data'][0]['assets']['full']['storage_path']));
         $this->assertTrue(Storage::disk('lottery_images')->exists($response['data'][0]['assets']['thumb']['storage_path']));
 
@@ -445,6 +492,42 @@ class LotteryImageOperationsTest extends TestCase
             ->assertJsonPath('meta.expected_count', 101)
             ->assertJsonPath('data.100.position', 101)
             ->assertJsonPath('data.100.assets.source.storage_path', 'lottery-image-assets/games/gam_lottery_zip_many/backgrounds/v1/odd/101/101.png');
+    }
+
+    public function test_LotteryImageZipImport_rejects_background_route_aws_when_connection_is_not_active(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertGame('gam_lottery_zip_no_s3', 'open');
+        $central = $this->createCentralSession(['asset.manage'], 'adm_lottery_zip_no_s3', 'lottery-zip-no-s3@example.test');
+
+        DB::table('platform_storage_routes')->updateOrInsert(
+            ['route_key' => 'background_assets'],
+            [
+                'label' => 'Background asset sets',
+                'description' => 'Source, full, and thumbnail background images imported for lottery image composition.',
+                'driver' => 'aws_s3',
+                'root_prefix' => '',
+                'tenant_scoped' => false,
+                'sort_order' => 20,
+                'metadata_json' => json_encode(['path_hint' => 'lottery-image-assets/games/{game}/backgrounds/{version}/{set_type}'], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+        DB::table('platform_storage_connections')->where('id', 'storage_aws_s3')->delete();
+
+        $this->withToken($central['access_token'])
+            ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
+                'game_id' => 'gam_lottery_zip_no_s3',
+                'version' => 'v1',
+                'set_type' => 'odd',
+                'zip' => $this->namedImageZipUpload(['alpha.png' => 'png']),
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'central-zip-import-no-s3',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.storage_route.0', 'Background asset storage is configured for AWS S3 but the storage connection is not active.');
     }
 
     public function test_LotteryImageZipImport_rejects_non_image_zip(): void
@@ -728,6 +811,99 @@ class LotteryImageOperationsTest extends TestCase
             ->assertOk()
             ->json();
 
+        $this->assertWebpBase64($partnerPreview['image_base64']);
+        $this->assertNotSame($centralPreview['image_base64'], $partnerPreview['image_base64']);
+    }
+
+    public function test_LotteryImagePreview_loads_partner_branding_from_partner_asset_route(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenant('par_preview_brand_route', 'ten_preview_brand_route');
+        $this->insertGame('gam_preview_brand_route', 'open');
+        $central = $this->createCentralSession(['asset.manage', 'stock.view'], 'adm_preview_brand_route', 'preview-brand-route@example.test');
+        $this->registerBackgroundSet($central['access_token'], 'gam_preview_brand_route', 'odd', 'preview-brand-route-bg');
+        $this->insertPartnerBrandingAssetSet('par_preview_brand_route');
+
+        $storage = new class($this->fixtureWebp('odd', 500, 280), $this->fixtureWebp('charity', 180, 180)) extends RuntimeStorageService {
+            /** @var array<int, array{method: string, route: string, key: string}> */
+            public array $calls = [];
+
+            public function __construct(private readonly string $backgroundBytes, private readonly string $brandingBytes)
+            {
+            }
+
+            public function existsUsingDriver(string $routeKey, string $key, ?string $driver = null): bool
+            {
+                $this->calls[] = ['method' => 'exists', 'route' => $routeKey, 'key' => $key];
+
+                return $this->bytesFor($routeKey, $key) !== null;
+            }
+
+            public function getUsingDriver(string $routeKey, string $key, ?string $driver = null): ?string
+            {
+                $this->calls[] = ['method' => 'get', 'route' => $routeKey, 'key' => $key];
+
+                return $this->bytesFor($routeKey, $key);
+            }
+
+            public function driverForRoute(string $routeKey): string
+            {
+                return self::DRIVER_LOCAL;
+            }
+
+            private function bytesFor(string $routeKey, string $key): ?string
+            {
+                if (
+                    in_array($routeKey, [self::ROUTE_BACKGROUND_ASSETS, self::ROUTE_CENTRAL_ASSETS], true)
+                    && (str_contains($key, 'lottery-image-assets/') || str_starts_with($key, 'central/assets/'))
+                ) {
+                    return $this->backgroundBytes;
+                }
+
+                if ($routeKey === self::ROUTE_PARTNER_ASSETS && str_contains($key, 'partners/par_preview_brand_route/lottery-branding/')) {
+                    return $this->brandingBytes;
+                }
+
+                return null;
+            }
+        };
+        $this->app->instance(RuntimeStorageService::class, $storage);
+        $this->app->instance(LotteryImageGenerator::class, new LotteryImageGenerator($storage));
+        $this->app->forgetInstance(\App\Modules\CentralStock\Services\LotteryImageOperationsService::class);
+
+        $partnerPreview = $this->withToken($central['access_token'])
+            ->postJson('/api/v1/admin/central/lottery-images/preview', [
+                'game_id' => 'gam_preview_brand_route',
+                'version' => 'v1',
+                'set_type' => 'odd',
+                'lottery_number' => '445566',
+                'partner_id' => 'par_preview_brand_route',
+                'mode' => 'partner_branded',
+            ], [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('mode', 'partner_branded')
+            ->assertJsonPath('warnings', [])
+            ->json();
+
+        $centralPreview = $this->withToken($central['access_token'])
+            ->postJson('/api/v1/admin/central/lottery-images/preview', [
+                'game_id' => 'gam_preview_brand_route',
+                'version' => 'v1',
+                'set_type' => 'odd',
+                'lottery_number' => '445566',
+                'mode' => 'central_unbranded',
+            ], [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->json();
+
+        $routes = array_column($storage->calls, 'route');
+
+        $this->assertContains(RuntimeStorageService::ROUTE_BACKGROUND_ASSETS, $routes);
+        $this->assertContains(RuntimeStorageService::ROUTE_PARTNER_ASSETS, $routes);
         $this->assertWebpBase64($partnerPreview['image_base64']);
         $this->assertNotSame($centralPreview['image_base64'], $partnerPreview['image_base64']);
     }
