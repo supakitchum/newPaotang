@@ -202,8 +202,47 @@ class CustomerAuthTest extends TestCase
             ->assertJsonPath('error.code', 'pin_invalid');
 
         $this->withToken($pinLockedToken)
+            ->postJson('http://auth.m5.test/api/v1/customer/auth/pin/reset', [
+                'pin' => '654321',
+                'pin_confirmation' => '654321',
+            ])
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'pin_reset_not_verified');
+
+        $this->withToken($pinLockedToken)
+            ->postJson('http://auth.m5.test/api/v1/customer/auth/pin/reset/verify-password', [
+                'password' => 'wrong-secret',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'password_invalid');
+
+        $this->withToken($pinLockedToken)
+            ->postJson('http://auth.m5.test/api/v1/customer/auth/pin/reset/verify-password', [
+                'password' => 'customer-secret',
+            ])
+            ->assertOk()
+            ->assertJsonPath('reset_verified', true);
+
+        $this->withToken($pinLockedToken)
+            ->postJson('http://auth.m5.test/api/v1/customer/auth/pin/reset', [
+                'pin' => '654321',
+                'pin_confirmation' => '654322',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed');
+
+        $this->withToken($pinLockedToken)
+            ->postJson('http://auth.m5.test/api/v1/customer/auth/pin/reset', [
+                'pin' => '654321',
+                'pin_confirmation' => '654321',
+            ])
+            ->assertOk()
+            ->assertJsonPath('has_pin', true)
+            ->assertJsonPath('pin_verified', true);
+
+        $this->withToken($pinLockedToken)
             ->postJson('http://auth.m5.test/api/v1/customer/auth/pin/verify', [
-                'pin' => '123456',
+                'pin' => '654321',
             ])
             ->assertOk()
             ->assertJsonPath('has_pin', true)

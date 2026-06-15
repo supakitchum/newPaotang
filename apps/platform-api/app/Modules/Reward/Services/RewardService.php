@@ -19,6 +19,7 @@ use App\Models\WinningTicket;
 use App\Jobs\ProcessTenantActivitiesForGameJob;
 use App\Modules\Reward\Events\RewardClaimUpdated;
 use App\Modules\Reward\Events\RewardLiveResultUpdated;
+use App\Modules\Rbac\Events\AdminMenuBadgesUpdated;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Modules\Auth\Services\CustomerAuthService;
@@ -440,7 +441,7 @@ class RewardService
         }
 
         $winnerCount = (clone $baseQuery)->count('winning_tickets.id');
-        $totalPrizeAmount = (int) (clone $baseQuery)->sum('winning_tickets.amount');
+        $totalPrizeAmount = $this->sumWinnerQueryAmount(clone $baseQuery);
 
         if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
             $baseQuery->where('winning_tickets.id', '>', trim((string) $queryParams['cursor']));
@@ -1095,8 +1096,8 @@ class RewardService
             'prize_types' => [(string) $winner->prize_type],
             'prize_number' => (string) $winner->prize_number,
             'prize_numbers' => [(string) $winner->prize_number],
-            'prize_amount' => $this->money((int) $winner->amount, (string) $winner->currency),
-            'total_prize_amount' => $this->money((int) $winner->amount, (string) $winner->currency),
+            'prize_amount' => $this->money($this->normalizedWinningAmount($winner, 'amount'), (string) $winner->currency),
+            'total_prize_amount' => $this->money($this->normalizedWinningAmount($winner, 'amount'), (string) $winner->currency),
             'ticket_count' => 1,
             'tenant_count' => 1,
             'tenant_summary' => $winner->tenant_name ?? $winner->tenant_code,
@@ -1106,9 +1107,9 @@ class RewardService
                 'ticket_count' => 1,
                 'winner_count' => 1,
                 'winning_row_count' => 1,
-                'total_prize_amount' => $this->money((int) $winner->amount, (string) $winner->currency),
+                'total_prize_amount' => $this->money($this->normalizedWinningAmount($winner, 'amount'), (string) $winner->currency),
             ]],
-            'base_amount' => $this->money((int) ($winner->base_amount ?? $winner->amount), (string) $winner->currency),
+            'base_amount' => $this->money($this->normalizedWinningAmount($winner, 'base_amount', 'amount'), (string) $winner->currency),
             'adjustment_amount' => $this->money((int) ($winner->adjustment_amount ?? 0), (string) $winner->currency),
             'tenant_price_rule_id' => $winner->tenant_price_rule_id,
             'claim_id' => $claimId,
@@ -1121,6 +1122,29 @@ class RewardService
             'created_at' => $winner->created_at,
             'updated_at' => $winner->updated_at,
         ];
+    }
+
+    private function sumWinnerQueryAmount(mixed $query): int
+    {
+        return (int) $query
+            ->select([
+                'winning_tickets.prize_type',
+                'winning_tickets.amount',
+                'winning_tickets.currency',
+                'winning_tickets.tenant_price_rule_id',
+                DB::raw('COUNT(*) as row_count'),
+            ])
+            ->groupBy([
+                'winning_tickets.prize_type',
+                'winning_tickets.amount',
+                'winning_tickets.currency',
+                'winning_tickets.tenant_price_rule_id',
+            ])
+            ->get()
+            ->reduce(
+                fn (int $total, object $row): int => $total + ($this->normalizedWinningAmount($row, 'amount') * (int) $row->row_count),
+                0,
+            );
     }
 
     private function winnerCustomerName(object $winner, ?string $fallback): ?string
@@ -1921,7 +1945,7 @@ class RewardService
                 'claimable' => $claimableAfterRejected,
                 'prize_type' => $winning?->prize_type,
                 'prize_number' => $winning?->prize_number,
-                'prize_amount' => $this->money((int) $claim->prize_amount, (string) $claim->currency),
+                'prize_amount' => $this->money($this->claimEffectivePrizeAmount($claim, $visibleWinnings), (string) $claim->currency),
                 'prizes' => $this->winningPrizeRowsResource($visibleWinnings),
                 'prize_count' => count($visibleWinnings),
                 'reward_result_id' => $winning?->reward_result_id,
@@ -2276,7 +2300,7 @@ class RewardService
                 return 'resource_conflict';
             }
 
-            $amount = $this->moneyAmount($payload['approved_amount'] ?? null, (int) $claim->prize_amount);
+            $amount = $this->moneyAmount($payload['approved_amount'] ?? null, $this->claimEffectivePrizeAmount($claim));
 
             if ($amount <= 0) {
                 return 'resource_conflict';
@@ -2365,7 +2389,7 @@ class RewardService
             }
 
             $method = trim((string) ($payload['payout_method'] ?? $claim->payout_method));
-            $amount = $this->moneyAmount($payload['paid_amount'] ?? null, (int) $claim->prize_amount);
+            $amount = $this->moneyAmount($payload['paid_amount'] ?? null, $this->claimEffectivePrizeAmount($claim));
             $ledger = null;
             $walletId = $claim->wallet_id;
 
@@ -2607,7 +2631,7 @@ class RewardService
             $this->queueRewardClaimUpdatedBroadcast($tenantId, $claimId);
             $statusLabel = $this->lineRewardClaimStatusLabel((string) ($resource['status'] ?? $claim->status));
             $this->lineNotifications->enqueue($tenantId, (string) ($resource['customer']['id'] ?? $claim->customer_id), 'reward_claim.status_updated', 'reward_claim', $claimId, $this->lineClaimVariables($tenantId, $resource, $statusLabel));
-            $this->telegramNotifications->enqueue($tenantId, 'reward_claim.status_updated', 'reward_claim', $claimId, $this->telegramClaimVariables($tenantId, $resource, $statusLabel));
+            $this->telegramNotifications->enqueue($tenantId, 'reward_claim.status_updated', 'reward_claim', $claimId, $this->telegramClaimVariables($tenantId, $resource, $statusLabel, $actor->adminUser));
 
             return ['resource' => $resource, 'status' => 200];
         });
@@ -3020,7 +3044,7 @@ class RewardService
         return [
             'prize_type' => (string) $prize->prize_type,
             'prize_number' => (string) $prize->prize_number,
-            'amount' => $this->money((int) $prize->amount, (string) $prize->currency),
+            'amount' => $this->money($this->normalizedRewardPrizeAmount($prize), (string) $prize->currency),
         ];
     }
 
@@ -3040,9 +3064,11 @@ class RewardService
             'prizes' => array_map(function (object $prize): array {
                 $winningCount = WinningTicket::where('reward_prize_id', $prize->id)->count();
 
+                $amount = $this->normalizedRewardPrizeAmount($prize);
+
                 return $this->prizeResource($prize) + [
                     'winning_count' => $winningCount,
-                    'total_amount' => $this->money($winningCount * (int) $prize->amount, (string) $prize->currency),
+                    'total_amount' => $this->money($winningCount * $amount, (string) $prize->currency),
                 ];
             }, $prizes),
             'winning_count' => WinningTicket::where('reward_result_id', $rewardResultId)->count(),
@@ -3305,8 +3331,36 @@ class RewardService
         return array_reduce($rows, function (int $total, object $row) use ($field, $fallbackField): int {
             $value = $row->{$field} ?? ($fallbackField === null ? 0 : ($row->{$fallbackField} ?? 0));
 
-            return $total + (int) $value;
+            return $total + $this->normalizedWinningAmount($row, $field, $fallbackField, (int) $value);
         }, 0);
+    }
+
+    private function normalizedWinningAmount(object $winning, string $field = 'amount', ?string $fallbackField = null, ?int $rawAmount = null): int
+    {
+        $amount = $rawAmount ?? (int) ($winning->{$field} ?? ($fallbackField === null ? 0 : ($winning->{$fallbackField} ?? 0)));
+
+        if ($field === 'adjustment_amount') {
+            return $amount;
+        }
+
+        if (($winning->tenant_price_rule_id ?? null) !== null) {
+            return $amount;
+        }
+
+        return ThaiGovernmentLotteryRewardTemplate::normalizeStoredMinorAmount(
+            (string) ($winning->prize_type ?? ''),
+            $amount,
+            (string) ($winning->currency ?? ThaiGovernmentLotteryRewardTemplate::CURRENCY),
+        );
+    }
+
+    private function normalizedRewardPrizeAmount(object $prize): int
+    {
+        return ThaiGovernmentLotteryRewardTemplate::normalizeStoredMinorAmount(
+            (string) ($prize->prize_type ?? ''),
+            (int) ($prize->amount ?? 0),
+            (string) ($prize->currency ?? ThaiGovernmentLotteryRewardTemplate::CURRENCY),
+        );
     }
 
     /**
@@ -3321,8 +3375,8 @@ class RewardService
             'reward_prize_id' => (string) $winning->reward_prize_id,
             'prize_type' => (string) $winning->prize_type,
             'prize_number' => (string) $winning->prize_number,
-            'amount' => $this->money((int) $winning->amount, (string) $winning->currency),
-            'base_amount' => $this->money((int) ($winning->base_amount ?? $winning->amount), (string) $winning->currency),
+            'amount' => $this->money($this->normalizedWinningAmount($winning, 'amount'), (string) $winning->currency),
+            'base_amount' => $this->money($this->normalizedWinningAmount($winning, 'base_amount', 'amount'), (string) $winning->currency),
             'adjustment_amount' => $this->money((int) ($winning->adjustment_amount ?? 0), (string) $winning->currency),
             'currency' => (string) $winning->currency,
             'status' => (string) $winning->status,
@@ -3339,6 +3393,9 @@ class RewardService
         $winnings = $this->ticketWinningRows((string) $claim->tenant_id, (string) $claim->ticket_id);
         $winning = $winnings[0] ?? WinningTicket::where('id', $claim->winning_ticket_id)->first();
         $wallet = $claim->wallet_id === null ? null : Wallet::where('id', $claim->wallet_id)->first();
+        $effectivePrizeAmount = $this->claimEffectivePrizeAmount($claim, $winnings);
+        $basePrizeAmount = $this->claimBasePrizeAmount($claim, $winnings);
+        $adjustmentAmount = $this->claimAdjustmentAmount($claim, $winnings);
 
         return [
             'id' => (string) $claim->id,
@@ -3350,14 +3407,14 @@ class RewardService
             'game_id' => (string) $claim->game_id,
             'prize_type' => $winning?->prize_type,
             'prize_number' => $winning?->prize_number,
-            'prize_amount' => $this->money((int) $claim->prize_amount, (string) $claim->currency),
+            'prize_amount' => $this->money($effectivePrizeAmount, (string) $claim->currency),
             'prizes' => $this->winningPrizeRowsResource($winnings),
             'prize_count' => count($winnings),
             'reward_pricing' => [
                 'base_source' => TenantRewardPriceRuleService::BASE_SOURCE_CENTRAL_REWARD,
-                'base_prize_amount' => $this->money((int) ($claim->base_prize_amount ?? $claim->prize_amount), (string) $claim->currency),
-                'adjustment_amount' => $this->money((int) ($claim->adjustment_amount ?? 0), (string) $claim->currency),
-                'effective_prize_amount' => $this->money((int) $claim->prize_amount, (string) $claim->currency),
+                'base_prize_amount' => $this->money($basePrizeAmount, (string) $claim->currency),
+                'adjustment_amount' => $this->money($adjustmentAmount, (string) $claim->currency),
+                'effective_prize_amount' => $this->money($effectivePrizeAmount, (string) $claim->currency),
                 'tenant_price_rule_id' => $claim->tenant_price_rule_id,
                 'price_rule_snapshot' => $this->decodeJsonObject($claim->price_rule_snapshot_json),
             ],
@@ -3371,6 +3428,42 @@ class RewardService
             'admin_note' => $claim->admin_note,
             'created_at' => $claim->created_at,
         ];
+    }
+
+    /**
+     * @param array<int, object>|null $winnings
+     */
+    private function claimEffectivePrizeAmount(object $claim, ?array $winnings = null): int
+    {
+        $winnings ??= $this->ticketWinningRows((string) $claim->tenant_id, (string) $claim->ticket_id);
+        $amount = $this->sumWinningAmount($winnings, 'amount');
+
+        return $amount > 0 ? $amount : (int) $claim->prize_amount;
+    }
+
+    /**
+     * @param array<int, object>|null $winnings
+     */
+    private function claimBasePrizeAmount(object $claim, ?array $winnings = null): int
+    {
+        $winnings ??= $this->ticketWinningRows((string) $claim->tenant_id, (string) $claim->ticket_id);
+        $amount = $this->sumWinningAmount($winnings, 'base_amount', 'amount');
+
+        return $amount > 0 ? $amount : (int) ($claim->base_prize_amount ?? $claim->prize_amount);
+    }
+
+    /**
+     * @param array<int, object>|null $winnings
+     */
+    private function claimAdjustmentAmount(object $claim, ?array $winnings = null): int
+    {
+        $winnings ??= $this->ticketWinningRows((string) $claim->tenant_id, (string) $claim->ticket_id);
+
+        if ($winnings !== []) {
+            return $this->sumWinningAmount($winnings, 'adjustment_amount');
+        }
+
+        return (int) ($claim->adjustment_amount ?? 0);
     }
 
     private function ticketMatchesPrize(string $fullNumber, object $prize): bool
@@ -3688,6 +3781,7 @@ class RewardService
                 'claim' => $this->claimResource($claim),
                 'updated_at' => now()->toISOString(),
             ]);
+            AdminMenuBadgesUpdated::dispatch('tenant', $tenantId, 'exchange_reward');
         });
     }
 
@@ -3833,7 +3927,7 @@ class RewardService
      * @param array<string, mixed> $claim
      * @return array<string, mixed>
      */
-    private function telegramClaimVariables(string $tenantId, array $claim, ?string $statusLabel = null): array
+    private function telegramClaimVariables(string $tenantId, array $claim, ?string $statusLabel = null, ?array $adminUser = null): array
     {
         $customer = is_array($claim['customer'] ?? null) ? $claim['customer'] : [];
         $amount = (int) ($claim['prize_amount']['amount'] ?? $claim['claim_amount']['amount'] ?? 0);
@@ -3850,6 +3944,7 @@ class RewardService
                 ),
             ],
             'tenant' => ['name' => $this->telegramNotifications->tenantName($tenantId)],
+            'admin' => $this->telegramNotifications->adminVariables($adminUser),
             'customer' => [
                 'name' => (string) ($customer['name'] ?? ''),
                 'phone' => (string) ($customer['phone'] ?? ''),

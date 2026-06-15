@@ -166,6 +166,31 @@ class CentralGameController extends Controller
             : response()->json($game);
     }
 
+    public function triggerRewardScraper(Request $request, string $game_id): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'reward.create');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        if ($this->centralStock->findGame($game_id) === null) {
+            return ApiErrorResponse::notFound($request);
+        }
+
+        $result = $this->centralStock->triggerRewardScraperForGame($game_id, $request->all(), $context, $request);
+
+        if ($result === null) {
+            return ApiErrorResponse::notFound($request);
+        }
+
+        if (($result['error'] ?? null) === 'resource_conflict') {
+            return ApiErrorResponse::resourceConflict($request);
+        }
+
+        return response()->json($result, 202);
+    }
+
     /**
      * @return AdminSessionContext|JsonResponse
      */

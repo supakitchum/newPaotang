@@ -84,12 +84,26 @@ const normalizeIdentityValue = (value: unknown) => {
   return text && text !== 'null' && text !== 'undefined' ? text : ''
 }
 
-export const getCartLotteryIdentityKeys = (ticket: Partial<CartLottery>) => [
-  ticket.token,
-  ticket.local_stock_item_id,
-  ticket.stock_ref,
-  ticket.id
-].map(normalizeIdentityValue).filter(Boolean)
+const uniqueIdentityKeys = (values: unknown[]) => Array.from(new Set(values.map(normalizeIdentityValue).filter(Boolean)))
+const isVirtualStockRef = (value: string) => value.startsWith('vstock:')
+
+export const getCartLotteryIdentityKeys = (ticket: Partial<CartLottery>) => {
+  const stockRef = normalizeIdentityValue(ticket.stock_ref)
+  const strongKeys = uniqueIdentityKeys([
+    ticket.token,
+    ticket.local_stock_item_id,
+    ...(Array.isArray(ticket.local_stock_item_ids) ? ticket.local_stock_item_ids : []),
+    ticket.id
+  ])
+
+  if (strongKeys.length > 0) {
+    return stockRef && isVirtualStockRef(stockRef)
+      ? uniqueIdentityKeys([...strongKeys, stockRef])
+      : strongKeys
+  }
+
+  return uniqueIdentityKeys([stockRef])
+}
 
 const hasCartIdentityMatch = (item: Partial<CartLottery>, targetKeys: string[]) => {
   if (targetKeys.length === 0) {

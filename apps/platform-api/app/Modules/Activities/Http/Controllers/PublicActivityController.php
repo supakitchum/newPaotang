@@ -25,7 +25,7 @@ class PublicActivityController extends Controller
             return $this->error($request, $site['error']);
         }
 
-        return response()->json($this->activities->publicList((string) $site['data']['tenant_id'], $this->limit($request->query('limit'))));
+        return response()->json($this->activities->publicList((string) $site['data']['tenant_id'], $request->query()));
     }
 
     public function show(Request $request, string $slug): JsonResponse
@@ -59,10 +59,4 @@ class PublicActivityController extends Controller
         return ApiErrorResponse::make($request, $error['status'], $error['code'], $error['message']);
     }
 
-    private function limit(mixed $value): int
-    {
-        $limit = filter_var($value, FILTER_VALIDATE_INT);
-
-        return $limit === false ? 20 : max(1, min(100, $limit));
-    }
 }

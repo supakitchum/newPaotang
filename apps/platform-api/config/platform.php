@@ -52,6 +52,9 @@ return [
     'lotto_scraper' => [
         'hmac_secret' => env('LOTTO_SCRAPER_HMAC_SECRET', 'newpaotang-local-lotto-scraper-secret'),
         'signature_ttl_seconds' => max(60, (int) env('LOTTO_SCRAPER_SIGNATURE_TTL_SECONDS', 300)),
+        'trigger_url' => env('LOTTO_SCRAPER_TRIGGER_URL', 'http://lotto-scraper:3200/internal/poll'),
+        'trigger_secret' => env('LOTTO_SCRAPER_TRIGGER_SECRET', env('LOTTO_SCRAPER_HMAC_SECRET', 'newpaotang-local-lotto-scraper-secret')),
+        'trigger_timeout_seconds' => max(1, (int) env('LOTTO_SCRAPER_TRIGGER_TIMEOUT_SECONDS', 15)),
     ],
     'line' => [
         'client_id' => env('LINE_LOGIN_CHANNEL_ID'),

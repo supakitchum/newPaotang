@@ -20,6 +20,10 @@
       <p class="pin-keypad-message" :class="{ visible: Boolean(error || helper) }">
         {{ error || helper }}
       </p>
+
+      <div v-if="$slots.actions" class="pin-keypad-actions">
+        <slot name="actions" />
+      </div>
     </main>
 
     <nav class="pin-keypad-grid" aria-label="PIN keypad">
@@ -186,6 +190,13 @@ const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'backspace']
 
 .pin-keypad-message.visible {
   opacity: 1;
+}
+
+.pin-keypad-actions {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 32px;
 }
 
 .pin-keypad-grid {

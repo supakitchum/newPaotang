@@ -84,6 +84,19 @@ class CustomerActivityController extends Controller
             : response()->json($this->activities->customerClaims($tenant['tenant_id'], $customer, $request->query()));
     }
 
+    public function claim(Request $request, string $claim_id): JsonResponse
+    {
+        [$tenant, $customer, $error] = $this->tenantCustomer($request);
+
+        if ($error instanceof JsonResponse) {
+            return $error;
+        }
+
+        $claim = $this->activities->customerClaim($tenant['tenant_id'], $customer, $claim_id);
+
+        return $claim === null ? ApiErrorResponse::notFound($request) : response()->json($claim);
+    }
+
     public function createClaim(Request $request): JsonResponse
     {
         [$tenant, $customer, $error] = $this->tenantCustomer($request);

@@ -140,6 +140,105 @@ class TenantActivityTest extends TestCase
         $this->assertArrayNotHasKey('reserved_numbers', $list['data'][0]['number_board']);
     }
 
+    public function test_public_and_customer_activity_lists_default_to_current_draw_and_history_requires_history_mode(): void
+    {
+        $service = app(TenantActivityService::class);
+        $this->insertActivePartnerTenantWithDomain('par_act_draws', 'ten_act_draws', 'act-draws.test');
+        $this->insertGame('gam_act_draw_current', 'open');
+        $this->insertGame('gam_act_draw_history', 'reward_published');
+        DB::table('games')->where('id', 'gam_act_draw_current')->update([
+            'name' => 'งวดวันที่ 16 มิ.ย. 2569',
+            'draw_at' => now()->addDay(),
+            'updated_at' => now(),
+        ]);
+        DB::table('games')->where('id', 'gam_act_draw_history')->update([
+            'name' => 'งวดวันที่ 1 มิ.ย. 2569',
+            'draw_at' => now()->subDays(15),
+            'updated_at' => now(),
+        ]);
+        $this->insertLuckyActivity('ten_act_draws', 'gam_act_draw_current', 'act_draw_current', thresholdTickets: 1);
+        $this->insertLuckyActivity('ten_act_draws', 'gam_act_draw_history', 'act_draw_history', thresholdTickets: 1);
+        $this->issueCustomerToken('ten_act_draws', 'cus_act_draws');
+
+        $current = $service->publicList('ten_act_draws', ['limit' => 10]);
+        $this->assertSame(['gam_act_draw_current'], array_values(array_unique(array_column($current['data'], 'game_id'))));
+        $this->assertSame('gam_act_draw_current', $current['meta']['current_game_id']);
+        $this->assertSame('gam_act_draw_current', $current['meta']['selected_game_id']);
+        $this->assertTrue($current['meta']['has_history']);
+        $this->assertCount(2, $current['meta']['games']);
+
+        $adminDefault = $service->list('ten_act_draws', ['limit' => 10]);
+        $this->assertSame(['gam_act_draw_current'], array_values(array_unique(array_column($adminDefault['data'], 'game_id'))));
+        $this->assertSame('gam_act_draw_current', $adminDefault['meta']['selected_game_id']);
+
+        $adminHistory = $service->list('ten_act_draws', ['limit' => 10, 'game_id' => 'gam_act_draw_history']);
+        $this->assertSame(['gam_act_draw_history'], array_values(array_unique(array_column($adminHistory['data'], 'game_id'))));
+        $this->assertSame('gam_act_draw_history', $adminHistory['meta']['selected_game_id']);
+
+        $ignoredHistory = $service->publicList('ten_act_draws', ['limit' => 10, 'game_id' => 'gam_act_draw_history']);
+        $this->assertSame(['gam_act_draw_current'], array_values(array_unique(array_column($ignoredHistory['data'], 'game_id'))));
+        $this->assertSame('gam_act_draw_current', $ignoredHistory['meta']['selected_game_id']);
+
+        $history = $service->publicList('ten_act_draws', ['limit' => 10, 'history' => 1, 'game_id' => 'gam_act_draw_history']);
+        $this->assertSame(['gam_act_draw_history'], array_values(array_unique(array_column($history['data'], 'game_id'))));
+        $this->assertSame('gam_act_draw_history', $history['meta']['selected_game_id']);
+        $this->assertSame('history', $history['meta']['mode']);
+        $this->assertCount(1, $history['meta']['games']);
+
+        $customer = $service->customerActivities('ten_act_draws', $this->customerContext('ten_act_draws', 'cus_act_draws'), [
+            'limit' => 10,
+            'history' => 1,
+            'game_id' => 'gam_act_draw_history',
+        ]);
+        $this->assertSame(['gam_act_draw_history'], array_values(array_unique(array_column($customer['data'], 'game_id'))));
+        $this->assertSame('gam_act_draw_history', $customer['meta']['selected_game_id']);
+
+        $customerCurrent = $service->customerActivities('ten_act_draws', $this->customerContext('ten_act_draws', 'cus_act_draws'), [
+            'limit' => 10,
+            'game_id' => 'gam_act_draw_history',
+        ]);
+        $this->assertSame(['gam_act_draw_current'], array_values(array_unique(array_column($customerCurrent['data'], 'game_id'))));
+        $this->assertSame('gam_act_draw_current', $customerCurrent['meta']['selected_game_id']);
+    }
+
+    public function test_lucky_board_customer_detail_exposes_announced_result_and_customer_status(): void
+    {
+        $service = app(TenantActivityService::class);
+        $this->insertActivePartnerTenantWithDomain('par_act_result', 'ten_act_result', 'act-result.test');
+        $this->insertGame('gam_act_result', 'open');
+        $this->markActivityResultReady('gam_act_result');
+        $this->issueCustomerToken('ten_act_result', 'cus_act_result_winner');
+        $this->issueCustomerToken('ten_act_result', 'cus_act_result_loser');
+        $this->insertLuckyActivity('ten_act_result', 'gam_act_result', 'act_lucky_result', thresholdTickets: 1);
+        $this->insertPaidOrderWithTickets('par_act_result', 'ten_act_result', 'gam_act_result', 'cus_act_result_winner', 'ord_result_winner', ['123456'], 8000);
+        $this->insertPaidOrderWithTickets('par_act_result', 'ten_act_result', 'gam_act_result', 'cus_act_result_loser', 'ord_result_loser', ['223457'], 8000);
+
+        $winner = $this->customerContext('ten_act_result', 'cus_act_result_winner');
+        $loser = $this->customerContext('ten_act_result', 'cus_act_result_loser');
+        $this->assertSame(201, $service->createCustomerEntry('ten_act_result', $winner, 'act_lucky_result', [
+            'prediction_type' => 'first_prize_last2',
+            'selected_number' => '56',
+        ])['status'] ?? null);
+        $this->assertSame(201, $service->createCustomerEntry('ten_act_result', $loser, 'act_lucky_result', [
+            'prediction_type' => 'first_prize_last2',
+            'selected_number' => '57',
+        ])['status'] ?? null);
+        $this->insertPublishedRewardResult('gam_act_result', 'rwr_act_result', '123456', '99');
+        $this->assertSame(['lucky_awards' => 1, 'cashback_awards' => 0], $service->processGame('gam_act_result', 'lucky'));
+
+        $winnerDetail = $service->customerActivity('ten_act_result', $winner, 'act_lucky_result');
+        $loserDetail = $service->customerActivity('ten_act_result', $loser, 'act_lucky_result');
+
+        $this->assertSame('announced', $winnerDetail['result_summary']['status'] ?? null);
+        $this->assertSame('56', $winnerDetail['result_summary']['winning_number'] ?? null);
+        $this->assertSame(['56'], $winnerDetail['result_summary']['winning_numbers'] ?? null);
+        $this->assertSame('won', $winnerDetail['result_summary']['customer']['status'] ?? null);
+        $this->assertSame(['56'], $winnerDetail['result_summary']['customer']['winning_numbers'] ?? null);
+        $this->assertSame(10000, $winnerDetail['result_summary']['customer']['award_amount']['amount'] ?? null);
+        $this->assertSame('lost', $loserDetail['result_summary']['customer']['status'] ?? null);
+        $this->assertSame([], $loserDetail['result_summary']['customer']['winning_numbers'] ?? null);
+    }
+
     public function test_lucky_board_single_order_rights_consume_ticket_blocks_from_the_same_order(): void
     {
         $service = app(TenantActivityService::class);

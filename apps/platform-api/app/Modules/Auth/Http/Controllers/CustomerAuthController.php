@@ -204,6 +204,40 @@ class CustomerAuthController extends Controller
         return $this->writeResult($request, $this->customerAuth->changePin($context, $request->all()));
     }
 
+    public function verifyPinResetPassword(Request $request): JsonResponse
+    {
+        $context = $request->attributes->get('customer_session');
+
+        if (! $context instanceof CustomerSessionContext) {
+            return ApiErrorResponse::authenticationRequired($request);
+        }
+
+        $errors = $this->passwordErrors($request->all());
+
+        if ($errors !== []) {
+            return ApiErrorResponse::validationFailed($request, $errors);
+        }
+
+        return $this->writeResult($request, $this->customerAuth->verifyPinResetPassword($context, $request->all()));
+    }
+
+    public function resetPin(Request $request): JsonResponse
+    {
+        $context = $request->attributes->get('customer_session');
+
+        if (! $context instanceof CustomerSessionContext) {
+            return ApiErrorResponse::authenticationRequired($request);
+        }
+
+        $errors = $this->pinErrors($request->all(), 'pin', true);
+
+        if ($errors !== []) {
+            return ApiErrorResponse::validationFailed($request, $errors);
+        }
+
+        return $this->writeResult($request, $this->customerAuth->resetPin($context, $request->all()));
+    }
+
     /**
      * @return array<string, mixed>|JsonResponse
      */
@@ -270,6 +304,19 @@ class CustomerAuthController extends Controller
 
     /**
      * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    private function passwordErrors(array $payload): array
+    {
+        if (trim((string) ($payload['password'] ?? '')) === '') {
+            return ['password' => ['The password field is required.']];
+        }
+
+        return [];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
      */
     private function profileUpdateRequiresPin(array $payload): bool
     {
@@ -312,6 +359,8 @@ class CustomerAuthController extends Controller
             'pin_required' => ApiErrorResponse::customerPinRequired($request),
             'pin_locked' => ApiErrorResponse::customerPinLocked($request, $result['retry_after_seconds'] ?? null),
             'pin_invalid' => ApiErrorResponse::make($request, 422, 'pin_invalid', 'The customer PIN is incorrect.'),
+            'password_invalid' => ApiErrorResponse::make($request, 422, 'password_invalid', 'The account password is incorrect.'),
+            'pin_reset_not_verified' => ApiErrorResponse::make($request, 403, 'pin_reset_not_verified', 'Please verify the account password before resetting PIN.'),
             default => response()->json($result['resource'] ?? [], $result['status'] ?? $defaultStatus),
         };
     }

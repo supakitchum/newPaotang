@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\AdminAuthFixtures;
 use Tests\TestCase;
 
@@ -71,6 +72,113 @@ class AdminMenuTest extends TestCase
         $this->assertSame('Store Operations', $response[1]['category']);
         $this->assertSame('ri-receipt-line', $response[1]['icon']);
         $this->assertArrayHasKey('route', $response[1]);
+    }
+
+    public function test_tenant_menu_includes_pending_review_badges(): void
+    {
+        $this->seedDefaultRbac();
+        $this->createPartner();
+        $this->createTenant('ten_auth');
+        $this->createAdmin('adm_tenant', 'tenant@example.test');
+        $this->createAdminScope('scp_tenant', 'tenant', 'ten_auth', 'par_auth');
+        $this->assignRoleWithPermissions(
+            'adm_tenant',
+            'scp_tenant',
+            'tenant',
+            'ten_auth',
+            ['dashboard.view', 'topup.view'],
+            'tenant_topup_menu_badge',
+        );
+
+        DB::table('customers')->insert([
+            'id' => 'cus_menu_badge',
+            'tenant_id' => 'ten_auth',
+            'phone' => '0800000001',
+            'name' => 'Menu Badge Customer',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('wallets')->insert([
+            'id' => 'wal_menu_badge',
+            'tenant_id' => 'ten_auth',
+            'customer_id' => 'cus_menu_badge',
+            'name' => 'Primary wallet',
+            'type' => 'primary',
+            'status' => 'active',
+            'balance_amount' => 0,
+            'currency' => 'THB',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('topup_requests')->insert([
+            [
+                'id' => 'top_menu_pending',
+                'tenant_id' => 'ten_auth',
+                'customer_id' => 'cus_menu_badge',
+                'wallet_id' => 'wal_menu_badge',
+                'provider' => 'manual',
+                'channel' => 'bank_transfer',
+                'status' => 'pending',
+                'amount' => 10000,
+                'bonus_amount' => 0,
+                'currency' => 'THB',
+                'reference' => 'TOP-MENU-PENDING',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => 'top_menu_processing',
+                'tenant_id' => 'ten_auth',
+                'customer_id' => 'cus_menu_badge',
+                'wallet_id' => 'wal_menu_badge',
+                'provider' => 'manual',
+                'channel' => 'bank_transfer',
+                'status' => 'processing',
+                'amount' => 20000,
+                'bonus_amount' => 0,
+                'currency' => 'THB',
+                'reference' => 'TOP-MENU-PROCESSING',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => 'top_menu_done',
+                'tenant_id' => 'ten_auth',
+                'customer_id' => 'cus_menu_badge',
+                'wallet_id' => 'wal_menu_badge',
+                'provider' => 'manual',
+                'channel' => 'bank_transfer',
+                'status' => 'succeeded',
+                'amount' => 30000,
+                'bonus_amount' => 0,
+                'currency' => 'THB',
+                'reference' => 'TOP-MENU-DONE',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $login = $this->loginAdmin([
+            'email' => 'tenant@example.test',
+            'password' => 'secret-password',
+            'scope' => 'tenant',
+            'tenant_id' => 'ten_auth',
+        ]);
+
+        $response = $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/tenant/menu', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_auth',
+            ])
+            ->assertOk()
+            ->json('data');
+
+        $topups = collect($response)->firstWhere('key', 'topups');
+
+        $this->assertIsArray($topups);
+        $this->assertSame('Review Queue', $topups['category'] ?? null);
+        $this->assertSame(2, $topups['badge_count'] ?? null);
     }
 
     public function test_tenant_admin_cannot_access_another_tenant_menu(): void

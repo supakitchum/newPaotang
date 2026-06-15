@@ -78,6 +78,7 @@ export default {
       storeOperations: 'Store Operations',
       growth: 'Growth',
       operationsControl: 'Operations Control',
+      reviewQueue: 'Review Queue',
     },
     items: {
       central: {
@@ -148,6 +149,7 @@ export default {
         payouts: 'Payouts',
         announcements: 'Announcements',
         line_notifications: 'LINE Notifications',
+        password_reset_requests: 'Password Reset Requests',
         activities: 'Activities',
         activity_claims: 'Activity Claims',
         seo_settings: 'SEO Settings',

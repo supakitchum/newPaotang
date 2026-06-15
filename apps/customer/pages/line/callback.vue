@@ -26,6 +26,9 @@ interface LineCallbackResponse {
   line_link_required?: boolean
   link_token?: string
   line_profile?: Record<string, any>
+  password_reset_ready?: boolean
+  password_reset_token?: string
+  expires_at?: string
   pin_required?: boolean
   pin_setup_required?: boolean
   order_id?: string
@@ -119,6 +122,18 @@ onMounted(async () => {
     const response = await platformApi.lineCallback(route.query) as LineCallbackResponse
 
     if (response.code === 0) {
+      if (response.password_reset_ready && response.password_reset_token) {
+        clearLineRedirect()
+        await navigateTo({
+          path: '/reset-password',
+          query: {
+            token: response.password_reset_token,
+            source: 'line'
+          }
+        })
+        return
+      }
+
       if (response.line_link_required && response.link_token) {
         const redirectTo = getSafeRedirect(lineRedirect.value)
         await navigateTo({

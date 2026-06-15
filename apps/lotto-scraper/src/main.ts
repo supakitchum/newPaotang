@@ -26,7 +26,24 @@ const backoff = new BackoffState()
 let stableCompleteCount = 0
 const completedDraws = new Set<string>()
 
-startHealthServer(config.healthPort, state)
+startHealthServer(config.healthPort, state, {
+  triggerSecret: config.triggerSecret,
+  triggerSignatureTtlSeconds: config.triggerSignatureTtlSeconds,
+  triggerPoll: async ({ drawCode, forceIngest, reason }) => {
+    const result = await pollDraw(drawCode, {
+      forceIngest,
+      reason,
+      throwOnError: true
+    })
+
+    return {
+      ingested: Boolean(result),
+      completion_percent: result?.completion_percent ?? null,
+      payload_hash: result?.payload_hash ?? null,
+      is_complete: result?.is_complete ?? false
+    }
+  }
+})
 logger.info({ config: redactedConfig() }, 'Lotto scraper starting.')
 
 try {
@@ -87,7 +104,13 @@ while (true) {
   await sleep(applyJitter(window.intervalMs))
 }
 
-async function pollDraw(drawCode: string) {
+type PollOptions = {
+  forceIngest?: boolean
+  reason?: string
+  throwOnError?: boolean
+}
+
+async function pollDraw(drawCode: string, options: PollOptions = {}) {
   const lockAcquired = await store.acquireLock(drawCode, instanceId, config.lockTtlMs)
 
   if (!lockAcquired) {
@@ -103,7 +126,7 @@ async function pollDraw(drawCode: string) {
 
     backoff.recordSuccess()
 
-    if (previousHash === parsed.payload_hash) {
+    if (previousHash === parsed.payload_hash && options.forceIngest !== true) {
       logger.info({ draw_code: drawCode, completion_percent: parsed.completion_percent }, 'Sanook result unchanged; skipping ingest.')
       return parsed
     }
@@ -115,8 +138,10 @@ async function pollDraw(drawCode: string) {
     logger.info({
       draw_code: drawCode,
       completion_percent: parsed.completion_percent,
-      payload_hash: parsed.payload_hash
-    }, 'Ingested live draft result.')
+      payload_hash: parsed.payload_hash,
+      force_ingest: options.forceIngest === true,
+      reason: options.reason || 'scheduled_poll'
+    }, options.forceIngest === true ? 'Force-ingested live draft result.' : 'Ingested live draft result.')
 
     return parsed
   } catch (error: any) {
@@ -128,6 +153,10 @@ async function pollDraw(drawCode: string) {
       logger.warn({ error, statusCode, delay }, 'Source/API error triggered scraper backoff.')
     } else {
       logger.error({ error }, 'Lotto scraper poll failed.')
+    }
+
+    if (options.throwOnError === true) {
+      throw error
     }
 
     return null

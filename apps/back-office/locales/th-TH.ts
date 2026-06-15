@@ -78,6 +78,7 @@ export default {
       storeOperations: 'ปฏิบัติการร้านค้า',
       growth: 'การเติบโต',
       operationsControl: 'ควบคุมการปฏิบัติการ',
+      reviewQueue: 'คิวรอตรวจสอบ',
     },
     items: {
       central: {
@@ -148,6 +149,7 @@ export default {
         payouts: 'การจ่ายเงิน',
         announcements: 'ประกาศข่าว',
         line_notifications: 'แจ้งเตือน LINE',
+        password_reset_requests: 'คำขอลืมรหัสผ่าน',
         activities: 'กิจกรรม',
         activity_claims: 'คำขอรับเงินกิจกรรม',
         seo_settings: 'ตั้งค่า SEO',

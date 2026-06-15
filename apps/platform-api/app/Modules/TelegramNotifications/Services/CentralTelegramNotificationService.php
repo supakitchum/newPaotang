@@ -3,6 +3,7 @@
 namespace App\Modules\TelegramNotifications\Services;
 
 use App\Jobs\SendTelegramNotificationJob;
+use App\Models\AdminUser;
 use App\Models\Customer;
 use App\Models\PartnerTenant;
 use App\Models\TelegramBotConnection;
@@ -31,6 +32,13 @@ class CentralTelegramNotificationService
         'activity.entry.created',
         'activity_claim.status_updated',
         'activity.result.published',
+    ];
+
+    private const ADMIN_REVIEW_EVENT_KEYS = [
+        'topup.status_updated',
+        'commission.status_updated',
+        'reward_claim.status_updated',
+        'activity_claim.status_updated',
     ];
 
     public function __construct(private readonly TelegramBotClient $telegram)
@@ -428,6 +436,8 @@ class CentralTelegramNotificationService
                 ? $this->renderTemplate($template, $variables)
                 : $this->renderTemplateString($this->defaultTemplate($eventKey), $variables);
 
+            $message = $this->appendReviewerLine($eventKey, $message, $variables);
+
             if ($message === '') {
                 return;
             }
@@ -623,6 +633,36 @@ class CentralTelegramNotificationService
         return trim($rendered);
     }
 
+    private function appendReviewerLine(string $eventKey, string $message, array $variables): string
+    {
+        if (! in_array($eventKey, self::ADMIN_REVIEW_EVENT_KEYS, true) || trim($message) === '') {
+            return $message;
+        }
+
+        $username = $this->cleanString(Arr::get($variables, 'admin.username'));
+
+        if ($username === '') {
+            return $message;
+        }
+
+        if ($this->containsReviewerMarker($message)) {
+            return $message;
+        }
+
+        return trim($message)."\nผู้ตรวจ: ".htmlspecialchars($username, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+    private function containsReviewerMarker(string $message): bool
+    {
+        foreach (['ผู้ตรวจ:', 'ตรวจโดย:', 'Reviewer:', 'Reviewed by:', 'Admin:'] as $marker) {
+            if (str_contains($message, $marker)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function failDelivery(TelegramNotificationDelivery $delivery, string $code, string $message): void
     {
         $delivery->fill([
@@ -675,15 +715,22 @@ class CentralTelegramNotificationService
 
     private function serializeTemplate(TelegramMessageTemplate $template): array
     {
+        $eventKey = (string) $template->event_key;
+        $bodyText = (string) $template->body_text;
+
+        if (in_array($eventKey, self::ADMIN_REVIEW_EVENT_KEYS, true) && ! $this->containsReviewerMarker($bodyText)) {
+            $bodyText = trim($bodyText)."\nผู้ตรวจ: {{ admin.username }}";
+        }
+
         return [
             'id' => $template->id,
             'event_key' => $template->event_key,
-            'label' => $this->eventDefinition((string) $template->event_key)['label'],
-            'description' => $this->eventDefinition((string) $template->event_key)['description'],
+            'label' => $this->eventDefinition($eventKey)['label'],
+            'description' => $this->eventDefinition($eventKey)['description'],
             'enabled' => (bool) $template->enabled,
             'title' => $template->title,
-            'body_text' => $template->body_text,
-            'variables' => $template->variables_json ?: $this->variablesForEvent((string) $template->event_key),
+            'body_text' => $bodyText,
+            'variables' => $this->variablesForEvent($eventKey),
             'updated_at' => $template->updated_at,
         ];
     }
@@ -729,14 +776,14 @@ class CentralTelegramNotificationService
     {
         return match ($eventKey) {
             'topup.submitted' => "<b>มีรายการเติมเงินรอตรวจสอบ</b>\nร้าน: {{ tenant.name }}\nลูกค้า: {{ customer.name }} {{ customer.phone }}\nยอด: {{ topup.amount_baht }} บาท\nเลขอ้างอิง: {{ topup.reference }}\nเวลา: {{ event.occurred_at }}",
-            'topup.status_updated' => "<b>ตรวจสอบรายการเติมเงินแล้ว</b>\nร้าน: {{ tenant.name }}\nลูกค้า: {{ customer.name }} {{ customer.phone }}\nสถานะ: {{ topup.status_label }}\nยอด: {{ topup.amount_baht }} บาท\nเลขอ้างอิง: {{ topup.reference }}\n{{ topup.reason }}\nเวลา: {{ event.occurred_at }}",
+            'topup.status_updated' => "<b>ตรวจสอบรายการเติมเงินแล้ว</b>\nร้าน: {{ tenant.name }}\nลูกค้า: {{ customer.name }} {{ customer.phone }}\nสถานะ: {{ topup.status_label }}\nยอด: {{ topup.amount_baht }} บาท\nเลขอ้างอิง: {{ topup.reference }}\n{{ topup.reason }}\nผู้ตรวจ: {{ admin.username }}\nเวลา: {{ event.occurred_at }}",
             'commission.submitted' => "<b>มีรายการคอมมิชชันรอตรวจสอบ</b>\nร้าน: {{ tenant.name }}\nลูกค้า/บัญชี: {{ commission.customer_name }}\nประเภท: {{ commission.type_label }}\nยอด: {{ commission.amount_baht }} บาท\nเลขอ้างอิง: {{ commission.reference }}\nเวลา: {{ event.occurred_at }}",
-            'commission.status_updated' => "<b>ตรวจสอบรายการถอนคอมมิชชันแล้ว</b>\nร้าน: {{ tenant.name }}\nลูกค้า/บัญชี: {{ commission.customer_name }}\nประเภท: {{ commission.type_label }}\nสถานะ: {{ commission.status_label }}\nยอด: {{ commission.amount_baht }} บาท\nเลขอ้างอิง: {{ commission.reference }}\n{{ commission.reason }}\nเวลา: {{ event.occurred_at }}",
+            'commission.status_updated' => "<b>ตรวจสอบรายการถอนคอมมิชชันแล้ว</b>\nร้าน: {{ tenant.name }}\nลูกค้า/บัญชี: {{ commission.customer_name }}\nประเภท: {{ commission.type_label }}\nสถานะ: {{ commission.status_label }}\nยอด: {{ commission.amount_baht }} บาท\nเลขอ้างอิง: {{ commission.reference }}\n{{ commission.reason }}\nผู้ตรวจ: {{ admin.username }}\nเวลา: {{ event.occurred_at }}",
             'reward_claim.submitted' => "<b>มีรายการขึ้นเงินรางวัลรอตรวจสอบ</b>\nร้าน: {{ tenant.name }}\nลูกค้า: {{ customer.name }} {{ customer.phone }}\nยอด: {{ claim.amount_baht }} บาท\nเลขอ้างอิง: {{ claim.reference }}\nเวลา: {{ event.occurred_at }}",
-            'reward_claim.status_updated' => "<b>ตรวจสอบรายการขึ้นเงินรางวัลแล้ว</b>\nร้าน: {{ tenant.name }}\nลูกค้า: {{ customer.name }} {{ customer.phone }}\nสถานะ: {{ claim.status_label }}\nยอด: {{ claim.amount_baht }} บาท\nเลขอ้างอิง: {{ claim.reference }}\n{{ claim.reason }}\nเวลา: {{ event.occurred_at }}",
+            'reward_claim.status_updated' => "<b>ตรวจสอบรายการขึ้นเงินรางวัลแล้ว</b>\nร้าน: {{ tenant.name }}\nลูกค้า: {{ customer.name }} {{ customer.phone }}\nสถานะ: {{ claim.status_label }}\nยอด: {{ claim.amount_baht }} บาท\nเลขอ้างอิง: {{ claim.reference }}\n{{ claim.reason }}\nผู้ตรวจ: {{ admin.username }}\nเวลา: {{ event.occurred_at }}",
             'order.paid' => "<b>ลูกค้าซื้อสลากสำเร็จ</b>\nร้าน: {{ tenant.name }}\nลูกค้า: {{ customer.name }} {{ customer.phone }}\nงวด: {{ order.draw_label }}\nจำนวน: {{ order.ticket_count }} ใบ\nยอด: {{ order.amount_baht }} บาท\nเลขอ้างอิง: {{ order.reference }}\nเวลา: {{ event.occurred_at }}",
             'activity.entry.created' => "<b>ลูกค้าเข้าร่วมกิจกรรม</b>\nร้าน: {{ tenant.name }}\nกิจกรรม: {{ activity.name }}\nประเภท: {{ activity.prediction_type_label }}\nลูกค้า: {{ customer.name }} {{ customer.phone }}\nเลขที่เลือก: {{ activity.selected_number }}\nสิทธิ์ที่ใช้: {{ activity.rights_used }}\nเวลา: {{ event.occurred_at }}",
-            'activity_claim.status_updated' => "<b>ตรวจสอบรายการขึ้นเงินรางวัลกิจกรรมแล้ว</b>\nร้าน: {{ tenant.name }}\nลูกค้า: {{ customer.name }} {{ customer.phone }}\nสถานะ: {{ claim.status_label }}\nยอด: {{ claim.amount_baht }} บาท\nเลขอ้างอิง: {{ claim.reference }}\n{{ claim.reason }}\nเวลา: {{ event.occurred_at }}",
+            'activity_claim.status_updated' => "<b>ตรวจสอบรายการขึ้นเงินรางวัลกิจกรรมแล้ว</b>\nร้าน: {{ tenant.name }}\nลูกค้า: {{ customer.name }} {{ customer.phone }}\nสถานะ: {{ claim.status_label }}\nยอด: {{ claim.amount_baht }} บาท\nเลขอ้างอิง: {{ claim.reference }}\n{{ claim.reason }}\nผู้ตรวจ: {{ admin.username }}\nเวลา: {{ event.occurred_at }}",
             'activity.result.published' => "<b>ผลกิจกรรมออกแล้ว</b>\nร้าน: {{ tenant.name }}\nงวด: {{ activity.draw_label }}\n{{ activity.summary }}\nเวลา: {{ event.occurred_at }}",
             default => '{{ event.title }}',
         };
@@ -750,16 +797,47 @@ class CentralTelegramNotificationService
             'tenant.name',
             ...match ($eventKey) {
                 'topup.submitted' => ['customer.name', 'customer.phone', 'topup.reference', 'topup.amount_baht'],
-                'topup.status_updated' => ['customer.name', 'customer.phone', 'topup.reference', 'topup.amount_baht', 'topup.status_label', 'topup.reason'],
+                'topup.status_updated' => ['customer.name', 'customer.phone', 'topup.reference', 'topup.amount_baht', 'topup.status_label', 'topup.reason', 'admin.username'],
                 'commission.submitted' => ['commission.customer_name', 'commission.type_label', 'commission.reference', 'commission.amount_baht'],
-                'commission.status_updated' => ['commission.customer_name', 'commission.type_label', 'commission.reference', 'commission.amount_baht', 'commission.status_label', 'commission.reason'],
+                'commission.status_updated' => ['commission.customer_name', 'commission.type_label', 'commission.reference', 'commission.amount_baht', 'commission.status_label', 'commission.reason', 'admin.username'],
                 'reward_claim.submitted' => ['customer.name', 'customer.phone', 'claim.reference', 'claim.amount_baht'],
-                'reward_claim.status_updated', 'activity_claim.status_updated' => ['customer.name', 'customer.phone', 'claim.reference', 'claim.amount_baht', 'claim.status_label', 'claim.reason'],
+                'reward_claim.status_updated', 'activity_claim.status_updated' => ['customer.name', 'customer.phone', 'claim.reference', 'claim.amount_baht', 'claim.status_label', 'claim.reason', 'admin.username'],
                 'order.paid' => ['customer.name', 'customer.phone', 'order.reference', 'order.ticket_count', 'order.amount_baht', 'order.draw_label'],
                 'activity.entry.created' => ['customer.name', 'customer.phone', 'activity.name', 'activity.prediction_type_label', 'activity.selected_number', 'activity.rights_used'],
                 'activity.result.published' => ['activity.draw_label', 'activity.summary'],
                 default => [],
             },
+        ];
+    }
+
+    /**
+     * @param array<string, mixed>|null $adminUser
+     * @return array<string, string>
+     */
+    public function adminVariables(?array $adminUser): array
+    {
+        $adminUser ??= [];
+
+        $id = $this->cleanString($adminUser['id'] ?? '');
+        $username = $this->cleanString($adminUser['username'] ?? '');
+        $name = $this->cleanString($adminUser['name'] ?? '');
+        $email = $this->cleanString($adminUser['email'] ?? '');
+
+        if ($id !== '' && ($username === '' || $name === '' || $email === '')) {
+            $admin = AdminUser::query()->whereKey($id)->first(['id', 'username', 'name', 'email']);
+            $username = $username !== '' ? $username : $this->cleanString($admin?->username);
+            $name = $name !== '' ? $name : $this->cleanString($admin?->name);
+            $email = $email !== '' ? $email : $this->cleanString($admin?->email);
+        }
+
+        $displayName = $username !== '' ? $username : ($name !== '' ? $name : ($email !== '' ? $email : $id));
+
+        return [
+            'id' => $id,
+            'username' => $displayName,
+            'name' => $name,
+            'email' => $email,
+            'display_name' => $displayName,
         ];
     }
 

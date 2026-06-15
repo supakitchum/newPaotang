@@ -73,7 +73,7 @@ const game = ref<LotteryRewardGame | null>(null)
 const historyGames = ref<LotteryRewardGame[]>([])
 const isLoading = ref(true)
 const errorMessage = ref('')
-const { isResolvedRewardNumber, toSummary } = useLotteryReward()
+const { isResolvedRewardNumber, isUnofficialRewardResult, toSummary } = useLotteryReward()
 
 const normalizeId = (value: unknown) => String(value || '').trim()
 const currentGameId = computed(() => normalizeId(currentGame.value?.id))
@@ -128,7 +128,7 @@ const displayHistoryGames = computed(() => {
 })
 
 const isUnofficialReward = (item: LotteryRewardGame | null | undefined) => (
-  Boolean(item) && Number(item?.status) !== 2
+  isUnofficialRewardResult(item)
 )
 
 const fullLink = (item: LotteryRewardGame | null | undefined) => {

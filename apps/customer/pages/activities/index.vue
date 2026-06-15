@@ -3,6 +3,17 @@
     <BlueHeader title="กิจกรรม" back-to="/" min-height="214px" />
 
     <section class="content-sheet flush activities-sheet">
+      <div v-if="hasHistory" class="activity-history-link">
+        <div>
+          <span>กิจกรรมย้อนหลัง</span>
+          <strong>ดูรายการกิจกรรมของงวดก่อนหน้า</strong>
+        </div>
+        <NuxtLink to="/activities/history">
+          ดูงวดที่แล้ว
+          <i class="bi bi-chevron-right" />
+        </NuxtLink>
+      </div>
+
       <div v-if="isLoading" class="activities-state">
         <span class="spinner-border spinner-border-sm" />
         <p>กำลังโหลดกิจกรรม</p>
@@ -10,8 +21,8 @@
 
       <div v-else-if="activities.length === 0" class="activities-empty">
         <i class="bi bi-gift" />
-        <h2>ยังไม่มีกิจกรรมในขณะนี้</h2>
-        <p>เมื่อร้านค้าจัดกิจกรรมใหม่ คุณจะเห็นรายละเอียดได้ที่หน้านี้</p>
+        <h2>ยังไม่มีกิจกรรมในงวดนี้</h2>
+        <p>เมื่อร้านค้าจัดกิจกรรมสำหรับงวดปัจจุบัน คุณจะเห็นรายละเอียดได้ที่หน้านี้</p>
       </div>
 
       <div v-else class="activities-list">
@@ -50,11 +61,13 @@ const platformApi = usePlatformApi()
 const route = useRoute()
 const { token, pinVerified, pinRequired, pinSetupRequired } = useAuth()
 const activities = ref<Record<string, any>[]>([])
+const activityMeta = ref<Record<string, any> | null>(null)
 const isLoading = ref(true)
 const loadedCustomerRights = ref(false)
 
 const canLoadCustomerRights = computed(() => Boolean(token.value && pinVerified.value))
 const shouldPromptActivityPin = computed(() => Boolean(token.value && (pinSetupRequired.value || pinRequired.value)))
+const hasHistory = computed(() => Boolean(activityMeta.value?.has_history))
 
 const numericValue = (value: unknown) => {
   const parsed = Number(value)
@@ -206,15 +219,18 @@ const loadActivities = async () => {
   isLoading.value = true
   try {
     loadedCustomerRights.value = false
+    const params = { limit: 30 }
     const response = canLoadCustomerRights.value
-      ? await platformApi.customerActivities({ limit: 30 })
-      : await platformApi.activitiesPublic({ limit: 30 })
+      ? await platformApi.customerActivities(params)
+      : await platformApi.activitiesPublic(params)
 
     loadedCustomerRights.value = canLoadCustomerRights.value
+    activityMeta.value = response.meta || null
     activities.value = Array.isArray(response.data) ? sortActivitiesByRights(response.data) : []
   } catch (error) {
     console.log(error)
     activities.value = []
+    activityMeta.value = null
   } finally {
     isLoading.value = false
   }
@@ -235,14 +251,17 @@ useTenantSeo({
 .activities-sheet {
   background: transparent;
   border-radius: 0;
-  margin-top: -42px;
-  padding: 8px 16px calc(118px + env(safe-area-inset-bottom));
+  margin: -42px auto 0;
+  max-width: var(--content-max);
+  padding: 8px clamp(12px, 4vw, 18px) calc(118px + env(safe-area-inset-bottom));
+  width: 100%;
 }
 
 .activities-list {
   background: transparent;
   display: grid;
-  gap: 14px;
+  gap: clamp(12px, 3vw, 16px);
+  grid-template-columns: minmax(0, 1fr);
   max-height: calc(100dvh - 226px);
   overflow-y: auto;
   overscroll-behavior-y: contain;
@@ -250,6 +269,56 @@ useTenantSeo({
   scroll-snap-type: y proximity;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+}
+
+.activity-history-link {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e8eef7;
+  border-radius: 18px;
+  box-shadow: 0 12px 26px rgba(8, 48, 104, .08);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 190px);
+  margin: 0 0 14px;
+  padding: 13px 14px;
+}
+
+.activity-history-link div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.activity-history-link span {
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.activity-history-link strong {
+  color: #1f2f54;
+  font-size: 15px;
+  font-weight: 900;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-history-link a {
+  align-items: center;
+  background: #e8f4ff;
+  border-radius: 999px;
+  color: #0875df;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 900;
+  gap: 4px;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 14px;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
 .activities-list::-webkit-scrollbar {
@@ -263,8 +332,8 @@ useTenantSeo({
   box-shadow: 0 14px 30px rgba(8, 48, 104, .1);
   color: inherit;
   display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
-  min-height: 132px;
+  grid-template-columns: clamp(98px, 28%, 132px) minmax(0, 1fr);
+  min-height: clamp(132px, 30vw, 154px);
   overflow: hidden;
   scroll-snap-align: start;
   text-decoration: none;
@@ -273,9 +342,8 @@ useTenantSeo({
 .activity-card img,
 .activity-card-placeholder {
   height: 100%;
-  min-height: 132px;
-  object-fit: cover;
-  width: 112px;
+  min-height: clamp(132px, 30vw, 154px);
+  width: 100%;
 }
 
 .activity-card-placeholder {
@@ -288,9 +356,11 @@ useTenantSeo({
 }
 
 .activity-card-body {
+  align-content: start;
   display: grid;
-  gap: 6px;
-  padding: 14px;
+  gap: clamp(5px, 1.6vw, 7px);
+  min-width: 0;
+  padding: clamp(12px, 3.3vw, 15px);
 }
 
 .activity-type {
@@ -309,18 +379,26 @@ useTenantSeo({
 }
 
 .activity-card h2 {
+  display: -webkit-box;
   color: #1f2937;
-  font-size: 18px;
+  font-size: clamp(15px, 4.1vw, 18px);
   font-weight: 900;
   line-height: 1.25;
   margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .activity-card p {
+  display: -webkit-box;
   color: #6b7280;
-  font-size: 14px;
+  font-size: clamp(12px, 3.4vw, 14px);
   line-height: 1.35;
   margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .activity-rights-badge {
@@ -332,7 +410,9 @@ useTenantSeo({
   gap: 5px;
   justify-self: start;
   line-height: 1.2;
+  max-width: 100%;
   min-height: 25px;
+  overflow-wrap: anywhere;
   padding: 5px 9px;
 }
 
@@ -367,8 +447,12 @@ useTenantSeo({
   justify-content: center;
   justify-self: start;
   line-height: 1;
+  max-width: 100%;
   min-height: 28px;
+  overflow: hidden;
   padding: 7px 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .activities-state,
@@ -400,5 +484,41 @@ useTenantSeo({
 .activities-empty p,
 .activities-state p {
   margin: 0;
+}
+
+@media (max-width: 575.98px) {
+  .activity-history-link {
+    grid-template-columns: 1fr;
+  }
+
+  .activity-history-link a {
+    width: 100%;
+  }
+}
+
+@media (max-width: 374.98px) {
+  .activities-sheet {
+    padding-inline: 10px;
+  }
+
+  .activity-card {
+    grid-template-columns: 94px minmax(0, 1fr);
+  }
+
+  .activity-card-body {
+    padding: 11px;
+  }
+
+  .activity-type,
+  .activity-rights-badge,
+  .activity-number-badge {
+    font-size: 11px;
+  }
+}
+
+@media (min-width: 768px) {
+  .activities-sheet {
+    padding-inline: 0;
+  }
 }
 </style>

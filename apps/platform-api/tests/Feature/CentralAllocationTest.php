@@ -573,6 +573,179 @@ class CentralAllocationTest extends TestCase
             ->assertJsonPath('error.code', 'resource_conflict');
     }
 
+    public function test_CentralAllocation_can_open_allocations_for_all_active_partners(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenant('par_bulk_a', 'ten_bulk_a');
+        $this->insertActivePartnerTenant('par_bulk_b', 'ten_bulk_b');
+        $this->insertActivePartnerTenant('par_bulk_zero', 'ten_bulk_zero');
+        DB::table('partners')->insert([
+            'id' => 'par_bulk_no_tenant',
+            'code' => 'par_bulk_no_tenant',
+            'name' => 'Partner par_bulk_no_tenant',
+            'type' => 'partner_store',
+            'status' => 'active',
+            'stock_percent_basis_points' => 1000,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('partners')->where('id', 'par_bulk_a')->update([
+            'stock_percent_basis_points' => 4000,
+            'updated_at' => now(),
+        ]);
+        DB::table('partners')->where('id', 'par_bulk_b')->update([
+            'stock_percent_basis_points' => 3000,
+            'updated_at' => now(),
+        ]);
+        $this->insertGame('gam_bulk_alloc', 'open');
+        $this->insertVirtualSupplyProfile('gam_bulk_alloc', 100);
+
+        $login = $this->createCentralSession(['stock.allocate'], 'adm_bulk_alloc', 'bulk-alloc@example.test');
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/allocations/open-all-partners', [
+                'game_id' => 'gam_bulk_alloc',
+                'reason' => 'open all partners for this draw',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'allocation-open-all-partners',
+                'X-Request-Id' => 'req-open-all-partners',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('status', 'completed')
+            ->assertJsonPath('game_id', 'gam_bulk_alloc')
+            ->assertJsonPath('created_count', 2)
+            ->assertJsonPath('skipped_count', 2)
+            ->assertJsonPath('created.0.partner_id', 'par_bulk_a')
+            ->assertJsonPath('created.0.tenant_id', 'ten_bulk_a')
+            ->assertJsonPath('created.0.allocation_percent', 40)
+            ->assertJsonPath('created.0.allocated_count', 40)
+            ->assertJsonPath('created.1.partner_id', 'par_bulk_b')
+            ->assertJsonPath('created.1.tenant_id', 'ten_bulk_b')
+            ->assertJsonPath('created.1.allocation_percent', 30)
+            ->assertJsonPath('created.1.allocated_count', 30)
+            ->assertJsonPath('skipped.0.partner_id', 'par_bulk_no_tenant')
+            ->assertJsonPath('skipped.0.reason', 'no_active_tenant')
+            ->assertJsonPath('skipped.1.partner_id', 'par_bulk_zero')
+            ->assertJsonPath('skipped.1.reason', 'missing_allocation_percent');
+
+        $this->assertDatabaseHas('partner_stock_allocations', [
+            'partner_id' => 'par_bulk_a',
+            'tenant_id' => 'ten_bulk_a',
+            'game_id' => 'gam_bulk_alloc',
+            'allocation_percent_basis_points' => 4000,
+            'allocated_count' => 40,
+            'status' => 'allocated',
+        ]);
+        $this->assertDatabaseHas('partner_stock_allocations', [
+            'partner_id' => 'par_bulk_b',
+            'tenant_id' => 'ten_bulk_b',
+            'game_id' => 'gam_bulk_alloc',
+            'allocation_percent_basis_points' => 3000,
+            'allocated_count' => 30,
+            'status' => 'allocated',
+        ]);
+        $this->assertSame(2, DB::table('partner_stock_allocations')->where('game_id', 'gam_bulk_alloc')->count());
+        $this->assertSame(2, DB::table('sync_outbox')->where('event_type', 'stock.allocated.v1')->where('game_id', 'gam_bulk_alloc')->count());
+        $this->assertSame(7000, (int) DB::table('stock_partner_distributions')->where('game_id', 'gam_bulk_alloc')->sum('percent_basis_points'));
+    }
+
+    public function test_CentralAllocation_open_all_partners_accepts_reviewed_percent_list_and_blocks_over_100_total(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenant('par_bulk_manual_existing', 'ten_bulk_manual_existing');
+        $this->insertActivePartnerTenant('par_bulk_manual_a', 'ten_bulk_manual_a');
+        $this->insertActivePartnerTenant('par_bulk_manual_b', 'ten_bulk_manual_b');
+        $this->insertGame('gam_bulk_manual', 'open');
+        $this->insertVirtualSupplyProfile('gam_bulk_manual', 100);
+
+        DB::table('stock_partner_distributions')->insert([
+            'id' => 'spd_bulk_manual_existing',
+            'game_id' => 'gam_bulk_manual',
+            'partner_id' => 'par_bulk_manual_existing',
+            'tenant_id' => 'ten_bulk_manual_existing',
+            'percent_basis_points' => 6000,
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('partner_stock_allocations')->insert([
+            'id' => 'alc_bulk_manual_existing',
+            'partner_id' => 'par_bulk_manual_existing',
+            'tenant_id' => 'ten_bulk_manual_existing',
+            'game_id' => 'gam_bulk_manual',
+            'quota_id' => null,
+            'status' => 'allocated',
+            'requested_count' => 60,
+            'allocation_percent_basis_points' => 6000,
+            'supply_layer_ids_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'allocated_count' => 60,
+            'recalled_count' => 0,
+            'idempotency_key' => null,
+            'payload_hash' => null,
+            'created_by_admin_id' => null,
+            'reason' => 'existing allocation',
+            'cancelled_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $login = $this->createCentralSession(['stock.allocate'], 'adm_bulk_manual', 'bulk-manual@example.test');
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/allocations/open-all-partners', [
+                'game_id' => 'gam_bulk_manual',
+                'allocations' => [
+                    ['partner_id' => 'par_bulk_manual_a', 'tenant_id' => 'ten_bulk_manual_a', 'allocation_percent' => 25],
+                    ['partner_id' => 'par_bulk_manual_b', 'tenant_id' => 'ten_bulk_manual_b', 'allocation_percent' => 20],
+                ],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'allocation-open-all-partners-manual-over',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.allocations.0', 'The total active partner allocation percent for this game may not exceed 100.');
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/admin/central/allocations/open-all-partners', [
+                'game_id' => 'gam_bulk_manual',
+                'allocations' => [
+                    ['partner_id' => 'par_bulk_manual_a', 'tenant_id' => 'ten_bulk_manual_a', 'allocation_percent' => 25],
+                    ['partner_id' => 'par_bulk_manual_b', 'tenant_id' => 'ten_bulk_manual_b', 'allocation_percent' => 15],
+                ],
+                'reason' => 'reviewed percentages',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'allocation-open-all-partners-manual-valid',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('status', 'completed')
+            ->assertJsonPath('created_count', 2)
+            ->assertJsonPath('skipped_count', 0)
+            ->assertJsonPath('created.0.partner_id', 'par_bulk_manual_a')
+            ->assertJsonPath('created.0.allocation_percent', 25)
+            ->assertJsonPath('created.0.allocated_count', 25)
+            ->assertJsonPath('created.1.partner_id', 'par_bulk_manual_b')
+            ->assertJsonPath('created.1.allocation_percent', 15)
+            ->assertJsonPath('created.1.allocated_count', 15);
+
+        $this->assertDatabaseHas('stock_partner_distributions', [
+            'game_id' => 'gam_bulk_manual',
+            'partner_id' => 'par_bulk_manual_a',
+            'tenant_id' => 'ten_bulk_manual_a',
+            'percent_basis_points' => 2500,
+            'status' => 'active',
+        ]);
+        $this->assertDatabaseHas('stock_partner_distributions', [
+            'game_id' => 'gam_bulk_manual',
+            'partner_id' => 'par_bulk_manual_b',
+            'tenant_id' => 'ten_bulk_manual_b',
+            'percent_basis_points' => 1500,
+            'status' => 'active',
+        ]);
+        $this->assertSame(10000, (int) DB::table('stock_partner_distributions')->where('game_id', 'gam_bulk_manual')->sum('percent_basis_points'));
+    }
+
     public function test_CentralAllocation_requested_count_is_rejected_even_when_old_idempotency_key_exists(): void
     {
         $this->seedDefaultRbac();

@@ -51,7 +51,7 @@
         </section>
 
         <footer class="auto-reward-footer">
-          <button class="primary-pill auto-reward-submit" type="button" @click="step = 'select'">
+          <button class="primary-pill auto-reward-submit w-100" type="button" @click="step = 'select'">
             ตั้งค่าขึ้นเงินรางวัลอัตโนมัติ
           </button>
         </footer>
@@ -642,7 +642,6 @@ onMounted(loadProfile)
   font-size: 19px;
   font-weight: 1000;
   margin: 0 auto;
-  max-width: 612px;
   min-height: 64px;
   width: 100%;
 }

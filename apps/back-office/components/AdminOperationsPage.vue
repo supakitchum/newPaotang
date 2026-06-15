@@ -3389,6 +3389,17 @@ const normalizePayloadField = (field: OperationFormField, value: any) => {
       .filter((row) => row.partner_id && Number.isFinite(row.percent) && row.percent > 0)
   }
 
+  if (field.type === 'allocation-partner-percent-list') {
+    const rows = Array.isArray(value) ? value : []
+    return rows
+      .map((row) => ({
+        partner_id: String(row?.partner_id || '').trim(),
+        tenant_id: String(row?.tenant_id || '').trim(),
+        allocation_percent: Number(row?.allocation_percent ?? row?.percent),
+      }))
+      .filter((row) => row.partner_id && row.tenant_id && Number.isFinite(row.allocation_percent) && row.allocation_percent > 0)
+  }
+
   if (field.type === 'stock-partner-limits') {
     const rows = Array.isArray(value) ? value : []
     return rows

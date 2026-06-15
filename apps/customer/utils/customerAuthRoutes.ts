@@ -2,6 +2,8 @@ const publicCustomerRoutes = new Set([
   '/',
   '/login',
   '/register',
+  '/forgot-password',
+  '/reset-password',
   '/line/callback',
   '/line/link-phone',
   '/maintenance',

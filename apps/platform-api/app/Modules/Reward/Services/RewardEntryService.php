@@ -9,6 +9,7 @@ use App\Models\RewardEntrySession;
 use App\Models\RewardEntrySubmission;
 use App\Models\RewardPrize;
 use App\Models\RewardResult;
+use App\Modules\Rbac\Events\AdminMenuBadgesUpdated;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use Illuminate\Http\Request;
@@ -58,6 +59,7 @@ class RewardEntryService
         }
 
         $session = $this->findOrCreateSession((string) $game->id, $actor);
+        $session = $this->refreshScraperSnapshot($session);
 
         return [
             'data' => $this->sessionResource($session, $actor),
@@ -79,7 +81,7 @@ class RewardEntryService
             ->whereKey($sessionId)
             ->first();
 
-        return $session === null ? null : $this->sessionResource($session, $actor);
+        return $session === null ? null : $this->sessionResource($this->refreshScraperSnapshot($session), $actor);
     }
 
     /**
@@ -154,7 +156,7 @@ class RewardEntryService
             $submission = $this->submissionForActor($session, $actor, true);
 
             if ((string) $submission->status === 'submitted') {
-                return ['resource' => $this->sessionResource($session, $actor), 'status' => 200];
+                return ['resource' => $this->sessionResource($this->refreshScraperSnapshot($session), $actor), 'status' => 200];
             }
 
             $prizes = array_key_exists('prizes', $payload)
@@ -170,6 +172,7 @@ class RewardEntryService
                 return ['error' => 'validation_failed', 'errors' => $errors];
             }
 
+            $session = $this->refreshScraperSnapshot($session, true);
             $diff = $this->diffToScraper($prizes, $session->scraper_snapshot_json ?? null);
             $now = now();
 
@@ -204,6 +207,7 @@ class RewardEntryService
                 'matches_scraper' => $diff['summary']['mismatch_count'] === 0,
                 'mismatch_count' => $diff['summary']['mismatch_count'],
             ]);
+            $this->queueCentralMenuBadgeBroadcast('reward_entry');
 
             $fresh = RewardEntrySession::query()->whereKey($session->id)->first() ?? $session;
 
@@ -245,6 +249,8 @@ class RewardEntryService
             return null;
         }
 
+        $session = $this->refreshScraperSnapshot($session);
+
         $submissions = RewardEntrySubmission::query()
             ->where('session_id', $session->id)
             ->where('status', 'submitted')
@@ -281,6 +287,8 @@ class RewardEntryService
             if ((string) $session->status !== 'ready_for_owner') {
                 return ['error' => 'resource_conflict'];
             }
+
+            $session = $this->refreshScraperSnapshot($session, true);
 
             $selectedSourceType = trim((string) ($payload['selected_source_type'] ?? 'manual'));
             $selectedSubmissionId = trim((string) ($payload['selected_submission_id'] ?? '')) ?: null;
@@ -363,6 +371,7 @@ class RewardEntryService
                 'selected_submission_id' => $selectedSubmissionId,
                 'reason' => $reason,
             ]);
+            $this->queueCentralMenuBadgeBroadcast('reward_entry');
 
             $fresh = RewardEntrySession::query()->whereKey($session->id)->first() ?? $session;
 
@@ -421,6 +430,81 @@ class RewardEntryService
 
             return RewardEntrySession::query()->where('game_id', $gameId)->firstOrFail();
         });
+    }
+
+    private function refreshScraperSnapshot(object $session, bool $refreshSubmittedDiffs = true): object
+    {
+        if (in_array((string) $session->status, ['resolved', 'cancelled'], true)) {
+            return $session;
+        }
+
+        $snapshot = $this->scraperSnapshotForGame((string) $session->game_id);
+
+        if ($snapshot === null) {
+            return $session;
+        }
+
+        $current = is_array($session->scraper_snapshot_json ?? null) ? $session->scraper_snapshot_json : null;
+        $snapshotChanged = $this->scraperSnapshotKey($current) !== $this->scraperSnapshotKey($snapshot);
+
+        if (! $snapshotChanged) {
+            return $session;
+        }
+
+        $now = now();
+
+        RewardEntrySession::query()->whereKey($session->id)->update([
+            'scraper_snapshot_json' => $this->jsonValue($snapshot),
+            'updated_at' => $now,
+        ]);
+
+        if ($refreshSubmittedDiffs) {
+            $submissions = RewardEntrySubmission::query()
+                ->where('session_id', $session->id)
+                ->where('status', 'submitted')
+                ->get(['id', 'prizes_json'])
+                ->all();
+
+            foreach ($submissions as $submission) {
+                RewardEntrySubmission::query()->whereKey($submission->id)->update([
+                    'diff_to_scraper_json' => $this->jsonValue($this->diffToScraper(
+                        $this->normalizePrizeRows($submission->prizes_json ?? []),
+                        $snapshot,
+                    )),
+                    'updated_at' => $now,
+                ]);
+            }
+        }
+
+        return RewardEntrySession::query()->with(['game', 'resolution'])->whereKey($session->id)->first() ?? $session;
+    }
+
+    private function scraperSnapshotKey(?array $snapshot): string
+    {
+        if ($snapshot === null) {
+            return '';
+        }
+
+        $source = is_array($snapshot['source'] ?? null) ? $snapshot['source'] : [];
+        $live = is_array($snapshot['live'] ?? null) ? $snapshot['live'] : [];
+
+        return implode('|', [
+            (string) ($snapshot['reward_result_id'] ?? ''),
+            (string) ($source['payload_hash'] ?? ''),
+            (string) ($live['completion_percent'] ?? ''),
+            (string) ($snapshot['updated_at'] ?? ''),
+        ]);
+    }
+
+    private function queueCentralMenuBadgeBroadcast(string $source): void
+    {
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit(fn (): mixed => AdminMenuBadgesUpdated::dispatch('central', null, $source));
+
+            return;
+        }
+
+        AdminMenuBadgesUpdated::dispatch('central', null, $source);
     }
 
     /**
@@ -832,6 +916,7 @@ class RewardEntryService
      */
     private function sessionResource(object $session, AdminSessionContext $actor): array
     {
+        $session = $this->refreshScraperSnapshot($session);
         $session = RewardEntrySession::query()->with(['game', 'resolution'])->whereKey($session->id)->first() ?? $session;
         $submission = $this->actorIsExpectedOperator($session, $actor)
             ? $this->submissionForActor($session, $actor, true)
@@ -865,6 +950,7 @@ class RewardEntryService
      */
     private function sessionSummaryResource(object $session): array
     {
+        $session = $this->refreshScraperSnapshot($session);
         $session = RewardEntrySession::query()->with(['game', 'resolution'])->whereKey($session->id)->first() ?? $session;
 
         return [

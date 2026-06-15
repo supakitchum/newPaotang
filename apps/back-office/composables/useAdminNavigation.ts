@@ -6,6 +6,11 @@ type AdminMenuItem = {
   icon?: string
   children?: AdminMenuItem[]
   sort_order?: number
+  badge_count?: number
+}
+
+type LoadMenusOptions = {
+  silent?: boolean
 }
 
 const routeHints: Record<string, string> = {
@@ -56,6 +61,7 @@ const scopedRouteOverrides: Record<string, string> = {
   'tenant:customers': '/admin/tenant/customers',
   'tenant:announcements': '/admin/tenant/announcements',
   'tenant:line_notifications': '/admin/tenant/line-notifications',
+  'tenant:password_reset_requests': '/admin/tenant/password-reset-requests',
   'tenant:activities': '/admin/tenant/activities',
   'tenant:activity_claims': '/admin/tenant/activity-claims',
   'tenant:winners': '/admin/tenant/winners',
@@ -80,7 +86,7 @@ export const useAdminNavigation = () => {
   const error = useState<any>('admin-menus-error', () => null)
   const navigationMenus = computed(() => translateMenuTree(buildMenuTree(menus.value), session.currentScope.value, t))
 
-  const loadMenus = async () => {
+  const loadMenus = async (options: LoadMenusOptions = {}) => {
     session.restore()
 
     if (!session.isAuthenticated.value) {
@@ -88,8 +94,10 @@ export const useAdminNavigation = () => {
       return
     }
 
-    loading.value = true
-    error.value = null
+    if (!options.silent) {
+      loading.value = true
+      error.value = null
+    }
 
     try {
       const scope = session.currentScope.value
@@ -100,10 +108,16 @@ export const useAdminNavigation = () => {
       const nextMenus = Array.isArray(response?.data) ? response.data : []
       menus.value = hideRetiredMenus(scope, nextMenus)
     } catch (err) {
-      error.value = err
-      menus.value = []
+      if (!options.silent) {
+        error.value = err
+        menus.value = []
+      } else if ((err as any)?.status === 401) {
+        menus.value = []
+      }
     } finally {
-      loading.value = false
+      if (!options.silent) {
+        loading.value = false
+      }
     }
   }
 
@@ -130,6 +144,7 @@ export const useAdminNavigation = () => {
     const key = item.key || ''
     if (key.includes('announcement')) return 'ri-megaphone-line'
     if (key.includes('line_notification')) return 'ri-line-line'
+    if (key.includes('password_reset')) return 'ri-lock-password-line'
     if (key.includes('storage')) return 'ri-database-2-line'
     if (key.includes('maintenance')) return 'ri-tools-line'
     if (key.includes('support')) return 'ri-customer-service-2-line'
@@ -268,6 +283,7 @@ const categoryIcon = (category: string) => {
   if (value.includes('store')) return 'ri-store-2-line'
   if (value.includes('growth')) return 'ri-line-chart-line'
   if (value.includes('control')) return 'ri-pulse-line'
+  if (value.includes('review') || value.includes('queue')) return 'ri-inbox-archive-line'
   if (value.includes('administration')) return 'ri-shield-user-line'
   return 'ri-folder-2-line'
 }

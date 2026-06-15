@@ -20,6 +20,7 @@ class CustomerLineAuthService
 
     public function __construct(
         private readonly CustomerAuthService $customerAuth,
+        private readonly CustomerPasswordResetService $passwordResets,
         private readonly LineMessagingClient $line,
         private readonly TenantLineNotificationService $lineNotifications,
     ) {
@@ -42,6 +43,7 @@ class CustomerLineAuthService
         $redirectUri = $this->callbackUrl($request);
         $stateId = 'les_'.Str::ulid()->toBase32();
         $loginChannelId = $this->lineNotifications->decrypted($channel, 'login_channel_id_encrypted');
+        $purpose = $this->linePurpose($payload['purpose'] ?? null);
 
         CustomerExternalAuthState::query()->insert([
             'id' => $stateId,
@@ -57,6 +59,7 @@ class CustomerLineAuthService
                 'host' => $request->getHost(),
                 'redirect_uri' => $redirectUri,
                 'line_channel_id' => $loginChannelId,
+                'purpose' => $purpose,
                 'provider_readiness' => 'production_ready',
                 'production_line_ready' => true,
             ], JSON_THROW_ON_ERROR),
@@ -147,6 +150,7 @@ class CustomerLineAuthService
 
         $metadata = is_array($stateRecord->metadata_json) ? $stateRecord->metadata_json : [];
         $redirectUri = (string) ($metadata['redirect_uri'] ?? $this->callbackUrl($request));
+        $purpose = $this->linePurpose($metadata['purpose'] ?? null);
         $exchange = $this->line->exchangeLoginCode(
             $this->lineNotifications->decrypted($channel, 'login_channel_id_encrypted'),
             $this->lineNotifications->decrypted($channel, 'login_channel_secret_encrypted'),
@@ -185,6 +189,13 @@ class CustomerLineAuthService
         $friendFlag = (bool) (($friend['data'] ?? [])['friendFlag'] ?? false);
 
         if ($currentCustomer instanceof CustomerSessionContext) {
+            if ($purpose === 'password_reset') {
+                return [
+                    'error' => 'line_reset_requires_linked_identity',
+                    'details' => ['reason' => 'Sign out before using LINE to reset a password.'],
+                ];
+            }
+
             return $this->linkCurrentCustomer($tenant, $currentCustomer, $lineProfile, $lineUserId, $friendFlag);
         }
 
@@ -205,6 +216,11 @@ class CustomerLineAuthService
             }
 
             $this->lineNotifications->upsertIdentity((string) $tenant['tenant_id'], (string) $customer->id, $lineProfile, $friendFlag);
+
+            if ($purpose === 'password_reset') {
+                return $this->passwordResets->issueLineResetToken((string) $tenant['tenant_id'], $lineUserId, $request);
+            }
+
             Customer::query()->where('id', $customer->id)->update([
                 'last_login_at' => now(),
                 'updated_at' => now(),
@@ -214,6 +230,13 @@ class CustomerLineAuthService
             return [
                 'resource' => $this->customerAuth->issueSession((string) $tenant['tenant_id'], (string) $customer->id),
                 'status' => 200,
+            ];
+        }
+
+        if ($purpose === 'password_reset') {
+            return [
+                'error' => 'line_identity_not_linked',
+                'details' => ['reason' => 'LINE account is not linked to a customer account.'],
             ];
         }
 
@@ -475,5 +498,12 @@ class CustomerLineAuthService
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    private function linePurpose(mixed $value): string
+    {
+        $purpose = trim((string) $value);
+
+        return in_array($purpose, ['login', 'password_reset'], true) ? $purpose : 'login';
     }
 }

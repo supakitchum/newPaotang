@@ -4,6 +4,8 @@ export type ScraperConfig = {
   hmacSecret: string
   redisUrl: string
   healthPort: number
+  triggerSecret: string
+  triggerSignatureTtlSeconds: number
   timezone: string
   drawCode: string
   minCrawlDelayMs: number
@@ -27,6 +29,8 @@ export const config: ScraperConfig = {
   hmacSecret: process.env.LOTTO_SCRAPER_HMAC_SECRET || 'newpaotang-local-lotto-scraper-secret',
   redisUrl: process.env.LOTTO_SCRAPER_REDIS_URL || 'redis://valkey:6379',
   healthPort: integerEnv('LOTTO_SCRAPER_HEALTH_PORT', 3200),
+  triggerSecret: process.env.LOTTO_SCRAPER_TRIGGER_SECRET || process.env.LOTTO_SCRAPER_HMAC_SECRET || 'newpaotang-local-lotto-scraper-secret',
+  triggerSignatureTtlSeconds: integerEnv('LOTTO_SCRAPER_TRIGGER_SIGNATURE_TTL_SECONDS', 300),
   timezone: process.env.TZ || process.env.LOTTO_SCRAPER_TIMEZONE || 'Asia/Bangkok',
   drawCode: (process.env.LOTTO_SCRAPER_DRAW_CODE || '').trim(),
   minCrawlDelayMs: Math.max(10000, integerEnv('LOTTO_SCRAPER_MIN_CRAWL_DELAY_MS', 10000)),

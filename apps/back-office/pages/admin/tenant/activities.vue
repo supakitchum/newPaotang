@@ -23,13 +23,17 @@
           <div class="card-header align-items-center gap-3">
             <div class="card-title">Activity list</div>
             <div class="ms-auto d-flex flex-wrap gap-2">
-              <input v-model="filters.q" class="form-control form-control-sm np-act-search" placeholder="Search activity" @keyup.enter="loadActivities">
-              <select v-model="filters.type" class="form-select form-select-sm np-act-filter" @change="loadActivities">
+              <input v-model="filters.q" class="form-control form-control-sm np-act-search" placeholder="Search activity" @keyup.enter="handleFilterChange">
+              <select v-model="filters.game_id" class="form-select form-select-sm np-act-game-filter" @change="handleFilterChange">
+                <option v-if="!filters.game_id" value="">Current game</option>
+                <option v-for="game in activityGameOptions" :key="game.id" :value="game.id">{{ gameLabel(game) }}</option>
+              </select>
+              <select v-model="filters.type" class="form-select form-select-sm np-act-filter" @change="handleFilterChange">
                 <option value="">All types</option>
                 <option value="lucky_board">Lucky board</option>
                 <option value="cashback">Cashback</option>
               </select>
-              <select v-model="filters.status" class="form-select form-select-sm np-act-filter" @change="loadActivities">
+              <select v-model="filters.status" class="form-select form-select-sm np-act-filter" @change="handleFilterChange">
                 <option value="">All statuses</option>
                 <option v-for="status in statuses" :key="status" :value="status">{{ titleize(status) }}</option>
               </select>
@@ -423,7 +427,7 @@ const games = ref<AnyRecord[]>([])
 const meta = ref<AnyRecord>({})
 const pageState = ref({ index: 0, cursors: [''] })
 const sort = reactive({ key: 'created_at', direction: 'desc' as 'asc' | 'desc' })
-const filters = reactive({ q: '', status: '', type: '' })
+const filters = reactive({ q: '', status: '', type: '', game_id: '' })
 const formModalOpen = ref(false)
 const contentLocale = ref<'th-TH' | 'en-US'>('th-TH')
 const fieldErrors = ref<Record<string, string[]>>({})
@@ -444,6 +448,24 @@ const saveDisabled = computed(() => (
   || !String(form.game_id || '').trim()
   || Boolean(imageError.value)
 ))
+const activityGameOptions = computed(() => {
+  const merged = new Map<string, AnyRecord>()
+
+  for (const game of games.value) {
+    if (game?.id) {
+      merged.set(String(game.id), game)
+    }
+  }
+
+  const metaGames = Array.isArray(meta.value?.games) ? meta.value.games : []
+  for (const game of metaGames) {
+    if (game?.id && !merged.has(String(game.id))) {
+      merged.set(String(game.id), game)
+    }
+  }
+
+  return Array.from(merged.values())
+})
 
 function defaultForm() {
   return {
@@ -484,6 +506,9 @@ const loadGames = async () => {
   if (!form.game_id && response.meta?.default_game_id) {
     form.game_id = response.meta.default_game_id
   }
+  if (!filters.game_id && response.meta?.default_game_id) {
+    filters.game_id = response.meta.default_game_id
+  }
 }
 
 const loadActivities = async (cursor = '') => {
@@ -501,6 +526,7 @@ const loadActivities = async (cursor = '') => {
         q: filters.q || undefined,
         status: filters.status || undefined,
         type: filters.type || undefined,
+        game_id: filters.game_id || undefined,
         sort: sort.key,
         direction: sort.direction,
       },
@@ -518,10 +544,17 @@ const loadActivities = async (cursor = '') => {
 }
 
 const loadAll = async () => {
-  await Promise.all([loadGames(), loadActivities(pageState.value.cursors[pageState.value.index] || '')])
+  await loadGames()
+  await loadActivities(pageState.value.cursors[pageState.value.index] || '')
   if (selectedActivity.value) {
     await loadActivityDetails()
   }
+}
+
+const handleFilterChange = () => {
+  pageState.value = { index: 0, cursors: [''] }
+  selectedActivity.value = null
+  void loadActivities()
 }
 
 const loadNextPage = () => {
@@ -913,6 +946,7 @@ watch(tenantId, () => {
   resetForm()
   formModalOpen.value = false
   selectedActivity.value = null
+  filters.game_id = ''
   pageState.value = { index: 0, cursors: [''] }
   void loadAll()
 }, { immediate: true })
@@ -929,6 +963,10 @@ onBeforeUnmount(() => {
 
 .np-act-filter {
   min-width: 150px;
+}
+
+.np-act-game-filter {
+  min-width: 220px;
 }
 
 .np-act-selected {

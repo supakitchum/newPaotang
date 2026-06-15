@@ -43,6 +43,8 @@ services:
       REVERB_PORT: "8080"
       REVERB_SCHEME: http
       LOTTO_SCRAPER_HMAC_SECRET: newpaotang-local-lotto-scraper-secret
+      LOTTO_SCRAPER_TRIGGER_URL: http://lotto-scraper:3200/internal/poll
+      LOTTO_SCRAPER_TRIGGER_SECRET: newpaotang-local-lotto-scraper-secret
     ports:
       - "8000:8000"
     volumes:
@@ -88,6 +90,9 @@ services:
       REVERB_HOST: platform-api-reverb
       REVERB_PORT: "8080"
       REVERB_SCHEME: http
+      LOTTO_SCRAPER_HMAC_SECRET: newpaotang-local-lotto-scraper-secret
+      LOTTO_SCRAPER_TRIGGER_URL: http://lotto-scraper:3200/internal/poll
+      LOTTO_SCRAPER_TRIGGER_SECRET: newpaotang-local-lotto-scraper-secret
     volumes:
       - ./:/workspace:ro
       - ./apps/platform-api:/var/www/html
@@ -192,6 +197,7 @@ services:
       LOTTO_SCRAPER_REDIS_URL: redis://valkey:6379
       LOTTO_SCRAPER_SOURCE_BASE_URL: https://news.sanook.com/lotto/check
       LOTTO_SCRAPER_HMAC_SECRET: newpaotang-local-lotto-scraper-secret
+      LOTTO_SCRAPER_TRIGGER_SECRET: newpaotang-local-lotto-scraper-secret
       LOTTO_SCRAPER_HEALTH_PORT: "3200"
       LOTTO_SCRAPER_MIN_CRAWL_DELAY_MS: "10000"
       LOTTO_SCRAPER_POLL_WARMUP_MS: "60000"
@@ -250,7 +256,7 @@ services:
       dockerfile: Dockerfile
       target: development
     working_dir: /app
-    command: sh -lc "mkdir -p /tmp/newpaotang-customer-nuxt && ln -sfn /app/node_modules /tmp/node_modules && ln -sfn /app/node_modules /tmp/newpaotang-customer-nuxt/node_modules && npm run dev -- --host 0.0.0.0 --port 3000"
+    command: sh -lc "mkdir -p /tmp/newpaotang-customer-nuxt && ln -sfn /app/node_modules /tmp/node_modules && ln -sfn /app/node_modules /tmp/newpaotang-customer-nuxt/node_modules && node scripts/prepare-nuxt-build-dir.mjs && npm run dev -- --host 0.0.0.0 --port 3000"
     environment:
       NUXT_PUBLIC_API_BASE_URL: /api/v1
       NUXT_PLATFORM_API_INTERNAL_BASE_URL: http://platform-api:8000/api/v1

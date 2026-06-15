@@ -214,6 +214,45 @@
               </div>
             </div>
           </div>
+          <div v-else-if="field.type === 'allocation-partner-percent-list'" class="np-stock-config-panel">
+            <AdminEmptyState v-if="!(formState[field.key] || []).length" title="No available partners" message="Every active partner is already opened, has no active store, or no latest open game is selected." icon="ri-store-2-line" />
+            <template v-else>
+              <div class="np-allocation-bulk-summary" :class="{ 'is-over': bulkAllocationOverLimit }">
+                <div>
+                  <span class="text-muted fs-12">Existing active allocation</span>
+                  <strong>{{ formatNumber(bulkAllocationExistingPercent) }}%</strong>
+                </div>
+                <div>
+                  <span class="text-muted fs-12">New partner total</span>
+                  <strong>{{ formatNumber(bulkAllocationNewPercentTotal) }}%</strong>
+                </div>
+                <div>
+                  <span class="text-muted fs-12">{{ bulkAllocationRemainingPercent < 0 ? 'Over limit' : 'Remaining' }}</span>
+                  <strong>{{ formatNumber(Math.abs(bulkAllocationRemainingPercent)) }}%</strong>
+                </div>
+              </div>
+              <div class="np-stock-partner-table np-allocation-partner-table">
+                <div class="np-stock-partner-table__head">
+                  <span>Partner</span>
+                  <span>Allocation %</span>
+                  <span>Status</span>
+                </div>
+                <div v-for="row in formState[field.key]" :key="row.partner_id" class="np-stock-partner-table__row">
+                  <div class="text-truncate">
+                    <strong>{{ row.label }}</strong>
+                    <div v-if="row.tenant_label" class="text-muted fs-12 text-truncate">{{ row.tenant_label }}</div>
+                  </div>
+                  <div class="input-group">
+                    <input v-model.number="row.allocation_percent" class="form-control" type="number" min="0" max="100" step="0.01" :disabled="row.disabled">
+                    <span class="input-group-text">%</span>
+                  </div>
+                  <span class="badge" :class="row.disabled ? 'bg-light text-muted' : 'bg-primary-transparent text-primary'">
+                    {{ row.disabled_reason || 'Ready' }}
+                  </span>
+                </div>
+              </div>
+            </template>
+          </div>
           <textarea
             v-else-if="field.type === 'textarea' || field.type === 'json' || field.type === 'lines' || field.type === 'prize-lines'"
             :id="fieldId(field.key)"
@@ -352,6 +391,7 @@ const partnerField = computed(() => formFields.value.find((field) => field.key =
 const tenantField = computed(() => formFields.value.find((field) => field.key === 'tenant_id'))
 const gameField = computed(() => formFields.value.find((field) => field.key === 'game_id'))
 const allocationPercentField = computed(() => formFields.value.find((field) => field.key === 'allocation_percent'))
+const allocationPartnerPercentListField = computed(() => formFields.value.find((field) => field.type === 'allocation-partner-percent-list'))
 const isAllocationPercentForm = computed(() => Boolean(
   allocationPercentField.value
   && partnerField.value?.optionSource === 'allocation-partners'
@@ -362,10 +402,34 @@ const isAllocationCreateForm = computed(() => Boolean(
   isAllocationPercentForm.value
   && !partnerField.value?.readonly,
 ))
-const submitProgressTitle = computed(() => isAllocationCreateForm.value ? 'Creating allocation' : 'Submitting request')
-const submitProgressHint = computed(() => isAllocationCreateForm.value ? 'Preparing stock allocation' : 'API request is running')
+const isBulkAllocationForm = computed(() => Boolean(
+  allocationPartnerPercentListField.value
+  && gameField.value?.optionSource === 'allocation-games',
+))
+const usesAllocationOptions = computed(() => isAllocationPercentForm.value || isBulkAllocationForm.value)
+const submitProgressTitle = computed(() => isBulkAllocationForm.value ? 'Opening partner allocations' : isAllocationCreateForm.value ? 'Creating allocation' : 'Submitting request')
+const submitProgressHint = computed(() => isBulkAllocationForm.value ? 'Preparing all selected partners' : isAllocationCreateForm.value ? 'Preparing stock allocation' : 'API request is running')
 const selectedPartnerOption = computed(() => partnerField.value ? findOption(partnerField.value, formState.partner_id) : null)
 const selectedGameOption = computed(() => gameField.value ? findOption(gameField.value, formState.game_id) : null)
+const bulkAllocationRows = computed(() => {
+  const field = allocationPartnerPercentListField.value
+  return field && Array.isArray(formState[field.key]) ? formState[field.key] : []
+})
+const bulkAllocationExistingPercent = computed(() => (
+  optionNumber(selectedGameOption.value, 'existingGameAllocationPercent')
+  ?? optionNumber(allocationPartnerOptions.value[0], 'existingAllocationPercent')
+  ?? 0
+))
+const bulkAllocationNewPercentTotal = computed(() => bulkAllocationRows.value.reduce((sum: number, row: any) => {
+  if (row?.disabled) {
+    return sum
+  }
+  const percent = numberOrNull(row?.allocation_percent)
+  return sum + (percent === null || percent < 0 ? 0 : percent)
+}, 0))
+const bulkAllocationGrandTotal = computed(() => bulkAllocationExistingPercent.value + bulkAllocationNewPercentTotal.value)
+const bulkAllocationRemainingPercent = computed(() => 100 - bulkAllocationGrandTotal.value)
+const bulkAllocationOverLimit = computed(() => bulkAllocationGrandTotal.value > 100.000001)
 const allocationPreviewMetrics = computed(() => {
   if (!allocationPercentField.value) {
     return []
@@ -463,6 +527,33 @@ const validationMessagesByField = computed(() => {
       add('__form', 'Select a partner with at least one active tenant before submitting.')
     } else if (partner && activeTenantCount !== null && activeTenantCount > 1 && isBlank(formState[tenant.key])) {
       add(tenant.key, 'Select a tenant for this multi-tenant partner.')
+    }
+  }
+
+  const bulkField = allocationPartnerPercentListField.value
+  if (bulkField && isFieldVisible(bulkField)) {
+    const rows = bulkAllocationRows.value
+    const activeRows = rows.filter((row: any) => !row?.disabled && (numberOrNull(row?.allocation_percent) || 0) > 0)
+
+    if (allocationOptionLoading.value) {
+      add(bulkField.key, 'Loading partner allocation percentages.')
+    } else if (!activeRows.length) {
+      add(bulkField.key, 'Enter at least one partner allocation percent greater than 0.')
+    }
+
+    rows.forEach((row: any) => {
+      if (row?.disabled) {
+        return
+      }
+      const percent = numberOrNull(row?.allocation_percent)
+      if (percent !== null && (percent < 0 || percent > 100)) {
+        add(bulkField.key, `${row.label || row.partner_id} must be between 0 and 100%.`)
+      }
+    })
+
+    if (bulkAllocationOverLimit.value) {
+      add(bulkField.key, `Total allocation is ${formatNumber(bulkAllocationGrandTotal.value)}%, which exceeds 100%.`)
+      add('__form', 'Reduce partner percentages until the total allocation is at most 100%.')
     }
   }
 
@@ -611,23 +702,25 @@ const fieldOptions = (field: OperationFormField) => {
 const loadAllocationOptions = async () => {
   const requestId = ++allocationOptionRequestId
 
-  if (!props.modelValue || !isAllocationPercentForm.value) {
+  if (!props.modelValue || !usesAllocationOptions.value) {
     allocationPartnerOptions.value = []
     allocationTenantOptions.value = []
     allocationOptionError.value = null
     allocationOptionLoading.value = false
+    syncBulkAllocationRows()
     return
   }
 
   const gameId = String(formState.game_id || '').trim()
   const partnerId = String(formState.partner_id || '').trim()
-  const availableForCreate = isAllocationCreateForm.value ? 1 : undefined
+  const availableForCreate = isAllocationCreateForm.value || isBulkAllocationForm.value ? 1 : undefined
 
   if (!gameId) {
     allocationPartnerOptions.value = []
     allocationTenantOptions.value = []
     allocationOptionError.value = null
     allocationOptionLoading.value = false
+    syncBulkAllocationRows()
     return
   }
 
@@ -652,6 +745,7 @@ const loadAllocationOptions = async () => {
 
     allocationPartnerOptions.value = normalizeAllocationPartnerOptions(extractItems(partnerResponse))
     allocationTenantOptions.value = normalizeAllocationTenantOptions(extractItems(tenantResponse))
+    syncBulkAllocationRows()
 
     if (!partnerField.value?.readonly && !isBlank(formState.partner_id) && !allocationPartnerOptions.value.some((option) => String(optionValue(option)) === String(formState.partner_id))) {
       formState.partner_id = ''
@@ -669,6 +763,7 @@ const loadAllocationOptions = async () => {
     if (requestId === allocationOptionRequestId) {
       allocationPartnerOptions.value = []
       allocationTenantOptions.value = []
+      syncBulkAllocationRows()
       allocationOptionError.value = err
     }
   } finally {
@@ -676,6 +771,42 @@ const loadAllocationOptions = async () => {
       allocationOptionLoading.value = false
     }
   }
+}
+
+const syncBulkAllocationRows = () => {
+  const field = allocationPartnerPercentListField.value
+  if (!field) {
+    return
+  }
+
+  const currentRows = new Map((Array.isArray(formState[field.key]) ? formState[field.key] : [])
+    .filter((row: any) => row?.partner_id)
+    .map((row: any) => [String(row.partner_id), row]))
+
+  formState[field.key] = allocationPartnerOptions.value.map((option) => {
+    const partnerId = String(optionValue(option))
+    const existing = currentRows.get(partnerId)
+    const activeTenantCount = optionNumber(option, 'activeTenantCount')
+    const singleTenantId = optionString(option, 'singleTenantId')
+    const defaultPercent = optionNumber(option, 'defaultAllocationPercent')
+      ?? optionNumber(option, 'stockPercent')
+      ?? 0
+    const disabledReason = activeTenantCount === 0
+      ? 'No active tenant'
+      : activeTenantCount !== null && activeTenantCount > 1
+        ? 'Select tenant manually'
+        : ''
+
+    return {
+      partner_id: partnerId,
+      tenant_id: singleTenantId,
+      label: optionLabel(option),
+      tenant_label: optionString(option, 'singleTenantLabel'),
+      allocation_percent: existing?.allocation_percent ?? existing?.percent ?? defaultPercent,
+      disabled: Boolean(disabledReason || optionDisabled(option)),
+      disabled_reason: disabledReason || (optionDisabled(option) ? 'Unavailable' : ''),
+    }
+  }).filter((row) => !isBlank(row.partner_id))
 }
 
 const addStockSetDistributionRow = (field: OperationFormField) => {
@@ -795,6 +926,10 @@ const normalizeInitialValue = (field: OperationFormField, value: any) => {
     return normalizeStockPartnerLimits(value, field)
   }
 
+  if (field.type === 'allocation-partner-percent-list') {
+    return []
+  }
+
   if (field.type === 'lines') {
     return formatLines(value, field.valueKey || field.itemKey)
   }
@@ -880,6 +1015,7 @@ const fieldColumnClass = (field: OperationFormField) => (
   || field.type === 'stock-sale-limits'
   || field.type === 'stock-partner-distribution'
   || field.type === 'stock-partner-limits'
+  || field.type === 'allocation-partner-percent-list'
   || isRewardPrizeField(field)
   || field.type === 'datetime-range'
 ) ? 'col-12' : 'col-md-6'
@@ -1223,7 +1359,7 @@ watch(() => [formState.partner_id, props.modelValue, props.formFields] as const,
   }
 }, { deep: true })
 
-watch(() => [props.modelValue, formState.game_id, formState.partner_id, isAllocationPercentForm.value] as const, () => {
+watch(() => [props.modelValue, formState.game_id, formState.partner_id, usesAllocationOptions.value] as const, () => {
   loadAllocationOptions()
 }, { deep: true })
 </script>
@@ -1269,6 +1405,8 @@ watch(() => [props.modelValue, formState.game_id, formState.partner_id, isAlloca
 .np-stock-config-panel {
   border: 1px solid var(--default-border);
   border-radius: 6px;
+  max-width: 100%;
+  overflow: hidden;
   padding: 1rem;
 }
 
@@ -1313,6 +1451,27 @@ watch(() => [props.modelValue, formState.game_id, formState.partner_id, isAlloca
 }
 
 .np-allocation-preview > div {
+  display: grid;
+  gap: .15rem;
+}
+
+.np-allocation-bulk-summary {
+  background: rgba(var(--primary-rgb), .08);
+  border: 1px solid rgba(var(--primary-rgb), .18);
+  border-radius: 6px;
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
+  margin-bottom: 1rem;
+  padding: .875rem;
+}
+
+.np-allocation-bulk-summary.is-over {
+  background: rgba(var(--danger-rgb), .08);
+  border-color: rgba(var(--danger-rgb), .25);
+}
+
+.np-allocation-bulk-summary > div {
   display: grid;
   gap: .15rem;
 }
@@ -1374,10 +1533,54 @@ watch(() => [props.modelValue, formState.game_id, formState.partner_id, isAlloca
   grid-template-columns: minmax(10rem, 1fr) repeat(3, minmax(6rem, 8rem));
 }
 
+.np-allocation-partner-table .np-stock-partner-table__head,
+.np-allocation-partner-table .np-stock-partner-table__row {
+  grid-template-columns: minmax(0, 1fr) minmax(8rem, 10rem) minmax(6.5rem, 8rem);
+}
+
+.np-allocation-partner-table .np-stock-partner-table__row > * {
+  min-width: 0;
+}
+
+.np-allocation-partner-table .input-group {
+  min-width: 0;
+  width: 100%;
+}
+
+.np-allocation-partner-table .badge {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: center;
+  white-space: normal;
+}
+
 .np-stock-partner-table__head {
   color: var(--text-muted);
   font-size: .75rem;
   font-weight: 600;
+}
+
+@media (max-width: 767.98px) {
+  .np-stock-config-panel {
+    padding: .75rem;
+  }
+
+  .np-allocation-partner-table .np-stock-partner-table__head {
+    display: none;
+  }
+
+  .np-allocation-partner-table .np-stock-partner-table__row {
+    align-items: stretch;
+    border: 1px solid var(--default-border);
+    border-radius: 6px;
+    gap: .6rem;
+    grid-template-columns: 1fr;
+    padding: .75rem;
+  }
+
+  .np-allocation-partner-table .badge {
+    justify-self: start;
+  }
 }
 
 @media (max-width: 575.98px) {
@@ -1391,7 +1594,8 @@ watch(() => [props.modelValue, formState.game_id, formState.partner_id, isAlloca
 
   .np-stock-set-table__row,
   .np-stock-partner-table__row,
-  .np-stock-partner-table--limits .np-stock-partner-table__row {
+  .np-stock-partner-table--limits .np-stock-partner-table__row,
+  .np-allocation-partner-table .np-stock-partner-table__row {
     grid-template-columns: 1fr;
   }
 }

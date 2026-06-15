@@ -20,6 +20,7 @@ use App\Models\WinningTicket;
 use App\Modules\Auth\Services\CustomerAuthService;
 use App\Modules\Commerce\Services\CommerceService;
 use App\Modules\LineNotifications\Services\TenantLineNotificationService;
+use App\Modules\Rbac\Events\AdminMenuBadgesUpdated;
 use App\Modules\StorageConnections\Services\RuntimeStorageService;
 use App\Modules\TelegramNotifications\Services\CentralTelegramNotificationService;
 use App\Shared\Audit\AuditLogger;
@@ -44,6 +45,7 @@ class TenantActivityService
     private const CLAIM_STATUSES_PENDING = ['submitted', 'under_review', 'approved'];
     private const MAX_IMAGE_BYTES = 8_388_608;
     private const PURPOSE = 'tenant_activity_image';
+    private const BUSINESS_TIMEZONE = 'Asia/Bangkok';
 
     public function __construct(
         private readonly AuditLogger $auditLogger,
@@ -62,15 +64,20 @@ class TenantActivityService
     public function list(string $tenantId, array $queryParams): array
     {
         $limit = $this->limit($queryParams['limit'] ?? null);
+        $gameContext = $this->activityGameContext($tenantId, $queryParams, historyMode: false, allowGameSelection: true, activeOnly: false);
         $query = TenantActivity::query()
             ->forTenant($tenantId)
             ->with(['game', 'fullAsset', 'thumbAsset', 'luckyConfig', 'cashbackConfig'])
             ->limit($limit + 1);
 
-        foreach (['status', 'type', 'game_id'] as $field) {
+        foreach (['status', 'type'] as $field) {
             if (($queryParams[$field] ?? null) !== null && trim((string) $queryParams[$field]) !== '') {
                 $query->where($field, trim((string) $queryParams[$field]));
             }
+        }
+
+        if ($gameContext['selected_game_id'] !== null) {
+            $query->where('game_id', $gameContext['selected_game_id']);
         }
 
         if (($queryParams['q'] ?? null) !== null && trim((string) $queryParams['q']) !== '') {
@@ -99,6 +106,11 @@ class TenantActivityService
             'meta' => [
                 'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->id : null,
                 'has_more' => $hasMore,
+                'selected_game_id' => $gameContext['selected_game_id'],
+                'current_game_id' => $gameContext['current_game_id'],
+                'default_game_id' => $gameContext['selected_game_id'],
+                'games' => $gameContext['games'],
+                'has_history' => $this->hasActivityHistory($gameContext),
             ],
         ];
     }
@@ -281,19 +293,27 @@ class TenantActivityService
     }
 
     /**
-     * @return array{data: array<int, array<string, mixed>>, content_source_status: string}
+     * @param array<string, mixed> $queryParams
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>, content_source_status: string}
      */
-    public function publicList(string $tenantId, int $limit = 20): array
+    public function publicList(string $tenantId, array $queryParams = []): array
     {
+        $limit = $this->limit($queryParams['limit'] ?? null);
+        $gameContext = $this->activityGameContext($tenantId, $queryParams, historyMode: $this->truthy($queryParams['history'] ?? null));
         $rows = $this->activeQuery($tenantId)
+            ->when(
+                $gameContext['selected_game_id'] !== null,
+                fn ($query) => $query->where('game_id', $gameContext['selected_game_id']),
+            )
             ->orderByDesc('sort_order')
             ->orderByDesc('updated_at')
-            ->limit(max(1, min(50, $limit)))
+            ->limit($limit)
             ->get()
             ->all();
 
         return [
             'data' => array_map(fn (object $row): array => $this->publicResource($row), $rows),
+            'meta' => $this->activityListMeta($gameContext),
             'content_source_status' => $rows === [] ? 'empty' : 'configured',
         ];
     }
@@ -316,7 +336,14 @@ class TenantActivityService
     public function customerActivities(string $tenantId, CustomerSessionContext $customer, array $queryParams): array
     {
         $limit = $this->limit($queryParams['limit'] ?? null);
+        $gameContext = $this->activityGameContext($tenantId, $queryParams, historyMode: $this->truthy($queryParams['history'] ?? null));
         $rows = $this->activeQuery($tenantId)
+            ->when(
+                $gameContext['selected_game_id'] !== null,
+                fn ($query) => $query->where('game_id', $gameContext['selected_game_id']),
+            )
+            ->orderByDesc('sort_order')
+            ->orderByDesc('updated_at')
             ->limit($limit)
             ->get()
             ->all();
@@ -333,7 +360,7 @@ class TenantActivityService
 
                 return $resource;
             }, $rows),
-            'meta' => ['has_more' => false, 'next_cursor' => null],
+            'meta' => $this->activityListMeta($gameContext),
         ];
     }
 
@@ -358,6 +385,9 @@ class TenantActivityService
         $resource['entries'] = $row->type === 'lucky_board'
             ? $this->customerEntries($tenantId, $customer->customerId(), (string) $row->id)
             : [];
+        if ((string) $row->type === 'lucky_board') {
+            $resource['result_summary'] = $this->luckyBoardResultResource($row, $customer->customerId());
+        }
 
         return $resource;
     }
@@ -521,6 +551,21 @@ class TenantActivityService
     }
 
     /**
+     * @return array<string, mixed>|null
+     */
+    public function customerClaim(string $tenantId, CustomerSessionContext $customer, string $claimId): ?array
+    {
+        $claim = ActivityClaim::query()
+            ->forTenant($tenantId)
+            ->where('customer_id', $customer->customerId())
+            ->with(['award', 'activity'])
+            ->where('id', $claimId)
+            ->first();
+
+        return $claim === null ? null : $this->claimResource($claim);
+    }
+
+    /**
      * @param array<string, mixed> $payload
      * @return array{resource?: array<string, mixed>, status?: int, error?: string, retry_after_seconds?: int|null}
      */
@@ -609,6 +654,7 @@ class TenantActivityService
                 'updated_at' => $now,
             ]);
             TenantActivityAward::query()->whereKey((string) $award->id)->update(['status' => 'claimed', 'updated_at' => $now]);
+            $this->queueTenantMenuBadgeBroadcast($tenantId, 'activity_claims');
 
             return [
                 'resource' => $this->claimResource(ActivityClaim::query()->with(['award', 'activity'])->whereKey($claimId)->first()),
@@ -791,7 +837,8 @@ class TenantActivityService
 
             $resource = $this->tenantClaim($tenantId, $claimId);
             $this->lineNotifications->enqueue($tenantId, (string) ($resource['customer']['id'] ?? $claim->customer_id), 'activity_claim.status_updated', 'activity_claim', $claimId, $this->lineActivityClaimVariables($tenantId, $resource ?: [], 'จ่ายเงินกิจกรรมแล้ว'));
-            $this->telegramNotifications->enqueue($tenantId, 'activity_claim.status_updated', 'activity_claim', $claimId, $this->telegramActivityClaimVariables($tenantId, $resource ?: [], 'จ่ายเงินกิจกรรมแล้ว'));
+            $this->telegramNotifications->enqueue($tenantId, 'activity_claim.status_updated', 'activity_claim', $claimId, $this->telegramActivityClaimVariables($tenantId, $resource ?: [], 'จ่ายเงินกิจกรรมแล้ว', $actor->adminUser));
+            $this->queueTenantMenuBadgeBroadcast($tenantId, 'activity_claims');
 
             return ['resource' => $resource];
         });
@@ -826,7 +873,8 @@ class TenantActivityService
 
             $resource = $this->tenantClaim($tenantId, $claimId);
             $this->lineNotifications->enqueue($tenantId, (string) ($resource['customer']['id'] ?? $claim->customer_id), 'activity_claim.status_updated', 'activity_claim', $claimId, $this->lineActivityClaimVariables($tenantId, $resource ?: [], 'ไม่อนุมัติ'));
-            $this->telegramNotifications->enqueue($tenantId, 'activity_claim.status_updated', 'activity_claim', $claimId, $this->telegramActivityClaimVariables($tenantId, $resource ?: [], 'ไม่อนุมัติ'));
+            $this->telegramNotifications->enqueue($tenantId, 'activity_claim.status_updated', 'activity_claim', $claimId, $this->telegramActivityClaimVariables($tenantId, $resource ?: [], 'ไม่อนุมัติ', $actor->adminUser));
+            $this->queueTenantMenuBadgeBroadcast($tenantId, 'activity_claims');
 
             return ['resource' => $resource];
         });
@@ -1177,9 +1225,21 @@ class TenantActivityService
                 'status' => 'claimed',
                 'updated_at' => $now,
             ]);
+            $this->queueTenantMenuBadgeBroadcast((string) $award->tenant_id, 'activity_claims');
 
             return $claimId;
         });
+    }
+
+    private function queueTenantMenuBadgeBroadcast(string $tenantId, string $source): void
+    {
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit(fn (): mixed => AdminMenuBadgesUpdated::dispatch('tenant', $tenantId, $source));
+
+            return;
+        }
+
+        AdminMenuBadgesUpdated::dispatch('tenant', $tenantId, $source);
     }
 
     private function normalizeAutomaticActivityPayoutMethod(mixed $value): string
@@ -1198,6 +1258,162 @@ class TenantActivityService
     {
         return $this->activityQuery($tenantId)
             ->where('status', 'active');
+    }
+
+    /**
+     * @param array<string, mixed> $queryParams
+     * @return array{selected_game_id: string|null, current_game_id: string|null, games: array<int, array<string, mixed>>, all_games: array<int, array<string, mixed>>, mode: string}
+     */
+    private function activityGameContext(
+        string $tenantId,
+        array $queryParams,
+        bool $historyMode = false,
+        bool $allowGameSelection = false,
+        bool $activeOnly = true,
+    ): array
+    {
+        $allGames = $this->activityGameOptions($tenantId, $activeOnly);
+        $currentGameId = $this->currentActivityGameId($allGames);
+        $games = $historyMode
+            ? array_values(array_filter(
+                $allGames,
+                fn (array $game): bool => (string) $game['id'] !== (string) ($currentGameId ?? ''),
+            ))
+            : $allGames;
+        $gameIds = array_map(fn (array $game): string => (string) $game['id'], $games);
+        $requestedGameId = trim((string) ($queryParams['game_id'] ?? ''));
+        $selectedGameId = null;
+
+        if (($historyMode || $allowGameSelection) && $requestedGameId !== '' && in_array($requestedGameId, $gameIds, true)) {
+            $selectedGameId = $requestedGameId;
+        } elseif ($historyMode) {
+            $selectedGameId = $games[0]['id'] ?? null;
+        } else {
+            $selectedGameId = $currentGameId;
+        }
+
+        return [
+            'selected_game_id' => $selectedGameId,
+            'current_game_id' => $currentGameId,
+            'games' => $games,
+            'all_games' => $allGames,
+            'mode' => $historyMode ? 'history' : 'current',
+        ];
+    }
+
+    /**
+     * @param array{selected_game_id: string|null, current_game_id: string|null, games: array<int, array<string, mixed>>, all_games?: array<int, array<string, mixed>>, mode?: string} $context
+     * @return array<string, mixed>
+     */
+    private function activityListMeta(array $context): array
+    {
+        return [
+            'has_more' => false,
+            'next_cursor' => null,
+            'selected_game_id' => $context['selected_game_id'],
+            'current_game_id' => $context['current_game_id'],
+            'games' => $context['games'],
+            'has_history' => $this->hasActivityHistory($context),
+            'mode' => $context['mode'] ?? 'current',
+        ];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $games
+     */
+    private function currentActivityGameId(array $games): ?string
+    {
+        $openGameId = Game::query()
+            ->where('status', 'open')
+            ->orderByDesc('draw_at')
+            ->orderByDesc('created_at')
+            ->value('id');
+
+        if ($openGameId !== null) {
+            return (string) $openGameId;
+        }
+
+        foreach ($games as $game) {
+            if ((string) ($game['status'] ?? '') === 'open') {
+                return (string) $game['id'];
+            }
+        }
+
+        return $games[0]['id'] ?? null;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function activityGameOptions(string $tenantId, bool $activeOnly = true): array
+    {
+        $query = DB::table('tenant_activities')
+            ->join('games', 'games.id', '=', 'tenant_activities.game_id')
+            ->where('tenant_activities.tenant_id', $tenantId);
+
+        if ($activeOnly) {
+            $query->where('tenant_activities.status', 'active');
+        }
+
+        return $query
+            ->groupBy('games.id', 'games.code', 'games.name', 'games.status', 'games.sale_start_at', 'games.draw_at', 'games.close_at', 'games.created_at')
+            ->orderByDesc('games.draw_at')
+            ->orderByDesc('games.created_at')
+            ->get([
+                'games.id',
+                'games.code',
+                'games.name',
+                'games.status',
+                'games.sale_start_at',
+                'games.draw_at',
+                'games.close_at',
+                DB::raw('COUNT(tenant_activities.id) as activity_count'),
+            ])
+            ->map(fn (object $game): array => [
+                'id' => (string) $game->id,
+                'code' => (string) $game->code,
+                'name' => (string) $game->name,
+                'label' => $this->activityGameLabel($game),
+                'status' => (string) $game->status,
+                'sale_start_at' => $game->sale_start_at,
+                'draw_at' => $game->draw_at,
+                'close_at' => $game->close_at,
+                'activity_count' => (int) $game->activity_count,
+            ])
+            ->all();
+    }
+
+    /**
+     * @param array{current_game_id: string|null, games: array<int, array<string, mixed>>, all_games?: array<int, array<string, mixed>>} $context
+     */
+    private function hasActivityHistory(array $context): bool
+    {
+        $games = $context['all_games'] ?? $context['games'];
+
+        return count(array_filter(
+            $games,
+            fn (array $game): bool => (string) $game['id'] !== (string) ($context['current_game_id'] ?? ''),
+        )) > 0;
+    }
+
+    private function truthy(mixed $value): bool
+    {
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) === true;
+    }
+
+    private function activityGameLabel(object $game): string
+    {
+        $name = trim((string) ($game->name ?? ''));
+
+        if ($name !== '') {
+            return $name;
+        }
+
+        if ($game->draw_at !== null) {
+            return 'งวดวันที่ '.Carbon::parse($game->draw_at, self::BUSINESS_TIMEZONE)->locale('th')->translatedFormat('j M Y');
+        }
+
+        return (string) $game->id;
     }
 
     /**
@@ -2144,6 +2360,7 @@ class TenantActivityService
 
         if ((string) $row->type === 'lucky_board') {
             $resource['number_board'] = $this->luckyBoardResource($row, $includeBody);
+            $resource['result_summary'] = $this->luckyBoardResultResource($row);
         }
 
         if (! $includeBody) {
@@ -2187,6 +2404,110 @@ class TenantActivityService
         return $selected + [
             'types' => $types,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function luckyBoardResultResource(object $row, ?string $customerId = null): ?array
+    {
+        if ((string) $row->type !== 'lucky_board') {
+            return null;
+        }
+
+        $result = RewardResult::query()
+            ->where('game_id', $row->game_id)
+            ->where('status', 'published')
+            ->orderByDesc('published_at')
+            ->orderByDesc('updated_at')
+            ->first();
+
+        if ($result === null) {
+            return null;
+        }
+
+        $game = $row->relationLoaded('game') ? $row->game : null;
+        $resultAt = $this->activityResultAt($game?->draw_at ?? null);
+        if ($resultAt !== null && now()->lt($resultAt)) {
+            return null;
+        }
+
+        $predictionType = $this->selectedPredictionTypeFromConfig($row->relationLoaded('luckyConfig') ? $row->luckyConfig : null);
+        $winningNumbers = $this->winningPredictionNumbers((string) $result->id);
+        $winningNumber = (string) ($winningNumbers[$predictionType] ?? '');
+
+        if ($winningNumber === '') {
+            return null;
+        }
+
+        $winnerCount = TenantActivityEntry::query()
+            ->forTenant((string) $row->tenant_id)
+            ->where('activity_id', $row->id)
+            ->where('prediction_type', $predictionType)
+            ->where('status', 'won')
+            ->count();
+        $awardTotal = (int) TenantActivityAward::query()
+            ->forTenant((string) $row->tenant_id)
+            ->where('activity_id', $row->id)
+            ->where('type', 'lucky_board')
+            ->where('prediction_type', $predictionType)
+            ->sum('amount');
+
+        $summary = [
+            'status' => 'announced',
+            'reward_result_id' => (string) $result->id,
+            'prediction_type' => $predictionType,
+            'prediction_label' => $this->predictionTypeLabel($predictionType),
+            'winning_number' => $winningNumber,
+            'winning_numbers' => [$winningNumber],
+            'winner_count' => $winnerCount,
+            'award_total' => $this->money($awardTotal),
+            'announced_at' => $result->published_at?->toISOString() ?? $result->updated_at?->toISOString(),
+            'customer' => null,
+        ];
+
+        if ($customerId === null || trim($customerId) === '') {
+            return $summary;
+        }
+
+        $entries = TenantActivityEntry::query()
+            ->forTenant((string) $row->tenant_id)
+            ->where('activity_id', $row->id)
+            ->where('customer_id', $customerId)
+            ->where('prediction_type', $predictionType)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('created_at')
+            ->get(['id', 'selected_number', 'status'])
+            ->all();
+        $winningEntries = array_values(array_filter(
+            $entries,
+            fn (object $entry): bool => (string) $entry->status === 'won'
+        ));
+        $processedEntries = array_values(array_filter(
+            $entries,
+            fn (object $entry): bool => in_array((string) $entry->status, ['won', 'lost'], true)
+        ));
+        $customerAwardTotal = (int) TenantActivityAward::query()
+            ->forTenant((string) $row->tenant_id)
+            ->where('activity_id', $row->id)
+            ->where('customer_id', $customerId)
+            ->where('type', 'lucky_board')
+            ->where('prediction_type', $predictionType)
+            ->sum('amount');
+
+        $summary['customer'] = [
+            'status' => $winningEntries !== []
+                ? 'won'
+                : ($processedEntries !== [] ? 'lost' : ($entries !== [] ? 'pending' : 'not_joined')),
+            'entries_count' => count($entries),
+            'processed_entries_count' => count($processedEntries),
+            'winning_entries_count' => count($winningEntries),
+            'selected_numbers' => array_map(fn (object $entry): string => (string) $entry->selected_number, $entries),
+            'winning_numbers' => array_map(fn (object $entry): string => (string) $entry->selected_number, $winningEntries),
+            'award_amount' => $this->money($customerAwardTotal),
+        ];
+
+        return $summary;
     }
 
     /**
@@ -2520,7 +2841,7 @@ class TenantActivityService
      * @param array<string, mixed> $claim
      * @return array<string, mixed>
      */
-    private function telegramActivityClaimVariables(string $tenantId, array $claim, string $statusLabel): array
+    private function telegramActivityClaimVariables(string $tenantId, array $claim, string $statusLabel, ?array $adminUser = null): array
     {
         $customer = is_array($claim['customer'] ?? null) ? $claim['customer'] : [];
         $amount = (int) ($claim['claim_amount']['amount'] ?? $claim['amount']['amount'] ?? 0);
@@ -2532,6 +2853,7 @@ class TenantActivityService
                 'occurred_at' => $this->telegramNotifications->occurredAt($claim['paid_at'] ?? $claim['reviewed_at'] ?? $claim['updated_at'] ?? null),
             ],
             'tenant' => ['name' => $this->telegramNotifications->tenantName($tenantId)],
+            'admin' => $this->telegramNotifications->adminVariables($adminUser),
             'customer' => [
                 'name' => (string) ($customer['name'] ?? ''),
                 'phone' => (string) ($customer['phone'] ?? ''),

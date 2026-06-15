@@ -24,6 +24,7 @@ use App\Modules\Growth\Http\Controllers\CentralSettlementController;
 use App\Modules\CentralStock\Http\Controllers\CentralStockController;
 use App\Modules\Auth\Http\Controllers\CustomerAuthController;
 use App\Modules\Auth\Http\Controllers\CustomerLineAuthController;
+use App\Modules\Auth\Http\Controllers\CustomerPasswordResetController;
 use App\Modules\Commerce\Http\Controllers\CustomerCommerceController;
 use App\Modules\Growth\Http\Controllers\CustomerAffiliateController;
 use App\Modules\PartnerStore\Http\Controllers\CustomerReservationController;
@@ -92,6 +93,8 @@ Route::get('/public/results/{game_id}', [PublicRewardController::class, 'show'])
 
 Route::post('/customer/auth/register', [CustomerAuthController::class, 'register']);
 Route::post('/customer/auth/login', [CustomerAuthController::class, 'login']);
+Route::post('/customer/auth/password/forgot', [CustomerPasswordResetController::class, 'forgot']);
+Route::post('/customer/auth/password/reset', [CustomerPasswordResetController::class, 'reset']);
 Route::post('/customer/auth/line/login', [CustomerLineAuthController::class, 'login']);
 Route::get('/customer/auth/line/callback', [CustomerLineAuthController::class, 'callback']);
 Route::post('/customer/auth/line/link-phone', [CustomerLineAuthController::class, 'linkPhone']);
@@ -102,6 +105,8 @@ Route::get('/customer/auth/pin/status', [CustomerAuthController::class, 'pinStat
 Route::post('/customer/auth/pin/setup', [CustomerAuthController::class, 'setupPin'])->middleware('customer.auth');
 Route::post('/customer/auth/pin/verify', [CustomerAuthController::class, 'verifyPin'])->middleware('customer.auth');
 Route::post('/customer/auth/pin/change', [CustomerAuthController::class, 'changePin'])->middleware('customer.auth');
+Route::post('/customer/auth/pin/reset/verify-password', [CustomerAuthController::class, 'verifyPinResetPassword'])->middleware('customer.auth');
+Route::post('/customer/auth/pin/reset', [CustomerAuthController::class, 'resetPin'])->middleware('customer.auth');
 Route::get('/customer/profile', [CustomerAuthController::class, 'profile'])->middleware('customer.auth');
 Route::patch('/customer/profile', [CustomerAuthController::class, 'updateProfile'])->middleware('customer.auth');
 Route::get('/customer/line-notifications', [CustomerLineNotificationController::class, 'show'])->middleware('customer.auth');
@@ -128,6 +133,7 @@ Route::post('/customer/activities/{activity_id}/entries', [CustomerActivityContr
 Route::get('/customer/activity-awards', [CustomerActivityController::class, 'awards'])->middleware('customer.auth');
 Route::get('/customer/activity-claims', [CustomerActivityController::class, 'claims'])->middleware('customer.auth');
 Route::post('/customer/activity-claims', [CustomerActivityController::class, 'createClaim'])->middleware('customer.auth');
+Route::get('/customer/activity-claims/{claim_id}', [CustomerActivityController::class, 'claim'])->middleware('customer.auth');
 Route::get('/customer/topups', [CustomerCommerceController::class, 'topups'])->middleware('customer.auth');
 Route::post('/customer/topups', [CustomerCommerceController::class, 'createTopup'])->middleware('customer.auth');
 Route::post('/customer/topups/credit', [CustomerCommerceController::class, 'createCreditTopup'])->middleware('customer.auth');
@@ -367,6 +373,8 @@ Route::patch('/admin/central/games/{game_id}', [CentralGameController::class, 'u
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/games/{game_id}/close', [CentralGameController::class, 'close'])
     ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/games/{game_id}/trigger-reward-scraper', [CentralGameController::class, 'triggerRewardScraper'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/games/{game_id}/archive', [CentralGameController::class, 'archive'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/stock', [CentralStockController::class, 'index'])
@@ -440,6 +448,8 @@ Route::get('/admin/central/allocation-options/tenants', [CentralAllocationContro
 Route::get('/admin/central/allocation-options/games', [CentralAllocationController::class, 'gameOptions'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/allocations', [CentralAllocationController::class, 'store'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/allocations/open-all-partners', [CentralAllocationController::class, 'openAllPartners'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::put('/admin/central/allocations/partner-percent', [CentralAllocationController::class, 'updatePartnerPercent'])
     ->middleware(['admin.auth', 'admin.scope:central']);
@@ -647,6 +657,10 @@ Route::get('/admin/tenant/line-notifications/customers', [TenantLineNotification
 Route::get('/admin/tenant/line-notifications/deliveries', [TenantLineNotificationController::class, 'deliveries'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/line-notifications/test-send', [TenantLineNotificationController::class, 'testSend'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/password-reset-requests', [CustomerPasswordResetController::class, 'tenantIndex'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/password-reset-requests/{request_id}/issue-link', [CustomerPasswordResetController::class, 'tenantIssueLink'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/activities', [TenantActivityController::class, 'index'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);

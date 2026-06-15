@@ -10,7 +10,13 @@ export interface LotteryReward {
 export interface LotteryRewardGame {
   id?: number | string
   name?: string
-  status?: number
+  status?: number | string
+  resultStatus?: string
+  result_status?: string
+  officialStatus?: string
+  official_status?: string
+  completionPercent?: number
+  completion_percent?: number
   rewards?: LotteryReward[]
 }
 
@@ -81,6 +87,28 @@ export const getRewardPlaceholder = (slug: string) => {
 
   return 'x'.repeat(digits)
 }
+
+export const isPublishedRewardResult = (game: LotteryRewardGame | null | undefined) => {
+  if (!game) {
+    return false
+  }
+
+  const sourceStatus = String(
+    game.officialStatus
+    || game.official_status
+    || game.resultStatus
+    || game.result_status
+    || ''
+  ).trim().toLowerCase()
+
+  if (sourceStatus) {
+    return sourceStatus === 'published'
+  }
+
+  return Number(game.status) === 2 || String(game.status || '').toLowerCase() === 'published'
+}
+
+export const isUnofficialRewardResult = (game: LotteryRewardGame | null | undefined) => Boolean(game) && !isPublishedRewardResult(game)
 
 const toNumbers = (value: unknown): string[] => {
   if (!Array.isArray(value)) {
@@ -173,6 +201,17 @@ export const useLotteryReward = () => {
     }
   }
 
+  const hasResolvedRewardResult = (game: LotteryRewardGame | null | undefined) => {
+    const summary = toSummary(game)
+
+    return [
+      summary.first,
+      summary.last2,
+      ...summary.front3,
+      ...summary.last3
+    ].some(isResolvedRewardNumber)
+  }
+
   return {
     getReward,
     getRewardNumbers,
@@ -180,8 +219,11 @@ export const useLotteryReward = () => {
     getRewardPlaceholder,
     getRewardAmount,
     getRewardGroups,
+    hasResolvedRewardResult,
+    isPublishedRewardResult,
     isDisplayableRewardNumber,
     isResolvedRewardNumber,
+    isUnofficialRewardResult,
     toSummary
   }
 }

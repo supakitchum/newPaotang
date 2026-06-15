@@ -59,7 +59,7 @@
           <input v-model="rememberMe" type="checkbox">
           <span>จดจำการเข้าสู่ระบบ</span>
         </label>
-        <NuxtLink to="/login">ลืมรหัสผ่าน?</NuxtLink>
+        <NuxtLink to="/forgot-password">ลืมรหัสผ่าน?</NuxtLink>
       </div>
 
       <button class="primary-pill login-submit" type="submit" :disabled="isSubmitting">

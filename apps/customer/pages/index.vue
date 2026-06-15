@@ -93,17 +93,13 @@
       </section>
 
       <ResultSummaryCard
-        v-else-if="resultGame"
-        :date="resultGame.name || '-'"
+        v-else
+        :date="resultDisplayGame.name || '-'"
         :result="resultSummary"
         :link="'/result'"
         :unofficial="isUnofficialReward"
         class="mb-3"
       />
-
-      <section v-else class="result-card mb-3 text-center muted-text">
-        ยังไม่มีข้อมูลผลรางวัล
-      </section>
 
       <section v-if="newsItems.length" class="home-news-section" aria-label="ข่าวสารและกิจกรรม">
         <div class="home-news-heading">
@@ -181,7 +177,7 @@ definePageMeta({
 
 const platformApi = usePlatformApi()
 const config = useRuntimeConfig()
-const { isDisplayableRewardNumber, toSummary } = useLotteryReward()
+const { hasResolvedRewardResult, isUnofficialRewardResult, toSummary } = useLotteryReward()
 const { currentDrawDate: drawDate } = useAppInit()
 const { isAuthenticated, user, restoreAuthState } = useAuth()
 const { toNumber } = useTopup()
@@ -194,17 +190,7 @@ const wallets = ref<Array<Record<string, any>>>([])
 const isWalletLoading = ref(false)
 
 const hasRewardResult = (game: LotteryRewardGame | null | undefined) => {
-  if (!game) {
-    return false
-  }
-
-  const summary = toSummary(game)
-  return [
-    summary.first,
-    summary.last2,
-    ...summary.front3,
-    ...summary.last3
-  ].some(isDisplayableRewardNumber)
+  return hasResolvedRewardResult(game)
 }
 
 const resultGame = computed(() => {
@@ -215,8 +201,19 @@ const resultGame = computed(() => {
   return historyGames.value.find((game) => hasRewardResult(game)) || null
 })
 
-const resultSummary = computed(() => toSummary(resultGame.value))
-const isUnofficialReward = computed(() => Boolean(resultGame.value) && Number(resultGame.value?.status) !== 2)
+const placeholderResultGame = computed<LotteryRewardGame>(() => ({
+  id: 'pending-reward',
+  name: drawDate.value,
+  status: 1,
+  resultStatus: 'pending',
+  result_status: 'pending',
+  officialStatus: 'pending',
+  official_status: 'pending',
+  rewards: []
+}))
+const resultDisplayGame = computed(() => resultGame.value || placeholderResultGame.value)
+const resultSummary = computed(() => toSummary(resultDisplayGame.value))
+const isUnofficialReward = computed(() => hasRewardResult(resultGame.value) && isUnofficialRewardResult(resultGame.value))
 const apiAssetBaseUrl = computed(() => {
   const baseUrl = config.public.apiBaseUrl || ''
   return `${baseUrl}`.replace(/\/api\/v\d+\/?$/i, '').replace(/\/api\/?$/i, '').replace(/\/$/, '')
@@ -504,13 +501,13 @@ onMounted(() => {
 .home-activities-rail {
   display: flex;
   gap: clamp(10px, 3vw, 14px);
-  width: calc(100% + 32px);
-  max-width: calc(100% + 32px);
-  margin-inline: -16px;
+  width: 100%;
+  max-width: 100%;
+  margin-inline: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 0 16px 10px;
-  scroll-padding-inline: 16px;
+  padding: 2px 0 10px;
+  scroll-padding-inline: 0;
   scroll-snap-type: x proximity;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
@@ -522,12 +519,12 @@ onMounted(() => {
 
 .home-activity-card {
   box-sizing: border-box;
-  flex: 0 0 clamp(268px, 78vw, 360px);
+  flex: 0 0 min(100%, clamp(292px, 88vw, 380px));
   min-width: 0;
-  max-width: calc(100vw - 36px);
+  max-width: 100%;
   min-height: clamp(122px, 34vw, 142px);
   display: grid;
-  grid-template-columns: clamp(92px, 32%, 124px) minmax(0, 1fr);
+  grid-template-columns: clamp(96px, 32%, 128px) minmax(0, 1fr);
   overflow: hidden;
   border: 1px solid #dbe7f5;
   border-radius: 14px;
@@ -544,7 +541,6 @@ onMounted(() => {
   height: 100%;
   min-height: clamp(122px, 34vw, 142px);
   display: block;
-  object-fit: cover;
 }
 
 .home-activity-image-fallback {
@@ -599,6 +595,7 @@ onMounted(() => {
 .home-activity-card h3 {
   display: -webkit-box;
   margin: 0;
+  min-height: 2.7em;
   overflow: hidden;
   color: #17335f;
   font-size: 15px;
@@ -611,6 +608,7 @@ onMounted(() => {
 .home-activity-card p {
   display: -webkit-box;
   margin: 0;
+  min-height: 2.76em;
   overflow: hidden;
   color: #64748b;
   font-size: 12px;
@@ -754,16 +752,8 @@ onMounted(() => {
 }
 
 @media (max-width: 360px) {
-  .home-activities-rail {
-    width: calc(100% + 24px);
-    max-width: calc(100% + 24px);
-    margin-inline: -12px;
-    padding-inline: 12px;
-    scroll-padding-inline: 12px;
-  }
-
   .home-activity-card {
-    flex-basis: calc(100vw - 36px);
+    flex-basis: 100%;
     grid-template-columns: 88px minmax(0, 1fr);
   }
 
@@ -788,18 +778,13 @@ onMounted(() => {
   .home-activities-rail {
     display: flex;
     gap: 14px;
-    width: 100%;
-    max-width: 100%;
-    margin-inline: 0;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 0 0 10px;
-    scroll-padding-inline: 0;
     scroll-snap-type: x proximity;
   }
 
   .home-activity-card {
-    flex: 0 0 clamp(280px, 32%, 360px);
+    flex: 0 0 min(380px, calc((100% - 14px) / 2));
     max-width: none;
     scroll-snap-align: start;
   }

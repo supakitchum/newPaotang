@@ -351,12 +351,8 @@ const overrideCentralCeiling = computed(() => {
     return null
   }
 
-  const value = cleanedPatternValue(overrideForm.value)
-  const centralRow = Array.isArray(centralSummary.value?.data)
-    ? centralSummary.value.data.find((row: any) => String(row.number) === value)
-    : null
   const field = `${filters.dimension}_limit`
-  return numberOrNull(centralRow?.limit) ?? numberOrNull(centralLimits.value?.[field]) ?? numberOrNull(coverageDefaults.value.central[field])
+  return numberOrNull(centralLimits.value?.[field]) ?? numberOrNull(coverageDefaults.value.central[field])
 })
 const limitClientMessages = computed(() => {
   if (filters.scope_type !== 'partner') {

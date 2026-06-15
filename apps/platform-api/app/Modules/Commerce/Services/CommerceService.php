@@ -22,6 +22,7 @@ use App\Models\WalletLedger;
 use App\Models\WebhookCallback;
 use App\Modules\Commerce\Events\CustomerTopupUpdated;
 use App\Modules\Commerce\Events\TopupUpdated;
+use App\Modules\Rbac\Events\AdminMenuBadgesUpdated;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Modules\Auth\Services\CustomerAuthService;
@@ -1455,7 +1456,7 @@ class CommerceService
             $this->auditAdmin($actor, $request, $auditAction, 'topup_request', $topupId, $payload, $tenantId);
             $this->queueTopupUpdatedBroadcast($tenantId, $topupId);
             $this->lineNotifications->enqueue($tenantId, (string) ($resource['customer']['id'] ?? $resource['customer_id'] ?? $topup->customer_id), 'topup.status_updated', 'topup_request', $topupId, $this->lineTopupVariables($tenantId, $resource));
-            $this->telegramNotifications->enqueue($tenantId, 'topup.status_updated', 'topup_request', $topupId, $this->telegramTopupVariables($tenantId, $resource));
+            $this->telegramNotifications->enqueue($tenantId, 'topup.status_updated', 'topup_request', $topupId, $this->telegramTopupVariables($tenantId, $resource, $actor->adminUser));
 
             return ['resource' => $resource, 'status' => 200];
         });
@@ -3057,6 +3058,8 @@ class CommerceService
             'back3' => $stock->back3,
             'back2' => $stock->back2,
             'status' => (string) $stock->status,
+            'stock_ref' => $stock->virtual_stock_ref ?? null,
+            'virtual_copy_index' => $stock->virtual_copy_index ?? null,
             'price' => $this->money((int) $pricing['amount'], (string) $pricing['currency']),
             'price_rule_summary' => $pricing['summary'] ?? null,
             'image_thumb_url' => PublicUrl::normalizeAssetUrl($stock->image_thumb_url ?? null),
@@ -3132,6 +3135,7 @@ class CommerceService
                 'topup' => $this->adminTopupSummaryResource($topup),
                 'updated_at' => now()->toISOString(),
             ]);
+            AdminMenuBadgesUpdated::dispatch('tenant', $tenantId, 'topups');
 
             CustomerTopupUpdated::dispatch([
                 'event_type' => 'topup.updated',
@@ -3223,7 +3227,7 @@ class CommerceService
      * @param array<string, mixed> $topup
      * @return array<string, mixed>
      */
-    private function telegramTopupVariables(string $tenantId, array $topup): array
+    private function telegramTopupVariables(string $tenantId, array $topup, ?array $adminUser = null): array
     {
         $customerId = (string) ($topup['customer']['id'] ?? $topup['customer_id'] ?? '');
         $amount = (int) ($topup['amount']['amount'] ?? $topup['amount'] ?? 0);
@@ -3241,6 +3245,7 @@ class CommerceService
                 ),
             ],
             'tenant' => ['name' => $this->telegramNotifications->tenantName($tenantId)],
+            'admin' => $this->telegramNotifications->adminVariables($adminUser),
             'customer' => $this->telegramNotifications->customerVariables($tenantId, $customerId),
             'topup' => [
                 'reference' => (string) ($topup['reference'] ?? $topup['id'] ?? ''),

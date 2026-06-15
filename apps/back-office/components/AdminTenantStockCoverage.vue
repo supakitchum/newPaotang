@@ -335,13 +335,7 @@ const activeDimensionOption = computed(() => dimensionOptions.find((dimension) =
 const activeDimensionDescription = computed(() => activeDimensionOption.value.description)
 const activeDimensionExample = computed(() => activeDimensionOption.value.example)
 const overrideRows = computed(() => normalizeOverrideRows(overridesDetail.value?.data || []))
-const overrideCentralCeiling = computed(() => {
-  const value = cleanedPatternValue(overrideForm.value)
-  const currentRow = rows.value.find((row) => String(row?.number || '') === value)
-  const field = `${filters.dimension}_limit`
-
-  return numberOrNull(currentRow?.central_limit) ?? centralCeiling(field)
-})
+const overrideCentralCeiling = computed(() => centralCeiling(`${filters.dimension}_limit`))
 const limitClientMessages = computed(() => {
   const messages: Record<string, string[]> = {}
   for (const field of limitFields) {

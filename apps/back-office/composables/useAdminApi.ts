@@ -66,6 +66,9 @@ export const useAdminApi = () => {
       if (import.meta.client && isWriteMethod(method) && options.successMessage !== false && successMessage) {
         void showSuccessAlert(successMessage)
       }
+      if (import.meta.client && isWriteMethod(method) && path.startsWith('/admin/') && !path.endsWith('/realtime/auth')) {
+        window.dispatchEvent(new CustomEvent('admin:menu-badges-refresh'))
+      }
 
       return response
     } catch (error: any) {

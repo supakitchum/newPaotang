@@ -67,7 +67,7 @@ export type OperationFilter = {
 export type OperationFormField = {
   key: string
   label: string
-  type?: 'text' | 'number' | 'money' | 'reward-money' | 'textarea' | 'json' | 'select' | 'checkbox' | 'checkbox-group' | 'date' | 'datetime-local' | 'datetime-range' | 'lines' | 'password' | 'color' | 'prize-lines' | 'reward-prize-grid' | 'reward-prize-number-grid' | 'reward-prize-amount-grid' | 'stock-set-distribution' | 'stock-sale-limits' | 'stock-partner-distribution' | 'stock-partner-limits'
+  type?: 'text' | 'number' | 'money' | 'reward-money' | 'textarea' | 'json' | 'select' | 'checkbox' | 'checkbox-group' | 'date' | 'datetime-local' | 'datetime-range' | 'lines' | 'password' | 'color' | 'prize-lines' | 'reward-prize-grid' | 'reward-prize-number-grid' | 'reward-prize-amount-grid' | 'stock-set-distribution' | 'stock-sale-limits' | 'stock-partner-distribution' | 'stock-partner-limits' | 'allocation-partner-percent-list'
   sourceKey?: string
   rangeStartKey?: string
   rangeEndKey?: string
@@ -189,6 +189,7 @@ const statusFilter = (options: string[] = ['pending', 'approved', 'rejected', 'c
   options,
 })
 const adminUiRoute = (scope: AdminScope, path: string) => `/admin/${scope}/${path}`
+const reviewQueueGroup = 'Review Queue'
 
 const cursorFilters = (extra: OperationFilter[] = []): OperationFilter[] => [
   ...extra,
@@ -1877,7 +1878,7 @@ const tenant: OperationResource[] = [
     }],
   },
   {
-    ...actionResource('tenant', 'topups', 'Topups', 'Tenant Finance', '/admin/tenant/topups', '/admin/tenant/topups/{topup_id}', 'topup_id', topupActions),
+    ...actionResource('tenant', 'topups', 'Topups', reviewQueueGroup, '/admin/tenant/topups', '/admin/tenant/topups/{topup_id}', 'topup_id', topupActions),
     columns: topupColumns,
     filters: [],
     apiSort: true,
@@ -1929,7 +1930,7 @@ const tenant: OperationResource[] = [
     scope: 'tenant',
     slug: 'exchange-reward',
     title: 'Exchange Reward',
-    group: 'Store Operations',
+    group: reviewQueueGroup,
     listEndpoint: '/admin/tenant/reward-claims',
     detailEndpoint: '/admin/tenant/reward-claims/{claim_id}',
     idParam: 'claim_id',
@@ -2317,7 +2318,7 @@ const tenant: OperationResource[] = [
     scope: 'tenant',
     slug: 'growth/commission-transactions',
     title: 'Commission Transactions',
-    group: 'Tenant Growth',
+    group: reviewQueueGroup,
     listEndpoint: '/admin/tenant/commission-transactions',
     detailEndpoint: '/admin/tenant/commission-transactions/{commission_id}',
     idParam: 'commission_id',
@@ -2994,6 +2995,7 @@ const central: OperationResource[] = [
       },
       { key: 'lottery-images', label: 'Lottery images', route: adminUiRoute('central', 'lottery-images?game_id={id}'), variant: 'success', contextFields: gameActionContext },
       { key: 'stock-coverage', label: 'Stock coverage', route: adminUiRoute('central', 'games/{id}/stock-coverage'), variant: 'info', contextFields: gameActionContext },
+      { key: 'trigger-reward-scraper', label: 'Fetch live result', endpoint: '/admin/central/games/{game_id}/trigger-reward-scraper', variant: 'info', contextFields: gameActionContext },
       { key: 'close', label: 'Close', endpoint: '/admin/central/games/{game_id}/close', variant: 'warning', reason: true, contextFields: gameActionContext },
       { key: 'archive', label: 'Archive', endpoint: '/admin/central/games/{game_id}/archive', variant: 'danger', reason: true, contextFields: gameActionContext },
     ],
@@ -3147,19 +3149,39 @@ const central: OperationResource[] = [
       },
       { key: 'cancel', label: 'Cancel', endpoint: '/admin/central/allocations/{allocation_id}/cancel', variant: 'warning', reason: true, optionalReason: true, contextFields: allocationActionContext },
     ],
-    collectionActions: [{
-      key: 'create',
-      label: 'Create allocation',
-      endpoint: '/admin/central/allocations',
-      reason: true,
-      optionalReason: true,
-      formFields: [
-        allocationPartnerField(),
-        allocationTenantField(),
-        allocationGameField(),
-        allocationPercentField(),
-      ],
-    }],
+    collectionActions: [
+      {
+        key: 'open-all-partners',
+        label: 'Open all partners',
+        endpoint: '/admin/central/allocations/open-all-partners',
+        variant: 'success',
+        reason: true,
+        optionalReason: true,
+        formFields: [
+          allocationGameField({ hideEmptyOption: true, emptyOptionLabel: 'No open game', currentOnly: true, defaultValueSource: 'current-game' }),
+          {
+            key: 'allocations',
+            label: 'Partner allocation percentages',
+            type: 'allocation-partner-percent-list',
+            required: true,
+            help: 'Review and adjust partner percentages. Existing active allocation plus new total must not exceed 100%.',
+          },
+        ],
+      },
+      {
+        key: 'create',
+        label: 'Create allocation',
+        endpoint: '/admin/central/allocations',
+        reason: true,
+        optionalReason: true,
+        formFields: [
+          allocationPartnerField(),
+          allocationTenantField(),
+          allocationGameField(),
+          allocationPercentField(),
+        ],
+      },
+    ],
   },
   {
     scope: 'central',

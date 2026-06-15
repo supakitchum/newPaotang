@@ -2881,6 +2881,40 @@ paths:
           $ref: "#/components/responses/PermissionDenied"
         "409":
           $ref: "#/components/responses/ResourceConflict"
+  /admin/central/games/{game_id}/trigger-reward-scraper:
+    post:
+      tags: [Central Admin]
+      summary: Trigger lotto scraper live result ingest for a closed game
+      parameters:
+        - $ref: "#/components/parameters/CentralAdminScopeHeader"
+        - $ref: "#/components/parameters/RequestIdHeader"
+        - name: game_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminActionRequest"
+      responses:
+        "202":
+          description: Lotto scraper poll was queued
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/ResourceConflict"
   /admin/central/games/{game_id}/archive:
     post:
       tags: [Central Admin]

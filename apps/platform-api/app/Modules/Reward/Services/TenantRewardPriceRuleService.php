@@ -174,8 +174,8 @@ class TenantRewardPriceRuleService
      */
     public function resolveForPrize(string $tenantId, string $gameId, object $prize): array
     {
-        $baseAmount = (int) $prize->amount;
         $currency = (string) ($prize->currency ?? 'THB');
+        $baseAmount = $this->normalizedRewardPrizeAmount($prize, $currency);
         $rule = $this->matchingRules($tenantId, $gameId, $prize)[0] ?? null;
         $adjustmentAmount = $rule === null ? 0 : $this->adjustmentForRule($rule, $baseAmount);
         $effectiveAmount = max(0, $baseAmount + $adjustmentAmount);
@@ -206,10 +206,10 @@ class TenantRewardPriceRuleService
                 ->get()
                 ->filter(fn (object $prize): bool => $this->ruleMatchesPrize($rule, $prize))
                 ->map(function (object $prize) use ($rule): array {
-                    $baseAmount = (int) $prize->amount;
+                    $currency = (string) ($prize->currency ?? $rule->currency ?? 'THB');
+                    $baseAmount = $this->normalizedRewardPrizeAmount($prize, $currency);
                     $adjustmentAmount = $this->adjustmentForRule($rule, $baseAmount);
                     $effectiveAmount = max(0, $baseAmount + $adjustmentAmount);
-                    $currency = (string) ($prize->currency ?? $rule->currency ?? 'THB');
 
                     return [
                         'reward_result_id' => (string) $prize->reward_result_id,
@@ -279,7 +279,7 @@ class TenantRewardPriceRuleService
                 continue;
             }
 
-            $baseAmount = (int) $prize->amount;
+            $baseAmount = $this->normalizedRewardPrizeAmount($prize);
             $effectiveAmount = $baseAmount + $this->adjustmentForRule($rule, $baseAmount);
 
             if ($effectiveAmount < 0) {
@@ -440,7 +440,7 @@ class TenantRewardPriceRuleService
                 'digits' => strlen((string) $first->prize_number),
             ], [
                 'prize_count' => $prizes->count(),
-                'central_reward_amount' => $this->money((int) $first->amount, (string) $first->currency),
+                'central_reward_amount' => $this->money($this->normalizedRewardPrizeAmount($first), (string) $first->currency),
                 'reward_result_id' => (string) $first->reward_result_id,
                 'source' => 'reward_result',
                 'updated_at' => $first->updated_at,
@@ -604,5 +604,14 @@ class TenantRewardPriceRuleService
     private function money(int $amount, string $currency = 'THB'): array
     {
         return ['amount' => $amount, 'currency' => $currency];
+    }
+
+    private function normalizedRewardPrizeAmount(object $prize, ?string $currency = null): int
+    {
+        return ThaiGovernmentLotteryRewardTemplate::normalizeStoredMinorAmount(
+            (string) ($prize->prize_type ?? ''),
+            (int) ($prize->amount ?? 0),
+            $currency ?? (string) ($prize->currency ?? ThaiGovernmentLotteryRewardTemplate::CURRENCY),
+        );
     }
 }

@@ -10,6 +10,7 @@ use App\Shared\Auth\CustomerSessionContext;
 use App\Shared\Idempotency\IdempotencyService;
 use App\Support\CustomerNo;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
@@ -453,6 +454,92 @@ class CustomerAuthService
     }
 
     /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, error?: string}
+     */
+    public function verifyPinResetPassword(CustomerSessionContext $context, array $payload): array
+    {
+        $customer = Customer::query()
+            ->where('tenant_id', $context->tenantId())
+            ->where('id', $context->customerId())
+            ->first();
+
+        $password = (string) ($payload['password'] ?? '');
+
+        if ($customer === null) {
+            return ['error' => 'authentication_required'];
+        }
+
+        if ($customer->password_hash === null || ! Hash::check($password, (string) $customer->password_hash)) {
+            return ['error' => 'password_invalid'];
+        }
+
+        Cache::put($this->pinResetCacheKey($context), [
+            'tenant_id' => $context->tenantId(),
+            'customer_id' => $context->customerId(),
+            'session_id' => (string) $context->session['id'],
+        ], now()->addMinutes(10));
+
+        return [
+            'resource' => [
+                'reset_verified' => true,
+                'expires_in_seconds' => 600,
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, error?: string}
+     */
+    public function resetPin(CustomerSessionContext $context, array $payload): array
+    {
+        $verified = Cache::get($this->pinResetCacheKey($context));
+
+        if (! is_array($verified)
+            || ($verified['tenant_id'] ?? null) !== $context->tenantId()
+            || ($verified['customer_id'] ?? null) !== $context->customerId()
+            || ($verified['session_id'] ?? null) !== (string) $context->session['id']) {
+            return ['error' => 'pin_reset_not_verified'];
+        }
+
+        $pin = trim((string) ($payload['pin'] ?? ''));
+
+        return DB::transaction(function () use ($context, $pin): array {
+            $customer = Customer::query()
+                ->where('tenant_id', $context->tenantId())
+                ->where('id', $context->customerId())
+                ->lockForUpdate()
+                ->first();
+
+            if ($customer === null) {
+                return ['error' => 'authentication_required'];
+            }
+
+            if (! $this->customerHasPin($customer)) {
+                return ['error' => 'pin_setup_required'];
+            }
+
+            $now = now();
+            Customer::query()->where('id', $customer->id)->update([
+                'pin_hash' => Hash::make($pin),
+                'pin_set_at' => $customer->pin_set_at ?? $now,
+                'pin_changed_at' => $now,
+                'pin_failed_attempts' => 0,
+                'pin_locked_until' => null,
+                'pin_last_verified_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            Cache::forget($this->pinResetCacheKey($context));
+            $this->markSessionPinVerified((string) $context->session['id'], $now);
+            $fresh = Customer::whereKey($customer->id)->first();
+
+            return ['resource' => $this->pinResponse($fresh, true)];
+        });
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function issueSession(string $tenantId, string $customerId, ?string $refreshedFromId = null, ?string $pinVerifiedAt = null): array
@@ -654,6 +741,11 @@ class CustomerAuthService
     private function customerHasPin(object $customer): bool
     {
         return is_string($customer->pin_hash) && $customer->pin_hash !== '';
+    }
+
+    private function pinResetCacheKey(CustomerSessionContext $context): string
+    {
+        return 'customer_pin_reset:'.sha1($context->tenantId().':'.$context->customerId().':'.(string) $context->session['id']);
     }
 
     private function pinLockRetryAfter(object $customer): ?int

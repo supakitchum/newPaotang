@@ -78,6 +78,7 @@ class DefaultRbacMenuSeeder extends Seeder
         $this->grantTenantAnnouncementsToPartnerOwners($now);
         $this->grantTenantActivitiesToPartnerOwners($now);
         $this->grantTenantLineNotificationsToPartnerOwners($now);
+        $this->grantTenantPasswordResetToPartnerOwners($now);
     }
 
     /**
@@ -157,6 +158,8 @@ class DefaultRbacMenuSeeder extends Seeder
                 'customer.create' => 'Create customers',
                 'customer.update' => 'Update customers',
                 'customer.suspend' => 'Suspend or disable customers',
+                'customer_password_reset.view' => 'View customer password reset requests',
+                'customer_password_reset.manage' => 'Issue customer password reset links',
                 'wallet.view' => 'View wallets',
                 'wallet.adjust' => 'Adjust wallet through audited ledger flow',
                 'topup.view' => 'View topups',
@@ -290,6 +293,7 @@ class DefaultRbacMenuSeeder extends Seeder
                 'commission_rules' => 'commission_rule.view',
                 'announcements' => 'announcement.view',
                 'line_notifications' => 'line_notification.view',
+                'password_reset_requests' => 'customer_password_reset.view',
                 'activities' => 'activity.view',
                 'activity_claims' => 'activity.view',
                 'seo_settings' => 'seo.view',
@@ -415,6 +419,7 @@ class DefaultRbacMenuSeeder extends Seeder
             'tenant:payment_settings' => '/admin/tenant/payment-settings',
             'tenant:announcements' => '/admin/tenant/announcements',
             'tenant:line_notifications' => '/admin/tenant/line-notifications',
+            'tenant:password_reset_requests' => '/admin/tenant/password-reset-requests',
             'tenant:activities' => '/admin/tenant/activities',
             'tenant:activity_claims' => '/admin/tenant/activity-claims',
             'tenant:affiliate_programs' => '/admin/tenant/growth/affiliate-programs',
@@ -475,6 +480,10 @@ class DefaultRbacMenuSeeder extends Seeder
             return 'LINE Notifications';
         }
 
+        if ($code === 'password_reset_requests') {
+            return 'Password Reset Requests';
+        }
+
         if ($code === 'telegram_notifications') {
             return 'Telegram Notifications';
         }
@@ -502,7 +511,6 @@ class DefaultRbacMenuSeeder extends Seeder
 
         return match ($scopeType.':'.$code) {
             'central:games',
-            'central:reward_entry',
             'central:rewards',
             'central:winners',
             'central:prize_checking',
@@ -512,6 +520,8 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:stock_generation',
             'central:stock_settings',
             'central:allocations' => 'Lottery Operations',
+            'central:reward_entry',
+            'central:translations' => 'Review Queue',
             'central:partners',
             'central:maintenance',
             'central:partner_quotas',
@@ -529,7 +539,6 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:menu_management',
             'central:telegram_notifications',
             'central:storage_connections',
-            'central:translations',
             'central:system_settings' => 'Administration',
             'tenant:local_stock',
             'tenant:price_rules',
@@ -538,15 +547,18 @@ class DefaultRbacMenuSeeder extends Seeder
             'tenant:orders',
             'tenant:customers',
             'tenant:wallets',
-            'tenant:topups',
             'tenant:tickets',
-            'tenant:exchange_reward',
             'tenant:winners',
             'tenant:payment_settings' => 'Store Operations',
             'tenant:announcements',
             'tenant:line_notifications',
+            'tenant:password_reset_requests',
             'tenant:activities',
-            'tenant:activity_claims' => 'Store Operations',
+            'tenant:topups',
+            'tenant:exchange_reward',
+            'tenant:activity_claims',
+            'tenant:commission_transactions',
+            'tenant:support_access_logs' => 'Review Queue',
             'tenant:agents',
             'tenant:agent_quotas',
             'tenant:affiliate_programs',
@@ -554,11 +566,9 @@ class DefaultRbacMenuSeeder extends Seeder
             'tenant:affiliate_links',
             'tenant:affiliate_attributions',
             'tenant:commission_rules',
-            'tenant:commission_transactions',
             'tenant:payouts' => 'Growth',
             'tenant:seo_settings',
             'tenant:maintenance',
-            'tenant:support_access_logs',
             'tenant:reports',
             'tenant:monitoring',
             'tenant:usage',
@@ -593,6 +603,7 @@ class DefaultRbacMenuSeeder extends Seeder
             str_contains($code, 'storage') => 'ri-database-2-line',
             str_contains($code, 'translation') => 'ri-translate-2',
             str_contains($code, 'line_notification') => 'ri-line-line',
+            str_contains($code, 'password_reset') => 'ri-lock-password-line',
             str_contains($code, 'activity') => 'ri-gift-line',
             str_contains($code, 'report') || str_contains($code, 'usage') => 'ri-bar-chart-box-line',
             str_contains($code, 'audit') || str_contains($code, 'log') => 'ri-history-line',
@@ -1564,6 +1575,67 @@ class DefaultRbacMenuSeeder extends Seeder
         $menuIds = DB::table('admin_menus')
             ->where('scope_type', 'tenant')
             ->where('code', 'line_notifications')
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($menuIds !== []) {
+            $menuRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($menuIds as $menuId) {
+                    $menuRows[] = [
+                        'role_id' => $roleId,
+                        'menu_id' => $menuId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_menus')->insertOrIgnore($menuRows);
+        }
+
+        $this->bumpPermissionCacheVersions($roleIds, $now);
+    }
+
+    private function grantTenantPasswordResetToPartnerOwners(mixed $now): void
+    {
+        $roleIds = DB::table('roles')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['owner_partner', 'owner'])
+            ->pluck('id')
+            ->all();
+
+        if ($roleIds === []) {
+            return;
+        }
+
+        $permissionIds = DB::table('permissions')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['customer_password_reset.view', 'customer_password_reset.manage'])
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($permissionIds !== []) {
+            $permissionRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($permissionIds as $permissionId) {
+                    $permissionRows[] = [
+                        'role_id' => $roleId,
+                        'permission_id' => $permissionId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_permissions')->insertOrIgnore($permissionRows);
+        }
+
+        $menuIds = DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->where('code', 'password_reset_requests')
             ->where('status', 'active')
             ->pluck('id')
             ->all();

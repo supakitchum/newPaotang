@@ -46,7 +46,7 @@ class RewardClaimTest extends TestCase
         $this->assertSame('submitted', $walletClaim->status);
         $this->assertSame('wallet_credit', $walletClaim->payout_method);
         $this->assertSame($walletWorld['wallet_id'], $walletClaim->wallet_id);
-        $this->assertSame(6000000, (int) $walletClaim->prize_amount);
+        $this->assertSame(600000000, (int) $walletClaim->prize_amount);
 
         $this->withToken($walletWorld['auth']['token'])
             ->getJson('http://'.$walletWorld['host'].'/api/v1/customer/tickets/'.$walletWorld['ticket_id'].'/reward-status')
@@ -109,7 +109,7 @@ class RewardClaimTest extends TestCase
             ->assertOk()
             ->assertJsonPath('status', 'winning')
             ->assertJsonPath('claimable', true)
-            ->assertJsonPath('prize_amount.amount', 6000000);
+            ->assertJsonPath('prize_amount.amount', 600000000);
 
         $this->withToken($world['auth']['token'])
             ->postJson('http://'.$world['host'].'/api/v1/customer/reward-claims', [
@@ -209,7 +209,7 @@ class RewardClaimTest extends TestCase
             'tenant_id' => $world['tenant_id'],
             'wallet_id' => $world['wallet_id'],
             'entry_type' => 'credit',
-            'amount' => 6000000,
+            'amount' => 600000000,
             'reference_type' => 'reward_claim',
             'reference_id' => $claim['id'],
         ]);
@@ -264,7 +264,7 @@ class RewardClaimTest extends TestCase
             'tenant_id' => $world['tenant_id'],
             'wallet_id' => $world['wallet_id'],
             'entry_type' => 'credit',
-            'amount' => 6000000,
+            'amount' => 600000000,
             'reference_type' => 'reward_claim',
             'reference_id' => $claim['id'],
         ]);
@@ -344,7 +344,7 @@ class RewardClaimTest extends TestCase
             ->assertJsonPath('status', 'winning')
             ->assertJsonPath('claimable', true)
             ->assertJsonPath('prize_count', 3)
-            ->assertJsonPath('prize_amount.amount', 6006000)
+            ->assertJsonPath('prize_amount.amount', 600600000)
             ->assertJsonPath('prizes.0.prize_type', 'first_prize')
             ->assertJsonPath('prizes.1.prize_type', 'back3')
             ->assertJsonPath('prizes.2.prize_type', 'back2');
@@ -359,7 +359,7 @@ class RewardClaimTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('prize_count', 3)
-            ->assertJsonPath('prize_amount.amount', 6006000)
+            ->assertJsonPath('prize_amount.amount', 600600000)
             ->json();
 
         $this->assertSame(1, DB::table('reward_claims')->where('tenant_id', $world['tenant_id'])->count());
@@ -380,7 +380,7 @@ class RewardClaimTest extends TestCase
             'tenant_id' => $world['tenant_id'],
             'wallet_id' => $world['wallet_id'],
             'entry_type' => 'credit',
-            'amount' => 6006000,
+            'amount' => 600600000,
             'reference_type' => 'reward_claim',
             'reference_id' => $claim['id'],
         ]);
@@ -415,7 +415,7 @@ class RewardClaimTest extends TestCase
             ->getJson('http://'.$world['host'].'/api/v1/customer/tickets/'.$world['ticket_id'].'/reward-status')
             ->assertOk()
             ->assertJsonPath('status', 'winning')
-            ->assertJsonPath('prize_amount.amount', 5900000);
+            ->assertJsonPath('prize_amount.amount', 599900000);
 
         $claim = $this->withToken($world['auth']['token'])
             ->postJson('http://'.$world['host'].'/api/v1/customer/reward-claims', [
@@ -427,8 +427,8 @@ class RewardClaimTest extends TestCase
                 'Idempotency-Key' => 'reward-adjust-claim-create',
             ])
             ->assertCreated()
-            ->assertJsonPath('prize_amount.amount', 5900000)
-            ->assertJsonPath('reward_pricing.base_prize_amount.amount', 6000000)
+            ->assertJsonPath('prize_amount.amount', 599900000)
+            ->assertJsonPath('reward_pricing.base_prize_amount.amount', 600000000)
             ->assertJsonPath('reward_pricing.adjustment_amount.amount', -100000)
             ->assertJsonPath('reward_pricing.tenant_price_rule_id', 'prr_reward_adjust')
             ->assertJsonPath('reward_pricing.price_rule_snapshot.code', 'first_prize_minus_1000')
@@ -437,16 +437,16 @@ class RewardClaimTest extends TestCase
         $this->assertDatabaseHas('winning_tickets', [
             'tenant_id' => $world['tenant_id'],
             'ticket_id' => $world['ticket_id'],
-            'amount' => 5900000,
-            'base_amount' => 6000000,
+            'amount' => 599900000,
+            'base_amount' => 600000000,
             'adjustment_amount' => -100000,
             'tenant_price_rule_id' => 'prr_reward_adjust',
         ]);
         $this->assertDatabaseHas('reward_claims', [
             'id' => $claim['id'],
             'tenant_id' => $world['tenant_id'],
-            'prize_amount' => 5900000,
-            'base_prize_amount' => 6000000,
+            'prize_amount' => 599900000,
+            'base_prize_amount' => 600000000,
             'adjustment_amount' => -100000,
             'tenant_price_rule_id' => 'prr_reward_adjust',
         ]);
@@ -459,12 +459,74 @@ class RewardClaimTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('summary.reward_claims_count', 1)
-            ->assertJsonPath('summary.reward_base_total.amount', 6000000)
+            ->assertJsonPath('summary.reward_base_total.amount', 600000000)
             ->assertJsonPath('summary.reward_adjustment_total.amount', -100000)
-            ->assertJsonPath('summary.reward_payout_total.amount', 5900000)
-            ->assertJsonPath('rows.0.base_prize_amount.amount', 6000000)
+            ->assertJsonPath('summary.reward_payout_total.amount', 599900000)
+            ->assertJsonPath('rows.0.base_prize_amount.amount', 600000000)
             ->assertJsonPath('rows.0.adjustment_amount.amount', -100000)
-            ->assertJsonPath('rows.0.prize_amount.amount', 5900000);
+            ->assertJsonPath('rows.0.prize_amount.amount', 599900000);
+    }
+
+    public function test_RewardClaim_tenant_exchange_reward_uses_winning_ticket_amount_when_claim_snapshot_is_stale(): void
+    {
+        $world = $this->prepareRewardWorld('par_reward_stale', 'ten_reward_stale', 'reward-stale.m7.test', 'gam_reward_stale', '0807201300', 791301);
+        $this->publishReward($world, keySuffix: 'stale-claim-amount');
+
+        $claim = $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/reward-claims', [
+                'ticket_id' => $world['ticket_id'],
+                'payout_method' => 'wallet_credit',
+                'pin' => '246810',
+            ], [
+                'Idempotency-Key' => 'reward-claim-stale-create',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('prize_amount.amount', 600000000)
+            ->json();
+
+        DB::table('reward_claims')->where('id', $claim['id'])->update([
+            'prize_amount' => 123,
+            'base_prize_amount' => 123,
+            'adjustment_amount' => 0,
+            'updated_at' => now(),
+        ]);
+
+        $tenantPayer = $this->tenantAdmin($world, ['reward_claim.view', 'reward_claim.approve'], 'reward-stale-claim-pay');
+
+        $this->withToken($tenantPayer['access_token'])
+            ->getJson('/api/v1/admin/tenant/reward-claims?section=pending&customer_id='.$claim['customer']['id'], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => $world['tenant_id'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $claim['id'])
+            ->assertJsonPath('data.0.prize_amount.amount', 600000000)
+            ->assertJsonPath('data.0.reward_pricing.base_prize_amount.amount', 600000000);
+
+        $this->withToken($tenantPayer['access_token'])
+            ->postJson('/api/v1/admin/tenant/reward-claims/'.$claim['id'].'/approve', [
+                'reason' => 'approve corrected winning ticket amount',
+            ], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => $world['tenant_id'],
+                'Idempotency-Key' => 'reward-claim-stale-approve',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'approved')
+            ->assertJsonPath('prize_amount.amount', 600000000);
+
+        $this->assertDatabaseHas('wallet_ledger', [
+            'tenant_id' => $world['tenant_id'],
+            'wallet_id' => $world['wallet_id'],
+            'entry_type' => 'credit',
+            'amount' => 600000000,
+            'reference_type' => 'reward_claim',
+            'reference_id' => $claim['id'],
+        ]);
+        $this->assertDatabaseHas('reward_claims', [
+            'id' => $claim['id'],
+            'prize_amount' => 600000000,
+        ]);
     }
 
     public function test_RewardClaim_approve_bank_transfer_marks_paid_out_without_wallet_credit(): void

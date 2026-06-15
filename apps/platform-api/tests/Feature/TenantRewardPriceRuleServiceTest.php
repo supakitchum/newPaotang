@@ -23,12 +23,12 @@ class TenantRewardPriceRuleServiceTest extends TestCase
         $firstPrize = collect($rows)->firstWhere('prize_type', 'first_prize');
 
         $this->assertNotNull($firstPrize);
-        $this->assertSame(6000000, $firstPrize['central_reward_amount']['amount']);
-        $this->assertSame(6000000, $firstPrize['partner_payout_amount']['amount']);
+        $this->assertSame(600000000, $firstPrize['central_reward_amount']['amount']);
+        $this->assertSame(600000000, $firstPrize['partner_payout_amount']['amount']);
         $this->assertNull($firstPrize['tenant_price_rule_id']);
 
         $saveResult = $service->savePayoutSetting('ten_runtime_gap', $firstPrize['id'], [
-            'partner_payout_amount' => 5900000,
+            'partner_payout_amount' => 599900000,
         ]);
 
         $this->assertSame('validation_failed', $saveResult['error'] ?? null);

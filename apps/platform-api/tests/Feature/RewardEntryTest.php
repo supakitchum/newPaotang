@@ -109,6 +109,52 @@ class RewardEntryTest extends TestCase
         ]);
     }
 
+    public function test_reward_entry_refreshes_lotto_scraper_snapshot_after_session_was_created(): void
+    {
+        $this->seedDefaultRbac();
+        $world = $this->prepareRewardWorld('par_reward_entry_late', 'ten_reward_entry_late', 'reward-entry-late.m7.test', 'gam_reward_entry_late', '0807440011', 794501);
+
+        $officer = $this->createResultOfficerSession('adm_result_late', 'result-late@example.test');
+        $owner = $this->centralRewardAdmin(['reward_entry.view', 'reward_entry.submit', 'reward_entry.resolve'], 'reward-entry-late-owner');
+        $operatorPrizes = $this->thaiGovernmentLotteryPrizes('123456', $world['ticket_number']);
+
+        $session = $this->withToken($officer['access_token'])
+            ->getJson('/api/v1/admin/central/reward-entry/sessions/current?game_id='.$world['game_id'], [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.scraper_snapshot', null)
+            ->json('data');
+
+        $scraperPrizes = $this->thaiGovernmentLotteryPrizes('654321', $world['ticket_number']);
+        $this->insertDraftScraperRewardResult($world['game_id'], $scraperPrizes);
+
+        $this->withToken($officer['access_token'])
+            ->postJson('/api/v1/admin/central/reward-entry/sessions/'.$session['id'].'/submit', [
+                'prizes' => $operatorPrizes,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-entry-late-submit',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('status', 'ready_for_owner')
+            ->assertJsonPath('submission.diff_to_scraper.summary.has_scraper', true)
+            ->assertJsonPath('submission.diff_to_scraper.summary.mismatch_count', 1);
+
+        $this->withToken($owner['access_token'])
+            ->getJson('/api/v1/admin/central/reward-entry/sessions/'.$session['id'].'/comparison', [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.sources.0.source_type', 'scraper')
+            ->assertJsonPath('data.sources.0.prizes.0.prize_number', '654321');
+
+        $this->assertDatabaseMissing('reward_entry_sessions', [
+            'id' => $session['id'],
+            'scraper_snapshot_json' => null,
+        ]);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -131,5 +177,49 @@ class RewardEntryTest extends TestCase
             'password' => 'secret-password',
             'scope' => 'central',
         ]);
+    }
+
+    /**
+     * @param array<int, array{prize_type: string, prize_number: string, amount: array{amount: int, currency: string}}> $prizes
+     */
+    private function insertDraftScraperRewardResult(string $gameId, array $prizes): void
+    {
+        $now = now();
+        $rewardResultId = 'rew_late_scraper';
+
+        DB::table('reward_results')->insert([
+            'id' => $rewardResultId,
+            'game_id' => $gameId,
+            'status' => 'draft',
+            'version' => 1,
+            'summary_json' => json_encode([
+                'source' => [
+                    'name' => 'sanook',
+                    'draw_code' => '01062569',
+                    'payload_hash' => 'late-scraper-payload',
+                ],
+                'live' => [
+                    'status' => 'draft',
+                    'completion_percent' => 100,
+                    'updated_at' => $now->toISOString(),
+                ],
+            ], JSON_THROW_ON_ERROR),
+            'created_by_admin_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('reward_prizes')->insert(array_map(fn (array $prize, int $index): array => [
+            'id' => 'rpr_late_scraper_'.str_pad((string) $index, 3, '0', STR_PAD_LEFT),
+            'reward_result_id' => $rewardResultId,
+            'game_id' => $gameId,
+            'prize_type' => $prize['prize_type'],
+            'prize_number' => $prize['prize_number'],
+            'amount' => $prize['amount']['amount'],
+            'currency' => $prize['amount']['currency'],
+            'sort_order' => $index,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], $prizes, array_keys($prizes)));
     }
 }

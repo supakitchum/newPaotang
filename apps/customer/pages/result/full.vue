@@ -124,7 +124,8 @@ const {
   getRewardAmount,
   getRewardGroups,
   isDisplayableRewardNumber,
-  isResolvedRewardNumber
+  isResolvedRewardNumber,
+  isUnofficialRewardResult
 } = useLotteryReward()
 
 const normalizeId = (value: unknown) => String(value || '').trim()
@@ -170,7 +171,7 @@ const drawDate = computed(() => {
 })
 const headerTitle = computed(() => 'ผลรางวัลสลากฯ')
 const showPaymentDock = computed(() => !isLoading.value && !errorMessage.value)
-const showUnofficialAlert = computed(() => !isLoading.value && !errorMessage.value && hasResolvedRewardResult.value && Number(selectedGame.value?.status) !== 2)
+const showUnofficialAlert = computed(() => !isLoading.value && !errorMessage.value && hasResolvedRewardResult.value && isUnofficialRewardResult(selectedGame.value))
 const firstReward = computed(() => getDisplayRewardNumbers(selectedGame.value, 'reward_1')[0] || '-')
 const twoDigitReward = computed(() => getDisplayRewardNumbers(selectedGame.value, 'reward_two_digit')[0] || '-')
 const frontThreeRewards = computed(() => {

@@ -80,6 +80,8 @@ class AuthenticateCustomer
             'api/v1/customer/auth/pin/setup',
             'api/v1/customer/auth/pin/verify',
             'api/v1/customer/auth/pin/change',
+            'api/v1/customer/auth/pin/reset',
+            'api/v1/customer/auth/pin/reset/verify-password',
             'api/v1/customer/affiliate/referrals/apply',
         );
     }

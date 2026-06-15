@@ -539,6 +539,12 @@ const normalizeActivity = (activity: AnyRecord | null | undefined) => {
 
   const config = activity.config && typeof activity.config === 'object' ? activity.config : {}
   const prizes = config.prizes && typeof config.prizes === 'object' ? config.prizes : {}
+  const resultSummary = activity.result_summary && typeof activity.result_summary === 'object'
+    ? activity.result_summary
+    : null
+  const resultCustomer = resultSummary?.customer && typeof resultSummary.customer === 'object'
+    ? resultSummary.customer
+    : null
 
   return {
     ...activity,
@@ -566,6 +572,18 @@ const normalizeActivity = (activity: AnyRecord | null | undefined) => {
           min_purchase_amount: normalizeActivityMoney(activity.cashback_progress.min_purchase_amount),
           estimated_amount: normalizeActivityMoney(activity.cashback_progress.estimated_amount),
           potential_amount: normalizeActivityMoney(activity.cashback_progress.potential_amount)
+        }
+      : null,
+    result_summary: resultSummary
+      ? {
+          ...resultSummary,
+          award_total: normalizeActivityMoney(resultSummary.award_total),
+          customer: resultCustomer
+            ? {
+                ...resultCustomer,
+                award_amount: normalizeActivityMoney(resultCustomer.award_amount)
+              }
+            : null
         }
       : null
   }
@@ -662,6 +680,9 @@ const normalizeRewardSummary = (summary: AnyRecord | null | undefined) => {
     return null
   }
 
+  const resultStatus = String(summary.status || '').trim().toLowerCase()
+  const officialStatus = String(summary.official_status || resultStatus || '').trim().toLowerCase()
+  const isPublished = officialStatus === 'published' || resultStatus === 'published'
   const grouped = new Map<string, AnyRecord>()
   const prizes = Array.isArray(summary.prizes) ? summary.prizes : []
 
@@ -683,7 +704,13 @@ const normalizeRewardSummary = (summary: AnyRecord | null | undefined) => {
   return {
     id: summary.game_id,
     name: summary.game_name || summary.draw_label || '',
-    status: summary.status === 'published' ? 2 : 1,
+    status: isPublished ? 2 : 1,
+    resultStatus,
+    result_status: resultStatus,
+    officialStatus,
+    official_status: officialStatus,
+    completionPercent: Number(summary.completion_percent || 0),
+    completion_percent: Number(summary.completion_percent || 0),
     rewards: Array.from(grouped.values())
   }
 }
@@ -933,6 +960,10 @@ export const usePlatformApi = () => {
     return unwrapData<AnyRecord>(response)
   }
 
+  const forgotPassword = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/customer/auth/password/forgot', payload))
+
+  const resetPassword = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/customer/auth/password/reset', payload))
+
   const me = async () => unwrapData<AnyRecord>(await axios.get('/customer/auth/me'))
 
   const pinStatus = async () => unwrapData<AnyRecord>(await axios.get('/customer/auth/pin/status'))
@@ -942,6 +973,10 @@ export const usePlatformApi = () => {
   const verifyPin = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/customer/auth/pin/verify', payload))
 
   const changePin = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/customer/auth/pin/change', payload))
+
+  const verifyPinResetPassword = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/customer/auth/pin/reset/verify-password', payload))
+
+  const resetPin = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/customer/auth/pin/reset', payload))
 
   const refresh = async (refreshToken: string | null | undefined) => {
     if (!refreshToken) {
@@ -1269,6 +1304,8 @@ export const usePlatformApi = () => {
     }
   }
 
+  const activityClaim = async (claimId: string | number) => normalizeActivityClaim(unwrapData<AnyRecord>(await axios.get(`/customer/activity-claims/${claimId}`)))
+
   const createActivityClaim = async (payload: AnyRecord) => normalizeActivityClaim(unwrapData<AnyRecord>(await axios.post('/customer/activity-claims', payload, {
     headers: idempotencyHeaders('customer-activity-claim')
   })))
@@ -1431,11 +1468,15 @@ export const usePlatformApi = () => {
     rewardLegacy,
     rewardLiveLegacy,
     login,
+    forgotPassword,
+    resetPassword,
     me,
     pinStatus,
     setupPin,
     verifyPin,
     changePin,
+    verifyPinResetPassword,
+    resetPin,
     refresh,
     logout,
     register,
@@ -1466,6 +1507,7 @@ export const usePlatformApi = () => {
     createActivityEntry,
     activityAwards,
     activityClaims,
+    activityClaim,
     createActivityClaim,
     topupOverviewLegacy,
     topupDetailLegacy,

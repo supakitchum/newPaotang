@@ -89,7 +89,7 @@ const route = useRoute()
 const { currentGame, ensureAppInit } = useAppInit()
 const { config: siteConfig, fetchSiteConfig } = useSiteConfig()
 const { alertState, showAlert } = useAppAlert()
-const { isResolvedRewardNumber, toSummary } = useLotteryReward()
+const { isResolvedRewardNumber, isUnofficialRewardResult, toSummary } = useLotteryReward()
 
 const rewardGame = ref<LotteryRewardGame | null>(null)
 const isRewardLoading = ref(true)
@@ -124,7 +124,7 @@ const fallbackRewardGame = computed<LotteryRewardGame>(() => ({
 const rewardDisplayGame = computed(() => rewardGame.value || fallbackRewardGame.value)
 const rewardSummary = computed(() => toSummary(rewardDisplayGame.value))
 const rewardDrawDate = computed(() => normalizeDisplayText(rewardGame.value?.name) || currentGameName.value)
-const isUnofficialReward = computed(() => Boolean(rewardGame.value) && Number(rewardGame.value?.status) !== 2)
+const isUnofficialReward = computed(() => isUnofficialRewardResult(rewardGame.value))
 const youtubeLiveUrl = computed(() => (
   normalizeDisplayText(siteConfig.value?.live?.waiting_result_youtube_url)
   || normalizeDisplayText(runtimeConfig.public.waitingResultYoutubeUrl)
@@ -192,6 +192,12 @@ const applyLiveRewardPayload = (payload: any) => {
     id: payload.game_id,
     name: payload.game_name || payload.draw_code || payload.game_code || '',
     status: String(payload.official_status || payload.status || '').toLowerCase() === 'published' ? 2 : 1,
+    resultStatus: String(payload.status || '').toLowerCase(),
+    result_status: String(payload.status || '').toLowerCase(),
+    officialStatus: String(payload.official_status || payload.status || '').toLowerCase(),
+    official_status: String(payload.official_status || payload.status || '').toLowerCase(),
+    completionPercent: Number(payload.completion_percent || 0),
+    completion_percent: Number(payload.completion_percent || 0),
     rewards: Array.from(grouped.values())
   }
 }

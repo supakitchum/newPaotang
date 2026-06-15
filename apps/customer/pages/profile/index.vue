@@ -5,7 +5,19 @@
         <span class="avatar"><i class="bi bi-person-fill" /></span>
         <div>
           <h1>{{ displayName }}</h1>
-          <div>{{ customerNoText }}</div>
+          <div class="profile-member-row">
+            <span class="profile-member-code">{{ customerNoText }}</span>
+            <button
+              v-if="rawCustomerNo"
+              class="profile-copy-button"
+              type="button"
+              :aria-label="t('profile.copyMemberCode')"
+              :title="t('profile.copyMemberCode')"
+              @click="copyCustomerNo"
+            >
+              <i :class="copiedCustomerNo ? 'bi bi-check2' : 'bi bi-copy'" />
+            </button>
+          </div>
         </div>
       </div>
     </BlueHeader>
@@ -51,10 +63,12 @@ const { user, restoreAuthState } = useAuth()
 const { showAlert } = useAppAlert()
 const { t } = useLocale()
 const profile = ref<Record<string, any> | null>(user.value)
+const copiedCustomerNo = ref(false)
 
 const displayName = computed(() => profile.value?.name || profile.value?.full_name || t('profile.fallbackName'))
+const rawCustomerNo = computed(() => `${profile.value?.customer_no || profile.value?.member_no || profile.value?.id || ''}`.trim())
 const customerNoText = computed(() => {
-  const customerNo = profile.value?.customer_no || profile.value?.member_no || profile.value?.id || ''
+  const customerNo = rawCustomerNo.value
 
   return t('profile.memberCode', { code: customerNo || '-' })
 })
@@ -63,6 +77,61 @@ const menuItemLabel = (item: ProfileMenuItem) => typeof item === 'string' ? item
 const menuItemTo = (item: ProfileMenuItem) => typeof item === 'string' ? '' : item.to || ''
 const menuItemBadge = (item: ProfileMenuItem) => typeof item === 'string' ? '' : item.badge || ''
 const menuItemKey = (item: ProfileMenuItem) => `${menuItemLabel(item)}:${menuItemTo(item)}:${menuItemBadge(item)}`
+
+const writeToClipboard = async (value: string) => {
+  if (!process.client) {
+    return false
+  }
+
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value)
+      return true
+    } catch {
+      // Fall through to the textarea fallback for embedded browsers.
+    }
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = value
+  textarea.setAttribute('readonly', 'readonly')
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  textarea.style.pointerEvents = 'none'
+  document.body.appendChild(textarea)
+  textarea.select()
+  textarea.setSelectionRange(0, value.length)
+
+  try {
+    return document.execCommand('copy')
+  } finally {
+    document.body.removeChild(textarea)
+  }
+}
+
+const copyCustomerNo = async () => {
+  const value = rawCustomerNo.value
+
+  if (!value) {
+    return
+  }
+
+  const copied = await writeToClipboard(value)
+
+  if (!copied) {
+    showAlert({
+      title: t('profile.copyMemberCodeFailedTitle'),
+      message: t('profile.copyMemberCodeFailedMessage'),
+      variant: 'error'
+    })
+    return
+  }
+
+  copiedCustomerNo.value = true
+  window.setTimeout(() => {
+    copiedCustomerNo.value = false
+  }, 1600)
+}
 
 onMounted(async () => {
   try {
@@ -94,10 +163,46 @@ onMounted(async () => {
   line-height: 1.25;
 }
 
-.profile-identity div div {
+.profile-member-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.profile-member-code {
   font-size: 16px;
   font-weight: 800;
+  min-width: 0;
   opacity: .92;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-copy-button {
+  align-items: center;
+  appearance: none;
+  background: rgba(255, 255, 255, .18);
+  border: 1px solid rgba(255, 255, 255, .28);
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 30px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  transition: background .2s ease, transform .2s ease;
+  width: 30px;
+}
+
+.profile-copy-button:active {
+  transform: scale(.95);
+}
+
+.profile-copy-button i {
+  font-size: 14px;
 }
 
 .profile-sheet {

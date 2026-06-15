@@ -108,6 +108,33 @@ class CentralAllocationController extends Controller
             : response()->json($allocation, 202);
     }
 
+    public function openAllPartners(Request $request): JsonResponse
+    {
+        $context = $this->authorizedContext($request);
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        $payload = $request->all();
+        $errors = $this->centralStock->validateBulkAllocationPayload($payload);
+
+        if ($errors !== []) {
+            return ApiErrorResponse::validationFailed($request, $errors);
+        }
+
+        return response()->json(
+            $this->centralStock->openAllocationsForAllPartners($payload, $context, $request),
+            202,
+        );
+    }
+
     public function updatePartnerPercent(Request $request): JsonResponse
     {
         $context = $this->authorizedContext($request);

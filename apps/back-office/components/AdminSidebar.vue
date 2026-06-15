@@ -21,16 +21,19 @@
               <a v-if="item.children?.length" href="#" :class="['side-menu__item', { active: isActive(item) }]" @click.prevent="toggle(item.key)">
                 <i :class="[iconFor(item), 'side-menu__icon']" />
                 <span class="side-menu__label">{{ item.label }}</span>
+                <span v-if="badgeFor(item) > 0" class="np-menu-badge">{{ formatBadge(badgeFor(item)) }}</span>
                 <i class="ri-arrow-right-s-line side-menu__angle" />
               </a>
               <NuxtLink v-else :to="mapRoute(item)" :class="['side-menu__item', { active: isActive(item) }]" @click="closeMobile">
                 <i :class="[iconFor(item), 'side-menu__icon']" />
                 <span class="side-menu__label">{{ item.label }}</span>
+                <span v-if="badgeFor(item) > 0" class="np-menu-badge">{{ formatBadge(badgeFor(item)) }}</span>
               </NuxtLink>
               <ul v-if="item.children?.length" class="slide-menu child1">
                 <li v-for="child in item.children" :key="child.key" :class="['slide', { active: isActive(child) }]">
                   <NuxtLink :to="mapRoute(child)" :class="['side-menu__item', { active: isActive(child) }]" @click="closeMobile">
                     <span class="side-menu__label">{{ child.label }}</span>
+                    <span v-if="badgeFor(child) > 0" class="np-menu-badge">{{ formatBadge(badgeFor(child)) }}</span>
                   </NuxtLink>
                 </li>
               </ul>
@@ -106,6 +109,17 @@ const isActive = (item: any): boolean => {
   return isRouteActive(mapRoute(item))
 }
 
+const badgeFor = (item: any): number => {
+  const ownCount = Math.max(0, Number(item?.badge_count || 0))
+  const childCount = Array.isArray(item?.children)
+    ? item.children.reduce((total: number, child: any) => total + badgeFor(child), 0)
+    : 0
+
+  return ownCount + childCount
+}
+
+const formatBadge = (count: number) => count > 99 ? '99+' : String(count)
+
 const closeMobile = () => {
   if (window.matchMedia('(max-width: 991.98px)').matches) {
     document.documentElement.setAttribute('data-toggled', 'close')
@@ -125,3 +139,40 @@ watch([visibleMenus, () => route.path], ([items]) => {
   openKeys.value = [...new Set([...openKeys.value, ...defaultOpenParents, ...activeParents])]
 }, { immediate: true })
 </script>
+
+<style scoped>
+.side-menu__item {
+  gap: 0.5rem;
+}
+
+.side-menu__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.np-menu-badge {
+  flex: 0 0 auto;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  margin-left: auto;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+  text-align: center;
+  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.24);
+}
+
+.slide.has-sub > .side-menu__item > .np-menu-badge {
+  margin-inline-end: 1.75rem;
+}
+
+.side-menu__angle {
+  margin-left: 0;
+}
+</style>

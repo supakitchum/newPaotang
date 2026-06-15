@@ -18,6 +18,9 @@ export default {
   profile: {
     fallbackName: 'ผู้ใช้งาน',
     memberCode: 'รหัสสมาชิก : {code}',
+    copyMemberCode: 'คัดลอกรหัสสมาชิก',
+    copyMemberCodeFailedTitle: 'คัดลอกไม่สำเร็จ',
+    copyMemberCodeFailedMessage: 'กรุณาคัดลอกรหัสสมาชิกด้วยตัวเองอีกครั้ง',
     loadFailedTitle: 'โหลดข้อมูลโปรไฟล์ไม่สำเร็จ',
     loadFailedMessage: 'กรุณาลองใหม่อีกครั้ง',
     languageTitle: 'ภาษาในการใช้งาน',

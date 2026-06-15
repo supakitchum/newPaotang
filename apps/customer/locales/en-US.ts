@@ -18,6 +18,9 @@ export default {
   profile: {
     fallbackName: 'Customer',
     memberCode: 'Member ID: {code}',
+    copyMemberCode: 'Copy member ID',
+    copyMemberCodeFailedTitle: 'Could not copy',
+    copyMemberCodeFailedMessage: 'Please copy your member ID manually.',
     loadFailedTitle: 'Could not load profile',
     loadFailedMessage: 'Please try again.',
     languageTitle: 'Display language',

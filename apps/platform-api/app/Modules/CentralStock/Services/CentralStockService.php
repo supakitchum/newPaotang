@@ -5,6 +5,7 @@ namespace App\Modules\CentralStock\Services;
 use App\Jobs\DispatchStockBatchImageJobs;
 use App\Jobs\GenerateLotteryImageJob;
 use App\Jobs\GenerateStockBatchChunkJob;
+use App\Jobs\TriggerLottoScraperPollJob;
 use App\Models\Game;
 use App\Models\Partner;
 use App\Models\PartnerQuota;
@@ -437,9 +438,43 @@ class CentralStockService
             );
 
             $this->auditGameChange($actor, $request, $gameId, 'closed', $payload);
+            $this->dispatchLottoScraperTriggerAfterCommit($gameId, (string) $game->code, 'game_closed');
 
             return $this->findGame($gameId);
         });
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function triggerRewardScraperForGame(string $gameId, array $payload, AdminSessionContext $actor, Request $request): ?array
+    {
+        $game = Game::query()->where('id', $gameId)->first();
+
+        if ($game === null) {
+            return null;
+        }
+
+        if (! in_array((string) $game->status, self::CLOSED_GAME_STATUSES, true)) {
+            return [
+                'error' => 'resource_conflict',
+                'message' => 'The game must be closed before triggering reward result scraping.',
+            ];
+        }
+
+        $reason = trim((string) ($payload['reason'] ?? 'manual_trigger')) ?: 'manual_trigger';
+        $this->dispatchLottoScraperTriggerAfterCommit($gameId, (string) $game->code, $reason);
+        $this->auditGameChange($actor, $request, $gameId, 'reward_scraper_triggered', [
+            'draw_code' => (string) $game->code,
+            'reason' => $reason,
+        ]);
+
+        return [
+            'game_id' => $gameId,
+            'draw_code' => (string) $game->code,
+            'status' => 'queued',
+            'reason' => $reason,
+        ];
     }
 
     /**
@@ -465,6 +500,30 @@ class CentralStockService
 
             return $this->findGame($gameId);
         });
+    }
+
+    private function dispatchLottoScraperTriggerAfterCommit(string $gameId, string $drawCode, string $reason): void
+    {
+        $drawCode = trim($drawCode);
+
+        if ($drawCode === '') {
+            Log::warning('Skipped lotto scraper trigger because draw code is empty.', [
+                'game_id' => $gameId,
+                'reason' => $reason,
+            ]);
+
+            return;
+        }
+
+        $dispatch = static fn (): mixed => TriggerLottoScraperPollJob::dispatch($drawCode, $gameId, $reason);
+
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit($dispatch);
+
+            return;
+        }
+
+        $dispatch();
     }
 
     /**
@@ -4282,6 +4341,72 @@ class CentralStockService
 
     /**
      * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    public function validateBulkAllocationPayload(array $payload): array
+    {
+        $gameId = trim((string) ($payload['game_id'] ?? ''));
+        $errors = $this->allocationGameSelectionErrors($gameId);
+
+        $parsedRows = $this->bulkAllocationRowsFromPayload($payload, $gameId);
+        $errors = $this->mergeFieldErrors($errors, $parsedRows['errors']);
+
+        if (! $parsedRows['explicit']) {
+            return $errors;
+        }
+
+        if ($parsedRows['rows'] === []) {
+            $errors['allocations'][] = 'Enter at least one partner allocation percent greater than 0.';
+
+            return $errors;
+        }
+
+        if (isset($errors['game_id'])) {
+            return $errors;
+        }
+
+        $selectedPartnerIds = array_values(array_unique(array_map(
+            fn (array $row): string => (string) $row['partner_id'],
+            $parsedRows['rows'],
+        )));
+        $activeSum = (int) DB::table('stock_partner_distributions')
+            ->where('game_id', $gameId)
+            ->where('status', 'active')
+            ->when($selectedPartnerIds !== [], fn ($query) => $query->whereNotIn('partner_id', $selectedPartnerIds))
+            ->sum('percent_basis_points');
+        $newSum = array_sum(array_map(
+            fn (array $row): int => (int) $row['allocation_percent_basis_points'],
+            $parsedRows['rows'],
+        ));
+
+        if ($activeSum + $newSum > self::VIRTUAL_MAX_BP) {
+            $errors['allocations'][] = 'The total active partner allocation percent for this game may not exceed 100.';
+        }
+
+        $supplyLayerIds = $this->eligibleSupplyLayerIdsForNewAllocation($gameId);
+
+        foreach ($parsedRows['rows'] as $row) {
+            $targetCount = $this->allocationTargetCountForPercent(
+                $gameId,
+                (int) $row['allocation_percent_basis_points'],
+                $supplyLayerIds,
+            );
+
+            if ($targetCount < 1) {
+                $errors['allocations.'.$row['index'].'.allocation_percent'][] = 'The allocation_percent does not allocate any current virtual stock supply.';
+            }
+
+            $usageErrors = $this->partnerPercentUsageErrors($gameId, (string) $row['partner_id'], $targetCount);
+            if ($usageErrors !== []) {
+                $errors['allocations.'.$row['index'].'.allocation_percent'][] = $usageErrors['allocation_percent'][0];
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
      * @return array<string, mixed>|null
      */
     public function createAllocation(array $payload, AdminSessionContext $actor, Request $request): ?array
@@ -4315,6 +4440,207 @@ class CentralStockService
             }
 
             return null;
+        });
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    public function openAllocationsForAllPartners(array $payload, AdminSessionContext $actor, Request $request): array
+    {
+        $gameId = trim((string) ($payload['game_id'] ?? ''));
+        $reason = trim((string) ($payload['reason'] ?? ''));
+        $parsedBulkRows = $this->bulkAllocationRowsFromPayload($payload, $gameId);
+        $explicitRows = $parsedBulkRows['explicit'];
+        $requestedRowsByPartner = [];
+
+        foreach ($parsedBulkRows['rows'] as $row) {
+            $requestedRowsByPartner[(string) $row['partner_id']] = $row;
+        }
+
+        return DB::transaction(function () use ($gameId, $reason, $actor, $request, $explicitRows, $requestedRowsByPartner): array {
+            if (! $this->latestOpenAllocationGameExists($gameId, true)) {
+                return [
+                    'status' => 'skipped',
+                    'game_id' => $gameId,
+                    'created_count' => 0,
+                    'skipped_count' => 0,
+                    'created' => [],
+                    'skipped' => [],
+                ];
+            }
+
+            DB::table('stock_partner_distributions')->where('game_id', $gameId)->lockForUpdate()->get();
+
+            $created = [];
+            $skipped = [];
+            $now = now();
+            $partnerQuery = Partner::query()
+                ->where('status', 'active')
+                ->orderBy('code');
+
+            if ($explicitRows) {
+                $partnerQuery->whereIn('id', array_keys($requestedRowsByPartner));
+            }
+
+            $partners = $partnerQuery->get(['id', 'code', 'name', 'stock_percent_basis_points']);
+
+            foreach ($partners as $partner) {
+                $partnerId = (string) $partner->id;
+                $partnerLabel = trim((string) $partner->code.' - '.(string) $partner->name);
+                $requestedRow = $requestedRowsByPartner[$partnerId] ?? null;
+                $tenants = $this->activeTenantRowsForPartner($partnerId);
+
+                if ($tenants === []) {
+                    $skipped[] = $this->bulkAllocationSkippedResource($partnerId, null, $partnerLabel, 'no_active_tenant');
+                    continue;
+                }
+
+                if (! $explicitRows && count($tenants) > 1) {
+                    $skipped[] = $this->bulkAllocationSkippedResource($partnerId, null, $partnerLabel, 'multiple_active_tenants');
+                    continue;
+                }
+
+                $tenantId = $explicitRows
+                    ? (string) ($requestedRow['tenant_id'] ?? '')
+                    : (string) $tenants[0]->id;
+
+                if ($tenantId === '' || ! $this->activeTenantForPartnerExists($partnerId, $tenantId)) {
+                    $skipped[] = $this->bulkAllocationSkippedResource($partnerId, null, $partnerLabel, 'tenant_unavailable');
+                    continue;
+                }
+
+                if ($this->allocationPairAlreadyConfigured($gameId, $partnerId, $tenantId, true)) {
+                    $skipped[] = $this->bulkAllocationSkippedResource($partnerId, $tenantId, $partnerLabel, 'already_allocated');
+                    continue;
+                }
+
+                if ($explicitRows) {
+                    $percentBasisPoints = (int) ($requestedRow['allocation_percent_basis_points'] ?? 0);
+                } else {
+                    $distribution = DB::table('stock_partner_distributions')
+                        ->where('game_id', $gameId)
+                        ->where('partner_id', $partnerId)
+                        ->first(['percent_basis_points', 'status']);
+                    $percentBasisPoints = $distribution !== null && (string) $distribution->status === 'active'
+                        ? (int) $distribution->percent_basis_points
+                        : (int) ($partner->stock_percent_basis_points ?? 0);
+                }
+
+                if ($percentBasisPoints < 1) {
+                    $skipped[] = $this->bulkAllocationSkippedResource($partnerId, $tenantId, $partnerLabel, 'missing_allocation_percent');
+                    continue;
+                }
+
+                if ($this->partnerPercentSumErrors($gameId, $partnerId, $percentBasisPoints) !== []) {
+                    $skipped[] = $this->bulkAllocationSkippedResource($partnerId, $tenantId, $partnerLabel, 'allocation_percent_exceeds_remaining');
+                    continue;
+                }
+
+                $supplyLayerIds = $this->eligibleSupplyLayerIdsForNewAllocation($gameId);
+                $targetCount = $this->allocationTargetCountForPercent($gameId, $percentBasisPoints, $supplyLayerIds);
+
+                if ($targetCount < 1) {
+                    $skipped[] = $this->bulkAllocationSkippedResource($partnerId, $tenantId, $partnerLabel, 'no_allocatable_supply');
+                    continue;
+                }
+
+                if ($this->partnerUsedVirtualCount($gameId, $partnerId) > $targetCount) {
+                    $skipped[] = $this->bulkAllocationSkippedResource($partnerId, $tenantId, $partnerLabel, 'below_reserved_or_sold_stock');
+                    continue;
+                }
+
+                $allocationId = 'alc_'.Str::ulid()->toBase32();
+                $allocationPayload = [
+                    'partner_id' => $partnerId,
+                    'tenant_id' => $tenantId,
+                    'game_id' => $gameId,
+                    'allocation_percent' => $this->percentFromBasisPoints($percentBasisPoints),
+                    'reason' => $reason,
+                ];
+
+                $allocationIdempotencyKey = $this->bulkAllocationIdempotencyKey($request, $partnerId);
+
+                PartnerStockAllocation::query()->insert([
+                    'id' => $allocationId,
+                    'partner_id' => $partnerId,
+                    'tenant_id' => $tenantId,
+                    'game_id' => $gameId,
+                    'quota_id' => null,
+                    'status' => 'allocated',
+                    'requested_count' => $targetCount,
+                    'allocation_percent_basis_points' => $percentBasisPoints,
+                    'supply_layer_ids_json' => json_encode($supplyLayerIds, JSON_THROW_ON_ERROR),
+                    'allocated_count' => $targetCount,
+                    'recalled_count' => 0,
+                    'idempotency_key' => $allocationIdempotencyKey,
+                    'payload_hash' => $this->allocationPayloadHash($allocationPayload),
+                    'created_by_admin_id' => $actor->adminUser['id'],
+                    'reason' => $reason === '' ? null : $reason,
+                    'cancelled_at' => null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+
+                $this->upsertPartnerDistribution($gameId, $partnerId, $tenantId, $percentBasisPoints, 'active', $now);
+
+                $this->insertOutboxEvent(
+                    eventType: 'stock.allocated.v1',
+                    producer: 'central_stock',
+                    tenantId: $tenantId,
+                    partnerId: $partnerId,
+                    gameId: $gameId,
+                    aggregateType: 'partner_stock_allocation',
+                    aggregateId: $allocationId,
+                    idempotencyKey: $allocationIdempotencyKey,
+                    correlationId: $request->header('X-Request-Id'),
+                    payload: [
+                        'allocation_id' => $allocationId,
+                        'partner_id' => $partnerId,
+                        'tenant_id' => $tenantId,
+                        'game_id' => $gameId,
+                        'allocation_percent' => $this->percentFromBasisPoints($percentBasisPoints),
+                        'allocation_percent_basis_points' => $percentBasisPoints,
+                        'cursor' => $allocationId,
+                        'item_count' => $targetCount,
+                        'chunk_size' => 5000,
+                        'stock_mode' => 'virtual',
+                    ],
+                );
+
+                $this->auditAllocationChange($actor, $request, $allocationId, 'stock.allocated.bulk', $allocationPayload, $partnerId, $tenantId);
+                $created[] = $this->allocationResource((object) [
+                    'id' => $allocationId,
+                    'partner_id' => $partnerId,
+                    'tenant_id' => $tenantId,
+                    'game_id' => $gameId,
+                    'quota_id' => null,
+                    'status' => 'allocated',
+                    'requested_count' => $targetCount,
+                    'allocation_percent_basis_points' => $percentBasisPoints,
+                    'allocated_count' => $targetCount,
+                    'recalled_count' => 0,
+                    'cancelled_at' => null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+
+            if ($created !== []) {
+                $this->invalidatePartnerDistributionGeneratedCounts($gameId);
+                $this->virtualStock->refreshPartnerGeneratedPatternCountsForGame($gameId);
+                $this->coverageRealtime->broadcastGameSupplyChangedAfterCommit($gameId);
+            }
+
+            return [
+                'status' => 'completed',
+                'game_id' => $gameId,
+                'created_count' => count($created),
+                'skipped_count' => count($skipped),
+                'created' => $created,
+                'skipped' => $skipped,
+            ];
         });
     }
 
@@ -5173,6 +5499,116 @@ class CentralStockService
         }
 
         return $query->exists();
+    }
+
+    /**
+     * @return array<string, string|null>
+     */
+    private function bulkAllocationSkippedResource(string $partnerId, ?string $tenantId, string $partnerLabel, string $reason): array
+    {
+        return [
+            'partner_id' => $partnerId,
+            'tenant_id' => $tenantId,
+            'partner_label' => $partnerLabel,
+            'reason' => $reason,
+        ];
+    }
+
+    private function bulkAllocationIdempotencyKey(Request $request, string $partnerId): ?string
+    {
+        $key = trim((string) $request->header('Idempotency-Key'));
+
+        if ($key === '') {
+            return null;
+        }
+
+        return substr($key.':'.substr(hash('sha256', $partnerId), 0, 12), 0, 128);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{explicit: bool, rows: array<int, array<string, mixed>>, errors: array<string, array<int, string>>}
+     */
+    private function bulkAllocationRowsFromPayload(array $payload, string $gameId): array
+    {
+        if (! array_key_exists('allocations', $payload)) {
+            return ['explicit' => false, 'rows' => [], 'errors' => []];
+        }
+
+        $submittedRows = $payload['allocations'];
+
+        if (! is_array($submittedRows)) {
+            return [
+                'explicit' => true,
+                'rows' => [],
+                'errors' => ['allocations' => ['The allocations field must be a list of partner allocation percentages.']],
+            ];
+        }
+
+        $rows = [];
+        $errors = [];
+        $seenPartnerIds = [];
+
+        foreach (array_values($submittedRows) as $index => $row) {
+            if (! is_array($row)) {
+                $errors['allocations.'.$index][] = 'Each allocation row must be an object.';
+                continue;
+            }
+
+            $rowErrors = [];
+            $partnerId = trim((string) ($row['partner_id'] ?? ''));
+            $tenantId = trim((string) ($row['tenant_id'] ?? ''));
+            $percentBasisPoints = $this->percentBasisPointsFrom($row['allocation_percent'] ?? $row['percent'] ?? null);
+            $partnerIsActive = $partnerId !== ''
+                && Partner::query()->where('id', $partnerId)->where('status', 'active')->exists();
+
+            if (! $partnerIsActive) {
+                $rowErrors['partner_id'][] = 'The partner_id field must reference an active partner.';
+            } elseif (isset($seenPartnerIds[$partnerId])) {
+                $rowErrors['partner_id'][] = 'Each partner can only be listed once.';
+            }
+
+            if ($partnerIsActive) {
+                foreach ($this->tenantSelectionErrors($partnerId, $tenantId) as $field => $messages) {
+                    $rowErrors[$field] = array_merge($rowErrors[$field] ?? [], $messages);
+                }
+            }
+
+            $resolvedTenantId = $partnerIsActive
+                ? $this->resolveTenantIdForPartner($partnerId, $tenantId)
+                : null;
+
+            if (
+                $gameId !== ''
+                && $partnerIsActive
+                && $resolvedTenantId !== null
+                && $this->allocationPairAlreadyConfigured($gameId, $partnerId, $resolvedTenantId)
+            ) {
+                $rowErrors['tenant_id'][] = 'This partner tenant already has an active allocation for this game.';
+            }
+
+            if ($percentBasisPoints === null || $percentBasisPoints < 1 || $percentBasisPoints > self::VIRTUAL_MAX_BP) {
+                $rowErrors['allocation_percent'][] = 'The allocation_percent field must be greater than 0 and may not exceed 100.';
+            }
+
+            if ($rowErrors !== []) {
+                foreach ($rowErrors as $field => $messages) {
+                    $errors['allocations.'.$index.'.'.$field] = $messages;
+                }
+                continue;
+            }
+
+            $seenPartnerIds[$partnerId] = true;
+            $rows[] = [
+                'index' => $index,
+                'partner_id' => $partnerId,
+                'tenant_id' => (string) $resolvedTenantId,
+                'allocation_percent_basis_points' => (int) $percentBasisPoints,
+                'allocation_percent' => $this->percentFromBasisPoints((int) $percentBasisPoints),
+            ];
+        }
+
+        return ['explicit' => true, 'rows' => $rows, 'errors' => $errors];
     }
 
     /**

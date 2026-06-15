@@ -1,6 +1,18 @@
 <template>
-  <MobileShell active-nav="home" show-bottom-nav>
-    <BlueHeader title="รายละเอียดกิจกรรม" back-to="/activities" min-height="214px" />
+  <PinKeypadScreen
+    v-if="claimStep === 'pin'"
+    title="ใส่รหัส PIN 6 หลัก"
+    subtitle="เพื่อรับเงินรางวัลกิจกรรม"
+    :digits="pinDigits"
+    :error="claimError"
+    :disabled="isSubmitting"
+    @append="appendClaimPinDigit"
+    @remove="removeClaimPinDigit"
+    @back="backToClaimSelect"
+  />
+
+  <MobileShell v-else active-nav="home" show-bottom-nav>
+    <BlueHeader title="รายละเอียดกิจกรรม" :back-to="backToActivities" min-height="214px" />
 
     <section class="content-sheet flush activity-detail-sheet">
       <article v-if="activity" class="activity-detail-card">
@@ -20,6 +32,32 @@
         </div>
       </article>
 
+      <section v-if="showActivityAwardStatusPanel" class="activity-panel award-status-panel" :class="`is-${activityRewardStatusVariant}`">
+        <div class="panel-heading">
+          <h2>รางวัลกิจกรรม</h2>
+          <span>{{ activityAwardCountText }}</span>
+        </div>
+        <div v-if="activityAwards.length" class="award-list">
+          <div v-for="award in activityAwards" :key="award.id" class="award-row">
+            <div>
+              <strong>{{ award.type === 'cashback' ? 'เงินคืนกิจกรรม' : predictionLabel(award.prediction_type) }}</strong>
+              <small>{{ statusText(award.status) }}</small>
+            </div>
+            <div class="award-amount">{{ formatBaht(award.amount) }}</div>
+            <button v-if="award.status === 'claimable'" class="outline-pill" type="button" @click="startClaim(award)">
+              รับเงิน
+            </button>
+          </div>
+        </div>
+        <div v-else class="award-status-empty">
+          <i :class="activityRewardStatusIcon" />
+          <div>
+            <strong>{{ activityRewardStatusTitle }}</strong>
+            <p>{{ activityRewardStatusDescription }}</p>
+          </div>
+        </div>
+      </section>
+
       <section v-if="activity?.type === 'lucky_board'" class="activity-panel">
         <div class="panel-heading">
           <h2>เลือกเลขนำโชค</h2>
@@ -38,6 +76,25 @@
           <div>
             <strong>{{ rights.ticket_count || 0 }}</strong>
             <span>สลากที่ซื้อ</span>
+          </div>
+        </div>
+
+        <div
+          v-if="showLuckyResultPanel"
+          class="lucky-result-panel"
+          :class="{ won: customerLuckyWon, lost: customerLuckyLost }"
+        >
+          <div class="lucky-result-header">
+            <span>ผลกิจกรรม</span>
+            <strong>{{ luckyResultTitle }}</strong>
+          </div>
+          <div class="lucky-winning-numbers">
+            <span v-for="number in luckyWinningNumbers" :key="number">{{ number }}</span>
+          </div>
+          <p>{{ luckyResultDescription }}</p>
+          <div v-if="customerWinningNumbers.length" class="customer-winning-strip">
+            <small>เลขของคุณที่ถูกรางวัล</small>
+            <strong>{{ customerWinningNumbers.join(', ') }}</strong>
           </div>
         </div>
 
@@ -157,55 +214,6 @@
         </div>
       </section>
 
-      <section v-if="activityAwards.length" class="activity-panel">
-        <div class="panel-heading">
-          <h2>รางวัลกิจกรรม</h2>
-          <span>{{ activityAwards.length }} รายการ</span>
-        </div>
-        <div class="award-list">
-          <div v-for="award in activityAwards" :key="award.id" class="award-row">
-            <div>
-              <strong>{{ award.type === 'cashback' ? 'เงินคืนกิจกรรม' : predictionLabel(award.prediction_type) }}</strong>
-              <small>{{ statusText(award.status) }}</small>
-            </div>
-            <div class="award-amount">{{ formatBaht(award.amount) }}</div>
-            <button v-if="award.status === 'claimable'" class="outline-pill" type="button" @click="startClaim(award)">
-              รับเงิน
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section v-if="claimAward" class="activity-panel claim-panel">
-        <div class="panel-heading">
-          <h2>รับเงินรางวัลกิจกรรม</h2>
-          <span>{{ formatBaht(claimAward.amount) }}</span>
-        </div>
-        <div class="claim-methods">
-          <button type="button" :class="{ active: payoutMethod === 'wallet_credit' }" @click="payoutMethod = 'wallet_credit'">
-            <i class="bi bi-wallet2" />
-            Wallet
-          </button>
-          <button type="button" :class="{ active: payoutMethod === 'bank_transfer' }" @click="payoutMethod = 'bank_transfer'">
-            <i class="bi bi-bank" />
-            บัญชีธนาคาร
-          </button>
-        </div>
-        <div v-if="payoutMethod === 'bank_transfer'" class="bank-form">
-          <select v-model="bankAccount.bank_name">
-            <option value="">เลือกธนาคาร</option>
-            <option v-for="bank in thaiBankOptions" :key="bank" :value="bank">{{ bank }}</option>
-          </select>
-          <input v-model="bankAccount.account_name" placeholder="ชื่อบัญชี">
-          <input v-model="bankAccount.account_number" inputmode="numeric" placeholder="เลขที่บัญชี">
-        </div>
-        <input v-model="claimPin" class="pin-input" inputmode="numeric" maxlength="6" placeholder="กรอก PIN 6 หลัก" type="password">
-        <p v-if="claimError" class="claim-error">{{ claimError }}</p>
-        <button class="primary-pill" type="button" :disabled="!canSubmitClaim || isSubmitting" @click="submitClaim">
-          ส่งคำขอรับเงิน
-        </button>
-      </section>
-
       <section v-if="!activity && !isLoading" class="activity-detail-empty">
         <h1>ไม่พบกิจกรรม</h1>
         <p>กิจกรรมนี้อาจถูกปิดใช้งานหรือหมดช่วงแสดงผลแล้ว</p>
@@ -229,12 +237,69 @@
           </div>
         </div>
       </div>
+
+      <div v-if="claimAward && claimStep === 'select'" class="number-confirm-backdrop claim-backdrop" @click.self="closeClaimModal">
+        <div class="number-confirm-modal claim-modal" role="dialog" aria-modal="true" aria-labelledby="activity-claim-title">
+          <button class="number-confirm-close" type="button" aria-label="ปิด" @click="closeClaimModal">
+            <i class="bi bi-x-lg" />
+          </button>
+          <span class="activity-type">รับเงินกิจกรรม</span>
+          <h3 id="activity-claim-title">รับเงินรางวัลกิจกรรม</h3>
+          <div class="claim-amount-card">
+            <span>ยอดที่รับได้</span>
+            <strong>{{ formatBaht(claimAward.amount) }}</strong>
+          </div>
+
+          <div class="claim-payout-options">
+            <button type="button" :class="{ active: payoutMethod === 'wallet_credit' }" :disabled="isSubmitting" @click="payoutMethod = 'wallet_credit'">
+              <span class="claim-radio" />
+              <div>
+                <strong>{{ walletOptionTitle }}</strong>
+                <small>รับเงินเข้า G-Wallet</small>
+              </div>
+              <span class="claim-option-icon wallet">G</span>
+            </button>
+
+            <button
+              type="button"
+              :class="{ active: payoutMethod === 'bank_transfer', missing: !hasBankAccount }"
+              :disabled="isSubmitting || !hasBankAccount"
+              @click="payoutMethod = 'bank_transfer'"
+            >
+              <span class="claim-radio" />
+              <div>
+                <strong>{{ bankOptionTitle }}</strong>
+                <small>{{ bankOptionSubtitle }}</small>
+              </div>
+              <span class="claim-option-icon bank"><i class="bi bi-bank2" /></span>
+            </button>
+          </div>
+
+          <div v-if="payoutMethod === 'bank_transfer'" class="claim-bank-preview" :class="{ missing: !hasBankAccount }">
+            <i class="bi bi-credit-card-2-front" />
+            <div>
+              <strong>{{ hasBankAccount ? bankAccount.bank_name : 'ยังไม่ได้บันทึกบัญชีรับเงิน' }}</strong>
+              <span>{{ hasBankAccount ? `${bankAccount.account_name || 'ผู้รับเงิน'} · ${maskedAccountNumber}` : 'ใช้บัญชีเดียวกับช่องทางรับเงินรางวัลสลาก' }}</span>
+            </div>
+          </div>
+
+          <NuxtLink v-if="!hasBankAccount" class="claim-bank-link" :to="rewardBankTo">
+            เพิ่มบัญชีรับเงินรางวัล
+          </NuxtLink>
+          <p v-if="claimError" class="claim-error">{{ claimError }}</p>
+          <div class="number-confirm-actions claim-actions">
+            <button type="button" class="outline-pill" @click="closeClaimModal">ยกเลิก</button>
+            <button class="primary-pill" type="button" :disabled="!canContinueClaim" @click="goToClaimPin">
+              ถัดไป
+            </button>
+          </div>
+        </div>
+      </div>
     </section>
   </MobileShell>
 </template>
 
 <script setup lang="ts">
-import { thaiBankOptions } from '~/data/lottery'
 import { activityConditionText } from '~/utils/activityDisplay'
 
 definePageMeta({
@@ -243,21 +308,27 @@ definePageMeta({
 
 const route = useRoute()
 const platformApi = usePlatformApi()
-const { token } = useAuth()
+const { token, restoreAuthState } = useAuth()
 const { showAlert } = useAppAlert()
 const activity = ref<Record<string, any> | null>(null)
 const rights = ref<Record<string, any>>({})
 const entries = ref<Record<string, any>[]>([])
 const awards = ref<Record<string, any>[]>([])
+const profile = ref<Record<string, any> | null>(null)
 const isLoading = ref(true)
 const isSubmitting = ref(false)
 const predictionType = ref('first_prize_last2')
 const pendingNumber = ref('')
 const claimAward = ref<Record<string, any> | null>(null)
 const payoutMethod = ref<'wallet_credit' | 'bank_transfer'>('wallet_credit')
-const claimPin = ref('')
+const claimStep = ref<'idle' | 'select' | 'pin'>('idle')
+const pinDigits = ref('')
 const claimError = ref('')
-const bankAccount = reactive({ bank_name: '', account_name: '', account_number: '' })
+const backToActivities = computed(() => (
+  String(route.query.from || '') === 'history'
+    ? `/activities/history${typeof route.query.game_id === 'string' && route.query.game_id ? `?game_id=${encodeURIComponent(route.query.game_id)}` : ''}`
+    : '/activities'
+))
 
 const enabledPredictionTypes = computed(() => {
   const predictions = activity.value?.config?.prediction_types || {}
@@ -328,12 +399,210 @@ const canSubmitEntry = computed(() => Boolean(
   Number(rights.value.remaining_count || 0) > 0 &&
   !isReservedNumber(pendingNumber.value)
 ))
+const luckyResultSummary = computed(() => {
+  const summary = activity.value?.result_summary
+  return summary && typeof summary === 'object' ? summary : null
+})
+const luckyResultDigits = computed(() => String(luckyResultSummary.value?.prediction_type || predictionType.value) === 'first_prize_last3' ? 3 : 2)
+const luckyWinningNumbers = computed(() => {
+  const summary = luckyResultSummary.value
+  const numbers = Array.isArray(summary?.winning_numbers)
+    ? summary.winning_numbers
+    : (summary?.winning_number ? [summary.winning_number] : [])
+
+  return numbers
+    .map((number: unknown) => String(number || '').replace(/\D/g, ''))
+    .filter(Boolean)
+    .map((number: string) => number.padStart(luckyResultDigits.value, '0'))
+})
+const customerLuckyResult = computed(() => {
+  const customer = luckyResultSummary.value?.customer
+  return customer && typeof customer === 'object' ? customer : null
+})
+const customerLuckyStatus = computed(() => String(customerLuckyResult.value?.status || ''))
+const customerLuckyWon = computed(() => customerLuckyStatus.value === 'won')
+const customerLuckyLost = computed(() => customerLuckyStatus.value === 'lost')
+const customerWinningNumbers = computed(() => {
+  const numbers = Array.isArray(customerLuckyResult.value?.winning_numbers)
+    ? customerLuckyResult.value.winning_numbers
+    : []
+
+  return numbers
+    .map((number: unknown) => String(number || '').replace(/\D/g, ''))
+    .filter(Boolean)
+    .map((number: string) => number.padStart(luckyResultDigits.value, '0'))
+})
+const showLuckyResultPanel = computed(() => Boolean(
+  activity.value?.type === 'lucky_board' &&
+  luckyResultSummary.value?.status === 'announced' &&
+  luckyWinningNumbers.value.length
+))
+const luckyResultTitle = computed(() => {
+  if (customerLuckyWon.value) return 'คุณถูกรางวัลกิจกรรมนี้'
+  if (customerLuckyLost.value) return 'คุณไม่ถูกรางวัลกิจกรรมนี้'
+  if (customerLuckyStatus.value === 'pending') return 'รอประมวลผลเลขของคุณ'
+  if (customerLuckyStatus.value === 'not_joined') return 'คุณไม่ได้เข้าร่วมกิจกรรมนี้'
+  return 'ประกาศหมายเลขที่ชนะแล้ว'
+})
+const luckyResultDescription = computed(() => {
+  const label = predictionLabel(String(luckyResultSummary.value?.prediction_type || predictionType.value))
+  const winningText = luckyWinningNumbers.value.join(', ')
+
+  if (customerLuckyWon.value) {
+    return `เลขของคุณตรงกับ ${label} หมายเลข ${winningText} รับรางวัลกิจกรรม ${formatBaht(customerLuckyResult.value?.award_amount || 0)}`
+  }
+
+  if (customerLuckyLost.value) {
+    return `หมายเลขที่ชนะคือ ${winningText} เลขที่คุณเลือกไม่ตรงกับผลกิจกรรมนี้`
+  }
+
+  if (customerLuckyStatus.value === 'pending') {
+    return `หมายเลขที่ชนะคือ ${winningText} ระบบกำลังสรุปสถานะเลขที่คุณเลือก`
+  }
+
+  if (customerLuckyStatus.value === 'not_joined') {
+    return `หมายเลขที่ชนะคือ ${winningText} คุณไม่ได้ใช้สิทธิ์ในกิจกรรมนี้`
+  }
+
+  return `หมายเลขที่ชนะของ ${label} คือ ${winningText}`
+})
 const activityAwards = computed(() => awards.value.filter((award) => String(award.activity_id || '') === String(activity.value?.id || '')))
 const cashbackClaimableAward = computed(() => activityAwards.value.find((award) => award.type === 'cashback' && award.status === 'claimable') || null)
+const activityHasClaimableAward = computed(() => activityAwards.value.some((award) => String(award.status || '') === 'claimable'))
+const activityHasPaidAward = computed(() => activityAwards.value.some((award) => ['claimed', 'submitted', 'under_review', 'approved', 'paid'].includes(String(award.status || ''))))
+const activityResultHasArrived = computed(() => {
+  const raw = String(activity.value?.result_at || '')
+
+  if (!raw) {
+    return false
+  }
+
+  const date = new Date(raw)
+
+  return !Number.isNaN(date.getTime()) && Date.now() >= date.getTime()
+})
+const showActivityAwardStatusPanel = computed(() => Boolean(
+  activity.value &&
+  (
+    activityAwards.value.length > 0 ||
+    activityResultHasArrived.value ||
+    showLuckyResultPanel.value
+  )
+))
+const activityAwardCountText = computed(() => {
+  if (activityAwards.value.length > 0) {
+    return `${activityAwards.value.length} รายการ`
+  }
+
+  if (!token.value) {
+    return 'เข้าสู่ระบบเพื่อดูสถานะ'
+  }
+
+  if (activity.value?.type === 'lucky_board' && customerLuckyLost.value) {
+    return 'ไม่ได้รับรางวัล'
+  }
+
+  if (activity.value?.type === 'lucky_board' && customerLuckyStatus.value === 'not_joined') {
+    return 'ไม่ได้เข้าร่วม'
+  }
+
+  return activityResultHasArrived.value || showLuckyResultPanel.value ? 'ยังไม่มีรางวัล' : 'รอออกผล'
+})
+const activityRewardStatusVariant = computed(() => {
+  if (activityAwards.value.length > 0) {
+    return activityHasClaimableAward.value ? 'claimable' : (activityHasPaidAward.value ? 'paid' : 'awarded')
+  }
+
+  if (!token.value || customerLuckyStatus.value === 'pending' || (!activityResultHasArrived.value && !showLuckyResultPanel.value)) {
+    return 'pending'
+  }
+
+  if (activity.value?.type === 'lucky_board' && (customerLuckyLost.value || customerLuckyStatus.value === 'not_joined')) {
+    return 'missed'
+  }
+
+  return activityResultHasArrived.value ? 'missed' : 'pending'
+})
+const activityRewardStatusIcon = computed(() => {
+  const icons: Record<string, string> = {
+    claimable: 'bi bi-cash-coin',
+    paid: 'bi bi-check2-circle',
+    awarded: 'bi bi-trophy',
+    missed: 'bi bi-x-circle',
+    pending: 'bi bi-hourglass-split'
+  }
+
+  return icons[activityRewardStatusVariant.value] || 'bi bi-hourglass-split'
+})
+const activityRewardStatusTitle = computed(() => {
+  if (!token.value) return 'เข้าสู่ระบบเพื่อดูรางวัลของคุณ'
+
+  if (activity.value?.type === 'lucky_board') {
+    if (customerLuckyLost.value) return 'คุณไม่ได้รับรางวัลกิจกรรมนี้'
+    if (customerLuckyStatus.value === 'not_joined') return 'คุณยังไม่ได้เข้าร่วมกิจกรรมนี้'
+    if (customerLuckyStatus.value === 'pending') return 'รอประมวลผลเลขของคุณ'
+    return showLuckyResultPanel.value ? 'ยังไม่มีรางวัลกิจกรรมของคุณ' : 'รอออกผลกิจกรรม'
+  }
+
+  if (activityResultHasArrived.value) return 'ยังไม่มีเงินคืนกิจกรรม'
+
+  return 'รอคำนวณสิทธิ์เงินคืน'
+})
+const activityRewardStatusDescription = computed(() => {
+  if (!token.value) return 'เข้าสู่ระบบเพื่อดูว่าคุณได้รับรางวัลหรือเงินคืนจากกิจกรรมนี้หรือไม่'
+
+  if (activity.value?.type === 'lucky_board') {
+    if (customerLuckyLost.value) return 'เลขที่คุณเลือกไม่ตรงกับหมายเลขที่ชนะของกิจกรรมนี้'
+    if (customerLuckyStatus.value === 'not_joined') return 'ใช้สิทธิ์เลือกเลขก่อนออกผล เพื่อร่วมลุ้นรางวัลกิจกรรม'
+    if (customerLuckyStatus.value === 'pending') return 'ระบบกำลังสรุปสถานะหลังประกาศหมายเลขที่ชนะ'
+    return showLuckyResultPanel.value
+      ? 'ระบบประกาศหมายเลขที่ชนะแล้ว แต่คุณไม่มีรางวัลที่รับได้ในกิจกรรมนี้'
+      : `ระบบจะประกาศรางวัลกิจกรรมเวลา ${activityResultTimeText}`
+  }
+
+  if (activityResultHasArrived.value) {
+    return 'ระบบยังไม่พบรายการเงินคืนที่รับได้สำหรับกิจกรรมนี้'
+  }
+
+  return `ระบบจะสรุปสิทธิ์เงินคืนเวลา ${activityResultTimeText}`
+})
+const bankAccount = computed(() => {
+  const bank = profile.value?.reward_payout_bank_account || profile.value?.bank_account || {}
+
+  return {
+    bank_name: String(bank.bank_name || bank.bank || ''),
+    account_name: String(bank.account_name || bank.bank_deposit_name || ''),
+    account_number: String(bank.account_number || bank.account_no || bank.bank_account_no || bank.bank_deposit_number || '')
+  }
+})
+const hasBankAccount = computed(() => Boolean(bankAccount.value.bank_name && bankAccount.value.account_number))
+const accountLast4 = computed(() => {
+  const number = bankAccount.value.account_number.replace(/\D/g, '')
+
+  return number.slice(-4) || '----'
+})
+const maskedAccountNumber = computed(() => maskAccountNumber(bankAccount.value.account_number))
+const walletSuffix = computed(() => {
+  const value = String(profile.value?.wallet?.id || profile.value?.primary_wallet?.id || profile.value?.wallet_id || '123').replace(/\D/g, '')
+
+  return value.slice(-3).padStart(3, '0')
+})
+const bankDisplayName = computed(() => bankAccount.value.bank_name.replace(/^ธนาคาร/, 'บัญชี') || 'บัญชีธนาคาร')
+const bankOptionTitle = computed(() => hasBankAccount.value ? `${bankDisplayName.value} x ${accountLast4.value}` : 'บัญชีธนาคาร')
+const bankOptionSubtitle = computed(() => hasBankAccount.value
+  ? 'รับเงินเข้าบัญชีรับเงินรางวัลที่บันทึกไว้'
+  : 'เพิ่มบัญชีรับเงินรางวัลก่อนเลือกช่องทางนี้'
+)
+const walletOptionTitle = computed(() => `G Wallet x ${walletSuffix.value}`)
+const rewardBankTo = computed(() => `/profile/reward-bank?redirect=${encodeURIComponent(route.fullPath)}`)
+const canContinueClaim = computed(() => Boolean(
+  claimAward.value &&
+  !isSubmitting.value &&
+  (payoutMethod.value !== 'bank_transfer' || hasBankAccount.value)
+))
 const canSubmitClaim = computed(() => {
-  if (!claimAward.value || claimPin.value.length !== 6) return false
-  if (payoutMethod.value === 'wallet_credit') return true
-  return Boolean(bankAccount.bank_name && bankAccount.account_name && bankAccount.account_number)
+  if (!canContinueClaim.value || pinDigits.value.length !== 6) return false
+  return true
 })
 const cashbackProgressText = computed(() => activity.value?.cashback_progress?.eligible_by_purchase ? 'เข้าเงื่อนไขยอดซื้อ' : 'รอเข้าเงื่อนไข')
 const cashbackRewardText = computed(() => {
@@ -430,6 +699,30 @@ const closeNumberConfirm = () => {
   pendingNumber.value = ''
 }
 
+const maskAccountNumber = (value: unknown) => {
+  const number = String(value || '').replace(/\D/g, '')
+
+  if (number.length <= 4) {
+    return number || '-'
+  }
+
+  return `${'*'.repeat(Math.max(0, number.length - 4))}${number.slice(-4)}`
+}
+
+const loadClaimProfile = async () => {
+  if (!token.value) {
+    profile.value = null
+    return
+  }
+
+  try {
+    profile.value = await restoreAuthState(true) || {}
+  } catch (error) {
+    console.log(error)
+    profile.value = null
+  }
+}
+
 const loadActivity = async () => {
   isLoading.value = true
   try {
@@ -438,7 +731,19 @@ const loadActivity = async () => {
 
     if (token.value && publicActivity?.id) {
       try {
-        activity.value = await platformApi.customerActivity(publicActivity.id)
+        const [customerActivity, profileResult] = await Promise.allSettled([
+          platformApi.customerActivity(publicActivity.id),
+          restoreAuthState(true)
+        ])
+
+        if (customerActivity.status === 'fulfilled') {
+          activity.value = customerActivity.value
+        }
+
+        if (profileResult.status === 'fulfilled') {
+          profile.value = profileResult.value || {}
+        }
+
         rights.value = activity.value?.rights || {}
         entries.value = Array.isArray(activity.value?.entries) ? activity.value.entries : []
         const awardResponse = await platformApi.activityAwards({ limit: 100 })
@@ -486,10 +791,66 @@ const startClaim = async (award: Record<string, any>) => {
     await navigateTo({ path: '/login', query: { redirect: route.fullPath } })
     return
   }
+
+  await loadClaimProfile()
   claimAward.value = award
   payoutMethod.value = 'wallet_credit'
-  claimPin.value = ''
+  claimStep.value = 'select'
+  pinDigits.value = ''
   claimError.value = ''
+}
+
+const closeClaimModal = () => {
+  if (isSubmitting.value) {
+    return
+  }
+
+  claimAward.value = null
+  claimStep.value = 'idle'
+  pinDigits.value = ''
+  claimError.value = ''
+}
+
+const goToClaimPin = () => {
+  if (!canContinueClaim.value) {
+    return
+  }
+
+  pinDigits.value = ''
+  claimError.value = ''
+  claimStep.value = 'pin'
+}
+
+const backToClaimSelect = () => {
+  if (isSubmitting.value) {
+    return
+  }
+
+  pinDigits.value = ''
+  claimError.value = ''
+  claimStep.value = claimAward.value ? 'select' : 'idle'
+}
+
+const appendClaimPinDigit = async (digit: string) => {
+  if (!/^\d$/.test(digit) || pinDigits.value.length >= 6 || isSubmitting.value) {
+    return
+  }
+
+  claimError.value = ''
+  pinDigits.value += digit
+
+  if (pinDigits.value.length === 6) {
+    await submitClaim()
+  }
+}
+
+const removeClaimPinDigit = () => {
+  if (isSubmitting.value || pinDigits.value.length === 0) {
+    return
+  }
+
+  claimError.value = ''
+  pinDigits.value = pinDigits.value.slice(0, -1)
 }
 
 const startCashbackManualClaim = async () => {
@@ -527,21 +888,24 @@ const submitClaim = async () => {
     await platformApi.createActivityClaim({
       award_id: claimAward.value.id,
       payout_method: payoutMethod.value,
-      pin: claimPin.value,
-      bank_account: payoutMethod.value === 'bank_transfer' ? { ...bankAccount } : null
+      pin: pinDigits.value,
+      ...(payoutMethod.value === 'bank_transfer' ? { bank_account: bankAccount.value } : {})
     })
     claimAward.value = null
-    claimPin.value = ''
+    claimStep.value = 'idle'
+    pinDigits.value = ''
     await loadActivity()
     showAlert({ title: 'ส่งคำขอสำเร็จ', message: 'Partner จะตรวจสอบและอนุมัติรายการของคุณ', variant: 'success' })
   } catch (error: any) {
     const code = error?.response?.data?.error?.code || error?.data?.error?.code || ''
-    claimPin.value = ''
+    pinDigits.value = ''
     claimError.value = code === 'pin_invalid'
       ? 'PIN ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง'
       : code === 'pin_locked'
         ? 'กรอก PIN ผิดเกินกำหนด กรุณารอสักครู่แล้วลองใหม่'
-        : 'ไม่สามารถส่งคำขอได้ กรุณาตรวจสอบข้อมูล'
+        : code === 'pin_setup_required'
+          ? 'กรุณาตั้งค่า PIN ก่อนทำรายการ'
+          : 'ไม่สามารถส่งคำขอได้ กรุณาตรวจสอบข้อมูล'
   } finally {
     isSubmitting.value = false
   }
@@ -697,26 +1061,109 @@ useTenantSeo({
   font-weight: 700;
 }
 
-.claim-methods {
+.lucky-result-panel {
+  background: linear-gradient(135deg, #eff6ff, #f8fbff);
+  border: 1px solid #b9dcff;
+  border-radius: 18px;
   display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
 }
 
-.claim-methods button {
-  background: #f7f9fc;
-  border: 1px solid #e5ebf3;
-  border-radius: 14px;
-  color: #516070;
-  font-size: 13px;
+.lucky-result-panel.won {
+  background: linear-gradient(135deg, #ecfdf3, #f8fffb);
+  border-color: #86efac;
+}
+
+.lucky-result-panel.lost {
+  background: linear-gradient(135deg, #fff7ed, #fffaf5);
+  border-color: #fed7aa;
+}
+
+.lucky-result-header {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.lucky-result-header span {
+  color: #0b74d9;
+  font-size: 12px;
   font-weight: 900;
-  min-height: 44px;
 }
 
-.claim-methods button.active {
-  background: #e8f4ff;
-  border-color: #0b7fe8;
-  color: #0875df;
+.lucky-result-header strong {
+  color: #0f3763;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.25;
+  text-align: right;
+}
+
+.lucky-winning-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lucky-winning-numbers span {
+  align-items: center;
+  background: #0b7fe8;
+  border-radius: 14px;
+  box-shadow: 0 10px 18px rgba(11, 127, 232, .2);
+  color: #fff;
+  display: inline-flex;
+  font-size: 26px;
+  font-weight: 900;
+  justify-content: center;
+  letter-spacing: .08em;
+  line-height: 1;
+  min-height: 52px;
+  min-width: 92px;
+  padding: 12px 16px;
+}
+
+.lucky-result-panel.won .lucky-winning-numbers span {
+  background: #10b981;
+  box-shadow: 0 10px 18px rgba(16, 185, 129, .2);
+}
+
+.lucky-result-panel.lost .lucky-winning-numbers span {
+  background: #f97316;
+  box-shadow: 0 10px 18px rgba(249, 115, 22, .2);
+}
+
+.lucky-result-panel p {
+  color: #475467;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.customer-winning-strip {
+  align-items: center;
+  background: rgba(255, 255, 255, .78);
+  border: 1px solid rgba(16, 185, 129, .25);
+  border-radius: 14px;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.customer-winning-strip small {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.customer-winning-strip strong {
+  color: #047857;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: .04em;
 }
 
 .selected-number-panel {
@@ -873,18 +1320,6 @@ useTenantSeo({
   opacity: .72;
 }
 
-.bank-form input,
-.bank-form select,
-.pin-input {
-  background: #f8fafc;
-  border: 1px solid #d9e2ef;
-  border-radius: 14px;
-  font-size: 18px;
-  font-weight: 900;
-  min-height: 48px;
-  padding: 0 14px;
-}
-
 .activity-login-link,
 .activity-note {
   border-radius: 14px;
@@ -906,20 +1341,121 @@ useTenantSeo({
   color: #b76b00;
 }
 
-.award-list,
-.bank-form {
+.award-list {
   display: grid;
   gap: 10px;
 }
 
+.award-status-panel {
+  border: 1px solid #d8ebff;
+  box-shadow: 0 16px 34px rgba(8, 48, 104, .14);
+  position: relative;
+}
+
+.award-status-panel::before {
+  background: linear-gradient(90deg, #0b7fe8, #42b5ff);
+  content: "";
+  height: 5px;
+  inset: 0 0 auto;
+  position: absolute;
+}
+
+.award-status-panel.is-claimable::before,
+.award-status-panel.is-paid::before,
+.award-status-panel.is-awarded::before {
+  background: linear-gradient(90deg, #10b981, #8be7bd);
+}
+
+.award-status-panel.is-missed::before {
+  background: linear-gradient(90deg, #ef4444, #fca5a5);
+}
+
+.award-status-panel.is-pending::before {
+  background: linear-gradient(90deg, #f59e0b, #fde68a);
+}
+
+.award-status-empty {
+  align-items: center;
+  background: #f8fbff;
+  border: 1px solid #e5eef9;
+  border-radius: 16px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 46px minmax(0, 1fr);
+  padding: 13px;
+}
+
+.award-status-empty i {
+  align-items: center;
+  background: #e8f4ff;
+  border-radius: 16px;
+  color: #0875df;
+  display: flex;
+  font-size: 22px;
+  height: 46px;
+  justify-content: center;
+  width: 46px;
+}
+
+.award-status-panel.is-claimable .award-status-empty,
+.award-status-panel.is-paid .award-status-empty,
+.award-status-panel.is-awarded .award-status-empty {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.award-status-panel.is-claimable .award-status-empty i,
+.award-status-panel.is-paid .award-status-empty i,
+.award-status-panel.is-awarded .award-status-empty i {
+  background: #dcfce7;
+  color: #059669;
+}
+
+.award-status-panel.is-missed .award-status-empty {
+  background: #fff5f5;
+  border-color: #fecaca;
+}
+
+.award-status-panel.is-missed .award-status-empty i {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.award-status-panel.is-pending .award-status-empty {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.award-status-panel.is-pending .award-status-empty i {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.award-status-empty strong {
+  color: #111827;
+  display: block;
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.award-status-empty p {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
+  margin: 4px 0 0;
+}
+
 .award-row {
   align-items: center;
-  background: #f8fafc;
-  border-radius: 14px;
+  background: linear-gradient(135deg, #f8fbff, #ffffff);
+  border: 1px solid #e1ecf8;
+  border-radius: 16px;
   display: grid;
-  gap: 10px;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  padding: 12px;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 13px;
 }
 
 .award-row strong {
@@ -936,9 +1472,23 @@ useTenantSeo({
 }
 
 .award-amount {
-  color: #111827;
-  font-size: 16px;
+  background: #ecfdf3;
+  border: 1px solid #bbf7d0;
+  border-radius: 14px;
+  color: #047857;
+  font-size: 22px;
   font-weight: 900;
+  line-height: 1.05;
+  min-width: 128px;
+  padding: 10px 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.award-row .outline-pill {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+  min-height: 42px;
 }
 
 .cashback-hero {
@@ -1078,10 +1628,6 @@ useTenantSeo({
   line-height: 1.35;
 }
 
-.claim-methods {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 .claim-error {
   background: #fee2e2;
   border-radius: 12px;
@@ -1113,6 +1659,7 @@ useTenantSeo({
   display: flex;
   inset: 0;
   justify-content: center;
+  overflow: hidden auto;
   padding: 20px;
   position: fixed;
   z-index: 1060;
@@ -1121,10 +1668,12 @@ useTenantSeo({
 .number-confirm-modal {
   background: #fff;
   border-radius: 22px;
+  box-sizing: border-box;
   box-shadow: 0 24px 48px rgba(15, 23, 42, .24);
   display: grid;
   gap: 14px;
   max-width: 340px;
+  min-width: 0;
   padding: 22px;
   position: relative;
   text-align: center;
@@ -1184,6 +1733,196 @@ useTenantSeo({
   grid-template-columns: 1fr 1fr;
 }
 
+.claim-backdrop {
+  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  z-index: 1080;
+}
+
+.claim-modal {
+  gap: 13px;
+  max-height: calc(100vh - 44px);
+  max-width: min(390px, calc(100vw - 24px));
+  overflow: hidden auto;
+  text-align: left;
+  width: min(390px, calc(100vw - 24px));
+}
+
+.claim-modal > * {
+  min-width: 0;
+}
+
+.claim-modal .activity-type {
+  justify-self: start;
+}
+
+.claim-modal h3 {
+  font-size: clamp(18px, 5.2vw, 21px);
+  padding-right: 32px;
+}
+
+.claim-amount-card {
+  background: linear-gradient(135deg, #0b7fe8, #0d6bd9);
+  border-radius: 18px;
+  color: #fff;
+  display: grid;
+  gap: 4px;
+  padding: 16px;
+}
+
+.claim-amount-card span {
+  color: rgba(255, 255, 255, .82);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.claim-amount-card strong {
+  color: #fff;
+  font-size: clamp(22px, 7vw, 28px);
+  font-weight: 900;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+.claim-payout-options {
+  display: grid;
+  gap: 10px;
+}
+
+.claim-payout-options button {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #dce6f2;
+  border-radius: 16px;
+  color: #1f2937;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 22px minmax(0, 1fr) 42px;
+  min-height: 72px;
+  padding: 12px;
+  text-align: left;
+}
+
+.claim-payout-options button:disabled {
+  opacity: .64;
+}
+
+.claim-payout-options button.active {
+  background: #eff7ff;
+  border-color: #0b7fe8;
+  box-shadow: inset 0 0 0 1px rgba(11, 127, 232, .18);
+}
+
+.claim-radio {
+  border: 2px solid #d0d7e2;
+  border-radius: 999px;
+  height: 18px;
+  position: relative;
+  width: 18px;
+}
+
+.claim-payout-options button.active .claim-radio {
+  background: #0b7fe8;
+  border-color: #0b7fe8;
+}
+
+.claim-payout-options button.active .claim-radio::after {
+  background: #fff;
+  border-radius: 999px;
+  content: "";
+  height: 6px;
+  inset: 4px;
+  position: absolute;
+  width: 6px;
+}
+
+.claim-payout-options strong,
+.claim-bank-preview strong {
+  color: #111827;
+  display: block;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.claim-payout-options small,
+.claim-bank-preview span {
+  color: #667085;
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+  margin-top: 3px;
+}
+
+.claim-option-icon {
+  align-items: center;
+  border-radius: 14px;
+  display: flex;
+  font-size: 20px;
+  font-weight: 900;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.claim-option-icon.wallet {
+  background: #dbeafe;
+  color: #0b7fe8;
+}
+
+.claim-option-icon.bank {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.claim-bank-preview {
+  align-items: center;
+  background: #f8fbff;
+  border: 1px solid #dce8f5;
+  border-radius: 16px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 42px minmax(0, 1fr);
+  padding: 12px;
+}
+
+.claim-bank-preview.missing {
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.claim-bank-preview i {
+  align-items: center;
+  background: #e8f4ff;
+  border-radius: 14px;
+  color: #0875df;
+  display: flex;
+  font-size: 20px;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.claim-bank-preview.missing i {
+  background: #ffedd5;
+  color: #ea580c;
+}
+
+.claim-bank-link {
+  background: #e8f4ff;
+  border-radius: 14px;
+  color: #0875df;
+  font-size: 13px;
+  font-weight: 900;
+  padding: 12px 14px;
+  text-align: center;
+  text-decoration: none;
+}
+
+.claim-actions {
+  margin-top: 2px;
+}
+
 @media (max-width: 380px) {
   .rights-box,
   .cashback-grid,
@@ -1205,6 +1944,48 @@ useTenantSeo({
 
   .number-confirm-actions {
     grid-template-columns: 1fr;
+  }
+
+  .award-row {
+    grid-template-columns: 1fr;
+  }
+
+  .award-amount {
+    justify-self: stretch;
+    min-width: 0;
+    text-align: left;
+  }
+
+  .lucky-result-header,
+  .customer-winning-strip {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .lucky-result-header strong {
+    text-align: left;
+  }
+}
+
+@media (max-width: 420px) {
+  .claim-modal {
+    border-radius: 20px;
+    gap: 12px;
+    padding: 18px;
+  }
+
+  .claim-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .claim-payout-options button {
+    grid-template-columns: 20px minmax(0, 1fr) 38px;
+    min-height: 66px;
+  }
+
+  .claim-amount-card {
+    border-radius: 16px;
+    padding: 14px;
   }
 }
 </style>

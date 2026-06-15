@@ -151,6 +151,7 @@ class TelegramNotificationServiceTest extends TestCase
         $this->service()->enqueue('ten_telegram', 'topup.status_updated', 'topup_request', 'top_reviewed', [
             'event' => ['title' => 'ตรวจสอบรายการเติมเงินแล้ว', 'occurred_at' => '12/06/2026 12:00'],
             'tenant' => ['name' => 'Alpha Ops'],
+            'admin' => ['username' => 'auditor1'],
             'customer' => ['name' => 'สมชาย', 'phone' => '0812345678'],
             'topup' => ['reference' => 'TOP456', 'amount_baht' => '500.00', 'status_label' => 'อนุมัติแล้ว', 'reason' => ''],
         ]);
@@ -173,6 +174,7 @@ class TelegramNotificationServiceTest extends TestCase
             return str_contains($text, 'ตรวจสอบรายการเติมเงินแล้ว')
                 && str_contains($text, 'สถานะ: อนุมัติแล้ว')
                 && str_contains($text, 'เลขอ้างอิง: TOP456')
+                && str_contains($text, 'ผู้ตรวจ: auditor1')
                 && ! str_contains($text, "\n\n");
         });
     }

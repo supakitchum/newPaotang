@@ -9,6 +9,7 @@ use App\Models\SupportImpersonationBlockedAction;
 use App\Models\SupportImpersonationEvent;
 use App\Models\SupportImpersonationSession;
 use App\Models\SyncOutbox;
+use App\Modules\Rbac\Events\AdminMenuBadgesUpdated;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use Illuminate\Http\Request;
@@ -109,6 +110,7 @@ class SupportAccessService
             $this->insertApprovalEvent($tenantId, $supportAccessId, 'requested', 'accepted', (string) $payload['reason'], $actor, $payload);
             $this->insertImpersonationEvent($tenantId, $supportAccessId, null, 'support_access.requested', null, $actor, $payload);
             $this->auditSupportAccess($actor, $httpRequest, 'support_access.requested', 'support_access_request', $supportAccessId, $tenant, $payload);
+            $this->queueTenantMenuBadgeBroadcast($tenantId, 'support_access_logs');
 
             return $this->requestResource(SupportAccessRequest::find($supportAccessId), true);
         });
@@ -149,6 +151,7 @@ class SupportAccessService
 
             $tenant = PartnerTenant::find($tenantId);
             $this->auditSupportAccess($actor, $httpRequest, 'support_access.approved', 'support_access_request', $supportAccessId, $tenant, $payload);
+            $this->queueTenantMenuBadgeBroadcast($tenantId, 'support_access_logs');
 
             return $this->requestResource(SupportAccessRequest::find($supportAccessId), true);
         });
@@ -199,6 +202,7 @@ class SupportAccessService
 
             $tenant = PartnerTenant::find($tenantId);
             $this->auditSupportAccess($actor, $httpRequest, 'support_access.revoked', 'support_access_request', $supportAccessId, $tenant, $payload);
+            $this->queueTenantMenuBadgeBroadcast($tenantId, 'support_access_logs');
 
             return $this->requestResource(SupportAccessRequest::find($supportAccessId), true);
         });
@@ -731,7 +735,7 @@ class SupportAccessService
 
     private function expireRequests(string $tenantId): void
     {
-        SupportAccessRequest::query()
+        $expired = SupportAccessRequest::query()
             ->where('tenant_id', $tenantId)
             ->whereIn('status', ['pending_approval', 'approved'])
             ->whereNotNull('expires_at')
@@ -741,6 +745,10 @@ class SupportAccessService
                 'updated_at' => now(),
             ]);
 
+        if ($expired > 0) {
+            $this->queueTenantMenuBadgeBroadcast($tenantId, 'support_access_logs');
+        }
+
         SupportImpersonationSession::query()
             ->where('tenant_id', $tenantId)
             ->where('status', 'active')
@@ -749,6 +757,17 @@ class SupportAccessService
                 'status' => 'expired',
                 'updated_at' => now(),
             ]);
+    }
+
+    private function queueTenantMenuBadgeBroadcast(string $tenantId, string $source): void
+    {
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit(fn (): mixed => AdminMenuBadgesUpdated::dispatch('tenant', $tenantId, $source));
+
+            return;
+        }
+
+        AdminMenuBadgesUpdated::dispatch('tenant', $tenantId, $source);
     }
 
     /**

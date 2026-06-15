@@ -9,6 +9,7 @@ use App\Models\SystemTranslationDraft;
 use App\Models\SystemTranslationKey;
 use App\Models\SystemTranslationPreviewSession;
 use App\Models\SystemTranslationValue;
+use App\Modules\Rbac\Events\AdminMenuBadgesUpdated;
 use App\Modules\Translations\Support\BackOfficePhraseTranslations;
 use App\Modules\Translations\Support\StaticTranslationCatalog;
 use Illuminate\Support\Carbon;
@@ -336,6 +337,7 @@ class SystemTranslationService
             'reviewed_at' => null,
             'review_note' => null,
         ])->save();
+        $this->queueCentralMenuBadgeBroadcast('translations');
 
         return ['resource' => ['request' => $this->serializeRequest($request->fresh(['items.key']))]];
     }
@@ -466,6 +468,8 @@ class SystemTranslationService
                 'deployed_at' => now(),
                 'review_note' => null,
             ])->save();
+
+            $this->queueCentralMenuBadgeBroadcast('translations');
         });
 
         $this->forgetBundle($request->locale, $request->surface);
@@ -499,6 +503,7 @@ class SystemTranslationService
             'reviewed_at' => now(),
             'review_note' => $reason,
         ])->save();
+        $this->queueCentralMenuBadgeBroadcast('translations');
 
         return ['resource' => ['request' => $this->serializeRequest($request->fresh(['items.key']))]];
     }
@@ -1062,5 +1067,16 @@ class SystemTranslationService
     private function forgetBundle(string $locale, string $surface): void
     {
         Cache::forget($this->bundleCacheKey($locale, $surface));
+    }
+
+    private function queueCentralMenuBadgeBroadcast(string $source): void
+    {
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit(fn (): mixed => AdminMenuBadgesUpdated::dispatch('central', null, $source));
+
+            return;
+        }
+
+        AdminMenuBadgesUpdated::dispatch('central', null, $source);
     }
 }

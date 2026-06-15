@@ -130,16 +130,16 @@ class BoMenuCompletionBackendGapTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.game_id', 'gam_central_payout_gap')
             ->assertJsonPath('data.0.prize_type', 'first_prize')
-            ->assertJsonPath('data.0.central_reward_amount.amount', 6000000)
-            ->assertJsonPath('data.6.central_reward_amount.amount', 4000)
-            ->assertJsonPath('data.8.central_reward_amount.amount', 2000)
+            ->assertJsonPath('data.0.central_reward_amount.amount', 600000000)
+            ->assertJsonPath('data.6.central_reward_amount.amount', 400000)
+            ->assertJsonPath('data.8.central_reward_amount.amount', 200000)
             ->json();
 
         $this->withToken($login['access_token'])
             ->getJson('/api/v1/admin/central/reward-payout-rules/'.$centralPayoutRule['data'][0]['id'], $headers)
             ->assertOk()
             ->assertJsonPath('prize_type', 'first_prize')
-            ->assertJsonPath('central_reward_amount.amount', 6000000);
+            ->assertJsonPath('central_reward_amount.amount', 600000000);
 
         $this->withToken($login['access_token'])
             ->getJson('/api/v1/admin/central/partner-monitoring?partner_id=par_bo_gap', $headers)
@@ -352,8 +352,8 @@ class BoMenuCompletionBackendGapTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.game_id', 'gam_price_gap')
             ->assertJsonPath('data.0.prize_type', 'first_prize')
-            ->assertJsonPath('data.0.central_reward_amount.amount', 6000000)
-            ->assertJsonPath('data.0.partner_payout_amount.amount', 6000000)
+            ->assertJsonPath('data.0.central_reward_amount.amount', 600000000)
+            ->assertJsonPath('data.0.partner_payout_amount.amount', 600000000)
             ->assertJsonPath('meta.live_settings.waiting_result_youtube_url', 'https://www.youtube.com/watch?v=M7lc1UVf-VE')
             ->assertJsonPath('meta.live_settings.waiting_result_youtube_embed_url', 'https://www.youtube.com/embed/M7lc1UVf-VE')
             ->assertJsonPath('meta.live_settings.source', 'central_default')
@@ -375,18 +375,18 @@ class BoMenuCompletionBackendGapTest extends TestCase
 
         $updatedPriceRule = $this->withToken($login['access_token'])
             ->patchJson('/api/v1/admin/tenant/price-rules/'.$firstPrizeRowId, [
-                'partner_payout_amount' => 5900000,
+                'partner_payout_amount' => 599900000,
             ], $tenantHeaders + ['Idempotency-Key' => 'tenant-price-rule-payout-update'])
             ->assertOk()
             ->assertJsonPath('id', $firstPrizeRowId)
-            ->assertJsonPath('partner_payout_amount.amount', 5900000)
+            ->assertJsonPath('partner_payout_amount.amount', 599900000)
             ->assertJsonPath('adjustment_amount.amount', -100000)
             ->json();
 
         $this->withToken($login['access_token'])
             ->getJson('/api/v1/admin/tenant/price-rules/'.$firstPrizeRowId, $tenantHeaders)
             ->assertOk()
-            ->assertJsonPath('partner_payout_amount.amount', 5900000)
+            ->assertJsonPath('partner_payout_amount.amount', 599900000)
             ->assertJsonPath('tenant_price_rule_id', $updatedPriceRule['tenant_price_rule_id']);
 
         $domain = $this->withToken($login['access_token'])

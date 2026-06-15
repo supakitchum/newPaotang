@@ -66,39 +66,39 @@ class RewardEngineTest extends TestCase
     {
         $rules = ThaiGovernmentLotteryRewardTemplate::rules();
 
-        $this->assertSame(['count' => 1, 'amount' => 6000000], [
+        $this->assertSame(['count' => 1, 'amount' => 600000000], [
             'count' => $rules['first_prize']['count'],
             'amount' => $rules['first_prize']['amount'],
         ]);
-        $this->assertSame(['count' => 5, 'amount' => 200000], [
+        $this->assertSame(['count' => 5, 'amount' => 20000000], [
             'count' => $rules['second_prize']['count'],
             'amount' => $rules['second_prize']['amount'],
         ]);
-        $this->assertSame(['count' => 10, 'amount' => 80000], [
+        $this->assertSame(['count' => 10, 'amount' => 8000000], [
             'count' => $rules['third_prize']['count'],
             'amount' => $rules['third_prize']['amount'],
         ]);
-        $this->assertSame(['count' => 50, 'amount' => 40000], [
+        $this->assertSame(['count' => 50, 'amount' => 4000000], [
             'count' => $rules['fourth_prize']['count'],
             'amount' => $rules['fourth_prize']['amount'],
         ]);
-        $this->assertSame(['count' => 100, 'amount' => 20000], [
+        $this->assertSame(['count' => 100, 'amount' => 2000000], [
             'count' => $rules['fifth_prize']['count'],
             'amount' => $rules['fifth_prize']['amount'],
         ]);
-        $this->assertSame(['count' => 2, 'amount' => 100000], [
+        $this->assertSame(['count' => 2, 'amount' => 10000000], [
             'count' => $rules['near_first_prize']['count'],
             'amount' => $rules['near_first_prize']['amount'],
         ]);
-        $this->assertSame(['count' => 2, 'amount' => 4000], [
+        $this->assertSame(['count' => 2, 'amount' => 400000], [
             'count' => $rules['front3']['count'],
             'amount' => $rules['front3']['amount'],
         ]);
-        $this->assertSame(['count' => 2, 'amount' => 4000], [
+        $this->assertSame(['count' => 2, 'amount' => 400000], [
             'count' => $rules['back3']['count'],
             'amount' => $rules['back3']['amount'],
         ]);
-        $this->assertSame(['count' => 1, 'amount' => 2000], [
+        $this->assertSame(['count' => 1, 'amount' => 200000], [
             'count' => $rules['back2']['count'],
             'amount' => $rules['back2']['amount'],
         ]);
@@ -261,10 +261,10 @@ class RewardEngineTest extends TestCase
             ->assertOk()
             ->assertJsonPath('meta.game_id', $latestWorld['game_id'])
             ->assertJsonPath('meta.winner_count', 1)
-            ->assertJsonPath('meta.total_prize_amount.amount', 6000000)
+            ->assertJsonPath('meta.total_prize_amount.amount', 600000000)
             ->assertJsonPath('data.0.game_id', $latestWorld['game_id'])
             ->assertJsonPath('data.0.full_number', $latestWorld['ticket_number'])
-            ->assertJsonPath('data.0.prize_amount.amount', 6000000)
+            ->assertJsonPath('data.0.prize_amount.amount', 600000000)
             ->assertJsonPath('data.0.status', 'verified');
 
         $this->withToken($admin['access_token'])
@@ -314,11 +314,11 @@ class RewardEngineTest extends TestCase
             ->assertJsonPath('meta.has_live_result', true)
             ->assertJsonPath('meta.source.name', 'central')
             ->assertJsonPath('meta.winner_count', 1)
-            ->assertJsonPath('meta.total_prize_amount.amount', 6000000)
+            ->assertJsonPath('meta.total_prize_amount.amount', 600000000)
             ->assertJsonPath('data.0.full_number', $world['ticket_number'])
             ->assertJsonPath('data.0.customer_no', $world['auth']['user']['customer_no'])
             ->assertJsonPath('data.0.ticket_count', 1)
-            ->assertJsonPath('data.0.total_prize_amount.amount', 6000000)
+            ->assertJsonPath('data.0.total_prize_amount.amount', 600000000)
             ->assertJsonPath('data.0.status', 'live_draft')
             ->assertJsonPath('data.0.source', 'central')
             ->assertJsonPath('data.0.official_claimable', false);
@@ -780,12 +780,12 @@ class RewardEngineTest extends TestCase
             ->assertJsonPath('meta.completion_percent', 4.25)
             ->assertJsonPath('meta.winner_count', 1)
             ->assertJsonPath('meta.winning_row_count', 1)
-            ->assertJsonPath('meta.total_prize_amount.amount', 6000000)
+            ->assertJsonPath('meta.total_prize_amount.amount', 600000000)
             ->assertJsonPath('meta.live_estimate.official_claimable', false)
             ->assertJsonPath('data.0.full_number', $world['ticket_number'])
             ->assertJsonPath('data.0.ticket_count', 1)
-            ->assertJsonPath('data.0.total_prize_amount.amount', 6000000)
-            ->assertJsonPath('data.0.prize_amount.amount', 6000000)
+            ->assertJsonPath('data.0.total_prize_amount.amount', 600000000)
+            ->assertJsonPath('data.0.prize_amount.amount', 600000000)
             ->assertJsonPath('data.0.prize_breakdown.0.ticket_count', 1)
             ->assertJsonPath('data.0.status', 'live_draft')
             ->assertJsonPath('data.0.claim_status', 'pending_confirmation')

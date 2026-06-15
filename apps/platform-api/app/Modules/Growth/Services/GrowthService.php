@@ -29,6 +29,7 @@ use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Auth\CustomerSessionContext;
 use App\Shared\Idempotency\IdempotencyService;
+use App\Modules\Rbac\Events\AdminMenuBadgesUpdated;
 use App\Modules\TelegramNotifications\Services\CentralTelegramNotificationService;
 use App\Support\CustomerNo;
 use Illuminate\Http\Request;
@@ -1171,6 +1172,7 @@ class GrowthService
 
                 $resource = $this->payoutResource(AffiliatePayout::query()->where('tenant_id', $tenantId)->where('id', $payoutId)->first());
                 $this->telegramNotifications->enqueue($tenantId, 'commission.submitted', 'affiliate_payout', $payoutId, $this->telegramPayoutVariables($tenantId, $resource));
+                $this->queueTenantMenuBadgeBroadcast($tenantId, 'commission_transactions');
 
                 return ['resource' => $resource, 'status' => 201];
             },
@@ -1589,6 +1591,7 @@ class GrowthService
 
                 $resource = $this->payoutResource(AffiliatePayout::where('id', $payoutId)->first());
                 $this->telegramNotifications->enqueue($tenantId, 'commission.submitted', 'affiliate_payout', $payoutId, $this->telegramPayoutVariables($tenantId, $resource));
+                $this->queueTenantMenuBadgeBroadcast($tenantId, 'commission_transactions');
 
                 return ['resource' => $resource, 'status' => 201];
             },
@@ -1633,7 +1636,8 @@ class GrowthService
 
                 $resource = $this->payoutResource(AffiliatePayout::where('id', $payoutId)->first());
                 $this->auditAdmin($actor, $request, 'payout.approved', 'affiliate_payout', $payoutId, $payload, $tenantId);
-                $this->telegramNotifications->enqueue($tenantId, 'commission.status_updated', 'affiliate_payout', $payoutId, $this->telegramPayoutVariables($tenantId, $resource, 'อนุมัติแล้ว'));
+                $this->telegramNotifications->enqueue($tenantId, 'commission.status_updated', 'affiliate_payout', $payoutId, $this->telegramPayoutVariables($tenantId, $resource, 'อนุมัติแล้ว', $actor->adminUser));
+                $this->queueTenantMenuBadgeBroadcast($tenantId, 'commission_transactions');
 
                 return ['resource' => $resource, 'status' => 200];
             },
@@ -6042,7 +6046,7 @@ class GrowthService
      * @param array<string, mixed> $payout
      * @return array<string, mixed>
      */
-    private function telegramPayoutVariables(string $tenantId, array $payout, ?string $statusLabel = null): array
+    private function telegramPayoutVariables(string $tenantId, array $payout, ?string $statusLabel = null, ?array $adminUser = null): array
     {
         $affiliateId = (string) ($payout['affiliate_account_id'] ?? $payout['affiliate_id'] ?? '');
         $affiliate = $affiliateId === ''
@@ -6059,6 +6063,7 @@ class GrowthService
                 'occurred_at' => $this->telegramNotifications->occurredAt($isStatusUpdate ? ($payout['approved_at'] ?? $payout['updated_at'] ?? null) : ($payout['created_at'] ?? null)),
             ],
             'tenant' => ['name' => $this->telegramNotifications->tenantName($tenantId)],
+            'admin' => $this->telegramNotifications->adminVariables($adminUser),
             'commission' => [
                 'customer_name' => (string) ($affiliate?->name ?? $affiliateId),
                 'type_label' => match ($method) {
@@ -6159,6 +6164,17 @@ class GrowthService
         } catch (\Throwable) {
             return (string) $value;
         }
+    }
+
+    private function queueTenantMenuBadgeBroadcast(string $tenantId, string $source): void
+    {
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit(fn (): mixed => AdminMenuBadgesUpdated::dispatch('tenant', $tenantId, $source));
+
+            return;
+        }
+
+        AdminMenuBadgesUpdated::dispatch('tenant', $tenantId, $source);
     }
 
     /**

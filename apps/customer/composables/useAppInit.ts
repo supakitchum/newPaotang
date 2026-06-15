@@ -145,9 +145,10 @@ const isSaleRoute = (path: string) => (
 
 const isCartOrPaymentRoute = (path: string) => (
   path === '/cart' ||
-  path === '/checkout' ||
-  path === '/topup'
+  path === '/checkout'
 )
+
+const isTopupRoute = (path: string) => path === '/topup' || path.startsWith('/topup/')
 
 const parseTimestampMs = (value: unknown) => {
   if (!value) {
@@ -289,6 +290,10 @@ export const useAppInit = () => {
 
   const getInitRedirectTarget = (path: string) => {
     if (!data.value) {
+      return null
+    }
+
+    if (isTopupRoute(path)) {
       return null
     }
 
