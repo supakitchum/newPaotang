@@ -60,9 +60,14 @@ class LotteryImageOperationsService
             ->orderByRaw("CASE set_type WHEN 'odd' THEN 1 WHEN 'even' THEN 2 WHEN 'charity' THEN 3 ELSE 4 END")
             ->orderBy('position')
             ->get();
+        $readyCounts = $this->readyBackgroundReferenceCounts($gameId, $version);
 
         return [
-            'data' => $rows->map(fn (LotteryImageBackgroundAssetSet $row): array => $this->backgroundResource($row))->all(),
+            'data' => $rows->map(fn (LotteryImageBackgroundAssetSet $row): array => $this->backgroundResource(
+                $row,
+                (($readyCounts[(string) $row->set_type] ?? 0) >= $this->images->minimumBackgroundCountFor((string) $row->set_type)),
+                false,
+            ))->all(),
             'meta' => [
                 'game_id' => $gameId,
                 'version' => $version,
@@ -495,7 +500,11 @@ class LotteryImageOperationsService
                         ],
                     );
 
-                    return $this->backgroundResource(LotteryImageBackgroundAssetSet::query()->whereKey($assetSetId)->first());
+                    return $this->backgroundResource(
+                        LotteryImageBackgroundAssetSet::query()->whereKey($assetSetId)->first(),
+                        $position >= $this->images->minimumBackgroundCountFor((string) $normalized['set_type']),
+                        false,
+                    );
                 });
             }
         } finally {
@@ -1333,7 +1342,7 @@ class LotteryImageOperationsService
     private function backgroundZipImportLimits(): array
     {
         return [
-            'max_entries' => max(1, (int) config('lottery_images.background_zip_import.max_entries', 120)),
+            'max_entries' => max(1, (int) config('lottery_images.background_zip_import.max_entries', 150)),
             'max_uncompressed_bytes' => max(1, (int) config('lottery_images.background_zip_import.max_uncompressed_bytes', 67108864)),
             'max_compression_ratio' => max(1.0, (float) config('lottery_images.background_zip_import.max_compression_ratio', 80)),
         ];
@@ -1396,6 +1405,24 @@ class LotteryImageOperationsService
     }
 
     /**
+     * @param mixed $result
+     * @return array<string, mixed>|null
+     */
+    private function backgroundZipImportResultSummary(mixed $result): ?array
+    {
+        if (! is_array($result)) {
+            return null;
+        }
+
+        $data = is_array($result['data'] ?? null) ? $result['data'] : [];
+
+        return [
+            'meta' => is_array($result['meta'] ?? null) ? $result['meta'] : [],
+            'data_count' => count($data),
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function backgroundZipImportResource(LotteryImageBackgroundZipImport $import): array
@@ -1418,7 +1445,7 @@ class LotteryImageOperationsService
             'error_code' => $import->error_code,
             'error_message' => $import->error_message,
             'error_details' => $import->error_details_json ?? [],
-            'result' => $import->result_json,
+            'result' => $this->backgroundZipImportResultSummary($import->result_json),
             'queued_at' => $import->queued_at?->toISOString(),
             'started_at' => $import->started_at?->toISOString(),
             'completed_at' => $import->completed_at?->toISOString(),
@@ -1961,13 +1988,13 @@ class LotteryImageOperationsService
     /**
      * @return array<string, mixed>
      */
-    private function backgroundResource(?LotteryImageBackgroundAssetSet $assetSet): array
+    private function backgroundResource(?LotteryImageBackgroundAssetSet $assetSet, ?bool $generationReady = null, bool $verifyStorage = true): array
     {
         if ($assetSet === null) {
             return [];
         }
 
-        $missing = $this->missingAssetsForSet($assetSet);
+        $missing = $verifyStorage ? $this->missingAssetsForSet($assetSet) : $this->missingAssetReferencesForSet($assetSet);
 
         return [
             'id' => (string) $assetSet->id,
@@ -1978,12 +2005,12 @@ class LotteryImageOperationsService
             'status' => (string) $assetSet->status,
             'storage_driver' => $this->backgroundStorageDriver($assetSet),
             'ready' => (string) $assetSet->status === 'ready' && $missing === [],
-            'generation_ready' => $this->images->backgroundReady((string) $assetSet->game_id, (string) $assetSet->version, (string) $assetSet->set_type),
+            'generation_ready' => $generationReady ?? $this->images->backgroundReady((string) $assetSet->game_id, (string) $assetSet->version, (string) $assetSet->set_type),
             'missing_assets' => $missing,
             'assets' => [
-                'source' => $this->backgroundAssetResource($assetSet, 'source'),
-                'full' => $this->backgroundAssetResource($assetSet, 'full'),
-                'thumb' => $this->backgroundAssetResource($assetSet, 'thumb'),
+                'source' => $this->backgroundAssetResource($assetSet, 'source', $verifyStorage),
+                'full' => $this->backgroundAssetResource($assetSet, 'full', $verifyStorage),
+                'thumb' => $this->backgroundAssetResource($assetSet, 'thumb', $verifyStorage),
             ],
             'activated_at' => $assetSet->activated_at?->toISOString(),
             'retired_at' => $assetSet->retired_at?->toISOString(),
@@ -1995,7 +2022,7 @@ class LotteryImageOperationsService
     /**
      * @return array<string, mixed>
      */
-    private function backgroundAssetResource(LotteryImageBackgroundAssetSet $assetSet, string $slot): array
+    private function backgroundAssetResource(LotteryImageBackgroundAssetSet $assetSet, string $slot, bool $verifyStorage = true): array
     {
         $assetIdField = $slot.'_asset_id';
         $pathField = $slot.'_storage_path';
@@ -2013,8 +2040,60 @@ class LotteryImageOperationsService
             'width' => $assetSet->{$widthField},
             'height' => $assetSet->{$heightField},
             'size_bytes' => $assetSet->{$sizeField},
-            'storage_available' => $this->storageExists((string) $assetSet->{$pathField}, $storageDriver),
+            'storage_available' => $verifyStorage ? $this->storageExists((string) $assetSet->{$pathField}, $storageDriver) : trim((string) $assetSet->{$pathField}) !== '',
         ];
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function readyBackgroundReferenceCounts(string $gameId, string $version): array
+    {
+        /** @var array<string, int> $counts */
+        $counts = LotteryImageBackgroundAssetSet::query()
+            ->select('set_type', DB::raw('count(*) as aggregate'))
+            ->where('game_id', $gameId)
+            ->where('version', $version)
+            ->where('status', 'ready')
+            ->whereNotNull('source_asset_id')
+            ->whereNotNull('full_asset_id')
+            ->whereNotNull('thumb_asset_id')
+            ->whereNotNull('source_storage_path')
+            ->whereNotNull('full_storage_path')
+            ->whereNotNull('thumb_storage_path')
+            ->whereNotNull('source_width')
+            ->whereNotNull('source_height')
+            ->whereNotNull('full_width')
+            ->whereNotNull('full_height')
+            ->whereNotNull('thumb_width')
+            ->whereNotNull('thumb_height')
+            ->groupBy('set_type')
+            ->pluck('aggregate', 'set_type')
+            ->map(fn (mixed $count): int => (int) $count)
+            ->all();
+
+        return $counts;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function missingAssetReferencesForSet(LotteryImageBackgroundAssetSet $assetSet): array
+    {
+        $missing = [];
+
+        foreach (['source', 'full', 'thumb'] as $slot) {
+            $assetId = $assetSet->{$slot.'_asset_id'};
+            $path = $assetSet->{$slot.'_storage_path'};
+            $width = $assetSet->{$slot.'_width'};
+            $height = $assetSet->{$slot.'_height'};
+
+            if ($assetId === null || trim((string) $path) === '' || $width === null || $height === null) {
+                $missing[] = $slot;
+            }
+        }
+
+        return $missing;
     }
 
     /**
