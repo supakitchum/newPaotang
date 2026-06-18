@@ -162,7 +162,7 @@ class LotteryImageOperationsTest extends TestCase
         $this->insertImageStatusStock('stk_ready_pending', 'gam_lottery_ready_ops', '520001', 'even', 'pending_assets', 'background_set_not_ready:even');
         $this->insertImageStatusStock('stk_ready_failed', 'gam_lottery_ready_ops', '520002', 'charity', 'failed', 'lottery_image_webp_encode_failed');
 
-        $readiness = $this->withToken($central['access_token'])
+        $fastReadiness = $this->withToken($central['access_token'])
             ->getJson('/api/v1/admin/central/lottery-images/readiness?game_id=gam_lottery_ready_ops&version=v1', [
                 'X-Admin-Scope' => 'central',
             ])
@@ -172,9 +172,19 @@ class LotteryImageOperationsTest extends TestCase
             ->assertJsonPath('failed_generation.central', 1)
             ->json();
 
+        $this->assertArrayNotHasKey('storage_readiness', $fastReadiness);
+
+        $readiness = $this->withToken($central['access_token'])
+            ->getJson('/api/v1/admin/central/lottery-images/readiness?game_id=gam_lottery_ready_ops&version=v1&include_storage_readiness=1', [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('missing_set_types.0', 'even')
+            ->json();
+
         $this->assertTrue($readiness['storage_readiness']['secrets_redacted']);
         $this->assertContains('stock-image-generation', $readiness['queue_readiness']['required_queue_names']);
-        $this->assertStringContainsString('background_set_not_ready:even', json_encode($readiness['last_error_samples']));
+        $this->assertStringContainsString('background_set_not_ready:even', json_encode($fastReadiness['last_error_samples']));
 
         $body = $this->withToken($central['access_token'])
             ->getJson('/api/v1/admin/central/lottery-images/production-readiness', [
@@ -414,22 +424,8 @@ class LotteryImageOperationsTest extends TestCase
             ->assertJsonPath('result.meta.storage_driver', 'local')
             ->assertJsonPath('result.meta.imported_count', 3)
             ->assertJsonPath('result.meta.expected_count', 3)
-            ->assertJsonPath('result.data.0.position', 1)
-            ->assertJsonPath('result.data.0.storage_driver', 'local')
-            ->assertJsonPath('result.data.1.position', 2)
-            ->assertJsonPath('result.data.2.position', 3)
-            ->assertJsonPath('result.data.0.assets.source.content_type', 'image/png')
-            ->assertJsonPath('result.data.0.assets.source.storage_driver', 'local')
-            ->assertJsonPath('result.data.1.assets.source.content_type', 'image/jpeg')
-            ->assertJsonPath('result.data.2.assets.source.content_type', 'image/webp')
-            ->assertJsonPath('result.data.0.assets.source.storage_path', 'lottery-image-assets/games/'.$gameId.'/backgrounds/v2/charity/001/001.png')
-            ->assertJsonPath('result.data.1.assets.source.storage_path', 'lottery-image-assets/games/'.$gameId.'/backgrounds/v2/charity/002/002.jpg')
-            ->assertJsonPath('result.data.2.assets.source.storage_path', 'lottery-image-assets/games/'.$gameId.'/backgrounds/v2/charity/003/003.webp')
-            ->assertJsonPath('result.data.0.assets.full.content_type', 'image/webp')
-            ->assertJsonPath('result.data.0.assets.thumb.content_type', 'image/webp')
+            ->assertJsonPath('result.data_count', 3)
             ->json();
-
-        $importResult = $response['result'];
 
         $this->withToken($central['access_token'])
             ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
@@ -480,8 +476,8 @@ class LotteryImageOperationsTest extends TestCase
         $this->assertStringContainsString('001.png', $persistedZipMetadata);
         $this->assertStringContainsString('storage_driver', $persistedZipMetadata);
         $this->assertStringContainsString('local', $persistedZipMetadata);
-        $this->assertTrue(Storage::disk('lottery_images')->exists($importResult['data'][0]['assets']['full']['storage_path']));
-        $this->assertTrue(Storage::disk('lottery_images')->exists($importResult['data'][0]['assets']['thumb']['storage_path']));
+        $this->assertTrue(Storage::disk('lottery_images')->exists('lottery-image-assets/games/'.$gameId.'/backgrounds/v2/charity/001/full.webp'));
+        $this->assertTrue(Storage::disk('lottery_images')->exists('lottery-image-assets/games/'.$gameId.'/backgrounds/v2/charity/001/thumb.webp'));
 
         $this->withToken($central['access_token'])
             ->getJson('/api/v1/admin/central/lottery-images/readiness?game_id='.$gameId.'&version=v2', [
@@ -506,8 +502,15 @@ class LotteryImageOperationsTest extends TestCase
             ->assertJsonPath('status', 'completed')
             ->assertJsonPath('result.meta.imported_count', 101)
             ->assertJsonPath('result.meta.expected_count', 101)
-            ->assertJsonPath('result.data.100.position', 101)
-            ->assertJsonPath('result.data.100.assets.source.storage_path', 'lottery-image-assets/games/gam_lottery_zip_many/backgrounds/v1/odd/101/101.png');
+            ->assertJsonPath('result.data_count', 101);
+
+        $this->assertDatabaseHas('lottery_image_background_asset_sets', [
+            'game_id' => 'gam_lottery_zip_many',
+            'version' => 'v1',
+            'set_type' => 'odd',
+            'position' => 101,
+            'source_storage_path' => 'lottery-image-assets/games/gam_lottery_zip_many/backgrounds/v1/odd/101/101.png',
+        ]);
     }
 
     public function test_LotteryImageBackgroundPrune_deletes_expired_draw_asset_sets_and_keeps_recent_draws(): void
@@ -690,7 +693,9 @@ class LotteryImageOperationsTest extends TestCase
             ->assertJsonPath('status', 'completed')
             ->json();
 
-        $bytes = Storage::disk('lottery_images')->get($response['result']['data'][0]['assets']['full']['storage_path']);
+        $set = DB::table('lottery_image_background_asset_sets')->where('game_id', 'gam_lottery_full_bg')->where('set_type', 'odd')->first();
+        $this->assertNotNull($set);
+        $bytes = Storage::disk('lottery_images')->get((string) $set->full_storage_path);
         $left = $this->pixelRgbFromBytes($bytes, 1, 140);
         $right = $this->pixelRgbFromBytes($bytes, 498, 140);
 

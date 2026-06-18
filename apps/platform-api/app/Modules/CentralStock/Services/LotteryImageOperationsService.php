@@ -20,6 +20,7 @@ use App\Shared\Auth\AdminSessionContext;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use ZipArchive;
 
@@ -754,8 +755,10 @@ class LotteryImageOperationsService
         $gameId = trim((string) $queryParams['game_id']);
         $version = $this->versionFrom($queryParams['version'] ?? null);
         $batchId = $this->nullableString($queryParams['batch_id'] ?? null);
+        $includeStorageReadiness = filter_var($queryParams['include_storage_readiness'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $backgrounds = [];
         $missingSetTypes = [];
+        $readyCounts = $this->readyBackgroundReferenceCounts($gameId, $version);
 
         foreach (self::SET_TYPES as $setType) {
             $current = LotteryImageBackgroundAssetSet::query()
@@ -765,7 +768,7 @@ class LotteryImageOperationsService
                 ->orderByDesc('activated_at')
                 ->orderByDesc('updated_at')
                 ->first();
-            $availableCount = $this->images->backgroundCount($gameId, $version, $setType);
+            $availableCount = $readyCounts[$setType] ?? 0;
             $minimumCount = $this->images->minimumBackgroundCountFor($setType);
             $ready = $availableCount >= $minimumCount;
 
@@ -779,11 +782,11 @@ class LotteryImageOperationsService
                 'required_count' => $minimumCount,
                 'available_count' => $availableCount,
                 'ready' => $ready,
-                'asset_set' => $current === null ? null : $this->backgroundResource($current),
+                'asset_set' => $current === null ? null : $this->backgroundResource($current, $ready, verifyStorage: false),
             ];
         }
 
-        return [
+        $response = [
             'game_id' => $gameId,
             'batch_id' => $batchId,
             'version' => $version,
@@ -793,9 +796,14 @@ class LotteryImageOperationsService
             'failed_generation' => $this->statusCounts($gameId, $batchId, $version, 'failed'),
             'last_error_samples' => $this->lastErrorSamples($gameId, $batchId, $version),
             'mix' => $this->mixResource($gameId),
-            'storage_readiness' => $this->productionReadiness(),
             'queue_readiness' => $this->queueReadiness(),
         ];
+
+        if ($includeStorageReadiness) {
+            $response['storage_readiness'] = $this->productionReadiness();
+        }
+
+        return $response;
     }
 
     /**
@@ -2207,12 +2215,14 @@ class LotteryImageOperationsService
         $this->applyPendingFilters($centralQuery, $gameId, $batchId, $version, self::SET_TYPES);
         $central = $centralQuery->count();
 
-        $stockIds = StockItem::query()->where('game_id', $gameId);
-        $this->applyPendingFilters($stockIds, $gameId, $batchId, $version, self::SET_TYPES);
         $partner = LocalStockItem::query()
-            ->where('game_id', $gameId)
-            ->where('image_generation_status', $status)
-            ->whereIn('stock_item_id', $stockIds->pluck('id'))
+            ->join('stock_items', 'stock_items.id', '=', 'local_stock_items.stock_item_id')
+            ->where('local_stock_items.game_id', $gameId)
+            ->where('local_stock_items.image_generation_status', $status)
+            ->where('stock_items.game_id', $gameId)
+            ->when($batchId !== null, fn ($query) => $query->where('stock_items.batch_id', $batchId))
+            ->when($version !== null, fn ($query) => $query->where('stock_items.background_asset_version', $version))
+            ->whereIn('stock_items.background_set_type', self::SET_TYPES)
             ->count();
 
         return ['central' => $central, 'partner' => $partner, 'total' => $central + $partner];
@@ -2240,28 +2250,35 @@ class LotteryImageOperationsService
         ])->all();
 
         $locals = LocalStockItem::query()
-            ->where('game_id', $gameId)
-            ->whereNotNull('image_generation_error')
-            ->orderByDesc('updated_at')
+            ->join('stock_items', 'stock_items.id', '=', 'local_stock_items.stock_item_id')
+            ->where('local_stock_items.game_id', $gameId)
+            ->whereNotNull('local_stock_items.image_generation_error')
+            ->where('stock_items.game_id', $gameId)
+            ->when($batchId !== null, fn ($query) => $query->where('stock_items.batch_id', $batchId))
+            ->when($version !== null, fn ($query) => $query->where('stock_items.background_asset_version', $version))
+            ->whereIn('stock_items.background_set_type', self::SET_TYPES)
+            ->orderByDesc('local_stock_items.updated_at')
             ->limit(5)
-            ->get();
+            ->get([
+                'local_stock_items.id as local_id',
+                'local_stock_items.stock_item_id',
+                'local_stock_items.image_generation_status as local_status',
+                'local_stock_items.image_generation_error as local_error',
+                'local_stock_items.updated_at as local_updated_at',
+                'stock_items.batch_id',
+                'stock_items.background_set_type',
+            ]);
 
         foreach ($locals as $local) {
-            $stock = StockItem::query()->whereKey($local->stock_item_id)->first();
-
-            if ($stock === null || ! $this->stockMatchesFilters($stock, $gameId, $batchId, $version, self::SET_TYPES)) {
-                continue;
-            }
-
             $samples[] = [
                 'scope' => 'partner',
                 'stock_item_id' => (string) $local->stock_item_id,
-                'local_stock_item_id' => (string) $local->id,
-                'batch_id' => $stock->batch_id,
-                'set_type' => $stock->background_set_type,
-                'status' => $local->image_generation_status,
-                'error' => $local->image_generation_error,
-                'updated_at' => $local->updated_at?->toISOString(),
+                'local_stock_item_id' => (string) $local->local_id,
+                'batch_id' => $local->batch_id,
+                'set_type' => $local->background_set_type,
+                'status' => $local->local_status,
+                'error' => $local->local_error,
+                'updated_at' => $this->isoDate($local->local_updated_at ?? null),
             ];
         }
 
@@ -2302,6 +2319,23 @@ class LotteryImageOperationsService
         }
 
         return $setTypes === [] || in_array((string) $stock->background_set_type, $setTypes, true);
+    }
+
+    private function isoDate(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return Carbon::instance($value)->toISOString();
+        }
+
+        try {
+            return Carbon::parse((string) $value)->toISOString();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

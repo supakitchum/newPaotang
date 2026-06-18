@@ -1033,10 +1033,7 @@ const previewForm = reactive({
 const previewLoading = ref(false)
 const previewError = ref<any>(null)
 const previewResult = ref<LotteryPreviewResponse | null>(null)
-const previewAutoDelayMs = 500
-let previewAutoTimer: ReturnType<typeof setTimeout> | null = null
 let zipImportPollTimer: ReturnType<typeof setTimeout> | null = null
-let previewAutoPending = false
 
 const mixForm = reactive<Record<SetType, number>>({
   odd: 45,
@@ -1247,7 +1244,6 @@ watch(() => route.query.game_id, (value) => {
 })
 
 onBeforeUnmount(() => {
-  clearPreviewAutoTimer()
   clearZipImportPollTimer()
 })
 
@@ -1502,37 +1498,12 @@ const pollZipImport = async (importId: string) => {
   }
 }
 
-const clearPreviewAutoTimer = () => {
-  if (!previewAutoTimer) {
-    return
-  }
-
-  clearTimeout(previewAutoTimer)
-  previewAutoTimer = null
-}
-
-const schedulePreviewAutoRender = () => {
-  clearPreviewAutoTimer()
-
-  if (!canRequestPreview.value) {
-    return
-  }
-
-  previewAutoTimer = setTimeout(() => {
-    previewAutoTimer = null
-    void renderPreview()
-  }, previewAutoDelayMs)
-}
-
 const renderPreview = async () => {
   if (!canRequestPreview.value) return
 
   if (previewLoading.value) {
-    previewAutoPending = true
     return
   }
-
-  clearPreviewAutoTimer()
 
   previewLoading.value = true
   previewError.value = null
@@ -1557,11 +1528,6 @@ const renderPreview = async () => {
     previewError.value = err
   } finally {
     previewLoading.value = false
-
-    if (previewAutoPending) {
-      previewAutoPending = false
-      schedulePreviewAutoRender()
-    }
   }
 }
 
@@ -1866,19 +1832,6 @@ const serializeLayoutForm = (): LayoutMap => {
 const slotFields = (slot: LayoutSlot): LayoutField[] => layoutFieldOrder.filter((field) => Object.prototype.hasOwnProperty.call(slot, field))
 const layoutSlotLabel = (slotKey: string) => layoutSlotLabels[slotKey] || titleize(slotKey)
 const layoutFieldLabel = (field: LayoutField) => field === 'width' ? 'W' : field === 'height' ? 'H' : titleize(field)
-
-watch(() => [
-  previewForm.game_id,
-  previewForm.version,
-  previewForm.set_type,
-  previewForm.lottery_number,
-  previewForm.partner_id,
-  previewForm.mode,
-  previewForm.variant,
-  JSON.stringify(serializeLayoutForm()),
-], () => {
-  schedulePreviewAutoRender()
-})
 
 const validateZipFile = (file: File) => {
   const name = file.name.toLowerCase()
