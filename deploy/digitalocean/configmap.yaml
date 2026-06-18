@@ -39,6 +39,7 @@ data:
   S3_USE_PATH_STYLE_ENDPOINT: "false"
   CDN_BASE_URL: "https://cdn.lottery80.online"
   LOTTERY_IMAGE_LOCAL_PUBLIC_BASE_URL: "https://api.lottery80.online/api/v1/public/assets"
+  LOTTERY_IMAGE_BACKGROUND_ZIP_MAX_ENTRIES: "150"
   TICKET_IMAGE_CDN_REQUIRED: "true"
   PLATFORM_OBSERVABILITY_ENABLED: "true"
   PLATFORM_OBSERVABILITY_ENV: "production"

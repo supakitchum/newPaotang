@@ -27,7 +27,7 @@ return [
         'required_variant_mime' => 'image/webp',
     ],
     'background_zip_import' => [
-        'max_entries' => (int) env('LOTTERY_IMAGE_BACKGROUND_ZIP_MAX_ENTRIES', 120),
+        'max_entries' => (int) env('LOTTERY_IMAGE_BACKGROUND_ZIP_MAX_ENTRIES', 150),
         'max_uncompressed_bytes' => (int) env('LOTTERY_IMAGE_BACKGROUND_ZIP_MAX_UNCOMPRESSED_BYTES', 67108864),
         'max_compression_ratio' => (float) env('LOTTERY_IMAGE_BACKGROUND_ZIP_MAX_COMPRESSION_RATIO', 80),
     ],
