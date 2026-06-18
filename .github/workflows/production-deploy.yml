@@ -41,10 +41,6 @@ jobs:
       contents: read
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
-      platform_api_image: ${{ steps.meta.outputs.platform_api_image }}
-      customer_image: ${{ steps.meta.outputs.customer_image }}
-      back_office_image: ${{ steps.meta.outputs.back_office_image }}
-      lotto_scraper_image: ${{ steps.meta.outputs.lotto_scraper_image }}
     steps:
       - uses: actions/checkout@v4
 
@@ -134,12 +130,19 @@ jobs:
 
       - name: Validate production image outputs
         env:
-          PLATFORM_API_IMAGE: ${{ needs.build.outputs.platform_api_image }}
-          CUSTOMER_IMAGE: ${{ needs.build.outputs.customer_image }}
-          BACK_OFFICE_IMAGE: ${{ needs.build.outputs.back_office_image }}
-          LOTTO_SCRAPER_IMAGE: ${{ needs.build.outputs.lotto_scraper_image }}
+          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
         run: |
           set -euo pipefail
+          if [ -z "$REGISTRY" ] || [ -z "$IMAGE_TAG" ]; then
+            echo "::error::REGISTRY or IMAGE_TAG is empty."
+            exit 1
+          fi
+
+          PLATFORM_API_IMAGE="${REGISTRY}/newpaotang-platform-api:${IMAGE_TAG}"
+          CUSTOMER_IMAGE="${REGISTRY}/newpaotang-customer:${IMAGE_TAG}"
+          BACK_OFFICE_IMAGE="${REGISTRY}/newpaotang-back-office:${IMAGE_TAG}"
+          LOTTO_SCRAPER_IMAGE="${REGISTRY}/newpaotang-lotto-scraper:${IMAGE_TAG}"
+
           for image in "$PLATFORM_API_IMAGE" "$CUSTOMER_IMAGE" "$BACK_OFFICE_IMAGE" "$LOTTO_SCRAPER_IMAGE"; do
             if [ -z "$image" ]; then
               echo "::error::Build job produced an empty image output."
@@ -180,23 +183,34 @@ jobs:
         run: kubectl apply -f /tmp/newpaotang-rendered.yaml
 
       - name: Set production images
+        env:
+          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
         run: |
-          kubectl -n "$NAMESPACE" set image deployment/platform-api platform-api="${{ needs.build.outputs.platform_api_image }}"
-          kubectl -n "$NAMESPACE" set image deployment/platform-api-worker-critical worker="${{ needs.build.outputs.platform_api_image }}"
-          kubectl -n "$NAMESPACE" set image deployment/platform-api-worker-default worker="${{ needs.build.outputs.platform_api_image }}"
-          kubectl -n "$NAMESPACE" set image deployment/platform-api-worker-image worker="${{ needs.build.outputs.platform_api_image }}"
-          kubectl -n "$NAMESPACE" set image deployment/platform-api-scheduler scheduler="${{ needs.build.outputs.platform_api_image }}"
-          kubectl -n "$NAMESPACE" set image deployment/platform-api-reverb reverb="${{ needs.build.outputs.platform_api_image }}"
-          kubectl -n "$NAMESPACE" set image deployment/customer customer="${{ needs.build.outputs.customer_image }}"
-          kubectl -n "$NAMESPACE" set image deployment/back-office back-office="${{ needs.build.outputs.back_office_image }}"
-          kubectl -n "$NAMESPACE" set image deployment/lotto-scraper-sanook lotto-scraper="${{ needs.build.outputs.lotto_scraper_image }}"
-          kubectl -n "$NAMESPACE" set image deployment/lotto-scraper-thairath lotto-scraper="${{ needs.build.outputs.lotto_scraper_image }}"
+          set -euo pipefail
+          PLATFORM_API_IMAGE="${REGISTRY}/newpaotang-platform-api:${IMAGE_TAG}"
+          CUSTOMER_IMAGE="${REGISTRY}/newpaotang-customer:${IMAGE_TAG}"
+          BACK_OFFICE_IMAGE="${REGISTRY}/newpaotang-back-office:${IMAGE_TAG}"
+          LOTTO_SCRAPER_IMAGE="${REGISTRY}/newpaotang-lotto-scraper:${IMAGE_TAG}"
+
+          kubectl -n "$NAMESPACE" set image deployment/platform-api platform-api="$PLATFORM_API_IMAGE"
+          kubectl -n "$NAMESPACE" set image deployment/platform-api-worker-critical worker="$PLATFORM_API_IMAGE"
+          kubectl -n "$NAMESPACE" set image deployment/platform-api-worker-default worker="$PLATFORM_API_IMAGE"
+          kubectl -n "$NAMESPACE" set image deployment/platform-api-worker-image worker="$PLATFORM_API_IMAGE"
+          kubectl -n "$NAMESPACE" set image deployment/platform-api-scheduler scheduler="$PLATFORM_API_IMAGE"
+          kubectl -n "$NAMESPACE" set image deployment/platform-api-reverb reverb="$PLATFORM_API_IMAGE"
+          kubectl -n "$NAMESPACE" set image deployment/customer customer="$CUSTOMER_IMAGE"
+          kubectl -n "$NAMESPACE" set image deployment/back-office back-office="$BACK_OFFICE_IMAGE"
+          kubectl -n "$NAMESPACE" set image deployment/lotto-scraper-sanook lotto-scraper="$LOTTO_SCRAPER_IMAGE"
+          kubectl -n "$NAMESPACE" set image deployment/lotto-scraper-thairath lotto-scraper="$LOTTO_SCRAPER_IMAGE"
 
       - name: Run database migrations
         env:
           MIGRATION_JOB_NAME: newpaotang-migrate-${{ github.run_id }}-${{ github.run_attempt }}
-          PLATFORM_API_IMAGE: ${{ needs.build.outputs.platform_api_image }}
+          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
         run: |
+          set -euo pipefail
+          PLATFORM_API_IMAGE="${REGISTRY}/newpaotang-platform-api:${IMAGE_TAG}"
+          export PLATFORM_API_IMAGE
           envsubst < deploy/digitalocean/jobs/migrate.yaml | kubectl apply -f -
           kubectl -n "$NAMESPACE" wait --for=condition=complete "job/${MIGRATION_JOB_NAME}" --timeout=600s
 
@@ -204,8 +218,11 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_rbac_seed }}
         env:
           RBAC_SEED_JOB_NAME: newpaotang-rbac-seed-${{ github.run_id }}-${{ github.run_attempt }}
-          PLATFORM_API_IMAGE: ${{ needs.build.outputs.platform_api_image }}
+          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
         run: |
+          set -euo pipefail
+          PLATFORM_API_IMAGE="${REGISTRY}/newpaotang-platform-api:${IMAGE_TAG}"
+          export PLATFORM_API_IMAGE
           envsubst < deploy/digitalocean/jobs/rbac-seed.yaml | kubectl apply -f -
           kubectl -n "$NAMESPACE" wait --for=condition=complete "job/${RBAC_SEED_JOB_NAME}" --timeout=600s
 
