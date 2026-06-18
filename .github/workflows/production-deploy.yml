@@ -132,8 +132,52 @@ jobs:
       - name: Install kubectl credentials
         run: doctl kubernetes cluster kubeconfig save "$CLUSTER_NAME"
 
+      - name: Validate production image outputs
+        env:
+          PLATFORM_API_IMAGE: ${{ needs.build.outputs.platform_api_image }}
+          CUSTOMER_IMAGE: ${{ needs.build.outputs.customer_image }}
+          BACK_OFFICE_IMAGE: ${{ needs.build.outputs.back_office_image }}
+          LOTTO_SCRAPER_IMAGE: ${{ needs.build.outputs.lotto_scraper_image }}
+        run: |
+          set -euo pipefail
+          for image in "$PLATFORM_API_IMAGE" "$CUSTOMER_IMAGE" "$BACK_OFFICE_IMAGE" "$LOTTO_SCRAPER_IMAGE"; do
+            if [ -z "$image" ]; then
+              echo "::error::Build job produced an empty image output."
+              exit 1
+            fi
+
+            case "$image" in
+              registry.digitalocean.com/*:*) ;;
+              *)
+                echo "::error::Invalid production image output: $image"
+                exit 1
+                ;;
+            esac
+          done
+
+      - name: Render production manifests
+        env:
+          DOCR_REGISTRY: ${{ secrets.DOCR_REGISTRY }}
+          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DOCR_REGISTRY" ] || [ -z "$IMAGE_TAG" ]; then
+            echo "::error::DOCR_REGISTRY or IMAGE_TAG is empty."
+            exit 1
+          fi
+
+          rm -rf /tmp/newpaotang-digitalocean
+          cp -R deploy/digitalocean /tmp/newpaotang-digitalocean
+          perl -0pi -e 's/REPLACE_WITH_REGISTRY/$ENV{DOCR_REGISTRY}/g; s/REPLACE_WITH_TAG/$ENV{IMAGE_TAG}/g' /tmp/newpaotang-digitalocean/kustomization.yaml
+          kubectl kustomize /tmp/newpaotang-digitalocean > /tmp/newpaotang-rendered.yaml
+
+          if grep -q 'REPLACE_WITH_REGISTRY\|REPLACE_WITH_TAG' /tmp/newpaotang-rendered.yaml; then
+            echo "::error::Rendered manifests still contain placeholder image values."
+            exit 1
+          fi
+
       - name: Apply base manifests
-        run: kubectl apply -k deploy/digitalocean
+        run: kubectl apply -f /tmp/newpaotang-rendered.yaml
 
       - name: Set production images
         run: |
