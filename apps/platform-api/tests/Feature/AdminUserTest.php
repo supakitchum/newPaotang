@@ -94,6 +94,81 @@ class AdminUserTest extends TestCase
         $this->assertSame(3, DB::table('audit_logs')->where('action', 'admin_user.changed')->count());
     }
 
+    public function test_bootstrap_platform_owner_is_hidden_and_cannot_be_disabled_but_other_super_admins_can(): void
+    {
+        $login = $this->createCentralManagerSession(['admin_user.manage']);
+        $superAdminRoleId = $this->insertRole('central', null, 'super_admin', 'Platform Super Admin', ['dashboard.view']);
+        $protectedUserId = 'adm_platform_owner';
+        $otherSuperAdminId = $this->insertScopedAdminUser('other-platform-owner@example.test', 'central', null, 'scp_central', [$superAdminRoleId]);
+
+        $this->createAdmin($protectedUserId, 'superadmin@newpaotang.test');
+        DB::table('admin_user_roles')->insert([
+            'admin_user_id' => $protectedUserId,
+            'role_id' => $superAdminRoleId,
+            'scope_id' => 'scp_central',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $list = $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/admin-users', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->json('data');
+
+        $this->assertNotContains('superadmin@newpaotang.test', array_column($list, 'email'));
+        $this->assertContains('other-platform-owner@example.test', array_column($list, 'email'));
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/admin-users/'.$protectedUserId, ['X-Admin-Scope' => 'central'])
+            ->assertNotFound()
+            ->assertJsonPath('error.code', 'resource_not_found');
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/admin-users/'.$protectedUserId, [
+                'status' => 'disabled',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'protected-platform-owner-update',
+            ])
+            ->assertNotFound()
+            ->assertJsonPath('error.code', 'resource_not_found');
+
+        $this->withToken($login['access_token'])
+            ->deleteJson('/api/v1/admin/central/admin-users/'.$protectedUserId, [], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'protected-platform-owner-disable',
+            ])
+            ->assertNotFound()
+            ->assertJsonPath('error.code', 'resource_not_found');
+
+        $this->assertDatabaseHas('admin_users', [
+            'id' => $protectedUserId,
+            'email' => 'superadmin@newpaotang.test',
+            'status' => 'active',
+        ]);
+        $this->assertDatabaseHas('admin_user_roles', [
+            'admin_user_id' => $protectedUserId,
+            'role_id' => $superAdminRoleId,
+            'scope_id' => 'scp_central',
+        ]);
+
+        $this->withToken($login['access_token'])
+            ->deleteJson('/api/v1/admin/central/admin-users/'.$otherSuperAdminId, [], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'other-platform-owner-disable',
+            ])
+            ->assertNoContent();
+
+        $this->assertDatabaseHas('admin_users', [
+            'id' => $otherSuperAdminId,
+            'status' => 'disabled',
+        ]);
+        $this->assertDatabaseMissing('admin_user_roles', [
+            'admin_user_id' => $otherSuperAdminId,
+            'scope_id' => 'scp_central',
+        ]);
+    }
+
     public function test_tenant_admin_user_manager_can_create_list_view_update_and_disable_users(): void
     {
         $login = $this->createTenantManagerSession(['admin_user.manage']);

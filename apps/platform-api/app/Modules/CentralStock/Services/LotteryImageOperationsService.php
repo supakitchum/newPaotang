@@ -178,28 +178,38 @@ class LotteryImageOperationsService
 
         $normalized['expected_count'] = (int) ($entries['detected_count'] ?? 0);
 
-        /** @var array<int, array{name: string, sort_name: string, ordinal: int, normalized_name: string, extension: string, content_type: string, bytes: string, width: int, height: int, size_bytes: int, checksum: string}> $files */
+        /** @var array<int, array{name: string, sort_name: string, ordinal: int, normalized_name: string, extension: string, content_type: string, zip_index: int, width: int, height: int, size_bytes: int, compressed_size_bytes: int, checksum: string}> $files */
         $files = $entries['files'];
         $expected = $this->expectedDimensions();
         $now = now();
 
-        return DB::transaction(function () use ($normalized, $files, $expected, $actor, $request, $payload, $now): array {
-            if ($normalized['supersede_existing'] === true && $normalized['status'] === 'ready') {
+        if ($normalized['supersede_existing'] === true && $normalized['status'] === 'ready') {
+            DB::transaction(function () use ($normalized, $now): void {
                 $this->retireOtherBackgroundVersions($normalized['game_id'], $normalized['set_type'], $normalized['version'], $now);
-            }
+            });
+        }
 
-            $resources = [];
+        $archive = new ZipArchive();
+        $opened = $archive->open((string) $zipFile->getRealPath());
 
+        if ($opened !== true) {
+            return ['error' => 'validation_failed', 'errors' => ['zip' => ['The uploaded file must be a readable zip archive.']]];
+        }
+
+        $resources = [];
+
+        try {
             foreach ($files as $file) {
                 $position = (int) $file['ordinal'];
                 $baseKey = 'lottery-image-assets/games/'.$normalized['game_id'].'/backgrounds/'.$normalized['version'].'/'.$normalized['set_type'].'/'.str_pad((string) $position, 3, '0', STR_PAD_LEFT);
                 $sourceKey = $baseKey.'/'.$file['normalized_name'];
                 $fullKey = $baseKey.'/full.webp';
                 $thumbKey = $baseKey.'/thumb.webp';
-                $fullBytes = $this->renderBackgroundVariant($file['bytes'], 'full');
-                $thumbBytes = $this->renderBackgroundVariant($file['bytes'], 'thumb');
+                $sourceBytes = $this->zipEntryBytes($archive, $file);
+                $fullBytes = $this->renderBackgroundVariant($sourceBytes, 'full');
+                $thumbBytes = $this->renderBackgroundVariant($sourceBytes, 'thumb');
 
-                $sourceKey = $this->storeGeneratedAssetBytes($sourceKey, $file['bytes'], $file['content_type']);
+                $sourceKey = $this->storeGeneratedAssetBytes($sourceKey, $sourceBytes, $file['content_type']);
                 $fullKey = $this->storeGeneratedAssetBytes($fullKey, $fullBytes, 'image/webp');
                 $thumbKey = $this->storeGeneratedAssetBytes($thumbKey, $thumbBytes, 'image/webp');
 
@@ -207,7 +217,7 @@ class LotteryImageOperationsService
                     $sourceKey,
                     basename($sourceKey),
                     $file['content_type'],
-                    $file['bytes'],
+                    $sourceBytes,
                     ['width' => $file['width'], 'height' => $file['height'], 'zip_entry' => $file['normalized_name']],
                     $actor,
                     $normalized['storage_driver'],
@@ -230,60 +240,67 @@ class LotteryImageOperationsService
                     $actor,
                     $normalized['storage_driver'],
                 );
-                $existing = LotteryImageBackgroundAssetSet::query()
-                    ->where('game_id', $normalized['game_id'])
-                    ->where('version', $normalized['version'])
-                    ->where('set_type', $normalized['set_type'])
-                    ->where('position', $position)
-                    ->lockForUpdate()
-                    ->first();
-                $assetSetId = $existing?->id ?? 'lib_'.Str::ulid()->toBase32();
 
-                LotteryImageBackgroundAssetSet::query()->updateOrCreate(
-                    ['id' => $assetSetId],
-                    [
-                        'game_id' => $normalized['game_id'],
-                        'version' => $normalized['version'],
-                        'set_type' => $normalized['set_type'],
-                        'position' => $position,
-                        'status' => $normalized['status'],
-                        'source_asset_id' => $sourceAsset->id,
-                        'full_asset_id' => $fullAsset->id,
-                        'thumb_asset_id' => $thumbAsset->id,
-                        'source_storage_path' => $sourceKey,
-                        'full_storage_path' => $fullKey,
-                        'thumb_storage_path' => $thumbKey,
-                        'source_content_type' => $file['content_type'],
-                        'full_content_type' => 'image/webp',
-                        'thumb_content_type' => 'image/webp',
-                        'source_width' => $file['width'],
-                        'source_height' => $file['height'],
-                        'full_width' => $expected['full']['width'],
-                        'full_height' => $expected['full']['height'],
-                        'thumb_width' => $expected['thumb']['width'],
-                        'thumb_height' => $expected['thumb']['height'],
-                        'source_size_bytes' => strlen($file['bytes']),
-                        'full_size_bytes' => strlen($fullBytes),
-                        'thumb_size_bytes' => strlen($thumbBytes),
-                        'uploaded_by_admin_id' => $actor->adminUser['id'],
-                        'activated_at' => $normalized['status'] === 'ready' ? $now : $existing?->activated_at,
-                        'retired_at' => $normalized['status'] === 'retired' ? $now : null,
-                        'metadata_json' => [
-                            'imported_from_zip' => true,
-                            'zip_entry' => $file['normalized_name'],
-                            'expected_count' => $normalized['expected_count'],
-                            'expected_dimensions' => $expected,
-                            'supersede_existing' => $normalized['supersede_existing'],
-                            'storage_driver' => $normalized['storage_driver'],
+                $resources[] = DB::transaction(function () use ($normalized, $file, $expected, $actor, $now, $position, $sourceAsset, $fullAsset, $thumbAsset, $sourceKey, $fullKey, $thumbKey, $sourceBytes, $fullBytes, $thumbBytes): array {
+                    $existing = LotteryImageBackgroundAssetSet::query()
+                        ->where('game_id', $normalized['game_id'])
+                        ->where('version', $normalized['version'])
+                        ->where('set_type', $normalized['set_type'])
+                        ->where('position', $position)
+                        ->lockForUpdate()
+                        ->first();
+                    $assetSetId = $existing?->id ?? 'lib_'.Str::ulid()->toBase32();
+
+                    LotteryImageBackgroundAssetSet::query()->updateOrCreate(
+                        ['id' => $assetSetId],
+                        [
+                            'game_id' => $normalized['game_id'],
+                            'version' => $normalized['version'],
+                            'set_type' => $normalized['set_type'],
+                            'position' => $position,
+                            'status' => $normalized['status'],
+                            'source_asset_id' => $sourceAsset->id,
+                            'full_asset_id' => $fullAsset->id,
+                            'thumb_asset_id' => $thumbAsset->id,
+                            'source_storage_path' => $sourceKey,
+                            'full_storage_path' => $fullKey,
+                            'thumb_storage_path' => $thumbKey,
+                            'source_content_type' => $file['content_type'],
+                            'full_content_type' => 'image/webp',
+                            'thumb_content_type' => 'image/webp',
+                            'source_width' => $file['width'],
+                            'source_height' => $file['height'],
+                            'full_width' => $expected['full']['width'],
+                            'full_height' => $expected['full']['height'],
+                            'thumb_width' => $expected['thumb']['width'],
+                            'thumb_height' => $expected['thumb']['height'],
+                            'source_size_bytes' => strlen($sourceBytes),
+                            'full_size_bytes' => strlen($fullBytes),
+                            'thumb_size_bytes' => strlen($thumbBytes),
+                            'uploaded_by_admin_id' => $actor->adminUser['id'],
+                            'activated_at' => $normalized['status'] === 'ready' ? $now : $existing?->activated_at,
+                            'retired_at' => $normalized['status'] === 'retired' ? $now : null,
+                            'metadata_json' => [
+                                'imported_from_zip' => true,
+                                'zip_entry' => $file['normalized_name'],
+                                'expected_count' => $normalized['expected_count'],
+                                'expected_dimensions' => $expected,
+                                'supersede_existing' => $normalized['supersede_existing'],
+                                'storage_driver' => $normalized['storage_driver'],
+                            ],
+                            'created_at' => $existing?->created_at ?? $now,
+                            'updated_at' => $now,
                         ],
-                        'created_at' => $existing?->created_at ?? $now,
-                        'updated_at' => $now,
-                    ],
-                );
+                    );
 
-                $resources[] = $this->backgroundResource(LotteryImageBackgroundAssetSet::query()->whereKey($assetSetId)->first());
+                    return $this->backgroundResource(LotteryImageBackgroundAssetSet::query()->whereKey($assetSetId)->first());
+                });
             }
+        } finally {
+            $archive->close();
+        }
 
+        DB::transaction(function () use ($normalized, $files, $now): void {
             LotteryImageBackgroundAssetSet::query()
                 ->where('game_id', $normalized['game_id'])
                 ->where('version', $normalized['version'])
@@ -295,23 +312,24 @@ class LotteryImageOperationsService
                     'retired_at' => $now,
                     'updated_at' => $now,
                 ]);
-
-            $this->audit($actor, $request, 'lottery_image_background_asset_set.imported_zip', 'lottery_image_background_asset_set', $normalized['game_id'].':'.$normalized['version'].':'.$normalized['set_type'], $payload);
-
-            return [
-                'resource' => [
-                    'data' => $resources,
-                    'meta' => [
-                        'game_id' => $normalized['game_id'],
-                        'version' => $normalized['version'],
-                        'set_type' => $normalized['set_type'],
-                        'storage_driver' => $normalized['storage_driver'],
-                        'imported_count' => count($resources),
-                        'expected_count' => $normalized['expected_count'],
-                    ],
-                ],
-            ];
         });
+
+        $this->audit($actor, $request, 'lottery_image_background_asset_set.imported_zip', 'lottery_image_background_asset_set', $normalized['game_id'].':'.$normalized['version'].':'.$normalized['set_type'], $payload);
+
+        return [
+            'resource' => [
+                'data' => $resources,
+                'meta' => [
+                    'game_id' => $normalized['game_id'],
+                    'version' => $normalized['version'],
+                    'set_type' => $normalized['set_type'],
+                    'storage_driver' => $normalized['storage_driver'],
+                    'imported_count' => count($resources),
+                    'expected_count' => $normalized['expected_count'],
+                    'limits' => $this->backgroundZipImportLimits(),
+                ],
+            ],
+        ];
     }
 
     /**
@@ -1107,6 +1125,18 @@ class LotteryImageOperationsService
         return $limits === [] ? null : min($limits);
     }
 
+    /**
+     * @return array{max_entries: int, max_uncompressed_bytes: int, max_compression_ratio: float}
+     */
+    private function backgroundZipImportLimits(): array
+    {
+        return [
+            'max_entries' => max(1, (int) config('lottery_images.background_zip_import.max_entries', 120)),
+            'max_uncompressed_bytes' => max(1, (int) config('lottery_images.background_zip_import.max_uncompressed_bytes', 67108864)),
+            'max_compression_ratio' => max(1.0, (float) config('lottery_images.background_zip_import.max_compression_ratio', 80)),
+        ];
+    }
+
     private function iniBytes(string $value): ?int
     {
         $value = trim($value);
@@ -1150,7 +1180,7 @@ class LotteryImageOperationsService
     }
 
     /**
-     * @return array{files?: array<int, array{name: string, sort_name: string, ordinal: int, normalized_name: string, extension: string, content_type: string, bytes: string, width: int, height: int, size_bytes: int, checksum: string}>, detected_count?: int, errors?: array<string, array<int, string>>}
+     * @return array{files?: array<int, array{name: string, sort_name: string, ordinal: int, normalized_name: string, extension: string, content_type: string, zip_index: int, width: int, height: int, size_bytes: int, compressed_size_bytes: int, checksum: string}>, detected_count?: int, errors?: array<string, array<int, string>>}
      */
     private function extractZipImageEntries(?UploadedFile $zipFile): array
     {
@@ -1170,6 +1200,8 @@ class LotteryImageOperationsService
         $validEntries = [];
         $expected = $this->expectedDimensions();
         $sourceLimit = $this->sizeLimitForSlot('source');
+        $limits = $this->backgroundZipImportLimits();
+        $totalUncompressedBytes = 0;
         $allowedMimes = config('lottery_images.background_asset_limits.allowed_source_mimes', ['image/webp', 'image/png', 'image/jpeg']);
         $allowedExtensions = [
             'jpeg' => 'image/jpeg',
@@ -1211,6 +1243,36 @@ class LotteryImageOperationsService
                     continue;
                 }
 
+                $uncompressedSize = (int) ($stat['size'] ?? 0);
+                $compressedSize = max(1, (int) ($stat['comp_size'] ?? 1));
+
+                if ($uncompressedSize < 1) {
+                    $errors['zip'][] = 'The zip entry '.$name.' must be at least 1 byte.';
+                    continue;
+                }
+
+                if ($uncompressedSize > $sourceLimit) {
+                    $errors['zip'][] = 'The zip entry '.$name.' is larger than the allowed source image size.';
+                    continue;
+                }
+
+                if (($uncompressedSize / $compressedSize) > $limits['max_compression_ratio']) {
+                    $errors['zip'][] = 'The zip entry '.$name.' has an unsafe compression ratio.';
+                    continue;
+                }
+
+                $totalUncompressedBytes += $uncompressedSize;
+
+                if ($totalUncompressedBytes > $limits['max_uncompressed_bytes']) {
+                    $errors['zip'][] = 'The zip file expands beyond the allowed total uncompressed size of '.$this->humanBytes($limits['max_uncompressed_bytes']).'.';
+                    break;
+                }
+
+                if ((count($validEntries) + 1) > $limits['max_entries']) {
+                    $errors['zip'][] = 'The zip file cannot contain more than '.$limits['max_entries'].' supported image files.';
+                    break;
+                }
+
                 $bytes = $archive->getFromIndex($index);
 
                 if (! is_string($bytes) || $bytes === '') {
@@ -1244,10 +1306,11 @@ class LotteryImageOperationsService
                     'sort_name' => $basename,
                     'extension' => $extension === 'jpeg' ? 'jpg' : $extension,
                     'content_type' => $mime,
-                    'bytes' => $bytes,
+                    'zip_index' => $index,
                     'width' => $width,
                     'height' => $height,
                     'size_bytes' => strlen($bytes),
+                    'compressed_size_bytes' => $compressedSize,
                     'checksum' => hash('sha256', $bytes),
                 ];
             }
@@ -1285,6 +1348,24 @@ class LotteryImageOperationsService
         return $basename === '.DS_Store'
             || str_starts_with($basename, '._')
             || str_starts_with($name, '__MACOSX/');
+    }
+
+    /**
+     * @param array{name: string, zip_index: int, size_bytes: int, checksum: string} $file
+     */
+    private function zipEntryBytes(ZipArchive $archive, array $file): string
+    {
+        $bytes = $archive->getFromIndex((int) $file['zip_index']);
+
+        if (! is_string($bytes) || $bytes === '') {
+            throw new \RuntimeException('background_zip_entry_read_failed:'.$file['name']);
+        }
+
+        if (strlen($bytes) !== (int) $file['size_bytes'] || hash('sha256', $bytes) !== (string) $file['checksum']) {
+            throw new \RuntimeException('background_zip_entry_changed:'.$file['name']);
+        }
+
+        return $bytes;
     }
 
     private function renderBackgroundVariant(string $sourceBytes, string $variant): string

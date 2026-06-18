@@ -767,6 +767,7 @@ for (const requiredBackendReadyPath of [
   ['/admin/central/reward-payout-rule-games', 'get'],
   ['/admin/central/reward-payout-rules', 'get'],
   ['/admin/central/reward-payout-rules/{payout_rule_id}', 'get'],
+  ['/admin/central/reward-payout-rules/{payout_rule_id}', 'patch'],
   ['/admin/tenant/price-rules', 'get'],
   ['/admin/tenant/price-rules', 'post'],
   ['/admin/tenant/price-rules/{price_rule_id}', 'get'],

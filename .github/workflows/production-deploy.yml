@@ -1,6 +1,13 @@
 name: Production Deploy
 
 on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "apps/**"
+      - "deploy/digitalocean/**"
+      - ".github/workflows/production-deploy.yml"
   workflow_dispatch:
     inputs:
       image_tag:
@@ -22,6 +29,10 @@ env:
   REGISTRY: registry.digitalocean.com/${{ secrets.DOCR_REGISTRY }}
   NAMESPACE: newpaotang-prod
   CLUSTER_NAME: ${{ secrets.DOKS_CLUSTER_NAME }}
+
+concurrency:
+  group: production-deploy-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -105,7 +116,7 @@ jobs:
           cache-to: type=gha,scope=lotto-scraper,mode=max
 
   deploy:
-    if: ${{ inputs.deploy }}
+    if: ${{ github.event_name == 'push' || inputs.deploy }}
     runs-on: ubuntu-latest
     needs: build
     environment: production
@@ -146,7 +157,7 @@ jobs:
           kubectl -n "$NAMESPACE" wait --for=condition=complete "job/${MIGRATION_JOB_NAME}" --timeout=600s
 
       - name: Run RBAC/menu seed
-        if: ${{ inputs.run_rbac_seed }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_rbac_seed }}
         env:
           RBAC_SEED_JOB_NAME: newpaotang-rbac-seed-${{ github.run_id }}-${{ github.run_attempt }}
           PLATFORM_API_IMAGE: ${{ needs.build.outputs.platform_api_image }}
@@ -165,3 +176,16 @@ jobs:
           kubectl -n "$NAMESPACE" rollout status deployment/platform-api-worker-image --timeout=600s
           kubectl -n "$NAMESPACE" rollout status deployment/lotto-scraper-sanook --timeout=600s
           kubectl -n "$NAMESPACE" rollout status deployment/lotto-scraper-thairath --timeout=600s
+
+      - name: Smoke production endpoints
+        run: |
+          curl -fsS https://api.lottery80.online/api/v1/health/ready
+          curl -fsS https://api.lottery80.online/api/v1/health/live
+          curl -fsSI https://lottery80.online/
+          curl -fsSI https://admin.lottery80.online/
+
+      - name: Show rollout diagnostics
+        if: failure()
+        run: |
+          kubectl -n "$NAMESPACE" get pods -o wide
+          kubectl -n "$NAMESPACE" get events --sort-by=.lastTimestamp | tail -80

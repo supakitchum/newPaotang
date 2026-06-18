@@ -636,6 +636,29 @@ class LotteryImageOperationsTest extends TestCase
             ->assertJsonPath('error.details.fields.zip.0', fn (string $message): bool => str_contains($message, 'PHP upload limit'));
     }
 
+    public function test_LotteryImageZipImport_rejects_zip_that_exceeds_safe_entry_limit(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertGame('gam_lottery_zip_limit', 'open');
+        $central = $this->createCentralSession(['asset.manage'], 'adm_lottery_zip_limit', 'lottery-zip-limit@example.test');
+
+        config(['lottery_images.background_zip_import.max_entries' => 2]);
+
+        $this->withToken($central['access_token'])
+            ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
+                'game_id' => 'gam_lottery_zip_limit',
+                'version' => 'v1',
+                'set_type' => 'odd',
+                'zip' => $this->namedImageZipUpload($this->namedImageEntries(3)),
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'zip-entry-limit',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonPath('error.details.fields.zip.0', 'The zip file cannot contain more than 2 supported image files.');
+    }
+
     public function test_LotteryImageZipImport_preserves_full_background_frame_without_cover_crop(): void
     {
         $this->seedDefaultRbac();
@@ -887,6 +910,68 @@ class LotteryImageOperationsTest extends TestCase
         $this->assertNotSame($centralPreview['image_base64'], $partnerPreview['image_base64']);
     }
 
+    public function test_ProductionPartnerBrandingUploadIntent_is_blocked_until_s3_route_is_ready(): void
+    {
+        config(['app.env' => 'production']);
+
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenant('par_branding_prod_blocked', 'ten_branding_prod_blocked');
+        $central = $this->createCentralSession(['asset.manage'], 'adm_brand_prod_blocked', 'brand-prod-blocked@example.test');
+        $bytes = $this->fixtureWebp('odd', 80, 80);
+
+        $this->withToken($central['access_token'])
+            ->postJson('/api/v1/admin/central/assets/uploads', [
+                'purpose' => 'partner_lottery_branding',
+                'file_name' => 'logo.webp',
+                'content_type' => 'image/webp',
+                'size_bytes' => strlen($bytes),
+                'checksum_sha256' => hash('sha256', $bytes),
+                'metadata' => [
+                    'partner_id' => 'par_branding_prod_blocked',
+                    'branding_slot' => 'logo_qr',
+                    'version' => 'v1',
+                ],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'branding-prod-blocked-intent',
+            ])
+            ->assertStatus(503)
+            ->assertJsonPath('error.code', 'blocked_external');
+    }
+
+    public function test_ProductionPartnerBrandingUploadIntent_uses_server_relay_when_s3_route_is_ready(): void
+    {
+        config(['app.env' => 'production']);
+
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenant('par_branding_prod_ready', 'ten_branding_prod_ready');
+        $this->configureActiveS3Route(RuntimeStorageService::ROUTE_PARTNER_ASSETS);
+        $central = $this->createCentralSession(['asset.manage'], 'adm_brand_prod_ready', 'brand-prod-ready@example.test');
+        $bytes = $this->fixtureWebp('odd', 80, 80);
+
+        $this->withToken($central['access_token'])
+            ->postJson('/api/v1/admin/central/assets/uploads', [
+                'purpose' => 'partner_lottery_branding',
+                'file_name' => 'logo.webp',
+                'content_type' => 'image/webp',
+                'size_bytes' => strlen($bytes),
+                'checksum_sha256' => hash('sha256', $bytes),
+                'metadata' => [
+                    'partner_id' => 'par_branding_prod_ready',
+                    'branding_slot' => 'logo_qr',
+                    'version' => 'v1',
+                ],
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'branding-prod-ready-intent',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('storage_mode', 'server_relay_aws_s3')
+            ->assertJsonPath('upload_strategy', 'server_relay')
+            ->assertJsonPath('production_storage_ready', true)
+            ->assertJsonPath('headers.x-newpaotang-storage-boundary', 'server_relay_metadata_only');
+    }
+
     public function test_LotteryImagePreview_loads_partner_branding_from_partner_asset_route(): void
     {
         $this->seedDefaultRbac();
@@ -1070,6 +1155,44 @@ class LotteryImageOperationsTest extends TestCase
             ->assertJsonPath('file_name', $canonicalFileName);
 
         return (string) $intent['asset_id'];
+    }
+
+    private function configureActiveS3Route(string $routeKey): void
+    {
+        DB::table('platform_storage_connections')->updateOrInsert(
+            ['id' => 'storage_aws_s3'],
+            [
+                'provider' => 'aws_s3',
+                'status' => 'active',
+                'bucket' => 'test-assets-bucket',
+                'region' => 'ap-southeast-1',
+                'endpoint' => 'https://example.invalid',
+                'url' => null,
+                'root_prefix' => '',
+                'visibility' => 'private',
+                'use_path_style_endpoint' => false,
+                'access_key_id_encrypted' => Crypt::encryptString('key'),
+                'secret_access_key_encrypted' => Crypt::encryptString('secret'),
+                'session_token_encrypted' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        DB::table('platform_storage_routes')->updateOrInsert(
+            ['route_key' => $routeKey],
+            [
+                'label' => 'Partner assets',
+                'description' => 'Tenant logos, branding assets, and partner-owned attachments.',
+                'driver' => RuntimeStorageService::DRIVER_AWS_S3,
+                'root_prefix' => '',
+                'tenant_scoped' => true,
+                'sort_order' => 60,
+                'metadata_json' => json_encode(['path_hint' => 'tenants/{tenant}/assets or partners/{partner}'], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
     }
 
     private function uploadedFileFromBytes(string $bytes, string $fileName, string $mimeType): UploadedFile

@@ -19,6 +19,9 @@ use Illuminate\Support\Str;
 
 class AdminUserManagementService
 {
+    private const PROTECTED_PLATFORM_ADMIN_IDS = ['adm_platform_owner'];
+    private const PROTECTED_PLATFORM_ADMIN_EMAILS = ['superadmin@newpaotang.test'];
+
     public function __construct(private readonly AuditLogger $auditLogger)
     {
     }
@@ -245,6 +248,8 @@ class AdminUserManagementService
             ->join('admin_user_roles', 'admin_user_roles.admin_user_id', '=', 'admin_users.id')
             ->join('admin_scopes', 'admin_scopes.id', '=', 'admin_user_roles.scope_id')
             ->where('admin_scopes.scope_type', $scopeType)
+            ->whereNotIn('admin_users.id', self::PROTECTED_PLATFORM_ADMIN_IDS)
+            ->whereNotIn('admin_users.email', self::PROTECTED_PLATFORM_ADMIN_EMAILS)
             ->distinct();
 
         return $scopeType === 'tenant'

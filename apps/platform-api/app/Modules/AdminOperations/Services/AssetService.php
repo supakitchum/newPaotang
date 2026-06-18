@@ -52,15 +52,17 @@ class AssetService
         AdminSessionContext $actor,
         Request $request,
     ): array {
-        if ($this->productionStorageBlocked()) {
-            return ['error' => 'blocked_external'];
-        }
-
         $normalized = $this->uploadPayload($tenantId, $payload);
         $errors = $this->uploadErrors($tenantId, $normalized);
 
         if ($errors !== []) {
             return ['error' => 'validation_failed', 'errors' => $errors];
+        }
+
+        $routeKey = $this->storage->routeForPlatformAsset($normalized['purpose'], $scopeType);
+
+        if ($this->storageBlockedForRoute($routeKey)) {
+            return ['error' => 'blocked_external'];
         }
 
         return DB::transaction(function () use ($scopeType, $tenantId, $payload, $normalized, $actor, $request): array {
@@ -122,16 +124,18 @@ class AssetService
         AdminSessionContext $actor,
         Request $request,
     ): array {
-        if ($this->productionStorageBlocked()) {
-            return ['error' => 'blocked_external'];
-        }
-
         $asset = $this->assetQuery($scopeType, $tenantId)
             ->where('id', $assetId)
             ->first();
 
         if ($asset === null) {
             return ['error' => 'not_found'];
+        }
+
+        $routeKey = $this->storage->routeForPlatformAsset((string) $asset->purpose, $scopeType);
+
+        if ($this->storageBlockedForRoute($routeKey)) {
+            return ['error' => 'blocked_external'];
         }
 
         $errors = $this->localUploadErrors($asset, $file);
@@ -175,10 +179,10 @@ class AssetService
                     'file_name' => $stored['file_name'],
                     'storage_key' => $storageKey,
                     'metadata_json' => array_replace_recursive($metadata, [
-                        'storage_boundary' => 'local_dev_uploaded',
+                        'storage_boundary' => $this->storageBoundaryForRoute($routeKey, 'uploaded'),
                         'storage_route' => $routeKey,
-                        'production_storage_ready' => false,
-                        'local_uploaded_at' => now()->toISOString(),
+                        'production_storage_ready' => $this->productionStorageReadyForRoute($routeKey),
+                        'server_relay_uploaded_at' => now()->toISOString(),
                     ], $stored['metadata']),
                     'updated_at' => now(),
                 ]);
@@ -201,16 +205,18 @@ class AssetService
         AdminSessionContext $actor,
         Request $request,
     ): array {
-        if ($this->productionStorageBlocked()) {
-            return ['error' => 'blocked_external'];
-        }
-
         $asset = $this->assetQuery($scopeType, $tenantId)
             ->where('id', $assetId)
             ->first();
 
         if ($asset === null) {
             return ['error' => 'not_found'];
+        }
+
+        $routeKey = $this->storage->routeForPlatformAsset((string) $asset->purpose, $scopeType);
+
+        if ($this->storageBlockedForRoute($routeKey)) {
+            return ['error' => 'blocked_external'];
         }
 
         $errors = $this->commitErrors($asset, $payload);
@@ -234,6 +240,7 @@ class AssetService
             }
 
             $metadata = is_array($asset->metadata_json) ? $asset->metadata_json : [];
+            $routeKey = $this->storage->routeForPlatformAsset((string) $asset->purpose, $scopeType);
 
             if (is_array($payload['metadata'] ?? null)) {
                 $metadata = array_replace_recursive($metadata, $payload['metadata']);
@@ -243,8 +250,8 @@ class AssetService
                 'checksum_sha256' => $payload['checksum_sha256'] ?? $asset->checksum_sha256,
                 'status' => 'committed',
                 'metadata_json' => $metadata + [
-                    'storage_boundary' => 'local_dev_metadata_only',
-                    'production_storage_ready' => false,
+                    'storage_boundary' => $this->storageBoundaryForRoute($routeKey, 'metadata_only'),
+                    'production_storage_ready' => $this->productionStorageReadyForRoute($routeKey),
                 ],
                 'committed_at' => now(),
                 'updated_at' => now(),
@@ -418,9 +425,35 @@ class AssetService
         return $errors;
     }
 
-    private function productionStorageBlocked(): bool
+    private function storageBlockedForRoute(string $routeKey): bool
     {
-        return app()->isProduction();
+        return $this->isProductionEnvironment() && ! $this->productionStorageReadyForRoute($routeKey);
+    }
+
+    private function productionStorageReadyForRoute(string $routeKey): bool
+    {
+        return $this->isProductionEnvironment()
+            && $this->storage->driverForRoute($routeKey) === RuntimeStorageService::DRIVER_AWS_S3
+            && $this->storage->storageDriverAvailable(RuntimeStorageService::DRIVER_AWS_S3);
+    }
+
+    private function storageModeForRoute(string $routeKey): string
+    {
+        return $this->productionStorageReadyForRoute($routeKey)
+            ? 'server_relay_aws_s3'
+            : 'local_dev_metadata_only';
+    }
+
+    private function storageBoundaryForRoute(string $routeKey, string $suffix): string
+    {
+        return $this->productionStorageReadyForRoute($routeKey)
+            ? 'server_relay_'.$suffix
+            : 'local_dev_'.$suffix;
+    }
+
+    private function isProductionEnvironment(): bool
+    {
+        return (string) config('app.env', app()->environment()) === 'production';
     }
 
     private function assetQuery(string $scopeType, ?string $tenantId): mixed
@@ -538,19 +571,23 @@ class AssetService
      */
     private function uploadIntentResource(object $asset): array
     {
+        $routeKey = $this->storage->routeForPlatformAsset((string) $asset->purpose, (string) $asset->scope_type);
+        $storageMode = $this->storageModeForRoute($routeKey);
+
         return [
             'asset_id' => (string) $asset->id,
             'upload_url' => PublicUrl::absolute((string) $asset->upload_url),
             'method' => 'PUT',
             'headers' => [
                 'content-type' => (string) $asset->content_type,
-                'x-newpaotang-storage-boundary' => 'local_dev_metadata_only',
+                'x-newpaotang-storage-boundary' => $this->storageBoundaryForRoute($routeKey, 'metadata_only'),
             ],
             'form_fields' => null,
             'expires_at' => $asset->expires_at?->toISOString(),
             'public_url' => null,
-            'storage_mode' => 'local_dev_metadata_only',
-            'production_storage_ready' => false,
+            'storage_mode' => $storageMode,
+            'upload_strategy' => str_starts_with($storageMode, 'server_relay') ? 'server_relay' : 'local_dev',
+            'production_storage_ready' => $this->productionStorageReadyForRoute($routeKey),
         ];
     }
 
@@ -559,6 +596,9 @@ class AssetService
      */
     private function assetResource(object $asset): array
     {
+        $routeKey = $this->storage->routeForPlatformAsset((string) $asset->purpose, (string) $asset->scope_type);
+        $storageMode = $this->storageModeForRoute($routeKey);
+
         return [
             'id' => (string) $asset->id,
             'tenant_id' => $asset->tenant_id,
@@ -573,8 +613,9 @@ class AssetService
             'file_name' => $asset->file_name,
             'checksum_sha256' => $asset->checksum_sha256,
             'metadata' => $asset->metadata_json ?? [],
-            'storage_mode' => 'local_dev_metadata_only',
-            'production_storage_ready' => false,
+            'storage_mode' => $storageMode,
+            'upload_strategy' => str_starts_with($storageMode, 'server_relay') ? 'server_relay' : 'local_dev',
+            'production_storage_ready' => $this->productionStorageReadyForRoute($routeKey),
         ];
     }
 
@@ -591,6 +632,8 @@ class AssetService
         ?string $tenantId,
     ): void {
         $partnerId = $tenantId === null ? null : PartnerTenant::whereKey($tenantId)->value('partner_id');
+        $purpose = (string) ($payload['purpose'] ?? PlatformAsset::query()->whereKey($targetId)->value('purpose') ?? 'other');
+        $routeKey = $this->storage->routeForPlatformAsset($purpose, $scopeType);
 
         $this->auditLogger->logAdminWrite(
             actorId: $actor->adminUser['id'],
@@ -600,8 +643,9 @@ class AssetService
             targetId: $targetId,
             payload: [
                 'payload' => $payload,
-                'storage_boundary' => 'local_dev_metadata_only',
-                'production_storage_ready' => false,
+                'storage_boundary' => $this->storageBoundaryForRoute($routeKey, 'metadata_only'),
+                'storage_route' => $routeKey,
+                'production_storage_ready' => $this->productionStorageReadyForRoute($routeKey),
                 'idempotency_key' => $request->header('Idempotency-Key'),
             ],
             tenantId: $tenantId,

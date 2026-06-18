@@ -3387,7 +3387,7 @@ const normalizePayloadField = (field: OperationFormField, value: any) => {
 
   if (field.type === 'reward-money') {
     if (value === '' || value === undefined || value === null) return undefined
-    return Math.round(Number(value))
+    return Math.round(Number(value) * 100)
   }
 
   if (field.type === 'number') {
@@ -3588,7 +3588,7 @@ const normalizeInitialFieldValue = (field: OperationFormField, value: any) => {
   }
 
   if (field.type === 'reward-money') {
-    return wholeBahtValue(value)
+    return minorUnitToMajor(value)
   }
 
   if (field.type === 'stock-set-distribution') {
@@ -3959,16 +3959,6 @@ const minorUnitToMajor = (value: any) => {
 
   const parsed = Number(amount)
   return Number.isFinite(parsed) ? parsed / 100 : ''
-}
-
-const wholeBahtValue = (value: any) => {
-  const amount = typeof value === 'object' && value !== null ? value.amount : value
-  if (amount === undefined || amount === null || amount === '') {
-    return ''
-  }
-
-  const parsed = Number(amount)
-  return Number.isFinite(parsed) ? Math.round(parsed) : ''
 }
 
 const formatDateTimeLocalValue = (value: any) => {

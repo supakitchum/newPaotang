@@ -725,6 +725,25 @@ class BoMenuCompletionService
     }
 
     /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, error?: string, errors?: array<string, array<int, string>>}
+     */
+    public function updateCentralRewardPayoutRule(string $priceRuleId, array $payload, AdminSessionContext $actor, Request $request): array
+    {
+        return DB::transaction(function () use ($priceRuleId, $payload, $actor, $request): array {
+            $result = $this->rewardPriceRules->saveCentralPayoutSetting($priceRuleId, $payload);
+
+            if (isset($result['error'])) {
+                return $result;
+            }
+
+            $this->audit($actor, $request, 'reward_payout_rule.updated', 'reward_payout_rule', $priceRuleId, $payload);
+
+            return $result;
+        });
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function tenantLiveSettings(string $tenantId): array

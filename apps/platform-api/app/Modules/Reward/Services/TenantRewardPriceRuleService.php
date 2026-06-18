@@ -2,10 +2,12 @@
 
 namespace App\Modules\Reward\Services;
 
+use App\Models\Game;
 use App\Models\RewardPrize;
 use App\Models\RewardResult;
 use App\Models\TenantPriceRule;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class TenantRewardPriceRuleService
 {
@@ -79,6 +81,65 @@ class TenantRewardPriceRuleService
         $baseRow = $this->basePrizeRows((string) $identity['game_id'])[(string) $identity['prize_type']] ?? null;
 
         return $baseRow === null ? null : $this->centralSettingRowFromBase($baseRow);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, error?: string, errors?: array<string, array<int, string>>}
+     */
+    public function saveCentralPayoutSetting(string $rowId, array $payload): array
+    {
+        $identity = $this->settingIdentityFromId($rowId) ?? [
+            'game_id' => trim((string) ($payload['game_id'] ?? '')),
+            'prize_type' => trim((string) ($payload['prize_type'] ?? '')),
+        ];
+        $gameId = trim((string) ($identity['game_id'] ?? ''));
+        $prizeType = trim((string) ($identity['prize_type'] ?? ''));
+        $baseRow = $gameId === '' || $prizeType === '' ? null : ($this->basePrizeRows($gameId)[$prizeType] ?? null);
+
+        if ($baseRow === null || ! Game::query()->whereKey($gameId)->exists()) {
+            return ['error' => 'not_found'];
+        }
+
+        $payoutAmount = $this->moneyInputAmount(
+            $payload['payout_amount']
+                ?? $payload['central_reward_amount']
+                ?? $payload['price_amount']
+                ?? null,
+        );
+
+        if ($payoutAmount === null) {
+            return ['error' => 'validation_failed', 'errors' => [
+                'payout_amount' => ['The payout_amount field is required.'],
+            ]];
+        }
+
+        if ($payoutAmount <= 0) {
+            return ['error' => 'validation_failed', 'errors' => [
+                'payout_amount' => ['The payout_amount field must be greater than zero.'],
+            ]];
+        }
+
+        $result = $this->ensureEditableRewardResultForGame($gameId);
+
+        if (is_string($result)) {
+            return ['error' => $result];
+        }
+
+        $this->ensureDraftRewardPrizes((string) $result->id, $gameId);
+
+        RewardPrize::query()
+            ->where('reward_result_id', (string) $result->id)
+            ->where('prize_type', $prizeType)
+            ->update([
+                'amount' => $payoutAmount,
+                'currency' => (string) ($baseRow['central_reward_amount']['currency'] ?? ThaiGovernmentLotteryRewardTemplate::CURRENCY),
+                'updated_at' => now(),
+            ]);
+
+        RewardResult::query()->whereKey((string) $result->id)->update(['updated_at' => now()]);
+
+        return ['resource' => $this->centralSettingRow($this->settingRowId($gameId, $prizeType)) ?? []];
     }
 
     /**
@@ -563,6 +624,76 @@ class TenantRewardPriceRuleService
         $safeGame = preg_replace('/[^a-z0-9]+/i', '_', strtolower($gameId)) ?: 'game';
 
         return 'reward_'.$safeGame.'_'.$prizeType;
+    }
+
+    private function ensureEditableRewardResultForGame(string $gameId): object|string
+    {
+        $result = RewardResult::query()->where('game_id', $gameId)->lockForUpdate()->first();
+
+        if ($result !== null) {
+            return in_array((string) $result->status, ['published', 'corrected', 'archived'], true)
+                ? 'resource_conflict'
+                : $result;
+        }
+
+        $now = now();
+        $resultId = 'rew_'.Str::ulid()->toBase32();
+
+        RewardResult::query()->insert([
+            'id' => $resultId,
+            'game_id' => $gameId,
+            'status' => 'draft',
+            'version' => 1,
+            'summary_json' => null,
+            'created_by_admin_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return RewardResult::query()->whereKey($resultId)->first();
+    }
+
+    private function ensureDraftRewardPrizes(string $rewardResultId, string $gameId): void
+    {
+        $existingCounts = RewardPrize::query()
+            ->where('reward_result_id', $rewardResultId)
+            ->selectRaw('prize_type, COUNT(*) as aggregate_count')
+            ->groupBy('prize_type')
+            ->pluck('aggregate_count', 'prize_type')
+            ->map(fn (mixed $count): int => (int) $count)
+            ->all();
+
+        $seenByType = [];
+        $now = now();
+        $rows = [];
+
+        foreach (ThaiGovernmentLotteryRewardTemplate::draftPrizes() as $index => $prize) {
+            $type = (string) $prize['prize_type'];
+            $seenByType[$type] ??= 0;
+
+            if ($seenByType[$type] < ($existingCounts[$type] ?? 0)) {
+                $seenByType[$type]++;
+                continue;
+            }
+
+            $rows[] = [
+                'id' => 'rpr_'.Str::ulid()->toBase32(),
+                'reward_result_id' => $rewardResultId,
+                'game_id' => $gameId,
+                'prize_type' => $type,
+                'prize_number' => $prize['prize_number'],
+                'amount' => $prize['amount']['amount'],
+                'currency' => $prize['amount']['currency'],
+                'sort_order' => $index,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+            $seenByType[$type]++;
+        }
+
+        if ($rows !== []) {
+            RewardPrize::query()->insert($rows);
+        }
     }
 
     private function prizeTypeLabel(string $type): string

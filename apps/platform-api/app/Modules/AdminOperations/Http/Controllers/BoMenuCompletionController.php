@@ -389,6 +389,25 @@ class BoMenuCompletionController extends Controller
         return $resource === null ? ApiErrorResponse::notFound($request) : response()->json($resource);
     }
 
+    public function centralRewardPayoutRulesUpdate(Request $request, string $payout_rule_id): JsonResponse
+    {
+        $context = $this->centralContext($request, 'price_rule.manage');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        return $this->writeWithIdempotency(
+            $request,
+            $context,
+            null,
+            'central_admin',
+            'admin.central.reward-payout-rules.update:'.$payout_rule_id,
+            'price_rule.manage',
+            fn (array $payload): array => $this->completion->updateCentralRewardPayoutRule($payout_rule_id, $payload, $context, $request),
+        );
+    }
+
     public function priceRulesIndex(Request $request): JsonResponse
     {
         $context = $this->tenantContext($request, 'price_rule.view');

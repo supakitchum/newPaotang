@@ -259,6 +259,8 @@ Route::get('/admin/central/reward-payout-rules', [BoMenuCompletionController::cl
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/reward-payout-rules/{payout_rule_id}', [BoMenuCompletionController::class, 'centralRewardPayoutRulesShow'])
     ->middleware(['admin.auth', 'admin.scope:central']);
+Route::patch('/admin/central/reward-payout-rules/{payout_rule_id}', [BoMenuCompletionController::class, 'centralRewardPayoutRulesUpdate'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/assets/uploads', [AssetController::class, 'centralUpload'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/assets/{asset_id}', [AssetController::class, 'centralShow'])

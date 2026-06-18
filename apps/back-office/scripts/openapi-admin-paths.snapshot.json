@@ -58,7 +58,7 @@
     "/admin/central/reward-entry/sessions/{session_id}/trigger-scraper": ["post"],
     "/admin/central/reward-payout-rule-games": ["get"],
     "/admin/central/reward-payout-rules": ["get"],
-    "/admin/central/reward-payout-rules/{payout_rule_id}": ["get"],
+    "/admin/central/reward-payout-rules/{payout_rule_id}": ["get", "patch"],
     "/admin/central/winners": ["get"],
     "/admin/central/winners/games": ["get"],
     "/admin/central/roles": ["get", "post"],

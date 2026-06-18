@@ -47,6 +47,7 @@ class BoMenuCompletionBackendGapTest extends TestCase
             'GET|HEAD api/v1/admin/central/reward-payout-rule-games',
             'GET|HEAD api/v1/admin/central/reward-payout-rules',
             'GET|HEAD api/v1/admin/central/reward-payout-rules/{payout_rule_id}',
+            'PATCH api/v1/admin/central/reward-payout-rules/{payout_rule_id}',
             'GET|HEAD api/v1/admin/tenant/price-rules',
             'GET|HEAD api/v1/admin/tenant/price-rule-games',
             'GET|HEAD api/v1/admin/tenant/price-rules/live-settings',
@@ -93,6 +94,7 @@ class BoMenuCompletionBackendGapTest extends TestCase
             'audit.view',
             'system.settings.manage',
             'price_rule.view',
+            'price_rule.manage',
         ], 'central_bo_gap');
 
         $this->createAdmin('adm_central_limited', 'central-gap-limited@example.test');
@@ -140,6 +142,27 @@ class BoMenuCompletionBackendGapTest extends TestCase
             ->assertOk()
             ->assertJsonPath('prize_type', 'first_prize')
             ->assertJsonPath('central_reward_amount.amount', 600000000);
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/admin/central/reward-payout-rules/'.$centralPayoutRule['data'][0]['id'], [
+                'payout_amount' => 500000000,
+            ], $headers + ['Idempotency-Key' => 'central-reward-payout-update'])
+            ->assertOk()
+            ->assertJsonPath('prize_type', 'first_prize')
+            ->assertJsonPath('central_reward_amount.amount', 500000000)
+            ->assertJsonPath('payout_amount.amount', 500000000)
+            ->assertJsonPath('source', 'reward_result');
+
+        $this->assertDatabaseHas('reward_prizes', [
+            'game_id' => 'gam_central_payout_gap',
+            'prize_type' => 'first_prize',
+            'amount' => 500000000,
+        ]);
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/admin/central/reward-payout-rules?game_id=gam_central_payout_gap', $headers)
+            ->assertOk()
+            ->assertJsonPath('data.0.central_reward_amount.amount', 500000000);
 
         $this->withToken($login['access_token'])
             ->getJson('/api/v1/admin/central/partner-monitoring?partner_id=par_bo_gap', $headers)

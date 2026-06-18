@@ -63,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatDateTime, titleize } from '~/utils/format'
+import { formatDateTime, formatRewardMoney, titleize } from '~/utils/format'
 
 type DetailItem = {
   key: string
@@ -206,18 +206,7 @@ function moneyValue(value: any) {
     return ''
   }
 
-  const amount = typeof value === 'object' && value !== null ? value.amount : value
-  const currency = moneyCurrency(value)
-
-  if (amount === undefined || amount === null || amount === '') {
-    return ''
-  }
-
-  const formatted = new Intl.NumberFormat('th-TH', {
-    maximumFractionDigits: 0,
-  }).format(Math.round(Number(amount || 0)))
-
-  return currency ? `${formatted} ${currency === 'THB' ? 'บาท' : currency}` : formatted
+  return formatRewardMoney(value, moneyCurrency(value) || 'THB')
 }
 
 function moneyCurrency(value: any) {

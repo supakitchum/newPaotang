@@ -1019,6 +1019,18 @@ const priceRuleUpdateFields: OperationFormField[] = [
     help: 'Final payout for this prize in the selected game. The backend stores only the delta from Central Reward for reports.',
   },
 ]
+const centralRewardPayoutUpdateFields: OperationFormField[] = [
+  {
+    key: 'payout_amount',
+    label: 'Payout amount (THB)',
+    type: 'reward-money',
+    sourceKey: 'payout_amount.amount',
+    min: 1,
+    step: 1,
+    required: true,
+    help: 'Default Central payout for every prize row of this reward type in the selected game.',
+  },
+]
 const centralSalePriceRuleFields: OperationFormField[] = [
   { key: 'game_id', label: 'Game', type: 'select', optionSource: 'central-sale-price-games', hideEmptyOption: true, required: true, defaultValueSource: 'current-game' },
   { key: 'set_size', label: 'Set size', type: 'number', min: 1, max: 99, step: 1, required: true },
@@ -3098,6 +3110,17 @@ const central: OperationResource[] = [
     filters: cursorFilters([{ key: 'game_id', label: 'Game', type: 'select', optionSource: 'central-reward-payout-rule-games', hideEmptyOption: true, emptyOptionLabel: 'No open game' }]),
     confirmContextFields: ['game_id', 'prize_type', 'prize_label', 'prize_count', 'central_reward_amount.amount', 'source', 'updated_at'],
     detailRenderer: 'price-rule',
+    actions: [
+      {
+        key: 'update',
+        label: 'Set payout',
+        method: 'PATCH',
+        endpoint: '/admin/central/reward-payout-rules/{payout_rule_id}',
+        variant: 'primary',
+        contextFields: ['game_id', 'prize_type', 'prize_label', 'prize_count', 'central_reward_amount.amount', 'source', 'updated_at'],
+        formFields: centralRewardPayoutUpdateFields,
+      },
+    ],
   },
   {
     scope: 'central',

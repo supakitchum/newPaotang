@@ -108,8 +108,9 @@ export const formatRewardMoney = (value: MoneyValue | number | string | null | u
     return String(amount)
   }
 
+  const displayAmount = numericAmount / 100
   const currencyLabel = resolvedCurrency === 'THB' ? 'บาท' : resolvedCurrency
-  return `${numberFormatter.format(Math.round(numericAmount))} ${currencyLabel}`
+  return `${numberFormatter.format(Math.round(displayAmount))} ${currencyLabel}`
 }
 
 export const summarizeObject = (value: Record<string, unknown> | null | undefined) => {

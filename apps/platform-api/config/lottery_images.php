@@ -26,6 +26,11 @@ return [
         'allowed_source_mimes' => ['image/webp', 'image/png', 'image/jpeg'],
         'required_variant_mime' => 'image/webp',
     ],
+    'background_zip_import' => [
+        'max_entries' => (int) env('LOTTERY_IMAGE_BACKGROUND_ZIP_MAX_ENTRIES', 120),
+        'max_uncompressed_bytes' => (int) env('LOTTERY_IMAGE_BACKGROUND_ZIP_MAX_UNCOMPRESSED_BYTES', 67108864),
+        'max_compression_ratio' => (float) env('LOTTERY_IMAGE_BACKGROUND_ZIP_MAX_COMPRESSION_RATIO', 80),
+    ],
     'dimensions' => [
         'full' => [
             'width' => (int) env('LOTTERY_IMAGE_FULL_WIDTH', 500),

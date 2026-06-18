@@ -95,12 +95,15 @@ Create these GitHub repository secrets:
 - `DOCR_REGISTRY` (registry name only, not the full URL)
 - `DOKS_CLUSTER_NAME`
 
-The workflow is manual:
+The production workflow is:
 
 - `.github/workflows/production-deploy.yml`
-- Input `deploy=false`: build and push images only.
-- Input `deploy=true`: build, push, apply manifests, migrate, and roll deployments.
-- Input `run_rbac_seed=true`: also run `DefaultRbacMenuSeeder`.
+- Push to `develop`: automatically build images, push to DOCR, apply manifests, run migrations, roll deployments, and smoke production endpoints.
+- Manual `workflow_dispatch` with `deploy=false`: build and push images only.
+- Manual `workflow_dispatch` with `deploy=true`: build, push, apply manifests, migrate, and roll deployments.
+- Manual `workflow_dispatch` with `run_rbac_seed=true`: also run `DefaultRbacMenuSeeder`.
+
+If the GitHub `production` environment has required reviewers configured, GitHub will pause the deploy job for approval even on automatic pushes.
 
 ## How to update code
 
@@ -119,11 +122,9 @@ Use this flow for normal releases:
    npm --prefix apps/lotto-scraper run build
    ```
 
-3. Open GitHub Actions > Production Deploy.
-4. Start with `deploy=false` to build/push images.
-5. If image build passes, run again with `deploy=true`.
-6. Enable `run_rbac_seed=true` only for menu/permission/default role changes.
-7. After deploy, smoke:
+3. Push or merge to `develop`; GitHub Actions will deploy production automatically.
+4. Enable `run_rbac_seed=true` manually only for menu/permission/default role changes.
+5. After deploy, smoke:
 
    ```bash
    kubectl -n newpaotang-prod get pods

@@ -1,0 +1,38 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: partner-xn--80-bsia4ej0dc7e8e3d-online
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "520m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - xn--80-bsia4ej0dc7e8e3d.online
+        - www.xn--80-bsia4ej0dc7e8e3d.online
+      secretName: partner-xn--80-bsia4ej0dc7e8e3d-online-tls
+  rules:
+    - host: xn--80-bsia4ej0dc7e8e3d.online
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: customer
+                port:
+                  number: 3000
+    - host: www.xn--80-bsia4ej0dc7e8e3d.online
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: customer
+                port:
+                  number: 3000

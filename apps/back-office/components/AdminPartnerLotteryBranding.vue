@@ -740,8 +740,12 @@ const sha256Hex = async (file: File) => {
 }
 
 const uploadToStorage = async (intent: any, file: File) => {
-  if (!intent?.upload_url || intent.production_storage_ready === false || intent.storage_mode === 'local_dev_metadata_only') {
-    if (intent?.asset_id && intent.storage_mode === 'local_dev_metadata_only') {
+  const storageMode = String(intent?.storage_mode || '')
+  const uploadStrategy = String(intent?.upload_strategy || '')
+  const usesApiRelay = uploadStrategy === 'server_relay' || ['local_dev_metadata_only', 'server_relay_aws_s3'].includes(storageMode)
+
+  if (!intent?.upload_url || intent.production_storage_ready === false || usesApiRelay) {
+    if (intent?.asset_id && usesApiRelay) {
       const body = new FormData()
       body.append('file', file)
       await api.apiFetch(`/admin/central/assets/${encodeURIComponent(intent.asset_id)}/local-upload`, {
