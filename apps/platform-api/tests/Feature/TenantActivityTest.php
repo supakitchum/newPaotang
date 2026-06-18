@@ -140,6 +140,41 @@ class TenantActivityTest extends TestCase
         $this->assertArrayNotHasKey('reserved_numbers', $list['data'][0]['number_board']);
     }
 
+    public function test_lucky_board_entry_closes_thirty_minutes_after_sale_close(): void
+    {
+        $service = app(TenantActivityService::class);
+        $this->insertActivePartnerTenantWithDomain('par_act_deadline', 'ten_act_deadline', 'act-deadline.test');
+        $this->insertGame('gam_act_deadline', 'open');
+        DB::table('games')->where('id', 'gam_act_deadline')->update([
+            'close_at' => now()->subMinutes(31),
+            'updated_at' => now(),
+        ]);
+        $this->issueCustomerToken('ten_act_deadline', 'cus_act_deadline');
+        $this->insertLuckyActivity('ten_act_deadline', 'gam_act_deadline', 'act_lucky_deadline', thresholdTickets: 1);
+        $this->insertPaidOrderWithTickets('par_act_deadline', 'ten_act_deadline', 'gam_act_deadline', 'cus_act_deadline', 'ord_deadline', ['123456'], 8000);
+
+        $detail = $service->publicFindBySlug('ten_act_deadline', 'act-lucky-deadline');
+        $this->assertTrue($detail['entry_closed'] ?? false);
+        $this->assertSame(30, $detail['entry_close_after_minutes'] ?? null);
+
+        $blocked = $service->createCustomerEntry('ten_act_deadline', $this->customerContext('ten_act_deadline', 'cus_act_deadline'), 'act_lucky_deadline', [
+            'prediction_type' => 'first_prize_last2',
+            'selected_number' => '56',
+        ]);
+        $this->assertSame('activity_entry_closed', $blocked['error'] ?? null);
+
+        DB::table('games')->where('id', 'gam_act_deadline')->update([
+            'close_at' => now()->subMinutes(29),
+            'updated_at' => now(),
+        ]);
+
+        $allowed = $service->createCustomerEntry('ten_act_deadline', $this->customerContext('ten_act_deadline', 'cus_act_deadline'), 'act_lucky_deadline', [
+            'prediction_type' => 'first_prize_last2',
+            'selected_number' => '56',
+        ]);
+        $this->assertSame(201, $allowed['status'] ?? null);
+    }
+
     public function test_public_and_customer_activity_lists_default_to_current_draw_and_history_requires_history_mode(): void
     {
         $service = app(TenantActivityService::class);

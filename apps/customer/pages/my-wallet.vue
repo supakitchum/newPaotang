@@ -241,7 +241,7 @@ onMounted(() => {
 
 <style scoped>
 .my-wallet-hero-card {
-  margin-top: 22px;
+  margin: 24px 2px 0;
 }
 
 .my-wallet-sheet {

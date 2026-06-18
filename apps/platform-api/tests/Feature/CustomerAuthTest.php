@@ -262,6 +262,71 @@ class CustomerAuthTest extends TestCase
         $this->assertNotNull(DB::table('customer_auth_sessions')->where('access_token_hash', hash('sha256', $refreshed['token']))->value('revoked_at'));
     }
 
+    public function test_CustomerAuth_blocks_suspended_customers_with_reason_and_auto_reactivates_expired_suspensions(): void
+    {
+        $this->insertActivePartnerTenantWithDomain('par_auth_suspend', 'ten_auth_suspend', 'auth-suspend.m5.test');
+
+        $registered = $this->postJson('http://auth-suspend.m5.test/api/v1/customer/auth/register', [
+            'name' => 'Suspended Customer',
+            'phone' => '0801002999',
+            'password' => 'customer-secret',
+            'password_confirmation' => 'customer-secret',
+        ], [
+            'Idempotency-Key' => 'register-auth-suspended-m5',
+        ])->assertCreated()->json();
+
+        DB::table('customers')->where('id', $registered['user']['id'])->update([
+            'status' => 'suspended',
+            'suspended_at' => now(),
+            'suspended_until' => now()->addDays(3),
+            'suspension_reason' => 'ตรวจสอบความเสี่ยง',
+            'suspended_by_admin_id' => 'adm_test',
+            'updated_at' => now(),
+        ]);
+
+        $this->postJson('http://auth-suspend.m5.test/api/v1/customer/auth/login', [
+            'username' => '0801002999',
+            'password' => 'customer-secret',
+        ])->assertForbidden()
+            ->assertJsonPath('error.code', 'customer_suspended')
+            ->assertJsonPath('error.details.suspension.reason', 'ตรวจสอบความเสี่ยง')
+            ->assertJsonPath('error.details.suspension.is_permanent', false);
+
+        $this->withToken($registered['token'])
+            ->getJson('http://auth-suspend.m5.test/api/v1/customer/auth/me')
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'customer_suspended')
+            ->assertJsonPath('error.details.suspension.reason', 'ตรวจสอบความเสี่ยง');
+
+        $this->postJson('http://auth-suspend.m5.test/api/v1/customer/auth/refresh', [
+            'refresh_token' => $registered['refresh_token'],
+        ])->assertForbidden()
+            ->assertJsonPath('error.code', 'customer_suspended');
+
+        $this->assertNotNull(DB::table('customer_auth_sessions')
+            ->where('access_token_hash', hash('sha256', $registered['token']))
+            ->value('revoked_at'));
+
+        DB::table('customers')->where('id', $registered['user']['id'])->update([
+            'status' => 'suspended',
+            'suspended_until' => now()->subMinute(),
+            'updated_at' => now(),
+        ]);
+
+        $this->postJson('http://auth-suspend.m5.test/api/v1/customer/auth/login', [
+            'username' => '0801002999',
+            'password' => 'customer-secret',
+        ])->assertOk()
+            ->assertJsonPath('user.id', $registered['user']['id']);
+
+        $this->assertDatabaseHas('customers', [
+            'id' => $registered['user']['id'],
+            'status' => 'active',
+            'suspension_reason' => null,
+            'suspended_until' => null,
+        ]);
+    }
+
     public function test_CustomerAuth_rejects_bearer_session_on_different_tenant_host_without_revoking_session(): void
     {
         $this->insertActivePartnerTenantWithDomain('par_auth_a_m5', 'ten_auth_a_m5', 'auth-a.m5.test');

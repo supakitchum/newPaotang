@@ -43,6 +43,10 @@
               <i class="bi bi-grid-3x3-gap-fill" />
               {{ activityBoardRemainingText(activity) }}
             </span>
+            <span v-if="activity.type === 'lucky_board'" class="activity-deadline-badge" :class="{ closed: isLuckyEntryClosed(activity) }">
+              <i class="bi bi-clock-history" />
+              {{ activityEntryDeadlineText(activity) }}
+            </span>
           </div>
         </NuxtLink>
       </div>
@@ -95,7 +99,7 @@ const cashbackHasRight = (activity: Record<string, any>) => {
 const hasActivityRight = (activity: Record<string, any>) => (
   activity.type === 'cashback'
     ? cashbackHasRight(activity)
-    : rightsSummary(activity).remaining > 0
+    : !isLuckyEntryClosed(activity) && rightsSummary(activity).remaining > 0
 )
 
 const sortActivitiesByRights = (items: Record<string, any>[]) => {
@@ -107,6 +111,10 @@ const sortActivitiesByRights = (items: Record<string, any>[]) => {
 }
 
 const activityRightsState = (activity: Record<string, any>) => {
+  if (isLuckyEntryClosed(activity)) {
+    return 'closed'
+  }
+
   if (!token.value) {
     return 'guest'
   }
@@ -147,6 +155,10 @@ const activityRightsText = (activity: Record<string, any>) => {
     return 'แตะเพื่อดูสิทธิ์'
   }
 
+  if (state === 'closed') {
+    return 'หมดเวลาเข้าร่วม'
+  }
+
   if (activity.type === 'cashback') {
     return state === 'available' ? 'มีสิทธิ์รับเงินคืนแล้ว' : 'ยังไม่มีสิทธิ์รับเงินคืน'
   }
@@ -173,6 +185,10 @@ const activityRightsIcon = (activity: Record<string, any>) => {
     return 'bi bi-check-circle-fill'
   }
 
+  if (state === 'closed') {
+    return 'bi bi-clock-fill'
+  }
+
   if (state === 'used') {
     return 'bi bi-check2-circle'
   }
@@ -194,6 +210,49 @@ const activityBoardRemainingText = (activity: Record<string, any>) => {
   const safeRemaining = Number.isFinite(remaining) && remaining >= 0 ? remaining : fallbackRemaining
 
   return `เหลือ ${safeRemaining.toLocaleString('th-TH', { maximumFractionDigits: 0 })} เลขให้เลือก`
+}
+
+const entryDeadlineDate = (activity: Record<string, any>) => {
+  const raw = String(activity.entry_deadline_at || '')
+  if (!raw) {
+    return null
+  }
+
+  const date = new Date(raw)
+
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+const isLuckyEntryClosed = (activity: Record<string, any>) => {
+  if (activity.type !== 'lucky_board') {
+    return false
+  }
+
+  const deadline = entryDeadlineDate(activity)
+
+  return Boolean(activity.entry_closed) || (deadline !== null && Date.now() >= deadline.getTime())
+}
+
+const activityEntryDeadlineText = (activity: Record<string, any>) => {
+  const deadline = entryDeadlineDate(activity)
+
+  if (isLuckyEntryClosed(activity)) {
+    return 'หมดเวลาเข้าร่วม'
+  }
+
+  if (!deadline) {
+    return 'ปิดรับหลังปิดขาย 30 นาที'
+  }
+
+  const formatted = new Intl.DateTimeFormat('th-TH', {
+    timeZone: 'Asia/Bangkok',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(deadline)
+
+  return `ร่วมได้ถึง ${formatted} น.`
 }
 
 const redirectToActivityPin = async () => {
@@ -434,7 +493,13 @@ useTenantSeo({
   color: #64748b;
 }
 
-.activity-number-badge {
+.activity-rights-badge.is-closed {
+  background: #fee2e2;
+  color: #b42318;
+}
+
+.activity-number-badge,
+.activity-deadline-badge {
   align-items: center;
   background: #f8fafc;
   border: 1px solid #dbe6f3;
@@ -453,6 +518,18 @@ useTenantSeo({
   padding: 7px 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.activity-deadline-badge {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #c2410c;
+}
+
+.activity-deadline-badge.closed {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b42318;
 }
 
 .activities-state,

@@ -55,6 +55,7 @@
     "/admin/central/rewards/{reward_result_id}/publish": ["post"],
     "/admin/central/rewards/{reward_result_id}/redraw": ["post"],
     "/admin/central/rewards/{reward_result_id}/verify": ["post"],
+    "/admin/central/reward-entry/sessions/{session_id}/trigger-scraper": ["post"],
     "/admin/central/reward-payout-rule-games": ["get"],
     "/admin/central/reward-payout-rules": ["get"],
     "/admin/central/reward-payout-rules/{payout_rule_id}": ["get"],

@@ -57,6 +57,14 @@ export const useAdminSession = () => {
     return active?.permissions || []
   })
 
+  const canApplyLocaleNow = () => !import.meta.client || useAdminClientReady().ready.value
+
+  const applyPreferredLocale = () => {
+    if (session.value.user?.preferred_locale && canApplyLocaleNow()) {
+      useAdminLocale().applyProfileLocale(session.value.user.preferred_locale)
+    }
+  }
+
   const persist = () => {
     if (!import.meta.client) {
       return
@@ -99,9 +107,7 @@ export const useAdminSession = () => {
           ...parsed,
           restored: true,
         }
-        if (session.value.user?.preferred_locale) {
-          useAdminLocale().applyProfileLocale(session.value.user.preferred_locale)
-        }
+        applyPreferredLocale()
       } else {
         clearSessionCookie()
         session.value = { ...emptySession(), restored: true }
@@ -128,9 +134,7 @@ export const useAdminSession = () => {
       activeTenantId: activeScope === 'tenant' ? activeTenantId : null,
       restored: true,
     }
-    if (session.value.user?.preferred_locale) {
-      useAdminLocale().applyProfileLocale(session.value.user.preferred_locale)
-    }
+    applyPreferredLocale()
     persist()
   }
 
@@ -139,9 +143,7 @@ export const useAdminSession = () => {
       ...(session.value.user || user),
       ...user,
     }
-    if (user.preferred_locale) {
-      useAdminLocale().applyProfileLocale(user.preferred_locale)
-    }
+    applyPreferredLocale()
     persist()
   }
 
@@ -276,6 +278,7 @@ export const useAdminSession = () => {
     setScope,
     alignScopeForPath,
     ensurePartnerTenantSession,
+    applyPreferredLocale,
     hasPermission,
     hasScope,
     usesTranslationCenterLanding,

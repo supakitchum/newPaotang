@@ -16,7 +16,7 @@ export default defineNuxtPlugin({
     const config = useRuntimeConfig()
     const route = useRoute()
     const requestHeaders = process.server ? useRequestHeaders(['host']) : {}
-    const { token: authToken, refreshToken, clearAuthToken, setPinVerified, refreshAuthToken } = useAuth()
+    const { token: authToken, refreshToken, clearAuthToken, setPinVerified, refreshAuthToken, setAccountSuspension } = useAuth()
     const { showAlert } = useAppAlert()
     const { localeHeader, t } = useLocale()
     const publicApiBaseUrl = String(config.public.apiBaseUrl || '/api/v1')
@@ -113,6 +113,15 @@ export default defineNuxtPlugin({
             setTimeout(() => {
               isHandlingMaintenance = false
             }, 500)
+          }
+        }
+
+        if (status === 403 && String(apiError?.code || '') === 'customer_suspended') {
+          setAccountSuspension(apiError?.details?.suspension || {})
+          clearAuthToken()
+
+          if (process.client && route.path !== '/account-suspended') {
+            await nuxtApp.runWithContext(() => navigateTo('/account-suspended', { replace: true }))
           }
         }
 

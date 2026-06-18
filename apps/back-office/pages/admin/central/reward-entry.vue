@@ -65,6 +65,52 @@
             <div v-if="sessionData.is_expected_operator" class="alert alert-info mt-4 mb-0">
               Submit only your own official result entry. Other officers' entries and winner data are hidden from this role.
             </div>
+
+            <div v-if="canTriggerScraper" class="np-manual-trigger mt-4">
+              <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                <span class="fw-semibold">Manual result fetch</span>
+                <span class="text-muted fs-12">Queue scraper polling now</span>
+              </div>
+              <div class="d-flex flex-wrap gap-2">
+                <button
+                  v-for="source in triggerSourceOptions"
+                  :key="source.value"
+                  class="btn btn-sm btn-outline-primary btn-wave"
+                  type="button"
+                  :disabled="triggeringSource !== null"
+                  @click="triggerScraper(source.value)"
+                >
+                  <span v-if="triggeringSource === source.value" class="spinner-border spinner-border-sm me-1" />
+                  <i v-else class="ri-download-cloud-2-line me-1" />
+                  {{ source.label }}
+                </button>
+              </div>
+              <div v-if="triggerFeedback" :class="['alert mt-3 mb-0 py-2', triggerFeedback.type === 'success' ? 'alert-success' : 'alert-danger']">
+                {{ triggerFeedback.message }}
+              </div>
+            </div>
+
+            <div v-if="visibleScraperSources.length" class="np-scraper-sources mt-4">
+              <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                <span class="fw-semibold">{{ canResolve ? 'Live result sources' : 'Result source progress' }}</span>
+                <span class="badge bg-primary-transparent text-primary">
+                  {{ visibleScraperSources.length }} source{{ visibleScraperSources.length > 1 ? 's' : '' }}
+                </span>
+              </div>
+              <div v-for="source in visibleScraperSources" :key="source.id" class="np-scraper-source">
+                <div>
+                  <div class="fw-semibold">{{ source.label }}</div>
+                  <div v-if="canResolve" class="text-muted fs-12">{{ formatDateTime(source.submitted_at || source.meta?.live?.updated_at) }}</div>
+                </div>
+                <div class="text-end">
+                  <template v-if="canResolve">
+                    <div class="fw-semibold">{{ sourceFirstPrize(source) }}</div>
+                    <div class="text-muted fs-12">{{ sourceCompletion(source) }}</div>
+                  </template>
+                  <div v-else class="fw-semibold text-primary">{{ sourceCompletionPercent(source) }}</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -91,7 +137,7 @@
                   class="btn btn-light btn-wave"
                   type="button"
                   :disabled="saving || entrySubmitted"
-                  @click="saveDraft"
+                  @click="saveDraft()"
                 >
                   <span v-if="saving" class="spinner-border spinner-border-sm me-2" />
                   Save draft
@@ -109,6 +155,9 @@
 
               <div v-if="!entryComplete && !entrySubmitted" class="text-muted fs-12 text-end mt-2">
                 Complete every prize number before submitting.
+              </div>
+              <div v-if="autosaveMessage && !entrySubmitted" class="text-muted fs-12 text-end mt-2">
+                {{ autosaveMessage }}
               </div>
             </template>
           </div>
@@ -128,6 +177,13 @@
               <div class="d-flex flex-wrap gap-2 mb-3">
                 <span class="badge bg-light text-default">Mismatches: {{ submissionDiff.summary.mismatch_count }}</span>
                 <span class="badge bg-light text-default">Missing scraper rows: {{ submissionDiff.summary.missing_scraper_count }}</span>
+                <span
+                  v-for="source in diffSources"
+                  :key="source.id"
+                  class="badge bg-primary-transparent text-primary"
+                >
+                  {{ source.label }}
+                </span>
               </div>
               <div class="table-responsive np-entry-diff-table">
                 <table class="table table-sm table-hover align-middle">
@@ -135,7 +191,7 @@
                     <tr>
                       <th>Prize</th>
                       <th>My entry</th>
-                      <th>Lotto-scraper</th>
+                      <th v-for="source in diffSources" :key="source.id">{{ source.label }}</th>
                       <th>Status</th>
                     </tr>
                   </thead>
@@ -143,7 +199,9 @@
                     <tr v-for="row in submissionDiff.rows" :key="row.key">
                       <td>{{ prizeLabel(row.prize_type) }} #{{ Number(row.index) + 1 }}</td>
                       <td class="fw-semibold">{{ row.operator_number || '-' }}</td>
-                      <td>{{ row.scraper_number || '-' }}</td>
+                      <td v-for="source in diffSources" :key="`${row.key}:${source.id}`">
+                        {{ diffSourceNumber(row, source.id) }}
+                      </td>
                       <td>
                         <span :class="['badge', row.matches ? 'bg-success-transparent text-success' : 'bg-danger-transparent text-danger']">
                           {{ row.matches ? 'Match' : 'Mismatch' }}
@@ -318,6 +376,8 @@ const queueLoading = ref(false)
 const saving = ref(false)
 const submitting = ref(false)
 const resolving = ref(false)
+const triggeringSource = ref<string | null>(null)
+const triggerFeedback = ref<{ type: 'success' | 'danger', message: string } | null>(null)
 const error = ref<any>(null)
 const sessionData = ref<RewardEntrySession | null>(null)
 const entryGroups = ref(normalizeRewardPrizeGroups([]))
@@ -329,10 +389,33 @@ const selectedSourceId = ref<string | null>(null)
 const selectedSourceType = ref('manual')
 const selectedSubmissionId = ref<string | null>(null)
 const resolveReason = ref('')
+const autosaveMessage = ref('')
+const autosaveDelayMs = 900
+let autosaveTimer: ReturnType<typeof setTimeout> | null = null
+let hydratingEntryGroups = false
 
 const canResolve = computed(() => session.currentPermissions.value.includes('reward_entry.resolve'))
+const canTriggerScraper = computed(() => (
+  canResolve.value
+  && Boolean(sessionData.value?.id)
+  && !['resolved', 'cancelled'].includes(String(sessionData.value?.status || ''))
+))
 const entrySubmitted = computed(() => sessionData.value?.submission?.status === 'submitted')
+const canAutoSaveDraft = computed(() => Boolean(
+  sessionData.value?.id
+  && sessionData.value?.is_expected_operator
+  && !entrySubmitted.value
+  && !submitting.value,
+))
 const submissionDiff = computed(() => sessionData.value?.submission?.diff_to_scraper || null)
+const visibleScraperSources = computed(() => {
+  const sources = sessionData.value?.scraper_snapshot?.sources
+  return Array.isArray(sources) ? sources : []
+})
+const diffSources = computed(() => {
+  const sources = submissionDiff.value?.summary?.sources
+  return Array.isArray(sources) ? sources : []
+})
 const entryComplete = computed(() => hasCompleteRewardPrizeGroups(entryGroups.value))
 const finalComplete = computed(() => hasCompleteRewardPrizeGroups(finalGroups.value))
 const ownerTabs = [
@@ -340,7 +423,14 @@ const ownerTabs = [
   { value: 'collecting', label: 'Collecting' },
   { value: 'resolved', label: 'Resolved' },
 ]
+const triggerSourceOptions = [
+  { value: 'all', label: 'ดึงทั้งหมด' },
+  { value: 'sanook', label: 'Sanook' },
+  { value: 'thairath', label: 'Thai Rath' },
+]
 const filteredQueue = computed(() => ownerQueue.value.filter((row) => row.status === ownerTab.value))
+const serializePrizeGroups = () => JSON.stringify(rewardPrizeGroupsToPayload(entryGroups.value))
+const lastSavedDraftPayload = ref('')
 
 const refreshAll = async () => {
   await loadCurrent()
@@ -359,7 +449,12 @@ const loadCurrent = async () => {
     })
     sessionData.value = response?.data || null
     const prizes = sessionData.value?.submission?.prizes || response?.meta?.template_prizes || []
+    hydratingEntryGroups = true
     entryGroups.value = normalizeRewardPrizeGroups(prizes)
+    lastSavedDraftPayload.value = serializePrizeGroups()
+    nextTick(() => {
+      hydratingEntryGroups = false
+    })
   } catch (err) {
     error.value = err
   } finally {
@@ -380,28 +475,91 @@ const loadOwnerQueue = async () => {
   }
 }
 
-const saveDraft = async () => {
+const clearAutosaveTimer = () => {
+  if (!autosaveTimer) {
+    return
+  }
+
+  clearTimeout(autosaveTimer)
+  autosaveTimer = null
+}
+
+const saveDraft = async (options: { silent?: boolean, payloadKey?: string } = {}) => {
   if (!sessionData.value?.id) return
+  const payloadKey = options.payloadKey || serializePrizeGroups()
+  if (payloadKey === lastSavedDraftPayload.value) {
+    if (!options.silent) {
+      autosaveMessage.value = 'Draft is already saved.'
+    }
+    return
+  }
+
   saving.value = true
-  error.value = null
+  if (options.silent) {
+    autosaveMessage.value = 'Autosaving draft...'
+  } else {
+    error.value = null
+    autosaveMessage.value = 'Saving draft...'
+  }
+
   try {
     const response: any = await api.apiFetch(`/admin/central/reward-entry/sessions/${sessionData.value.id}/submission`, {
       method: 'PUT',
       scope: 'central',
       idempotencyKey: api.idempotencyKey(),
-      body: { prizes: rewardPrizeGroupsToPayload(entryGroups.value) },
+      body: { prizes: JSON.parse(payloadKey) },
     })
     sessionData.value = response || sessionData.value
-    entryGroups.value = normalizeRewardPrizeGroups(sessionData.value?.submission?.prizes || [])
+
+    if (serializePrizeGroups() === payloadKey) {
+      hydratingEntryGroups = true
+      entryGroups.value = normalizeRewardPrizeGroups(sessionData.value?.submission?.prizes || [])
+      lastSavedDraftPayload.value = serializePrizeGroups()
+      nextTick(() => {
+        hydratingEntryGroups = false
+      })
+    } else {
+      lastSavedDraftPayload.value = payloadKey
+      scheduleAutosaveDraft()
+    }
+
+    autosaveMessage.value = options.silent ? 'Draft autosaved.' : 'Draft saved.'
   } catch (err) {
     error.value = err
+    autosaveMessage.value = options.silent ? 'Autosave failed. Please try Save draft.' : ''
   } finally {
     saving.value = false
+    if (canAutoSaveDraft.value && serializePrizeGroups() !== lastSavedDraftPayload.value) {
+      scheduleAutosaveDraft()
+    }
   }
+}
+
+const scheduleAutosaveDraft = () => {
+  if (hydratingEntryGroups || !canAutoSaveDraft.value) {
+    return
+  }
+
+  const payloadKey = serializePrizeGroups()
+  if (payloadKey === lastSavedDraftPayload.value) {
+    return
+  }
+
+  clearAutosaveTimer()
+  autosaveMessage.value = 'Draft changes pending...'
+  autosaveTimer = setTimeout(() => {
+    autosaveTimer = null
+    if (saving.value) {
+      scheduleAutosaveDraft()
+      return
+    }
+    void saveDraft({ silent: true, payloadKey })
+  }, autosaveDelayMs)
 }
 
 const submitEntry = async () => {
   if (!sessionData.value?.id || !entryComplete.value) return
+  clearAutosaveTimer()
   submitting.value = true
   error.value = null
   try {
@@ -418,6 +576,40 @@ const submitEntry = async () => {
     error.value = err
   } finally {
     submitting.value = false
+  }
+}
+
+const triggerScraper = async (source: string) => {
+  if (!sessionData.value?.id) return
+  triggeringSource.value = source
+  triggerFeedback.value = null
+  error.value = null
+  try {
+    const response: any = await api.apiFetch(`/admin/central/reward-entry/sessions/${sessionData.value.id}/trigger-scraper`, {
+      method: 'POST',
+      scope: 'central',
+      idempotencyKey: api.idempotencyKey(),
+      body: {
+        source,
+        reason: `reward_entry_manual_${source}`,
+      },
+    })
+    const label = triggerSourceOptions.find((item) => item.value === source)?.label || source
+    triggerFeedback.value = {
+      type: 'success',
+      message: `Queued manual result fetch from ${label}.`,
+    }
+    await refreshAll()
+    if (response?.status === 'queued') {
+      ownerTab.value = sessionData.value?.status || ownerTab.value
+    }
+  } catch (err: any) {
+    triggerFeedback.value = {
+      type: 'danger',
+      message: readableErrorMessage(err, 'Manual result fetch failed.'),
+    }
+  } finally {
+    triggeringSource.value = null
   }
 }
 
@@ -464,6 +656,7 @@ const resolveEntry = async () => {
       idempotencyKey: api.idempotencyKey(),
       body: {
         selected_source_type: selectedSourceType.value,
+        selected_source_id: selectedSourceType.value === 'scraper' ? selectedSourceId.value : null,
         selected_submission_id: selectedSubmissionId.value,
         final_prizes: rewardPrizeGroupsToPayload(finalGroups.value),
         reason: resolveReason.value,
@@ -482,6 +675,32 @@ const resolveEntry = async () => {
 
 const prizeLabel = (type: string) => rewardPrizeLabel(type)
 const titleize = (value: unknown) => String(value || '').replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+const readableErrorMessage = (err: any, fallback: string) => {
+  const message = err?.data?.error?.message || err?.data?.message || err?.message
+  return typeof message === 'string' && message.trim() ? message : fallback
+}
+const diffSourceNumber = (row: Record<string, any>, sourceId: string) => {
+  const sources = Array.isArray(row?.scraper_sources) ? row.scraper_sources : []
+  const source = sources.find((item: any) => item?.source_id === sourceId)
+  return source?.number || '-'
+}
+const sourceFirstPrize = (source: Record<string, any>) => {
+  const prizes = Array.isArray(source?.prizes) ? source.prizes : []
+  const firstPrize = prizes.find((row: any) => row?.prize_type === 'first_prize')
+  const number = String(firstPrize?.prize_number || '').trim()
+  return number && !/^x+$/i.test(number) ? number : 'xxxxxx'
+}
+const sourceCompletion = (source: Record<string, any>) => {
+  const percent = sourceCompletionPercent(source)
+  return percent === '0%' ? 'Live draft' : `${percent} complete`
+}
+const sourceCompletionPercent = (source: Record<string, any>) => {
+  const percent = source?.meta?.live?.completion_percent ?? source?.meta?.source?.completion_percent
+  const numeric = Number(percent)
+  return Number.isFinite(numeric)
+    ? `${numeric.toLocaleString('en-US', { maximumFractionDigits: 2 })}%`
+    : '0%'
+}
 const statusClass = (status: string) => {
   if (status === 'ready_for_owner') return 'bg-warning-transparent text-warning'
   if (status === 'resolved') return 'bg-success-transparent text-success'
@@ -498,6 +717,14 @@ const formatDateTime = (value: unknown) => {
     timeZone: 'Asia/Bangkok',
   }).format(date)
 }
+
+watch(entryGroups, () => {
+  scheduleAutosaveDraft()
+}, { deep: true })
+
+onBeforeUnmount(() => {
+  clearAutosaveTimer()
+})
 
 onMounted(refreshAll)
 </script>
@@ -520,5 +747,32 @@ onMounted(refreshAll)
 .np-entry-comparison-table {
   max-height: 520px;
   overflow: auto;
+}
+
+.np-manual-trigger {
+  background: rgba(248, 250, 252, 0.9);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.5rem;
+  padding: 0.875rem;
+}
+
+.np-scraper-sources {
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  padding-top: 1rem;
+}
+
+.np-scraper-source {
+  align-items: center;
+  background: rgba(248, 250, 252, 0.9);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.5rem;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  padding: 0.75rem;
+}
+
+.np-scraper-source + .np-scraper-source {
+  margin-top: 0.5rem;
 }
 </style>

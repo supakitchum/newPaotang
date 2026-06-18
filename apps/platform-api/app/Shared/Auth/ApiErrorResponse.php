@@ -60,6 +60,20 @@ class ApiErrorResponse
         return $response;
     }
 
+    /**
+     * @param array<string, mixed> $suspension
+     */
+    public static function customerSuspended(Request $request, array $suspension = []): JsonResponse
+    {
+        return self::make(
+            $request,
+            403,
+            'customer_suspended',
+            'This customer account is suspended.',
+            ['suspension' => $suspension],
+        );
+    }
+
     public static function notFound(Request $request): JsonResponse
     {
         return self::make($request, 404, 'resource_not_found', 'The requested resource was not found.');

@@ -9,6 +9,7 @@ use App\Models\CustomerLineLinkToken;
 use App\Modules\LineNotifications\Services\LineMessagingClient;
 use App\Modules\LineNotifications\Services\TenantLineNotificationService;
 use App\Shared\Auth\CustomerSessionContext;
+use App\Shared\Auth\CustomerSuspensionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -23,6 +24,7 @@ class CustomerLineAuthService
         private readonly CustomerPasswordResetService $passwordResets,
         private readonly LineMessagingClient $line,
         private readonly TenantLineNotificationService $lineNotifications,
+        private readonly CustomerSuspensionService $customerSuspensions,
     ) {
     }
 
@@ -208,10 +210,20 @@ class CustomerLineAuthService
             $customer = Customer::query()
                 ->where('tenant_id', $tenant['tenant_id'])
                 ->where('id', $identity->customer_id)
-                ->where('status', 'active')
                 ->first();
 
             if ($customer === null) {
+                return ['error' => 'authentication_required'];
+            }
+
+            if ($purpose !== 'password_reset' && $this->customerSuspensions->isSuspended($customer)) {
+                return [
+                    'error' => 'customer_suspended',
+                    'details' => $this->customerSuspensions->payload($customer),
+                ];
+            }
+
+            if ($purpose !== 'password_reset' && (string) $customer->status !== 'active') {
                 return ['error' => 'authentication_required'];
             }
 
@@ -378,11 +390,22 @@ class CustomerLineAuthService
                 ->first();
 
             if ($customer instanceof Customer) {
-                if ($customer->status !== 'active' || $customer->password_hash === null || ! Hash::check($password, (string) $customer->password_hash)) {
+                if ($customer->password_hash === null || ! Hash::check($password, (string) $customer->password_hash)) {
                     return [
                         'error' => 'validation_failed',
                         'details' => ['fields' => ['password' => ['The password does not match this phone number.']]],
                     ];
+                }
+
+                if ($this->customerSuspensions->isSuspended($customer)) {
+                    return [
+                        'error' => 'customer_suspended',
+                        'details' => $this->customerSuspensions->payload($customer),
+                    ];
+                }
+
+                if ($customer->status !== 'active') {
+                    return ['error' => 'authentication_required'];
                 }
 
                 if ($lineOwner instanceof CustomerLineIdentity && (string) $lineOwner->customer_id !== (string) $customer->id) {

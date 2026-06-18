@@ -417,6 +417,10 @@ class TenantActivityService
                 return ['error' => 'not_found'];
             }
 
+            if ($this->luckyBoardEntryClosed($activity)) {
+                return ['error' => 'activity_entry_closed'];
+            }
+
             $predictionType = trim((string) ($payload['prediction_type'] ?? ''));
             $selectedNumber = preg_replace('/\D+/', '', trim((string) ($payload['selected_number'] ?? ''))) ?? '';
             $errors = [];
@@ -1621,7 +1625,7 @@ class TenantActivityService
      */
     private function rightsSummary(string $tenantId, string $customerId, string $activityId): array
     {
-        $activity = TenantActivity::query()->forTenant($tenantId)->with(['luckyConfig'])->where('id', $activityId)->first();
+        $activity = TenantActivity::query()->forTenant($tenantId)->with(['game', 'luckyConfig'])->where('id', $activityId)->first();
         $config = $activity?->luckyConfig;
 
         if ($activity === null || $config === null || (string) $activity->type !== 'lucky_board') {
@@ -1665,6 +1669,9 @@ class TenantActivityService
                 : 0,
             'eligibility_rule' => $rule,
             'threshold_tickets' => $threshold,
+            'entry_deadline_at' => $this->luckyBoardEntryDeadlineAt($activity)?->toIso8601String(),
+            'entry_closed' => $this->luckyBoardEntryClosed($activity),
+            'entry_close_after_minutes' => 30,
         ];
     }
 
@@ -2304,6 +2311,7 @@ class TenantActivityService
         $thumbUrl = PublicUrl::normalizeAssetUrl($thumbAsset?->public_url) ?: $fullUrl;
         $game = $row->relationLoaded('game') ? $row->game : null;
         $resultAt = $this->activityResultAt($game?->draw_at ?? null);
+        $entryDeadlineAt = (string) $row->type === 'lucky_board' ? $this->luckyBoardEntryDeadlineAt($row) : null;
         $resource = [
             'id' => (string) $row->id,
             'tenant_id' => (string) $row->tenant_id,
@@ -2324,10 +2332,14 @@ class TenantActivityService
             'url' => '/activities/'.(string) $row->slug,
             'result_at' => $resultAt?->toIso8601String(),
             'result_time_label' => '17:00',
+            'entry_deadline_at' => $entryDeadlineAt?->toIso8601String(),
+            'entry_closed' => $entryDeadlineAt !== null && now()->gte($entryDeadlineAt),
+            'entry_close_after_minutes' => (string) $row->type === 'lucky_board' ? 30 : null,
             'game' => $game === null ? null : [
                 'id' => (string) $game->id,
                 'name' => $game->name ?? $game->draw_label ?? (string) $game->id,
                 'draw_at' => $game->draw_at ?? null,
+                'close_at' => $game->close_at ?? null,
                 'status' => $game->status ?? null,
             ],
             'config' => $this->configResource($row),
@@ -2345,6 +2357,27 @@ class TenantActivityService
         }
 
         return $resource;
+    }
+
+    private function luckyBoardEntryDeadlineAt(object $activity): ?Carbon
+    {
+        $game = $activity->relationLoaded('game') ? $activity->game : null;
+        $closeAt = $game?->close_at ?? null;
+
+        if ($closeAt === null || trim((string) $closeAt) === '') {
+            return null;
+        }
+
+        return Carbon::parse($closeAt)
+            ->timezone(self::BUSINESS_TIMEZONE)
+            ->addMinutes(30);
+    }
+
+    private function luckyBoardEntryClosed(object $activity): bool
+    {
+        $deadline = $this->luckyBoardEntryDeadlineAt($activity);
+
+        return $deadline !== null && now()->gte($deadline);
     }
 
     /**

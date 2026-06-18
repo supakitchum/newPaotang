@@ -69,9 +69,9 @@ const formattedBalance = computed(() => {
   position: relative;
   overflow: hidden;
   display: grid;
-  gap: 16px;
-  padding: 16px;
-  border-radius: 12px;
+  gap: clamp(17px, 4vw, 22px);
+  padding: clamp(19px, 5vw, 26px);
+  border-radius: 16px;
   color: #fff;
   background:
     radial-gradient(circle at 88% 0%, rgba(255, 211, 41, .92) 0 38px, transparent 39px),
@@ -124,24 +124,31 @@ const formattedBalance = computed(() => {
 }
 
 .wallet-card-amount {
-  margin-top: -4px;
+  justify-self: center;
+  margin-block: 2px 0;
+  max-width: 100%;
   font-size: clamp(26px, 8vw, 34px);
   font-weight: 900;
   line-height: 1;
   letter-spacing: 0;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .wallet-card-customer {
-  margin-top: -10px;
+  justify-self: center;
+  margin-top: -12px;
   color: rgba(255, 255, 255, .84);
   font-size: 12px;
   font-weight: 700;
+  text-align: center;
 }
 
 .wallet-card-actions {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  gap: clamp(8px, 3vw, 14px);
+  padding-top: 2px;
 }
 
 .wallet-card-action {
@@ -179,8 +186,36 @@ const formattedBalance = computed(() => {
 }
 
 .wallet-balance-card.is-compact {
-  gap: 14px;
-  padding: 15px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(15px, 4vw, 20px);
+  padding: clamp(18px, 4.8vw, 24px);
+}
+
+.wallet-balance-card.is-compact .wallet-card-head,
+.wallet-balance-card.is-compact .wallet-card-amount,
+.wallet-balance-card.is-compact .wallet-card-actions {
+  grid-column: 1 / -1;
+}
+
+.wallet-balance-card.is-compact .wallet-card-head {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: start;
+  gap: 0;
+}
+
+.wallet-balance-card.is-compact .wallet-card-label {
+  grid-column: 1 / 3;
+  justify-self: start;
+}
+
+.wallet-balance-card.is-compact .wallet-card-qr {
+  grid-column: 4;
+  justify-self: end;
+}
+
+.wallet-balance-card.is-compact .wallet-card-actions {
+  gap: 0;
 }
 
 .wallet-balance-card.is-compact .wallet-card-customer {

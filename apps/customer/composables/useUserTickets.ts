@@ -378,6 +378,7 @@ export const useUserTickets = () => {
       limit: options.perPage,
       page,
       history,
+      gameId: options.gameId,
       status: options.status
     })
     const nextCursor = response.pagination.nextPageUrl || response.pagination.seed || null

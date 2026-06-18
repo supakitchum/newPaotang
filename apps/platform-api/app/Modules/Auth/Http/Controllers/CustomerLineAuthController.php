@@ -83,6 +83,7 @@ class CustomerLineAuthController extends Controller
             'validation_failed' => ApiErrorResponse::validationFailed($request, $result['details']['fields'] ?? []),
             'authentication_required' => ApiErrorResponse::authenticationRequired($request),
             'resource_conflict' => ApiErrorResponse::resourceConflict($request),
+            'customer_suspended' => ApiErrorResponse::customerSuspended($request, $result['details'] ?? []),
             'line_identity_not_linked' => ApiErrorResponse::make(
                 $request,
                 422,

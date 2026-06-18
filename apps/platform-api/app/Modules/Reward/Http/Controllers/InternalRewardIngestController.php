@@ -16,18 +16,36 @@ class InternalRewardIngestController extends Controller
 
     public function sanook(Request $request): JsonResponse
     {
+        return $this->ingest($request, 'sanook');
+    }
+
+    public function thairath(Request $request): JsonResponse
+    {
+        return $this->ingest($request, 'thairath');
+    }
+
+    private function ingest(Request $request, string $source): JsonResponse
+    {
         if (! $this->hasValidSignature($request)) {
             return ApiErrorResponse::permissionDenied($request);
         }
 
         $payload = $request->all();
+        $payload['source'] = trim((string) ($payload['source'] ?? '')) === '' ? $source : $payload['source'];
+
+        if ($payload['source'] !== $source) {
+            return ApiErrorResponse::validationFailed($request, [
+                'source' => ['The source field must match the ingest endpoint.'],
+            ]);
+        }
+
         $errors = $this->rewards->validateLiveIngestPayload($payload);
 
         if ($errors !== []) {
             return ApiErrorResponse::validationFailed($request, $errors);
         }
 
-        $result = $this->rewards->ingestSanookLiveResult($payload, $request);
+        $result = $this->rewards->ingestLiveResult($payload, $request);
 
         return match ($result['error'] ?? null) {
             'not_found' => ApiErrorResponse::notFound($request),

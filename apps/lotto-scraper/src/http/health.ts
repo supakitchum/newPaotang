@@ -7,12 +7,15 @@ type HealthState = {
   lastIngestAt: string | null
   lastError: string | null
   phase: string
+  source: string
   drawCode: string
   ready: () => Promise<boolean>
 }
 
 type TriggerPollPayload = {
   drawCode: string
+  drawDate: string | null
+  source: string | null
   forceIngest: boolean
   reason: string
 }
@@ -39,6 +42,7 @@ export const startHealthServer = (port: number, state: HealthState, options: Hea
         service: 'lotto-scraper',
         started_at: state.startedAt,
         phase: state.phase,
+        source: state.source,
         draw_code: state.drawCode,
         last_poll_at: state.lastPollAt,
         last_ingest_at: state.lastIngestAt,
@@ -95,24 +99,44 @@ export const startHealthServer = (port: number, state: HealthState, options: Hea
       }
 
       const drawCode = String(payload?.draw_code || payload?.drawCode || '').trim()
+      const requestedSource = normalizeSource(payload?.source)
+      const drawDate = normalizeDrawDate(payload?.draw_date || payload?.drawDate || null)
 
       if (!/^\d{8}$/.test(drawCode)) {
         json(response, 422, { ok: false, error: 'invalid_draw_code' })
         return
       }
 
+      if (requestedSource !== null && requestedSource !== state.source) {
+        json(response, 409, {
+          ok: false,
+          error: 'source_mismatch',
+          message: `This scraper serves ${state.source}, but trigger requested ${requestedSource}.`
+        })
+        return
+      }
+
+      if (drawDate === false) {
+        json(response, 422, { ok: false, error: 'invalid_draw_date' })
+        return
+      }
+
       try {
         const result = await options.triggerPoll({
           drawCode,
+          drawDate,
+          source: requestedSource,
           forceIngest: payload?.force !== false && payload?.force_ingest !== false,
           reason: String(payload?.reason || 'manual_trigger').trim() || 'manual_trigger'
         })
 
-        json(response, 202, { ok: true, draw_code: drawCode, result })
+        json(response, 202, { ok: true, source: state.source, draw_code: drawCode, draw_date: drawDate, result })
       } catch (error: any) {
         json(response, 502, {
           ok: false,
+          source: state.source,
           draw_code: drawCode,
+          draw_date: drawDate,
           error: 'trigger_poll_failed',
           message: error?.message || String(error)
         })
@@ -196,3 +220,27 @@ const corsHeaders = () => ({
   'access-control-allow-methods': 'GET,OPTIONS',
   'access-control-allow-headers': 'content-type'
 })
+
+const normalizeSource = (value: unknown) => {
+  const source = String(value || '').trim().toLowerCase()
+
+  if (source === '') {
+    return null
+  }
+
+  if (source === 'sanook' || source === 'thairath') {
+    return source
+  }
+
+  return null
+}
+
+const normalizeDrawDate = (value: unknown): string | null | false => {
+  if (value === null || value === undefined || String(value).trim() === '') {
+    return null
+  }
+
+  const drawDate = String(value).trim()
+
+  return /^\d{4}-\d{2}-\d{2}$/.test(drawDate) ? drawDate : false
+}

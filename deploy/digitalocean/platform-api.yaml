@@ -1,0 +1,284 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: platform-api
+  labels:
+    app.kubernetes.io/name: platform-api
+    app.kubernetes.io/part-of: newpaotang
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: platform-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: platform-api
+        app.kubernetes.io/part-of: newpaotang
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: platform-api
+          image: newpaotang/platform-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: newpaotang-platform-config
+            - secretRef:
+                name: newpaotang-platform-secret
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 4
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health/live
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: platform-api
+  labels:
+    app.kubernetes.io/name: platform-api
+spec:
+  selector:
+    app.kubernetes.io/name: platform-api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: platform-api-worker-critical
+  labels:
+    app.kubernetes.io/name: platform-api-worker-critical
+    app.kubernetes.io/part-of: newpaotang
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: platform-api-worker-critical
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: platform-api-worker-critical
+        app.kubernetes.io/part-of: newpaotang
+    spec:
+      terminationGracePeriodSeconds: 120
+      containers:
+        - name: worker
+          image: newpaotang/platform-api:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -lc
+            - php artisan queue:work --sleep=1 --tries=3 --timeout=120 --queue=partner-inbox-high,stock-allocation,reservation-expiration,checkout-finalize,reward-check-high,reward-publish,notification,default
+          envFrom:
+            - configMapRef:
+                name: newpaotang-platform-config
+            - secretRef:
+                name: newpaotang-platform-secret
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: platform-api-worker-default
+  labels:
+    app.kubernetes.io/name: platform-api-worker-default
+    app.kubernetes.io/part-of: newpaotang
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: platform-api-worker-default
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: platform-api-worker-default
+        app.kubernetes.io/part-of: newpaotang
+    spec:
+      terminationGracePeriodSeconds: 120
+      containers:
+        - name: worker
+          image: newpaotang/platform-api:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -lc
+            - php artisan queue:work --sleep=1 --tries=3 --timeout=120 --queue=partner-inbox-normal,stock-generation,stock-sold-events,stock-recall,stock-sync,central-outbox,affiliate-commission,reward-validate,reward-check-normal,reward-summary,reward-notification,report-build,webhook-dispatch,usage-metering,partner-monitoring,default
+          envFrom:
+            - configMapRef:
+                name: newpaotang-platform-config
+            - secretRef:
+                name: newpaotang-platform-secret
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: platform-api-worker-image
+  labels:
+    app.kubernetes.io/name: platform-api-worker-image
+    app.kubernetes.io/part-of: newpaotang
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: platform-api-worker-image
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: platform-api-worker-image
+        app.kubernetes.io/part-of: newpaotang
+    spec:
+      terminationGracePeriodSeconds: 180
+      containers:
+        - name: worker
+          image: newpaotang/platform-api:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -lc
+            - php artisan queue:work --sleep=1 --tries=2 --timeout=300 --queue=stock-image-generation,stock-partner-image-generation,default
+          envFrom:
+            - configMapRef:
+                name: newpaotang-platform-config
+            - secretRef:
+                name: newpaotang-platform-secret
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: platform-api-scheduler
+  labels:
+    app.kubernetes.io/name: platform-api-scheduler
+    app.kubernetes.io/part-of: newpaotang
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: platform-api-scheduler
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: platform-api-scheduler
+        app.kubernetes.io/part-of: newpaotang
+    spec:
+      containers:
+        - name: scheduler
+          image: newpaotang/platform-api:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -lc
+            - while true; do php artisan schedule:run --no-interaction; sleep 60; done
+          envFrom:
+            - configMapRef:
+                name: newpaotang-platform-config
+            - secretRef:
+                name: newpaotang-platform-secret
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: platform-api-reverb
+  labels:
+    app.kubernetes.io/name: platform-api-reverb
+    app.kubernetes.io/part-of: newpaotang
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: platform-api-reverb
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: platform-api-reverb
+        app.kubernetes.io/part-of: newpaotang
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: reverb
+          image: newpaotang/platform-api:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -lc
+            - php artisan reverb:start --host=0.0.0.0 --port=8080
+          ports:
+            - name: ws
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: newpaotang-platform-config
+            - secretRef:
+                name: newpaotang-platform-secret
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: platform-api-reverb
+  labels:
+    app.kubernetes.io/name: platform-api-reverb
+spec:
+  selector:
+    app.kubernetes.io/name: platform-api-reverb
+  ports:
+    - name: ws
+      port: 8080
+      targetPort: ws

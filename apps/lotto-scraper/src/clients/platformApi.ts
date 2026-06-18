@@ -9,13 +9,13 @@ export class PlatformApiClient {
   ) {
   }
 
-  async ingestSanookResult(payload: LiveResultPayload) {
+  async ingestResult(payload: LiveResultPayload) {
     const body = JSON.stringify(payload)
     const timestamp = Math.floor(Date.now() / 1000).toString()
     const signature = 'sha256=' + createHmac('sha256', this.hmacSecret)
       .update(`${timestamp}.${body}`)
       .digest('hex')
-    const response = await request(`${this.baseUrl}/internal/reward-ingest/sanook`, {
+    const response = await request(`${this.baseUrl}/internal/reward-ingest/${payload.source}`, {
       method: 'POST',
       body,
       headers: {
@@ -34,6 +34,10 @@ export class PlatformApiClient {
     }
 
     return responseBody ? JSON.parse(responseBody) : {}
+  }
+
+  async ingestSanookResult(payload: LiveResultPayload) {
+    return this.ingestResult(payload)
   }
 
   async ready() {

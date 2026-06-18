@@ -1678,6 +1678,7 @@ a {
   left: 0;
   right: 0;
   bottom: 0;
+  width: 100%;
   height: 98px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1706,7 +1707,7 @@ a {
   content: '';
   position: absolute;
   top: 0;
-  width: 136px;
+  width: clamp(108px, 24vw, 156px);
   height: 100%;
   background: #eef8ff;
   border-radius: 0 0 70px 70px;
@@ -2278,13 +2279,19 @@ a {
     padding: 34px 28px 30px;
   }
 
-  .bottom-nav,
   .cart-payment-dock.payment-dock,
   .cart-dock.payment-dock {
     width: min(100%, var(--content-max));
     right: auto;
     left: 50%;
     transform: translateX(-50%);
+  }
+
+  .bottom-nav {
+    left: 0;
+    right: 0;
+    transform: none;
+    padding-inline: clamp(24px, 8vw, 96px);
   }
 
   .content-sheet > .payment-dock {

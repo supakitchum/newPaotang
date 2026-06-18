@@ -27,6 +27,7 @@ use App\Models\WebhookCallback;
 use App\Modules\Reward\Services\TenantRewardPriceRuleService;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
+use App\Shared\Auth\CustomerSuspensionService;
 use App\Shared\Tenancy\TenantHostNormalizer;
 use App\Support\CustomerNo;
 use App\Support\YoutubeLiveUrl;
@@ -52,6 +53,7 @@ class BoMenuCompletionService
     public function __construct(
         private readonly AuditLogger $auditLogger,
         private readonly TenantRewardPriceRuleService $rewardPriceRules,
+        private readonly CustomerSuspensionService $customerSuspensions,
     ) {
     }
 
@@ -1115,25 +1117,72 @@ class BoMenuCompletionService
 
         $status = trim((string) ($payload['status'] ?? ''));
         $reason = trim((string) ($payload['reason'] ?? ''));
+        $durationType = trim((string) ($payload['suspension_duration_type'] ?? $payload['duration_type'] ?? 'permanent'));
+        $durationDays = (int) ($payload['suspension_days'] ?? $payload['duration_days'] ?? 0);
         $errors = [];
 
         if (! in_array($status, self::MEMBER_STATUSES, true)) {
             $errors['status'][] = 'The status field is invalid.';
         }
 
-        if ($reason === '') {
+        if ($status === 'suspended' && ! $this->customerSuspensions->storageReady()) {
+            return ['error' => 'resource_conflict'];
+        }
+
+        if ($status === 'suspended' && $reason === '') {
             $errors['reason'][] = 'The reason field is required.';
+        }
+
+        if ($status === 'suspended') {
+            if (! in_array($durationType, ['days', 'permanent'], true)) {
+                $errors['suspension_duration_type'][] = 'Select whether the suspension is temporary or permanent.';
+            }
+
+            if ($durationType === 'days' && ($durationDays < 1 || $durationDays > 3650)) {
+                $errors['suspension_days'][] = 'The suspension_days field must be between 1 and 3650.';
+            }
         }
 
         if ($errors !== []) {
             return ['error' => 'validation_failed', 'errors' => $errors];
         }
 
-        return DB::transaction(function () use ($tenantId, $memberId, $status, $payload, $actor, $request): array {
-            Customer::query()->forTenant($tenantId)->where('id', $memberId)->update([
+        return DB::transaction(function () use ($tenantId, $memberId, $status, $reason, $durationType, $durationDays, $payload, $actor, $request): array {
+            $updates = [
                 'status' => $status,
                 'updated_at' => now(),
-            ]);
+            ];
+
+            if ($this->customerSuspensions->storageReady()) {
+                if ($status === 'suspended') {
+                    $updates += [
+                        'suspended_at' => now(),
+                        'suspended_until' => $durationType === 'days' ? now()->addDays($durationDays) : null,
+                        'suspension_reason' => $reason,
+                        'suspended_by_admin_id' => (string) $actor->adminUser['id'],
+                    ];
+                } else {
+                    $updates += [
+                        'suspended_at' => null,
+                        'suspended_until' => null,
+                        'suspension_reason' => null,
+                        'suspended_by_admin_id' => null,
+                    ];
+                }
+            }
+
+            Customer::query()->forTenant($tenantId)->where('id', $memberId)->update($updates);
+
+            if ($status === 'suspended') {
+                CustomerAuthSession::query()
+                    ->forTenant($tenantId)
+                    ->where('customer_id', $memberId)
+                    ->whereNull('revoked_at')
+                    ->update([
+                        'revoked_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+            }
 
             $this->audit($actor, $request, 'member.status_changed', 'customer', $memberId, $payload, tenantId: $tenantId);
 
@@ -1941,6 +1990,10 @@ class BoMenuCompletionService
      */
     private function memberResource(object $member): array
     {
+        if ($member instanceof Customer) {
+            $member = $this->customerSuspensions->refreshExpired($member);
+        }
+
         $wallets = $member->relationLoaded('wallets') ? $member->wallets : Wallet::query()->forTenant((string) $member->tenant_id)->where('customer_id', $member->id)->get();
         $orderCount = Order::query()->forTenant((string) $member->tenant_id)->where('customer_id', $member->id)->count();
         $lifetimeSpend = (int) Order::query()
@@ -1970,6 +2023,15 @@ class BoMenuCompletionService
             'phone' => (string) $member->phone,
             'email' => $member->email,
             'status' => (string) $member->status,
+            'suspension' => [
+                'reason' => $member instanceof Customer ? (string) ($member->suspension_reason ?? '') : '',
+                'suspended_at' => $member->suspended_at ?? null,
+                'suspended_until' => $member->suspended_until ?? null,
+                'is_permanent' => (string) $member->status === 'suspended' && empty($member->suspended_until),
+            ],
+            'suspension_reason' => $member->suspension_reason ?? null,
+            'suspended_at' => $member->suspended_at ?? null,
+            'suspended_until' => $member->suspended_until ?? null,
             'is_online' => $isOnline,
             'online_status' => $isOnline ? 'online' : 'offline',
             'last_online_at' => $lastOnlineAt,

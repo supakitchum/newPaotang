@@ -51,8 +51,12 @@ class CustomerAuthController extends Controller
 
         $response = $this->customerAuth->login($tenant, $request->all());
 
-        return $response === null
-            ? ApiErrorResponse::authenticationRequired($request)
+        if ($response === null) {
+            return ApiErrorResponse::authenticationRequired($request);
+        }
+
+        return isset($response['error'])
+            ? $this->writeResult($request, $response)
             : response()->json($response);
     }
 
@@ -66,8 +70,12 @@ class CustomerAuthController extends Controller
 
         $response = $this->customerAuth->refresh($tenant, (string) $request->input('refresh_token', ''));
 
-        return $response === null
-            ? ApiErrorResponse::authenticationRequired($request)
+        if ($response === null) {
+            return ApiErrorResponse::authenticationRequired($request);
+        }
+
+        return isset($response['error'])
+            ? $this->writeResult($request, $response)
             : response()->json($response);
     }
 
@@ -358,6 +366,7 @@ class CustomerAuthController extends Controller
             'pin_setup_required' => ApiErrorResponse::customerPinSetupRequired($request),
             'pin_required' => ApiErrorResponse::customerPinRequired($request),
             'pin_locked' => ApiErrorResponse::customerPinLocked($request, $result['retry_after_seconds'] ?? null),
+            'customer_suspended' => ApiErrorResponse::customerSuspended($request, $result['suspension'] ?? []),
             'pin_invalid' => ApiErrorResponse::make($request, 422, 'pin_invalid', 'The customer PIN is incorrect.'),
             'password_invalid' => ApiErrorResponse::make($request, 422, 'password_invalid', 'The account password is incorrect.'),
             'pin_reset_not_verified' => ApiErrorResponse::make($request, 403, 'pin_reset_not_verified', 'Please verify the account password before resetting PIN.'),

@@ -337,10 +337,10 @@ class CommerceService
     {
         $limit = $this->limit($queryParams['limit'] ?? null);
         $page = max(1, (int) ($queryParams['page'] ?? 1));
-        $historyGameId = $history ? $this->customerTicketHistoryGameId($tenantId, $customer->customerId(), $queryParams) : null;
+        $historyGameIds = $history ? $this->customerTicketHistoryGameIds($tenantId, $customer->customerId(), $queryParams) : [];
         $currentGameId = $history ? null : $this->customerCurrentTicketGameId($tenantId, $customer->customerId());
 
-        if (($history && $historyGameId === null) || (! $history && $currentGameId === null)) {
+        if (($history && $historyGameIds === []) || (! $history && $currentGameId === null)) {
             return [
                 'data' => [],
                 'meta' => [
@@ -360,7 +360,7 @@ class CommerceService
             ->with(['localStockItem', 'game']);
 
         if ($history) {
-            $query->where('game_id', $historyGameId);
+            $query->whereIn('game_id', $historyGameIds);
             $this->applyCustomerTicketHistoryScope($query);
         } else {
             $query->where('game_id', $currentGameId)
@@ -400,37 +400,54 @@ class CommerceService
 
     /**
      * @param array<string, mixed> $queryParams
+     * @return array<int, string>
      */
-    private function customerTicketHistoryGameId(string $tenantId, string $customerId, array $queryParams): ?string
+    private function customerTicketHistoryGameIds(string $tenantId, string $customerId, array $queryParams): array
     {
-        $openGame = $this->customerOpenGameForTenant($tenantId);
-
-        if ($openGame === null) {
-            return null;
-        }
-
         $query = Ticket::query()
             ->forTenant($tenantId)
             ->where('customer_id', $customerId)
             ->join('games', 'games.id', '=', 'tickets.game_id')
-            ->where('games.draw_at', '<', $openGame->draw_at);
+            ->whereExists(function ($newerGame) use ($tenantId, $customerId): void {
+                $newerGame->selectRaw('1')
+                    ->from('games as newer_games')
+                    ->whereColumn('newer_games.draw_at', '>', 'games.draw_at')
+                    ->where(function ($tenantScope) use ($tenantId, $customerId): void {
+                        $tenantScope
+                            ->whereExists(function ($newerTicket) use ($tenantId, $customerId): void {
+                                $newerTicket->selectRaw('1')
+                                    ->from('tickets as newer_tickets')
+                                    ->whereColumn('newer_tickets.game_id', 'newer_games.id')
+                                    ->where('newer_tickets.tenant_id', $tenantId)
+                                    ->where('newer_tickets.customer_id', $customerId);
+                            })
+                            ->orWhereExists(function ($newerAllocation) use ($tenantId): void {
+                                $newerAllocation->selectRaw('1')
+                                    ->from('partner_stock_allocations as newer_allocations')
+                                    ->whereColumn('newer_allocations.game_id', 'newer_games.id')
+                                    ->where('newer_allocations.tenant_id', $tenantId);
+                            });
+                    });
+            });
 
         $this->applyCustomerTicketHistoryGameCandidateScope($query);
 
         $requestedGameId = trim((string) ($queryParams['game_id'] ?? ''));
 
         if ($requestedGameId !== '') {
-            return (clone $query)->where('tickets.game_id', $requestedGameId)->exists() ? $requestedGameId : null;
+            return (clone $query)->where('tickets.game_id', $requestedGameId)->exists() ? [$requestedGameId] : [];
         }
 
-        $gameId = $query
+        return $query
+            ->select('tickets.game_id')
+            ->groupBy('tickets.game_id', 'games.draw_at', 'games.sale_start_at', 'games.created_at', 'games.id')
             ->orderByDesc('games.draw_at')
             ->orderByDesc('games.sale_start_at')
             ->orderByDesc('games.created_at')
             ->orderByDesc('games.id')
-            ->value('tickets.game_id');
-
-        return $gameId === null ? null : (string) $gameId;
+            ->pluck('tickets.game_id')
+            ->map(fn (mixed $gameId): string => (string) $gameId)
+            ->all();
     }
 
     private function applyCustomerTicketHistoryScope(Builder $query): void

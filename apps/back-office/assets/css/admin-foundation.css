@@ -64,6 +64,11 @@ body {
   background: transparent;
 }
 
+#responsive-overlay {
+  display: none !important;
+  pointer-events: none !important;
+}
+
 .np-support-token {
   word-break: break-all;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -152,6 +157,17 @@ body {
 
 .np-admin-modal .modal-content {
   max-height: inherit;
+}
+
+@media (min-width: 992px) {
+  [data-toggled='open'] .page {
+    position: relative !important;
+  }
+
+  .np-sidebar-backdrop {
+    display: none !important;
+    pointer-events: none !important;
+  }
 }
 
 @media (max-width: 991.98px) {

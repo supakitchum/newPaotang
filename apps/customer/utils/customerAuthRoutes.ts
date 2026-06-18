@@ -6,6 +6,7 @@ const publicCustomerRoutes = new Set([
   '/reset-password',
   '/line/callback',
   '/line/link-phone',
+  '/account-suspended',
   '/maintenance',
   '/news',
   '/terms',

@@ -26,7 +26,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
     clearAuthToken,
     pinSetupRequired,
     pinRequired,
+    accountSuspension,
   } = useAuth()
+  const suspensionRedirect = () => navigateTo('/account-suspended', { replace: true })
   const loginRedirect = () => navigateTo({
     path: '/login',
     query: {
@@ -41,6 +43,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
     const session = await refreshAuthToken()
 
+    if (accountSuspension.value) {
+      return false
+    }
+
     return Boolean(session?.token)
   }
   const restoreOrRefreshSession = async (forceProfile = false) => {
@@ -52,14 +58,26 @@ export default defineNuxtRouteMiddleware(async (to) => {
       await restoreAuthState(forceProfile)
       return true
     } catch {
+      if (accountSuspension.value) {
+        return false
+      }
+
       return refreshSession()
     }
+  }
+
+  if (to.path !== '/account-suspended' && accountSuspension.value && !isAuthenticated.value) {
+    return suspensionRedirect()
   }
 
   if (requiresAuth && !isAuthenticated.value) {
     const refreshed = await refreshSession()
 
     if (!refreshed) {
+      if (accountSuspension.value) {
+        return suspensionRedirect()
+      }
+
       return loginRedirect()
     }
   }
@@ -70,6 +88,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
     const restored = await restoreOrRefreshSession(!userPinStateKnown)
 
     if (!restored && requiresAuth) {
+      if (accountSuspension.value) {
+        return suspensionRedirect()
+      }
+
       return loginRedirect()
     }
   }
@@ -79,6 +101,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
     if (!restored) {
       if (requiresAuth) {
+        if (accountSuspension.value) {
+          return suspensionRedirect()
+        }
+
         return loginRedirect()
       }
 
@@ -90,6 +116,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
     const restored = await restoreOrRefreshSession(true)
 
     if (!restored) {
+      if (accountSuspension.value) {
+        return suspensionRedirect()
+      }
+
       return loginRedirect()
     }
 

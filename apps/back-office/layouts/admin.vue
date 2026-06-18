@@ -26,6 +26,7 @@ const { t } = useAdminLocale()
 const { ready, markReady } = useAdminClientReady()
 const adminSessionRedirectTimeoutMs = 3000
 const adminMenuBadgeMinRefreshMs = 3000
+const adminMobileSidebarQuery = '(max-width: 991.98px)'
 const clientReady = computed(() => ready.value)
 const isPublicAdminStatusPage = computed(() => ['/admin/403', '/admin/404', '/admin/500'].includes(route.path))
 const canRenderAdminContent = computed(() => isPublicAdminStatusPage.value || (clientReady.value && session.isAuthenticated.value))
@@ -35,6 +36,7 @@ let sessionRedirectTimer: ReturnType<typeof setTimeout> | null = null
 let menuBadgeRefreshInFlight = false
 let menuBadgeRefreshListenersStarted = false
 let lastMenuBadgeRefreshAt = 0
+let sidebarMediaQuery: MediaQueryList | null = null
 
 const clearSessionRedirectTimer = () => {
   if (!sessionRedirectTimer) {
@@ -128,6 +130,53 @@ const stopMenuBadgeRefresh = () => {
   menuBadgeRefreshListenersStarted = false
 }
 
+const removeLegacyResponsiveOverlay = () => {
+  if (!import.meta.client) {
+    return
+  }
+
+  document.querySelectorAll('#responsive-overlay').forEach((element) => {
+    element.classList.remove('active')
+    element.remove()
+  })
+}
+
+const isMobileSidebarViewport = () => (
+  import.meta.client
+  && window.matchMedia(adminMobileSidebarQuery).matches
+)
+
+const closeSidebar = () => {
+  if (!import.meta.client) {
+    return
+  }
+
+  removeLegacyResponsiveOverlay()
+  document.documentElement.setAttribute('data-toggled', 'close')
+}
+
+const sanitizeSidebarOverlayState = () => {
+  if (!import.meta.client) {
+    return
+  }
+
+  removeLegacyResponsiveOverlay()
+
+  if (document.documentElement.getAttribute('data-toggled') !== 'open') {
+    return
+  }
+
+  if (isMobileSidebarViewport()) {
+    document.documentElement.setAttribute('data-toggled', 'close')
+  } else {
+    document.documentElement.removeAttribute('data-toggled')
+  }
+}
+
+const handleSidebarViewportChange = () => {
+  sanitizeSidebarOverlayState()
+}
+
 const adminMenuRealtimeChannelName = computed(() => {
   if (!shouldRefreshMenuBadges()) {
     return ''
@@ -155,12 +204,17 @@ useAdminRealtimeSubscription({
 })
 
 onMounted(async () => {
+  sidebarMediaQuery = window.matchMedia(adminMobileSidebarQuery)
+  sidebarMediaQuery.addEventListener('change', handleSidebarViewportChange)
+  sanitizeSidebarOverlayState()
+
   sessionRedirectTimer = setTimeout(() => {
     void redirectStalledAdminRestore()
   }, adminSessionRedirectTimeoutMs)
 
   session.restore()
   markReady()
+  session.applyPreferredLocale()
 
   if (await redirectExpiredAdminSession()) {
     clearSessionRedirectTimer()
@@ -184,6 +238,12 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   clearSessionRedirectTimer()
   stopMenuBadgeRefresh()
+  sidebarMediaQuery?.removeEventListener('change', handleSidebarViewportChange)
+  sidebarMediaQuery = null
+})
+
+watch(() => route.fullPath, () => {
+  sanitizeSidebarOverlayState()
 })
 
 watch(() => [session.currentScope.value, session.currentTenantId.value], () => {
@@ -208,7 +268,4 @@ watch(() => session.isAuthenticated.value, (authenticated) => {
   void redirectExpiredAdminSession()
 })
 
-const closeSidebar = () => {
-  document.documentElement.setAttribute('data-toggled', 'close')
-}
 </script>

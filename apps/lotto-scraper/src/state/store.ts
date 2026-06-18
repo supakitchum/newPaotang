@@ -89,6 +89,15 @@ export class StateStore {
     await this.client.set(key, serialized, { PX: ttlMs })
   }
 
+  async delete(key: string) {
+    if (!this.client?.isOpen) {
+      this.fallback.delete(key)
+      return
+    }
+
+    await this.client.del(key)
+  }
+
   async close() {
     if (this.client?.isOpen) {
       await this.client.quit()

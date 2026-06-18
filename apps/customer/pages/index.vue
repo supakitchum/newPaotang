@@ -40,7 +40,7 @@
 
       <WalletBalanceCard
         v-if="isAuthenticated"
-        class="mb-4"
+        class="home-wallet-card"
         :balance="walletBalance"
         :loading="isWalletLoading"
         :customer-label="customerNoLabel"
@@ -416,6 +416,12 @@ onMounted(() => {
   border-radius: 12px;
   background: #fff;
   box-shadow: 0 10px 24px rgba(33, 55, 85, .08);
+}
+
+.home-wallet-card {
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 4px auto 24px;
 }
 
 .home-guest-panel p {

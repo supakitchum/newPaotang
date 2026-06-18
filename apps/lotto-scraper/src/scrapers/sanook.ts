@@ -63,7 +63,7 @@ export const fetchSanookHtml = async (sourceBaseUrl: string, drawCode: string) =
   }
 }
 
-export const parseSanookLottoHtml = (html: string, drawCode: string, sourceUrl: string, scrapedAt = new Date().toISOString()): ScrapeResult => {
+export const parseSanookLottoHtml = (html: string, drawCode: string, sourceUrl: string, scrapedAt = new Date().toISOString(), drawDate = drawDateFromCode(drawCode)): ScrapeResult => {
   const $ = load(html)
   const groups: LivePrizeGroup[] = withComputedNearFirstPrize([
     group('first_prize', firstPrizeNumbers($)),
@@ -81,14 +81,14 @@ export const parseSanookLottoHtml = (html: string, drawCode: string, sourceUrl: 
   const canonical = JSON.stringify({
     source: 'sanook',
     draw_code: drawCode,
-    draw_date: drawDateFromCode(drawCode),
+    draw_date: drawDate,
     prizes: groups
   })
   const payloadHash = createHash('sha256').update(canonical).digest('hex')
   const payload = {
     source: 'sanook' as const,
     draw_code: drawCode,
-    draw_date: drawDateFromCode(drawCode),
+    draw_date: drawDate,
     scraped_at: scrapedAt,
     completion_percent: completedPercent,
     payload_hash: payloadHash,
@@ -135,9 +135,23 @@ const numbersFrom = ($: ReturnType<typeof load>, element: any) => {
 const padGroup = (prize: LivePrizeGroup): LivePrizeGroup => {
   const rule = prizeRules[prize.prize_type]
   const placeholder = 'x'.repeat(rule.digits)
-  const numbers = prize.prize_numbers
-    .map((number) => normalizePrizeNumber(number, rule.digits))
-    .slice(0, rule.count)
+  const seen = new Set<string>()
+  const numbers = prize.prize_numbers.reduce<string[]>((items, number) => {
+    const normalized = normalizePrizeNumber(number, rule.digits)
+
+    if (isPlaceholder(normalized, rule.digits)) {
+      return items
+    }
+
+    if (seen.has(normalized)) {
+      return items
+    }
+
+    seen.add(normalized)
+    items.push(normalized)
+
+    return items
+  }, []).slice(0, rule.count)
 
   while (numbers.length < rule.count) {
     numbers.push(placeholder)

@@ -2,6 +2,7 @@
 
 namespace App\Modules\Reward\Services;
 
+use App\Jobs\TriggerLottoScraperPollJob;
 use App\Models\AdminUserRole;
 use App\Models\Game;
 use App\Models\RewardEntryResolution;
@@ -275,6 +276,67 @@ class RewardEntryService
      * @param array<string, mixed> $payload
      * @return array{resource?: array<string, mixed>, status?: int, error?: string, errors?: array<string, array<int, string>>}
      */
+    public function triggerScraper(string $sessionId, array $payload, AdminSessionContext $actor, Request $request): array
+    {
+        $session = RewardEntrySession::query()
+            ->with('game')
+            ->whereKey($sessionId)
+            ->first();
+
+        if ($session === null) {
+            return ['error' => 'not_found'];
+        }
+
+        if (in_array((string) $session->status, ['resolved', 'cancelled'], true)) {
+            return ['error' => 'resource_conflict'];
+        }
+
+        $game = $session->game;
+        $drawCode = trim((string) ($game?->code ?? ''));
+
+        if ($game === null || $drawCode === '') {
+            return ['error' => 'resource_conflict'];
+        }
+
+        $source = $this->normalizeTriggerSource($payload['source'] ?? 'all');
+
+        if ($source === null) {
+            return ['error' => 'validation_failed', 'errors' => [
+                'source' => ['The source field must be all, sanook, or thairath.'],
+            ]];
+        }
+
+        $reason = trim((string) ($payload['reason'] ?? 'reward_entry_manual_trigger')) ?: 'reward_entry_manual_trigger';
+        $drawDate = $this->gameDrawDate($game);
+
+        TriggerLottoScraperPollJob::dispatch($drawCode, (string) $game->id, $reason, $source, $drawDate);
+
+        $this->audit($actor, $request, 'reward_entry.scraper_triggered', 'reward_entry_session', (string) $session->id, [
+            'game_id' => (string) $game->id,
+            'draw_code' => $drawCode,
+            'draw_date' => $drawDate,
+            'source' => $source,
+            'reason' => $reason,
+        ]);
+
+        return [
+            'status' => 202,
+            'resource' => [
+                'session_id' => (string) $session->id,
+                'game_id' => (string) $game->id,
+                'draw_code' => $drawCode,
+                'draw_date' => $drawDate,
+                'source' => $source,
+                'status' => 'queued',
+                'reason' => $reason,
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string, errors?: array<string, array<int, string>>}
+     */
     public function resolve(string $sessionId, array $payload, AdminSessionContext $actor, Request $request): array
     {
         return DB::transaction(function () use ($sessionId, $payload, $actor, $request): array {
@@ -291,11 +353,12 @@ class RewardEntryService
             $session = $this->refreshScraperSnapshot($session, true);
 
             $selectedSourceType = trim((string) ($payload['selected_source_type'] ?? 'manual'));
+            $selectedSourceId = trim((string) ($payload['selected_source_id'] ?? '')) ?: null;
             $selectedSubmissionId = trim((string) ($payload['selected_submission_id'] ?? '')) ?: null;
             $reason = trim((string) ($payload['reason'] ?? ''));
             $finalPrizes = array_key_exists('final_prizes', $payload)
                 ? $this->normalizePrizeRows($payload['final_prizes'])
-                : $this->sourcePrizes($session, $selectedSourceType, $selectedSubmissionId);
+                : $this->sourcePrizes($session, $selectedSourceType, $selectedSubmissionId, $selectedSourceId);
 
             if (! in_array($selectedSourceType, ['scraper', 'submission', 'manual'], true)) {
                 return ['error' => 'validation_failed', 'errors' => ['selected_source_type' => ['The selected source type is invalid.']]];
@@ -307,6 +370,10 @@ class RewardEntryService
 
             if ($selectedSourceType === 'scraper' && ! is_array($session->scraper_snapshot_json ?? null)) {
                 return ['error' => 'validation_failed', 'errors' => ['selected_source_type' => ['A lotto-scraper snapshot is not available for this session.']]];
+            }
+
+            if ($selectedSourceType === 'scraper' && $selectedSourceId !== null && ! $this->scraperSourceExists($session, $selectedSourceId)) {
+                return ['error' => 'validation_failed', 'errors' => ['selected_source_id' => ['The selected scraper source is not available for this session.']]];
             }
 
             if ($finalPrizes === []) {
@@ -487,13 +554,36 @@ class RewardEntryService
 
         $source = is_array($snapshot['source'] ?? null) ? $snapshot['source'] : [];
         $live = is_array($snapshot['live'] ?? null) ? $snapshot['live'] : [];
+        $comparisonHash = $this->comparisonSourcesKey($snapshot);
 
         return implode('|', [
             (string) ($snapshot['reward_result_id'] ?? ''),
             (string) ($source['payload_hash'] ?? ''),
             (string) ($live['completion_percent'] ?? ''),
+            $comparisonHash,
             (string) ($snapshot['updated_at'] ?? ''),
         ]);
+    }
+
+    /**
+     * @param array<string, mixed> $snapshot
+     */
+    private function comparisonSourcesKey(array $snapshot): string
+    {
+        $sources = is_array($snapshot['comparison_sources'] ?? null) ? $snapshot['comparison_sources'] : [];
+
+        return sha1(json_encode(array_map(function (mixed $source): array {
+            $row = is_array($source) ? $source : [];
+            $sourceMeta = is_array($row['source'] ?? null) ? $row['source'] : [];
+            $liveMeta = is_array($row['live'] ?? null) ? $row['live'] : [];
+
+            return [
+                'name' => (string) ($sourceMeta['name'] ?? ''),
+                'payload_hash' => (string) ($sourceMeta['payload_hash'] ?? ''),
+                'completion_percent' => (string) ($liveMeta['completion_percent'] ?? ''),
+                'updated_at' => (string) ($row['updated_at'] ?? ''),
+            ];
+        }, $sources), JSON_THROW_ON_ERROR));
     }
 
     private function queueCentralMenuBadgeBroadcast(string $source): void
@@ -609,6 +699,7 @@ class RewardEntryService
             'status' => (string) $result->status,
             'source' => $summary['source'] ?? ['name' => 'lotto-scraper'],
             'live' => $summary['live'] ?? null,
+            'comparison_sources' => is_array($summary['comparison_sources'] ?? null) ? $summary['comparison_sources'] : [],
             'updated_at' => optional($result->updated_at)->toISOString(),
             'prizes' => $this->rewardPrizeRows((string) $result->id),
         ];
@@ -690,6 +781,75 @@ class RewardEntryService
     }
 
     /**
+     * Sort prize numbers inside each prize type so comparison does not depend on
+     * the order returned by a source.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function sortPrizeRowsForComparison(array $rows): array
+    {
+        $rules = ThaiGovernmentLotteryRewardTemplate::rules();
+        $rowsByType = [];
+
+        foreach ($rows as $row) {
+            $type = (string) ($row['prize_type'] ?? '');
+
+            if (! isset($rules[$type])) {
+                continue;
+            }
+
+            $rowsByType[$type][] = $row;
+        }
+
+        foreach ($rowsByType as $type => $typeRows) {
+            $digits = (int) ($rules[$type]['digits'] ?? 0);
+            usort($typeRows, fn (array $left, array $right): int => $this->comparePrizeRowsForComparison($left, $right, $digits));
+            $rowsByType[$type] = $typeRows;
+        }
+
+        $sorted = [];
+        foreach ($rules as $type => $_rule) {
+            foreach ($rowsByType[$type] ?? [] as $row) {
+                $sorted[] = $row;
+            }
+        }
+
+        return $sorted;
+    }
+
+    /**
+     * @param array<string, mixed> $left
+     * @param array<string, mixed> $right
+     */
+    private function comparePrizeRowsForComparison(array $left, array $right, int $digits): int
+    {
+        $leftNumber = trim((string) ($left['prize_number'] ?? ''));
+        $rightNumber = trim((string) ($right['prize_number'] ?? ''));
+        $leftRank = $this->prizeNumberComparisonRank($leftNumber, $digits);
+        $rightRank = $this->prizeNumberComparisonRank($rightNumber, $digits);
+
+        if ($leftRank !== $rightRank) {
+            return $leftRank <=> $rightRank;
+        }
+
+        return strcmp($leftNumber, $rightNumber);
+    }
+
+    private function prizeNumberComparisonRank(string $number, int $digits): int
+    {
+        if ($digits > 0 && preg_match('/^[0-9]{'.$digits.'}$/', $number) === 1) {
+            return 0;
+        }
+
+        if ($number !== '' && preg_match('/^x+$/i', $number) === 1) {
+            return 1;
+        }
+
+        return 2;
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     private function emptyPrizeRows(): array
@@ -731,18 +891,41 @@ class RewardEntryService
      */
     private function diffToScraper(array $prizes, ?array $scraperSnapshot): array
     {
-        $scraperPrizes = $this->normalizePrizeRows($scraperSnapshot['prizes'] ?? []);
+        $scraperSources = $this->scraperSourcesForSnapshot($scraperSnapshot);
         $rows = [];
         $mismatchCount = 0;
         $missingScraperCount = 0;
 
         foreach ($this->indexedRows($prizes) as $key => $row) {
-            $scraper = $this->indexedRows($scraperPrizes)[$key] ?? null;
-            $scraperNumber = $scraper === null ? null : trim((string) $scraper['prize_number']);
-            $operatorNumber = trim((string) $row['prize_number']);
-            $matches = $scraperNumber !== null && $scraperNumber !== '' && $operatorNumber === $scraperNumber;
+            $sourceRows = [];
+            $sourceNumbers = [];
+            $scraperNumber = null;
 
-            if ($scraperNumber === null || $scraperNumber === '') {
+            foreach ($scraperSources as $source) {
+                $scraper = $this->indexedRows($source['prizes'] ?? [])[$key] ?? null;
+                $number = $scraper === null ? null : trim((string) $scraper['prize_number']);
+                $usableNumber = $this->usablePrizeNumber($number);
+
+                if ($scraperNumber === null && $usableNumber !== null) {
+                    $scraperNumber = $usableNumber;
+                }
+
+                if ($usableNumber !== null) {
+                    $sourceNumbers[] = $usableNumber;
+                }
+
+                $sourceRows[] = [
+                    'source_id' => (string) $source['id'],
+                    'source_name' => (string) ($source['source_name'] ?? ''),
+                    'label' => (string) ($source['label'] ?? 'Lotto Scraper'),
+                    'number' => $usableNumber,
+                ];
+            }
+
+            $operatorNumber = trim((string) $row['prize_number']);
+            $matches = in_array($operatorNumber, $sourceNumbers, true);
+
+            if ($sourceNumbers === []) {
                 $missingScraperCount++;
             } elseif (! $matches) {
                 $mismatchCount++;
@@ -754,13 +937,20 @@ class RewardEntryService
                 'index' => $this->rowIndexFromKey($key),
                 'operator_number' => $operatorNumber,
                 'scraper_number' => $scraperNumber,
+                'scraper_sources' => $sourceRows,
                 'matches' => $matches,
             ];
         }
 
         return [
             'summary' => [
-                'has_scraper' => $scraperSnapshot !== null,
+                'has_scraper' => $scraperSources !== [],
+                'source_count' => count($scraperSources),
+                'sources' => array_map(fn (array $source): array => [
+                    'id' => (string) $source['id'],
+                    'source_name' => (string) ($source['source_name'] ?? ''),
+                    'label' => (string) ($source['label'] ?? 'Lotto Scraper'),
+                ], $scraperSources),
                 'mismatch_count' => $mismatchCount,
                 'missing_scraper_count' => $missingScraperCount,
             ],
@@ -777,7 +967,7 @@ class RewardEntryService
         $counters = [];
         $indexed = [];
 
-        foreach ($this->normalizePrizeRows($prizes) as $row) {
+        foreach ($this->sortPrizeRowsForComparison($this->normalizePrizeRows($prizes)) as $row) {
             $type = (string) $row['prize_type'];
             $index = $counters[$type] ?? 0;
             $indexed[$type.':'.$index] = $row;
@@ -803,17 +993,15 @@ class RewardEntryService
         $sources = [];
         $snapshot = is_array($session->scraper_snapshot_json ?? null) ? $session->scraper_snapshot_json : null;
 
-        if ($snapshot !== null) {
+        foreach ($this->scraperSourcesForSnapshot($snapshot) as $source) {
             $sources[] = [
-                'id' => 'scraper',
+                'id' => (string) $source['id'],
                 'source_type' => 'scraper',
-                'label' => 'Lotto Scraper',
-                'submitted_at' => $snapshot['updated_at'] ?? null,
-                'prizes' => $this->normalizePrizeRows($snapshot['prizes'] ?? []),
-                'meta' => [
-                    'source' => $snapshot['source'] ?? null,
-                    'live' => $snapshot['live'] ?? null,
-                ],
+                'source_name' => (string) ($source['source_name'] ?? ''),
+                'label' => (string) $source['label'],
+                'submitted_at' => $source['submitted_at'] ?? null,
+                'prizes' => $this->sortPrizeRowsForComparison($this->normalizePrizeRows($source['prizes'] ?? [])),
+                'meta' => $source['meta'] ?? [],
             ];
         }
 
@@ -829,12 +1017,148 @@ class RewardEntryService
                 'label' => $label,
                 'admin_user_id' => (string) $submission->admin_user_id,
                 'submitted_at' => $submission->submitted_at,
-                'prizes' => $this->normalizePrizeRows($submission->prizes_json ?? []),
+                'prizes' => $this->sortPrizeRowsForComparison($this->normalizePrizeRows($submission->prizes_json ?? [])),
                 'diff_to_scraper' => $submission->diff_to_scraper_json,
             ];
         }
 
         return $sources;
+    }
+
+    /**
+     * @param array<string, mixed> $snapshot
+     * @return array<string, array<string, mixed>>
+     */
+    private function comparisonSourceRows(array $snapshot): array
+    {
+        $rows = [];
+        $primarySource = is_array($snapshot['source'] ?? null) ? $snapshot['source'] : [];
+        $primaryName = trim((string) ($primarySource['name'] ?? ''));
+        $sources = is_array($snapshot['comparison_sources'] ?? null) ? $snapshot['comparison_sources'] : [];
+
+        foreach ($sources as $sourceName => $source) {
+            $row = is_array($source) ? $source : [];
+            $sourceMeta = is_array($row['source'] ?? null) ? $row['source'] : [];
+            $name = trim((string) ($sourceMeta['name'] ?? $sourceName));
+
+            if ($name === '' || $name === $primaryName) {
+                continue;
+            }
+
+            $rows[$name] = $row;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param array<string, mixed>|null $snapshot
+     * @return array<int, array<string, mixed>>
+     */
+    private function scraperSourcesForSnapshot(?array $snapshot): array
+    {
+        if ($snapshot === null) {
+            return [];
+        }
+
+        $sources = [];
+        $comparisonSources = $this->comparisonSourceRows($snapshot);
+        $primarySource = is_array($snapshot['source'] ?? null) ? $snapshot['source'] : [];
+        $primaryName = trim((string) ($primarySource['name'] ?? ''));
+        $primaryPrizes = $this->sortPrizeRowsForComparison($this->normalizePrizeRows($snapshot['prizes'] ?? []));
+
+        if ($primaryName !== '' || $this->hasUsablePrizeNumbers($primaryPrizes) || $comparisonSources === []) {
+            $sourceName = $primaryName === '' ? 'lotto-scraper' : $primaryName;
+            $sources[] = [
+                'id' => 'scraper',
+                'source_type' => 'scraper',
+                'source_name' => $sourceName,
+                'label' => $this->scraperSourceLabel($sourceName),
+                'submitted_at' => $snapshot['updated_at'] ?? null,
+                'prizes' => $primaryPrizes,
+                'meta' => [
+                    'source' => $primarySource === [] ? ['name' => $sourceName] : $primarySource,
+                    'live' => $snapshot['live'] ?? null,
+                ],
+            ];
+        }
+
+        foreach ($comparisonSources as $sourceName => $comparisonSource) {
+            $sources[] = [
+                'id' => 'scraper:'.$sourceName,
+                'source_type' => 'scraper',
+                'source_name' => $sourceName,
+                'label' => $this->scraperSourceLabel($sourceName),
+                'submitted_at' => $comparisonSource['updated_at'] ?? ($comparisonSource['live']['updated_at'] ?? null),
+                'prizes' => $this->sortPrizeRowsForComparison($this->normalizePrizeRows($comparisonSource['prizes'] ?? [])),
+                'meta' => [
+                    'source' => $comparisonSource['source'] ?? ['name' => $sourceName],
+                    'live' => $comparisonSource['live'] ?? null,
+                    'comparison_source' => true,
+                ],
+            ];
+        }
+
+        return $sources;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $prizes
+     */
+    private function hasUsablePrizeNumbers(array $prizes): bool
+    {
+        foreach ($prizes as $row) {
+            if ($this->usablePrizeNumber($row['prize_number'] ?? null) !== null) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function usablePrizeNumber(mixed $number): ?string
+    {
+        $normalized = trim((string) ($number ?? ''));
+
+        if ($normalized === '' || preg_match('/^x+$/i', $normalized) === 1) {
+            return null;
+        }
+
+        return $normalized;
+    }
+
+    private function scraperSourceLabel(mixed $source): string
+    {
+        return match (trim((string) $source)) {
+            'sanook' => 'Sanook',
+            'thairath' => 'Thai Rath',
+            default => 'Lotto Scraper',
+        };
+    }
+
+    private function normalizeTriggerSource(mixed $source): ?string
+    {
+        $source = strtolower(trim((string) $source));
+
+        return match ($source) {
+            '', 'all' => 'all',
+            'sanook' => 'sanook',
+            'thairath', 'thai_rath', 'thai-rath' => 'thairath',
+            default => null,
+        };
+    }
+
+    private function gameDrawDate(object $game): ?string
+    {
+        $drawAt = $game->draw_at ?? null;
+
+        if ($drawAt === null || trim((string) $drawAt) === '') {
+            return null;
+        }
+
+        return \Carbon\CarbonImmutable::parse((string) $drawAt)
+            ->timezone('Asia/Bangkok')
+            ->format('Y-m-d');
     }
 
     /**
@@ -877,12 +1201,19 @@ class RewardEntryService
     /**
      * @return array<int, array<string, mixed>>
      */
-    private function sourcePrizes(object $session, string $sourceType, ?string $submissionId): array
+    private function sourcePrizes(object $session, string $sourceType, ?string $submissionId, ?string $sourceId = null): array
     {
         if ($sourceType === 'scraper') {
             $snapshot = is_array($session->scraper_snapshot_json ?? null) ? $session->scraper_snapshot_json : null;
+            $sourceId = $sourceId === null || trim($sourceId) === '' ? 'scraper' : trim($sourceId);
 
-            return $this->normalizePrizeRows($snapshot['prizes'] ?? []);
+            foreach ($this->scraperSourcesForSnapshot($snapshot) as $source) {
+                if ((string) $source['id'] === $sourceId) {
+                    return $this->normalizePrizeRows($source['prizes'] ?? []);
+                }
+            }
+
+            return [];
         }
 
         if ($sourceType === 'submission' && $submissionId !== null) {
@@ -911,6 +1242,19 @@ class RewardEntryService
             ->exists();
     }
 
+    private function scraperSourceExists(object $session, string $sourceId): bool
+    {
+        $snapshot = is_array($session->scraper_snapshot_json ?? null) ? $session->scraper_snapshot_json : null;
+
+        foreach ($this->scraperSourcesForSnapshot($snapshot) as $source) {
+            if ((string) $source['id'] === $sourceId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -921,6 +1265,7 @@ class RewardEntryService
         $submission = $this->actorIsExpectedOperator($session, $actor)
             ? $this->submissionForActor($session, $actor, true)
             : null;
+        $isExpectedOperator = $submission !== null;
 
         return [
             'id' => (string) $session->id,
@@ -929,7 +1274,7 @@ class RewardEntryService
             'expected_operator_count' => (int) $session->expected_operator_count,
             'submitted_count' => (int) $session->submitted_count,
             'expected_operators' => $session->expected_operators_json ?? [],
-            'is_expected_operator' => $submission !== null,
+            'is_expected_operator' => $isExpectedOperator,
             'submission' => $submission === null ? null : [
                 'id' => (string) $submission->id,
                 'status' => (string) $submission->status,
@@ -937,7 +1282,9 @@ class RewardEntryService
                 'diff_to_scraper' => (string) $submission->status === 'submitted' ? $submission->diff_to_scraper_json : null,
                 'submitted_at' => $submission->submitted_at,
             ],
-            'scraper_snapshot' => $this->scraperSnapshotForResponse($session, $submission),
+            'scraper_snapshot' => $isExpectedOperator
+                ? $this->scraperSnapshotProgressForResponse($session)
+                : $this->scraperSnapshotForResponse($session, $submission, true),
             'reward_result_id' => $session->reward_result_id,
             'ready_at' => $session->ready_at,
             'resolved_at' => $session->resolved_at,
@@ -1010,9 +1357,9 @@ class RewardEntryService
     /**
      * @return array<string, mixed>|null
      */
-    private function scraperSnapshotForResponse(object $session, ?object $submission): ?array
+    private function scraperSnapshotForResponse(object $session, ?object $submission, bool $forceVisible = false): ?array
     {
-        if ($submission === null || (string) $submission->status !== 'submitted') {
+        if (! $forceVisible && ($submission === null || (string) $submission->status !== 'submitted')) {
             return null;
         }
 
@@ -1026,8 +1373,37 @@ class RewardEntryService
             'status' => $snapshot['status'] ?? null,
             'source' => $snapshot['source'] ?? null,
             'live' => $snapshot['live'] ?? null,
+            'sources' => $this->scraperSourcesForSnapshot($snapshot),
+            'comparison_sources' => $this->comparisonSourceRows($snapshot),
             'updated_at' => $snapshot['updated_at'] ?? null,
             'prizes' => $this->normalizePrizeRows($snapshot['prizes'] ?? []),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function scraperSnapshotProgressForResponse(object $session): ?array
+    {
+        $snapshot = is_array($session->scraper_snapshot_json ?? null) ? $session->scraper_snapshot_json : null;
+
+        if ($snapshot === null) {
+            return null;
+        }
+
+        return [
+            'status' => $snapshot['status'] ?? null,
+            'source' => $snapshot['source'] ?? null,
+            'live' => $snapshot['live'] ?? null,
+            'sources' => array_map(fn (array $source): array => [
+                'id' => (string) ($source['id'] ?? ''),
+                'source_type' => (string) ($source['source_type'] ?? 'scraper'),
+                'source_name' => (string) ($source['source_name'] ?? ''),
+                'label' => (string) ($source['label'] ?? 'Lotto Scraper'),
+                'submitted_at' => $source['submitted_at'] ?? null,
+                'meta' => $source['meta'] ?? [],
+            ], $this->scraperSourcesForSnapshot($snapshot)),
+            'updated_at' => $snapshot['updated_at'] ?? null,
         ];
     }
 

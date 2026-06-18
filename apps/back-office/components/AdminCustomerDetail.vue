@@ -112,6 +112,21 @@ const sections = computed(() => {
     return []
   }
 
+  const suspensionSection = row.status === 'suspended' || row.suspension_reason || row.suspended_until
+    ? [{
+        title: 'Suspension',
+        items: [
+          { key: 'suspension_reason', label: 'Reason', value: valueOrDash(row.suspension_reason || row.suspension?.reason) },
+          { key: 'suspended_at', label: 'Suspended at', value: formatDateTime(row.suspended_at || row.suspension?.suspended_at) },
+          {
+            key: 'suspended_until',
+            label: 'Suspended until',
+            value: row.suspension?.is_permanent ? 'Permanent' : formatDateTime(row.suspended_until || row.suspension?.suspended_until),
+          },
+        ],
+      }]
+    : []
+
   return [
     {
       title: 'Basic',
@@ -130,6 +145,7 @@ const sections = computed(() => {
         { key: 'email', label: 'Email', value: valueOrDash(row.email) },
       ],
     },
+    ...suspensionSection,
     {
       title: 'Online',
       items: [

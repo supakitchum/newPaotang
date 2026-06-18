@@ -1,4 +1,7 @@
+import type { ScrapeSource } from './types.js'
+
 export type ScraperConfig = {
+  source: ScrapeSource
   sourceBaseUrl: string
   platformApiUrl: string
   hmacSecret: string
@@ -23,8 +26,20 @@ const integerEnv = (name: string, fallback: number) => {
   return Number.isFinite(value) && value > 0 ? Math.round(value) : fallback
 }
 
+const sourceEnv = (): ScrapeSource => {
+  const value = (process.env.LOTTO_SCRAPER_SOURCE || 'sanook').trim().toLowerCase()
+
+  return value === 'thairath' ? 'thairath' : 'sanook'
+}
+
+const source = sourceEnv()
+const defaultSourceBaseUrl = source === 'thairath'
+  ? 'https://www.thairath.co.th/lottery/check'
+  : 'https://news.sanook.com/lotto/check'
+
 export const config: ScraperConfig = {
-  sourceBaseUrl: process.env.LOTTO_SCRAPER_SOURCE_BASE_URL || 'https://news.sanook.com/lotto/check',
+  source,
+  sourceBaseUrl: process.env.LOTTO_SCRAPER_SOURCE_BASE_URL || defaultSourceBaseUrl,
   platformApiUrl: (process.env.LOTTO_SCRAPER_PLATFORM_API_URL || 'http://platform-api:8000/api/v1').replace(/\/$/, ''),
   hmacSecret: process.env.LOTTO_SCRAPER_HMAC_SECRET || 'newpaotang-local-lotto-scraper-secret',
   redisUrl: process.env.LOTTO_SCRAPER_REDIS_URL || 'redis://valkey:6379',

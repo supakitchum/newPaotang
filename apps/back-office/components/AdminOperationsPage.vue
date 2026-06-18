@@ -228,7 +228,7 @@
       <AdminFilterBar :filters="hydratedReportFilters" :model-value="filters" @apply="applyFilters" />
       <AdminExportPanel :actions="hydratedCollectionActions" @run="openCollectionAction" />
       <AdminApiState :error="error" />
-      <AdminReportPanel :data="detail" :loading="loading" />
+      <AdminReportPanel :key="reportPanelKey" :data="detail" :loading="loading" />
     </template>
 
     <template v-else-if="isStockPatternCoverageRoute">
@@ -702,6 +702,7 @@ const error = ref<any>(null)
 const actionError = ref<any>(null)
 const rows = ref<any[]>([])
 const detail = ref<any>(null)
+let loadSequence = 0
 const settingsDraft = ref('')
 const settingsForm = reactive<Record<string, any>>({})
 const secondaryDetails = reactive<Record<string, any>>({})
@@ -888,6 +889,11 @@ const isStockPatternCoverageRoute = computed(() => props.scope === 'central' && 
 const isAllocationsRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'allocations')
 const isWinnersRoute = computed(() => props.scope === 'central' && slugParts.value.join('/') === 'winners')
 const isTenantStockRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'stock')
+const isCentralRevenueReportRoute = computed(() => Boolean(
+  props.scope === 'central'
+  && mode.value === 'report-detail'
+  && recordId.value === 'overview',
+))
 const isTenantDrawReportRoute = computed(() => Boolean(
   props.scope === 'tenant'
   && mode.value === 'report-detail'
@@ -1130,6 +1136,7 @@ useAdminRealtimeSubscription({
   onEvent: handleTenantRewardClaimRealtimeEvent,
 })
 const currentCentralGameOption = computed(() => singleCurrentGameOption(optionSourceOptions['central-games'] || []))
+const currentCentralReportGameOption = computed(() => latestDefaultOrCurrentGameOption(optionSourceOptions['central-games'] || []))
 const currentCentralWinnerGameOption = computed(() => latestDefaultOrCurrentGameOption(optionSourceOptions['central-winner-games'] || []))
 const currentCentralSalePriceGameOption = computed(() => latestDefaultOrCurrentGameOption(optionSourceOptions['central-sale-price-games'] || []))
 const currentCentralRewardPayoutRuleGameOption = computed(() => latestDefaultOrCurrentGameOption(optionSourceOptions['central-reward-payout-rule-games'] || []))
@@ -1303,6 +1310,14 @@ const reportFilters = computed(() => resource.value?.filters?.length ? resource.
   { key: 'limit', label: 'Limit', type: 'number' as const },
 ])
 const hydratedReportFilters = computed(() => translateReportFilters(hydrateFilters(reportFilters.value), reportLocale.value))
+const reportPanelKey = computed(() => {
+  const activeFilters = Object.entries(filters.value || {})
+    .filter(([, value]) => !isBlank(value))
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${key}=${String(value)}`)
+
+  return [props.scope, recordId.value || 'report', ...activeFilters].join('|')
+})
 const stockTicketColumns = [
   { key: 'id', label: 'Ticket' },
   { key: 'full_number', label: 'Number' },
@@ -1386,7 +1401,7 @@ function applyResourceDefaultSort() {
 }
 
 const applyFilters = (next: Record<string, any>) => {
-  filters.value = routeFiltersWithCurrentGame({ ...next })
+  filters.value = filtersWithCurrentGameDefaults({ ...next })
   stockGenerationSubmittedBatch.value = null
   stockGenerationHasActiveBatch.value = false
   load()
@@ -1431,17 +1446,25 @@ async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previo
     return
   }
 
+  const sequence = ++loadSequence
+  const isLatestLoad = () => sequence === loadSequence
   const shouldShowLoading = !options.silent
   if (shouldShowLoading) {
     loading.value = true
+    if (mode.value === 'report-detail') {
+      detail.value = null
+    }
   }
   error.value = null
   try {
     if (mode.value === 'detail') {
       if (resource.value.detailFromList) {
-        detail.value = await loadDetailFromList()
+        const response = await loadDetailFromList()
+        if (!isLatestLoad()) return
+        detail.value = response
       } else {
         const response = await api.apiFetch(interpolate(resource.value.detailEndpoint || '', recordId.value), apiOptions())
+        if (!isLatestLoad()) return
         detail.value = extractData(response)
       }
       detailDraft.value = JSON.stringify(detail.value || {}, null, 2)
@@ -1451,6 +1474,7 @@ async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previo
 
     if (mode.value === 'settings') {
       const response = await api.apiFetch(resource.value.listEndpoint || '', apiOptions())
+      if (!isLatestLoad()) return
       detail.value = extractData(response)
       settingsDraft.value = JSON.stringify(detail.value || {}, null, 2)
       resetSettingsForm()
@@ -1460,17 +1484,20 @@ async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previo
 
     if (mode.value === 'report-detail') {
       const response = await api.apiFetch(resource.value.listEndpoint || '', apiOptions({ query: queryWithCursor(cursor) }))
+      if (!isLatestLoad()) return
       detail.value = response
       return
     }
 
     if (mode.value === 'summary') {
       const response = await api.apiFetch(resource.value.listEndpoint || '', apiOptions({ query: cleanQuery(filters.value) }))
+      if (!isLatestLoad()) return
       detail.value = extractData(response)
       return
     }
 
     if (showListSections.value) {
+      if (!isLatestLoad()) return
       rows.value = []
       meta.next_cursor = null
       meta.has_more = false
@@ -1483,6 +1510,7 @@ async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previo
 
     const pageCursor = cursor || null
     const response = await api.apiFetch(resource.value.listEndpoint || '', apiOptions({ query: queryWithCursor(pageCursor) }))
+    if (!isLatestLoad()) return
     const nextRows = normalizeRows(response, resource.value)
     rows.value = nextRows
     const nextMeta = extractMeta(response)
@@ -1491,9 +1519,10 @@ async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previo
     meta.has_more = Boolean(nextMeta.has_more || nextMeta.next_cursor)
     updatePageState(pageState, pageCursor, pageMode)
   } catch (err) {
+    if (!isLatestLoad()) return
     error.value = err
   } finally {
-    if (shouldShowLoading) {
+    if (shouldShowLoading && isLatestLoad()) {
       loading.value = false
     }
   }
@@ -2182,7 +2211,23 @@ const latestDefaultOrCurrentGameOption = (options: OperationOption[]) => options
 )) || latestCurrentGameOption(options) || options[0] || null
 
 const applyCurrentGameFilterDefault = () => {
-  filters.value = tenantReportFiltersWithCurrentGame(routeFiltersWithCurrentGame(filters.value))
+  filters.value = filtersWithCurrentGameDefaults(filters.value)
+}
+
+const filtersWithCurrentGameDefaults = (next: Record<string, any>) => (
+  centralRevenueReportFiltersWithCurrentGame(tenantReportFiltersWithCurrentGame(routeFiltersWithCurrentGame(next)))
+)
+
+const centralRevenueReportFiltersWithCurrentGame = (next: Record<string, any>) => {
+  if (!isCentralRevenueReportRoute.value || !isBlank(next.game_id)) {
+    return next
+  }
+
+  const currentGame = currentCentralReportGameOption.value
+  return {
+    ...next,
+    game_id: currentGame ? optionValue(currentGame) : '',
+  }
 }
 
 const routeFiltersWithCurrentGame = (next: Record<string, any>) => (
@@ -2194,7 +2239,7 @@ const tenantReportFiltersWithCurrentGame = (next: Record<string, any>) => {
     return next
   }
 
-  const currentGame = latestCurrentGameOption(optionSourceOptions['tenant-stock-games'] || [])
+  const currentGame = latestTenantStockGameOption(optionSourceOptions['tenant-stock-games'] || [])
   return {
     ...next,
     game_id: currentGame ? optionValue(currentGame) : '',

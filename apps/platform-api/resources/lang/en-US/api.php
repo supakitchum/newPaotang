@@ -7,6 +7,7 @@ return [
         'pin_setup_required' => 'A 6-digit customer PIN must be set before continuing.',
         'pin_required' => 'Customer PIN verification is required before continuing.',
         'pin_locked' => 'Customer PIN verification is temporarily locked. Please try again later.',
+        'customer_suspended' => 'This customer account is suspended.',
         'pin_invalid' => 'The customer PIN is incorrect.',
         'resource_not_found' => 'The requested resource was not found.',
         'resource_conflict' => 'The resource conflicts with existing state.',

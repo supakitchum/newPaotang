@@ -6,10 +6,17 @@ export const AUTH_REFRESH_TOKEN_COOKIE = 'auth_refresh_token'
 export const AUTH_USER_COOKIE = 'auth_user'
 export const AUTH_PIN_UNLOCKED_SESSION = 'auth_pin_unlocked'
 export const LINE_REDIRECT_COOKIE = 'line_redirect'
+export const AUTH_ACCOUNT_SUSPENSION_COOKIE = 'auth_account_suspension'
 export const AUTH_ACCESS_TOKEN_TTL_SECONDS = 3600
 export const AUTH_REFRESH_TOKEN_TTL_SECONDS = 2592000
 
 export type AuthUser = Record<string, unknown>
+export type AccountSuspension = {
+  reason?: string
+  suspended_at?: string | null
+  suspended_until?: string | null
+  is_permanent?: boolean
+}
 export type AuthSessionResponse = {
   token?: string | null
   refresh_token?: string | null
@@ -40,9 +47,14 @@ export const useAuth = () => {
   const lineRedirect = useCookie<string | null>(`${LINE_REDIRECT_COOKIE}_${authScope}`, {
     sameSite: 'lax'
   })
+  const accountSuspensionCookie = useCookie<AccountSuspension | null>(`${AUTH_ACCOUNT_SUSPENSION_COOKIE}_${authScope}`, {
+    sameSite: 'lax',
+    maxAge: AUTH_REFRESH_TOKEN_TTL_SECONDS
+  })
   const token = useState<string | null>(`auth_token_state_${authScope}`, () => tokenCookie.value)
   const refreshToken = useState<string | null>(`auth_refresh_token_state_${authScope}`, () => refreshTokenCookie.value)
   const user = useState<AuthUser | null>(`auth_user_state_${authScope}`, () => userCookie.value)
+  const accountSuspension = useState<AccountSuspension | null>(`auth_account_suspension_state_${authScope}`, () => accountSuspensionCookie.value)
   const hasRestoredUser = useState<boolean>(`auth_me_restored_state_${authScope}`, () => Boolean(userCookie.value))
   const pinUnlockedKey = `${AUTH_PIN_UNLOCKED_SESSION}_${authScope}`
   const pinVerified = useState<boolean>(`auth_pin_verified_state_${authScope}`, () => (
@@ -103,6 +115,7 @@ export const useAuth = () => {
       return
     }
 
+    clearAccountSuspension()
     setAuthToken(session.token, session.refresh_token)
     setAuthUser(session.user || session.customer || {})
 
@@ -117,6 +130,16 @@ export const useAuth = () => {
 
   const clearLineRedirect = () => {
     lineRedirect.value = null
+  }
+
+  const setAccountSuspension = (value: AccountSuspension | null | undefined) => {
+    accountSuspension.value = value || {}
+    accountSuspensionCookie.value = accountSuspension.value
+  }
+
+  const clearAccountSuspension = () => {
+    accountSuspension.value = null
+    accountSuspensionCookie.value = null
   }
 
   const clearAuthToken = () => {
@@ -162,7 +185,10 @@ export const useAuth = () => {
       })
 
       return session
-    } catch {
+    } catch (error: any) {
+      if (error?.response?.data?.error?.code === 'customer_suspended') {
+        setAccountSuspension(error.response.data.error.details?.suspension || {})
+      }
       clearAuthToken()
       return null
     }
@@ -183,6 +209,7 @@ export const useAuth = () => {
     refreshToken,
     user,
     lineRedirect,
+    accountSuspension,
     pinVerified,
     hasPin,
     pinSetupRequired,
@@ -195,6 +222,8 @@ export const useAuth = () => {
     setPinVerified,
     setLineRedirect,
     clearLineRedirect,
+    setAccountSuspension,
+    clearAccountSuspension,
     clearAuthToken,
     restoreAuthState,
     refreshAuthToken,

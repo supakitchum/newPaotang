@@ -96,6 +96,22 @@ class CentralRewardEntryController extends Controller
         return $comparison === null ? ApiErrorResponse::notFound($request) : response()->json($comparison);
     }
 
+    public function triggerScraper(Request $request, string $session_id): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'reward_entry.view');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $headerErrors = $this->headers->idempotencyKeyErrors($request);
+        if ($headerErrors !== []) {
+            return ApiErrorResponse::validationFailed($request, $headerErrors);
+        }
+
+        return $this->writeResult($request, $this->rewardEntries->triggerScraper($session_id, $request->all(), $context, $request), 202);
+    }
+
     public function resolve(Request $request, string $session_id): JsonResponse
     {
         $context = $this->authorizedContext($request, 'reward_entry.resolve');

@@ -634,6 +634,79 @@ class RewardEngineTest extends TestCase
             ->assertJsonPath('prizes.0.prize_number', $world['ticket_number']);
     }
 
+    public function test_RewardEngine_sanook_live_ingest_handles_reordered_prize_numbers(): void
+    {
+        config(['platform.lotto_scraper.hmac_secret' => 'test-secret']);
+        $world = $this->prepareRewardWorld('par_reward_reorder', 'ten_reward_reorder', 'reward-reorder.m7.test', 'gam_reward_reorder', '0807100100', 791002);
+        DB::table('games')->where('id', $world['game_id'])->update(['code' => '16062569']);
+
+        $initialPayload = $this->sanookLivePayload('16062569', [[
+            'prize_type' => 'fourth_prize',
+            'prize_numbers' => ['111111', '222222'],
+        ]], 1.16);
+        $this->postSignedSanookIngest($initialPayload)
+            ->assertOk()
+            ->assertJsonPath('status', 'live_draft');
+
+        $reorderedPayload = $this->sanookLivePayload('16062569', [[
+            'prize_type' => 'fourth_prize',
+            'prize_numbers' => ['222222', '111111'],
+        ]], 1.16);
+        $this->postSignedSanookIngest($reorderedPayload)
+            ->assertOk()
+            ->assertJsonPath('status', 'live_draft');
+
+        $fourthPrizeNumbers = DB::table('reward_prizes')
+            ->where('game_id', $world['game_id'])
+            ->where('prize_type', 'fourth_prize')
+            ->orderBy('sort_order')
+            ->limit(2)
+            ->pluck('prize_number')
+            ->all();
+
+        $this->assertSame(['222222', '111111'], $fourthPrizeNumbers);
+    }
+
+    public function test_RewardEngine_thairath_live_ingest_is_stored_as_comparison_source(): void
+    {
+        config(['platform.lotto_scraper.hmac_secret' => 'test-secret']);
+        $world = $this->prepareRewardWorld('par_reward_thairath', 'ten_reward_thairath', 'reward-thairath.m7.test', 'gam_reward_thairath', '0807100101', 791003);
+        DB::table('games')->where('id', $world['game_id'])->update(['code' => '16062569']);
+
+        $sanookPayload = $this->livePayload('sanook', '16062569', [[
+            'prize_type' => 'first_prize',
+            'prize_numbers' => [$world['ticket_number']],
+        ]], 1.17);
+        $this->postSignedLiveIngest('sanook', $sanookPayload)
+            ->assertOk()
+            ->assertJsonPath('status', 'live_draft')
+            ->assertJsonPath('source.name', 'sanook')
+            ->assertJsonPath('prizes.0.prize_number', $world['ticket_number']);
+
+        $payload = $this->livePayload('thairath', '16062569', [[
+            'prize_type' => 'first_prize',
+            'prize_numbers' => ['999999'],
+        ], [
+            'prize_type' => 'back2',
+            'prize_numbers' => [substr($world['ticket_number'], -2)],
+        ]], 1.17);
+
+        $this->postSignedLiveIngest('thairath', $payload)
+            ->assertOk()
+            ->assertJsonPath('status', 'live_draft')
+            ->assertJsonPath('source.name', 'sanook')
+            ->assertJsonPath('comparison_source.source.name', 'thairath')
+            ->assertJsonPath('comparison_sources.thairath.source.name', 'thairath')
+            ->assertJsonPath('prizes.0.prize_number', $world['ticket_number']);
+
+        $this->assertSame($world['ticket_number'], DB::table('reward_prizes')
+            ->where('game_id', $world['game_id'])
+            ->where('prize_type', 'first_prize')
+            ->value('prize_number'));
+        $this->assertSame(0, DB::table('winning_tickets')->where('game_id', $world['game_id'])->count());
+    }
+
+
     public function test_RewardEngine_redraw_discards_unapproved_claims_and_blocks_after_approval(): void
     {
         $world = $this->prepareRewardWorld('par_reward_redraw', 'ten_reward_redraw', 'reward-redraw.m7.test', 'gam_reward_redraw', '0807100299', 793001);
@@ -801,8 +874,17 @@ class RewardEngineTest extends TestCase
      */
     private function sanookLivePayload(string $drawCode, array $prizes, float $completionPercent): array
     {
+        return $this->livePayload('sanook', $drawCode, $prizes, $completionPercent);
+    }
+
+    /**
+     * @param array<int, array{prize_type: string, prize_numbers: array<int, string>}> $prizes
+     * @return array<string, mixed>
+     */
+    private function livePayload(string $source, string $drawCode, array $prizes, float $completionPercent): array
+    {
         return [
-            'source' => 'sanook',
+            'source' => $source,
             'draw_code' => $drawCode,
             'draw_date' => '2026-06-01',
             'scraped_at' => now()->toISOString(),
@@ -836,11 +918,19 @@ class RewardEngineTest extends TestCase
      */
     private function postSignedSanookIngest(array $payload, string $secret = 'test-secret'): \Illuminate\Testing\TestResponse
     {
+        return $this->postSignedLiveIngest('sanook', $payload, $secret);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function postSignedLiveIngest(string $source, array $payload, string $secret = 'test-secret'): \Illuminate\Testing\TestResponse
+    {
         $body = json_encode($payload, JSON_THROW_ON_ERROR);
         $timestamp = (string) time();
         $signature = 'sha256='.hash_hmac('sha256', $timestamp.'.'.$body, $secret);
 
-        return $this->call('POST', '/api/v1/internal/reward-ingest/sanook', [], [], [], [
+        return $this->call('POST', '/api/v1/internal/reward-ingest/'.$source, [], [], [], [
             'CONTENT_TYPE' => 'application/json',
             'HTTP_X_LOTTO_SCRAPER_TIMESTAMP' => $timestamp,
             'HTTP_X_LOTTO_SCRAPER_SIGNATURE' => $signature,

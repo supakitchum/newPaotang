@@ -709,10 +709,33 @@ class RewardClaimTest extends TestCase
                 ->assertJsonPath('data.0.id', $latest['ticket_id'])
                 ->assertJsonPath('data.0.game_id', $latest['game_id']);
 
-            $this->withToken($old['auth']['token'])
+            $initialHistory = $this->withToken($old['auth']['token'])
                 ->getJson('http://'.$old['host'].'/api/v1/customer/tickets/history')
                 ->assertOk()
-                ->assertJsonCount(0, 'data');
+                ->json();
+
+            $this->assertCount(1, $initialHistory['data']);
+            $this->assertSame($old['ticket_id'], $initialHistory['data'][0]['id']);
+            $this->assertSame($old['game_id'], $initialHistory['data'][0]['game_id']);
+
+            $this->insertGame('gam_rw_hist_newer', 'open');
+            DB::table('games')->where('id', 'gam_rw_hist_newer')->update([
+                'sale_start_at' => now()->addDay(),
+                'close_at' => Carbon::parse('2026-06-01 14:30:00', 'Asia/Bangkok'),
+                'closed_at' => null,
+                'draw_at' => Carbon::parse('2026-06-01 15:30:00', 'Asia/Bangkok'),
+                'status' => 'open',
+                'updated_at' => now(),
+            ]);
+
+            $unallocatedHistory = $this->withToken($old['auth']['token'])
+                ->getJson('http://'.$old['host'].'/api/v1/customer/tickets/history')
+                ->assertOk()
+                ->json();
+
+            $this->assertCount(1, $unallocatedHistory['data']);
+            $this->assertSame($old['ticket_id'], $unallocatedHistory['data'][0]['id']);
+            $this->assertSame($old['game_id'], $unallocatedHistory['data'][0]['game_id']);
 
             $this->prepareOpenAllocatedGame($old, 'gam_reward_history_open', 790701, '2026-06-01 15:30:00');
 
@@ -731,10 +754,21 @@ class RewardClaimTest extends TestCase
                 ->assertOk()
                 ->json();
 
-            $this->assertCount(1, $history['data']);
-            $this->assertSame($latest['ticket_id'], $history['data'][0]['id']);
-            $this->assertSame($latest['game_id'], $history['data'][0]['game_id']);
-            $this->assertSame('2026-05-16', substr((string) $history['data'][0]['game']['draw_at'], 0, 10));
+            $this->assertCount(2, $history['data']);
+            $this->assertEqualsCanonicalizing(
+                [$old['ticket_id'], $latest['ticket_id']],
+                array_column($history['data'], 'id'),
+            );
+
+            $latestHistory = $this->withToken($old['auth']['token'])
+                ->getJson('http://'.$old['host'].'/api/v1/customer/tickets/history?game_id='.$latest['game_id'])
+                ->assertOk()
+                ->json();
+
+            $this->assertCount(1, $latestHistory['data']);
+            $this->assertSame($latest['ticket_id'], $latestHistory['data'][0]['id']);
+            $this->assertSame($latest['game_id'], $latestHistory['data'][0]['game_id']);
+            $this->assertSame('2026-05-16', substr((string) $latestHistory['data'][0]['game']['draw_at'], 0, 10));
         } finally {
             Carbon::setTestNow();
         }

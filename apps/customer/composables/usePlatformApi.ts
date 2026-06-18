@@ -1203,7 +1203,7 @@ export const usePlatformApi = () => {
     }
   }
 
-  const ticketsLegacy = async (input: { cursor?: string | null, limit?: number, page?: number, history?: boolean, status?: string | number } = {}) => {
+  const ticketsLegacy = async (input: { cursor?: string | null, limit?: number, page?: number, history?: boolean, status?: string | number, gameId?: string | number | null } = {}) => {
     const activeGamePromise = input.history
       ? Promise.resolve(null)
       : getCurrentGame().catch(() => currentGameState.value)
@@ -1212,6 +1212,7 @@ export const usePlatformApi = () => {
         params: {
           ...(input.cursor ? { cursor: input.cursor } : {}),
           ...(input.page ? { page: input.page } : {}),
+          ...(input.gameId ? { game_id: input.gameId } : {}),
           ...(input.status !== undefined && input.status !== null && String(input.status) !== '' ? { status: input.status } : {}),
           limit: input.limit || 20
         }

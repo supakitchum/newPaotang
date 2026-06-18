@@ -29,19 +29,25 @@ class TriggerLottoScraperPollJob implements ShouldQueue
         public readonly string $drawCode,
         public readonly ?string $gameId = null,
         public readonly string $reason = 'manual_trigger',
+        public readonly string $source = 'all',
+        public readonly ?string $drawDate = null,
     ) {
         $this->onQueue('default');
     }
 
     public function handle(LottoScraperTriggerClient $scraper): void
     {
-        $result = $scraper->triggerDraw($this->drawCode, $this->gameId, $this->reason);
+        $source = isset($this->source) ? $this->source : 'all';
+        $drawDate = isset($this->drawDate) ? $this->drawDate : null;
+        $result = $scraper->triggerDraw($this->drawCode, $this->gameId, $this->reason, $source, $drawDate);
 
         if (($result['ok'] ?? false) === true) {
             Log::info('Lotto scraper trigger accepted.', [
                 'draw_code' => $this->drawCode,
+                'draw_date' => $drawDate,
                 'game_id' => $this->gameId,
                 'reason' => $this->reason,
+                'source' => $source,
                 'status' => $result['status'] ?? null,
             ]);
 
@@ -50,8 +56,10 @@ class TriggerLottoScraperPollJob implements ShouldQueue
 
         Log::warning('Lotto scraper trigger failed.', [
             'draw_code' => $this->drawCode,
+            'draw_date' => $drawDate,
             'game_id' => $this->gameId,
             'reason' => $this->reason,
+            'source' => $source,
             'retryable' => $result['retryable'] ?? false,
             'status' => $result['status'] ?? null,
             'message' => $result['message'] ?? null,

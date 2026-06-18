@@ -6,6 +6,7 @@ use App\Jobs\DispatchStockBatchImageJobs;
 use App\Jobs\GenerateLotteryImageJob;
 use App\Jobs\GenerateStockBatchChunkJob;
 use App\Jobs\TriggerLottoScraperPollJob;
+use App\Models\AuditLog;
 use App\Models\Game;
 use App\Models\Partner;
 use App\Models\PartnerQuota;
@@ -61,6 +62,7 @@ class CentralStockService
     private const STOCK_SET_DISTRIBUTION_SETTING_KEY = 'stock_set_distribution_default';
     private const STOCK_PATTERN_COVERAGE_SETTING_KEY = 'stock_pattern_coverage_default';
     private const BUSINESS_TIMEZONE = 'Asia/Bangkok';
+    private const AUTO_CLOSE_DELAY_MINUTES = 30;
     private const ALLOCATION_STATUSES = [
         'draft',
         'pending',
@@ -414,34 +416,85 @@ class CentralStockService
 
             $closedAt = now();
 
-            Game::query()->where('id', $gameId)->update([
-                'status' => 'closed',
-                'closed_at' => $closedAt,
-                'updated_at' => $closedAt,
-            ]);
-
-            $this->insertOutboxEvent(
-                eventType: 'game.closed.v1',
-                producer: 'central_stock',
-                tenantId: null,
-                partnerId: null,
-                gameId: $gameId,
-                aggregateType: 'game',
-                aggregateId: $gameId,
-                idempotencyKey: $request->header('Idempotency-Key'),
-                correlationId: $request->header('X-Request-Id'),
-                payload: [
-                    'game_id' => $gameId,
-                    'closed_at' => $closedAt->toISOString(),
-                    'reason' => $payload['reason'] ?? 'manual_close',
-                ],
+            $this->closeOpenGame(
+                $game,
+                $closedAt,
+                (string) ($payload['reason'] ?? 'manual_close'),
+                $request->header('Idempotency-Key'),
+                $request->header('X-Request-Id'),
             );
 
             $this->auditGameChange($actor, $request, $gameId, 'closed', $payload);
-            $this->dispatchLottoScraperTriggerAfterCommit($gameId, (string) $game->code, 'game_closed');
 
             return $this->findGame($gameId);
         });
+    }
+
+    /**
+     * @return array{closed_count: int, closed_games: array<int, array<string, mixed>>}
+     */
+    public function autoCloseExpiredGames(int $limit = 100): array
+    {
+        $limit = max(1, min(100, $limit));
+        $now = now();
+        $cutoff = $now->copy()->subMinutes(self::AUTO_CLOSE_DELAY_MINUTES);
+        $gameIds = Game::query()
+            ->where('status', 'open')
+            ->whereNotNull('close_at')
+            ->where('close_at', '<=', $cutoff)
+            ->orderBy('close_at')
+            ->limit($limit)
+            ->pluck('id')
+            ->map(fn (mixed $id): string => (string) $id)
+            ->all();
+        $closedGames = [];
+
+        foreach ($gameIds as $gameId) {
+            $closed = DB::transaction(function () use ($gameId, $now): ?array {
+                $game = Game::query()->where('id', $gameId)->lockForUpdate()->first();
+
+                if ($game === null || $game->status !== 'open' || $game->close_at === null) {
+                    return null;
+                }
+
+                $eligibleAt = Carbon::parse($game->close_at)->addMinutes(self::AUTO_CLOSE_DELAY_MINUTES);
+                if ($eligibleAt->greaterThan($now)) {
+                    return null;
+                }
+
+                $payload = [
+                    'reason' => 'auto_close_after_sale_cutoff',
+                    'close_at' => Carbon::parse($game->close_at)->toISOString(),
+                    'eligible_at' => $eligibleAt->toISOString(),
+                    'delay_minutes' => self::AUTO_CLOSE_DELAY_MINUTES,
+                ];
+
+                $this->closeOpenGame(
+                    $game,
+                    $now,
+                    'auto_close_after_sale_cutoff',
+                    'auto-close-'.$gameId,
+                    null,
+                );
+                $this->auditSystemGameChange($gameId, 'closed', $payload);
+
+                return [
+                    'id' => $gameId,
+                    'code' => (string) $game->code,
+                    'closed_at' => $now->toISOString(),
+                    'reason' => 'auto_close_after_sale_cutoff',
+                ];
+            });
+
+            if ($closed !== null) {
+                $closedGames[] = $closed;
+            }
+        }
+
+        return [
+            'closed_count' => count($closedGames),
+            'closed_games' => $closedGames,
+        ];
     }
 
     /**
@@ -463,9 +516,10 @@ class CentralStockService
         }
 
         $reason = trim((string) ($payload['reason'] ?? 'manual_trigger')) ?: 'manual_trigger';
-        $this->dispatchLottoScraperTriggerAfterCommit($gameId, (string) $game->code, $reason);
+        $this->dispatchLottoScraperTriggerAfterCommit($gameId, (string) $game->code, $reason, $this->gameDrawDateForScraper($game));
         $this->auditGameChange($actor, $request, $gameId, 'reward_scraper_triggered', [
             'draw_code' => (string) $game->code,
+            'draw_date' => $this->gameDrawDateForScraper($game),
             'reason' => $reason,
         ]);
 
@@ -502,7 +556,7 @@ class CentralStockService
         });
     }
 
-    private function dispatchLottoScraperTriggerAfterCommit(string $gameId, string $drawCode, string $reason): void
+    private function dispatchLottoScraperTriggerAfterCommit(string $gameId, string $drawCode, string $reason, ?string $drawDate = null): void
     {
         $drawCode = trim($drawCode);
 
@@ -515,7 +569,7 @@ class CentralStockService
             return;
         }
 
-        $dispatch = static fn (): mixed => TriggerLottoScraperPollJob::dispatch($drawCode, $gameId, $reason);
+        $dispatch = static fn (): mixed => TriggerLottoScraperPollJob::dispatch($drawCode, $gameId, $reason, 'all', $drawDate);
 
         if (DB::transactionLevel() > 0) {
             DB::afterCommit($dispatch);
@@ -524,6 +578,41 @@ class CentralStockService
         }
 
         $dispatch();
+    }
+
+    private function closeOpenGame(
+        Game $game,
+        Carbon $closedAt,
+        string $reason,
+        ?string $idempotencyKey,
+        ?string $correlationId,
+    ): void {
+        $gameId = (string) $game->id;
+
+        Game::query()->where('id', $gameId)->update([
+            'status' => 'closed',
+            'closed_at' => $closedAt,
+            'updated_at' => $closedAt,
+        ]);
+
+        $this->insertOutboxEvent(
+            eventType: 'game.closed.v1',
+            producer: 'central_stock',
+            tenantId: null,
+            partnerId: null,
+            gameId: $gameId,
+            aggregateType: 'game',
+            aggregateId: $gameId,
+            idempotencyKey: $idempotencyKey,
+            correlationId: $correlationId,
+            payload: [
+                'game_id' => $gameId,
+                'closed_at' => $closedAt->toISOString(),
+                'reason' => $reason,
+            ],
+        );
+
+        $this->dispatchLottoScraperTriggerAfterCommit($gameId, (string) $game->code, $reason, $this->gameDrawDateForScraper($game));
     }
 
     /**
@@ -7860,6 +7949,35 @@ class CentralStockService
     /**
      * @param array<string, mixed> $payload
      */
+    private function auditSystemGameChange(string $gameId, string $changeType, array $payload): void
+    {
+        $now = now();
+
+        AuditLog::query()->insert([
+            'id' => 'aud_'.Str::ulid()->toBase32(),
+            'actor_type' => 'system',
+            'actor_id' => 'system_auto_close',
+            'scope_type' => 'central',
+            'tenant_id' => null,
+            'partner_id' => null,
+            'action' => 'game.'.$changeType,
+            'target_type' => 'game',
+            'target_id' => $gameId,
+            'request_id' => null,
+            'ip_address' => null,
+            'user_agent' => 'scheduler:games:auto-close-expired',
+            'payload_redacted_json' => json_encode($this->auditLogger->redactPayload([
+                'change_type' => $changeType,
+                'payload' => $payload,
+            ]), JSON_THROW_ON_ERROR),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
     private function auditStockChange(
         AdminSessionContext $actor,
         Request $request,
@@ -8032,6 +8150,20 @@ class CentralStockService
         $buddhistYear = (int) $drawAt->format('Y') + 543;
 
         return $drawAt->format('dm').$buddhistYear;
+    }
+
+    private function gameDrawDateForScraper(object $game): ?string
+    {
+        $drawAt = $game->draw_at ?? null;
+
+        if ($drawAt === null || trim((string) $drawAt) === '') {
+            return null;
+        }
+
+        return Carbon::parse((string) $drawAt)
+            ->copy()
+            ->setTimezone(self::BUSINESS_TIMEZONE)
+            ->format('Y-m-d');
     }
 
     private function nullableTimestamp(mixed $value): ?string

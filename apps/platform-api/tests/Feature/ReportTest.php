@@ -144,6 +144,222 @@ class ReportTest extends TestCase
             $this->assertIsArray($response['columns']);
             $this->assertIsArray($response['sections']);
         }
+
+        $overview = $this->withToken($centralAdmin['access_token'])
+            ->getJson('/api/v1/admin/central/reports/overview?tenant_id='.$world['tenant_id'], $headers)
+            ->assertOk()
+            ->assertJsonPath('game_id', $world['game_id'])
+            ->assertJsonPath('columns.0.key', 'metric')
+            ->json();
+        $this->assertSame([], $overview['rows']);
+        $overviewRows = collect($overview['sections'][0]['rows'])->keyBy('metric');
+        $this->assertSame(1, $overviewRows['Sold tickets']['value']);
+        $this->assertSame('tickets', $overviewRows['Sold tickets']['unit']);
+        $this->assertSame(10000, $overviewRows['Sales amount']['value']['amount']);
+        $this->assertSame(8250, $overviewRows['Profit']['value']['amount']);
+
+        $overviewWithDateNoise = $this->withToken($centralAdmin['access_token'])
+            ->getJson('/api/v1/admin/central/reports/overview?tenant_id='.$world['tenant_id'].'&date_from=1900-01-01&date_to=1900-01-02', $headers)
+            ->assertOk()
+            ->assertJsonPath('game_id', $world['game_id'])
+            ->json();
+        $overviewWithDateNoiseRows = collect($overviewWithDateNoise['sections'][0]['rows'])->keyBy('metric');
+        $this->assertSame(10000, $overviewWithDateNoiseRows['Sales amount']['value']['amount']);
+    }
+
+    public function test_CentralDailyReport_defaults_to_current_draw_and_returns_required_sections(): void
+    {
+        $world = $this->prepareM8World('report-central-daily');
+        $ticket = DB::table('tickets')->where('id', $world['ticket_id'])->first();
+
+        DB::table('order_items')->insert([
+            'id' => 'oit_m8_daily_report',
+            'tenant_id' => $world['tenant_id'],
+            'order_id' => $world['order_id'],
+            'local_stock_item_id' => (string) $ticket->local_stock_item_id,
+            'ticket_id' => $world['ticket_id'],
+            'status' => 'sold',
+            'price_amount' => 10000,
+            'currency' => 'THB',
+            'sale_price_rule_snapshot_json' => json_encode(['set_size' => 1], JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $centralAdmin = $this->m8CentralAdmin(['report.view'], 'report-central-daily');
+        $report = $this->withToken($centralAdmin['access_token'])
+            ->getJson('/api/v1/admin/central/reports/daily', ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('scope', 'central')
+            ->assertJsonPath('report_key', 'daily')
+            ->assertJsonPath('game_id', $world['game_id'])
+            ->assertJsonPath('rows.0.ticket_count', 1)
+            ->json();
+
+        $this->assertSame('tenant_name', $report['columns'][0]['key']);
+        $this->assertSame($world['tenant_id'], $report['rows'][0]['tenant_id']);
+
+        $sections = collect($report['sections'])->keyBy('title');
+        $this->assertTrue($sections->has('Draw sales by partner'));
+        $this->assertTrue($sections->has('Top 10 back 2 numbers'));
+        $this->assertTrue($sections->has('Top 10 back 3 numbers'));
+        $this->assertTrue($sections->has('Top 10 front 3 numbers'));
+        $this->assertTrue($sections->has('Set distribution'));
+        $this->assertSame(substr((string) $ticket->full_number, -2), $sections['Top 10 back 2 numbers']['rows'][0]['number']);
+        $this->assertSame(1, $sections['Set distribution']['rows'][0]['offered_set_count']);
+        $this->assertSame(1, $sections['Set distribution']['rows'][0]['sold_set_count']);
+    }
+
+    public function test_TopupChannelReports_return_summary_and_detail_rows_for_tenant_and_central(): void
+    {
+        $world = $this->prepareM8World('report-topup-channels');
+        $walletId = 'wal_m8_report_topup';
+
+        DB::table('wallets')->insert([
+            'id' => $walletId,
+            'tenant_id' => $world['tenant_id'],
+            'customer_id' => $world['customer_id'],
+            'name' => 'Primary wallet',
+            'type' => 'primary',
+            'status' => 'active',
+            'balance_amount' => 0,
+            'currency' => 'THB',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('payments')->insert([
+            [
+                'id' => 'pay_m8_report_topup_qr',
+                'tenant_id' => $world['tenant_id'],
+                'customer_id' => $world['customer_id'],
+                'order_id' => null,
+                'provider' => 'manual',
+                'status' => 'paid',
+                'amount' => 18940000,
+                'currency' => 'THB',
+                'reference' => '173186',
+                'redirect_url' => null,
+                'idempotency_key' => 'pay-m8-report-topup-qr',
+                'payload_hash' => hash('sha256', 'pay-m8-report-topup-qr'),
+                'provider_event_id' => null,
+                'provider_reference' => '173186',
+                'provider_payload_json' => null,
+                'paid_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+                'topup_request_id' => null,
+            ],
+            [
+                'id' => 'pay_m8_report_topup_card',
+                'tenant_id' => $world['tenant_id'],
+                'customer_id' => $world['customer_id'],
+                'order_id' => null,
+                'provider' => 'credit_card',
+                'status' => 'failed',
+                'amount' => 650000,
+                'currency' => 'THB',
+                'reference' => '173184',
+                'redirect_url' => null,
+                'idempotency_key' => 'pay-m8-report-topup-card',
+                'payload_hash' => hash('sha256', 'pay-m8-report-topup-card'),
+                'provider_event_id' => null,
+                'provider_reference' => '173184',
+                'provider_payload_json' => null,
+                'paid_at' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+                'topup_request_id' => null,
+            ],
+        ]);
+
+        DB::table('topup_requests')->insert([
+            [
+                'id' => 'top_m8_report_qr_1',
+                'tenant_id' => $world['tenant_id'],
+                'customer_id' => $world['customer_id'],
+                'wallet_id' => $walletId,
+                'payment_id' => 'pay_m8_report_topup_qr',
+                'provider' => 'manual',
+                'channel' => 'qr',
+                'status' => 'succeeded',
+                'amount' => 18940000,
+                'bonus_amount' => 0,
+                'currency' => 'THB',
+                'reference' => 'PC131086',
+                'transfer_at' => now()->subMinutes(3),
+                'slip_url' => null,
+                'idempotency_key' => 'topup-report-qr',
+                'payload_hash' => hash('sha256', 'topup-report-qr'),
+                'reviewed_by_admin_id' => null,
+                'reviewed_at' => now()->subMinutes(2),
+                'admin_note' => null,
+                'provider_payload_json' => null,
+                'created_at' => now()->subMinutes(4),
+                'updated_at' => now()->subMinutes(2),
+            ],
+            [
+                'id' => 'top_m8_report_card_1',
+                'tenant_id' => $world['tenant_id'],
+                'customer_id' => $world['customer_id'],
+                'wallet_id' => $walletId,
+                'payment_id' => 'pay_m8_report_topup_card',
+                'provider' => 'credit_card',
+                'channel' => 'credit_card',
+                'status' => 'cancelled',
+                'amount' => 650000,
+                'bonus_amount' => 0,
+                'currency' => 'THB',
+                'reference' => 'PC131083',
+                'transfer_at' => null,
+                'slip_url' => null,
+                'idempotency_key' => 'topup-report-card',
+                'payload_hash' => hash('sha256', 'topup-report-card'),
+                'reviewed_by_admin_id' => null,
+                'reviewed_at' => now()->subMinute(),
+                'admin_note' => null,
+                'provider_payload_json' => null,
+                'created_at' => now()->subMinutes(2),
+                'updated_at' => now()->subMinute(),
+            ],
+        ]);
+
+        DB::table('payments')->where('id', 'pay_m8_report_topup_qr')->update(['topup_request_id' => 'top_m8_report_qr_1']);
+        DB::table('payments')->where('id', 'pay_m8_report_topup_card')->update(['topup_request_id' => 'top_m8_report_card_1']);
+
+        $tenantAdmin = $this->m8TenantAdmin($world, ['report.view'], 'report-topup-tenant');
+        $tenantHeaders = [
+            'X-Admin-Scope' => 'tenant',
+            'X-Tenant-Id' => $world['tenant_id'],
+        ];
+
+        $tenantReport = $this->withToken($tenantAdmin['access_token'])
+            ->getJson('/api/v1/admin/tenant/reports/topup_channels', $tenantHeaders)
+            ->assertOk()
+            ->assertJsonPath('report_key', 'topup_channels')
+            ->json();
+
+        $this->assertSame('report-details', $tenantReport['columns'][4]['type']);
+        $tenantRows = collect($tenantReport['rows'])->keyBy(fn (array $row): string => $row['channel'].':'.$row['status']);
+        $this->assertSame(1, $tenantRows['scan_payment:succeeded']['row_count']);
+        $this->assertSame(18940000, $tenantRows['scan_payment:succeeded']['amount']['amount']);
+        $this->assertSame('PC131086', $tenantRows['scan_payment:succeeded']['detail_rows'][0]['ref']);
+        $this->assertSame($world['customer_no'], $tenantRows['scan_payment:succeeded']['detail_rows'][0]['customer_no']);
+        $this->assertSame('173186', $tenantRows['scan_payment:succeeded']['detail_rows'][0]['order_number']);
+        $this->assertSame(18940000, $tenantRows['scan_payment:succeeded']['detail_rows'][0]['amount']['amount']);
+        $this->assertSame(650000, $tenantRows['credit_card:cancelled']['amount']['amount']);
+
+        $centralAdmin = $this->m8CentralAdmin(['report.view'], 'report-topup-central');
+        $centralReport = $this->withToken($centralAdmin['access_token'])
+            ->getJson('/api/v1/admin/central/reports/topup_channels?tenant_id='.$world['tenant_id'], ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('report_key', 'topup_channels')
+            ->json();
+
+        $centralRows = collect($centralReport['rows'])->keyBy(fn (array $row): string => $row['channel'].':'.$row['status']);
+        $this->assertSame(18940000, $centralRows['scan_payment:succeeded']['amount']['amount']);
+        $this->assertArrayHasKey('tenant_name', $centralRows['scan_payment:succeeded']['detail_rows'][0]);
+        $this->assertArrayHasKey('partner_name', $centralRows['scan_payment:succeeded']['detail_rows'][0]);
     }
 
     public function test_TenantReports_return_detailed_sections_columns_and_money_rows(): void
@@ -222,6 +438,221 @@ class ReportTest extends TestCase
 
         $this->assertSame('net_amount', $settlement['columns'][6]['key']);
 
+        $overview = $this->withToken($tenantAdmin['access_token'])
+            ->getJson('/api/v1/admin/tenant/reports/overview', $headers)
+            ->assertOk()
+            ->assertJsonPath('report_key', 'overview')
+            ->assertJsonPath('game_id', $world['game_id'])
+            ->assertJsonPath('meta.game_filter_applied', true)
+            ->json();
+
+        $overviewSections = collect($overview['sections'])->keyBy('title');
+        $this->assertTrue($overviewSections->has('Revenue summary'));
+        $this->assertTrue($overviewSections->has('Payment summary'));
+        $overviewRows = collect($overviewSections['Revenue summary']['rows'])->keyBy('metric');
+        $this->assertSame(1, $overviewRows['Total orders']['value']);
+        $this->assertSame(1, $overviewRows['Total sold tickets']['value']);
+        $this->assertSame(0, $overviewRows['Random-box sold tickets']['value']);
+        $this->assertSame(0, $overviewRows['Winning tickets']['value']);
+        $this->assertSame(0, $overviewRows['Non-winning tickets']['value']);
+        $this->assertSame(10000, $overviewRows['Lottery sales amount']['value']['amount']);
+        $this->assertSame(8750, $overviewRows['Revenue after commission']['value']['amount']);
+        $this->assertSame(0, $overviewRows['Random-box revenue']['value']['amount']);
+        $this->assertSame(0, $overviewRows['Cashback activities']['value']['amount']);
+        $this->assertSame(0, $overviewRows['Winning prize total']['value']['amount']);
+        $this->assertSame(8750, $overviewRows['Net profit']['value']['amount']);
+        $this->assertSame(1, $overviewRows['Total customers']['value']);
+        $this->assertSame('wallet', $overviewSections['Payment summary']['rows'][0]['payment_method']);
+        $this->assertSame(1, $overviewSections['Payment summary']['rows'][0]['order_count']);
+        $this->assertSame(10000, $overviewSections['Payment summary']['rows'][0]['sales_amount']['amount']);
+
+        $otherGameId = 'gam_m8_tenant_report_other';
+        $otherReservationId = 'res_m8_tenant_report_other';
+        $otherOrderId = 'ord_m8_tenant_report_other';
+        $otherStockId = 'stk_m8_tenant_report_other';
+        $otherLocalStockId = 'lsi_m8_tenant_report_other';
+        $otherTicketId = 'tic_m8_tenant_report_other';
+        $this->insertGame($otherGameId, 'closed');
+        DB::table('stock_reservations')->insert([
+            'id' => $otherReservationId,
+            'tenant_id' => $world['tenant_id'],
+            'customer_id' => $world['customer_id'],
+            'game_id' => $otherGameId,
+            'status' => 'converted',
+            'expires_at' => now()->addHour(),
+            'released_at' => null,
+            'cancelled_at' => null,
+            'converted_at' => now(),
+            'idempotency_key' => 'm8-reserve-tenant-report-other',
+            'payload_hash' => hash('sha256', 'm8-reserve-tenant-report-other'),
+            'released_idempotency_key' => null,
+            'released_payload_hash' => null,
+            'cancelled_idempotency_key' => null,
+            'cancelled_payload_hash' => null,
+            'cancelled_by_admin_id' => null,
+            'cancel_reason' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('stock_items')->insert([
+            'id' => $otherStockId,
+            'game_id' => $otherGameId,
+            'batch_id' => null,
+            'full_number' => '123456',
+            'front3' => '123',
+            'back3' => '456',
+            'back2' => '56',
+            'status' => 'sold',
+            'partner_id' => $world['partner_id'],
+            'tenant_id' => $world['tenant_id'],
+            'allocation_id' => null,
+            'recall_reason' => null,
+            'recalled_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('local_stock_items')->insert([
+            'id' => $otherLocalStockId,
+            'tenant_id' => $world['tenant_id'],
+            'partner_id' => $world['partner_id'],
+            'store_id' => 'store-tenant-report-other',
+            'game_id' => $otherGameId,
+            'stock_item_id' => $otherStockId,
+            'allocation_id' => null,
+            'full_number' => '123456',
+            'front3' => '123',
+            'back3' => '456',
+            'back2' => '56',
+            'image_url' => null,
+            'image_thumb_url' => null,
+            'status' => 'sold',
+            'synced_at' => now(),
+            'reserved_at' => now(),
+            'sold_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('orders')->insert([
+            'id' => $otherOrderId,
+            'tenant_id' => $world['tenant_id'],
+            'customer_id' => $world['customer_id'],
+            'reservation_id' => $otherReservationId,
+            'game_id' => $otherGameId,
+            'wallet_id' => null,
+            'payment_method' => 'bank_transfer',
+            'status' => 'paid',
+            'payment_status' => 'paid',
+            'total_amount' => 25000,
+            'currency' => 'THB',
+            'reference' => 'M8-tenant-report-other',
+            'admin_note' => null,
+            'idempotency_key' => 'm8-order-tenant-report-other',
+            'payload_hash' => hash('sha256', 'm8-order-tenant-report-other'),
+            'paid_at' => now(),
+            'cancelled_at' => null,
+            'refunded_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('tickets')->insert([
+            'id' => $otherTicketId,
+            'tenant_id' => $world['tenant_id'],
+            'customer_id' => $world['customer_id'],
+            'order_id' => $otherOrderId,
+            'local_stock_item_id' => $otherLocalStockId,
+            'game_id' => $otherGameId,
+            'full_number' => '123456',
+            'status' => 'non_winning',
+            'image_url' => null,
+            'image_thumb_url' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $otherOverview = $this->withToken($tenantAdmin['access_token'])
+            ->getJson('/api/v1/admin/tenant/reports/overview?game_id='.$otherGameId.'&date_from=1900-01-01&date_to=1900-01-02', $headers)
+            ->assertOk()
+            ->assertJsonPath('game_id', $otherGameId)
+            ->json();
+        $otherSections = collect($otherOverview['sections'])->keyBy('title');
+        $otherRows = collect($otherSections['Revenue summary']['rows'])->keyBy('metric');
+        $this->assertSame(1, $otherRows['Total orders']['value']);
+        $this->assertSame(1, $otherRows['Total sold tickets']['value']);
+        $this->assertSame(1, $otherRows['Non-winning tickets']['value']);
+        $this->assertSame(25000, $otherRows['Lottery sales amount']['value']['amount']);
+        $this->assertSame(25000, $otherRows['Revenue after commission']['value']['amount']);
+        $this->assertSame(25000, $otherRows['Net profit']['value']['amount']);
+        $this->assertSame('bank_transfer', $otherSections['Payment summary']['rows'][0]['payment_method']);
+        $this->assertSame(25000, $otherSections['Payment summary']['rows'][0]['sales_amount']['amount']);
+
+        DB::table('reward_results')->insert([
+            'id' => 'rr_m8_report_tenant',
+            'game_id' => $world['game_id'],
+            'status' => 'published',
+            'version' => 1,
+            'summary_json' => null,
+            'created_by_admin_id' => null,
+            'verified_by_admin_id' => null,
+            'published_by_admin_id' => null,
+            'corrected_by_admin_id' => null,
+            'correction_note' => null,
+            'checked_at' => now(),
+            'verified_at' => now(),
+            'published_at' => now(),
+            'corrected_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('reward_prizes')->insert([
+            'id' => 'rp_m8_report_tenant',
+            'reward_result_id' => 'rr_m8_report_tenant',
+            'game_id' => $world['game_id'],
+            'prize_type' => 'front3',
+            'prize_number' => '880',
+            'amount' => 400000,
+            'currency' => 'THB',
+            'sort_order' => 70,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('winning_tickets')->insert([
+            'id' => 'wt_m8_report_tenant',
+            'tenant_id' => $world['tenant_id'],
+            'game_id' => $world['game_id'],
+            'ticket_id' => $world['ticket_id'],
+            'reward_result_id' => 'rr_m8_report_tenant',
+            'reward_prize_id' => 'rp_m8_report_tenant',
+            'prize_type' => 'front3',
+            'prize_number' => '880',
+            'amount' => 4000,
+            'currency' => 'THB',
+            'status' => 'pending',
+            'base_amount' => 4000,
+            'adjustment_amount' => 0,
+            'tenant_price_rule_id' => null,
+            'price_rule_snapshot_json' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $rewardReport = $this->withToken($tenantAdmin['access_token'])
+            ->getJson('/api/v1/admin/tenant/reports/rewards?game_id='.$world['game_id'], $headers)
+            ->assertOk()
+            ->assertJsonPath('report_key', 'rewards')
+            ->json();
+        $rewardSections = collect($rewardReport['sections'])->keyBy('title');
+        $this->assertTrue($rewardSections->has('Rewards by prize type'));
+        $this->assertTrue($rewardSections->has('Reward winners by prize type'));
+        $rewardTypeRows = collect($rewardSections['Rewards by prize type']['rows'])->keyBy('prize_type');
+        $this->assertSame('Front 3 digits, 2 draws', $rewardTypeRows['front3']['prize_label']);
+        $this->assertSame(1, $rewardTypeRows['front3']['winner_user_count']);
+        $this->assertSame(1, $rewardTypeRows['front3']['winning_ticket_count']);
+        $this->assertSame(400000, $rewardTypeRows['front3']['prize_amount']['amount']);
+        $winnerRows = collect($rewardSections['Reward winners by prize type']['rows']);
+        $this->assertSame($world['customer_no'], $winnerRows[0]['user_id']);
+        $this->assertSame('M8 Customer report-tenant-detail', $winnerRows[0]['account']);
+        $this->assertSame(1, $winnerRows[0]['ticket_count']);
+
         foreach (['overview', 'orders', 'customers', 'wallet', 'rewards', 'audit'] as $reportKey) {
             $response = $this->withToken($tenantAdmin['access_token'])
                 ->getJson('/api/v1/admin/tenant/reports/'.$reportKey, $headers)
@@ -232,6 +663,117 @@ class ReportTest extends TestCase
             $this->assertIsArray($response['columns']);
             $this->assertIsArray($response['sections']);
         }
+    }
+
+    public function test_TenantReports_sales_by_game_does_not_multiply_sales_by_order_items(): void
+    {
+        $world = $this->prepareM8World('report-tenant-sales-game-total');
+        $ticket = DB::table('tickets')->where('id', $world['ticket_id'])->first();
+        $extraStockId = 'stk_m8_sales_game_extra';
+        $extraLocalStockId = 'lsi_m8_sales_game_extra';
+        $extraTicketId = 'tic_m8_sales_game_extra';
+
+        DB::table('orders')
+            ->where('id', $world['order_id'])
+            ->update(['total_amount' => 20000]);
+
+        DB::table('stock_items')->insert([
+            'id' => $extraStockId,
+            'game_id' => $world['game_id'],
+            'batch_id' => null,
+            'full_number' => '881234',
+            'front3' => '881',
+            'back3' => '234',
+            'back2' => '34',
+            'status' => 'sold',
+            'partner_id' => $world['partner_id'],
+            'tenant_id' => $world['tenant_id'],
+            'allocation_id' => null,
+            'recall_reason' => null,
+            'recalled_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('local_stock_items')->insert([
+            'id' => $extraLocalStockId,
+            'tenant_id' => $world['tenant_id'],
+            'partner_id' => $world['partner_id'],
+            'store_id' => 'store-sales-game-extra',
+            'game_id' => $world['game_id'],
+            'stock_item_id' => $extraStockId,
+            'allocation_id' => null,
+            'full_number' => '881234',
+            'front3' => '881',
+            'back3' => '234',
+            'back2' => '34',
+            'image_url' => null,
+            'image_thumb_url' => null,
+            'status' => 'sold',
+            'synced_at' => now(),
+            'reserved_at' => now(),
+            'sold_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('tickets')->insert([
+            'id' => $extraTicketId,
+            'tenant_id' => $world['tenant_id'],
+            'customer_id' => $world['customer_id'],
+            'order_id' => $world['order_id'],
+            'local_stock_item_id' => $extraLocalStockId,
+            'game_id' => $world['game_id'],
+            'full_number' => '881234',
+            'status' => 'active',
+            'image_url' => null,
+            'image_thumb_url' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('order_items')->insert([
+            [
+                'id' => 'oit_m8_sales_game_a',
+                'tenant_id' => $world['tenant_id'],
+                'order_id' => $world['order_id'],
+                'local_stock_item_id' => (string) $ticket->local_stock_item_id,
+                'ticket_id' => $world['ticket_id'],
+                'status' => 'sold',
+                'price_amount' => 10000,
+                'currency' => 'THB',
+                'sale_price_rule_snapshot_json' => json_encode(['set_size' => 1], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => 'oit_m8_sales_game_b',
+                'tenant_id' => $world['tenant_id'],
+                'order_id' => $world['order_id'],
+                'local_stock_item_id' => $extraLocalStockId,
+                'ticket_id' => $extraTicketId,
+                'status' => 'sold',
+                'price_amount' => 10000,
+                'currency' => 'THB',
+                'sale_price_rule_snapshot_json' => json_encode(['set_size' => 1], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $tenantAdmin = $this->m8TenantAdmin($world, ['report.view'], 'report-tenant-sales-game-total');
+        $sales = $this->withToken($tenantAdmin['access_token'])
+            ->getJson('/api/v1/admin/tenant/reports/sales?game_id='.$world['game_id'], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => $world['tenant_id'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('summary.sales_total.amount', 20000)
+            ->json();
+
+        $sections = collect($sales['sections'])->keyBy('title');
+        $this->assertTrue($sections->has('Sales by game'));
+        $salesByGame = collect($sections['Sales by game']['rows'])->keyBy('game_id');
+        $this->assertSame(20000, $salesByGame[$world['game_id']]['sales_amount']['amount']);
+        $this->assertSame(1, $salesByGame[$world['game_id']]['order_count']);
+        $this->assertSame(2, $salesByGame[$world['game_id']]['ticket_count']);
     }
 
     public function test_CentralReports_can_filter_draw_bound_reports_by_game(): void

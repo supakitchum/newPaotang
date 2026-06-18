@@ -69,6 +69,7 @@ Route::get('/health', [HealthController::class, 'summary']);
 Route::get('/health/live', [HealthController::class, 'live']);
 Route::get('/health/ready', [HealthController::class, 'ready']);
 Route::post('/internal/reward-ingest/sanook', [InternalRewardIngestController::class, 'sanook']);
+Route::post('/internal/reward-ingest/thairath', [InternalRewardIngestController::class, 'thairath']);
 
 Route::get('/public/admin-site-config', [PublicSiteConfigController::class, 'admin']);
 Route::get('/public/site-config', [PublicSiteConfigController::class, 'show']);
@@ -476,6 +477,8 @@ Route::put('/admin/central/reward-entry/sessions/{session_id}/submission', [Cent
 Route::post('/admin/central/reward-entry/sessions/{session_id}/submit', [CentralRewardEntryController::class, 'submit'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/reward-entry/sessions/{session_id}/comparison', [CentralRewardEntryController::class, 'comparison'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/reward-entry/sessions/{session_id}/trigger-scraper', [CentralRewardEntryController::class, 'triggerScraper'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/reward-entry/sessions/{session_id}/resolve', [CentralRewardEntryController::class, 'resolve'])
     ->middleware(['admin.auth', 'admin.scope:central']);

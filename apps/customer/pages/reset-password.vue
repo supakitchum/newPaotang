@@ -1,6 +1,6 @@
 <template>
   <MobileShell time="12:16">
-    <BlueHeader title="ตั้งรหัสผ่านใหม่" back-to="/login" min-height="214px">
+    <BlueHeader title="ตั้งรหัสผ่านใหม่" back-to="/login" min-height="250px">
       <div class="reset-hero">
         <i class="bi bi-key" />
         <h1>ตั้งรหัสผ่านใหม่</h1>
@@ -126,6 +126,7 @@ const submit = async () => {
   color: #fff;
   margin: 24px auto 0;
   max-width: 330px;
+  padding-bottom: 42px;
   text-align: center;
 }
 
@@ -148,7 +149,8 @@ const submit = async () => {
 }
 
 .reset-sheet {
-  padding: 20px 16px 34px;
+  margin-top: -34px;
+  padding: 22px 16px 34px;
 }
 
 .reset-card {

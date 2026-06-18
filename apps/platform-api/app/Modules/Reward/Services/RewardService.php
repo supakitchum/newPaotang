@@ -1257,8 +1257,8 @@ class RewardService
         $payloadHash = trim((string) ($payload['payload_hash'] ?? ''));
         $prizes = $payload['prizes'] ?? null;
 
-        if ($source !== 'sanook') {
-            $errors['source'][] = 'The source field must be sanook.';
+        if (! in_array($source, ['sanook', 'thairath'], true)) {
+            $errors['source'][] = 'The source field must be sanook or thairath.';
         }
 
         if (! preg_match('/^[0-9]{8}$/', $drawCode)) {
@@ -1325,7 +1325,7 @@ class RewardService
      * @param array<string, mixed> $payload
      * @return array{resource?: array<string, mixed>, error?: string}
      */
-    public function ingestSanookLiveResult(array $payload, Request $request): array
+    public function ingestLiveResult(array $payload, Request $request): array
     {
         $normalized = $this->normalizeLiveIngestPayload($payload);
 
@@ -1353,6 +1353,11 @@ class RewardService
             }
 
             $previousSummary = $this->decodeJsonObject($result->summary_json);
+
+            if ($normalized['source'] !== 'sanook') {
+                return $this->ingestLiveComparisonSource($result, $previousSummary, $normalized, $request);
+            }
+
             if (($previousSummary['source']['payload_hash'] ?? null) === $normalized['payload_hash']) {
                 return ['resource' => $this->publicLiveSummary($result) + ['changed' => false]];
             }
@@ -1361,14 +1366,7 @@ class RewardService
             $this->applyLivePrizeUpdates((string) $result->id, $normalized['prizes']);
 
             $summary = [
-                'source' => [
-                    'name' => 'sanook',
-                    'draw_code' => $normalized['draw_code'],
-                    'draw_date' => $normalized['draw_date'],
-                    'scraped_at' => $normalized['scraped_at'],
-                    'payload_hash' => $normalized['payload_hash'],
-                    'request_id' => $request->header('X-Request-Id'),
-                ],
+                'source' => $this->liveSourceSummary($normalized, $request),
                 'live' => [
                     'status' => 'draft',
                     'completion_percent' => $normalized['completion_percent'],
@@ -1376,6 +1374,11 @@ class RewardService
                 ],
                 'live_estimate' => $this->liveWinnerEstimateSummary((string) $result->id, (string) $game->id),
             ];
+
+            $comparisonSources = $this->liveComparisonSources($previousSummary);
+            if ($comparisonSources !== []) {
+                $summary['comparison_sources'] = $comparisonSources;
+            }
 
             RewardResult::query()->where('id', $result->id)->update([
                 'summary_json' => json_encode($summary, JSON_THROW_ON_ERROR),
@@ -1391,6 +1394,90 @@ class RewardService
 
             return ['resource' => $resource + ['changed' => true]];
         });
+    }
+
+    /**
+     * @param array<string, mixed> $previousSummary
+     * @param array<string, mixed> $normalized
+     * @return array{resource?: array<string, mixed>, error?: string}
+     */
+    private function ingestLiveComparisonSource(object $result, array $previousSummary, array $normalized, Request $request): array
+    {
+        $comparisonSources = $this->liveComparisonSources($previousSummary);
+        $previousSource = $comparisonSources[$normalized['source']] ?? null;
+
+        if (($previousSource['source']['payload_hash'] ?? null) === $normalized['payload_hash']) {
+            return [
+                'resource' => $this->publicLiveSummary($result) + [
+                    'comparison_source' => $previousSource,
+                    'changed' => false,
+                ],
+            ];
+        }
+
+        $snapshot = [
+            'source' => $this->liveSourceSummary($normalized, $request),
+            'live' => [
+                'status' => 'draft',
+                'completion_percent' => $normalized['completion_percent'],
+                'updated_at' => now()->toISOString(),
+            ],
+            'updated_at' => now()->toISOString(),
+            'prizes' => $normalized['prizes'],
+        ];
+        $comparisonSources[$normalized['source']] = $snapshot;
+
+        $summary = $previousSummary;
+        $summary['comparison_sources'] = $comparisonSources;
+
+        RewardResult::query()->where('id', $result->id)->update([
+            'summary_json' => json_encode($summary, JSON_THROW_ON_ERROR),
+            'updated_at' => now(),
+        ]);
+
+        $fresh = RewardResult::query()->where('id', $result->id)->first() ?? $result;
+
+        return [
+            'resource' => $this->publicLiveSummary($fresh) + [
+                'comparison_source' => $snapshot,
+                'changed' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $normalized
+     * @return array<string, mixed>
+     */
+    private function liveSourceSummary(array $normalized, Request $request): array
+    {
+        return [
+            'name' => $normalized['source'],
+            'draw_code' => $normalized['draw_code'],
+            'draw_date' => $normalized['draw_date'],
+            'scraped_at' => $normalized['scraped_at'],
+            'payload_hash' => $normalized['payload_hash'],
+            'completion_percent' => $normalized['completion_percent'],
+            'request_id' => $request->header('X-Request-Id'),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $summary
+     * @return array<string, array<string, mixed>>
+     */
+    private function liveComparisonSources(array $summary): array
+    {
+        return is_array($summary['comparison_sources'] ?? null) ? $summary['comparison_sources'] : [];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, error?: string}
+     */
+    public function ingestSanookLiveResult(array $payload, Request $request): array
+    {
+        return $this->ingestLiveResult($payload, $request);
     }
 
     /**
@@ -2853,7 +2940,7 @@ class RewardService
         }, is_array($payload['prizes'] ?? null) ? $payload['prizes'] : []);
 
         return [
-            'source' => 'sanook',
+            'source' => trim((string) ($payload['source'] ?? 'sanook')),
             'draw_code' => trim((string) ($payload['draw_code'] ?? '')),
             'draw_date' => trim((string) ($payload['draw_date'] ?? '')),
             'scraped_at' => trim((string) ($payload['scraped_at'] ?? now()->toISOString())),
@@ -2958,6 +3045,30 @@ class RewardService
                 ->orderBy('sort_order')
                 ->get(['id', 'prize_number'])
                 ->all();
+
+            $desiredByIndex = [];
+            foreach ($prize['prize_numbers'] as $index => $number) {
+                if (! isset($rows[$index]) || $this->isPlaceholderNumber($number, $rule['digits'])) {
+                    continue;
+                }
+
+                $desiredByIndex[$index] = $number;
+            }
+
+            $desiredNumberSet = array_fill_keys(array_values($desiredByIndex), true);
+            foreach ($rows as $index => $row) {
+                $currentNumber = (string) $row->prize_number;
+                $desiredAtIndex = $desiredByIndex[$index] ?? null;
+
+                if (! isset($desiredNumberSet[$currentNumber]) || $desiredAtIndex === $currentNumber) {
+                    continue;
+                }
+
+                RewardPrize::query()->where('id', $row->id)->update([
+                    'prize_number' => ThaiGovernmentLotteryRewardTemplate::pendingNumber($type, $index + 1),
+                    'updated_at' => now(),
+                ]);
+            }
 
             foreach ($prize['prize_numbers'] as $index => $number) {
                 if (! isset($rows[$index]) || $this->isPlaceholderNumber($number, $rule['digits'])) {
@@ -3160,6 +3271,7 @@ class RewardService
             'official_status' => (string) $result->status,
             'completion_percent' => (float) ($summary['live']['completion_percent'] ?? $this->completionPercentForPrizeRows($prizes)),
             'source' => $summary['source'] ?? ['name' => 'central', 'mode' => 'unconfirmed'],
+            'comparison_sources' => $this->liveComparisonSources($summary),
             'live_estimate' => $summary['live_estimate'] ?? $this->liveWinnerEstimateSummary((string) $result->id, (string) $result->game_id),
             'prizes' => array_map(fn (object $prize): array => $this->livePrizeResource($prize), $prizes),
             'updated_at' => $summary['live']['updated_at'] ?? $result->updated_at,

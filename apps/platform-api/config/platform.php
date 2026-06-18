@@ -53,6 +53,14 @@ return [
         'hmac_secret' => env('LOTTO_SCRAPER_HMAC_SECRET', 'newpaotang-local-lotto-scraper-secret'),
         'signature_ttl_seconds' => max(60, (int) env('LOTTO_SCRAPER_SIGNATURE_TTL_SECONDS', 300)),
         'trigger_url' => env('LOTTO_SCRAPER_TRIGGER_URL', 'http://lotto-scraper:3200/internal/poll'),
+        'trigger_urls' => array_values(array_filter(array_map(
+            static fn (string $url): string => trim($url),
+            explode(',', (string) env('LOTTO_SCRAPER_TRIGGER_URLS', env('LOTTO_SCRAPER_TRIGGER_URL', 'http://lotto-scraper:3200/internal/poll'))),
+        ))),
+        'trigger_source_urls' => [
+            'sanook' => env('LOTTO_SCRAPER_TRIGGER_SANOOK_URL'),
+            'thairath' => env('LOTTO_SCRAPER_TRIGGER_THAIRATH_URL'),
+        ],
         'trigger_secret' => env('LOTTO_SCRAPER_TRIGGER_SECRET', env('LOTTO_SCRAPER_HMAC_SECRET', 'newpaotang-local-lotto-scraper-secret')),
         'trigger_timeout_seconds' => max(1, (int) env('LOTTO_SCRAPER_TRIGGER_TIMEOUT_SECONDS', 15)),
     ],

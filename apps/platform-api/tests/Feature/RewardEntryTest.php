@@ -2,8 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\TriggerLottoScraperPollJob;
+use App\Modules\Reward\Services\LottoScraperTriggerClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Tests\Support\M7RewardFixtures;
 use Tests\TestCase;
 
@@ -155,6 +159,168 @@ class RewardEntryTest extends TestCase
         ]);
     }
 
+    public function test_reward_entry_owner_comparison_includes_thairath_snapshot(): void
+    {
+        $this->seedDefaultRbac();
+        $world = $this->prepareRewardWorld('par_re_msrc', 'ten_re_msrc', 'reward-entry-multi-source.m7.test', 'gam_re_msrc', '0807440022', 794601);
+
+        $officer = $this->createResultOfficerSession('adm_re_msrc', 'result-multi-source@example.test');
+        $owner = $this->centralRewardAdmin(['reward_entry.view', 'reward_entry.submit', 'reward_entry.resolve'], 'reward-entry-multi-source-owner');
+        $operatorPrizes = $this->thaiGovernmentLotteryPrizes('123456', $world['ticket_number']);
+        $sanookPrizes = $this->thaiGovernmentLotteryPrizes('654321', $world['ticket_number']);
+        $thairathPrizes = $this->thaiGovernmentLotteryPrizes('789012', $world['ticket_number']);
+        $sanookPrizes = $this->replaceFirstPrizeNumbersForType($sanookPrizes, 'fourth_prize', ['000002', '000001']);
+        $thairathPrizes = $this->replaceFirstPrizeNumbersForType($thairathPrizes, 'fourth_prize', ['000001', '000002']);
+
+        $session = $this->withToken($officer['access_token'])
+            ->getJson('/api/v1/admin/central/reward-entry/sessions/current?game_id='.$world['game_id'], [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->json('data');
+
+        $this->insertDraftScraperRewardResult($world['game_id'], $sanookPrizes, [
+            'thairath' => $thairathPrizes,
+        ]);
+
+        $this->withToken($owner['access_token'])
+            ->getJson('/api/v1/admin/central/reward-entry/sessions/current?game_id='.$world['game_id'], [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.scraper_snapshot.sources.0.label', 'Sanook')
+            ->assertJsonPath('data.scraper_snapshot.sources.1.label', 'Thai Rath')
+            ->assertJsonPath('data.scraper_snapshot.sources.1.prizes.0.prize_number', '789012');
+
+        $this->withToken($officer['access_token'])
+            ->getJson('/api/v1/admin/central/reward-entry/sessions/current?game_id='.$world['game_id'], [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.scraper_snapshot.sources.0.label', 'Sanook')
+            ->assertJsonPath('data.scraper_snapshot.sources.0.meta.live.completion_percent', 100)
+            ->assertJsonPath('data.scraper_snapshot.sources.1.label', 'Thai Rath')
+            ->assertJsonPath('data.scraper_snapshot.sources.1.meta.live.completion_percent', 100)
+            ->assertJsonMissingPath('data.scraper_snapshot.sources.0.prizes.0.prize_number')
+            ->assertJsonMissingPath('data.scraper_snapshot.sources.1.prizes.0.prize_number')
+            ->assertJsonMissingPath('data.scraper_snapshot.prizes.0.prize_number');
+
+        $this->withToken($officer['access_token'])
+            ->postJson('/api/v1/admin/central/reward-entry/sessions/'.$session['id'].'/submit', [
+                'prizes' => $operatorPrizes,
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-entry-multi-source-submit',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('submission.diff_to_scraper.summary.source_count', 2)
+            ->assertJsonPath('submission.diff_to_scraper.summary.sources.1.label', 'Thai Rath')
+            ->assertJsonPath('submission.diff_to_scraper.rows.0.scraper_sources.1.number', '789012');
+
+        $comparison = $this->withToken($owner['access_token'])
+            ->getJson('/api/v1/admin/central/reward-entry/sessions/'.$session['id'].'/comparison', [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.sources.0.id', 'scraper')
+            ->assertJsonPath('data.sources.0.label', 'Sanook')
+            ->assertJsonPath('data.sources.1.id', 'scraper:thairath')
+            ->assertJsonPath('data.sources.1.label', 'Thai Rath')
+            ->assertJsonPath('data.sources.1.prizes.0.prize_number', '789012')
+            ->json('data');
+
+        $fourthPrizeRows = array_values(array_filter(
+            $comparison['matrix'] ?? [],
+            fn (array $row): bool => ($row['prize_type'] ?? null) === 'fourth_prize',
+        ));
+
+        $this->assertSame('000001', $fourthPrizeRows[0]['values'][0]['number'] ?? null);
+        $this->assertSame('000001', $fourthPrizeRows[0]['values'][1]['number'] ?? null);
+        $this->assertSame('000002', $fourthPrizeRows[1]['values'][0]['number'] ?? null);
+        $this->assertSame('000002', $fourthPrizeRows[1]['values'][1]['number'] ?? null);
+    }
+
+    public function test_reward_entry_manual_trigger_queues_selected_scraper_source(): void
+    {
+        $this->seedDefaultRbac();
+        $world = $this->prepareRewardWorld('par_re_trigger', 'ten_re_trigger', 'reward-entry-trigger.m7.test', 'gam_re_trigger', '0807440033', 794701);
+
+        $officer = $this->createResultOfficerSession('adm_re_trigger', 'result-trigger@example.test');
+        $drawCode = (string) DB::table('games')->where('id', $world['game_id'])->value('code');
+        $drawDate = \Carbon\CarbonImmutable::parse((string) DB::table('games')->where('id', $world['game_id'])->value('draw_at'))
+            ->timezone('Asia/Bangkok')
+            ->format('Y-m-d');
+
+        $session = $this->withToken($officer['access_token'])
+            ->getJson('/api/v1/admin/central/reward-entry/sessions/current?game_id='.$world['game_id'], [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->json('data');
+
+        Bus::fake();
+
+        $this->withToken($officer['access_token'])
+            ->postJson('/api/v1/admin/central/reward-entry/sessions/'.$session['id'].'/trigger-scraper', [
+                'source' => 'thairath',
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'reward-entry-trigger-thairath',
+            ])
+            ->assertAccepted()
+            ->assertJsonPath('session_id', $session['id'])
+            ->assertJsonPath('draw_code', $drawCode)
+            ->assertJsonPath('draw_date', $drawDate)
+            ->assertJsonPath('source', 'thairath')
+            ->assertJsonPath('status', 'queued');
+
+        Bus::assertDispatched(TriggerLottoScraperPollJob::class, function (TriggerLottoScraperPollJob $job) use ($drawCode, $drawDate, $world): bool {
+            return $job->drawCode === $drawCode
+                && $job->gameId === $world['game_id']
+                && $job->source === 'thairath'
+                && $job->drawDate === $drawDate;
+        });
+    }
+
+    public function test_lotto_scraper_trigger_client_sends_source_specific_payloads(): void
+    {
+        config([
+            'platform.lotto_scraper.trigger_source_urls' => [
+                'sanook' => 'http://lotto-scraper:3200/internal/poll',
+                'thairath' => 'http://lotto-scraper-thairath:3200/internal/poll',
+            ],
+            'platform.lotto_scraper.trigger_urls' => [],
+            'platform.lotto_scraper.trigger_url' => '',
+            'platform.lotto_scraper.trigger_secret' => 'test-secret',
+        ]);
+
+        $requests = [];
+
+        Http::fake(function ($request) use (&$requests) {
+            $requests[] = [
+                'url' => (string) $request->url(),
+                'payload' => json_decode((string) $request->body(), true, 512, JSON_THROW_ON_ERROR),
+            ];
+
+            return Http::response(['ok' => true], 202);
+        });
+
+        $result = app(LottoScraperTriggerClient::class)->triggerDraw(
+            '16062569',
+            'gam_reward_trigger_source',
+            'reward_entry_manual_all',
+            'all',
+            '2026-06-16',
+        );
+
+        $this->assertTrue($result['ok']);
+        $this->assertCount(2, $requests);
+        $this->assertSame('sanook', $requests[0]['payload']['source']);
+        $this->assertSame('thairath', $requests[1]['payload']['source']);
+        $this->assertSame('2026-06-16', $requests[0]['payload']['draw_date']);
+        $this->assertSame('2026-06-16', $requests[1]['payload']['draw_date']);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -181,11 +347,51 @@ class RewardEntryTest extends TestCase
 
     /**
      * @param array<int, array{prize_type: string, prize_number: string, amount: array{amount: int, currency: string}}> $prizes
+     * @param array<int, string> $numbers
+     * @return array<int, array{prize_type: string, prize_number: string, amount: array{amount: int, currency: string}}>
      */
-    private function insertDraftScraperRewardResult(string $gameId, array $prizes): void
+    private function replaceFirstPrizeNumbersForType(array $prizes, string $type, array $numbers): array
+    {
+        $index = 0;
+
+        return array_map(function (array $prize) use ($type, $numbers, &$index): array {
+            if ($prize['prize_type'] !== $type || ! array_key_exists($index, $numbers)) {
+                return $prize;
+            }
+
+            $prize['prize_number'] = $numbers[$index];
+            $index++;
+
+            return $prize;
+        }, $prizes);
+    }
+
+    /**
+     * @param array<int, array{prize_type: string, prize_number: string, amount: array{amount: int, currency: string}}> $prizes
+     */
+    private function insertDraftScraperRewardResult(string $gameId, array $prizes, array $comparisonSources = []): void
     {
         $now = now();
         $rewardResultId = 'rew_late_scraper';
+        $comparisonSourcePayloads = [];
+
+        foreach ($comparisonSources as $source => $sourcePrizes) {
+            $comparisonSourcePayloads[$source] = [
+                'source' => [
+                    'name' => $source,
+                    'draw_code' => '01062569',
+                    'payload_hash' => $source.'-scraper-payload',
+                    'completion_percent' => 100,
+                ],
+                'live' => [
+                    'status' => 'draft',
+                    'completion_percent' => 100,
+                    'updated_at' => $now->toISOString(),
+                ],
+                'updated_at' => $now->toISOString(),
+                'prizes' => $sourcePrizes,
+            ];
+        }
 
         DB::table('reward_results')->insert([
             'id' => $rewardResultId,
@@ -203,6 +409,7 @@ class RewardEntryTest extends TestCase
                     'completion_percent' => 100,
                     'updated_at' => $now->toISOString(),
                 ],
+                'comparison_sources' => $comparisonSourcePayloads,
             ], JSON_THROW_ON_ERROR),
             'created_by_admin_id' => null,
             'created_at' => $now,

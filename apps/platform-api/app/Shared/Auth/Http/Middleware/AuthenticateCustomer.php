@@ -42,6 +42,12 @@ class AuthenticateCustomer
         $context = $this->sessions->resolveAccessToken($request->bearerToken(), $tenantId);
 
         if ($context === null) {
+            $suspension = $this->sessions->suspendedCustomerForAccessToken($request->bearerToken(), $tenantId);
+
+            if ($suspension !== null) {
+                return ApiErrorResponse::customerSuspended($request, $suspension);
+            }
+
             return ApiErrorResponse::authenticationRequired($request);
         }
 

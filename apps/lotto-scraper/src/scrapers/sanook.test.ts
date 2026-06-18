@@ -76,6 +76,23 @@ test('parseSanookLottoHtml converts invalid pending labels to placeholders', () 
   assert.deepEqual(result.prizes.find((prize) => prize.prize_type === 'second_prize')?.prize_numbers, ['xxxxxx', 'xxxxxx', 'xxxxxx', 'xxxxxx', 'xxxxxx'])
 })
 
+test('parseSanookLottoHtml removes duplicate live numbers in the same prize group', () => {
+  const result = parseSanookLottoHtml(html({
+    first: 'xxxxxx',
+    front3: ['xxx', 'xxx'],
+    back3: ['xxx', 'xxx'],
+    back2: 'xx',
+    second: [],
+    fifth: ['086728', '607331', '086728', '607331', '123456']
+  }), '16062569', 'https://news.sanook.com/lotto/check/16062569/')
+  const fifthPrizeNumbers = result.prizes.find((prize) => prize.prize_type === 'fifth_prize')?.prize_numbers
+
+  assert.deepEqual(fifthPrizeNumbers?.slice(0, 5), ['086728', '607331', '123456', 'xxxxxx', 'xxxxxx'])
+  assert.equal(fifthPrizeNumbers?.filter((number) => number === '086728').length, 1)
+  assert.equal(fifthPrizeNumbers?.filter((number) => number === '607331').length, 1)
+  assert.equal(fifthPrizeNumbers?.length, 100)
+})
+
 const html = (values: {
   first: string
   front3: string[]
@@ -83,6 +100,7 @@ const html = (values: {
   back2: string
   near?: string[]
   second: string[]
+  fifth?: string[]
 }) => `
   <div class="lottocheck__resize">
     <div class="lottocheck__sec lottocheck__sec--bdnone">
@@ -113,6 +131,9 @@ const html = (values: {
     </div>
     <div class="lottocheck__sec"><span class="default-font--reward">รางวัลที่ 3</span></div>
     <div class="lottocheck__sec"><span class="default-font--reward">รางวัลที่ 4</span></div>
-    <div class="lottocheck__sec"><span class="default-font--reward">รางวัลที่ 5</span></div>
+    <div class="lottocheck__sec">
+      <span class="default-font--reward">รางวัลที่ 5</span>
+      ${(values.fifth || []).map((number) => `<span class="lotto__number">${number}</span>`).join('')}
+    </div>
   </div>
 `

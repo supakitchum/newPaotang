@@ -29,6 +29,10 @@
             <i class="bi bi-clock-history" />
             <span>ออกผลกิจกรรม {{ activityResultTimeText }}</span>
           </div>
+          <div v-if="activity.type === 'lucky_board'" class="activity-game" :class="{ expired: luckyEntryClosed }">
+            <i class="bi bi-hourglass-bottom" />
+            <span>{{ luckyEntryDeadlineText }}</span>
+          </div>
         </div>
       </article>
 
@@ -61,7 +65,7 @@
       <section v-if="activity?.type === 'lucky_board'" class="activity-panel">
         <div class="panel-heading">
           <h2>เลือกเลขนำโชค</h2>
-          <span>{{ rights.remaining_count || 0 }} สิทธิ์คงเหลือ · {{ boardRemainingText }}</span>
+          <span>{{ luckyPanelSummaryText }}</span>
         </div>
 
         <div class="rights-box">
@@ -76,6 +80,14 @@
           <div>
             <strong>{{ rights.ticket_count || 0 }}</strong>
             <span>สลากที่ซื้อ</span>
+          </div>
+        </div>
+
+        <div class="entry-deadline-banner" :class="{ closed: luckyEntryClosed }">
+          <i :class="luckyEntryClosed ? 'bi bi-clock-fill' : 'bi bi-hourglass-split'" />
+          <div>
+            <strong>{{ luckyEntryClosed ? 'หมดเวลาเข้าร่วมกิจกรรมนี้แล้ว' : 'เวลาเข้าร่วมกิจกรรม' }}</strong>
+            <span>{{ luckyEntryDeadlineText }}</span>
           </div>
         </div>
 
@@ -116,7 +128,7 @@
               <strong>{{ predictionLabel(predictionType) }}</strong>
               <span>{{ predictionDigits === 3 ? '000-999' : '00-99' }} · เหลือ {{ formatInteger(boardRemainingCount) }} จาก {{ formatInteger(boardTotalCount) }} เลข</span>
             </div>
-            <em>เลขสีแดงถูกเลือกแล้ว</em>
+            <em>{{ luckyEntryClosed ? 'หมดเวลาเข้าร่วม' : 'เลขสีแดงถูกเลือกแล้ว' }}</em>
           </div>
 
           <div class="number-board-scroll" :class="{ three: predictionDigits === 3 }">
@@ -134,7 +146,11 @@
           </div>
         </div>
 
-        <NuxtLink v-if="!token" class="activity-login-link" :to="{ path: '/login', query: { redirect: route.fullPath } }">
+        <div v-if="luckyEntryClosed" class="activity-note is-expired">
+          กิจกรรมนี้ปิดรับเลขแล้ว เนื่องจากเลยเวลาปิดขายสลาก 30 นาที
+        </div>
+
+        <NuxtLink v-else-if="!token" class="activity-login-link" :to="{ path: '/login', query: { redirect: route.fullPath } }">
           เข้าสู่ระบบเพื่อใช้สิทธิ์เลือกเลข
         </NuxtLink>
 
@@ -317,6 +333,7 @@ const awards = ref<Record<string, any>[]>([])
 const profile = ref<Record<string, any> | null>(null)
 const isLoading = ref(true)
 const isSubmitting = ref(false)
+const nowTick = ref(Date.now())
 const predictionType = ref('first_prize_last2')
 const pendingNumber = ref('')
 const claimAward = ref<Record<string, any> | null>(null)
@@ -386,6 +403,48 @@ const boardRemainingCount = computed(() => {
     : Math.max(0, boardTotalCount.value - boardReservedCount.value)
 })
 const boardRemainingText = computed(() => `เหลือ ${formatInteger(boardRemainingCount.value)} เลขให้เลือก`)
+const entryDeadlineDate = computed(() => {
+  const raw = String(activity.value?.entry_deadline_at || '')
+  if (!raw) {
+    return null
+  }
+
+  const date = new Date(raw)
+
+  return Number.isNaN(date.getTime()) ? null : date
+})
+const luckyEntryClosed = computed(() => Boolean(
+  activity.value?.type === 'lucky_board' &&
+  (
+    activity.value?.entry_closed ||
+    (entryDeadlineDate.value !== null && nowTick.value >= entryDeadlineDate.value.getTime())
+  )
+))
+const luckyEntryDeadlineText = computed(() => {
+  if (luckyEntryClosed.value) {
+    return 'หมดเวลาเข้าร่วม'
+  }
+
+  if (!entryDeadlineDate.value) {
+    return 'เข้าร่วมได้ถึง 30 นาทีหลังปิดการขายสลาก'
+  }
+
+  const formatted = new Intl.DateTimeFormat('th-TH', {
+    timeZone: 'Asia/Bangkok',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(entryDeadlineDate.value)
+
+  return `เข้าร่วมได้ถึง ${formatted} น.`
+})
+const luckyPanelSummaryText = computed(() => (
+  luckyEntryClosed.value
+    ? `หมดเวลาเข้าร่วม · ${boardRemainingText.value}`
+    : `${rights.value.remaining_count || 0} สิทธิ์คงเหลือ · ${boardRemainingText.value}`
+))
 const selectedEntryNumbers = computed(() => new Set(entries.value
   .filter((entry) => String(entry.prediction_type || '') === predictionType.value && String(entry.status || '') !== 'cancelled')
   .map((entry) => String(entry.selected_number || '').replace(/\D/g, ''))
@@ -397,6 +456,7 @@ const canSubmitEntry = computed(() => Boolean(
   activity.value?.id &&
   pendingNumber.value.length === predictionDigits.value &&
   Number(rights.value.remaining_count || 0) > 0 &&
+  !luckyEntryClosed.value &&
   !isReservedNumber(pendingNumber.value)
 ))
 const luckyResultSummary = computed(() => {
@@ -673,6 +733,7 @@ const isReservedNumber = (number: string) => boardReservedNumbers.value.has(numb
 
 const numberCellDisabled = (number: string) => (
   isReservedNumber(number) ||
+  luckyEntryClosed.value ||
   !token.value ||
   Number(rights.value.remaining_count || 0) < 1 ||
   isSubmitting.value
@@ -681,6 +742,11 @@ const numberCellDisabled = (number: string) => (
 const openNumberConfirm = async (number: string) => {
   if (!token.value) {
     await navigateTo({ path: '/login', query: { redirect: route.fullPath } })
+    return
+  }
+
+  if (luckyEntryClosed.value) {
+    showAlert({ title: 'หมดเวลาเข้าร่วม', message: 'กิจกรรมนี้ปิดรับเลขแล้ว เนื่องจากเลยเวลาปิดขายสลาก 30 นาที', variant: 'warning' })
     return
   }
 
@@ -780,7 +846,14 @@ const submitEntry = async () => {
     await loadActivity()
     showAlert({ title: 'ส่งเลขสำเร็จ', message: 'ระบบบันทึกเลขนำโชคของคุณแล้ว', variant: 'success' })
   } catch (error: any) {
-    showAlert({ title: 'ส่งเลขไม่สำเร็จ', message: error?.response?.data?.error?.message || 'กรุณาตรวจสอบสิทธิ์และลองใหม่อีกครั้ง', variant: 'error' })
+    const code = error?.response?.data?.error?.code || error?.data?.error?.code || ''
+    showAlert({
+      title: code === 'activity_entry_closed' ? 'หมดเวลาเข้าร่วม' : 'ส่งเลขไม่สำเร็จ',
+      message: code === 'activity_entry_closed'
+        ? 'กิจกรรมนี้ปิดรับเลขแล้ว เนื่องจากเลยเวลาปิดขายสลาก 30 นาที'
+        : (error?.response?.data?.error?.message || 'กรุณาตรวจสอบสิทธิ์และลองใหม่อีกครั้ง'),
+      variant: 'error'
+    })
   } finally {
     isSubmitting.value = false
   }
@@ -927,6 +1000,24 @@ const statusText = (status: string) => ({
 }[status] || status)
 const formatInteger = (value: unknown) => Number(value || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 })
 const formatBaht = (value: unknown) => Number(value || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' บาท'
+let entryDeadlineTimer: ReturnType<typeof setInterval> | null = null
+
+onMounted(() => {
+  if (!process.client) {
+    return
+  }
+
+  entryDeadlineTimer = setInterval(() => {
+    nowTick.value = Date.now()
+  }, 30000)
+})
+
+onBeforeUnmount(() => {
+  if (entryDeadlineTimer !== null) {
+    clearInterval(entryDeadlineTimer)
+    entryDeadlineTimer = null
+  }
+})
 
 watch(() => route.params.slug, () => {
   void loadActivity()
@@ -1009,6 +1100,10 @@ useTenantSeo({
   gap: 8px;
 }
 
+.activity-game.expired {
+  color: #b42318;
+}
+
 .activity-panel {
   display: grid;
   gap: 16px;
@@ -1059,6 +1154,50 @@ useTenantSeo({
   color: #667085;
   font-size: 12px;
   font-weight: 700;
+}
+
+.entry-deadline-banner {
+  align-items: center;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 16px;
+  color: #c2410c;
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+}
+
+.entry-deadline-banner.closed {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b42318;
+}
+
+.entry-deadline-banner i {
+  align-items: center;
+  background: rgba(255, 255, 255, .78);
+  border-radius: 999px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 18px;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.entry-deadline-banner div {
+  display: grid;
+  gap: 2px;
+}
+
+.entry-deadline-banner strong {
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.entry-deadline-banner span {
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .lucky-result-panel {
@@ -1339,6 +1478,11 @@ useTenantSeo({
 .activity-note {
   background: #fff7e6;
   color: #b76b00;
+}
+
+.activity-note.is-expired {
+  background: #fef2f2;
+  color: #b42318;
 }
 
 .award-list {

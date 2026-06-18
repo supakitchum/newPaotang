@@ -1,0 +1,70 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: newpaotang-public
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "520m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+spec:
+  tls:
+    - hosts:
+        - api.lottery80.online
+        - admin.lottery80.online
+        - realtime.lottery80.online
+        - lottery80.online
+        - "*.lottery80.online"
+      secretName: newpaotang-public-tls
+  rules:
+    - host: api.lottery80.online
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: platform-api
+                port:
+                  number: 8000
+    - host: admin.lottery80.online
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: back-office
+                port:
+                  number: 3100
+    - host: realtime.lottery80.online
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: platform-api-reverb
+                port:
+                  number: 8080
+    - host: lottery80.online
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: customer
+                port:
+                  number: 3000
+    - host: "*.lottery80.online"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: customer
+                port:
+                  number: 3000

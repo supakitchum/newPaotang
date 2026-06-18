@@ -159,6 +159,62 @@ class CentralGameTest extends TestCase
             ->assertJsonPath('data.0.id', $game['id']);
     }
 
+    public function test_CentralGame_auto_closes_open_games_thirty_minutes_after_sale_close(): void
+    {
+        $this->insertGame('gam_auto_close_due', 'open');
+        $this->insertGame('gam_auto_close_waiting', 'open');
+        $this->insertGame('gam_auto_close_draft', 'draft');
+        DB::table('games')->where('id', 'gam_auto_close_due')->update([
+            'code' => '01062569',
+            'close_at' => now()->subMinutes(31),
+            'closed_at' => null,
+            'updated_at' => now(),
+        ]);
+        DB::table('games')->where('id', 'gam_auto_close_waiting')->update([
+            'close_at' => now()->subMinutes(29),
+            'closed_at' => null,
+            'updated_at' => now(),
+        ]);
+        DB::table('games')->where('id', 'gam_auto_close_draft')->update([
+            'close_at' => now()->subMinutes(60),
+            'closed_at' => null,
+            'updated_at' => now(),
+        ]);
+
+        $this->artisan('games:auto-close-expired', ['--limit' => 10])
+            ->expectsOutput('Auto-closed games: 1')
+            ->assertExitCode(0);
+
+        $this->assertDatabaseHas('games', [
+            'id' => 'gam_auto_close_due',
+            'status' => 'closed',
+        ]);
+        $this->assertNotNull(DB::table('games')->where('id', 'gam_auto_close_due')->value('closed_at'));
+        $this->assertDatabaseHas('games', [
+            'id' => 'gam_auto_close_waiting',
+            'status' => 'open',
+            'closed_at' => null,
+        ]);
+        $this->assertDatabaseHas('games', [
+            'id' => 'gam_auto_close_draft',
+            'status' => 'draft',
+            'closed_at' => null,
+        ]);
+        $this->assertDatabaseHas('sync_outbox', [
+            'event_type' => 'game.closed.v1',
+            'producer' => 'central_stock',
+            'game_id' => 'gam_auto_close_due',
+            'idempotency_key' => 'auto-close-gam_auto_close_due',
+            'status' => 'pending',
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'actor_type' => 'system',
+            'actor_id' => 'system_auto_close',
+            'action' => 'game.closed',
+            'target_id' => 'gam_auto_close_due',
+        ]);
+    }
+
     public function test_CentralGame_open_requires_previous_closed_result_and_no_other_open_game(): void
     {
         $this->seedDefaultRbac();

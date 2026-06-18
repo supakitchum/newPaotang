@@ -4,10 +4,13 @@ namespace App\Shared\Auth;
 
 use App\Models\Customer;
 use App\Models\CustomerAuthSession;
-use Illuminate\Support\Facades\DB;
 
 class CustomerSessionResolver
 {
+    public function __construct(private readonly CustomerSuspensionService $customerSuspensions)
+    {
+    }
+
     public function accessTokenTenantId(?string $accessToken): ?string
     {
         if ($accessToken === null || $accessToken === '') {
@@ -43,10 +46,9 @@ class CustomerSessionResolver
 
         $customer = Customer::whereKey($session->customer_id)
             ->where('tenant_id', $session->tenant_id)
-            ->where('status', 'active')
             ->first();
 
-        if ($customer === null) {
+        if ($customer === null || $this->customerSuspensions->isSuspended($customer) || (string) $customer->status !== 'active') {
             return null;
         }
 
@@ -75,5 +77,38 @@ class CustomerSessionResolver
                 'has_pin' => is_string($customer->pin_hash) && $customer->pin_hash !== '',
             ],
         );
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function suspendedCustomerForAccessToken(?string $accessToken, ?string $expectedTenantId = null): ?array
+    {
+        if ($accessToken === null || $accessToken === '') {
+            return null;
+        }
+
+        $session = CustomerAuthSession::where('access_token_hash', hash('sha256', $accessToken))
+            ->whereNull('revoked_at')
+            ->where('access_expires_at', '>', now())
+            ->first();
+
+        if ($session === null) {
+            return null;
+        }
+
+        if ($expectedTenantId !== null && (string) $session->tenant_id !== $expectedTenantId) {
+            return null;
+        }
+
+        $customer = Customer::whereKey($session->customer_id)
+            ->where('tenant_id', $session->tenant_id)
+            ->first();
+
+        if ($customer === null || ! $this->customerSuspensions->isSuspended($customer)) {
+            return null;
+        }
+
+        return $this->customerSuspensions->payload($customer);
     }
 }

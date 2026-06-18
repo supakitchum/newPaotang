@@ -7,7 +7,9 @@ import { logger } from './logger.js'
 import { BackoffState, shouldBackoffForStatus } from './scheduler/backoff.js'
 import { applyJitter, currentDrawWindow } from './scheduler/drawWindow.js'
 import { fetchSanookHtml, parseSanookLottoHtml } from './scrapers/sanook.js'
+import { fetchThairathHtml, parseThairathLottoHtml } from './scrapers/thairath.js'
 import { StateStore } from './state/store.js'
+import type { ScrapeResult } from './types.js'
 
 const instanceId = randomUUID()
 const state = {
@@ -16,6 +18,7 @@ const state = {
   lastIngestAt: null as string | null,
   lastError: null as string | null,
   phase: 'starting',
+  source: config.source,
   drawCode: config.drawCode,
   ready: async () => false
 }
@@ -26,11 +29,19 @@ const backoff = new BackoffState()
 let stableCompleteCount = 0
 const completedDraws = new Set<string>()
 
+type FailedIngestState = {
+  payload_hash: string
+  status_code: number | null
+  message: string
+  failed_at: string
+}
+
 startHealthServer(config.healthPort, state, {
   triggerSecret: config.triggerSecret,
   triggerSignatureTtlSeconds: config.triggerSignatureTtlSeconds,
-  triggerPoll: async ({ drawCode, forceIngest, reason }) => {
+  triggerPoll: async ({ drawCode, drawDate, forceIngest, reason }) => {
     const result = await pollDraw(drawCode, {
+      drawDate,
       forceIngest,
       reason,
       throwOnError: true
@@ -105,38 +116,64 @@ while (true) {
 }
 
 type PollOptions = {
+  drawDate?: string | null
   forceIngest?: boolean
   reason?: string
   throwOnError?: boolean
 }
 
 async function pollDraw(drawCode: string, options: PollOptions = {}) {
-  const lockAcquired = await store.acquireLock(drawCode, instanceId, config.lockTtlMs)
+  const sourceKey = `${config.source}:${drawCode}`
+  const lockAcquired = await store.acquireLock(sourceKey, instanceId, config.lockTtlMs)
 
   if (!lockAcquired) {
-    logger.debug({ draw_code: drawCode }, 'Another scraper instance holds the draw lock.')
+    logger.debug({ source: config.source, draw_code: drawCode }, 'Another scraper instance holds the draw lock.')
     return null
   }
 
   try {
     state.lastPollAt = new Date().toISOString()
-    const { url, html } = await fetchSanookHtml(config.sourceBaseUrl, drawCode)
-    const parsed = parseSanookLottoHtml(html, drawCode, url)
-    const previousHash = await store.getHash(drawCode)
+    const parsed = await scrapeDraw(drawCode, options.drawDate || null)
+    const previousHash = await store.getHash(sourceKey)
+    const failedIngest = await store.getJson<FailedIngestState>(failedIngestKey(config.source, drawCode))
 
     backoff.recordSuccess()
 
     if (previousHash === parsed.payload_hash && options.forceIngest !== true) {
-      logger.info({ draw_code: drawCode, completion_percent: parsed.completion_percent }, 'Sanook result unchanged; skipping ingest.')
+      logger.info({ source: config.source, draw_code: drawCode, draw_date: parsed.draw_date, completion_percent: parsed.completion_percent }, 'Scraped result unchanged; skipping ingest.')
       return parsed
     }
 
-    await platformApi.ingestSanookResult(parsed)
-    await store.setHash(drawCode, parsed.payload_hash)
+    if (failedIngest?.payload_hash === parsed.payload_hash && options.forceIngest !== true) {
+      state.lastError = failedIngest.message
+      logger.warn({
+        source: config.source,
+        draw_code: drawCode,
+        draw_date: parsed.draw_date,
+        completion_percent: parsed.completion_percent,
+        payload_hash: parsed.payload_hash,
+        status_code: failedIngest.status_code,
+        failed_at: failedIngest.failed_at
+      }, 'Scraped result matches the last failed ingest payload; skipping until source changes.')
+
+      return parsed
+    }
+
+    try {
+      await platformApi.ingestResult(parsed)
+    } catch (error: any) {
+      await cacheFailedIngest(drawCode, parsed, error)
+      throw error
+    }
+
+    await store.setHash(sourceKey, parsed.payload_hash)
+    await store.delete(failedIngestKey(config.source, drawCode))
     state.lastIngestAt = new Date().toISOString()
     state.lastError = null
     logger.info({
+      source: config.source,
       draw_code: drawCode,
+      draw_date: parsed.draw_date,
       completion_percent: parsed.completion_percent,
       payload_hash: parsed.payload_hash,
       force_ingest: options.forceIngest === true,
@@ -161,6 +198,52 @@ async function pollDraw(drawCode: string, options: PollOptions = {}) {
 
     return null
   }
+}
+
+async function scrapeDraw(drawCode: string, drawDate: string | null = null) {
+  const fetchDrawCode = drawDateToDrawCode(drawDate) || drawCode
+
+  if (config.source === 'thairath') {
+    const { url, html } = await fetchThairathHtml(config.sourceBaseUrl, fetchDrawCode)
+    return parseThairathLottoHtml(html, drawCode, url, new Date().toISOString(), drawDate || undefined)
+  }
+
+  const { url, html } = await fetchSanookHtml(config.sourceBaseUrl, fetchDrawCode)
+  return parseSanookLottoHtml(html, drawCode, url, new Date().toISOString(), drawDate || undefined)
+}
+
+async function cacheFailedIngest(drawCode: string, parsed: ScrapeResult, error: any) {
+  const statusCode = Number(error?.statusCode)
+
+  if (statusCode !== 422) {
+    return
+  }
+
+  await store.setJson(failedIngestKey(parsed.source, drawCode), {
+    payload_hash: parsed.payload_hash,
+    status_code: Number.isFinite(statusCode) ? statusCode : null,
+    message: error?.message || String(error),
+    failed_at: new Date().toISOString()
+  } satisfies FailedIngestState, 6 * 60 * 60 * 1000)
+}
+
+function failedIngestKey(source: string, drawCode: string) {
+  return `lotto-scraper:failed-ingest:${source}:${drawCode}`
+}
+
+function drawDateToDrawCode(drawDate: string | null) {
+  if (!drawDate || !/^\d{4}-\d{2}-\d{2}$/.test(drawDate)) {
+    return null
+  }
+
+  const [year, month, day] = drawDate.split('-')
+  const buddhistYear = Number(year) + 543
+
+  if (!Number.isFinite(buddhistYear)) {
+    return null
+  }
+
+  return `${day}${month}${buddhistYear}`
 }
 
 async function shutdown(signal: string) {

@@ -147,6 +147,7 @@ class CustomerActivityController extends Controller
             'authentication_required' => ApiErrorResponse::authenticationRequired($request),
             'idempotency_conflict' => ApiErrorResponse::idempotencyConflict($request),
             'resource_conflict' => ApiErrorResponse::resourceConflict($request),
+            'activity_entry_closed' => ApiErrorResponse::make($request, 409, 'activity_entry_closed', 'Activity participation period has ended.'),
             'not_found' => ApiErrorResponse::notFound($request),
             'pin_setup_required' => ApiErrorResponse::customerPinSetupRequired($request),
             'pin_required' => ApiErrorResponse::customerPinRequired($request),

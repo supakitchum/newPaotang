@@ -9,13 +9,15 @@ export type PrizeType =
   | 'back3'
   | 'back2'
 
+export type ScrapeSource = 'sanook' | 'thairath'
+
 export type LivePrizeGroup = {
   prize_type: PrizeType
   prize_numbers: string[]
 }
 
 export type LiveResultPayload = {
-  source: 'sanook'
+  source: ScrapeSource
   draw_code: string
   draw_date: string
   scraped_at: string

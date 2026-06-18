@@ -1,0 +1,141 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lotto-scraper-sanook
+  labels:
+    app.kubernetes.io/name: lotto-scraper-sanook
+    app.kubernetes.io/part-of: newpaotang
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: lotto-scraper-sanook
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: lotto-scraper-sanook
+        app.kubernetes.io/part-of: newpaotang
+    spec:
+      containers:
+        - name: lotto-scraper
+          image: newpaotang/lotto-scraper:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: health
+              containerPort: 3200
+          envFrom:
+            - configMapRef:
+                name: newpaotang-lotto-scraper-config
+            - secretRef:
+                name: newpaotang-lotto-scraper-secret
+          env:
+            - name: LOTTO_SCRAPER_SOURCE
+              value: sanook
+            - name: LOTTO_SCRAPER_SOURCE_BASE_URL
+              value: https://news.sanook.com/lotto/check
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lotto-scraper-sanook
+  labels:
+    app.kubernetes.io/name: lotto-scraper-sanook
+spec:
+  selector:
+    app.kubernetes.io/name: lotto-scraper-sanook
+  ports:
+    - name: health
+      port: 3200
+      targetPort: health
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lotto-scraper-thairath
+  labels:
+    app.kubernetes.io/name: lotto-scraper-thairath
+    app.kubernetes.io/part-of: newpaotang
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: lotto-scraper-thairath
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: lotto-scraper-thairath
+        app.kubernetes.io/part-of: newpaotang
+    spec:
+      containers:
+        - name: lotto-scraper
+          image: newpaotang/lotto-scraper:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: health
+              containerPort: 3200
+          envFrom:
+            - configMapRef:
+                name: newpaotang-lotto-scraper-config
+            - secretRef:
+                name: newpaotang-lotto-scraper-secret
+          env:
+            - name: LOTTO_SCRAPER_SOURCE
+              value: thairath
+            - name: LOTTO_SCRAPER_SOURCE_BASE_URL
+              value: https://www.thairath.co.th/lottery/check
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lotto-scraper-thairath
+  labels:
+    app.kubernetes.io/name: lotto-scraper-thairath
+spec:
+  selector:
+    app.kubernetes.io/name: lotto-scraper-thairath
+  ports:
+    - name: health
+      port: 3200
+      targetPort: health

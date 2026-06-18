@@ -1,28 +1,5 @@
 <template>
   <div>
-    <div class="card custom-card">
-      <div class="card-header d-flex align-items-center justify-content-between">
-        <div class="card-title">{{ translateReportText('Report summary', locale) }}</div>
-        <span v-if="metadata" class="badge bg-light text-default">{{ metadata }}</span>
-      </div>
-      <div class="card-body">
-        <AdminLoader v-if="loading" />
-        <div v-else-if="summaryItems.length" class="row g-3">
-          <div v-for="item in summaryItems" :key="item.key" class="col-sm-6 col-xl-3">
-            <div class="border rounded-2 p-3 h-100">
-              <p class="text-muted mb-1">{{ item.label }}</p>
-              <h6 class="mb-0 text-break">{{ item.value }}</h6>
-            </div>
-          </div>
-        </div>
-        <AdminEmptyState
-          v-else
-          :title="translateReportText('No report summary', locale)"
-          :message="translateReportText('No summary values were returned for this report.', locale)"
-        />
-      </div>
-    </div>
-
     <div v-if="sections.length" class="row g-3 mb-3">
       <div v-for="(section, sectionIndex) in sections" :key="sectionKey(section, sectionIndex)" class="col-12">
         <div class="card custom-card mb-0">
@@ -53,8 +30,20 @@
               :empty-message="translateReportText('No data was returned for this report section.', locale)"
               @sort-change="setSectionSort(section, sectionIndex, $event)"
             >
-              <template v-for="column in translatedSectionColumns(section)" :key="column.key" #[`cell-${column.key}`]="{ value }">
-                {{ formatReportValue(value, column) }}
+              <template v-for="column in translatedSectionColumns(section)" :key="column.key" #[`cell-${column.key}`]="{ row, value }">
+                <button
+                  v-if="column.type === 'report-details'"
+                  class="btn btn-info btn-sm np-report-detail-button"
+                  type="button"
+                  :disabled="!hasReportDetails(row)"
+                  @click="openReportDetails(row, section.title)"
+                >
+                  <i class="ri-list-check-2" aria-hidden="true" />
+                  <span class="visually-hidden">{{ translateReportText('More', locale) }}</span>
+                </button>
+                <template v-else>
+                  {{ formatReportValue(value, column) }}
+                </template>
               </template>
             </AdminDataTable>
           </div>
@@ -63,7 +52,8 @@
     </div>
 
     <AdminDataTable
-      :title="translateReportText('Report rows', locale)"
+      v-if="showMainRows"
+      :title="mainRowsTitle"
       :columns="translatedRowColumns"
       :rows="rowValues"
       :loading="loading"
@@ -74,10 +64,63 @@
       :empty-message="translateReportText('No row-level report data was returned for the selected filters.', locale)"
       @sort-change="setMainSort"
     >
-      <template v-for="column in translatedRowColumns" :key="column.key" #[`cell-${column.key}`]="{ value }">
-        {{ formatReportValue(value, column) }}
+      <template v-for="column in translatedRowColumns" :key="column.key" #[`cell-${column.key}`]="{ row, value }">
+        <button
+          v-if="column.type === 'report-details'"
+          class="btn btn-info btn-sm np-report-detail-button"
+          type="button"
+          :disabled="!hasReportDetails(row)"
+          @click="openReportDetails(row, mainRowsTitle)"
+        >
+          <i class="ri-list-check-2" aria-hidden="true" />
+          <span class="visually-hidden">{{ translateReportText('More', locale) }}</span>
+        </button>
+        <template v-else>
+          {{ formatReportValue(value, column) }}
+        </template>
       </template>
     </AdminDataTable>
+
+    <Teleport to="body">
+      <div v-if="detailModal.open" class="modal fade show np-report-detail-modal" tabindex="-1" role="dialog" aria-modal="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+          <div class="modal-content">
+            <div class="modal-header">
+              <div>
+                <h5 class="modal-title">{{ translateReportText(detailModal.title, locale) }}</h5>
+                <p class="text-muted fs-12 mb-0">
+                  {{ translateReportText('Total count', locale) }}: {{ formatReportValue(detailModal.rows.length, { type: 'number' }) }}
+                </p>
+              </div>
+              <button class="btn-close" type="button" :aria-label="translateReportText('Close', locale)" @click="closeReportDetails" />
+            </div>
+            <div class="modal-body">
+              <AdminDataTable
+                :columns="translatedDetailColumns"
+                :rows="sortedDetailRows"
+                :embedded="true"
+                :sortable="detailModal.rows.length > 1"
+                :sort-key="detailSort.key"
+                :sort-direction="detailSort.direction"
+                :empty-title="translateReportText('No section rows', locale)"
+                :empty-message="translateReportText('No data was returned for this report section.', locale)"
+                @sort-change="setDetailSort"
+              >
+                <template v-for="column in translatedDetailColumns" :key="column.key" #[`cell-${column.key}`]="{ value }">
+                  {{ formatReportValue(value, column) }}
+                </template>
+              </AdminDataTable>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-light" type="button" @click="closeReportDetails">
+                {{ translateReportText('Close', locale) }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-if="detailModal.open" class="modal-backdrop fade show" @click="closeReportDetails" />
+    </Teleport>
   </div>
 </template>
 
@@ -97,19 +140,24 @@ type ReportSort = {
 
 const { locale } = useAdminLocale()
 const report = computed(() => props.data || {})
-const metadata = computed(() => {
-  if (!report.value.report_key) return ''
-  const parts = [report.value.scope, report.value.report_key, report.value.tenant_id, report.value.game_id].filter(Boolean)
-  return parts.join(' / ')
-})
-const summaryItems = computed(() => Object.entries(report.value.summary || {})
-  .map(([key, value]) => ({
-    key,
-    label: translateReportFieldLabel(key, labelize(key), locale.value),
-    value: formatReportValue(value, { key }),
-  })))
 const sections = computed(() => Array.isArray(report.value.sections) ? report.value.sections : [])
 const rawRows = computed(() => Array.isArray(report.value.rows) ? report.value.rows : [])
+const showMainRows = computed(() => {
+  if (report.value.report_key === 'overview') {
+    return false
+  }
+
+  if (props.loading) {
+    return true
+  }
+
+  return rawRows.value.length > 0 || sections.value.length === 0
+})
+const mainRowsTitle = computed(() => (
+  report.value.report_key === 'overview'
+    ? translateReportText('Revenue summary', locale.value)
+    : translateReportText('Report rows', locale.value)
+))
 const rowColumns = computed(() => {
   if (Array.isArray(report.value.columns) && report.value.columns.length) {
     return report.value.columns
@@ -121,7 +169,21 @@ const rowColumns = computed(() => {
 const translatedRowColumns = computed(() => translateReportColumns(rowColumns.value, locale.value))
 const mainSort = reactive<ReportSort>({ key: '', direction: 'asc' })
 const sectionSorts = reactive<Record<string, ReportSort>>({})
+const detailSort = reactive<ReportSort>({ key: '', direction: 'asc' })
+const detailModal = reactive<{
+  open: boolean
+  title: string
+  columns: any[]
+  rows: any[]
+}>({
+  open: false,
+  title: '',
+  columns: [],
+  rows: [],
+})
 const rowValues = computed(() => sortRows(rawRows.value, rowColumns.value, mainSort))
+const translatedDetailColumns = computed(() => translateReportColumns(detailModal.columns, locale.value))
+const sortedDetailRows = computed(() => sortRows(detailModal.rows, detailModal.columns, detailSort))
 
 const sectionItems = (section: any) => {
   if (!Array.isArray(section?.items)) return []
@@ -170,6 +232,40 @@ const setSectionSort = (section: any, index: number, value: ReportSort) => {
   state.direction = value.direction
 }
 
+const setDetailSort = (value: ReportSort) => {
+  detailSort.key = value.key
+  detailSort.direction = value.direction
+}
+
+const detailColumnsForRow = (row: any) => {
+  if (Array.isArray(row?.detail_columns) && row.detail_columns.length) {
+    return row.detail_columns
+  }
+
+  const detailRows = Array.isArray(row?.detail_rows) ? row.detail_rows : []
+  const keys = Array.from(new Set(detailRows.flatMap((detailRow: any) => Object.keys(detailRow || {}))))
+  return keys.map((key) => ({ key, label: labelize(key) }))
+}
+
+const hasReportDetails = (row: any) => Array.isArray(row?.detail_rows) && row.detail_rows.length > 0
+
+const openReportDetails = (row: any, fallbackTitle?: string) => {
+  if (!hasReportDetails(row)) {
+    return
+  }
+
+  detailModal.title = row?.detail_title || fallbackTitle || 'Report rows'
+  detailModal.columns = detailColumnsForRow(row)
+  detailModal.rows = Array.isArray(row?.detail_rows) ? row.detail_rows : []
+  detailSort.key = ''
+  detailSort.direction = 'asc'
+  detailModal.open = true
+}
+
+const closeReportDetails = () => {
+  detailModal.open = false
+}
+
 const sortRows = (rows: any[], columns: any[], sort: ReportSort) => {
   if (!sort.key) {
     return rows
@@ -212,3 +308,21 @@ const compareValues = (left: any, right: any) => {
   return left > right ? 1 : -1
 }
 </script>
+
+<style scoped>
+.np-report-detail-button {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  min-width: 42px;
+}
+
+.np-report-detail-modal {
+  display: block;
+  z-index: 1085;
+}
+
+:global(.modal-backdrop.show) {
+  z-index: 1080;
+}
+</style>

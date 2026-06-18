@@ -1,0 +1,167 @@
+name: Production Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to publish and deploy. Defaults to git SHA."
+        required: false
+        type: string
+      deploy:
+        description: "Apply manifests and roll production deployments after pushing images."
+        required: true
+        default: false
+        type: boolean
+      run_rbac_seed:
+        description: "Run DefaultRbacMenuSeeder after migration. Use when menus/permissions changed."
+        required: true
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: registry.digitalocean.com/${{ secrets.DOCR_REGISTRY }}
+  NAMESPACE: newpaotang-prod
+  CLUSTER_NAME: ${{ secrets.DOKS_CLUSTER_NAME }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      platform_api_image: ${{ steps.meta.outputs.platform_api_image }}
+      customer_image: ${{ steps.meta.outputs.customer_image }}
+      back_office_image: ${{ steps.meta.outputs.back_office_image }}
+      lotto_scraper_image: ${{ steps.meta.outputs.lotto_scraper_image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: meta
+        shell: bash
+        run: |
+          IMAGE_TAG="${{ inputs.image_tag }}"
+          if [ -z "$IMAGE_TAG" ]; then
+            IMAGE_TAG="${GITHUB_SHA::12}"
+          fi
+
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "platform_api_image=${REGISTRY}/newpaotang-platform-api:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "customer_image=${REGISTRY}/newpaotang-customer:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "back_office_image=${REGISTRY}/newpaotang-back-office:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "lotto_scraper_image=${REGISTRY}/newpaotang-lotto-scraper:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Login to DigitalOcean Container Registry
+        run: doctl registry login --expiry-seconds 1200
+
+      - name: Build and push platform API
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/platform-api
+          file: apps/platform-api/Dockerfile
+          target: production
+          push: true
+          tags: ${{ steps.meta.outputs.platform_api_image }}
+          cache-from: type=gha,scope=platform-api
+          cache-to: type=gha,scope=platform-api,mode=max
+
+      - name: Build and push customer
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/customer
+          file: apps/customer/Dockerfile
+          target: runner
+          push: true
+          tags: ${{ steps.meta.outputs.customer_image }}
+          cache-from: type=gha,scope=customer
+          cache-to: type=gha,scope=customer,mode=max
+
+      - name: Build and push back office
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/back-office
+          file: apps/back-office/Dockerfile
+          target: runner
+          push: true
+          tags: ${{ steps.meta.outputs.back_office_image }}
+          cache-from: type=gha,scope=back-office
+          cache-to: type=gha,scope=back-office,mode=max
+
+      - name: Build and push lotto scraper
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/lotto-scraper
+          file: apps/lotto-scraper/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.lotto_scraper_image }}
+          cache-from: type=gha,scope=lotto-scraper
+          cache-to: type=gha,scope=lotto-scraper,mode=max
+
+  deploy:
+    if: ${{ inputs.deploy }}
+    runs-on: ubuntu-latest
+    needs: build
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Install kubectl credentials
+        run: doctl kubernetes cluster kubeconfig save "$CLUSTER_NAME"
+
+      - name: Apply base manifests
+        run: kubectl apply -k deploy/digitalocean
+
+      - name: Set production images
+        run: |
+          kubectl -n "$NAMESPACE" set image deployment/platform-api platform-api="${{ needs.build.outputs.platform_api_image }}"
+          kubectl -n "$NAMESPACE" set image deployment/platform-api-worker-critical worker="${{ needs.build.outputs.platform_api_image }}"
+          kubectl -n "$NAMESPACE" set image deployment/platform-api-worker-default worker="${{ needs.build.outputs.platform_api_image }}"
+          kubectl -n "$NAMESPACE" set image deployment/platform-api-worker-image worker="${{ needs.build.outputs.platform_api_image }}"
+          kubectl -n "$NAMESPACE" set image deployment/platform-api-scheduler scheduler="${{ needs.build.outputs.platform_api_image }}"
+          kubectl -n "$NAMESPACE" set image deployment/platform-api-reverb reverb="${{ needs.build.outputs.platform_api_image }}"
+          kubectl -n "$NAMESPACE" set image deployment/customer customer="${{ needs.build.outputs.customer_image }}"
+          kubectl -n "$NAMESPACE" set image deployment/back-office back-office="${{ needs.build.outputs.back_office_image }}"
+          kubectl -n "$NAMESPACE" set image deployment/lotto-scraper-sanook lotto-scraper="${{ needs.build.outputs.lotto_scraper_image }}"
+          kubectl -n "$NAMESPACE" set image deployment/lotto-scraper-thairath lotto-scraper="${{ needs.build.outputs.lotto_scraper_image }}"
+
+      - name: Run database migrations
+        env:
+          MIGRATION_JOB_NAME: newpaotang-migrate-${{ github.run_id }}-${{ github.run_attempt }}
+          PLATFORM_API_IMAGE: ${{ needs.build.outputs.platform_api_image }}
+        run: |
+          envsubst < deploy/digitalocean/jobs/migrate.yaml | kubectl apply -f -
+          kubectl -n "$NAMESPACE" wait --for=condition=complete "job/${MIGRATION_JOB_NAME}" --timeout=600s
+
+      - name: Run RBAC/menu seed
+        if: ${{ inputs.run_rbac_seed }}
+        env:
+          RBAC_SEED_JOB_NAME: newpaotang-rbac-seed-${{ github.run_id }}-${{ github.run_attempt }}
+          PLATFORM_API_IMAGE: ${{ needs.build.outputs.platform_api_image }}
+        run: |
+          envsubst < deploy/digitalocean/jobs/rbac-seed.yaml | kubectl apply -f -
+          kubectl -n "$NAMESPACE" wait --for=condition=complete "job/${RBAC_SEED_JOB_NAME}" --timeout=600s
+
+      - name: Wait for rollout
+        run: |
+          kubectl -n "$NAMESPACE" rollout status deployment/platform-api --timeout=600s
+          kubectl -n "$NAMESPACE" rollout status deployment/customer --timeout=600s
+          kubectl -n "$NAMESPACE" rollout status deployment/back-office --timeout=600s
+          kubectl -n "$NAMESPACE" rollout status deployment/platform-api-reverb --timeout=600s
+          kubectl -n "$NAMESPACE" rollout status deployment/platform-api-worker-critical --timeout=600s
+          kubectl -n "$NAMESPACE" rollout status deployment/platform-api-worker-default --timeout=600s
+          kubectl -n "$NAMESPACE" rollout status deployment/platform-api-worker-image --timeout=600s
+          kubectl -n "$NAMESPACE" rollout status deployment/lotto-scraper-sanook --timeout=600s
+          kubectl -n "$NAMESPACE" rollout status deployment/lotto-scraper-thairath --timeout=600s

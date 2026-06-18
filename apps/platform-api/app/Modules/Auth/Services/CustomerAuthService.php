@@ -7,6 +7,7 @@ use App\Models\CustomerAuthSession;
 use App\Models\PartnerTenant;
 use App\Models\Wallet;
 use App\Shared\Auth\CustomerSessionContext;
+use App\Shared\Auth\CustomerSuspensionService;
 use App\Shared\Idempotency\IdempotencyService;
 use App\Support\CustomerNo;
 use Illuminate\Http\Request;
@@ -23,8 +24,10 @@ class CustomerAuthService
     private const PIN_MAX_FAILED_ATTEMPTS = 5;
     private const PIN_LOCK_SECONDS = 900;
 
-    public function __construct(private readonly IdempotencyService $idempotency)
-    {
+    public function __construct(
+        private readonly IdempotencyService $idempotency,
+        private readonly CustomerSuspensionService $customerSuspensions,
+    ) {
     }
 
     /**
@@ -114,7 +117,6 @@ class CustomerAuthService
 
         $customer = Customer::query()
             ->where('tenant_id', $tenant['tenant_id'])
-            ->where('status', 'active')
             ->where(function ($query) use ($username): void {
                 $query->where('phone', $username)
                     ->orWhere('email', strtolower($username));
@@ -122,6 +124,17 @@ class CustomerAuthService
             ->first();
 
         if ($customer === null || $customer->password_hash === null || ! Hash::check($password, (string) $customer->password_hash)) {
+            return null;
+        }
+
+        if ($this->customerSuspensions->isSuspended($customer)) {
+            return [
+                'error' => 'customer_suspended',
+                'suspension' => $this->customerSuspensions->payload($customer),
+            ];
+        }
+
+        if ((string) $customer->status !== 'active') {
             return null;
         }
 
@@ -200,10 +213,30 @@ class CustomerAuthService
 
             $customer = Customer::whereKey($oldSession->customer_id)
                 ->where('tenant_id', $tenant['tenant_id'])
-                ->where('status', 'active')
                 ->first();
 
             if ($customer === null) {
+                CustomerAuthSession::query()->where('id', $oldSession->id)->update([
+                    'revoked_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                return null;
+            }
+
+            if ($this->customerSuspensions->isSuspended($customer)) {
+                CustomerAuthSession::query()->where('id', $oldSession->id)->update([
+                    'revoked_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                return [
+                    'error' => 'customer_suspended',
+                    'suspension' => $this->customerSuspensions->payload($customer),
+                ];
+            }
+
+            if ((string) $customer->status !== 'active') {
                 CustomerAuthSession::query()->where('id', $oldSession->id)->update([
                     'revoked_at' => now(),
                     'updated_at' => now(),

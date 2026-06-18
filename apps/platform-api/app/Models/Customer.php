@@ -21,6 +21,10 @@ class Customer extends BaseModel
         'first_name',
         'last_name',
         'status',
+        'suspended_at',
+        'suspended_until',
+        'suspension_reason',
+        'suspended_by_admin_id',
         'preferred_locale',
         'created_at',
         'updated_at',
@@ -46,6 +50,8 @@ class Customer extends BaseModel
 
     protected $casts = [
         'last_login_at' => 'datetime',
+        'suspended_at' => 'datetime',
+        'suspended_until' => 'datetime',
         'pin_set_at' => 'datetime',
         'pin_changed_at' => 'datetime',
         'pin_locked_until' => 'datetime',

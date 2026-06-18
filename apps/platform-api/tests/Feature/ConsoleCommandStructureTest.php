@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Console\Commands\AutoCloseExpiredGamesCommand;
 use App\Console\Commands\CalculateCommissionsCommand;
 use App\Console\Commands\ExpireStockReservationsCommand;
 use App\Console\Commands\PlatformAlertsCheckCommand;
@@ -15,6 +16,7 @@ use App\Console\Commands\PrepareK6BaselineCommand;
 use App\Console\Commands\PruneTopupSlipsCommand;
 use App\Console\Commands\ProcessRewardCheckCommand;
 use App\Console\Commands\ProcessSoldSyncCommand;
+use App\Modules\CentralStock\Services\CentralStockService;
 use App\Modules\Commerce\Services\CommerceService;
 use App\Modules\Growth\Services\GrowthService;
 use App\Modules\PartnerStore\Services\PartnerStoreService;
@@ -38,6 +40,7 @@ class ConsoleCommandStructureTest extends TestCase
             'platform:cloudflare:readiness' => PlatformCloudflareReadinessCommand::class,
             'platform:migration:rehearsal' => PlatformMigrationRehearsalCommand::class,
             'platform:runtime:readiness' => PlatformRuntimeReadinessCommand::class,
+            'games:auto-close-expired' => AutoCloseExpiredGamesCommand::class,
             'stock:reservations:expire' => ExpireStockReservationsCommand::class,
             'stock:sold:sync' => ProcessSoldSyncCommand::class,
             'reward:check' => ProcessRewardCheckCommand::class,
@@ -52,6 +55,7 @@ class ConsoleCommandStructureTest extends TestCase
         }
 
         $this->assertSame('100', (string) $commands['stock:reservations:expire']->getDefinition()->getOption('limit')->getDefault());
+        $this->assertSame('100', (string) $commands['games:auto-close-expired']->getDefinition()->getOption('limit')->getDefault());
         $this->assertSame('100', (string) $commands['stock:sold:sync']->getDefinition()->getOption('limit')->getDefault());
         $this->assertTrue($commands['platform:smoke']->getDefinition()->hasOption('no-seed-login'));
         $this->assertTrue($commands['platform:observability:report']->getDefinition()->hasOption('format'));
@@ -101,6 +105,17 @@ class ConsoleCommandStructureTest extends TestCase
 
         $this->artisan('stock:sold:sync', ['--limit' => 8])
             ->expectsOutput('Processed sold events: 4')
+            ->assertExitCode(SymfonyCommand::SUCCESS);
+
+        $this->mock(CentralStockService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('autoCloseExpiredGames')->once()->with(9)->andReturn([
+                'closed_count' => 2,
+                'closed_games' => [],
+            ]);
+        });
+
+        $this->artisan('games:auto-close-expired', ['--limit' => 9])
+            ->expectsOutput('Auto-closed games: 2')
             ->assertExitCode(SymfonyCommand::SUCCESS);
 
         $this->mock(CommerceService::class, function (MockInterface $mock): void {

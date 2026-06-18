@@ -14,12 +14,12 @@
         </button>
       </div>
       <hr>
-      <div v-if="historyGame" class="d-flex justify-content-between align-items-center mb-3">
+      <div v-if="tickets.length" class="d-flex justify-content-between align-items-center mb-3">
         <div>
-          <div class="muted-text fw-semibold">สลากฯ งวดวันที่</div>
-          <h2 class="fs-5 fw-bold">{{ drawDate }}</h2>
+          <div class="muted-text fw-semibold">สลากฯ ย้อนหลัง</div>
+          <h2 class="fs-5 fw-bold">{{ historyTitle }}</h2>
         </div>
-        <button class="outline-pill"><i class="bi bi-share me-2" />แชร์ผลให้เพื่อนรู้</button>
+        <span class="history-ticket-count">{{ tickets.length.toLocaleString('th-TH') }} รายการ</span>
       </div>
 
       <div v-if="tickets.length" class="rounded-3 p-3 mb-4 d-flex align-items-center justify-content-between" style="background:linear-gradient(110deg,#dfffe9,#fff6cf);">
@@ -35,28 +35,36 @@
         {{ loadError }}
       </div>
 
-      <div v-else-if="visibleTickets.length" class="d-grid gap-3">
-        <div
-          v-for="(ticket, index) in visibleTickets"
-          :key="getTicketKey(ticket, index)"
-          class="ticket-card-button"
-          role="button"
-          tabindex="0"
-          @click="openTicketModal(ticket)"
-          @keydown.enter.prevent="openTicketModal(ticket)"
-          @keydown.space.prevent="openTicketModal(ticket)"
-        >
-          <TicketStub
-            :number="getTicketNumber(ticket)"
-            :status="getTicketStatusText(ticket)"
-            :is-winning="isWinningTicket(ticket)"
-            :prize-title="getTicketPrizeTitle(ticket)"
-            :prize-amount="formatPrizeAmount(getTicketPrizeAmount(ticket))"
-            :prizes="getTicketRewardPrizes(ticket)"
-            :claim-label="isTicketClaimable(ticket) ? 'ขึ้นรางวัล' : 'ดูรางวัล'"
-            :claim-to="getTicketClaimTo(ticket)"
-          />
-        </div>
+      <div v-else-if="visibleTickets.length" class="ticket-history-groups">
+        <section v-for="group in visibleTicketGroups" :key="group.key" class="ticket-history-group">
+          <div class="ticket-history-group-head">
+            <span>งวดวันที่</span>
+            <strong>{{ group.drawDate || '-' }}</strong>
+          </div>
+          <div class="d-grid gap-3">
+            <div
+              v-for="(ticket, index) in group.tickets"
+              :key="getTicketKey(ticket, index)"
+              class="ticket-card-button"
+              role="button"
+              tabindex="0"
+              @click="openTicketModal(ticket)"
+              @keydown.enter.prevent="openTicketModal(ticket)"
+              @keydown.space.prevent="openTicketModal(ticket)"
+            >
+              <TicketStub
+                :number="getTicketNumber(ticket)"
+                :status="getTicketStatusText(ticket)"
+                :is-winning="isWinningTicket(ticket)"
+                :prize-title="getTicketPrizeTitle(ticket)"
+                :prize-amount="formatPrizeAmount(getTicketPrizeAmount(ticket))"
+                :prizes="getTicketRewardPrizes(ticket)"
+                :claim-label="isTicketClaimable(ticket) ? 'ขึ้นรางวัล' : 'ดูรางวัล'"
+                :claim-to="getTicketClaimTo(ticket)"
+              />
+            </div>
+          </div>
+        </section>
       </div>
 
       <div v-else-if="showOnlyWinning" class="empty-lottery-state">
@@ -127,10 +135,42 @@ const perPage = 20
 const selectedTicket = ref<UserTicket | null>(null)
 const loadMoreSentinel = ref<HTMLElement | null>(null)
 let loadObserver: IntersectionObserver | null = null
+const groupTicketsByGame = (sourceTickets: UserTicket[]) => {
+  const groups: Array<{ key: string, drawDate: string, tickets: UserTicket[] }> = []
+  const groupIndexes = new Map<string, number>()
+
+  sourceTickets.forEach((ticket) => {
+    const drawDate = getTicketGameDate(ticket) || '-'
+    const key = String(ticket.game?.id || ticket.game_id || drawDate)
+    const existingIndex = groupIndexes.get(key)
+
+    if (existingIndex === undefined) {
+      groupIndexes.set(key, groups.length)
+      groups.push({
+        key,
+        drawDate,
+        tickets: [ticket]
+      })
+
+      return
+    }
+
+    groups[existingIndex].tickets.push(ticket)
+  })
+
+  return groups
+}
 const drawDate = computed(() => getGameDate(historyGame.value) || getTicketGameDate(tickets.value[0]))
 const winningTickets = computed(() => tickets.value.filter((ticket) => [4, 5].includes(Number(ticket.status))))
 const visibleTickets = computed(() => showOnlyWinning.value ? winningTickets.value : tickets.value)
+const ticketGroups = computed(() => groupTicketsByGame(tickets.value))
+const visibleTicketGroups = computed(() => groupTicketsByGame(visibleTickets.value))
 const hasMore = computed(() => currentPage.value < lastPage.value)
+const historyTitle = computed(() => (
+  ticketGroups.value.length === 1
+    ? (drawDate.value || 'งวดที่ออกผลแล้ว')
+    : `ทุกงวดที่ออกผลแล้ว ${ticketGroups.value.length.toLocaleString('th-TH')} งวด`
+))
 const summaryText = computed(() => {
   if (winningTickets.value.length > 0) {
     return `ยินดีด้วย คุณมีสลากฯ ถูกรางวัล ${winningTickets.value.reduce((total, ticket) => total + getTicketCount(ticket), 0)} ใบ`
@@ -278,6 +318,45 @@ onBeforeUnmount(() => {
   border-radius: 14px;
   outline: 3px solid rgba(13, 110, 253, .35);
   outline-offset: 3px;
+}
+
+.history-ticket-count {
+  background: #eef6ff;
+  border-radius: 999px;
+  color: #0b63c7;
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 7px 12px;
+}
+
+.ticket-history-groups {
+  display: grid;
+  gap: 18px;
+}
+
+.ticket-history-group {
+  display: grid;
+  gap: 10px;
+}
+
+.ticket-history-group-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ticket-history-group-head span {
+  color: #7b8798;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ticket-history-group-head strong {
+  color: #193767;
+  font-size: 15px;
+  font-weight: 900;
 }
 
 .ticket-load-sentinel {

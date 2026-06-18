@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: newpaotang-prod
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - platform-api.yaml
+  - customer.yaml
+  - back-office.yaml
+  - lotto-scraper.yaml
+  - ingress.yaml
+  - hpa.yaml
+  - pdb.yaml
+images:
+  - name: newpaotang/platform-api
+    newName: registry.digitalocean.com/REPLACE_WITH_REGISTRY/newpaotang-platform-api
+    newTag: REPLACE_WITH_TAG
+  - name: newpaotang/customer
+    newName: registry.digitalocean.com/REPLACE_WITH_REGISTRY/newpaotang-customer
+    newTag: REPLACE_WITH_TAG
+  - name: newpaotang/back-office
+    newName: registry.digitalocean.com/REPLACE_WITH_REGISTRY/newpaotang-back-office
+    newTag: REPLACE_WITH_TAG
+  - name: newpaotang/lotto-scraper
+    newName: registry.digitalocean.com/REPLACE_WITH_REGISTRY/newpaotang-lotto-scraper
+    newTag: REPLACE_WITH_TAG

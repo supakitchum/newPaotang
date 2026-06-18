@@ -1,13 +1,28 @@
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
-import SimpleBar from 'simplebar'
-import Waves from 'node-waves'
 
 export default defineNuxtPlugin((nuxtApp) => {
   if (!import.meta.client) {
     return
   }
 
-  const initTemplateBehavior = () => {
+  let templateModules: Promise<{ SimpleBar: any, Waves: any }> | null = null
+  const loadTemplateModules = async () => {
+    if (!templateModules) {
+      templateModules = Promise.all([
+        import('simplebar'),
+        import('node-waves'),
+      ]).then(([simpleBarModule, wavesModule]) => ({
+        SimpleBar: simpleBarModule.default,
+        Waves: wavesModule.default,
+      }))
+    }
+
+    return templateModules
+  }
+
+  const initTemplateBehavior = async () => {
+    const { SimpleBar, Waves } = await loadTemplateModules()
+
     document.documentElement.setAttribute('data-nav-layout', 'vertical')
     document.documentElement.setAttribute('data-theme-mode', 'light')
     document.documentElement.setAttribute('data-menu-styles', 'light')
@@ -25,15 +40,21 @@ export default defineNuxtPlugin((nuxtApp) => {
   }
 
   const scheduleTemplateBehavior = () => {
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(initTemplateBehavior)
-    })
+    window.setTimeout(() => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          void initTemplateBehavior()
+        })
+      })
+    }, 0)
   }
 
   let mounted = false
   nuxtApp.hook('app:mounted', () => {
-    mounted = true
-    scheduleTemplateBehavior()
+    onNuxtReady(() => {
+      mounted = true
+      scheduleTemplateBehavior()
+    })
   })
 
   const router = useRouter()

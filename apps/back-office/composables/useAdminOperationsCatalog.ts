@@ -350,7 +350,7 @@ const baseReportFilters: OperationFilter[] = [
   { key: 'cursor', label: 'Cursor' },
   { key: 'limit', label: 'Limit', type: 'number' },
 ]
-const centralDrawScopedReportKeys = new Set(['overview', 'sales', 'orders', 'stock', 'wallet', 'commission', 'rewards'])
+const centralDrawScopedReportKeys = new Set(['daily', 'overview', 'sales', 'orders', 'stock', 'wallet', 'commission', 'rewards'])
 const tenantDrawScopedReportKeys = new Set(['overview', 'sales', 'orders', 'stock', 'wallet', 'commission', 'rewards'])
 const centralReportFilters: OperationFilter[] = [
   { key: 'tenant_id', label: 'Partner store', type: 'select', optionSource: 'allocation-tenants', emptyOptionLabel: 'All partner stores' },
@@ -369,12 +369,30 @@ const centralDrawReportFilters: OperationFilter[] = [
   { key: 'cursor', label: 'Cursor' },
   { key: 'limit', label: 'Limit', type: 'number' },
 ]
+const centralRevenueReportFilters: OperationFilter[] = [
+  { key: 'tenant_id', label: 'Partner store', type: 'select', optionSource: 'allocation-tenants', emptyOptionLabel: 'All partner stores' },
+  { key: 'game_id', label: 'Game / draw', type: 'select', optionSource: 'central-games', hideEmptyOption: true, emptyOptionLabel: 'No current draw' },
+]
 const tenantDrawReportFilters: OperationFilter[] = [
   { key: 'game_id', label: 'Game / draw', type: 'select', optionSource: 'tenant-stock-games', emptyOptionLabel: 'All draws' },
   { key: 'date_from', label: 'From', type: 'date' },
   { key: 'date_to', label: 'To', type: 'date' },
   { key: 'group_by', label: 'Group by', type: 'select', options: ['day', 'week', 'month', 'game', 'status'] },
   { key: 'cursor', label: 'Cursor' },
+  { key: 'limit', label: 'Limit', type: 'number' },
+]
+const tenantRevenueReportFilters: OperationFilter[] = [
+  { key: 'game_id', label: 'Game / draw', type: 'select', optionSource: 'tenant-stock-games', hideEmptyOption: true, emptyOptionLabel: 'No current draw' },
+]
+const centralTopupChannelReportFilters: OperationFilter[] = [
+  { key: 'tenant_id', label: 'Partner store', type: 'select', optionSource: 'allocation-tenants', emptyOptionLabel: 'All partner stores' },
+  { key: 'date_from', label: 'From', type: 'date' },
+  { key: 'date_to', label: 'To', type: 'date' },
+  { key: 'limit', label: 'Limit', type: 'number' },
+]
+const tenantTopupChannelReportFilters: OperationFilter[] = [
+  { key: 'date_from', label: 'From', type: 'date' },
+  { key: 'date_to', label: 'To', type: 'date' },
   { key: 'limit', label: 'Limit', type: 'number' },
 ]
 const tenantReportFilters = baseReportFilters
@@ -581,7 +599,7 @@ const rewardClaimActionContext = ['id', 'reference', 'customer.customer_no', 'cu
 const settlementActionContext = ['id', 'partner_id', 'tenant_id', 'status', 'sales_amount.amount', 'commission_amount.amount', 'payout_amount.amount', 'net_amount.amount', 'period_from', 'period_to']
 const priceRuleActionContext = ['game_id', 'prize_type', 'prize_label', 'prize_count', 'central_reward_amount.amount', 'partner_payout_amount.amount', 'adjustment_amount.amount', 'source', 'updated_at']
 const salePriceRuleActionContext = ['game_id', 'game_name', 'set_size', 'central_price', 'partner_price', 'price', 'source', 'status', 'updated_at']
-const memberActionContext = ['id', 'tenant_id', 'customer_no', 'name', 'phone', 'email', 'status', 'order_count', 'lifetime_spend.amount', 'updated_at']
+const memberActionContext = ['id', 'tenant_id', 'customer_no', 'name', 'phone', 'email', 'status', 'suspension_reason', 'suspended_until', 'order_count', 'lifetime_spend.amount', 'updated_at']
 const agentActionContext = ['id', 'tenant_id', 'partner_id', 'code', 'name', 'phone', 'email', 'store_id', 'status', 'metadata', 'updated_at']
 const agentQuotaActionContext = ['id', 'tenant_id', 'code', 'name', 'store_id', 'status', 'quotas.0.game_id', 'quotas.0.quota_count', 'quotas.0.used_count', 'quotas.0.status', 'updated_at']
 const affiliateProgramActionContext = ['id', 'tenant_id', 'code', 'name', 'status', 'minimum_payout.amount', 'minimum_payout.currency', 'starts_at', 'ends_at', 'updated_at']
@@ -1033,6 +1051,18 @@ const memberUpdateFields: OperationFormField[] = [
 ]
 const memberStatusFields: OperationFormField[] = [
   { key: 'status', label: 'Status', type: 'select', options: memberStatusOptions, defaultValue: 'suspended', required: true },
+  {
+    key: 'suspension_duration_type',
+    label: 'Suspension period',
+    type: 'select',
+    options: [
+      { value: 'permanent', label: 'Permanent' },
+      { value: 'days', label: 'Temporary by days' },
+    ],
+    defaultValue: 'permanent',
+    help: 'Used only when status is suspended.',
+  },
+  { key: 'suspension_days', label: 'Suspend for days', type: 'number', min: 1, max: 3650, step: 1, placeholder: '7', help: 'Required only when Suspension period is Temporary by days.' },
   { key: 'notify_member', label: 'Notify member', type: 'checkbox', defaultValue: true },
 ]
 const agentCreateFields: OperationFormField[] = [
@@ -1746,6 +1776,7 @@ const tenant: OperationResource[] = [
       { key: 'name', label: 'Name' },
       { key: 'phone', label: 'Phone' },
       { key: 'status', label: 'Status', type: 'status' },
+      { key: 'suspended_until', label: 'Suspended until', type: 'datetime' },
       { key: 'online_status', label: 'Online', type: 'status' },
       { key: 'last_online_at', label: 'Last online', type: 'datetime' },
       { key: 'order_count', label: 'Orders' },
@@ -2646,7 +2677,7 @@ const tenant: OperationResource[] = [
     columns: syncColumns,
     filters: cursorFilters([statusFilter(['pending', 'running', 'completed', 'processed', 'failed'])]),
   },
-  reportIndex('tenant', ['overview', 'sales', 'stock', 'wallet', 'commission', 'rewards', 'orders', 'customers', 'audit']),
+  reportIndex('tenant', ['overview', 'sales', 'stock', 'wallet', 'topup_channels', 'commission', 'rewards', 'orders', 'customers', 'audit']),
 ]
 
 const central: OperationResource[] = [
@@ -3319,7 +3350,7 @@ const central: OperationResource[] = [
     ...settingsResource('central', 'system-settings', 'System Settings', '/admin/central/system-settings'),
     settingsFields: systemSettingsFields,
   },
-  reportIndex('central', ['overview', 'sales', 'orders', 'customers', 'stock', 'wallet', 'commission', 'rewards', 'settlement', 'partner_usage', 'partners', 'audit']),
+  reportIndex('central', ['daily', 'overview', 'sales', 'orders', 'customers', 'stock', 'wallet', 'topup_channels', 'commission', 'rewards', 'settlement', 'partner_usage', 'partners', 'audit']),
 ]
 
 const resources = [...tenant, ...central]
@@ -3648,7 +3679,23 @@ function reportIndex(scope: AdminScope, reportKeys: string[]): OperationResource
 
 function reportFiltersFor(scope: AdminScope, reportKey: string, fallback: OperationFilter[]): OperationFilter[] {
   if (scope !== 'central') {
+    if (reportKey === 'overview') {
+      return tenantRevenueReportFilters
+    }
+
+    if (reportKey === 'topup_channels') {
+      return tenantTopupChannelReportFilters
+    }
+
     return tenantDrawScopedReportKeys.has(reportKey) ? tenantDrawReportFilters : fallback
+  }
+
+  if (reportKey === 'overview') {
+    return centralRevenueReportFilters
+  }
+
+  if (reportKey === 'topup_channels') {
+    return centralTopupChannelReportFilters
   }
 
   return centralDrawScopedReportKeys.has(reportKey) ? centralDrawReportFilters : centralReportFilters
@@ -3657,6 +3704,9 @@ function reportFiltersFor(scope: AdminScope, reportKey: string, fallback: Operat
 function reportExportFields(scope: AdminScope, reportKey?: string): OperationFormField[] {
   const centralSupportsDrawFilter = scope === 'central' && reportKey && centralDrawScopedReportKeys.has(reportKey)
   const tenantSupportsDrawFilter = scope === 'tenant' && reportKey && tenantDrawScopedReportKeys.has(reportKey)
+  const isCentralRevenueReport = scope === 'central' && reportKey === 'overview'
+  const isTenantRevenueReport = scope === 'tenant' && reportKey === 'overview'
+  const isTopupChannelReport = reportKey === 'topup_channels'
 
   return [
     { key: 'format', label: 'Format', type: 'select', options: ['csv', 'xlsx', 'pdf'], defaultValue: 'csv', required: true },
@@ -3670,9 +3720,15 @@ function reportExportFields(scope: AdminScope, reportKey?: string): OperationFor
       : tenantSupportsDrawFilter
         ? [{ key: 'game_id', label: 'Game / draw', type: 'select', optionSource: 'tenant-stock-games', sourceKey: 'game_id', emptyOptionLabel: 'All draws' } as OperationFormField]
         : []),
-    { key: 'date_from', label: 'From', type: 'date', sourceKey: 'date_from' },
-    { key: 'date_to', label: 'To', type: 'date', sourceKey: 'date_to' },
-    { key: 'filters.group_by', label: 'Group by', type: 'select', sourceKey: 'group_by', options: scope === 'central' ? ['day', 'week', 'month', 'tenant', 'game', 'status'] : ['day', 'week', 'month', 'game', 'status'] },
+    ...(!isCentralRevenueReport && !isTenantRevenueReport
+      ? [
+          { key: 'date_from', label: 'From', type: 'date', sourceKey: 'date_from' } as OperationFormField,
+          { key: 'date_to', label: 'To', type: 'date', sourceKey: 'date_to' } as OperationFormField,
+          ...(!isTopupChannelReport
+            ? [{ key: 'filters.group_by', label: 'Group by', type: 'select', sourceKey: 'group_by', options: scope === 'central' ? ['day', 'week', 'month', 'tenant', 'game', 'status'] : ['day', 'week', 'month', 'game', 'status'] } as OperationFormField]
+            : []),
+        ]
+      : []),
   ]
 }
 

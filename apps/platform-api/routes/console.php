@@ -16,6 +16,11 @@ Schedule::command('stock:sold:sync --limit=100')
     ->withoutOverlapping()
     ->description('Consume stock sold events into Central Stock in bounded chunks.');
 
+Schedule::command('games:auto-close-expired --limit=100')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->description('Automatically close open games 30 minutes after sale close.');
+
 Schedule::command('reward:check --chunk=100')
     ->everyFiveMinutes()
     ->withoutOverlapping()
