@@ -34,11 +34,12 @@ class AdminAuthTest extends TestCase
                 'expires_in',
                 'requires_2fa',
                 'challenge_token',
-                'user' => ['id', 'name', 'email', 'status', 'two_factor_enabled'],
+                'user' => ['id', 'name', 'email', 'status', 'two_factor_enabled', 'must_change_password', 'password_changed_at'],
                 'scopes' => [['scope', 'tenant_id', 'tenant_name', 'permissions']],
             ])
             ->assertJsonPath('user.id', 'adm_central')
             ->assertJsonPath('user.email', 'central@example.test')
+            ->assertJsonPath('user.must_change_password', false)
             ->assertJsonPath('scopes.0.scope', 'central')
             ->json();
 
@@ -63,6 +64,53 @@ class AdminAuthTest extends TestCase
         $this->assertSame('[REDACTED]', $payload['password']);
         $this->assertSame('[REDACTED]', $payload['access_token']);
         $this->assertSame('[REDACTED]', $payload['refresh_token']);
+    }
+
+    public function test_admin_with_forced_password_change_is_limited_until_password_is_changed(): void
+    {
+        $this->seedDefaultRbac();
+        $this->createAdmin('adm_forced', 'forced@example.test', mustChangePassword: true);
+        $this->createAdminScope('scp_central', 'central');
+        $this->assignRoleWithPermissions('adm_forced', 'scp_central', 'central', null, ['dashboard.view'], 'central_dashboard');
+
+        $login = $this->postJson('/api/v1/auth/admin/login', [
+            'email' => 'forced@example.test',
+            'password' => 'secret-password',
+            'scope' => 'central',
+        ])
+            ->assertOk()
+            ->assertJsonPath('user.must_change_password', true)
+            ->assertJsonPath('user.password_changed_at', null)
+            ->json();
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/auth/admin/me')
+            ->assertOk()
+            ->assertJsonPath('user.must_change_password', true);
+
+        $this->withToken($login['access_token'])
+            ->patchJson('/api/v1/auth/admin/me', ['preferred_locale' => 'en-US'])
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'admin_password_change_required');
+
+        $this->withToken($login['access_token'])
+            ->postJson('/api/v1/auth/admin/password/change', [
+                'current_password' => 'secret-password',
+                'new_password' => 'better-secret-password',
+                'new_password_confirmation' => 'better-secret-password',
+            ], ['Idempotency-Key' => 'forced-change-001'])
+            ->assertNoContent();
+
+        $this->assertDatabaseHas('admin_users', [
+            'id' => 'adm_forced',
+            'must_change_password' => false,
+        ]);
+
+        $this->assertNotNull(DB::table('admin_users')->where('id', 'adm_forced')->value('password_changed_at'));
+
+        $this->withToken($login['access_token'])
+            ->getJson('/api/v1/auth/admin/me')
+            ->assertUnauthorized();
     }
 
     public function test_invalid_admin_credentials_use_safe_auth_error(): void
@@ -144,7 +192,7 @@ class AdminAuthTest extends TestCase
         ]);
 
         $this->withToken($first['access_token'])
-            ->getJson('/api/v1/auth/admin/me')
+            ->getJson('/api/v1/auth/admin/me', ['Accept-Language' => 'th-TH'])
             ->assertUnauthorized()
             ->assertJsonPath('error.code', 'admin_session_replaced')
             ->assertJsonPath('error.message', 'มีการเข้าสู่ระบบจากอุปกรณ์อื่น กรุณาเข้าสู่ระบบใหม่');
@@ -233,6 +281,7 @@ class AdminAuthTest extends TestCase
             ->getJson('/api/v1/auth/admin/me')
             ->assertOk()
             ->assertJsonPath('user.id', 'adm_central')
+            ->assertJsonPath('user.must_change_password', false)
             ->assertJsonPath('active_scope', 'central')
             ->assertJsonPath('active_tenant_id', null)
             ->assertJsonPath('scopes.0.permissions.0', 'dashboard.view');

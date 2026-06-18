@@ -700,6 +700,25 @@ class PartnerProvisioningTest extends TestCase
             'tenant_id' => $tenantId,
         ])
             ->assertOk()
+            ->assertJsonPath('user.must_change_password', true)
+            ->json();
+
+        $this->withToken($ownerLogin['access_token'])
+            ->postJson('/api/v1/auth/admin/password/change', [
+                'current_password' => 'owner-password',
+                'new_password' => 'owner-password-updated',
+                'new_password_confirmation' => 'owner-password-updated',
+            ], ['Idempotency-Key' => 'settings-owner-force-change'])
+            ->assertNoContent();
+
+        $ownerLogin = $this->postJson('/api/v1/auth/admin/login', [
+            'email' => 'owner@settings-one.test',
+            'password' => 'owner-password-updated',
+            'scope' => 'tenant',
+            'tenant_id' => $tenantId,
+        ])
+            ->assertOk()
+            ->assertJsonPath('user.must_change_password', false)
             ->json();
 
         $this->withToken($ownerLogin['access_token'])

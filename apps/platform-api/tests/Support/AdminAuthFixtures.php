@@ -5,6 +5,7 @@ namespace Tests\Support;
 use Database\Seeders\DefaultRbacMenuSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 trait AdminAuthFixtures
 {
@@ -120,8 +121,9 @@ trait AdminAuthFixtures
         string $email,
         string $password = 'secret-password',
         string $status = 'active',
+        bool $mustChangePassword = false,
     ): void {
-        DB::table('admin_users')->insert([
+        $row = [
             'id' => $adminId,
             'name' => 'Admin '.$adminId,
             'email' => $email,
@@ -131,7 +133,17 @@ trait AdminAuthFixtures
             'two_factor_enabled' => false,
             'created_at' => now(),
             'updated_at' => now(),
-        ]);
+        ];
+
+        if (Schema::hasColumn('admin_users', 'must_change_password')) {
+            $row['must_change_password'] = $mustChangePassword;
+        }
+
+        if (Schema::hasColumn('admin_users', 'password_changed_at')) {
+            $row['password_changed_at'] = $mustChangePassword ? null : now();
+        }
+
+        DB::table('admin_users')->insert($row);
     }
 
     protected function createAdminScope(string $scopeId, string $scopeType, ?string $tenantId = null, ?string $partnerId = null): void

@@ -16,7 +16,7 @@ const normalizeDevProxyHost = (host?: string) => {
 export default defineNuxtConfig({
   devtools: { enabled: false },
   buildDir: process.env.NUXT_BUILD_DIR || '.nuxt',
-  ssr: true,
+  ssr: false,
   css: [
     '~/assets/css/admin-foundation.css',
     'sweetalert2/dist/sweetalert2.min.css',

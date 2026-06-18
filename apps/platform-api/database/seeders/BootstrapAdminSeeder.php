@@ -13,6 +13,7 @@ use App\Models\RoleMenu;
 use App\Models\RolePermission;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 class BootstrapAdminSeeder extends Seeder
 {
@@ -68,7 +69,7 @@ class BootstrapAdminSeeder extends Seeder
                 'status' => 'active',
                 'preferred_locale' => 'th-TH',
                 'two_factor_enabled' => false,
-            ],
+            ] + $this->forcedPasswordDefaults(),
         );
 
         AdminUserRole::query()->insertOrIgnore([[
@@ -112,7 +113,7 @@ class BootstrapAdminSeeder extends Seeder
                 'status' => 'active',
                 'preferred_locale' => 'th-TH',
                 'two_factor_enabled' => false,
-            ],
+            ] + $this->forcedPasswordDefaults(),
         );
 
         AdminUserRole::query()->insertOrIgnore([[
@@ -149,7 +150,7 @@ class BootstrapAdminSeeder extends Seeder
                 'status' => 'active',
                 'preferred_locale' => 'th-TH',
                 'two_factor_enabled' => false,
-            ],
+            ] + $this->forcedPasswordDefaults(),
         );
 
         AdminUserRole::query()->insertOrIgnore([[
@@ -186,7 +187,7 @@ class BootstrapAdminSeeder extends Seeder
                 'status' => 'active',
                 'preferred_locale' => 'th-TH',
                 'two_factor_enabled' => false,
-            ],
+            ] + $this->forcedPasswordDefaults(),
         );
 
         AdminUserRole::query()->insertOrIgnore([[
@@ -219,6 +220,24 @@ class BootstrapAdminSeeder extends Seeder
             'created_at' => $now,
             'updated_at' => $now,
         ], $permissionIds));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function forcedPasswordDefaults(): array
+    {
+        $values = [];
+
+        if (Schema::hasColumn('admin_users', 'must_change_password')) {
+            $values['must_change_password'] = true;
+        }
+
+        if (Schema::hasColumn('admin_users', 'password_changed_at')) {
+            $values['password_changed_at'] = null;
+        }
+
+        return $values;
     }
 
     private function syncRoleMenus(string $roleId, string $scopeType, mixed $now): void

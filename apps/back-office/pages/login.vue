@@ -129,11 +129,12 @@ onMounted(async () => {
   }
 
   try {
-    await api.apiFetch('/auth/admin/me', {
+    const profile = await api.apiFetch('/auth/admin/me', {
       scope: isPartnerBoMode.value ? 'tenant' : session.currentScope.value,
       tenantId: session.currentTenantId.value,
       successMessage: false,
     })
+    session.applyAuthPayload(profile)
     navigateTo(afterLoginPath(isPartnerBoMode.value ? 'tenant' : session.currentScope.value))
   } catch {
     session.clear()
@@ -168,6 +169,10 @@ const submit = async () => {
 }
 
 const afterLoginPath = (scope: 'central' | 'tenant') => {
+  if (session.mustChangePassword.value) {
+    return session.forcedPasswordChangePath
+  }
+
   const target = safeRedirectTarget(route.query.redirect, scope)
   const landing = session.landingPath(scope)
   if (isPartnerBoMode.value) {

@@ -310,6 +310,37 @@ class RuntimeStorageService
         }
     }
 
+    /**
+     * @param array<int, string>|string $keys
+     */
+    public function deleteUsingDriver(string $routeKey, array|string $keys, ?string $driver = null): void
+    {
+        if ($driver === null || $driver === '') {
+            $this->delete($routeKey, $keys);
+
+            return;
+        }
+
+        $paths = is_array($keys) ? $keys : [$keys];
+        $paths = array_values(array_filter(array_map(fn (mixed $key): string => trim((string) $key), $paths)));
+
+        if ($paths === []) {
+            return;
+        }
+
+        try {
+            $this->diskForDriver($routeKey, $driver)->delete($paths);
+        } catch (\Throwable) {
+        }
+
+        if ($driver !== self::DRIVER_LOCAL) {
+            try {
+                $this->localDisk()->delete($paths);
+            } catch (\Throwable) {
+            }
+        }
+    }
+
     public function publicUrl(string $routeKey, string $key): string
     {
         $connection = $this->routeDriver($routeKey) === self::DRIVER_AWS_S3 ? $this->activeS3Connection() : null;

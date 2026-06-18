@@ -14,6 +14,8 @@ type AdminUser = {
   status?: string
   preferred_locale?: string | null
   two_factor_enabled?: boolean
+  must_change_password?: boolean
+  password_changed_at?: string | null
 }
 
 type AdminSessionState = {
@@ -29,6 +31,7 @@ type AdminSessionState = {
 const storageKey = 'newpaotang.back-office.session.v1'
 const sessionCookieName = 'newpaotang_bo_session'
 const authNoticeStorageKey = 'newpaotang.back-office.auth-notice.v1'
+const forcedPasswordChangePath = '/admin/change-password'
 
 const emptySession = (): AdminSessionState => ({
   accessToken: null,
@@ -46,6 +49,7 @@ export const useAdminSession = () => {
   const hostMode = useAdminHostMode()
 
   const isAuthenticated = computed(() => Boolean(session.value.accessToken))
+  const mustChangePassword = computed(() => Boolean(session.value.user?.must_change_password))
   const currentScope = computed(() => session.value.activeScope)
   const currentTenantId = computed(() => session.value.activeTenantId)
   const currentPermissions = computed(() => {
@@ -214,6 +218,10 @@ export const useAdminSession = () => {
     && !currentPermissions.value.includes('dashboard.view')
   )
   const landingPath = (scope: 'central' | 'tenant' = session.value.activeScope) => {
+    if (mustChangePassword.value) {
+      return forcedPasswordChangePath
+    }
+
     if (scope === 'tenant') {
       return '/admin/tenant/dashboard'
     }
@@ -268,6 +276,7 @@ export const useAdminSession = () => {
     session,
     toast,
     isAuthenticated,
+    mustChangePassword,
     currentScope,
     currentTenantId,
     currentPermissions,
@@ -289,6 +298,7 @@ export const useAdminSession = () => {
     rememberAuthNotice,
     consumeAuthNotice,
     showToast,
+    forcedPasswordChangePath,
   }
 }
 

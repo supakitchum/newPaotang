@@ -31,6 +31,7 @@ use App\Shared\Tenancy\TenantHostNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class PartnerProvisioningService
@@ -1156,7 +1157,7 @@ class PartnerProvisioningService
                 'two_factor_enabled' => false,
                 'created_at' => $now,
                 'updated_at' => $now,
-            ]);
+            ] + $this->forcedPasswordColumns(true, null));
         } else {
             $updates = [
                 'name' => $ownerName,
@@ -1166,6 +1167,7 @@ class PartnerProvisioningService
             if ($ownerPassword !== null) {
                 $updates['password_hash'] = Hash::make($ownerPassword);
                 $updates['status'] = 'active';
+                $updates += $this->forcedPasswordColumns(true, null);
             }
 
             AdminUser::query()->where('id', $adminUserId)->update($updates);
@@ -2159,6 +2161,24 @@ class PartnerProvisioningService
     private function stableId(string $prefix, string $seed): string
     {
         return $prefix.'_'.substr(sha1($seed), 0, 20);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function forcedPasswordColumns(bool $mustChange, mixed $changedAt): array
+    {
+        $columns = [];
+
+        if (Schema::hasColumn('admin_users', 'must_change_password')) {
+            $columns['must_change_password'] = $mustChange;
+        }
+
+        if (Schema::hasColumn('admin_users', 'password_changed_at')) {
+            $columns['password_changed_at'] = $changedAt;
+        }
+
+        return $columns;
     }
 
     private function normalizeHost(string $host): string

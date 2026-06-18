@@ -14,6 +14,7 @@ use App\Shared\Idempotency\IdempotencyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AdminAccountSecurityService
@@ -229,12 +230,22 @@ class AdminAccountSecurityService
             return ['error' => 'authentication_required'];
         }
 
+        $updates = [
+            'password_hash' => Hash::make((string) $payload['new_password']),
+            'updated_at' => now(),
+        ];
+
+        if (Schema::hasColumn('admin_users', 'must_change_password')) {
+            $updates['must_change_password'] = false;
+        }
+
+        if (Schema::hasColumn('admin_users', 'password_changed_at')) {
+            $updates['password_changed_at'] = now();
+        }
+
         AdminUser::query()
             ->where('id', $admin->id)
-            ->update([
-                'password_hash' => Hash::make((string) $payload['new_password']),
-                'updated_at' => now(),
-            ]);
+            ->update($updates);
 
         $this->revokeAdminSessions((string) $admin->id);
 

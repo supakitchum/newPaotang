@@ -22,5 +22,6 @@ return [
         'tenant_inactive' => 'Tenant is not active.',
         'news_not_found' => 'News was not found.',
         'admin_session_replaced' => 'Another device signed in to this admin account. Please sign in again.',
+        'admin_password_change_required' => 'You must change your password before using the Back Office.',
     ],
 ];

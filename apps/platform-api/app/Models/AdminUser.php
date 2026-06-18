@@ -16,6 +16,8 @@ class AdminUser extends BaseModel
         'password_hash',
         'status',
         'preferred_locale',
+        'must_change_password',
+        'password_changed_at',
         'created_at',
         'updated_at',
         'name',
@@ -29,6 +31,8 @@ class AdminUser extends BaseModel
 
     protected $casts = [
         'two_factor_enabled' => 'boolean',
+        'must_change_password' => 'boolean',
+        'password_changed_at' => 'datetime',
         'last_login_at' => 'datetime',
     ];
 

@@ -22,5 +22,6 @@ return [
         'tenant_inactive' => 'ร้านค้านี้ยังไม่พร้อมใช้งาน',
         'news_not_found' => 'ไม่พบข่าวสารนี้',
         'admin_session_replaced' => 'มีการเข้าสู่ระบบจากอุปกรณ์อื่น กรุณาเข้าสู่ระบบใหม่',
+        'admin_password_change_required' => 'กรุณาเปลี่ยนรหัสผ่านก่อนใช้งาน Back Office',
     ],
 ];

@@ -13,6 +13,7 @@ use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Tenancy\PartnerBoHostResolver;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
@@ -676,6 +677,12 @@ class AdminAuthService
             'status' => (string) $adminUser->status,
             'preferred_locale' => $adminUser->preferred_locale ?? null,
             'two_factor_enabled' => (bool) $adminUser->two_factor_enabled,
+            'must_change_password' => Schema::hasColumn('admin_users', 'must_change_password')
+                ? (bool) $adminUser->must_change_password
+                : false,
+            'password_changed_at' => Schema::hasColumn('admin_users', 'password_changed_at')
+                ? $this->dateTimeString($adminUser->password_changed_at ?? null)
+                : null,
         ];
     }
 
@@ -693,7 +700,24 @@ class AdminAuthService
             'status' => $admin['status'],
             'preferred_locale' => $admin['preferred_locale'] ?? null,
             'two_factor_enabled' => $admin['two_factor_enabled'],
+            'must_change_password' => (bool) ($admin['must_change_password'] ?? false),
+            'password_changed_at' => $admin['password_changed_at'] ?? null,
         ];
+    }
+
+    private function dateTimeString(mixed $value): ?string
+    {
+        if ($value instanceof Carbon) {
+            return $value->toISOString();
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return Carbon::instance($value)->toISOString();
+        }
+
+        $string = trim((string) $value);
+
+        return $string === '' ? null : $string;
     }
 
     private function normalizeLocale(mixed $value): ?string

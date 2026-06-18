@@ -245,10 +245,13 @@ const handleChangePassword = async () => {
       method: 'POST',
       body: { ...passwordForm },
       idempotencyKey: api.idempotencyKey(),
-      successMessage: t('account.passwordChanged'),
+      successMessage: false,
     })
     passwordModalOpen.value = false
     resetPasswordForm()
+    adminSession.clear()
+    adminSession.rememberAuthNotice(t('account.forcePasswordChangedNotice'))
+    await navigateTo('/login')
   } catch (error: any) {
     passwordError.value = {
       message: error?.message || t('errors.failed'),

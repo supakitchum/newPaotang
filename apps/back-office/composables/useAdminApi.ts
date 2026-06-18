@@ -86,6 +86,19 @@ export const useAdminApi = () => {
         session.clear()
       }
 
+      if (status === 403 && code === 'admin_password_change_required') {
+        if (session.session.value.user) {
+          session.updateUser({
+            ...session.session.value.user,
+            must_change_password: true,
+          })
+        }
+
+        if (import.meta.client && window.location.pathname !== session.forcedPasswordChangePath) {
+          await navigateTo(session.forcedPasswordChangePath)
+        }
+      }
+
       throw {
         status,
         code,

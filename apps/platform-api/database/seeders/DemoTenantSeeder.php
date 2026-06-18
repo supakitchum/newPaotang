@@ -29,6 +29,7 @@ use App\Shared\Observability\ObservabilityCatalog;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 class DemoTenantSeeder extends Seeder
 {
@@ -167,7 +168,7 @@ class DemoTenantSeeder extends Seeder
                 'password_hash' => Hash::make($this->tenantOwnerPassword()),
                 'status' => 'active',
                 'two_factor_enabled' => false,
-            ],
+            ] + $this->forcedPasswordDefaults(),
         );
 
         AdminUserRole::query()->insertOrIgnore([[
@@ -465,6 +466,24 @@ class DemoTenantSeeder extends Seeder
     private function stableId(string $prefix, string $seed): string
     {
         return $prefix.'_'.substr(sha1($seed), 0, 20);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function forcedPasswordDefaults(): array
+    {
+        $values = [];
+
+        if (Schema::hasColumn('admin_users', 'must_change_password')) {
+            $values['must_change_password'] = true;
+        }
+
+        if (Schema::hasColumn('admin_users', 'password_changed_at')) {
+            $values['password_changed_at'] = null;
+        }
+
+        return $values;
     }
 
     /**

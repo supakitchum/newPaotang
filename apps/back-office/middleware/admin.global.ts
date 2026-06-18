@@ -63,6 +63,14 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return navigateTo('/admin/tenant/dashboard')
   }
 
+  if (session.mustChangePassword.value && to.path !== session.forcedPasswordChangePath) {
+    return navigateTo(session.forcedPasswordChangePath)
+  }
+
+  if (to.path === session.forcedPasswordChangePath) {
+    return
+  }
+
   if (!session.alignScopeForPath(to.path)) {
     return navigateTo('/admin/403')
   }

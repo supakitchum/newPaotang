@@ -241,7 +241,7 @@ class PrepareK6BaselineCommand extends Command
                 'two_factor_enabled' => false,
                 'created_at' => $now,
                 'updated_at' => $now,
-            ],
+            ] + $this->forcedPasswordDefaults(),
         );
 
         AdminScope::query()->updateOrCreate(
@@ -759,6 +759,24 @@ class PrepareK6BaselineCommand extends Command
         $value = trim((string) ($this->option($name) ?? ''));
 
         return $value === '' ? $fallback : $value;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function forcedPasswordDefaults(): array
+    {
+        $values = [];
+
+        if (Schema::hasColumn('admin_users', 'must_change_password')) {
+            $values['must_change_password'] = true;
+        }
+
+        if (Schema::hasColumn('admin_users', 'password_changed_at')) {
+            $values['password_changed_at'] = null;
+        }
+
+        return $values;
     }
 
     /**

@@ -14,6 +14,7 @@ use App\Shared\Auth\AdminSessionContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AdminUserManagementService
@@ -145,7 +146,7 @@ class AdminUserManagementService
             $scopeId = $this->scopeIdFor($scopeType, $tenantId);
             $now = now();
 
-            AdminUser::query()->create([
+            AdminUser::query()->create(array_merge([
                 'id' => $adminUserId,
                 'name' => trim((string) $payload['name']),
                 'email' => strtolower(trim((string) $payload['email'])),
@@ -155,7 +156,7 @@ class AdminUserManagementService
                 'two_factor_enabled' => false,
                 'created_at' => $now,
                 'updated_at' => $now,
-            ]);
+            ], $this->forcedPasswordColumns(true, null)));
 
             $this->syncRoleAssignments($adminUserId, $scopeId, $payload['role_ids']);
             $this->invalidatePermissionCache($adminUserId, $scopeId);
@@ -191,6 +192,7 @@ class AdminUserManagementService
 
             if (array_key_exists('password', $payload)) {
                 $updates['password_hash'] = Hash::make((string) $payload['password']);
+                $updates = array_merge($updates, $this->forcedPasswordColumns(true, null));
             }
 
             AdminUser::query()->whereKey($adminUserId)->update($updates);
@@ -255,7 +257,7 @@ class AdminUserManagementService
      */
     private function userColumns(): array
     {
-        return [
+        $columns = [
             'admin_users.id',
             'admin_users.name',
             'admin_users.email',
@@ -265,6 +267,8 @@ class AdminUserManagementService
             'admin_users.created_at',
             'admin_users.updated_at',
         ];
+
+        return $columns;
     }
 
     /**
@@ -406,6 +410,24 @@ class AdminUserManagementService
             'created_at' => $user->created_at,
             'updated_at' => $user->updated_at,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function forcedPasswordColumns(bool $mustChange, mixed $changedAt): array
+    {
+        $columns = [];
+
+        if (Schema::hasColumn('admin_users', 'must_change_password')) {
+            $columns['must_change_password'] = $mustChange;
+        }
+
+        if (Schema::hasColumn('admin_users', 'password_changed_at')) {
+            $columns['password_changed_at'] = $changedAt;
+        }
+
+        return $columns;
     }
 
     /**

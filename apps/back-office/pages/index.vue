@@ -12,6 +12,6 @@ onMounted(() => {
     return
   }
 
-  navigateTo(session.landingPath())
+  navigateTo(session.mustChangePassword.value ? session.forcedPasswordChangePath : session.landingPath())
 })
 </script>

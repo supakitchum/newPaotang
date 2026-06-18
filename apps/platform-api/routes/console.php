@@ -36,6 +36,11 @@ Schedule::command('topups:slips:prune --limit=100')
     ->withoutOverlapping()
     ->description('Delete expired topup slip images after the 30-day retention window.');
 
+Schedule::command('lottery-images:backgrounds:prune --days=40 --limit=100')
+    ->daily()
+    ->withoutOverlapping()
+    ->description('Delete lottery background asset sets after the 40-day draw retention window.');
+
 Schedule::command('platform:alerts:check --dry-run --format=json')
     ->everyFiveMinutes()
     ->withoutOverlapping()

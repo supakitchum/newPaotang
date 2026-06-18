@@ -38,6 +38,9 @@ export default {
     passwordPolicy: 'Use at least 8 characters.',
     passwordMismatch: 'The new password confirmation does not match.',
     passwordChanged: 'Password changed.',
+    forcePasswordTitle: 'Change your password',
+    forcePasswordSubtitle: 'This is your first sign in or your password was reset. Please set a new password before using the Back Office.',
+    forcePasswordChangedNotice: 'Password changed. Please sign in again with your new password.',
   },
   login: {
     heroTitle: 'NewPaotang Back Office',

@@ -8,6 +8,6 @@ const session = useAdminSession()
 session.restore()
 
 onMounted(() => {
-  navigateTo(session.landingPath())
+  navigateTo(session.mustChangePassword.value ? session.forcedPasswordChangePath : session.landingPath())
 })
 </script>

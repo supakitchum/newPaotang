@@ -5,6 +5,7 @@ namespace App\Shared\Auth;
 use App\Modules\Auth\Services\AdminAuthService;
 use App\Models\AdminAuthSession;
 use App\Models\AdminUser;
+use Illuminate\Support\Carbon;
 
 class AdminSessionResolver
 {
@@ -89,6 +90,8 @@ class AdminSessionResolver
                 'status' => (string) $adminUser->status,
                 'preferred_locale' => $adminUser->preferred_locale ?? null,
                 'two_factor_enabled' => (bool) $adminUser->two_factor_enabled,
+                'must_change_password' => (bool) ($adminUser->must_change_password ?? false),
+                'password_changed_at' => $this->dateTimeString($adminUser->password_changed_at ?? null),
             ],
             scopes: $this->authService->scopesForAdmin((string) $adminUser->id),
         );
@@ -100,5 +103,20 @@ class AdminSessionResolver
     public function failure(): ?array
     {
         return $this->failure;
+    }
+
+    private function dateTimeString(mixed $value): ?string
+    {
+        if ($value instanceof Carbon) {
+            return $value->toISOString();
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return Carbon::instance($value)->toISOString();
+        }
+
+        $string = trim((string) $value);
+
+        return $string === '' ? null : $string;
     }
 }

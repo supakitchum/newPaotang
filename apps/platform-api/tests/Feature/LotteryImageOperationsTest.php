@@ -494,6 +494,78 @@ class LotteryImageOperationsTest extends TestCase
             ->assertJsonPath('data.100.assets.source.storage_path', 'lottery-image-assets/games/gam_lottery_zip_many/backgrounds/v1/odd/101/101.png');
     }
 
+    public function test_LotteryImageBackgroundPrune_deletes_expired_draw_asset_sets_and_keeps_recent_draws(): void
+    {
+        $this->seedDefaultRbac();
+        $oldGameId = 'gam_lottery_prune_old';
+        $recentGameId = 'gam_lottery_prune_recent';
+        $this->insertGame($oldGameId, 'closed');
+        $this->insertGame($recentGameId, 'closed');
+        $central = $this->createCentralSession(['asset.manage'], 'adm_lottery_prune', 'lottery-prune@example.test');
+
+        $this->withToken($central['access_token'])
+            ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
+                'game_id' => $oldGameId,
+                'version' => 'v1',
+                'set_type' => 'odd',
+                'zip' => $this->namedImageZipUpload(['expired.png' => 'png']),
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'central-prune-old-import',
+            ])
+            ->assertOk();
+
+        $this->withToken($central['access_token'])
+            ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
+                'game_id' => $recentGameId,
+                'version' => 'v1',
+                'set_type' => 'odd',
+                'zip' => $this->namedImageZipUpload(['recent.png' => 'png']),
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'central-prune-recent-import',
+            ])
+            ->assertOk();
+
+        DB::table('games')->where('id', $oldGameId)->update(['draw_at' => now('Asia/Bangkok')->subDays(41), 'updated_at' => now()]);
+        DB::table('games')->where('id', $recentGameId)->update(['draw_at' => now('Asia/Bangkok')->subDays(39), 'updated_at' => now()]);
+
+        $oldSet = DB::table('lottery_image_background_asset_sets')->where('game_id', $oldGameId)->first();
+        $recentSet = DB::table('lottery_image_background_asset_sets')->where('game_id', $recentGameId)->first();
+        $this->assertNotNull($oldSet);
+        $this->assertNotNull($recentSet);
+        $oldAssetIds = [(string) $oldSet->source_asset_id, (string) $oldSet->full_asset_id, (string) $oldSet->thumb_asset_id];
+        $oldPaths = [(string) $oldSet->source_storage_path, (string) $oldSet->full_storage_path, (string) $oldSet->thumb_storage_path];
+
+        foreach ($oldPaths as $path) {
+            $this->assertTrue(Storage::disk('lottery_images')->exists($path));
+        }
+        $this->assertTrue(Storage::disk('lottery_images')->exists((string) $recentSet->full_storage_path));
+
+        $this->artisan('lottery-images:backgrounds:prune', ['--days' => 40, '--limit' => 50, '--dry-run' => true])
+            ->expectsOutput('Eligible background sets: 1')
+            ->expectsOutput('Pruned background sets: 0')
+            ->assertExitCode(0);
+
+        $this->assertDatabaseHas('lottery_image_background_asset_sets', ['game_id' => $oldGameId]);
+
+        $this->artisan('lottery-images:backgrounds:prune', ['--days' => 40, '--limit' => 50])
+            ->expectsOutput('Eligible background sets: 1')
+            ->expectsOutput('Pruned background sets: 1')
+            ->expectsOutput('Deleted asset records: 3')
+            ->expectsOutput('Deleted storage objects: 3')
+            ->assertExitCode(0);
+
+        $this->assertDatabaseMissing('lottery_image_background_asset_sets', ['game_id' => $oldGameId]);
+        $this->assertDatabaseHas('lottery_image_background_asset_sets', ['game_id' => $recentGameId]);
+        $this->assertSame(0, DB::table('platform_assets')->whereIn('id', $oldAssetIds)->count());
+
+        foreach ($oldPaths as $path) {
+            $this->assertFalse(Storage::disk('lottery_images')->exists($path));
+        }
+        $this->assertTrue(Storage::disk('lottery_images')->exists((string) $recentSet->full_storage_path));
+    }
+
     public function test_LotteryImageZipImport_rejects_background_route_aws_when_connection_is_not_active(): void
     {
         $this->seedDefaultRbac();

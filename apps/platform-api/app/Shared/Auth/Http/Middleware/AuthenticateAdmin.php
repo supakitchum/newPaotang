@@ -33,6 +33,22 @@ class AuthenticateAdmin
 
         $request->attributes->set('admin_session', $context);
 
+        if (($context->adminUser['must_change_password'] ?? false) && ! $this->allowsForcedPasswordChangeRequest($request)) {
+            return ApiErrorResponse::make(
+                $request,
+                403,
+                'admin_password_change_required',
+                'You must change your password before using the Back Office.',
+            );
+        }
+
         return $next($request);
+    }
+
+    private function allowsForcedPasswordChangeRequest(Request $request): bool
+    {
+        return ($request->is('api/v1/auth/admin/me') && $request->isMethod('get'))
+            || $request->is('api/v1/auth/admin/logout')
+            || $request->is('api/v1/auth/admin/password/change');
     }
 }

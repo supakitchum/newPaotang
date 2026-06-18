@@ -785,6 +785,100 @@ class LotteryImageOperationsService
     }
 
     /**
+     * @return array{dry_run: bool, retention_days: int, limit: int, cutoff_at: string, eligible: int, pruned: int, asset_records_deleted: int, storage_objects_deleted: int}
+     */
+    public function pruneExpiredBackgroundSets(int $retentionDays = 40, int $limit = 100, bool $dryRun = false): array
+    {
+        $retentionDays = max(1, min(3650, $retentionDays));
+        $limit = max(1, min(500, $limit));
+        $cutoff = now('Asia/Bangkok')->subDays($retentionDays);
+        $rows = LotteryImageBackgroundAssetSet::query()
+            ->select('lottery_image_background_asset_sets.*')
+            ->join('games', 'games.id', '=', 'lottery_image_background_asset_sets.game_id')
+            ->where('games.draw_at', '<=', $cutoff)
+            ->with(['game', 'sourceAsset', 'fullAsset', 'thumbAsset'])
+            ->orderBy('games.draw_at')
+            ->orderBy('lottery_image_background_asset_sets.id')
+            ->limit($limit)
+            ->get();
+
+        $summary = [
+            'dry_run' => $dryRun,
+            'retention_days' => $retentionDays,
+            'limit' => $limit,
+            'cutoff_at' => $cutoff->toISOString(),
+            'eligible' => $rows->count(),
+            'pruned' => 0,
+            'asset_records_deleted' => 0,
+            'storage_objects_deleted' => 0,
+        ];
+
+        if ($dryRun) {
+            return $summary;
+        }
+
+        foreach ($rows as $assetSet) {
+            $assetSlots = $this->backgroundAssetsForPrune($assetSet);
+            $deleted = false;
+
+            DB::transaction(function () use ($assetSet, $cutoff, &$deleted): void {
+                $locked = LotteryImageBackgroundAssetSet::query()
+                    ->whereKey($assetSet->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($locked === null) {
+                    return;
+                }
+
+                $game = Game::query()->whereKey($locked->game_id)->first(['id', 'draw_at']);
+
+                if ($game === null || $game->draw_at === null || $game->draw_at->greaterThan($cutoff)) {
+                    return;
+                }
+
+                $locked->delete();
+                $deleted = true;
+            });
+
+            if (! $deleted) {
+                continue;
+            }
+
+            $summary['pruned']++;
+
+            foreach ($assetSlots as $asset) {
+                if ($asset['asset_id'] === '' || $this->backgroundAssetStillReferenced($asset['asset_id'])) {
+                    continue;
+                }
+
+                try {
+                    $assetDeleted = PlatformAsset::query()->whereKey($asset['asset_id'])->delete();
+                } catch (\Throwable) {
+                    continue;
+                }
+
+                if ($assetDeleted < 1) {
+                    continue;
+                }
+
+                $summary['asset_records_deleted']++;
+
+                if ($asset['storage_key'] === '') {
+                    continue;
+                }
+
+                $routeKey = $this->storage->routeForStorageKey($asset['storage_key']);
+                $storageDriver = $routeKey === RuntimeStorageService::ROUTE_BACKGROUND_ASSETS ? $asset['storage_driver'] : null;
+                $this->storage->deleteUsingDriver($routeKey, $asset['storage_key'], $storageDriver);
+                $summary['storage_objects_deleted']++;
+            }
+        }
+
+        return $summary;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function productionReadiness(): array
@@ -1589,6 +1683,44 @@ class LotteryImageOperationsService
         $driver = $this->storageDriverFrom($metadata['storage_driver'] ?? null);
 
         return $driver ?? $this->storage->driverForRoute(RuntimeStorageService::ROUTE_BACKGROUND_ASSETS);
+    }
+
+    /**
+     * @return array<string, array{asset_id: string, storage_key: string, storage_driver: string|null}>
+     */
+    private function backgroundAssetsForPrune(LotteryImageBackgroundAssetSet $assetSet): array
+    {
+        $storageDriver = $this->backgroundStorageDriver($assetSet);
+        $assets = [];
+
+        foreach (['source', 'full', 'thumb'] as $slot) {
+            $assetId = trim((string) $assetSet->{$slot.'_asset_id'});
+
+            if ($assetId === '') {
+                continue;
+            }
+
+            /** @var PlatformAsset|null $platformAsset */
+            $platformAsset = $assetSet->{$slot.'Asset'};
+            $storageKey = trim((string) ($platformAsset?->storage_key ?: $assetSet->{$slot.'_storage_path'}));
+
+            $assets[$assetId] = [
+                'asset_id' => $assetId,
+                'storage_key' => $storageKey,
+                'storage_driver' => $storageDriver,
+            ];
+        }
+
+        return array_values($assets);
+    }
+
+    private function backgroundAssetStillReferenced(string $assetId): bool
+    {
+        return LotteryImageBackgroundAssetSet::query()
+            ->where('source_asset_id', $assetId)
+            ->orWhere('full_asset_id', $assetId)
+            ->orWhere('thumb_asset_id', $assetId)
+            ->exists();
     }
 
     /**

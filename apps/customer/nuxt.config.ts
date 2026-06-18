@@ -3,6 +3,7 @@ export default defineNuxtConfig({
   buildDir: process.env.NUXT_BUILD_DIR || '.nuxt',
   devtools: { enabled: false },
   telemetry: false,
+  ssr: false,
   runtimeConfig: {
     platformApiInternalBaseUrl: process.env.NUXT_PLATFORM_API_INTERNAL_BASE_URL ||
       process.env.PLATFORM_API_INTERNAL_BASE_URL ||

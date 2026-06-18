@@ -13,6 +13,7 @@ use App\Console\Commands\PlatformObservabilityReportCommand;
 use App\Console\Commands\PlatformRuntimeReadinessCommand;
 use App\Console\Commands\PlatformSmokeCommand;
 use App\Console\Commands\PrepareK6BaselineCommand;
+use App\Console\Commands\PruneLotteryBackgroundAssetSetsCommand;
 use App\Console\Commands\PruneTopupSlipsCommand;
 use App\Console\Commands\ProcessRewardCheckCommand;
 use App\Console\Commands\ProcessSoldSyncCommand;
@@ -56,6 +57,7 @@ return Application::configure(basePath: dirname(__DIR__))
         PrepareK6BaselineCommand::class,
         CheckPendingLotteryBackgroundsCommand::class,
         LotteryImageReadinessCommand::class,
+        PruneLotteryBackgroundAssetSetsCommand::class,
         PruneTopupSlipsCommand::class,
         SeedRuntimeMockDataCommand::class,
         SyncStaticTranslationsCommand::class,

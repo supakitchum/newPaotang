@@ -24,6 +24,10 @@ spec:
           ports:
             - name: http
               containerPort: 8000
+          command:
+            - sh
+            - -lc
+            - php -S 0.0.0.0:8000 -t public public/index.php
           envFrom:
             - configMapRef:
                 name: newpaotang-platform-config

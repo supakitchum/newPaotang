@@ -187,7 +187,8 @@ class AdminUserTest extends TestCase
     public function test_tenant_admin_cannot_access_or_mutate_another_tenant_admin_user(): void
     {
         $login = $this->createTenantManagerSession(['admin_user.manage']);
-        $this->createTenant('ten_other');
+        $this->createPartner('par_other', 'other', 'Other Partner');
+        $this->createTenant('ten_other', 'par_other');
         $otherRoleId = $this->insertRole('tenant', 'ten_other', 'other_tenant_admin', 'Other Tenant Admin', ['dashboard.view']);
         $otherUserId = $this->insertScopedAdminUser('ten_other_admin@example.test', 'tenant', 'ten_other', 'scp_t_'.substr(sha1('ten_other'), 0, 20), [$otherRoleId]);
 
