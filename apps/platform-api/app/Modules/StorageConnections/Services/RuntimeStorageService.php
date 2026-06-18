@@ -208,6 +208,24 @@ class RuntimeStorageService
         return $storageKey;
     }
 
+    /**
+     * @param resource $stream
+     * @param array<string, mixed> $options
+     */
+    public function putStreamUsingDriver(string $routeKey, string $key, mixed $stream, array $options = [], ?string $driver = null): string
+    {
+        $storageKey = $driver === null || $driver === ''
+            ? $this->objectKey($routeKey, $key)
+            : $this->objectKeyForDriver($routeKey, $key, $driver);
+        $disk = $driver === null || $driver === ''
+            ? $this->disk($routeKey)
+            : $this->diskForDriver($routeKey, $driver);
+
+        $disk->put($storageKey, $stream, $options);
+
+        return $storageKey;
+    }
+
     public function get(string $routeKey, string $key): ?string
     {
         try {
@@ -227,6 +245,32 @@ class RuntimeStorageService
             return (string) $this->diskForDriver($routeKey, $driver)->get($key);
         } catch (\Throwable) {
             return $driver === self::DRIVER_LOCAL ? null : $this->localFallbackGet($key);
+        }
+    }
+
+    /**
+     * @return resource|null
+     */
+    public function readStreamUsingDriver(string $routeKey, string $key, ?string $driver = null): mixed
+    {
+        try {
+            $stream = $driver === null || $driver === ''
+                ? $this->disk($routeKey)->readStream($key)
+                : $this->diskForDriver($routeKey, $driver)->readStream($key);
+
+            return is_resource($stream) ? $stream : null;
+        } catch (\Throwable) {
+            if ($driver === self::DRIVER_LOCAL) {
+                return null;
+            }
+
+            try {
+                $stream = $this->localDisk()->readStream($key);
+
+                return is_resource($stream) ? $stream : null;
+            } catch (\Throwable) {
+                return null;
+            }
         }
     }
 

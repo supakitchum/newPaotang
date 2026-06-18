@@ -79,11 +79,9 @@ class LotteryImageOperationsController extends Controller
         unset($idempotencyPayload['expected_count']);
 
         if ($file instanceof \Illuminate\Http\UploadedFile && $file->isValid()) {
-            $realPath = $file->getRealPath();
             $idempotencyPayload['zip'] = [
                 'name' => $file->getClientOriginalName(),
                 'size' => $file->getSize(),
-                'sha256' => is_string($realPath) ? hash_file('sha256', $realPath) : null,
             ];
         }
 
@@ -112,7 +110,14 @@ class LotteryImageOperationsController extends Controller
             return ApiErrorResponse::resourceConflict($request);
         }
 
-        $result = $this->operations->importBackgroundZip($payload, $file instanceof \Illuminate\Http\UploadedFile ? $file : null, $context, $request);
+        $result = $this->operations->queueBackgroundZipImport(
+            $payload,
+            $file instanceof \Illuminate\Http\UploadedFile ? $file : null,
+            $context,
+            $request,
+            $idempotencyKey,
+            $idempotencyPayload,
+        );
 
         if (($result['error'] ?? null) === 'validation_failed') {
             return ApiErrorResponse::validationFailed($request, $result['errors'] ?? ['payload' => ['The request payload is invalid.']]);
@@ -126,12 +131,29 @@ class LotteryImageOperationsController extends Controller
             $routeKey,
             $idempotencyKey,
             $idempotencyPayload,
-            200,
+            202,
             $resource,
             'asset.manage',
         );
 
-        return response()->json($resource);
+        return response()->json($resource, 202);
+    }
+
+    public function backgroundZipImportStatus(Request $request, string $import_job_id): JsonResponse
+    {
+        $context = $this->authorizedContext($request, 'asset.manage');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $result = $this->operations->backgroundZipImportStatus($import_job_id);
+
+        if (($result['error'] ?? null) === 'not_found') {
+            return ApiErrorResponse::notFound($request);
+        }
+
+        return response()->json($result);
     }
 
     public function mix(Request $request): JsonResponse

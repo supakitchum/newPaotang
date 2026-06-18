@@ -14,6 +14,7 @@ spec:
     - hosts:
         - xn--80-bsia4ej0dc7e8e3d.online
         - www.xn--80-bsia4ej0dc7e8e3d.online
+        - bo.xn--80-bsia4ej0dc7e8e3d.online
       secretName: partner-xn--80-bsia4ej0dc7e8e3d-online-tls
   rules:
     - host: xn--80-bsia4ej0dc7e8e3d.online
@@ -36,3 +37,13 @@ spec:
                 name: customer
                 port:
                   number: 3000
+    - host: bo.xn--80-bsia4ej0dc7e8e3d.online
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: back-office
+                port:
+                  number: 3100

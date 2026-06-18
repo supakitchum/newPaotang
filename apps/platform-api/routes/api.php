@@ -418,6 +418,8 @@ Route::get('/admin/central/lottery-images/background-asset-sets', [LotteryImageO
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/lottery-images/background-asset-sets/import-zip', [LotteryImageOperationsController::class, 'importBackgroundZip'])
     ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/lottery-images/background-asset-sets/import-jobs/{import_job_id}', [LotteryImageOperationsController::class, 'backgroundZipImportStatus'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
 Route::put('/admin/central/lottery-images/background-asset-sets', [LotteryImageOperationsController::class, 'upsertBackgroundSet'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::patch('/admin/central/lottery-images/background-asset-sets/{asset_set_id}', [LotteryImageOperationsController::class, 'updateBackgroundSetStatus'])

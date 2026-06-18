@@ -279,26 +279,34 @@
 
             <div v-if="zipResult" class="border rounded p-3 mt-3">
               <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
-                <div class="fw-semibold">Import result</div>
-                <AdminStatusBadge status="ready" :label="`${zipResult.meta?.imported_count || 0} imported`" />
+                <div class="fw-semibold">Import job</div>
+                <AdminStatusBadge :status="zipResult.status" :label="titleize(zipResult.status || 'queued')" />
               </div>
               <div class="d-flex flex-column gap-1 small">
                 <div class="d-flex justify-content-between gap-2">
+                  <span class="text-muted">Job ID</span>
+                  <span class="text-end text-break">{{ zipResult.id || '-' }}</span>
+                </div>
+                <div class="d-flex justify-content-between gap-2">
                   <span class="text-muted">Game</span>
-                  <span class="text-end text-break">{{ gameName(zipResult.meta?.game_id) }}</span>
+                  <span class="text-end text-break">{{ gameName(zipResult.game_id) }}</span>
                 </div>
                 <div class="d-flex justify-content-between gap-2">
                   <span class="text-muted">Set</span>
-                  <span>{{ titleize(zipResult.meta?.set_type || '-') }}</span>
+                  <span>{{ titleize(zipResult.set_type || '-') }}</span>
                 </div>
                 <div class="d-flex justify-content-between gap-2">
                   <span class="text-muted">Storage</span>
-                  <span>{{ storageDriverLabel(zipResult.meta?.storage_driver) }}</span>
+                  <span>{{ storageDriverLabel(zipResult.storage_driver) }}</span>
                 </div>
                 <div class="d-flex justify-content-between gap-2">
-                  <span class="text-muted">Detected Images</span>
-                  <span>{{ zipResult.meta?.expected_count ?? '-' }}</span>
+                  <span class="text-muted">Detected / Imported</span>
+                  <span>{{ zipResult.detected_count ?? 0 }} / {{ zipResult.imported_count ?? 0 }}</span>
                 </div>
+                <div v-if="zipResult.error_message" class="text-danger text-break">{{ zipResult.error_message }}</div>
+              </div>
+              <div class="progress progress-xs mt-3" role="progressbar" :aria-valuenow="zipResult.progress_percent || 0" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar" :class="zipResult.status === 'failed' ? 'bg-danger' : ''" :style="{ width: `${zipResult.progress_percent || 0}%` }" />
               </div>
             </div>
           </div>
@@ -855,15 +863,34 @@ type ReadinessResponse = {
 }
 
 type ZipImportResponse = {
-  data?: BackgroundSet[]
-  meta?: {
-    game_id?: string
-    version?: string
-    set_type?: SetType
-    storage_driver?: StorageDriver | null
-    imported_count?: number
-    expected_count?: number
-  }
+  id: string
+  status: 'queued' | 'processing' | 'completed' | 'failed' | string
+  game_id?: string
+  version?: string
+  set_type?: SetType
+  desired_status?: BackgroundStatus
+  supersede_existing?: boolean
+  storage_driver?: StorageDriver | null
+  zip_file_name?: string | null
+  zip_size_bytes?: number
+  detected_count?: number
+  processed_count?: number
+  imported_count?: number
+  progress_percent?: number
+  error_code?: string | null
+  error_message?: string | null
+  error_details?: Record<string, string[]>
+  result?: {
+    data?: BackgroundSet[]
+    meta?: {
+      game_id?: string
+      version?: string
+      set_type?: SetType
+      storage_driver?: StorageDriver | null
+      imported_count?: number
+      expected_count?: number
+    }
+  } | null
 }
 
 type LotteryPreviewResponse = {
@@ -1008,6 +1035,7 @@ const previewError = ref<any>(null)
 const previewResult = ref<LotteryPreviewResponse | null>(null)
 const previewAutoDelayMs = 500
 let previewAutoTimer: ReturnType<typeof setTimeout> | null = null
+let zipImportPollTimer: ReturnType<typeof setTimeout> | null = null
 let previewAutoPending = false
 
 const mixForm = reactive<Record<SetType, number>>({
@@ -1220,6 +1248,7 @@ watch(() => route.query.game_id, (value) => {
 
 onBeforeUnmount(() => {
   clearPreviewAutoTimer()
+  clearZipImportPollTimer()
 })
 
 const loadGames = async () => {
@@ -1379,6 +1408,7 @@ const loadProductionReadiness = async () => {
 const importZip = async () => {
   if (!canImportZip.value || !zipForm.file) return
 
+  clearZipImportPollTimer()
   zipImporting.value = true
   zipFormError.value = null
   successMessage.value = ''
@@ -1402,19 +1432,73 @@ const importZip = async () => {
       body,
     })
 
-    zipForm.progress = 100
+    zipForm.progress = response.progress_percent || 10
     zipResult.value = response
-    context.game_id = response.meta?.game_id || zipForm.game_id
-    context.version = response.meta?.version || zipForm.version || context.version
-    successMessage.value = `${response.meta?.imported_count || response.data?.length || 0} background rows imported from image zip.`
-    zipForm.file = null
-    zipInputKey.value += 1
-    await Promise.all([loadBackgroundSets(), loadReadiness()])
+    context.game_id = response.game_id || zipForm.game_id
+    context.version = response.version || zipForm.version || context.version
+    successMessage.value = 'Background zip import queued. The worker will process it in the image queue.'
+    scheduleZipImportPoll(response.id)
   } catch (err) {
     zipForm.progress = 0
     zipFormError.value = err
-  } finally {
     zipImporting.value = false
+  }
+}
+
+const clearZipImportPollTimer = () => {
+  if (!zipImportPollTimer) {
+    return
+  }
+
+  clearTimeout(zipImportPollTimer)
+  zipImportPollTimer = null
+}
+
+const scheduleZipImportPoll = (importId?: string) => {
+  clearZipImportPollTimer()
+
+  if (!importId) {
+    zipImporting.value = false
+    return
+  }
+
+  zipImportPollTimer = setTimeout(() => {
+    void pollZipImport(importId)
+  }, 2000)
+}
+
+const pollZipImport = async (importId: string) => {
+  try {
+    const response = await api.apiFetch<ZipImportResponse>(`/admin/central/lottery-images/background-asset-sets/import-jobs/${encodeURIComponent(importId)}`, {
+      scope: 'central',
+    })
+    zipResult.value = response
+    zipForm.progress = response.progress_percent || (response.status === 'processing' ? 50 : 10)
+
+    if (response.status === 'completed') {
+      zipForm.progress = 100
+      zipImporting.value = false
+      zipForm.file = null
+      zipInputKey.value += 1
+      successMessage.value = `${response.imported_count || response.result?.meta?.imported_count || 0} background rows imported from image zip.`
+      await Promise.all([loadBackgroundSets(), loadReadiness()])
+      return
+    }
+
+    if (response.status === 'failed') {
+      zipImporting.value = false
+      zipForm.progress = response.progress_percent || 0
+      zipFormError.value = {
+        message: response.error_message || 'Background zip import failed.',
+        details: response.error_details,
+      }
+      return
+    }
+
+    scheduleZipImportPoll(importId)
+  } catch (err) {
+    zipImporting.value = false
+    zipFormError.value = err
   }
 }
 
@@ -1687,6 +1771,7 @@ const resetContext = () => {
 }
 
 const resetZipForm = () => {
+  clearZipImportPollTimer()
   zipForm.game_id = context.game_id
   zipForm.version = context.version || 'v1'
   zipForm.set_type = 'odd'
@@ -1696,6 +1781,7 @@ const resetZipForm = () => {
   zipForm.error = ''
   zipForm.progress = 0
   zipResult.value = null
+  zipImporting.value = false
   zipInputKey.value += 1
 }
 

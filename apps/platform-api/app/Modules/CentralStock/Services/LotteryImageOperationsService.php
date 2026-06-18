@@ -4,13 +4,15 @@ namespace App\Modules\CentralStock\Services;
 
 use App\Jobs\GenerateLotteryImageJob;
 use App\Jobs\GeneratePartnerLotteryImageJob;
+use App\Jobs\ImportLotteryBackgroundZipJob;
 use App\Models\Game;
 use App\Models\LocalStockItem;
 use App\Models\LotteryImageBackgroundAssetSet;
+use App\Models\LotteryImageBackgroundZipImport;
 use App\Models\LotteryImageMixSetting;
 use App\Models\Partner;
-use App\Models\PlatformSystemSetting;
 use App\Models\PlatformAsset;
+use App\Models\PlatformSystemSetting;
 use App\Models\StockItem;
 use App\Modules\StorageConnections\Services\RuntimeStorageService;
 use App\Shared\Audit\AuditLogger;
@@ -154,7 +156,207 @@ class LotteryImageOperationsService
      * @param array<string, mixed> $payload
      * @return array{resource?: array<string, mixed>, error?: string, errors?: array<string, array<int, string>>}
      */
+    public function queueBackgroundZipImport(array $payload, ?UploadedFile $zipFile, AdminSessionContext $actor, Request $request, string $idempotencyKey, array $idempotencyPayload): array
+    {
+        $normalized = [
+            'game_id' => trim((string) ($payload['game_id'] ?? '')),
+            'version' => $this->versionFrom($payload['version'] ?? null),
+            'set_type' => trim((string) ($payload['set_type'] ?? '')),
+            'status' => trim((string) ($payload['status'] ?? 'ready')),
+            'supersede_existing' => filter_var($payload['supersede_existing'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'storage_driver' => $this->storage->driverForRoute(RuntimeStorageService::ROUTE_BACKGROUND_ASSETS),
+        ];
+        $errors = $this->backgroundZipPayloadErrors($normalized, $zipFile, $request);
+
+        if ($errors !== []) {
+            return ['error' => 'validation_failed', 'errors' => $errors];
+        }
+
+        $realPath = $zipFile?->getRealPath();
+
+        if (! is_string($realPath) || $realPath === '') {
+            return ['error' => 'validation_failed', 'errors' => ['zip' => ['The zip field is required and must be a valid upload.']]];
+        }
+
+        $importId = 'lbz_'.Str::ulid()->toBase32();
+        $safeName = $this->safeZipFileName((string) $zipFile->getClientOriginalName());
+        $zipKey = 'lottery-image-assets/import-zips/'.$normalized['game_id'].'/'.$importId.'/'.$safeName;
+        $stream = @fopen($realPath, 'rb');
+
+        if (! is_resource($stream)) {
+            return ['error' => 'validation_failed', 'errors' => ['zip' => ['The uploaded zip file could not be read.']]];
+        }
+
+        try {
+            $zipStorageKey = $this->storage->putStreamUsingDriver(
+                RuntimeStorageService::ROUTE_BACKGROUND_ASSETS,
+                $zipKey,
+                $stream,
+                [
+                    'ContentType' => 'application/zip',
+                    'CacheControl' => 'private, max-age=86400',
+                ],
+                $normalized['storage_driver'],
+            );
+        } finally {
+            fclose($stream);
+        }
+
+        $now = now();
+        $import = LotteryImageBackgroundZipImport::query()->create([
+            'id' => $importId,
+            'game_id' => $normalized['game_id'],
+            'version' => $normalized['version'],
+            'set_type' => $normalized['set_type'],
+            'desired_status' => $normalized['status'],
+            'supersede_existing' => $normalized['supersede_existing'],
+            'status' => 'queued',
+            'storage_driver' => $normalized['storage_driver'],
+            'zip_storage_key' => $zipStorageKey,
+            'zip_file_name' => (string) $zipFile->getClientOriginalName(),
+            'zip_size_bytes' => (int) $zipFile->getSize(),
+            'idempotency_key' => $idempotencyKey,
+            'payload_hash' => hash('sha256', json_encode($idempotencyPayload, JSON_THROW_ON_ERROR)),
+            'created_by_admin_id' => (string) $actor->adminUser['id'],
+            'progress_percent' => 0,
+            'payload_json' => [
+                'game_id' => $normalized['game_id'],
+                'version' => $normalized['version'],
+                'set_type' => $normalized['set_type'],
+                'status' => $normalized['status'],
+                'supersede_existing' => $normalized['supersede_existing'],
+            ],
+            'actor_snapshot_json' => [
+                'session' => $actor->session,
+                'admin_user' => $actor->adminUser,
+                'scopes' => $actor->scopes,
+            ],
+            'queued_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        ImportLotteryBackgroundZipJob::dispatch($import->id);
+
+        $this->audit($actor, $request, 'lottery_image_background_asset_set.import_zip_queued', 'lottery_image_background_zip_import', $import->id, $payload);
+
+        return ['resource' => $this->backgroundZipImportResource($import->refresh())];
+    }
+
     public function importBackgroundZip(array $payload, ?UploadedFile $zipFile, AdminSessionContext $actor, Request $request): array
+    {
+        return $this->runBackgroundZipImport($payload, $zipFile, $actor, $request);
+    }
+
+    public function processBackgroundZipImportJob(string $importId): void
+    {
+        $import = DB::transaction(function () use ($importId): ?LotteryImageBackgroundZipImport {
+            $row = LotteryImageBackgroundZipImport::query()->whereKey($importId)->lockForUpdate()->first();
+
+            if (! $row instanceof LotteryImageBackgroundZipImport) {
+                return null;
+            }
+
+            if (in_array((string) $row->status, ['completed', 'processing'], true)) {
+                return null;
+            }
+
+            $row->update([
+                'status' => 'processing',
+                'progress_percent' => 5,
+                'started_at' => $row->started_at ?? now(),
+                'failed_at' => null,
+                'error_code' => null,
+                'error_message' => null,
+                'error_details_json' => null,
+                'updated_at' => now(),
+            ]);
+
+            return $row->refresh();
+        });
+
+        if (! $import instanceof LotteryImageBackgroundZipImport) {
+            return;
+        }
+
+        $tempPath = tempnam(sys_get_temp_dir(), 'lbz_');
+
+        if (! is_string($tempPath) || $tempPath === '') {
+            $this->markBackgroundZipImportFailed($import, 'temp_file_failed', 'Unable to create a temporary zip file.');
+
+            return;
+        }
+
+        try {
+            $this->copyStoredZipToTempFile($import, $tempPath);
+
+            $payload = is_array($import->payload_json) ? $import->payload_json : [];
+            $actorSnapshot = is_array($import->actor_snapshot_json) ? $import->actor_snapshot_json : [];
+            $actor = new AdminSessionContext(
+                is_array($actorSnapshot['session'] ?? null) ? $actorSnapshot['session'] : ['scope_type' => 'central', 'scope_id' => null, 'tenant_id' => null],
+                is_array($actorSnapshot['admin_user'] ?? null) ? $actorSnapshot['admin_user'] : ['id' => $import->created_by_admin_id],
+                is_array($actorSnapshot['scopes'] ?? null) ? $actorSnapshot['scopes'] : [],
+            );
+            $request = Request::create('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', 'POST', $payload);
+            $request->headers->set('Idempotency-Key', (string) $import->idempotency_key);
+
+            $uploaded = new UploadedFile($tempPath, (string) ($import->zip_file_name ?: 'backgrounds.zip'), 'application/zip', null, true);
+            $result = $this->runBackgroundZipImport($payload, $uploaded, $actor, $request);
+
+            if (($result['error'] ?? null) === 'validation_failed') {
+                $this->markBackgroundZipImportFailed($import, 'validation_failed', 'The queued zip import payload is invalid.', $result['errors'] ?? []);
+
+                return;
+            }
+
+            $resource = $result['resource'] ?? $result;
+            $meta = is_array($resource['meta'] ?? null) ? $resource['meta'] : [];
+            $data = is_array($resource['data'] ?? null) ? $resource['data'] : [];
+
+            $import->update([
+                'status' => 'completed',
+                'detected_count' => (int) ($meta['expected_count'] ?? count($data)),
+                'processed_count' => count($data),
+                'imported_count' => (int) ($meta['imported_count'] ?? count($data)),
+                'progress_percent' => 100,
+                'result_json' => $resource,
+                'completed_at' => now(),
+                'failed_at' => null,
+                'error_code' => null,
+                'error_message' => null,
+                'error_details_json' => null,
+                'updated_at' => now(),
+            ]);
+
+            $this->storage->deleteUsingDriver(RuntimeStorageService::ROUTE_BACKGROUND_ASSETS, (string) $import->zip_storage_key, (string) $import->storage_driver);
+        } catch (\Throwable $exception) {
+            $this->markBackgroundZipImportFailed($import, 'processing_failed', substr($exception->getMessage(), 0, 1000));
+        } finally {
+            if (is_file($tempPath)) {
+                @unlink($tempPath);
+            }
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function backgroundZipImportStatus(string $importId): array
+    {
+        $import = LotteryImageBackgroundZipImport::query()->whereKey($importId)->first();
+
+        if (! $import instanceof LotteryImageBackgroundZipImport) {
+            return ['error' => 'not_found'];
+        }
+
+        return $this->backgroundZipImportResource($import);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, error?: string, errors?: array<string, array<int, string>>}
+     */
+    private function runBackgroundZipImport(array $payload, ?UploadedFile $zipFile, AdminSessionContext $actor, Request $request): array
     {
         $normalized = [
             'game_id' => trim((string) ($payload['game_id'] ?? '')),
@@ -1134,6 +1336,98 @@ class LotteryImageOperationsService
             'max_entries' => max(1, (int) config('lottery_images.background_zip_import.max_entries', 120)),
             'max_uncompressed_bytes' => max(1, (int) config('lottery_images.background_zip_import.max_uncompressed_bytes', 67108864)),
             'max_compression_ratio' => max(1.0, (float) config('lottery_images.background_zip_import.max_compression_ratio', 80)),
+        ];
+    }
+
+    private function safeZipFileName(string $fileName): string
+    {
+        $base = basename($fileName);
+        $base = preg_replace('/[^A-Za-z0-9._-]+/', '-', $base) ?: 'backgrounds.zip';
+        $base = trim($base, '.-');
+
+        if ($base === '') {
+            $base = 'backgrounds.zip';
+        }
+
+        return str_ends_with(strtolower($base), '.zip') ? $base : $base.'.zip';
+    }
+
+    private function copyStoredZipToTempFile(LotteryImageBackgroundZipImport $import, string $tempPath): void
+    {
+        $input = $this->storage->readStreamUsingDriver(
+            RuntimeStorageService::ROUTE_BACKGROUND_ASSETS,
+            (string) $import->zip_storage_key,
+            (string) $import->storage_driver,
+        );
+
+        if (! is_resource($input)) {
+            throw new \RuntimeException('background_zip_import_source_missing');
+        }
+
+        $output = @fopen($tempPath, 'wb');
+
+        if (! is_resource($output)) {
+            fclose($input);
+            throw new \RuntimeException('background_zip_import_temp_write_failed');
+        }
+
+        try {
+            stream_copy_to_stream($input, $output);
+        } finally {
+            fclose($output);
+            fclose($input);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $details
+     */
+    private function markBackgroundZipImportFailed(LotteryImageBackgroundZipImport $import, string $code, string $message, array $details = []): void
+    {
+        $import->update([
+            'status' => 'failed',
+            'progress_percent' => max(5, (int) $import->progress_percent),
+            'error_code' => $code,
+            'error_message' => $message,
+            'error_details_json' => $details,
+            'failed_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function backgroundZipImportResource(LotteryImageBackgroundZipImport $import): array
+    {
+        return [
+            'id' => (string) $import->id,
+            'status' => (string) $import->status,
+            'game_id' => (string) $import->game_id,
+            'version' => (string) $import->version,
+            'set_type' => (string) $import->set_type,
+            'desired_status' => (string) $import->desired_status,
+            'supersede_existing' => (bool) $import->supersede_existing,
+            'storage_driver' => $import->storage_driver,
+            'zip_file_name' => $import->zip_file_name,
+            'zip_size_bytes' => (int) $import->zip_size_bytes,
+            'detected_count' => (int) $import->detected_count,
+            'processed_count' => (int) $import->processed_count,
+            'imported_count' => (int) $import->imported_count,
+            'progress_percent' => (int) $import->progress_percent,
+            'error_code' => $import->error_code,
+            'error_message' => $import->error_message,
+            'error_details' => $import->error_details_json ?? [],
+            'result' => $import->result_json,
+            'queued_at' => $import->queued_at?->toISOString(),
+            'started_at' => $import->started_at?->toISOString(),
+            'completed_at' => $import->completed_at?->toISOString(),
+            'failed_at' => $import->failed_at?->toISOString(),
+            'created_at' => $import->created_at?->toISOString(),
+            'updated_at' => $import->updated_at?->toISOString(),
+            'links' => [
+                'self' => '/api/v1/admin/central/lottery-images/background-asset-sets/import-jobs/'.$import->id,
+            ],
         ];
     }
 

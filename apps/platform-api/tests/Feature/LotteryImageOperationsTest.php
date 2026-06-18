@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Testing\TestResponse;
 use Tests\Support\PartnerStoreFixtures;
 use Tests\TestCase;
 use ZipArchive;
@@ -398,7 +399,39 @@ class LotteryImageOperationsTest extends TestCase
             ->assertForbidden()
             ->assertJsonPath('error.code', 'permission_denied');
 
-        $response = $this->withToken($central['access_token'])
+        $response = $this->queueAndProcessBackgroundZipImport($central['access_token'], [
+                'game_id' => $gameId,
+                'version' => 'v2',
+                'set_type' => 'charity',
+                'zip' => $this->namedImageZipUpload($zipEntries),
+            ], [
+                'X-Admin-Scope' => 'central',
+                'Idempotency-Key' => 'central-zip-import',
+            ])
+            ->assertJsonPath('status', 'completed')
+            ->assertJsonPath('result.meta.game_id', $gameId)
+            ->assertJsonPath('result.meta.set_type', 'charity')
+            ->assertJsonPath('result.meta.storage_driver', 'local')
+            ->assertJsonPath('result.meta.imported_count', 3)
+            ->assertJsonPath('result.meta.expected_count', 3)
+            ->assertJsonPath('result.data.0.position', 1)
+            ->assertJsonPath('result.data.0.storage_driver', 'local')
+            ->assertJsonPath('result.data.1.position', 2)
+            ->assertJsonPath('result.data.2.position', 3)
+            ->assertJsonPath('result.data.0.assets.source.content_type', 'image/png')
+            ->assertJsonPath('result.data.0.assets.source.storage_driver', 'local')
+            ->assertJsonPath('result.data.1.assets.source.content_type', 'image/jpeg')
+            ->assertJsonPath('result.data.2.assets.source.content_type', 'image/webp')
+            ->assertJsonPath('result.data.0.assets.source.storage_path', 'lottery-image-assets/games/'.$gameId.'/backgrounds/v2/charity/001/001.png')
+            ->assertJsonPath('result.data.1.assets.source.storage_path', 'lottery-image-assets/games/'.$gameId.'/backgrounds/v2/charity/002/002.jpg')
+            ->assertJsonPath('result.data.2.assets.source.storage_path', 'lottery-image-assets/games/'.$gameId.'/backgrounds/v2/charity/003/003.webp')
+            ->assertJsonPath('result.data.0.assets.full.content_type', 'image/webp')
+            ->assertJsonPath('result.data.0.assets.thumb.content_type', 'image/webp')
+            ->json();
+
+        $importResult = $response['result'];
+
+        $this->withToken($central['access_token'])
             ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
                 'game_id' => $gameId,
                 'version' => 'v2',
@@ -408,26 +441,10 @@ class LotteryImageOperationsTest extends TestCase
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'central-zip-import',
             ])
-            ->assertOk()
-            ->assertJsonPath('meta.game_id', $gameId)
-            ->assertJsonPath('meta.set_type', 'charity')
-            ->assertJsonPath('meta.storage_driver', 'local')
-            ->assertJsonPath('meta.imported_count', 3)
-            ->assertJsonPath('meta.expected_count', 3)
-            ->assertJsonPath('data.0.position', 1)
-            ->assertJsonPath('data.0.storage_driver', 'local')
-            ->assertJsonPath('data.1.position', 2)
-            ->assertJsonPath('data.2.position', 3)
-            ->assertJsonPath('data.0.assets.source.content_type', 'image/png')
-            ->assertJsonPath('data.0.assets.source.storage_driver', 'local')
-            ->assertJsonPath('data.1.assets.source.content_type', 'image/jpeg')
-            ->assertJsonPath('data.2.assets.source.content_type', 'image/webp')
-            ->assertJsonPath('data.0.assets.source.storage_path', 'lottery-image-assets/games/'.$gameId.'/backgrounds/v2/charity/001/001.png')
-            ->assertJsonPath('data.1.assets.source.storage_path', 'lottery-image-assets/games/'.$gameId.'/backgrounds/v2/charity/002/002.jpg')
-            ->assertJsonPath('data.2.assets.source.storage_path', 'lottery-image-assets/games/'.$gameId.'/backgrounds/v2/charity/003/003.webp')
-            ->assertJsonPath('data.0.assets.full.content_type', 'image/webp')
-            ->assertJsonPath('data.0.assets.thumb.content_type', 'image/webp')
-            ->json();
+            ->assertAccepted()
+            ->assertJsonPath('id', $response['id'])
+            ->assertJsonPath('game_id', $gameId)
+            ->assertJsonPath('status', 'queued');
 
         $this->assertSame(3, DB::table('lottery_image_background_asset_sets')
             ->where('game_id', $gameId)
@@ -463,8 +480,8 @@ class LotteryImageOperationsTest extends TestCase
         $this->assertStringContainsString('001.png', $persistedZipMetadata);
         $this->assertStringContainsString('storage_driver', $persistedZipMetadata);
         $this->assertStringContainsString('local', $persistedZipMetadata);
-        $this->assertTrue(Storage::disk('lottery_images')->exists($response['data'][0]['assets']['full']['storage_path']));
-        $this->assertTrue(Storage::disk('lottery_images')->exists($response['data'][0]['assets']['thumb']['storage_path']));
+        $this->assertTrue(Storage::disk('lottery_images')->exists($importResult['data'][0]['assets']['full']['storage_path']));
+        $this->assertTrue(Storage::disk('lottery_images')->exists($importResult['data'][0]['assets']['thumb']['storage_path']));
 
         $this->withToken($central['access_token'])
             ->getJson('/api/v1/admin/central/lottery-images/readiness?game_id='.$gameId.'&version=v2', [
@@ -477,8 +494,7 @@ class LotteryImageOperationsTest extends TestCase
 
         $this->insertGame('gam_lottery_zip_many', 'open');
 
-        $this->withToken($central['access_token'])
-            ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
+        $this->queueAndProcessBackgroundZipImport($central['access_token'], [
                 'game_id' => 'gam_lottery_zip_many',
                 'version' => 'v1',
                 'set_type' => 'odd',
@@ -487,11 +503,11 @@ class LotteryImageOperationsTest extends TestCase
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'central-zip-import-many',
             ])
-            ->assertOk()
-            ->assertJsonPath('meta.imported_count', 101)
-            ->assertJsonPath('meta.expected_count', 101)
-            ->assertJsonPath('data.100.position', 101)
-            ->assertJsonPath('data.100.assets.source.storage_path', 'lottery-image-assets/games/gam_lottery_zip_many/backgrounds/v1/odd/101/101.png');
+            ->assertJsonPath('status', 'completed')
+            ->assertJsonPath('result.meta.imported_count', 101)
+            ->assertJsonPath('result.meta.expected_count', 101)
+            ->assertJsonPath('result.data.100.position', 101)
+            ->assertJsonPath('result.data.100.assets.source.storage_path', 'lottery-image-assets/games/gam_lottery_zip_many/backgrounds/v1/odd/101/101.png');
     }
 
     public function test_LotteryImageBackgroundPrune_deletes_expired_draw_asset_sets_and_keeps_recent_draws(): void
@@ -503,8 +519,7 @@ class LotteryImageOperationsTest extends TestCase
         $this->insertGame($recentGameId, 'closed');
         $central = $this->createCentralSession(['asset.manage'], 'adm_lottery_prune', 'lottery-prune@example.test');
 
-        $this->withToken($central['access_token'])
-            ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
+        $this->queueAndProcessBackgroundZipImport($central['access_token'], [
                 'game_id' => $oldGameId,
                 'version' => 'v1',
                 'set_type' => 'odd',
@@ -513,10 +528,9 @@ class LotteryImageOperationsTest extends TestCase
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'central-prune-old-import',
             ])
-            ->assertOk();
+            ->assertJsonPath('status', 'completed');
 
-        $this->withToken($central['access_token'])
-            ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
+        $this->queueAndProcessBackgroundZipImport($central['access_token'], [
                 'game_id' => $recentGameId,
                 'version' => 'v1',
                 'set_type' => 'odd',
@@ -525,7 +539,7 @@ class LotteryImageOperationsTest extends TestCase
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'central-prune-recent-import',
             ])
-            ->assertOk();
+            ->assertJsonPath('status', 'completed');
 
         DB::table('games')->where('id', $oldGameId)->update(['draw_at' => now('Asia/Bangkok')->subDays(41), 'updated_at' => now()]);
         DB::table('games')->where('id', $recentGameId)->update(['draw_at' => now('Asia/Bangkok')->subDays(39), 'updated_at' => now()]);
@@ -608,8 +622,7 @@ class LotteryImageOperationsTest extends TestCase
         $this->insertGame('gam_lottery_zip_invalid', 'open');
         $central = $this->createCentralSession(['asset.manage'], 'adm_lottery_zip_invalid', 'lottery-zip-invalid@example.test');
 
-        $this->withToken($central['access_token'])
-            ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
+        $this->queueAndProcessBackgroundZipImport($central['access_token'], [
                 'game_id' => 'gam_lottery_zip_invalid',
                 'version' => 'v1',
                 'set_type' => 'odd',
@@ -618,8 +631,9 @@ class LotteryImageOperationsTest extends TestCase
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'zip-non-image',
             ])
-            ->assertUnprocessable()
-            ->assertJsonPath('error.code', 'validation_failed');
+            ->assertJsonPath('status', 'failed')
+            ->assertJsonPath('error_code', 'validation_failed')
+            ->assertJsonPath('error_details.zip.0', 'The zip entry 001.txt must use a supported image extension: png, jpg, jpeg, or webp.');
 
         $this->withToken($central['access_token'])
             ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
@@ -644,8 +658,7 @@ class LotteryImageOperationsTest extends TestCase
 
         config(['lottery_images.background_zip_import.max_entries' => 2]);
 
-        $this->withToken($central['access_token'])
-            ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
+        $this->queueAndProcessBackgroundZipImport($central['access_token'], [
                 'game_id' => 'gam_lottery_zip_limit',
                 'version' => 'v1',
                 'set_type' => 'odd',
@@ -654,9 +667,9 @@ class LotteryImageOperationsTest extends TestCase
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'zip-entry-limit',
             ])
-            ->assertUnprocessable()
-            ->assertJsonPath('error.code', 'validation_failed')
-            ->assertJsonPath('error.details.fields.zip.0', 'The zip file cannot contain more than 2 supported image files.');
+            ->assertJsonPath('status', 'failed')
+            ->assertJsonPath('error_code', 'validation_failed')
+            ->assertJsonPath('error_details.zip.0', 'The zip file cannot contain more than 2 supported image files.');
     }
 
     public function test_LotteryImageZipImport_preserves_full_background_frame_without_cover_crop(): void
@@ -665,8 +678,7 @@ class LotteryImageOperationsTest extends TestCase
         $this->insertGame('gam_lottery_full_bg', 'open');
         $central = $this->createCentralSession(['asset.manage'], 'adm_lottery_full_bg', 'lottery-full-bg@example.test');
 
-        $response = $this->withToken($central['access_token'])
-            ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', [
+        $response = $this->queueAndProcessBackgroundZipImport($central['access_token'], [
                 'game_id' => 'gam_lottery_full_bg',
                 'version' => 'v1',
                 'set_type' => 'odd',
@@ -675,10 +687,10 @@ class LotteryImageOperationsTest extends TestCase
                 'X-Admin-Scope' => 'central',
                 'Idempotency-Key' => 'central-full-bg-import',
             ])
-            ->assertOk()
+            ->assertJsonPath('status', 'completed')
             ->json();
 
-        $bytes = Storage::disk('lottery_images')->get($response['data'][0]['assets']['full']['storage_path']);
+        $bytes = Storage::disk('lottery_images')->get($response['result']['data'][0]['assets']['full']['storage_path']);
         $left = $this->pixelRgbFromBytes($bytes, 1, 140);
         $right = $this->pixelRgbFromBytes($bytes, 498, 140);
 
@@ -1090,6 +1102,33 @@ class LotteryImageOperationsTest extends TestCase
                 'Idempotency-Key' => $idempotencyKey,
             ])
             ->assertOk();
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @param array<string, string> $headers
+     */
+    private function queueAndProcessBackgroundZipImport(string $token, array $payload, array $headers): TestResponse
+    {
+        Queue::fake();
+
+        $queued = $this->withToken($token)
+            ->post('/api/v1/admin/central/lottery-images/background-asset-sets/import-zip', $payload, $headers)
+            ->assertAccepted()
+            ->assertJsonPath('status', 'queued');
+
+        $importId = (string) $queued->json('id');
+        $this->assertNotSame('', $importId);
+
+        app(\App\Modules\CentralStock\Services\LotteryImageOperationsService::class)
+            ->processBackgroundZipImportJob($importId);
+
+        return $this->withToken($token)
+            ->getJson('/api/v1/admin/central/lottery-images/background-asset-sets/import-jobs/'.$importId, [
+                'X-Admin-Scope' => $headers['X-Admin-Scope'] ?? 'central',
+            ])
+            ->assertOk()
+            ->assertJsonPath('id', $importId);
     }
 
     private function uploadBrandingImageAsset(string $token, string $partnerId, string $slot, int $width, int $height): string
