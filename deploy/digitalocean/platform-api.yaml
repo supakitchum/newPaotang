@@ -51,6 +51,11 @@ metadata:
     app.kubernetes.io/part-of: newpaotang
 spec:
   replicas: 4
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: platform-api
@@ -78,8 +83,8 @@ spec:
                 name: newpaotang-platform-secret
           resources:
             requests:
-              cpu: 250m
-              memory: 512Mi
+              cpu: 150m
+              memory: 384Mi
             limits:
               cpu: "1"
               memory: 1Gi
@@ -112,8 +117,8 @@ spec:
             failureThreshold: 3
           resources:
             requests:
-              cpu: 50m
-              memory: 64Mi
+              cpu: 25m
+              memory: 32Mi
             limits:
               cpu: 250m
               memory: 128Mi
@@ -145,6 +150,11 @@ metadata:
     app.kubernetes.io/part-of: newpaotang
 spec:
   replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: platform-api-worker-critical
@@ -170,8 +180,8 @@ spec:
                 name: newpaotang-platform-secret
           resources:
             requests:
-              cpu: 250m
-              memory: 512Mi
+              cpu: 150m
+              memory: 384Mi
             limits:
               cpu: "1"
               memory: 1Gi
@@ -185,6 +195,11 @@ metadata:
     app.kubernetes.io/part-of: newpaotang
 spec:
   replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: platform-api-worker-default
@@ -210,8 +225,8 @@ spec:
                 name: newpaotang-platform-secret
           resources:
             requests:
-              cpu: 200m
-              memory: 512Mi
+              cpu: 150m
+              memory: 384Mi
             limits:
               cpu: "1"
               memory: 1Gi
@@ -255,8 +270,8 @@ spec:
                 name: newpaotang-platform-secret
           resources:
             requests:
-              cpu: 500m
-              memory: 1Gi
+              cpu: 300m
+              memory: 768Mi
             limits:
               cpu: "2"
               memory: 2Gi
@@ -270,6 +285,11 @@ metadata:
     app.kubernetes.io/part-of: newpaotang
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: platform-api-scheduler
@@ -294,8 +314,8 @@ spec:
                 name: newpaotang-platform-secret
           resources:
             requests:
-              cpu: 100m
-              memory: 256Mi
+              cpu: 50m
+              memory: 128Mi
             limits:
               cpu: 500m
               memory: 512Mi
@@ -309,6 +329,11 @@ metadata:
     app.kubernetes.io/part-of: newpaotang
 spec:
   replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: platform-api-reverb
@@ -337,8 +362,8 @@ spec:
                 name: newpaotang-platform-secret
           resources:
             requests:
-              cpu: 200m
-              memory: 512Mi
+              cpu: 100m
+              memory: 256Mi
             limits:
               cpu: "1"
               memory: 1Gi
