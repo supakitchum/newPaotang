@@ -7,3 +7,4 @@
 /storage/logs/*.log
 /storage/framework/testing/*
 !/storage/framework/testing/.gitkeep
+/resources/translation-locales/

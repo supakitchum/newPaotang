@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ${TRANSLATION_SYNC_JOB_NAME}
+  namespace: newpaotang-prod
+  labels:
+    app.kubernetes.io/name: platform-api-translation-sync
+    app.kubernetes.io/part-of: newpaotang
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: platform-api-translation-sync
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: translation-sync
+          image: ${PLATFORM_API_IMAGE}
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -lc
+            - php artisan translations:sync-static
+          envFrom:
+            - configMapRef:
+                name: newpaotang-platform-config
+            - secretRef:
+                name: newpaotang-platform-secret

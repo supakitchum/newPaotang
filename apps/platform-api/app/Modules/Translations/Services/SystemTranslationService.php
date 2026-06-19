@@ -648,7 +648,7 @@ class SystemTranslationService
         $this->syncStaticPublishedValues($now);
         $this->syncBackOfficePhraseDefaults($now);
 
-        Cache::put('system_translation_catalog_seeded', true, now()->addMinutes(10));
+        Cache::put('system_translation_catalog_seeded', $this->catalogHasPublishedValues(), now()->addMinutes(10));
     }
 
     /**
@@ -868,13 +868,18 @@ class SystemTranslationService
 
     private function ensureCatalogSeeded(): void
     {
-        $seeded = Cache::remember('system_translation_catalog_seeded', now()->addMinutes(10), fn (): bool => (
-            SystemLanguage::query()->exists() && SystemTranslationKey::query()->exists()
-        ));
+        $seeded = Cache::remember('system_translation_catalog_seeded', now()->addMinutes(10), fn (): bool => $this->catalogHasPublishedValues());
 
         if (! $seeded) {
             $this->syncCatalog();
         }
+    }
+
+    private function catalogHasPublishedValues(): bool
+    {
+        return SystemLanguage::query()->exists()
+            && SystemTranslationKey::query()->exists()
+            && SystemTranslationValue::query()->exists();
     }
 
     private function defaultLocale(): string

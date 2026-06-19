@@ -233,6 +233,25 @@ class SystemTranslationWorkflowTest extends TestCase
         $this->assertSame('แดชบอร์ดที่อนุมัติแล้ว', $dashboardAfterSync['published_value'] ?? null);
     }
 
+    public function test_translation_center_reseeds_missing_published_values(): void
+    {
+        $service = app(SystemTranslationService::class);
+        $service->syncCatalog();
+
+        DB::table('system_translation_values')->delete();
+        Cache::forget('system_translation_catalog_seeded');
+
+        $menus = $service->keys([
+            'locale' => 'th-TH',
+            'surface' => 'back-office',
+            'category' => 'menus',
+            'q' => 'menus.items.central.translations',
+        ]);
+
+        $translations = collect($menus['data'])->firstWhere('key', 'menus.items.central.translations');
+        $this->assertSame('ศูนย์แปลภาษา', $translations['published_value'] ?? null);
+    }
+
     public function test_back_office_phrase_defaults_are_seeded_for_modals_and_forms(): void
     {
         $service = app(SystemTranslationService::class);

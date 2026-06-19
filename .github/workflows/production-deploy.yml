@@ -61,6 +61,15 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
+      - name: Stage frontend translation catalogs for API image
+        run: |
+          set -euo pipefail
+          rm -rf apps/platform-api/resources/translation-locales
+          mkdir -p apps/platform-api/resources/translation-locales/back-office
+          mkdir -p apps/platform-api/resources/translation-locales/customer
+          cp apps/back-office/locales/*.ts apps/platform-api/resources/translation-locales/back-office/
+          cp apps/customer/locales/*.ts apps/platform-api/resources/translation-locales/customer/
+
       - uses: digitalocean/action-doctl@v2
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
@@ -213,6 +222,17 @@ jobs:
           export PLATFORM_API_IMAGE
           envsubst < deploy/digitalocean/jobs/migrate.yaml | kubectl apply -f -
           kubectl -n "$NAMESPACE" wait --for=condition=complete "job/${MIGRATION_JOB_NAME}" --timeout=600s
+
+      - name: Sync static translations
+        env:
+          TRANSLATION_SYNC_JOB_NAME: newpaotang-translation-sync-${{ github.run_id }}-${{ github.run_attempt }}
+          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          PLATFORM_API_IMAGE="${REGISTRY}/newpaotang-platform-api:${IMAGE_TAG}"
+          export PLATFORM_API_IMAGE
+          envsubst < deploy/digitalocean/jobs/translation-sync.yaml | kubectl apply -f -
+          kubectl -n "$NAMESPACE" wait --for=condition=complete "job/${TRANSLATION_SYNC_JOB_NAME}" --timeout=600s
 
       - name: Run RBAC/menu seed
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_rbac_seed }}

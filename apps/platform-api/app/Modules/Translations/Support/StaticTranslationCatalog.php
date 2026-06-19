@@ -361,6 +361,7 @@ class StaticTranslationCatalog
     {
         return self::firstDirectory([
             env('BACK_OFFICE_LOCALE_PATH'),
+            base_path('resources/translation-locales/back-office'),
             '/workspace/apps/back-office/locales',
             dirname(base_path(), 2).'/back-office/locales',
             dirname(base_path(), 3).'/apps/back-office/locales',
@@ -371,6 +372,7 @@ class StaticTranslationCatalog
     {
         return self::firstDirectory([
             env('CUSTOMER_LOCALE_PATH'),
+            base_path('resources/translation-locales/customer'),
             '/workspace/apps/customer/locales',
             dirname(base_path(), 2).'/customer/locales',
             dirname(base_path(), 3).'/apps/customer/locales',
