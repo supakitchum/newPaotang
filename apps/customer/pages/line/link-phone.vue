@@ -1,6 +1,6 @@
 <template>
   <MobileShell time="13:09">
-    <BlueHeader class="line-link-hero" min-height="220px">
+    <BlueHeader class="line-link-hero" min-height="268px">
       <HeroBack to="/login" />
       <div class="line-link-title">
         <i class="bi bi-line" />
@@ -202,10 +202,14 @@ const submit = async () => {
   color: #fff;
 }
 
+.line-link-hero :deep(.hero-row) {
+  min-height: 0;
+}
+
 .line-link-title {
-  margin: 30px auto 0;
+  margin: 18px auto 0;
   max-width: min(100%, 360px);
-  padding: 0 18px;
+  padding: 0 18px 24px;
   text-align: center;
 }
 
@@ -226,6 +230,7 @@ const submit = async () => {
   margin: 10px 0 8px;
   font-size: clamp(22px, 6vw, 28px);
   font-weight: 900;
+  line-height: 1.12;
 }
 
 .line-link-title p {
