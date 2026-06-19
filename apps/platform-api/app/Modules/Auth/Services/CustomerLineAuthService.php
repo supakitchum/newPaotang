@@ -492,7 +492,12 @@ class CustomerLineAuthService
             return $configured;
         }
 
-        return $request->getSchemeAndHttpHost().'/line/callback';
+        return $this->callbackScheme($request->getHost()).'://'.$request->getHttpHost().'/line/callback';
+    }
+
+    private function callbackScheme(string $host): string
+    {
+        return preg_match('/(^localhost$|\.localhost$|\.test$)/i', $host) === 1 ? 'http' : 'https';
     }
 
     private function createLinkToken(string $tenantId, array $profile, bool $friendFlag): string
