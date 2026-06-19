@@ -141,7 +141,8 @@ onMounted(async () => {
           query: {
             token: response.link_token,
             redirect: redirectTo,
-            name: response.line_profile?.display_name || ''
+            name: response.line_profile?.display_name || '',
+            picture_url: response.line_profile?.picture_url || ''
           }
         })
         return

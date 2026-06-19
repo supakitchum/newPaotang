@@ -11,9 +11,20 @@
 
     <section class="content-sheet line-link-sheet">
       <form class="line-link-card" @submit.prevent="submit">
-        <div v-if="lineName" class="line-profile-chip">
-          <i class="bi bi-line" />
-          <span>{{ lineName }}</span>
+        <div class="line-profile-card">
+          <div class="line-profile-avatar" :class="{ empty: !linePictureUrl }">
+            <img v-if="linePictureUrl" :src="linePictureUrl" alt="LINE profile">
+            <i v-else class="bi bi-line" />
+          </div>
+          <div class="line-profile-copy">
+            <span class="line-profile-kicker">บัญชี LINE</span>
+            <strong>{{ lineName || 'ลูกค้า LINE' }}</strong>
+            <small>ยืนยันเบอร์เพื่อผูกบัญชีและเข้าสู่ระบบ</small>
+          </div>
+          <span class="line-profile-status">
+            <i class="bi bi-check2-circle" />
+            พร้อมผูกบัญชี
+          </span>
         </div>
 
         <label class="line-link-field">
@@ -93,6 +104,7 @@ const showPassword = ref(false)
 const isSubmitting = ref(false)
 
 const lineName = computed(() => typeof route.query.name === 'string' ? route.query.name : '')
+const linePictureUrl = computed(() => typeof route.query.picture_url === 'string' ? route.query.picture_url : '')
 const linkToken = computed(() => typeof route.query.token === 'string' ? route.query.token : '')
 const redirectTo = computed(() => {
   const value = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
@@ -191,48 +203,136 @@ const submit = async () => {
 }
 
 .line-link-title {
-  margin-top: 34px;
+  margin: 30px auto 0;
+  max-width: min(100%, 360px);
+  padding: 0 18px;
   text-align: center;
 }
 
 .line-link-title i {
-  font-size: 34px;
+  align-items: center;
+  background: rgba(255, 255, 255, .18);
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 18px;
   color: #06c755;
+  display: inline-flex;
+  font-size: 32px;
+  height: 58px;
+  justify-content: center;
+  width: 58px;
 }
 
 .line-link-title h1 {
   margin: 10px 0 8px;
-  font-size: 24px;
+  font-size: clamp(22px, 6vw, 28px);
   font-weight: 900;
 }
 
 .line-link-title p {
   margin: 0 auto;
-  max-width: 300px;
+  max-width: 320px;
+  font-size: clamp(13px, 3.6vw, 15px);
   font-weight: 700;
+  line-height: 1.45;
   opacity: .9;
 }
 
 .line-link-sheet {
-  padding: 20px 16px 32px;
+  background: #f5f7fb;
+  min-height: calc(100dvh - 156px);
+  padding: clamp(18px, 5vw, 28px) 16px 40px;
 }
 
 .line-link-card {
+  background: #fff;
+  border: 1px solid rgba(18, 47, 86, .08);
+  border-radius: 18px;
+  box-shadow: 0 18px 42px rgba(29, 54, 90, .12);
   display: grid;
-  gap: 16px;
+  gap: 18px;
+  max-width: 520px;
+  padding: clamp(16px, 5vw, 24px);
 }
 
-.line-profile-chip {
+.line-profile-card {
   align-items: center;
-  background: #effaf2;
-  border: 1px solid rgba(6, 199, 85, .24);
-  border-radius: 8px;
+  background: linear-gradient(135deg, #effaf2 0%, #f7fbff 100%);
+  border: 1px solid rgba(6, 199, 85, .18);
+  border-radius: 16px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 14px;
+}
+
+.line-profile-avatar {
+  align-items: center;
+  background: #06c755;
+  border: 4px solid #fff;
+  border-radius: 18px;
+  box-shadow: 0 10px 24px rgba(6, 199, 85, .22);
+  color: #fff;
+  display: flex;
+  font-size: 28px;
+  height: 72px;
+  justify-content: center;
+  overflow: hidden;
+  width: 72px;
+}
+
+.line-profile-avatar img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.line-profile-avatar.empty {
+  background: #06c755;
+}
+
+.line-profile-copy {
+  align-self: center;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.line-profile-kicker {
+  color: #06a948;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.line-profile-copy strong {
+  color: #102a4c;
+  display: block;
+  font-size: clamp(18px, 5vw, 22px);
+  font-weight: 1000;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line-profile-copy small {
+  color: #6a7686;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.line-profile-status {
+  align-items: center;
+  background: #e7f8ee;
+  border-radius: 999px;
   color: #057a35;
   display: inline-flex;
+  font-size: 12px;
   font-weight: 900;
-  gap: 8px;
+  gap: 5px;
+  grid-column: 1 / -1;
   justify-self: start;
-  padding: 8px 12px;
+  padding: 6px 10px;
 }
 
 .line-link-field {
@@ -245,10 +345,16 @@ const submit = async () => {
   align-items: center;
   background: #f5f8fb;
   border: 1px solid #dce6f0;
-  border-radius: 8px;
+  border-radius: 14px;
   display: flex;
   gap: 10px;
-  padding: 0 12px;
+  min-width: 0;
+  padding: 0 14px;
+}
+
+.line-link-input i {
+  color: #0b7fe8;
+  flex: 0 0 auto;
 }
 
 .line-link-input input {
@@ -257,7 +363,8 @@ const submit = async () => {
   flex: 1;
   font-size: 16px;
   font-weight: 800;
-  min-height: 48px;
+  min-height: 52px;
+  min-width: 0;
   outline: 0;
 }
 
@@ -269,7 +376,8 @@ const submit = async () => {
 
 .line-link-note {
   background: #fff8e6;
-  border-radius: 8px;
+  border: 1px solid rgba(238, 176, 34, .24);
+  border-radius: 14px;
   color: #9a6a00;
   font-size: 13px;
   font-weight: 800;
@@ -279,6 +387,44 @@ const submit = async () => {
 }
 
 .line-link-submit {
+  min-height: 54px;
   width: 100%;
+}
+
+@media (max-width: 380px) {
+  .line-link-sheet {
+    padding-inline: 12px;
+  }
+
+  .line-link-card {
+    border-radius: 16px;
+    padding: 14px;
+  }
+
+  .line-profile-card {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .line-profile-status {
+    justify-self: center;
+  }
+}
+
+@media (min-width: 768px) {
+  .line-link-sheet {
+    padding-top: 32px;
+  }
+
+  .line-profile-card {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .line-profile-status {
+    align-self: center;
+    grid-column: auto;
+    justify-self: end;
+  }
 }
 </style>
