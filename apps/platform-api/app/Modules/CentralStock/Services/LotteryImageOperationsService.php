@@ -19,6 +19,7 @@ use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -818,6 +819,8 @@ class LotteryImageOperationsService
         $lotteryNumber = preg_replace('/\D+/', '', (string) ($payload['lottery_number'] ?? '')) ?: '';
         $requestedMode = trim((string) ($payload['mode'] ?? 'central_unbranded'));
         $variant = trim((string) ($payload['variant'] ?? 'full'));
+        $includeImageBase64 = filter_var($payload['include_image_base64'] ?? true, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        $includeImageBase64 = $includeImageBase64 ?? true;
         $bodyPartnerId = $this->nullableString($payload['partner_id'] ?? null);
         $partnerId = $routePartnerId ?? $bodyPartnerId;
         $layoutOverride = null;
@@ -898,14 +901,34 @@ class LotteryImageOperationsService
                 'back2' => substr($digits, -2),
                 'status' => 'available',
             ]);
-            $bytes = $this->images->renderPartnerImage($local, $stock, $assetSet, $variant, $layoutOverride);
+            $bytes = $this->previewBytesFromCache(
+                $gameId,
+                $version,
+                $setType,
+                $digits,
+                $mode,
+                $variant,
+                $partnerId,
+                $layoutOverride,
+                fn (): string => $this->images->renderPartnerImage($local, $stock, $assetSet, $variant, $layoutOverride),
+            );
         } else {
-            $bytes = $this->images->renderCentralImage($stock, $variant, $layoutOverride);
+            $bytes = $this->previewBytesFromCache(
+                $gameId,
+                $version,
+                $setType,
+                $digits,
+                $mode,
+                $variant,
+                $partnerId,
+                $layoutOverride,
+                fn (): string => $this->images->renderCentralImage($stock, $variant, $layoutOverride),
+            );
         }
 
         $dimensions = $this->expectedDimensions()[$variant];
-
-        return [
+        $encoded = base64_encode($bytes);
+        $response = [
             'mode' => $mode,
             'requested_mode' => $requestedMode,
             'fallback_mode' => $mode === $requestedMode ? null : $mode,
@@ -920,13 +943,91 @@ class LotteryImageOperationsService
             'width' => $dimensions['width'],
             'height' => $dimensions['height'],
             'layout' => $this->images->layout($layoutOverride),
-            'image_base64' => base64_encode($bytes),
-            'data_url' => 'data:image/webp;base64,'.base64_encode($bytes),
+            'data_url' => 'data:image/webp;base64,'.$encoded,
             'side_effects' => [
                 'stock_rows_created' => 0,
                 'permanent_image_rows_created' => 0,
                 'branding_locked' => false,
             ],
+        ];
+
+        if ($includeImageBase64) {
+            $response['image_base64'] = $encoded;
+        }
+
+        return $response;
+    }
+
+    /**
+     * @param callable(): string $renderer
+     */
+    private function previewBytesFromCache(
+        string $gameId,
+        string $version,
+        string $setType,
+        string $digits,
+        string $mode,
+        string $variant,
+        ?string $partnerId,
+        ?array $layoutOverride,
+        callable $renderer,
+    ): string {
+        $fingerprint = [
+            'game_id' => $gameId,
+            'version' => $version,
+            'set_type' => $setType,
+            'digits' => $digits,
+            'mode' => $mode,
+            'variant' => $variant,
+            'partner_id' => $partnerId,
+            'layout' => $layoutOverride,
+            'background' => $this->previewBackgroundFingerprint($gameId, $version, $setType),
+            'branding' => $mode === 'partner_branded' && $partnerId !== null
+                ? $this->previewBrandingFingerprint($partnerId)
+                : null,
+        ];
+        $key = 'lottery-image-preview:'.hash('sha256', json_encode($fingerprint, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: serialize($fingerprint));
+        $ttl = max(1, (int) config('lottery_images.preview_cache_ttl_seconds', 600));
+
+        $bytes = Cache::remember($key, now()->addSeconds($ttl), $renderer);
+
+        return is_string($bytes) && $bytes !== '' ? $bytes : $renderer();
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function previewBackgroundFingerprint(string $gameId, string $version, string $setType): ?array
+    {
+        $row = LotteryImageBackgroundAssetSet::query()
+            ->where('game_id', $gameId)
+            ->where('version', $version)
+            ->where('set_type', $setType)
+            ->where('position', 1)
+            ->where('status', 'ready')
+            ->first(['id', 'full_asset_id', 'full_storage_path', 'updated_at']);
+
+        return $row === null ? null : [
+            'id' => (string) $row->id,
+            'full_asset_id' => $this->nullableString($row->full_asset_id),
+            'full_storage_path' => $this->nullableString($row->full_storage_path),
+            'updated_at' => $row->updated_at?->toISOString(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function previewBrandingFingerprint(string $partnerId): ?array
+    {
+        $row = $this->images->activePartnerAssetSet($partnerId);
+
+        return $row === null ? null : [
+            'id' => (string) $row->id,
+            'logo_qr_storage_path' => $this->nullableString($row->logo_qr_storage_path),
+            'logo_bottom_storage_path' => $this->nullableString($row->logo_bottom_storage_path),
+            'right_sidebar_storage_path' => $this->nullableString($row->right_sidebar_storage_path),
+            'updated_at' => $row->updated_at?->toISOString(),
         ];
     }
 

@@ -1520,6 +1520,7 @@ const renderPreview = async () => {
         lottery_number: previewForm.lottery_number,
         mode: previewForm.mode,
         variant: previewForm.variant,
+        include_image_base64: false,
         layout: serializeLayoutForm(),
         ...(previewForm.partner_id ? { partner_id: previewForm.partner_id } : {}),
       },

@@ -476,6 +476,7 @@ const renderPreview = async () => {
         set_type: previewForm.set_type,
         lottery_number: previewForm.lottery_number,
         variant: previewForm.variant,
+        include_image_base64: false,
       },
     })
   } catch (err) {

@@ -753,6 +753,23 @@ class LotteryImageOperationsTest extends TestCase
             ->json();
 
         $this->assertWebpBase64($branded['image_base64']);
+
+        $compact = $this->withToken($central['access_token'])
+            ->postJson('/api/v1/admin/central/lottery-images/preview', [
+                'game_id' => 'gam_lottery_preview_ops',
+                'version' => 'v1',
+                'set_type' => 'odd',
+                'lottery_number' => '123456',
+                'mode' => 'central_unbranded',
+                'include_image_base64' => false,
+            ], [
+                'X-Admin-Scope' => 'central',
+            ])
+            ->assertOk()
+            ->json();
+
+        $this->assertArrayNotHasKey('image_base64', $compact);
+        $this->assertStringStartsWith('data:image/webp;base64,', (string) $compact['data_url']);
         $this->assertSame($stockBefore, DB::table('stock_items')->count());
         $this->assertSame($localBefore, DB::table('local_stock_items')->count());
         $this->assertNull(DB::table('partner_lottery_branding_asset_sets')->where('partner_id', 'par_preview_ops')->value('locked_at'));
@@ -1076,7 +1093,6 @@ class LotteryImageOperationsTest extends TestCase
 
         $routes = array_column($storage->calls, 'route');
 
-        $this->assertContains(RuntimeStorageService::ROUTE_BACKGROUND_ASSETS, $routes);
         $this->assertContains(RuntimeStorageService::ROUTE_PARTNER_ASSETS, $routes);
         $this->assertWebpBase64($partnerPreview['image_base64']);
         $this->assertNotSame($centralPreview['image_base64'], $partnerPreview['image_base64']);

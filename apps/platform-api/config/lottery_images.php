@@ -8,6 +8,7 @@ return [
     'object_prefix' => env('LOTTERY_IMAGE_OBJECT_PREFIX', 'lotteries'),
     'asset_root' => env('LOTTERY_IMAGE_ASSET_ROOT', resource_path('lottery-images')),
     'runtime' => env('LOTTERY_IMAGE_RUNTIME', 'gd'),
+    'preview_cache_ttl_seconds' => (int) env('LOTTERY_IMAGE_PREVIEW_CACHE_TTL_SECONDS', 600),
     'background_version' => env('LOTTERY_IMAGE_BACKGROUND_VERSION', 'v1'),
     'background_min_counts' => [
         'odd' => (int) env('LOTTERY_IMAGE_ODD_BACKGROUND_MIN_COUNT', 1),

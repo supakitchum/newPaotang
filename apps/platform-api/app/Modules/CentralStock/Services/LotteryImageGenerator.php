@@ -1002,9 +1002,44 @@ class LotteryImageGenerator
 
     private function backgroundPath(string $gameId, string $version, string $setType, int $index): ?string
     {
+        $registered = $this->registeredBackgroundPath($gameId, $version, $setType, $index);
+
+        if ($registered !== null) {
+            return $registered;
+        }
+
         $files = $this->backgroundFiles($gameId, $version, $setType);
 
         return $files[$index - 1] ?? null;
+    }
+
+    private function registeredBackgroundPath(string $gameId, string $version, string $setType, int $index): ?string
+    {
+        try {
+            $row = LotteryImageBackgroundAssetSet::query()
+                ->where('game_id', $gameId)
+                ->where('version', $version)
+                ->where('set_type', $setType)
+                ->where('position', $index)
+                ->where('status', 'ready')
+                ->first();
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if ($row === null) {
+            return null;
+        }
+
+        $path = trim((string) $row->full_storage_path);
+
+        if ($path === '') {
+            return null;
+        }
+
+        $storageDriver = $this->backgroundStorageDriver($row);
+
+        return 'storage://'.($storageDriver === null ? '' : $storageDriver.':').$path;
     }
 
     /**
@@ -1055,28 +1090,12 @@ class LotteryImageGenerator
             $thumbPath = trim((string) $row->thumb_storage_path);
             $storageDriver = $this->backgroundStorageDriver($row);
 
-            if (
-                $path !== ''
-                && $sourcePath !== ''
-                && $thumbPath !== ''
-                && $this->storagePathExists($path, $storageDriver)
-                && $this->storagePathExists($sourcePath, $storageDriver)
-                && $this->storagePathExists($thumbPath, $storageDriver)
-            ) {
+            if ($path !== '' && $sourcePath !== '' && $thumbPath !== '') {
                 $paths[] = 'storage://'.($storageDriver === null ? '' : $storageDriver.':').$path;
             }
         }
 
         return $paths;
-    }
-
-    private function storagePathExists(string $storagePath, ?string $storageDriver = null): bool
-    {
-        try {
-            return $this->storage->existsUsingDriver(RuntimeStorageService::ROUTE_BACKGROUND_ASSETS, $storagePath, $storageDriver);
-        } catch (\Throwable) {
-            return false;
-        }
     }
 
     /**
