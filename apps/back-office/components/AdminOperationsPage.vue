@@ -354,7 +354,7 @@
           </div>
         </div>
         <div class="card-body">
-          <AdminAlert v-if="allocationQueueError" :type="alertType(allocationQueueError)" :message="errorMessage(allocationQueueError)" :details="allocationQueueError.details" dismissible @dismiss="allocationQueueError = null" />
+          <AdminAlert v-if="allocationQueueError" :type="allocationAlertType(allocationQueueError)" :message="allocationErrorMessage(allocationQueueError)" :details="allocationQueueError.details" dismissible @dismiss="allocationQueueError = null" />
           <AdminLoader v-if="allocationQueueLoading && !allocationQueueProcesses.length" />
           <AdminEmptyState v-else-if="!allocationQueueProcesses.length" title="No allocation queue" message="Create allocation or Open all partners jobs will appear here." icon="ri-loader-4-line" />
           <div v-else class="d-flex flex-column gap-3">
@@ -3134,6 +3134,30 @@ const allocationQueueGameLabel = (gameId?: string | null) => {
   if (!id) return '-'
   const option = optionSourceOptions['allocation-games'].find((entry) => String(optionValue(entry)) === id)
   return option ? optionLabel(option) : id
+}
+
+const allocationAlertType = (err: any) => {
+  if ([403, 409, 422].includes(Number(err?.status)) || ['resource_conflict', 'idempotency_conflict', 'validation_failed'].includes(String(err?.code))) {
+    return 'warning'
+  }
+
+  return 'danger'
+}
+
+const allocationErrorMessage = (err: any) => {
+  if (Number(err?.status) === 403 || err?.code === 'permission_denied') {
+    return 'You do not have permission to view stock allocation queue processes.'
+  }
+
+  if (Number(err?.status) === 409 || err?.code === 'resource_conflict' || err?.code === 'idempotency_conflict') {
+    return 'The allocation queue request conflicts with current data or a previous idempotent write.'
+  }
+
+  if (Number(err?.status) === 422 || err?.code === 'validation_failed') {
+    return err?.message || 'The backend rejected the allocation queue request.'
+  }
+
+  return err?.message || 'The allocation queue could not be loaded.'
 }
 
 function isSafeStockTableRealtimeRow(row: any) {
