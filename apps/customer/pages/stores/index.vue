@@ -21,12 +21,6 @@
         <div v-for="store in stores" :key="store.id" class="store-row">
           <span class="store-icon"><i class="bi bi-shop" /></span>
           <span class="store-name fw-bold flex-grow-1 fs-5">{{ store.name }}</span>
-          <NuxtLink
-            class="outline-pill store-view-button py-2"
-            :to="{ path: '/stores/lotteries', query: { store_id: store.id } }"
-          >
-            ดูร้านค้า
-          </NuxtLink>
         </div>
         <div v-if="showEmptyState" class="empty-lottery-state">
           ไม่พบร้านค้า
@@ -35,14 +29,12 @@
           <div v-for="item in skeletonStores" :key="`store-loading-${item}`" class="store-row store-row-placeholder">
             <span class="store-icon store-icon-placeholder" />
             <span class="store-name-placeholder" />
-            <span class="store-button-placeholder" />
           </div>
         </template>
         <template v-if="isLoadingMore">
           <div v-for="item in skeletonStores" :key="`store-loading-more-${item}`" class="store-row store-row-placeholder">
             <span class="store-icon store-icon-placeholder" />
             <span class="store-name-placeholder" />
-            <span class="store-button-placeholder" />
           </div>
         </template>
       </div>
