@@ -22,12 +22,19 @@ body {
   background: #fff;
   color: var(--app-ink);
   font-family: 'Kanit', system-ui, sans-serif;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
 }
 
 button,
 input,
 select {
   font: inherit;
+}
+
+button,
+[role='button'] {
+  touch-action: manipulation;
 }
 
 a {

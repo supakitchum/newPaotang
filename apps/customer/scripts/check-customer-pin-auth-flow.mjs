@@ -13,6 +13,8 @@ const expect = (label, condition) => {
 }
 
 const packageJson = read('package.json')
+const nuxtConfig = read('nuxt.config.ts')
+const mainCss = read('assets/scss/main.css')
 const useAuth = read('composables/useAuth.ts')
 const platformApi = read('composables/usePlatformApi.ts')
 const customerAuthRoutes = read('utils/customerAuthRoutes.ts')
@@ -47,6 +49,7 @@ expect('login and register send authenticated users to PIN before app init when 
 expect('PIN page supports setup, verify, and reset keypad flows', pinPage.includes('platformApi.setupPin') && pinPage.includes('platformApi.verifyPin') && pinPage.includes('platformApi.verifyPinResetPassword') && pinPage.includes('platformApi.resetPin') && pinPage.includes('setPinVerified(Boolean(response.pin_verified))') && pinPage.includes('pin_confirmation') && pinPage.includes('resetStep') && pinPage.includes('ลืม PIN?') && pinPage.includes('appendDigit') && pinPage.includes('handleBack') && pinPage.includes('<PinKeypadScreen') && pinPage.includes('clearAuthToken()') && pinPage.includes("path: '/login'"))
 expect('reward bank save requires PIN keypad and sends PIN to profile API', rewardBankPage.includes('<PinKeypadScreen') && rewardBankPage.includes("bankStep === 'pin'") && rewardBankPage.includes('submitBankAccount') && rewardBankPage.includes('pin: pinDigits.value') && customerAuthController.includes('profileUpdateRequiresPin') && customerAuthService.includes('verifyPinForContext($context') && customerAuthService.includes("'reward_payout_bank_account'"))
 expect('PIN keypad screen matches prototype structure', pinKeypadScreen.includes('pin-keypad-dots') && pinKeypadScreen.includes('pin-keypad-grid') && pinKeypadScreen.includes('bi bi-backspace') && pinKeypadScreen.includes('เป๋าตัง'))
+expect('customer PIN keypad prevents double-tap zoom', nuxtConfig.includes('maximum-scale=1') && nuxtConfig.includes('user-scalable=no') && mainCss.includes('touch-action: manipulation') && pinKeypadScreen.includes('touch-action: manipulation') && pinKeypadScreen.includes('@dblclick.prevent'))
 expect('backend migration adds customer PIN and session unlock columns', customerMigration.includes("'pin_hash'") && customerMigration.includes("'pin_failed_attempts'") && customerMigration.includes("'pin_locked_until'") && customerMigration.includes("'pin_verified_at'"))
 expect('backend exposes customer PIN auth routes', apiRoutes.includes('/customer/auth/pin/status') && apiRoutes.includes('/customer/auth/pin/setup') && apiRoutes.includes('/customer/auth/pin/verify') && apiRoutes.includes('/customer/auth/pin/change') && apiRoutes.includes('/customer/auth/pin/reset/verify-password') && apiRoutes.includes('/customer/auth/pin/reset'))
 expect('backend controller validates PIN payloads and maps PIN errors', customerAuthController.includes('pinErrors') && customerAuthController.includes('passwordErrors') && customerAuthController.includes('customerPinSetupRequired') && customerAuthController.includes('customerPinRequired') && customerAuthController.includes('customerPinLocked') && customerAuthController.includes("'pin_invalid'") && customerAuthController.includes("'password_invalid'") && customerAuthController.includes("'pin_reset_not_verified'"))

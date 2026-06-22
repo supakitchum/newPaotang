@@ -29,19 +29,20 @@
     <nav class="pin-keypad-grid" aria-label="PIN keypad">
       <template v-for="key in keys" :key="key || 'blank'">
         <span v-if="key === ''" class="pin-keypad-spacer" aria-hidden="true" />
-        <button
-          v-else-if="key === 'backspace'"
-          class="pin-keypad-delete"
-          type="button"
-          aria-label="ลบตัวเลข"
-          :disabled="disabled || digits.length === 0"
-          @click="$emit('remove')"
-        >
-          <i class="bi bi-backspace" />
-        </button>
-        <button v-else type="button" :disabled="disabled" @click="$emit('append', key)">
-          {{ key }}
-        </button>
+      <button
+        v-else-if="key === 'backspace'"
+        class="pin-keypad-delete"
+        type="button"
+        aria-label="ลบตัวเลข"
+        :disabled="disabled || digits.length === 0"
+        @click="$emit('remove')"
+        @dblclick.prevent
+      >
+        <i class="bi bi-backspace" />
+      </button>
+      <button v-else type="button" :disabled="disabled" @click="$emit('append', key)" @dblclick.prevent>
+        {{ key }}
+      </button>
       </template>
     </nav>
   </section>
@@ -84,6 +85,9 @@ const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'backspace']
   overflow: hidden;
   padding: calc(12px + env(safe-area-inset-top)) 28px calc(22px + env(safe-area-inset-bottom));
   text-align: center;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .pin-keypad-topbar {
@@ -222,6 +226,10 @@ const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'backspace']
   line-height: 1;
   min-width: 54px;
   padding: 0;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
 }
 
 .pin-keypad-grid button:active:not(:disabled) {
