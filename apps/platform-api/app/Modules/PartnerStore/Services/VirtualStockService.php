@@ -28,6 +28,8 @@ class VirtualStockService
 {
     private const MAX_BP = 10000;
     private const UNLIMITED = 2147483647;
+    private const SEARCH_SHUFFLE_BLOCK_SIZE = 2048;
+    private const SEARCH_SHUFFLE_SEQUENCE_LIMIT = 50001;
     private const STOCK_PATTERN_COVERAGE_SETTING_KEY = 'stock_pattern_coverage_default';
     private const ACTIVE_ALLOCATION_PAIR_STATUSES = ['pending', 'processing', 'allocated', 'partially_allocated'];
 
@@ -1208,30 +1210,22 @@ class VirtualStockService
 
         if ($mode === 'random') {
             $randomSeed = trim((string) ($queryParams['random_seed'] ?? $queryParams['game_id'] ?? 'virtual-stock'));
-            $total = (int) (clone $query)->count();
-            $cursor = max(0, $cursor);
-
-            if ($total < 1 || $cursor >= $total) {
-                return;
-            }
-
-            $take = min(50001, $total - $cursor);
-            $seedOffset = $this->hashScore('public-stock-search:'.$randomSeed) % max(1, $total);
-            $offset = ($seedOffset + $cursor) % $total;
-            $firstTake = min($take, $total - $offset);
-
-            foreach ((clone $query)->orderBy('full_number')->offset($offset)->limit($firstTake)->get() as $row) {
-                yield (string) $row->full_number;
-            }
-
-            if ($take > $firstTake) {
-                foreach ((clone $query)->orderBy('full_number')->offset(0)->limit($take - $firstTake)->get() as $row) {
-                    yield (string) $row->full_number;
-                }
-            }
+            yield from $this->seededShuffledCandidates($query, 'public-stock-random:'.$randomSeed, max(0, $cursor));
 
             return;
-        } elseif (($queryParams['sort_by'] ?? null) === 'full_number' && strtolower((string) ($queryParams['sort_dir'] ?? 'asc')) === 'desc') {
+        }
+
+        if (
+            trim((string) ($queryParams['sort_by'] ?? '')) === ''
+            && $this->shouldShuffleSearchCandidates($queryParams, $number, $positionalPattern)
+        ) {
+            $seed = $this->searchCandidateShuffleSeed($queryParams, $number, $positionalPattern);
+            yield from $this->seededShuffledCandidates($query, $seed, max(0, $cursor));
+
+            return;
+        }
+
+        if (($queryParams['sort_by'] ?? null) === 'full_number' && strtolower((string) ($queryParams['sort_dir'] ?? 'asc')) === 'desc') {
             $query->orderByDesc('full_number');
         } else {
             $query->orderBy('full_number');
@@ -1240,6 +1234,117 @@ class VirtualStockService
         foreach ($query->offset(max(0, $cursor))->limit(50001)->get() as $row) {
             yield (string) $row->full_number;
         }
+    }
+
+    private function seededShuffledCandidates(mixed $query, string $seed, int $cursor): \Generator
+    {
+        $total = (int) (clone $query)->count();
+        $sequenceLimit = min(self::SEARCH_SHUFFLE_SEQUENCE_LIMIT, $total);
+
+        if ($total < 1 || $cursor >= $sequenceLimit) {
+            return;
+        }
+
+        $seedOffset = $this->hashScore($seed) % max(1, $total);
+        $position = max(0, $cursor);
+
+        while ($position < $sequenceLimit) {
+            $blockIndex = intdiv($position, self::SEARCH_SHUFFLE_BLOCK_SIZE);
+            $offsetInBlock = $position % self::SEARCH_SHUFFLE_BLOCK_SIZE;
+            $blockStart = $blockIndex * self::SEARCH_SHUFFLE_BLOCK_SIZE;
+            $blockSize = min(self::SEARCH_SHUFFLE_BLOCK_SIZE, $sequenceLimit - $blockStart);
+            $orderedOffset = ($seedOffset + $blockStart) % $total;
+            $numbers = $this->fetchCandidateBlock($query, $orderedOffset, $blockSize, $total);
+
+            $this->sortCandidatesBySeed($numbers, $seed.':block:'.$blockIndex);
+
+            foreach (array_slice($numbers, $offsetInBlock) as $fullNumber) {
+                yield $fullNumber;
+            }
+
+            $position = ($blockIndex + 1) * self::SEARCH_SHUFFLE_BLOCK_SIZE;
+        }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function fetchCandidateBlock(mixed $query, int $offset, int $limit, int $total): array
+    {
+        $firstTake = min($limit, $total - $offset);
+        $numbers = (clone $query)
+            ->orderBy('full_number')
+            ->offset($offset)
+            ->limit($firstTake)
+            ->pluck('full_number')
+            ->map(fn (mixed $value): string => (string) $value)
+            ->all();
+
+        if ($limit > $firstTake) {
+            $numbers = [
+                ...$numbers,
+                ...(clone $query)
+                    ->orderBy('full_number')
+                    ->offset(0)
+                    ->limit($limit - $firstTake)
+                    ->pluck('full_number')
+                    ->map(fn (mixed $value): string => (string) $value)
+                    ->all(),
+            ];
+        }
+
+        return $numbers;
+    }
+
+    private function shouldShuffleSearchCandidates(array $queryParams, string $number, ?string $positionalPattern): bool
+    {
+        if ($positionalPattern !== null) {
+            return true;
+        }
+
+        if ($number !== '') {
+            return strlen($number) < 6;
+        }
+
+        foreach (['front3', 'back3', 'back2'] as $field) {
+            if (trim((string) ($queryParams[$field] ?? '')) !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function searchCandidateShuffleSeed(array $queryParams, string $number, ?string $positionalPattern): string
+    {
+        $parts = [
+            'public-stock-search',
+            trim((string) ($queryParams['random_seed'] ?? '')),
+            trim((string) ($queryParams['game_id'] ?? '')),
+            trim((string) ($queryParams['store_id'] ?? '')),
+            $number,
+            $positionalPattern ?? '',
+            trim((string) ($queryParams['front3'] ?? '')),
+            trim((string) ($queryParams['back3'] ?? '')),
+            trim((string) ($queryParams['back2'] ?? '')),
+        ];
+
+        return implode('|', $parts);
+    }
+
+    /**
+     * @param array<int, string> $numbers
+     */
+    private function sortCandidatesBySeed(array &$numbers, string $seed): void
+    {
+        usort($numbers, function (string $left, string $right) use ($seed): int {
+            $leftScore = $this->hashScore($seed.':'.$left);
+            $rightScore = $this->hashScore($seed.':'.$right);
+
+            return $leftScore === $rightScore
+                ? strcmp($left, $right)
+                : $leftScore <=> $rightScore;
+        });
     }
 
     private function positionalNumberPattern(array $queryParams): ?string

@@ -641,7 +641,53 @@ class PublicStockSearchTest extends TestCase
         $secondNumbers = array_values(array_map(fn (array $row): string => (string) $row['full_number'], $second));
 
         $this->assertSame($firstNumbers, $repeatNumbers);
+        $this->assertNotSame(['100001', '100002', '100003', '100004', '100005', '100006', '100007', '100008', '100009', '100010'], $firstNumbers);
         $this->assertNotSame($firstNumbers, $secondNumbers);
+    }
+
+    public function test_PublicStockSearch_partial_virtual_search_uses_seeded_shuffle_order(): void
+    {
+        $this->seedDefaultRbac();
+        $this->insertActivePartnerTenantWithDomain('par_partial_shuffle', 'ten_partial_shuffle', 'partial-shuffle.newpaotang.test');
+        $this->insertGame('gam_partial_shuffle', 'open');
+        $this->insertBaseLotteryNumbers(['000022', '000122', '000222', '000322', '000422', '000522', '000622', '000722']);
+        $this->insertVirtualProfile('gam_partial_shuffle', 8, 8);
+        $this->insertPartnerDistribution('gam_partial_shuffle', 'par_partial_shuffle', 'ten_partial_shuffle', 10000, 8);
+
+        $first = $this->getJson('http://partial-shuffle.newpaotang.test/api/v1/public/stock/search?'.http_build_query([
+            'game_id' => 'gam_partial_shuffle',
+            'number' => '22',
+            'random_seed' => 'seed-a',
+            'limit' => 8,
+        ]))
+            ->assertOk()
+            ->assertJsonCount(8, 'data')
+            ->json('data');
+        $repeat = $this->getJson('http://partial-shuffle.newpaotang.test/api/v1/public/stock/search?'.http_build_query([
+            'game_id' => 'gam_partial_shuffle',
+            'number' => '22',
+            'random_seed' => 'seed-a',
+            'limit' => 8,
+        ]))
+            ->assertOk()
+            ->json('data');
+        $second = $this->getJson('http://partial-shuffle.newpaotang.test/api/v1/public/stock/search?'.http_build_query([
+            'game_id' => 'gam_partial_shuffle',
+            'number' => '22',
+            'random_seed' => 'seed-b',
+            'limit' => 8,
+        ]))
+            ->assertOk()
+            ->json('data');
+
+        $firstNumbers = array_values(array_map(fn (array $row): string => (string) $row['full_number'], $first));
+        $repeatNumbers = array_values(array_map(fn (array $row): string => (string) $row['full_number'], $repeat));
+        $secondNumbers = array_values(array_map(fn (array $row): string => (string) $row['full_number'], $second));
+
+        $this->assertSame($firstNumbers, $repeatNumbers);
+        $this->assertNotSame(['000022', '000122', '000222', '000322', '000422', '000522', '000622', '000722'], $firstNumbers);
+        $this->assertNotSame($firstNumbers, $secondNumbers);
+        $this->assertTrue(collect($firstNumbers)->every(fn (string $number): bool => str_ends_with($number, '22')));
     }
 
     public function test_PublicStockSearch_short_number_uses_suffix_matching(): void
@@ -678,7 +724,7 @@ class PublicStockSearchTest extends TestCase
             ->json('data');
 
         $numbers = array_values(array_map(fn (array $row): string => (string) $row['full_number'], $rows));
-        $this->assertSame(['003020', '123420', '993929'], $numbers);
+        $this->assertEqualsCanonicalizing(['003020', '123420', '993929'], $numbers);
         $this->assertTrue(collect($numbers)->every(fn (string $number): bool => preg_match('/^..3.2.$/', $number) === 1));
         $this->assertNotContains('000223', $numbers);
 
