@@ -41,6 +41,11 @@ Schedule::command('lottery-images:backgrounds:prune --days=40 --limit=100')
     ->withoutOverlapping()
     ->description('Delete lottery background asset sets after the 40-day draw retention window.');
 
+Schedule::command('lottery-images:recover-stale-zip-imports --limit=25')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->description('Recover stale lottery background zip imports that lost their worker heartbeat.');
+
 Schedule::command('platform:alerts:check --dry-run --format=json')
     ->everyFiveMinutes()
     ->withoutOverlapping()

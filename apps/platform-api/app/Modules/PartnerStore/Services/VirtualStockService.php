@@ -2,6 +2,7 @@
 
 namespace App\Modules\PartnerStore\Services;
 
+use App\Jobs\ProcessVirtualStockProfileGenerationJob;
 use App\Models\Game;
 use App\Models\LocalStockItem;
 use App\Models\PartnerTenant;
@@ -9,6 +10,7 @@ use App\Models\StockGenerationBatch;
 use App\Models\StockItem;
 use App\Models\StockReservation;
 use App\Models\StockReservationItem;
+use App\Modules\CentralStock\Events\StockGenerationProgressUpdated;
 use App\Modules\CentralStock\Services\StockCoverageRealtimeService;
 use App\Modules\PartnerStore\Events\StockAvailabilityUpdated;
 use App\Modules\Pricing\Services\LotterySalePriceService;
@@ -147,7 +149,7 @@ class VirtualStockService
      */
     public function generateProfile(array $payload, AdminSessionContext $actor, Request $request): array
     {
-        return DB::transaction(function () use ($payload, $actor, $request): array {
+        $result = DB::transaction(function () use ($payload, $actor, $request): array {
             $gameId = trim((string) $payload['game_id']);
             $idempotencyKey = (string) $request->header('Idempotency-Key');
             $distribution = $this->normalizeSetDistribution($payload['set_distribution'] ?? []);
@@ -184,7 +186,7 @@ class VirtualStockService
                     return ['error' => 'idempotency_conflict'];
                 }
 
-                return $this->batchResource($existing);
+                return ['batch' => $this->batchResource($existing), 'created' => false];
             }
 
             $now = now();
@@ -211,128 +213,347 @@ class VirtualStockService
                 : (string) $profile->seed;
             $layerId = $this->stableId('vsl', 'virtual-layer:'.$batchId);
             $layerSeed = $this->internalSeed('layer', $batchId.':'.$payloadHash);
-
-            if ($profile === null) {
-                DB::table('stock_supply_profiles')->insert([
-                    'id' => $profileId,
-                    'game_id' => $gameId,
-                    'status' => 'active',
-                    'seed' => $profileSeed,
-                    'base_count' => $baseCount,
-                    'total_capacity' => 0,
-                    'set_distribution_json' => json_encode($distribution, JSON_THROW_ON_ERROR),
-                    'created_by_admin_id' => $actor->adminUser['id'],
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]);
-            }
-
-            $this->replaceVirtualStockSettings($gameId, $partnerDistribution, $centralLimits, $partnerLimits, $now);
+            $payloadJson = $payloadForHash + [
+                'profile_id' => $profileId,
+                'profile_seed' => $profileSeed,
+                'layer_id' => $layerId,
+                'layer_seed' => $layerSeed,
+                'base_count' => $baseCount,
+                'base_range' => $baseRange,
+                'layer_capacity' => $layerCapacity,
+                'top_up' => $isTopUp,
+                'request_meta' => [
+                    'request_id' => (string) ($request->header('X-Request-Id') ?: ''),
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                ],
+            ];
 
             StockGenerationBatch::query()->insert([
                 'id' => $batchId,
                 'game_id' => $gameId,
                 'type' => 'virtual_profile',
-                'status' => 'completed',
+                'status' => 'queued',
                 'requested_count' => $layerCapacity,
-                'generated_count' => $layerCapacity,
-                'total_rounds' => 0,
+                'generated_count' => 0,
+                'total_rounds' => 4,
                 'processed_rounds' => 0,
-                'chunk_rounds' => 0,
+                'chunk_rounds' => 1,
                 'range_start' => $baseRange['min'],
                 'range_end' => $baseRange['max'],
                 'number_digits' => 6,
                 'idempotency_key' => $idempotencyKey,
                 'payload_hash' => $payloadHash,
                 'created_by_admin_id' => $actor->adminUser['id'],
-                'payload_json' => json_encode($payloadForHash + [
-                    'profile_id' => $profileId,
-                    'layer_id' => $layerId,
-                    'base_count' => $baseCount,
-                    'layer_capacity' => $layerCapacity,
-                    'top_up' => $isTopUp,
-                ], JSON_THROW_ON_ERROR),
-                'started_at' => $now,
-                'completed_at' => $now,
+                'payload_json' => json_encode($payloadJson, JSON_THROW_ON_ERROR),
+                'started_at' => null,
+                'completed_at' => null,
                 'failed_at' => null,
                 'failure_reason' => null,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
 
-            DB::table('virtual_stock_supply_layers')->insert([
-                'id' => $layerId,
-                'profile_id' => $profileId,
-                'batch_id' => $batchId,
-                'game_id' => $gameId,
-                'status' => 'active',
-                'layer_seed' => $layerSeed,
-                'base_count' => $baseCount,
-                'total_capacity' => $layerCapacity,
-                'set_distribution_json' => json_encode($distribution, JSON_THROW_ON_ERROR),
-                'created_by_admin_id' => $actor->adminUser['id'],
-                'created_at' => $now,
+            return ['batch' => $this->batchResource(StockGenerationBatch::where('id', $batchId)->first()), 'created' => true];
+        });
+
+        if (($result['error'] ?? null) !== null) {
+            return $result;
+        }
+
+        $batch = $result['batch'] ?? [];
+        if (($result['created'] ?? false) === true && isset($batch['id'])) {
+            $this->broadcastProfileGenerationProgress((string) $batch['id'], 'stock_generation.batch.queued');
+            ProcessVirtualStockProfileGenerationJob::dispatch((string) $batch['id']);
+            $batch = $this->batchResource(StockGenerationBatch::where('id', (string) $batch['id'])->first());
+        }
+
+        return $batch;
+    }
+
+    public function processQueuedProfileGeneration(string $batchId): void
+    {
+        $started = DB::transaction(function () use ($batchId): bool {
+            $batch = StockGenerationBatch::query()
+                ->whereKey($batchId)
+                ->where('type', 'virtual_profile')
+                ->lockForUpdate()
+                ->first();
+
+            if ($batch === null || (string) $batch->status !== 'queued') {
+                return false;
+            }
+
+            $now = now();
+            StockGenerationBatch::query()->whereKey($batchId)->update([
+                'status' => 'processing',
+                'processed_rounds' => 1,
+                'started_at' => $batch->started_at ?? $now,
+                'failed_at' => null,
+                'failure_reason' => null,
                 'updated_at' => $now,
             ]);
 
-            $this->storeCentralGeneratedPatternCounts(
-                profileId: $profileId,
-                sourceId: $layerId,
-                gameId: $gameId,
-                seed: $layerSeed,
-                distribution: $distribution,
-                now: $now,
-            );
-            $this->refreshPartnerGeneratedPatternCounts($profileId, $gameId, $now);
+            return true;
+        });
 
-            $combinedCapacity = (int) DB::table('virtual_stock_supply_layers')
-                ->where('profile_id', $profileId)
-                ->where('status', 'active')
-                ->sum('total_capacity');
+        if (! $started) {
+            return;
+        }
 
-            DB::table('stock_supply_profiles')->where('id', $profileId)->update([
-                'base_count' => $baseCount,
-                'total_capacity' => $combinedCapacity,
-                'set_distribution_json' => json_encode($distribution, JSON_THROW_ON_ERROR),
-                'updated_at' => $now,
-            ]);
+        $this->broadcastProfileGenerationProgress($batchId, 'stock_generation.batch.processing');
 
-            StockGenerationBatch::query()->where('id', $batchId)->update([
-                'payload_json' => json_encode($payloadForHash + [
+        try {
+            $gameId = DB::transaction(function () use ($batchId): string {
+                $batch = StockGenerationBatch::query()
+                    ->whereKey($batchId)
+                    ->where('type', 'virtual_profile')
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($batch === null) {
+                    throw new \RuntimeException('stock_generation_batch_not_found');
+                }
+
+                if ((string) $batch->status === 'completed') {
+                    return (string) $batch->game_id;
+                }
+
+                if ((string) $batch->status !== 'processing') {
+                    throw new \RuntimeException('stock_generation_batch_not_processing');
+                }
+
+                $payload = $this->decodeJsonArray($batch->payload_json ?? null);
+                $gameId = (string) ($payload['game_id'] ?? $batch->game_id);
+                $distribution = $this->decodeJsonArray($payload['set_distribution'] ?? []);
+                $partnerDistribution = $this->decodeJsonArray($payload['partner_distribution'] ?? []);
+                $centralLimits = $this->decodeJsonArray($payload['central_limits'] ?? []);
+                $partnerLimits = $this->decodeJsonArray($payload['partner_limits'] ?? []);
+                $baseCount = (int) ($payload['base_count'] ?? $this->currentBaseCount());
+                $layerCapacity = (int) ($payload['layer_capacity'] ?? $this->profileTotalCapacity($distribution, $baseCount));
+                $layerId = (string) ($payload['layer_id'] ?? $this->stableId('vsl', 'virtual-layer:'.$batchId));
+                $layerSeed = (string) ($payload['layer_seed'] ?? $this->internalSeed('layer', $batchId.':'.(string) $batch->payload_hash));
+                $now = now();
+                $game = Game::query()->where('id', $gameId)->where('status', 'open')->lockForUpdate()->first();
+
+                if ($game === null) {
+                    throw new \RuntimeException('game_not_open');
+                }
+
+                $profile = DB::table('stock_supply_profiles')
+                    ->where('game_id', $gameId)
+                    ->where('status', 'active')
+                    ->lockForUpdate()
+                    ->first();
+                $isTopUp = $profile !== null;
+                $profileId = $profile === null
+                    ? (string) ($payload['profile_id'] ?? $this->stableId('vsp', 'virtual-profile:'.$gameId.':'.$batchId))
+                    : (string) $profile->id;
+                $profileSeed = $profile === null
+                    ? (string) ($payload['profile_seed'] ?? $this->internalSeed('profile', $gameId.':'.$batchId))
+                    : (string) $profile->seed;
+
+                if ($profile === null) {
+                    DB::table('stock_supply_profiles')->insert([
+                        'id' => $profileId,
+                        'game_id' => $gameId,
+                        'status' => 'active',
+                        'seed' => $profileSeed,
+                        'base_count' => $baseCount,
+                        'total_capacity' => 0,
+                        'set_distribution_json' => json_encode($distribution, JSON_THROW_ON_ERROR),
+                        'created_by_admin_id' => $batch->created_by_admin_id,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
+
+                $this->replaceVirtualStockSettings($gameId, $partnerDistribution, $centralLimits, $partnerLimits, $now);
+
+                DB::table('virtual_stock_supply_layers')->insert([
+                    'id' => $layerId,
                     'profile_id' => $profileId,
-                    'layer_id' => $layerId,
+                    'batch_id' => $batchId,
+                    'game_id' => $gameId,
+                    'status' => 'active',
+                    'layer_seed' => $layerSeed,
                     'base_count' => $baseCount,
-                    'layer_capacity' => $layerCapacity,
-                    'total_capacity' => $combinedCapacity,
-                    'top_up' => $isTopUp,
-                ], JSON_THROW_ON_ERROR),
-                'updated_at' => $now,
-            ]);
+                    'total_capacity' => $layerCapacity,
+                    'set_distribution_json' => json_encode($distribution, JSON_THROW_ON_ERROR),
+                    'created_by_admin_id' => $batch->created_by_admin_id,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
 
-            $this->auditLogger->logAdminWrite(
-                actorId: $actor->adminUser['id'],
-                scopeType: 'central',
-                action: 'stock.generated',
-                targetType: 'stock_generation_batch',
-                targetId: $batchId,
-                payload: [
-                    'idempotency_key' => $idempotencyKey,
-                    'payload' => $payload,
-                    'profile_id' => $profileId,
-                    'layer_id' => $layerId,
-                    'layer_capacity' => $layerCapacity,
+                StockGenerationBatch::query()->whereKey($batchId)->update([
+                    'processed_rounds' => 2,
+                    'updated_at' => $now,
+                ]);
+
+                $this->storeCentralGeneratedPatternCounts(
+                    profileId: $profileId,
+                    sourceId: $layerId,
+                    gameId: $gameId,
+                    seed: $layerSeed,
+                    distribution: $distribution,
+                    now: $now,
+                );
+
+                StockGenerationBatch::query()->whereKey($batchId)->update([
+                    'processed_rounds' => 3,
+                    'updated_at' => $now,
+                ]);
+
+                $this->refreshPartnerGeneratedPatternCounts($profileId, $gameId, $now);
+
+                $combinedCapacity = (int) DB::table('virtual_stock_supply_layers')
+                    ->where('profile_id', $profileId)
+                    ->where('status', 'active')
+                    ->sum('total_capacity');
+
+                DB::table('stock_supply_profiles')->where('id', $profileId)->update([
+                    'base_count' => $baseCount,
                     'total_capacity' => $combinedCapacity,
-                    'top_up' => $isTopUp,
-                ],
-                requestId: (string) ($request->header('X-Request-Id') ?: ''),
-                ipAddress: $request->ip(),
-                userAgent: $request->userAgent(),
-            );
+                    'set_distribution_json' => json_encode($distribution, JSON_THROW_ON_ERROR),
+                    'updated_at' => $now,
+                ]);
+
+                $payloadForHash = [
+                    'game_id' => $gameId,
+                    'generation_mode' => 'virtual_profile',
+                    'set_distribution' => $distribution,
+                    'partner_distribution' => $partnerDistribution,
+                    'central_limits' => $centralLimits,
+                    'partner_limits' => $partnerLimits,
+                ];
+                $payload['profile_id'] = $profileId;
+                $payload['profile_seed'] = $profileSeed;
+                $payload['layer_id'] = $layerId;
+                $payload['layer_seed'] = $layerSeed;
+                $payload['base_count'] = $baseCount;
+                $payload['layer_capacity'] = $layerCapacity;
+                $payload['total_capacity'] = $combinedCapacity;
+                $payload['top_up'] = $isTopUp;
+
+                StockGenerationBatch::query()->whereKey($batchId)->update([
+                    'status' => 'completed',
+                    'generated_count' => $layerCapacity,
+                    'processed_rounds' => 4,
+                    'payload_json' => json_encode($payload, JSON_THROW_ON_ERROR),
+                    'completed_at' => $now,
+                    'updated_at' => $now,
+                ]);
+
+                $requestMeta = is_array($payload['request_meta'] ?? null) ? $payload['request_meta'] : [];
+                $this->auditLogger->logAdminWrite(
+                    (string) $batch->created_by_admin_id,
+                    'central',
+                    'stock.generated',
+                    'stock_generation_batch',
+                    $batchId,
+                    [
+                        'idempotency_key' => (string) $batch->idempotency_key,
+                        'payload' => $payloadForHash,
+                        'profile_id' => $profileId,
+                        'layer_id' => $layerId,
+                        'layer_capacity' => $layerCapacity,
+                        'total_capacity' => $combinedCapacity,
+                        'top_up' => $isTopUp,
+                    ],
+                    null,
+                    null,
+                    (string) ($requestMeta['request_id'] ?? ''),
+                    $requestMeta['ip_address'] ?? null,
+                    $requestMeta['user_agent'] ?? null,
+                );
+
+                return $gameId;
+            });
 
             $this->coverageRealtime->broadcastGameSupplyChangedAfterCommit($gameId);
+            $this->broadcastProfileGenerationProgress($batchId, 'stock_generation.batch.completed');
+        } catch (\Throwable $exception) {
+            $this->markProfileGenerationFailed($batchId, $exception);
+            $this->broadcastProfileGenerationProgress($batchId, 'stock_generation.batch.failed');
+        }
+    }
 
-            return $this->batchResource(StockGenerationBatch::where('id', $batchId)->first());
-        });
+    private function markProfileGenerationFailed(string $batchId, \Throwable $exception): void
+    {
+        $message = mb_substr($exception->getMessage(), 0, 1000);
+        StockGenerationBatch::query()
+            ->whereKey($batchId)
+            ->where('type', 'virtual_profile')
+            ->update([
+                'status' => 'failed',
+                'failed_at' => now(),
+                'failure_reason' => $message,
+                'updated_at' => now(),
+            ]);
+
+        Log::warning('Virtual stock profile generation failed.', [
+            'batch_id' => $batchId,
+            'message' => $message,
+        ]);
+    }
+
+    private function broadcastProfileGenerationProgress(string $batchId, string $eventType): void
+    {
+        $batch = StockGenerationBatch::query()->whereKey($batchId)->first();
+
+        if ($batch === null || (string) $batch->type !== 'virtual_profile') {
+            return;
+        }
+
+        try {
+            StockGenerationProgressUpdated::dispatch($this->profileGenerationProgressPayload($batch, $eventType));
+        } catch (\Throwable $exception) {
+            Log::warning('Virtual stock generation realtime progress broadcast failed.', [
+                'batch_id' => $batchId,
+                'event_type' => $eventType,
+                'message' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function profileGenerationProgressPayload(object $batch, string $eventType): array
+    {
+        $payload = $this->decodeJsonArray($batch->payload_json ?? null);
+        $requestedCount = (int) $batch->requested_count;
+        $generatedCount = (int) $batch->generated_count;
+
+        if ((string) $batch->status === 'completed') {
+            $generatedCount = max($generatedCount, $requestedCount);
+        }
+
+        return [
+            'event_type' => $eventType,
+            'batch_id' => (string) $batch->id,
+            'id' => (string) $batch->id,
+            'game_id' => (string) $batch->game_id,
+            'type' => (string) $batch->type,
+            'status' => (string) $batch->status,
+            'stock_mode' => 'virtual',
+            'requested_count' => $requestedCount,
+            'generated_count' => $generatedCount,
+            'total_rounds' => (int) ($batch->total_rounds ?? 0),
+            'processed_rounds' => (int) ($batch->processed_rounds ?? 0),
+            'chunk_rounds' => (int) ($batch->chunk_rounds ?? 0),
+            'profile_id' => $payload['profile_id'] ?? null,
+            'layer_id' => $payload['layer_id'] ?? null,
+            'layer_capacity' => (int) ($payload['layer_capacity'] ?? $requestedCount),
+            'total_capacity' => (int) ($payload['total_capacity'] ?? $payload['layer_capacity'] ?? $requestedCount),
+            'top_up' => (bool) ($payload['top_up'] ?? false),
+            'started_at' => $batch->started_at,
+            'completed_at' => $batch->completed_at,
+            'failed_at' => $batch->failed_at,
+            'failure_reason' => $batch->failure_reason,
+            'image_dispatch_status' => null,
+            'updated_at' => $batch->updated_at,
+        ];
     }
 
     /**

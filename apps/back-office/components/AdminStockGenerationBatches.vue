@@ -686,6 +686,14 @@ function realtimeConnectionBadge(status: string, configured: boolean, fallbackMs
 }
 
 function progressPercent(batch: StockGenerationBatch | null | undefined) {
+  if (String(batch?.type || '') === 'virtual_profile') {
+    const totalRounds = Number(batch?.total_rounds || 0)
+    const processedRounds = Number(batch?.processed_rounds || 0)
+    if (totalRounds > 0) {
+      return Math.max(0, Math.min(100, Math.round((processedRounds / totalRounds) * 100)))
+    }
+  }
+
   const requested = Number(batch?.requested_count || 0)
   const generated = Number(batch?.generated_count || 0)
   if (requested <= 0) {

@@ -85,27 +85,17 @@ class CentralAllocationController extends Controller
             ]);
         }
 
-        $replay = $this->centralStock->findAllocationReplay($context, $request, $payload);
-
-        if (($replay['error'] ?? null) === 'idempotency_conflict') {
-            return ApiErrorResponse::idempotencyConflict($request);
-        }
-
-        if ($replay !== null) {
-            return response()->json($replay, 202);
-        }
-
         $errors = $this->centralStock->validateAllocationPayload($payload);
 
         if ($errors !== []) {
             return ApiErrorResponse::validationFailed($request, $errors);
         }
 
-        $allocation = $this->centralStock->createAllocation($payload, $context, $request);
+        $job = $this->centralStock->queueAllocationJob('create_allocation', $payload, $context, $request);
 
-        return $allocation === null
-            ? ApiErrorResponse::resourceConflict($request)
-            : response()->json($allocation, 202);
+        return ($job['error'] ?? null) === 'idempotency_conflict'
+            ? ApiErrorResponse::idempotencyConflict($request)
+            : response()->json($job, 202);
     }
 
     public function openAllPartners(Request $request): JsonResponse
@@ -129,10 +119,11 @@ class CentralAllocationController extends Controller
             return ApiErrorResponse::validationFailed($request, $errors);
         }
 
-        return response()->json(
-            $this->centralStock->openAllocationsForAllPartners($payload, $context, $request),
-            202,
-        );
+        $job = $this->centralStock->queueAllocationJob('open_all_partners', $payload, $context, $request);
+
+        return ($job['error'] ?? null) === 'idempotency_conflict'
+            ? ApiErrorResponse::idempotencyConflict($request)
+            : response()->json($job, 202);
     }
 
     public function updatePartnerPercent(Request $request): JsonResponse
@@ -156,11 +147,11 @@ class CentralAllocationController extends Controller
             return ApiErrorResponse::validationFailed($request, $errors);
         }
 
-        $resource = $this->centralStock->updatePartnerPercent($payload, $context, $request);
+        $job = $this->centralStock->queueAllocationJob('update_partner_percent', $payload, $context, $request);
 
-        return $resource === null
-            ? ApiErrorResponse::resourceConflict($request)
-            : response()->json($resource);
+        return ($job['error'] ?? null) === 'idempotency_conflict'
+            ? ApiErrorResponse::idempotencyConflict($request)
+            : response()->json($job, 202);
     }
 
     public function show(Request $request, string $allocation_id): JsonResponse
@@ -196,11 +187,11 @@ class CentralAllocationController extends Controller
             return ApiErrorResponse::notFound($request);
         }
 
-        $allocation = $this->centralStock->cancelAllocation($allocation_id, $request->all(), $context, $request);
+        $job = $this->centralStock->queueAllocationJob('cancel_allocation', $request->all(), $context, $request, $allocation_id);
 
-        return $allocation === null
-            ? ApiErrorResponse::resourceConflict($request)
-            : response()->json($allocation);
+        return ($job['error'] ?? null) === 'idempotency_conflict'
+            ? ApiErrorResponse::idempotencyConflict($request)
+            : response()->json($job, 202);
     }
 
     public function recallAll(Request $request, string $allocation_id): JsonResponse
@@ -221,11 +212,11 @@ class CentralAllocationController extends Controller
             return ApiErrorResponse::notFound($request);
         }
 
-        $allocation = $this->centralStock->recallAllAllocation($allocation_id, $request->all(), $context, $request);
+        $job = $this->centralStock->queueAllocationJob('recall_all', $request->all(), $context, $request, $allocation_id);
 
-        return $allocation === null
-            ? ApiErrorResponse::resourceConflict($request)
-            : response()->json($allocation);
+        return ($job['error'] ?? null) === 'idempotency_conflict'
+            ? ApiErrorResponse::idempotencyConflict($request)
+            : response()->json($job, 202);
     }
 
     public function redistribute(Request $request, string $allocation_id): JsonResponse
@@ -246,11 +237,11 @@ class CentralAllocationController extends Controller
             return ApiErrorResponse::notFound($request);
         }
 
-        $allocation = $this->centralStock->redistributeAllocation($allocation_id, $request->all(), $context, $request);
+        $job = $this->centralStock->queueAllocationJob('redistribute', $request->all(), $context, $request, $allocation_id);
 
-        return $allocation === null
-            ? ApiErrorResponse::resourceConflict($request)
-            : response()->json($allocation);
+        return ($job['error'] ?? null) === 'idempotency_conflict'
+            ? ApiErrorResponse::idempotencyConflict($request)
+            : response()->json($job, 202);
     }
 
     /**

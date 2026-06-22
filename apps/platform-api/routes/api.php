@@ -18,6 +18,7 @@ use App\Modules\Rbac\Http\Controllers\AdminUserController;
 use App\Modules\CentralStock\Http\Controllers\CentralAllocationController;
 use App\Modules\CentralStock\Http\Controllers\CentralGameController;
 use App\Modules\CentralStock\Http\Controllers\LotteryImageOperationsController;
+use App\Modules\CentralStock\Http\Controllers\QueueProcessController;
 use App\Modules\Reward\Http\Controllers\CentralRewardController;
 use App\Modules\Reward\Http\Controllers\CentralRewardEntryController;
 use App\Modules\Growth\Http\Controllers\CentralSettlementController;
@@ -184,6 +185,14 @@ Route::get('/admin/central/dashboard/{section}/summary', [AdminOperationsControl
     ->whereIn('section', ['sales', 'partner', 'wallet', 'payout', 'monitor'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::post('/admin/central/realtime/auth', [AdminOperationsController::class, 'centralRealtimeAuth'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/queue-processes', [QueueProcessController::class, 'index'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/queue-processes/{type}/{id}', [QueueProcessController::class, 'show'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/queue-processes/{type}/{id}/retry', [QueueProcessController::class, 'retry'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::post('/admin/central/queue-processes/{type}/{id}/cancel', [QueueProcessController::class, 'cancel'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/menu-management', [AdminOperationsController::class, 'centralMenuManagement'])
     ->middleware(['admin.auth', 'admin.scope:central']);

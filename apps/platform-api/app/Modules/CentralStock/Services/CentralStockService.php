@@ -5,6 +5,7 @@ namespace App\Modules\CentralStock\Services;
 use App\Jobs\DispatchStockBatchImageJobs;
 use App\Jobs\GenerateLotteryImageJob;
 use App\Jobs\GenerateStockBatchChunkJob;
+use App\Jobs\ProcessStockAllocationJob;
 use App\Jobs\TriggerLottoScraperPollJob;
 use App\Models\AuditLog;
 use App\Models\Game;
@@ -17,9 +18,12 @@ use App\Models\RewardPrize;
 use App\Models\RewardResult;
 use App\Models\StockGenerationBatch;
 use App\Models\StockGenerationBatchChunk;
+use App\Models\StockAllocationJob;
+use App\Models\StockAllocationJobItem;
 use App\Models\StockItem;
 use App\Models\SyncOutbox;
 use App\Modules\CentralStock\Events\StockGenerationProgressUpdated;
+use App\Modules\CentralStock\Events\StockAllocationJobUpdated;
 use App\Modules\Reward\Services\ThaiGovernmentLotteryRewardTemplate;
 use App\Modules\PartnerStore\Services\VirtualStockService;
 use App\Modules\Pricing\Services\LotterySalePriceService;
@@ -58,6 +62,7 @@ class CentralStockService
     private const QUOTA_STATUSES = ['active', 'inactive', 'archived'];
     private const GENERATION_BATCH_TYPES = ['generate', 'virtual_profile'];
     private const VIRTUAL_MAX_BP = 10000;
+    private const ALLOCATION_JOB_TYPES = ['create_allocation', 'open_all_partners', 'update_partner_percent', 'cancel_allocation', 'recall_all', 'redistribute'];
     private const VIRTUAL_UNLIMITED = 2147483647;
     private const STOCK_SET_DISTRIBUTION_SETTING_KEY = 'stock_set_distribution_default';
     private const STOCK_PATTERN_COVERAGE_SETTING_KEY = 'stock_pattern_coverage_default';
@@ -4356,6 +4361,134 @@ class CentralStockService
 
     /**
      * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    public function queueAllocationJob(string $type, array $payload, AdminSessionContext $actor, Request $request, ?string $allocationId = null): array
+    {
+        if (! in_array($type, self::ALLOCATION_JOB_TYPES, true)) {
+            return ['error' => 'validation_failed', 'errors' => ['type' => ['The allocation job type is invalid.']]];
+        }
+
+        $idempotencyKey = (string) $request->header('Idempotency-Key');
+        $jobPayload = [
+            'type' => $type,
+            'allocation_id' => $allocationId,
+            'payload' => $payload,
+        ];
+        $payloadHash = hash('sha256', json_encode($jobPayload, JSON_THROW_ON_ERROR));
+
+        if ($idempotencyKey !== '') {
+            $existing = StockAllocationJob::query()
+                ->where('created_by_admin_id', (string) $actor->adminUser['id'])
+                ->where('idempotency_key', $idempotencyKey)
+                ->first();
+
+            if ($existing instanceof StockAllocationJob) {
+                return (string) $existing->payload_hash === $payloadHash
+                    ? $this->allocationJobResource($existing)
+                    : ['error' => 'idempotency_conflict'];
+            }
+        }
+
+        $gameId = trim((string) ($payload['game_id'] ?? ''));
+        if ($gameId === '' && $allocationId !== null && $allocationId !== '') {
+            $gameId = (string) (PartnerStockAllocation::query()->whereKey($allocationId)->value('game_id') ?? '');
+        }
+
+        $now = now();
+        $job = StockAllocationJob::query()->create([
+            'id' => 'saj_'.Str::ulid()->toBase32(),
+            'type' => $type,
+            'status' => 'queued',
+            'game_id' => $gameId === '' ? null : $gameId,
+            'allocation_id' => $allocationId,
+            'created_by_admin_id' => (string) $actor->adminUser['id'],
+            'idempotency_key' => $idempotencyKey === '' ? null : $idempotencyKey,
+            'payload_hash' => $payloadHash,
+            'payload_json' => $payload,
+            'actor_snapshot_json' => [
+                'session' => $actor->session,
+                'admin_user' => $actor->adminUser,
+                'scopes' => $actor->scopes,
+                'headers' => [
+                    'Idempotency-Key' => $idempotencyKey,
+                    'X-Request-Id' => (string) $request->header('X-Request-Id'),
+                ],
+            ],
+            'progress_current' => 0,
+            'progress_total' => $type === 'open_all_partners' ? max(1, count($this->bulkAllocationRowsFromPayload($payload, $gameId)['rows'] ?? [])) : 1,
+            'progress_percent' => 0,
+            'current_step' => 'queued',
+            'queued_at' => $now,
+            'heartbeat_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $this->seedAllocationJobItems($job, $payload);
+        ProcessStockAllocationJob::dispatch($job->id);
+        $this->broadcastAllocationJob($job->refresh());
+
+        return $this->allocationJobResource($job);
+    }
+
+    public function processAllocationJob(string $jobId): void
+    {
+        $job = StockAllocationJob::query()->whereKey($jobId)->first();
+
+        if (! $job instanceof StockAllocationJob || in_array((string) $job->status, ['completed', 'completed_with_errors', 'failed', 'cancelled'], true)) {
+            return;
+        }
+
+        $lock = Cache::lock('stock-allocation:game:'.((string) ($job->game_id ?: 'global')), 900);
+
+        if (! $lock->get()) {
+            ProcessStockAllocationJob::dispatch($jobId)->delay(now()->addSeconds(10));
+            return;
+        }
+
+        try {
+            $this->markAllocationJobProcessing($job);
+            $payload = is_array($job->payload_json) ? $job->payload_json : [];
+            $snapshot = is_array($job->actor_snapshot_json) ? $job->actor_snapshot_json : [];
+            $actor = new AdminSessionContext(
+                is_array($snapshot['session'] ?? null) ? $snapshot['session'] : ['scope_type' => 'central', 'scope_id' => null, 'tenant_id' => null],
+                is_array($snapshot['admin_user'] ?? null) ? $snapshot['admin_user'] : ['id' => $job->created_by_admin_id],
+                is_array($snapshot['scopes'] ?? null) ? $snapshot['scopes'] : [],
+            );
+            $request = Request::create('/api/v1/admin/central/allocations/jobs/'.$job->id, 'POST', $payload);
+            $headers = is_array($snapshot['headers'] ?? null) ? $snapshot['headers'] : [];
+            foreach ($headers as $name => $value) {
+                if (is_string($value) && $value !== '') {
+                    $request->headers->set((string) $name, $value);
+                }
+            }
+
+            $result = match ((string) $job->type) {
+                'create_allocation' => $this->createAllocation($payload, $actor, $request),
+                'open_all_partners' => $this->openAllocationsForAllPartners($payload, $actor, $request),
+                'update_partner_percent' => $this->updatePartnerPercent($payload, $actor, $request),
+                'cancel_allocation' => $this->cancelAllocation((string) $job->allocation_id, $payload, $actor, $request),
+                'recall_all' => $this->recallAllAllocation((string) $job->allocation_id, $payload, $actor, $request),
+                'redistribute' => $this->redistributeAllocation((string) $job->allocation_id, $payload, $actor, $request),
+                default => null,
+            };
+
+            if ($result === null) {
+                $this->markAllocationJobFailed($job, 'resource_conflict', 'The allocation job could not be completed because the resource state changed.');
+                return;
+            }
+
+            $this->markAllocationJobCompleted($job, is_array($result) ? $result : ['result' => $result]);
+        } catch (Throwable $exception) {
+            $this->markAllocationJobFailed($job, 'processing_failed', substr($exception->getMessage(), 0, 1000));
+        } finally {
+            optional($lock)->release();
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $payload
      * @return array<string, array<int, string>>
      */
     public function validateAllocationPayload(array $payload): array
@@ -6109,6 +6242,152 @@ class CentralStockService
             'status' => (string) $row->status,
             'created_at' => $row->created_at,
             'updated_at' => $row->updated_at,
+        ];
+    }
+
+    private function seedAllocationJobItems(StockAllocationJob $job, array $payload): void
+    {
+        if ((string) $job->type !== 'open_all_partners') {
+            StockAllocationJobItem::query()->create([
+                'id' => 'saji_'.Str::ulid()->toBase32(),
+                'job_id' => (string) $job->id,
+                'allocation_id' => $job->allocation_id,
+                'status' => 'queued',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            return;
+        }
+
+        $gameId = (string) ($job->game_id ?? ($payload['game_id'] ?? ''));
+        $rows = $this->bulkAllocationRowsFromPayload($payload, $gameId)['rows'] ?? [];
+        $now = now();
+        $items = [];
+
+        foreach ($rows as $row) {
+            $items[] = [
+                'id' => 'saji_'.Str::ulid()->toBase32(),
+                'job_id' => (string) $job->id,
+                'partner_id' => (string) ($row['partner_id'] ?? ''),
+                'tenant_id' => (string) ($row['tenant_id'] ?? ''),
+                'allocation_id' => null,
+                'status' => 'queued',
+                'percent_basis_points' => (int) ($row['allocation_percent_basis_points'] ?? 0),
+                'target_count' => 0,
+                'message' => null,
+                'error_message' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        if ($items !== []) {
+            StockAllocationJobItem::query()->insert($items);
+            StockAllocationJob::query()->whereKey($job->id)->update([
+                'progress_total' => count($items),
+                'updated_at' => $now,
+            ]);
+        }
+    }
+
+    private function markAllocationJobProcessing(StockAllocationJob $job): void
+    {
+        StockAllocationJob::query()->whereKey($job->id)->update([
+            'status' => 'processing',
+            'current_step' => 'processing',
+            'started_at' => $job->started_at ?? now(),
+            'heartbeat_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->broadcastAllocationJob($job->refresh());
+    }
+
+    private function markAllocationJobCompleted(StockAllocationJob $job, array $result): void
+    {
+        $createdCount = (int) ($result['created_count'] ?? (isset($result['id']) ? 1 : 0));
+        $skippedCount = (int) ($result['skipped_count'] ?? 0);
+        $status = $skippedCount > 0 && $createdCount > 0 ? 'completed_with_errors' : 'completed';
+        $now = now();
+
+        StockAllocationJob::query()->whereKey($job->id)->update([
+            'status' => $status,
+            'progress_current' => max(1, (int) $job->progress_total),
+            'progress_percent' => 100,
+            'created_count' => $createdCount,
+            'skipped_count' => $skippedCount,
+            'current_step' => 'completed',
+            'result_json' => $result,
+            'heartbeat_at' => $now,
+            'completed_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        StockAllocationJobItem::query()
+            ->where('job_id', $job->id)
+            ->where('status', 'queued')
+            ->update(['status' => 'completed', 'updated_at' => $now]);
+
+        $this->broadcastAllocationJob($job->refresh());
+    }
+
+    private function markAllocationJobFailed(StockAllocationJob $job, string $code, string $message): void
+    {
+        $now = now();
+        StockAllocationJob::query()->whereKey($job->id)->update([
+            'status' => 'failed',
+            'current_step' => 'failed',
+            'error_code' => $code,
+            'error_message' => $message,
+            'failed_count' => max(1, (int) $job->failed_count),
+            'heartbeat_at' => $now,
+            'failed_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $this->broadcastAllocationJob($job->refresh());
+    }
+
+    private function broadcastAllocationJob(StockAllocationJob $job): void
+    {
+        try {
+            StockAllocationJobUpdated::dispatch($this->allocationJobResource($job));
+        } catch (Throwable $exception) {
+            Log::warning('Stock allocation job realtime broadcast failed.', [
+                'job_id' => (string) $job->id,
+                'message' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function allocationJobResource(StockAllocationJob $job): array
+    {
+        return [
+            'id' => (string) $job->id,
+            'type' => (string) $job->type,
+            'status' => (string) $job->status,
+            'game_id' => $job->game_id,
+            'allocation_id' => $job->allocation_id,
+            'progress_current' => (int) $job->progress_current,
+            'progress_total' => (int) $job->progress_total,
+            'progress_percent' => (int) $job->progress_percent,
+            'created_count' => (int) $job->created_count,
+            'skipped_count' => (int) $job->skipped_count,
+            'failed_count' => (int) $job->failed_count,
+            'current_step' => $job->current_step,
+            'error_code' => $job->error_code,
+            'error_message' => $job->error_message,
+            'result' => $job->result_json,
+            'queued_at' => $job->queued_at?->toISOString(),
+            'started_at' => $job->started_at?->toISOString(),
+            'heartbeat_at' => $job->heartbeat_at?->toISOString(),
+            'completed_at' => $job->completed_at?->toISOString(),
+            'failed_at' => $job->failed_at?->toISOString(),
+            'cancelled_at' => $job->cancelled_at?->toISOString(),
+            'created_at' => $job->created_at?->toISOString(),
+            'updated_at' => $job->updated_at?->toISOString(),
         ];
     }
 

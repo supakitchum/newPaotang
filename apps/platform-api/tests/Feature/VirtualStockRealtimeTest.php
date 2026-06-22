@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Modules\CentralStock\Events\StockCoverageUpdated;
 use App\Modules\CentralStock\Events\StockTableUpdated;
+use App\Modules\PartnerStore\Services\VirtualStockService;
 use App\Modules\PartnerStore\Events\StockAvailabilityUpdated;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -133,9 +134,12 @@ class VirtualStockRealtimeTest extends TestCase
             ->assertJsonPath('type', 'virtual_profile')
             ->assertJsonPath('stock_mode', 'virtual')
             ->assertJsonPath('requested_count', 13)
-            ->assertJsonPath('generated_count', 13)
+            ->assertJsonPath('status', 'queued')
+            ->assertJsonPath('generated_count', 0)
             ->assertJsonPath('total_capacity', 13)
             ->json();
+
+        app(VirtualStockService::class)->processQueuedProfileGeneration($batch['id']);
 
         $this->withToken($login['access_token'])
             ->getJson('/api/v1/admin/central/stock/generation-batches/'.$batch['id'], [
@@ -178,6 +182,7 @@ class VirtualStockRealtimeTest extends TestCase
             ])
             ->assertAccepted()
             ->assertJsonPath('id', $batch['id'])
+            ->assertJsonPath('status', 'completed')
             ->assertJsonPath('layer_id', $batch['layer_id']);
         $this->assertSame(1, DB::table('virtual_stock_supply_layers')->where('game_id', 'gam_virtual_generate')->count());
 
@@ -210,9 +215,12 @@ class VirtualStockRealtimeTest extends TestCase
             ])
             ->assertAccepted()
             ->assertJsonPath('requested_count', 10)
+            ->assertJsonPath('status', 'queued')
             ->assertJsonPath('top_up', true)
-            ->assertJsonPath('total_capacity', 23)
+            ->assertJsonPath('generated_count', 0)
+            ->assertJsonPath('total_capacity', 10)
             ->json();
+        app(VirtualStockService::class)->processQueuedProfileGeneration($secondBatch['id']);
         $this->assertSame(1, DB::table('stock_supply_profiles')->where('game_id', 'gam_virtual_generate')->where('status', 'active')->count());
         $this->assertSame(2, DB::table('virtual_stock_supply_layers')->where('game_id', 'gam_virtual_generate')->where('status', 'active')->count());
         $this->assertSame(23, (int) DB::table('stock_supply_profiles')->where('game_id', 'gam_virtual_generate')->value('total_capacity'));
@@ -319,7 +327,15 @@ class VirtualStockRealtimeTest extends TestCase
             ])
             ->assertAccepted()
             ->assertJsonPath('requested_count', 13)
-            ->assertJsonPath('generated_count', 13);
+            ->assertJsonPath('status', 'queued')
+            ->assertJsonPath('generated_count', 0);
+
+        app(VirtualStockService::class)->processQueuedProfileGeneration(
+            (string) DB::table('stock_generation_batches')
+                ->where('game_id', 'gam_virtual_low_limits')
+                ->where('type', 'virtual_profile')
+                ->value('id')
+        );
 
         $this->withToken($login['access_token'])
             ->getJson('/api/v1/admin/central/stock/summary?game_id=gam_virtual_low_limits', ['X-Admin-Scope' => 'central'])

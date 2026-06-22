@@ -4632,6 +4632,8 @@ class AdminOperationsService
                 'private-admin.central.admin.'.$adminUserId,
                 'presence-admin.central.admin.'.$adminUserId,
             ], true) || $this->isCentralStockGenerationChannel($channelName)
+                || $this->isCentralLotteryImageZipImportChannel($channelName)
+                || $this->isCentralStockAllocationJobChannel($channelName)
                 || $this->isCentralStockCoverageChannel($channelName)
                 || $this->isCentralStockTableChannel($channelName);
         }
@@ -4661,6 +4663,19 @@ class AdminOperationsService
         return $channelName === 'private-admin.central.stock-generation'
             || preg_match('/^private-admin\.central\.stock-generation\.game\.[A-Za-z0-9_-]+$/', $channelName) === 1
             || preg_match('/^private-admin\.central\.stock-generation\.batch\.[A-Za-z0-9_-]+$/', $channelName) === 1;
+    }
+
+    private function isCentralLotteryImageZipImportChannel(string $channelName): bool
+    {
+        return $channelName === 'private-admin.central.lottery-images.zip-imports'
+            || preg_match('/^private-admin\.central\.lottery-images\.zip-imports\.[A-Za-z0-9_-]+$/', $channelName) === 1;
+    }
+
+    private function isCentralStockAllocationJobChannel(string $channelName): bool
+    {
+        return $channelName === 'private-admin.central.stock-allocation-jobs'
+            || preg_match('/^private-admin\.central\.stock-allocation-jobs\.[A-Za-z0-9_-]+$/', $channelName) === 1
+            || preg_match('/^private-admin\.central\.stock-allocation-jobs\.game\.[A-Za-z0-9_-]+$/', $channelName) === 1;
     }
 
     private function isCentralStockCoverageChannel(string $channelName): bool

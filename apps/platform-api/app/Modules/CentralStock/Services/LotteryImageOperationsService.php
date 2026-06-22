@@ -14,6 +14,7 @@ use App\Models\Partner;
 use App\Models\PlatformAsset;
 use App\Models\PlatformSystemSetting;
 use App\Models\StockItem;
+use App\Modules\CentralStock\Events\BackgroundZipImportUpdated;
 use App\Modules\StorageConnections\Services\RuntimeStorageService;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
@@ -21,6 +22,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use ZipArchive;
@@ -34,6 +36,8 @@ class LotteryImageOperationsService
         'full' => 'full_asset_id',
         'thumb' => 'thumb_asset_id',
     ];
+
+    private ?LotteryImageBackgroundZipImport $activeBackgroundZipImport = null;
 
     public function __construct(
         private readonly AuditLogger $auditLogger,
@@ -226,6 +230,11 @@ class LotteryImageOperationsService
             'payload_hash' => hash('sha256', json_encode($idempotencyPayload, JSON_THROW_ON_ERROR)),
             'created_by_admin_id' => (string) $actor->adminUser['id'],
             'progress_percent' => 0,
+            'current_step' => 'queued',
+            'attempts' => 0,
+            'max_attempts' => 3,
+            'stale_after_seconds' => 600,
+            'heartbeat_at' => $now,
             'payload_json' => [
                 'game_id' => $normalized['game_id'],
                 'version' => $normalized['version'],
@@ -246,6 +255,7 @@ class LotteryImageOperationsService
         ImportLotteryBackgroundZipJob::dispatch($import->id);
 
         $this->audit($actor, $request, 'lottery_image_background_asset_set.import_zip_queued', 'lottery_image_background_zip_import', $import->id, $payload);
+        $this->broadcastBackgroundZipImport($import->refresh());
 
         return ['resource' => $this->backgroundZipImportResource($import->refresh())];
     }
@@ -264,14 +274,36 @@ class LotteryImageOperationsService
                 return null;
             }
 
-            if (in_array((string) $row->status, ['completed', 'processing'], true)) {
+            if (in_array((string) $row->status, ['completed', 'cancelled'], true)) {
+                return null;
+            }
+
+            if ((string) $row->status === 'processing' && ! $this->backgroundZipImportIsStale($row)) {
+                return null;
+            }
+
+            if ((int) $row->attempts >= max(1, (int) $row->max_attempts)) {
+                $row->update([
+                    'status' => 'failed',
+                    'current_step' => 'retry_limit_reached',
+                    'error_code' => 'retry_limit_reached',
+                    'error_message' => 'The background zip import exceeded its retry limit.',
+                    'failed_at' => now(),
+                    'last_error_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                $this->broadcastBackgroundZipImport($row->refresh());
+
                 return null;
             }
 
             $row->update([
                 'status' => 'processing',
                 'progress_percent' => 5,
+                'current_step' => 'starting',
+                'attempts' => (int) $row->attempts + 1,
                 'started_at' => $row->started_at ?? now(),
+                'heartbeat_at' => now(),
                 'failed_at' => null,
                 'error_code' => null,
                 'error_message' => null,
@@ -285,6 +317,7 @@ class LotteryImageOperationsService
         if (! $import instanceof LotteryImageBackgroundZipImport) {
             return;
         }
+        $this->broadcastBackgroundZipImport($import);
 
         $tempPath = tempnam(sys_get_temp_dir(), 'lbz_');
 
@@ -295,8 +328,10 @@ class LotteryImageOperationsService
         }
 
         try {
+            $this->touchBackgroundZipImportProgress($import, 'copying_zip', 10);
             $this->copyStoredZipToTempFile($import, $tempPath);
 
+            $this->touchBackgroundZipImportProgress($import, 'processing_zip', 20);
             $payload = is_array($import->payload_json) ? $import->payload_json : [];
             $actorSnapshot = is_array($import->actor_snapshot_json) ? $import->actor_snapshot_json : [];
             $actor = new AdminSessionContext(
@@ -308,7 +343,9 @@ class LotteryImageOperationsService
             $request->headers->set('Idempotency-Key', (string) $import->idempotency_key);
 
             $uploaded = new UploadedFile($tempPath, (string) ($import->zip_file_name ?: 'backgrounds.zip'), 'application/zip', null, true);
+            $this->activeBackgroundZipImport = $import;
             $result = $this->runBackgroundZipImport($payload, $uploaded, $actor, $request);
+            $this->activeBackgroundZipImport = null;
 
             if (($result['error'] ?? null) === 'validation_failed') {
                 $this->markBackgroundZipImportFailed($import, 'validation_failed', 'The queued zip import payload is invalid.', $result['errors'] ?? []);
@@ -322,10 +359,12 @@ class LotteryImageOperationsService
 
             $import->update([
                 'status' => 'completed',
+                'current_step' => 'completed',
                 'detected_count' => (int) ($meta['expected_count'] ?? count($data)),
                 'processed_count' => count($data),
                 'imported_count' => (int) ($meta['imported_count'] ?? count($data)),
                 'progress_percent' => 100,
+                'heartbeat_at' => now(),
                 'result_json' => $resource,
                 'completed_at' => now(),
                 'failed_at' => null,
@@ -334,15 +373,37 @@ class LotteryImageOperationsService
                 'error_details_json' => null,
                 'updated_at' => now(),
             ]);
+            $this->broadcastBackgroundZipImport($import->refresh());
 
             $this->storage->deleteUsingDriver(RuntimeStorageService::ROUTE_BACKGROUND_ASSETS, (string) $import->zip_storage_key, (string) $import->storage_driver);
         } catch (\Throwable $exception) {
+            $this->activeBackgroundZipImport = null;
             $this->markBackgroundZipImportFailed($import, 'processing_failed', substr($exception->getMessage(), 0, 1000));
         } finally {
+            $this->activeBackgroundZipImport = null;
             if (is_file($tempPath)) {
                 @unlink($tempPath);
             }
         }
+    }
+
+    public function recoverStaleBackgroundZipImports(int $limit = 25): int
+    {
+        $ids = LotteryImageBackgroundZipImport::query()
+            ->where('status', 'processing')
+            ->orderBy('updated_at')
+            ->limit(max(1, min(100, $limit)))
+            ->get()
+            ->filter(fn (LotteryImageBackgroundZipImport $import): bool => $this->backgroundZipImportIsStale($import))
+            ->pluck('id')
+            ->map(fn (mixed $id): string => (string) $id)
+            ->all();
+
+        foreach ($ids as $id) {
+            ImportLotteryBackgroundZipJob::dispatch($id);
+        }
+
+        return count($ids);
     }
 
     /**
@@ -410,6 +471,10 @@ class LotteryImageOperationsService
         try {
             foreach ($files as $file) {
                 $position = (int) $file['ordinal'];
+                if ($this->activeBackgroundZipImport instanceof LotteryImageBackgroundZipImport) {
+                    $progress = 20 + (int) floor((($position - 1) / max(1, count($files))) * 70);
+                    $this->touchBackgroundZipImportProgress($this->activeBackgroundZipImport, 'processing_file_'.$position.'_of_'.count($files), $progress);
+                }
                 $baseKey = 'lottery-image-assets/games/'.$normalized['game_id'].'/backgrounds/'.$normalized['version'].'/'.$normalized['set_type'].'/'.str_pad((string) $position, 3, '0', STR_PAD_LEFT);
                 $sourceKey = $baseKey.'/'.$file['normalized_name'];
                 $fullKey = $baseKey.'/full.webp';
@@ -1472,11 +1537,27 @@ class LotteryImageOperationsService
 
     private function copyStoredZipToTempFile(LotteryImageBackgroundZipImport $import, string $tempPath): void
     {
-        $input = $this->storage->readStreamUsingDriver(
-            RuntimeStorageService::ROUTE_BACKGROUND_ASSETS,
-            (string) $import->zip_storage_key,
-            (string) $import->storage_driver,
-        );
+        $input = method_exists($this->storage, 'readStreamUsingDriver')
+            ? $this->storage->readStreamUsingDriver(
+                RuntimeStorageService::ROUTE_BACKGROUND_ASSETS,
+                (string) $import->zip_storage_key,
+                (string) $import->storage_driver,
+            )
+            : null;
+
+        if (! is_resource($input)) {
+            $contents = $this->storage->getUsingDriver(
+                RuntimeStorageService::ROUTE_BACKGROUND_ASSETS,
+                (string) $import->zip_storage_key,
+                (string) $import->storage_driver,
+            );
+
+            if (is_string($contents) && $contents !== '') {
+                file_put_contents($tempPath, $contents);
+
+                return;
+            }
+        }
 
         if (! is_resource($input)) {
             throw new \RuntimeException('background_zip_import_source_missing');
@@ -1497,6 +1578,39 @@ class LotteryImageOperationsService
         }
     }
 
+    private function backgroundZipImportIsStale(LotteryImageBackgroundZipImport $import): bool
+    {
+        $heartbeat = $import->heartbeat_at ?? $import->updated_at;
+        $staleAfter = max(60, (int) ($import->stale_after_seconds ?? 600));
+
+        return $heartbeat === null || $heartbeat->copy()->addSeconds($staleAfter)->isPast();
+    }
+
+    private function touchBackgroundZipImportProgress(LotteryImageBackgroundZipImport $import, string $step, int $progressPercent): void
+    {
+        LotteryImageBackgroundZipImport::query()->whereKey($import->id)->update([
+            'current_step' => $step,
+            'progress_percent' => max((int) $import->progress_percent, min(99, max(0, $progressPercent))),
+            'heartbeat_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $import->refresh();
+        $this->broadcastBackgroundZipImport($import);
+    }
+
+    private function broadcastBackgroundZipImport(LotteryImageBackgroundZipImport $import): void
+    {
+        try {
+            BackgroundZipImportUpdated::dispatch($this->backgroundZipImportResource($import));
+        } catch (\Throwable $exception) {
+            Log::warning('Background zip import realtime broadcast failed.', [
+                'import_id' => (string) $import->id,
+                'message' => $exception->getMessage(),
+            ]);
+        }
+    }
+
     /**
      * @param array<string, mixed> $details
      */
@@ -1504,13 +1618,17 @@ class LotteryImageOperationsService
     {
         $import->update([
             'status' => 'failed',
+            'current_step' => 'failed',
             'progress_percent' => max(5, (int) $import->progress_percent),
             'error_code' => $code,
             'error_message' => $message,
             'error_details_json' => $details,
             'failed_at' => now(),
+            'last_error_at' => now(),
+            'heartbeat_at' => now(),
             'updated_at' => now(),
         ]);
+        $this->broadcastBackgroundZipImport($import->refresh());
     }
 
     /**
@@ -1551,6 +1669,10 @@ class LotteryImageOperationsService
             'processed_count' => (int) $import->processed_count,
             'imported_count' => (int) $import->imported_count,
             'progress_percent' => (int) $import->progress_percent,
+            'current_step' => $import->current_step,
+            'attempts' => (int) $import->attempts,
+            'max_attempts' => (int) $import->max_attempts,
+            'heartbeat_at' => $import->heartbeat_at?->toISOString(),
             'error_code' => $import->error_code,
             'error_message' => $import->error_message,
             'error_details' => $import->error_details_json ?? [],

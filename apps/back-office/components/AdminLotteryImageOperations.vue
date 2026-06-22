@@ -272,9 +272,6 @@
                   <span>{{ formatBytes(zipForm.file.size) }}</span>
                 </div>
               </div>
-              <div v-if="zipForm.progress > 0" class="progress progress-xs mt-3" role="progressbar" :aria-valuenow="zipForm.progress" aria-valuemin="0" aria-valuemax="100">
-                <div class="progress-bar" :style="{ width: `${zipForm.progress}%` }" />
-              </div>
             </div>
 
             <div v-if="zipResult" class="border rounded p-3 mt-3">
@@ -305,9 +302,6 @@
                 </div>
                 <div v-if="zipResult.error_message" class="text-danger text-break">{{ zipResult.error_message }}</div>
               </div>
-              <div class="progress progress-xs mt-3" role="progressbar" :aria-valuenow="zipResult.progress_percent || 0" aria-valuemin="0" aria-valuemax="100">
-                <div class="progress-bar" :class="zipResult.status === 'failed' ? 'bg-danger' : ''" :style="{ width: `${zipResult.progress_percent || 0}%` }" />
-              </div>
             </div>
           </div>
           <div class="card-footer d-flex flex-wrap justify-content-end gap-2">
@@ -325,6 +319,50 @@
         <div class="card custom-card h-100">
           <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
             <div>
+              <div class="card-title mb-1">Queue Process</div>
+              <p class="text-muted mb-0 fs-12">Realtime progress for background zip imports and stock allocation jobs. Manual refresh is only a fallback.</p>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <AdminStatusBadge :status="zipImportRealtime.status.value" :label="zipImportRealtime.isConfigured.value ? titleize(zipImportRealtime.status.value) : 'Socket unavailable'" />
+              <button class="btn btn-outline-primary btn-sm btn-wave" type="button" :disabled="queueProcessesLoading" @click="loadQueueProcesses">
+                <span v-if="queueProcessesLoading" class="spinner-border spinner-border-sm me-1" />
+                <i v-else class="ri-refresh-line me-1" />
+                Refresh
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            <AdminAlert v-if="queueProcessesError" :type="alertType(queueProcessesError)" :message="errorMessage(queueProcessesError)" :details="queueProcessesError.details" dismissible @dismiss="queueProcessesError = null" />
+            <AdminLoader v-if="queueProcessesLoading && !queueProcesses.length" />
+            <AdminEmptyState v-else-if="!queueProcesses.length" title="No queue processes" message="Queued zip imports and allocation jobs will appear here." icon="ri-loader-4-line" />
+            <div v-else class="d-flex flex-column gap-3">
+              <div v-for="process in queueProcesses" :key="`${process.kind}-${process.id}`" class="border rounded p-3">
+                <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
+                  <div>
+                    <div class="fw-semibold">{{ queueProcessTitle(process) }}</div>
+                    <code class="np-admin-code">{{ process.id }}</code>
+                  </div>
+                  <AdminStatusBadge :status="process.status" :label="titleize(process.status || 'queued')" />
+                </div>
+                <div class="row g-2 small text-muted">
+                  <div class="col-md-3">Game: <span class="text-body">{{ gameName(process.game_id) }}</span></div>
+                  <div class="col-md-3">Step: <span class="text-body">{{ titleize(process.current_step || '-') }}</span></div>
+                  <div class="col-md-3">Progress: <span class="text-body">{{ process.progress_current || 0 }} / {{ process.progress_total || 1 }}</span></div>
+                  <div class="col-md-3">Updated: <span class="text-body">{{ formatDateTime(process.updated_at) }}</span></div>
+                </div>
+                <div class="progress progress-xs mt-3" role="progressbar" :aria-valuenow="process.progress_percent || 0" aria-valuemin="0" aria-valuemax="100">
+                  <div class="progress-bar" :class="queueProgressClass(process)" :style="{ width: `${process.progress_percent || 0}%` }" />
+                </div>
+                <div v-if="process.error_message" class="text-danger small mt-2 text-break">{{ process.error_message }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="card custom-card h-100">
+          <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
               <div class="card-title mb-1">Background Asset Sets</div>
               <p class="text-muted mb-0 fs-12">Generated source/full/thumb rows from the image zip import.</p>
             </div>
@@ -335,9 +373,73 @@
             </button>
           </div>
           <div class="card-body d-flex flex-column gap-3">
+            <div class="border rounded p-3 bg-light">
+              <div class="row g-2 align-items-end">
+                <div class="col-lg-3 col-md-6">
+                  <label class="form-label" for="asset-set-search">Search</label>
+                  <div class="input-group">
+                    <span class="input-group-text"><i class="ri-search-line" /></span>
+                    <input
+                      id="asset-set-search"
+                      v-model.trim="assetSetFilters.q"
+                      class="form-control"
+                      type="search"
+                      placeholder="Set, asset id, version, game"
+                    >
+                  </div>
+                </div>
+                <div class="col-lg-2 col-md-6">
+                  <label class="form-label" for="asset-set-version-filter">Version</label>
+                  <select id="asset-set-version-filter" v-model="assetSetFilters.version" class="form-select">
+                    <option value="">All versions</option>
+                    <option v-for="version in assetSetVersionOptions" :key="version" :value="version">{{ version }}</option>
+                  </select>
+                </div>
+                <div class="col-lg-2 col-md-6">
+                  <label class="form-label" for="asset-set-type-filter">Set type</label>
+                  <select id="asset-set-type-filter" v-model="assetSetFilters.set_type" class="form-select">
+                    <option value="">All sets</option>
+                    <option v-for="setType in setTypes" :key="setType" :value="setType">{{ titleize(setType) }}</option>
+                  </select>
+                </div>
+                <div class="col-lg-2 col-md-6">
+                  <label class="form-label" for="asset-set-status-filter">Status</label>
+                  <select id="asset-set-status-filter" v-model="assetSetFilters.status" class="form-select">
+                    <option value="">All statuses</option>
+                    <option v-for="status in assetSetStatusOptions" :key="status" :value="status">{{ titleize(status) }}</option>
+                  </select>
+                </div>
+                <div class="col-lg-2 col-md-6">
+                  <label class="form-label" for="asset-set-storage-filter">Storage</label>
+                  <select id="asset-set-storage-filter" v-model="assetSetFilters.storage_driver" class="form-select">
+                    <option value="">All storage</option>
+                    <option v-for="driver in assetSetStorageOptions" :key="driver" :value="driver">{{ storageDriverLabel(driver) }}</option>
+                  </select>
+                </div>
+                <div class="col-lg-1 col-md-6">
+                  <label class="form-label" for="asset-set-ready-filter">Ready</label>
+                  <select id="asset-set-ready-filter" v-model="assetSetFilters.ready" class="form-select">
+                    <option value="">All</option>
+                    <option value="ready">Ready</option>
+                    <option value="blocked">Blocked</option>
+                    <option value="missing">Missing</option>
+                  </select>
+                </div>
+              </div>
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3">
+                <div class="d-flex flex-wrap gap-2 small">
+                  <span class="badge bg-primary-transparent text-primary">{{ filteredAssetSets.length }} shown</span>
+                  <span class="badge bg-light text-muted border">{{ assetSets.length }} total</span>
+                  <span v-if="activeAssetSetFilterCount" class="badge bg-warning-transparent text-warning">{{ activeAssetSetFilterCount }} filters active</span>
+                </div>
+                <button class="btn btn-sm btn-light btn-wave" type="button" :disabled="!activeAssetSetFilterCount" @click="resetAssetSetFilters">
+                  Clear filters
+                </button>
+              </div>
+            </div>
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
               <div class="d-flex flex-wrap align-items-center gap-2">
-                <span class="text-muted small">{{ selectedAssetSetIds.length }} selected / {{ assetSets.length }} total</span>
+                <span class="text-muted small">{{ selectedAssetSetIds.length }} selected / {{ filteredAssetSets.length }} shown / {{ assetSets.length }} total</span>
                 <select v-model.number="assetSetPageSize" class="form-select form-select-sm" style="width: 96px;" aria-label="Background asset set page size">
                   <option :value="10">10</option>
                   <option :value="25">25</option>
@@ -394,10 +496,15 @@
                 </div>
               </template>
               <template #cell-assets="{ row: set }">
-                <div class="d-flex flex-column gap-1 small">
+                <div class="d-flex flex-wrap gap-1">
                   <span v-for="slot in assetSlots" :key="slot.key">
-                    {{ slot.label }}:
-                    <code class="np-admin-code">{{ assetId(set, slot.key) || '-' }}</code>
+                    <span
+                      class="badge"
+                      :class="assetId(set, slot.key) ? 'bg-success-transparent text-success' : 'bg-danger-transparent text-danger'"
+                      :title="assetId(set, slot.key) || `${slot.label} missing`"
+                    >
+                      {{ slot.shortLabel }}
+                    </span>
                   </span>
                 </div>
               </template>
@@ -406,20 +513,17 @@
               </template>
               <template #rowActions="{ row: set }">
                 <div class="d-flex flex-wrap justify-content-end gap-1">
-                  <button class="btn btn-sm btn-light btn-wave" type="button" @click="fillZipForm(set)">
-                    Use
-                  </button>
-                  <button class="btn btn-sm btn-outline-success btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'ready')">
+                  <button v-if="set.status !== 'ready'" class="btn btn-sm btn-outline-success btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'ready')">
+                    <i class="ri-checkbox-circle-line me-1" />
                     Reactivate
                   </button>
-                  <button class="btn btn-sm btn-outline-warning btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'inactive')">
+                  <button v-if="set.status !== 'inactive'" class="btn btn-sm btn-outline-warning btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'inactive')">
+                    <i class="ri-pause-circle-line me-1" />
                     Inactive
                   </button>
-                  <button class="btn btn-sm btn-outline-danger btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'retired')">
+                  <button v-if="set.status !== 'retired'" class="btn btn-sm btn-outline-danger btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'retired')">
+                    <i class="ri-archive-line me-1" />
                     Retire
-                  </button>
-                  <button class="btn btn-sm btn-primary btn-wave" type="button" :disabled="statusUpdating" @click="openStatusConfirm(set, 'ready', true)">
-                    Supersede
                   </button>
                 </div>
               </template>
@@ -768,6 +872,9 @@ type GameOption = {
   code?: string | null
   name: string
   status?: string | null
+  sale_start_at?: string | null
+  close_at?: string | null
+  draw_at?: string | null
   label: string
 }
 
@@ -877,6 +984,8 @@ type ZipImportResponse = {
   processed_count?: number
   imported_count?: number
   progress_percent?: number
+  current_step?: string | null
+  heartbeat_at?: string | null
   error_code?: string | null
   error_message?: string | null
   error_details?: Record<string, string[]>
@@ -891,6 +1000,26 @@ type ZipImportResponse = {
       expected_count?: number
     }
   } | null
+}
+
+type QueueProcess = {
+  kind: 'zip_import' | 'allocation' | string
+  id: string
+  type?: string
+  status: string
+  game_id?: string | null
+  set_type?: string | null
+  progress_current?: number
+  progress_total?: number
+  progress_percent?: number
+  created_count?: number
+  skipped_count?: number
+  failed_count?: number
+  current_step?: string | null
+  error_message?: string | null
+  created_at?: string | null
+  updated_at?: string | null
+  heartbeat_at?: string | null
 }
 
 type LotteryPreviewResponse = {
@@ -933,10 +1062,10 @@ const canViewGames = computed(() => session.currentPermissions.value.includes('g
 const zipUploadMaxBytes = 500 * 1024 * 1024
 const zipUploadMaxLabel = '500 MB'
 const setTypes: SetType[] = ['odd', 'even', 'charity']
-const assetSlots: Array<{ key: AssetSlot, label: string }> = [
-  { key: 'source', label: 'Source Image' },
-  { key: 'full', label: 'Full WebP' },
-  { key: 'thumb', label: 'Thumb WebP' },
+const assetSlots: Array<{ key: AssetSlot, label: string, shortLabel: string }> = [
+  { key: 'source', label: 'Source Image', shortLabel: 'SRC' },
+  { key: 'full', label: 'Full WebP', shortLabel: 'FULL' },
+  { key: 'thumb', label: 'Thumb WebP', shortLabel: 'THUMB' },
 ]
 const assetSetColumns = [
   { key: 'game', label: 'Game / Version' },
@@ -995,6 +1124,14 @@ const assetSets = ref<BackgroundSet[]>([])
 const selectedAssetSetIds = ref<string[]>([])
 const assetSetPage = ref(1)
 const assetSetPageSize = ref(10)
+const assetSetFilters = reactive({
+  q: '',
+  version: '',
+  set_type: '',
+  status: '',
+  storage_driver: '',
+  ready: '',
+})
 const assetSetSort = reactive({
   key: 'set_type',
   direction: 'asc' as 'asc' | 'desc',
@@ -1020,6 +1157,9 @@ const zipFormError = ref<any>(null)
 const zipImporting = ref(false)
 const zipResult = ref<ZipImportResponse | null>(null)
 const zipInputKey = ref(0)
+const queueProcesses = ref<QueueProcess[]>([])
+const queueProcessesLoading = ref(false)
+const queueProcessesError = ref<any>(null)
 
 const previewForm = reactive({
   game_id: '',
@@ -1033,7 +1173,6 @@ const previewForm = reactive({
 const previewLoading = ref(false)
 const previewError = ref<any>(null)
 const previewResult = ref<LotteryPreviewResponse | null>(null)
-let zipImportPollTimer: ReturnType<typeof setTimeout> | null = null
 
 const mixForm = reactive<Record<SetType, number>>({
   odd: 45,
@@ -1068,6 +1207,39 @@ const retryForm = reactive({
 })
 const retryError = ref<any>(null)
 const retrySubmitting = ref(false)
+
+const activeZipImportChannel = computed(() => zipResult.value?.id ? `private-admin.central.lottery-images.zip-imports.${zipResult.value.id}` : '')
+const zipImportRealtime = useAdminRealtimeSubscription({
+  channelName: activeZipImportChannel,
+  eventName: 'lottery_images.background_zip_import.updated',
+  enabled: computed(() => Boolean(zipResult.value?.id && ['queued', 'processing'].includes(String(zipResult.value?.status || '')))),
+  onEvent: (payload) => applyZipImportUpdate(payload),
+  onReconnect: () => {
+    if (zipResult.value?.id) {
+      void refreshZipImportStatus(zipResult.value.id)
+    }
+  },
+})
+
+useAdminRealtimeSubscription({
+  channelName: 'private-admin.central.lottery-images.zip-imports',
+  eventName: 'lottery_images.background_zip_import.updated',
+  enabled: true,
+  onEvent: (payload) => upsertQueueProcess({ ...payload, kind: 'zip_import', type: 'zip_import' }),
+  onReconnect: () => {
+    void loadQueueProcesses()
+  },
+})
+
+useAdminRealtimeSubscription({
+  channelName: 'private-admin.central.stock-allocation-jobs',
+  eventName: 'stock.allocation_job.updated',
+  enabled: true,
+  onEvent: (payload) => upsertQueueProcess({ ...payload, kind: 'allocation' }),
+  onReconnect: () => {
+    void loadQueueProcesses()
+  },
+})
 const retryMode = ref<'dry-run' | 'execute'>('dry-run')
 const retryResult = ref<any>(null)
 const retryConfirmOpen = ref(false)
@@ -1080,6 +1252,7 @@ const unknownZipGame = computed(() => isUnknownGame(zipForm.game_id))
 const unknownPreviewGame = computed(() => isUnknownGame(previewForm.game_id))
 const unknownRetryGame = computed(() => isUnknownGame(retryForm.game_id))
 const selectedGameText = computed(() => selectedGame.value ? `${selectedGame.value.name} (${selectedGame.value.status || 'unknown'})` : 'Select a central game to load readiness, import backgrounds, and preview images.')
+const defaultGameOption = computed(() => resolveDefaultGameOption())
 const selectedGameWarning = computed(() => {
   if (!context.game_id || gamesLoading.value || !gamesLoaded.value) return ''
   if (!selectedGame.value) return `Game ${context.game_id} was not returned by the central games API. It may be missing or archived; existing filters can still be loaded by ID.`
@@ -1097,7 +1270,12 @@ const selectedAssetSets = computed(() => {
   const selected = new Set(selectedAssetSetIds.value)
   return assetSets.value.filter((set) => selected.has(set.id))
 })
-const sortedAssetSets = computed(() => [...assetSets.value].sort((left, right) => compareAssetSets(left, right)))
+const assetSetVersionOptions = computed(() => uniqueSorted(assetSets.value.map((set) => set.version).filter(Boolean)))
+const assetSetStatusOptions = computed(() => uniqueSorted(assetSets.value.map((set) => set.status).filter(Boolean)))
+const assetSetStorageOptions = computed(() => uniqueSorted(assetSets.value.map((set) => set.storage_driver || 'route_default')))
+const activeAssetSetFilterCount = computed(() => Object.values(assetSetFilters).filter((value) => String(value || '').trim() !== '').length)
+const filteredAssetSets = computed(() => assetSets.value.filter((set) => matchesAssetSetFilters(set)))
+const sortedAssetSets = computed(() => [...filteredAssetSets.value].sort((left, right) => compareAssetSets(left, right)))
 const assetSetPageCount = computed(() => Math.max(1, Math.ceil(sortedAssetSets.value.length / assetSetPageSize.value)))
 const paginatedAssetSets = computed(() => {
   const start = (assetSetPage.value - 1) * assetSetPageSize.value
@@ -1236,15 +1414,15 @@ watch([assetSetPageSize, () => assetSets.value.length], () => {
   if (assetSetPage.value < 1) assetSetPage.value = 1
 })
 
+watch(assetSetFilters, () => {
+  assetSetPage.value = 1
+})
+
 watch(() => route.query.game_id, (value) => {
   const next = normalizeQueryValue(value)
   if (!next || next === context.game_id) return
   context.game_id = next
   void loadAll()
-})
-
-onBeforeUnmount(() => {
-  clearZipImportPollTimer()
 })
 
 const loadGames = async () => {
@@ -1404,7 +1582,6 @@ const loadProductionReadiness = async () => {
 const importZip = async () => {
   if (!canImportZip.value || !zipForm.file) return
 
-  clearZipImportPollTimer()
   zipImporting.value = true
   zipFormError.value = null
   successMessage.value = ''
@@ -1433,7 +1610,8 @@ const importZip = async () => {
     context.game_id = response.game_id || zipForm.game_id
     context.version = response.version || zipForm.version || context.version
     successMessage.value = 'Background zip import queued. The worker will process it in the image queue.'
-    scheduleZipImportPoll(response.id)
+    upsertQueueProcess({ ...response, kind: 'zip_import', type: 'zip_import' })
+    await loadQueueProcesses()
   } catch (err) {
     zipForm.progress = 0
     zipFormError.value = err
@@ -1441,37 +1619,26 @@ const importZip = async () => {
   }
 }
 
-const clearZipImportPollTimer = () => {
-  if (!zipImportPollTimer) {
-    return
-  }
-
-  clearTimeout(zipImportPollTimer)
-  zipImportPollTimer = null
-}
-
-const scheduleZipImportPoll = (importId?: string) => {
-  clearZipImportPollTimer()
-
-  if (!importId) {
-    zipImporting.value = false
-    return
-  }
-
-  zipImportPollTimer = setTimeout(() => {
-    void pollZipImport(importId)
-  }, 2000)
-}
-
-const pollZipImport = async (importId: string) => {
+const refreshZipImportStatus = async (importId: string) => {
   try {
     const response = await api.apiFetch<ZipImportResponse>(`/admin/central/lottery-images/background-asset-sets/import-jobs/${encodeURIComponent(importId)}`, {
       scope: 'central',
     })
+    applyZipImportUpdate(response)
+  } catch (err) {
+    zipImporting.value = false
+    zipFormError.value = err
+  }
+}
+
+const applyZipImportUpdate = async (response: ZipImportResponse) => {
+  if (!response?.id) return
+
     zipResult.value = response
     zipForm.progress = response.progress_percent || (response.status === 'processing' ? 50 : 10)
+  upsertQueueProcess({ ...response, kind: 'zip_import', type: 'zip_import' })
 
-    if (response.status === 'completed') {
+    if (['completed', 'completed_with_errors'].includes(response.status)) {
       zipForm.progress = 100
       zipImporting.value = false
       zipForm.file = null
@@ -1481,21 +1648,47 @@ const pollZipImport = async (importId: string) => {
       return
     }
 
-    if (response.status === 'failed') {
+    if (['failed', 'cancelled'].includes(response.status)) {
       zipImporting.value = false
       zipForm.progress = response.progress_percent || 0
       zipFormError.value = {
-        message: response.error_message || 'Background zip import failed.',
+        message: response.error_message || (response.status === 'cancelled' ? 'Background zip import was cancelled.' : 'Background zip import failed.'),
         details: response.error_details,
       }
       return
     }
+}
 
-    scheduleZipImportPoll(importId)
+const loadQueueProcesses = async () => {
+  queueProcessesLoading.value = true
+  queueProcessesError.value = null
+
+  try {
+    const response: any = await api.apiFetch('/admin/central/queue-processes', {
+      scope: 'central',
+      query: { limit: 20 },
+    })
+    queueProcesses.value = Array.isArray(response?.data) ? response.data : []
   } catch (err) {
-    zipImporting.value = false
-    zipFormError.value = err
+    queueProcessesError.value = err
+  } finally {
+    queueProcessesLoading.value = false
   }
+}
+
+const upsertQueueProcess = (process: QueueProcess) => {
+  if (!process?.id) return
+  const next = { ...process }
+  const index = queueProcesses.value.findIndex((item) => item.kind === next.kind && item.id === next.id)
+  if (index >= 0) {
+    queueProcesses.value.splice(index, 1, { ...queueProcesses.value[index], ...next })
+  } else {
+    queueProcesses.value.unshift(next)
+  }
+  queueProcesses.value = queueProcesses.value
+    .slice()
+    .sort((a, b) => String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || '')))
+    .slice(0, 20)
 }
 
 const renderPreview = async () => {
@@ -1604,16 +1797,6 @@ const onZipFileChange = (event: Event) => {
   if (zipForm.error) {
     input.value = ''
   }
-}
-
-const fillZipForm = (set: BackgroundSet) => {
-  context.game_id = set.game_id
-  context.version = set.version
-  zipForm.game_id = set.game_id
-  zipForm.version = set.version
-  zipForm.set_type = set.set_type
-  zipForm.status = set.status || 'ready'
-  zipForm.supersede_existing = false
 }
 
 const applyAssetSetSort = (value: { key: string, direction: 'asc' | 'desc' }) => {
@@ -1738,7 +1921,6 @@ const resetContext = () => {
 }
 
 const resetZipForm = () => {
-  clearZipImportPollTimer()
   zipForm.game_id = context.game_id
   zipForm.version = context.version || 'v1'
   zipForm.set_type = 'odd'
@@ -1780,6 +1962,40 @@ const syncVersionToForms = (value: string, oldValue?: string) => {
 }
 
 const assetId = (set: BackgroundSet, slot: AssetSlot) => String(set.assets?.[slot]?.asset_id || set.assets?.[slot]?.id || '')
+const assetSetStorageKey = (set: BackgroundSet) => set.storage_driver || 'route_default'
+const hasMissingAsset = (set: BackgroundSet) => assetSlots.some((slot) => !assetId(set, slot.key))
+const matchesAssetSetFilters = (set: BackgroundSet) => {
+  const query = assetSetFilters.q.trim().toLowerCase()
+  const searchText = [
+    set.id,
+    set.game_id,
+    gameName(set.game_id),
+    set.version,
+    set.set_type,
+    set.status,
+    assetSetStorageKey(set),
+    ...assetSlots.map((slot) => assetId(set, slot.key)),
+  ].join(' ').toLowerCase()
+
+  if (query && !searchText.includes(query)) return false
+  if (assetSetFilters.version && set.version !== assetSetFilters.version) return false
+  if (assetSetFilters.set_type && set.set_type !== assetSetFilters.set_type) return false
+  if (assetSetFilters.status && set.status !== assetSetFilters.status) return false
+  if (assetSetFilters.storage_driver && assetSetStorageKey(set) !== assetSetFilters.storage_driver) return false
+  if (assetSetFilters.ready === 'ready' && !set.generation_ready) return false
+  if (assetSetFilters.ready === 'blocked' && set.generation_ready) return false
+  if (assetSetFilters.ready === 'missing' && !hasMissingAsset(set)) return false
+
+  return true
+}
+const resetAssetSetFilters = () => {
+  assetSetFilters.q = ''
+  assetSetFilters.version = ''
+  assetSetFilters.set_type = ''
+  assetSetFilters.status = ''
+  assetSetFilters.storage_driver = ''
+  assetSetFilters.ready = ''
+}
 
 const queryContext = () => ({
   game_id: context.game_id,
@@ -1858,6 +2074,36 @@ const partnerName = (partnerId?: string | null) => {
   return partner ? `${partner.name} (${partner.id})` : partnerId || '-'
 }
 const unknownGameLabel = (gameId: string) => `Unknown or archived game (${gameId})`
+const resolveDefaultGameOption = () => {
+  const candidates = games.value.filter((game) => game.id && game.status !== 'archived')
+  const now = Date.now()
+  const activeByTime = candidates.find((game) => {
+    const saleStart = timestampMs(game.sale_start_at)
+    const closeAt = timestampMs(game.close_at)
+    return saleStart !== null && closeAt !== null && saleStart <= now && now <= closeAt
+  })
+
+  if (activeByTime) return activeByTime
+
+  const currentStatuses = ['current', 'open', 'sale_open', 'selling', 'active', 'scheduled', 'pending_sale', 'closed', 'ready_for_result']
+  const activeByStatus = candidates.find((game) => currentStatuses.includes(String(game.status || '').toLowerCase()))
+
+  return activeByStatus || candidates[0] || null
+}
+const timestampMs = (value?: string | null) => {
+  if (!value) return null
+  const timestamp = Date.parse(value)
+  return Number.isFinite(timestamp) ? timestamp : null
+}
+const selectDefaultGameContext = () => {
+  const game = defaultGameOption.value
+  if (!game) return false
+
+  context.game_id = game.id
+  syncGameToForms(game.id)
+
+  return true
+}
 
 const normalizeGame = (game: any): GameOption => {
   const id = String(game?.id || game?.game_id || game?.uuid || game?.code || '')
@@ -1869,6 +2115,9 @@ const normalizeGame = (game: any): GameOption => {
     name,
     code: game?.code || null,
     status,
+    sale_start_at: game?.sale_start_at || null,
+    close_at: game?.close_at || null,
+    draw_at: game?.draw_at || null,
     label: `${name}${code}${status ? ` - ${titleize(status)}` : ''}`,
   }
 }
@@ -1894,6 +2143,9 @@ const extractItems = (response: any) => {
   if (Array.isArray(response)) return response
   return []
 }
+
+const uniqueSorted = (values: Array<string | null | undefined>) => [...new Set(values.filter((value): value is string => Boolean(value)))]
+  .sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }))
 
 const normalizeQueryValue = (value: any) => Array.isArray(value) ? String(value[0] || '') : String(value || '')
 
@@ -1928,6 +2180,23 @@ const storageDriverLabel = (driver?: string | null) => {
   if (driver === 'local') return 'Local'
   return 'Route default'
 }
+const queueProcessTitle = (process: QueueProcess) => {
+  if (process.kind === 'zip_import') {
+    return `Background zip import${process.set_type ? ` - ${titleize(process.set_type)}` : ''}`
+  }
+
+  if (process.kind === 'allocation') {
+    return `Stock allocation - ${titleize(process.type || 'job')}`
+  }
+
+  return titleize(process.type || process.kind || 'queue process')
+}
+const queueProgressClass = (process: QueueProcess) => {
+  if (process.status === 'failed') return 'bg-danger'
+  if (process.status === 'completed' || process.status === 'completed_with_errors') return 'bg-success'
+  if (process.status === 'cancelled') return 'bg-secondary'
+  return ''
+}
 const normalizedPercent = (value: any) => Math.max(0, Math.min(100, Number.isFinite(Number(value)) ? Number(value) : 0))
 
 const formatBytes = (bytes: number) => {
@@ -1948,9 +2217,11 @@ onMounted(async () => {
   previewForm.version = context.version
   retryForm.version = context.version
 
-  await Promise.all([loadGames(), loadPartners(), loadLayout()])
+  await Promise.all([loadGames(), loadPartners(), loadLayout(), loadQueueProcesses()])
 
   if (initialGameId) {
+    await loadAll()
+  } else if (selectDefaultGameContext()) {
     await loadAll()
   } else {
     await loadProductionReadiness()
