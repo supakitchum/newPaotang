@@ -1,18 +1,6 @@
 <template>
-  <article class="ticket-stub" :class="{ 'ticket-stub-winning': isWinning, 'ticket-stub-has-image': showRemoteImage }">
-    <div v-if="showRemoteImage" class="ticket-stub-image-main">
-      <img
-        :src="normalizedImageUrl"
-        :alt="imageAlt"
-        loading="lazy"
-        decoding="async"
-        @error="hasImageError = true"
-      >
-      <div v-if="status" class="ticket-stub-image-status">
-        <span class="ticket-status-text" :class="statusToneClass">{{ status }}</span>
-      </div>
-    </div>
-    <div v-else class="ticket-stub-main">
+  <article class="ticket-stub" :class="{ 'ticket-stub-winning': isWinning }">
+    <div class="ticket-stub-main">
       <div class="ticket-stub-mark">
         <span class="lottery-six">L6</span>
         <span class="ticket-stub-price">80<br>บาท</span>
@@ -47,7 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 
 const props = defineProps({
   number: {
@@ -81,39 +69,9 @@ const props = defineProps({
   claimTo: {
     type: String,
     default: ''
-  },
-  imageUrl: {
-    type: String,
-    default: ''
-  },
-  imageStatus: {
-    type: String,
-    default: ''
   }
 })
 
-const hasImageError = ref(false)
-
-const normalizedImageUrl = computed(() => {
-  const imageUrl = String(props.imageUrl || '').trim()
-
-  if (!imageUrl) {
-    return ''
-  }
-
-  if (/^https?:\/\//i.test(imageUrl) || imageUrl.startsWith('data:')) {
-    return imageUrl
-  }
-
-  return imageUrl.startsWith('/') ? imageUrl : `/${imageUrl.replace(/^\/+/, '')}`
-})
-const normalizedImageStatus = computed(() => String(props.imageStatus || '').toLowerCase())
-const showRemoteImage = computed(() => (
-  Boolean(normalizedImageUrl.value)
-  && !hasImageError.value
-  && !['pending_assets', 'missing'].includes(normalizedImageStatus.value)
-))
-const imageAlt = computed(() => `รูปสลากฯ เลข ${String(props.number || '').replace(/\D/g, '').padStart(6, '0').slice(-6)}`)
 const statusToneClass = computed(() => {
   const statusText = props.status.trim()
 
@@ -133,49 +91,9 @@ const formatPrizeAmount = (amount: unknown) => {
 
   return Number.isFinite(value) ? value.toLocaleString('th-TH') : '0'
 }
-
-watch(() => [props.imageUrl, props.imageStatus], () => {
-  hasImageError.value = false
-})
 </script>
 
 <style scoped>
-.ticket-stub-has-image {
-  min-height: 0;
-}
-
-.ticket-stub-image-main {
-  aspect-ratio: 500 / 280;
-  background: #f5f7fb;
-  min-height: 132px;
-  padding-right: 22px;
-  position: relative;
-}
-
-.ticket-stub-image-main img {
-  background: #f5f7fb;
-  display: block;
-  height: 100%;
-  object-fit: contain;
-  width: 100%;
-}
-
-.ticket-stub-image-status {
-  background: rgba(255, 255, 255, .86);
-  border: 1px solid rgba(211, 222, 239, .92);
-  border-radius: 999px;
-  box-shadow: 0 5px 12px rgba(20, 38, 72, .12);
-  padding: 4px 8px;
-  position: absolute;
-  right: 30px;
-  top: 8px;
-}
-
-.ticket-stub-image-status .ticket-status-text {
-  font-size: 12px;
-  line-height: 1;
-}
-
 .ticket-stub-prize-list {
   display: grid;
   gap: 2px;
