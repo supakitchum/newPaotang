@@ -72,6 +72,33 @@ export const useLineLiff = () => {
     window.open(url, '_blank', 'noopener')
   }
 
+  const redirectToLineLogin = async (url: string) => {
+    if (!url) return
+
+    if (!import.meta.client) {
+      await navigateTo(url, { external: true })
+      return
+    }
+
+    detectLineClient()
+    await initialize().catch(() => null)
+    detectLineClient()
+
+    const liff = (window as any).liff
+
+    if (isLiffClient.value && liff?.openWindow) {
+      try {
+        liff.openWindow({ url, external: false })
+        return
+      } catch {
+        window.location.assign(url)
+        return
+      }
+    }
+
+    window.location.assign(url)
+  }
+
   return {
     status,
     profile,
@@ -81,6 +108,7 @@ export const useLineLiff = () => {
     detectLineClient,
     initialize,
     openExternal,
+    redirectToLineLogin,
   }
 }
 

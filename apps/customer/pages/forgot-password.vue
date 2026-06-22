@@ -122,7 +122,7 @@ const startLineReset = async () => {
     const url = typeof response?.url === 'string' ? response.url : ''
 
     if (response.code === 0 && isSafeLineLoginUrl(url)) {
-      redirectToLineLogin(url)
+      await lineLiff.redirectToLineLogin(url)
       return
     }
 
@@ -145,23 +145,6 @@ const isSafeLineLoginUrl = (value: string) => {
   } catch {
     return false
   }
-}
-
-const redirectToLineLogin = (url: string) => {
-  if (!import.meta.client) {
-    void navigateTo(url, { external: true })
-    return
-  }
-
-  if (lineLiff.isLiffClient.value) {
-    const liff = (window as any).liff
-    if (liff?.openWindow) {
-      liff.openWindow({ url, external: true })
-      return
-    }
-  }
-
-  window.location.assign(url)
 }
 </script>
 
