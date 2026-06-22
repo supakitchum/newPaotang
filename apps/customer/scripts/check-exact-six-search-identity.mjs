@@ -17,7 +17,7 @@ const exactParams = buildLegacyStockSearchParams({
 assert.equal(exactParams.game_id, 'game-1')
 assert.equal(exactParams.number, '123456')
 assert.equal(exactParams.store_id, 'store-1')
-assert.equal(exactParams.mode, 'search')
+assert.equal(exactParams.mode, 'random')
 assert.equal(exactParams.limit, 50)
 for (const key of ['d1', 'd2', 'd3', 'd4', 'd5', 'd6']) {
   assert.equal(exactParams[key], undefined, `exact six search must not send ${key}`)
@@ -28,7 +28,7 @@ const partialParams = buildLegacyStockSearchParams({
 }, 'game-1')
 
 assert.equal(partialParams.number, undefined)
-assert.equal(partialParams.mode, 'search')
+assert.equal(partialParams.mode, 'random')
 assert.deepEqual(
   Object.fromEntries(Object.entries(partialParams).filter(([key]) => /^d\d$/.test(key))),
   { d1: '1', d3: '3', d5: '5' }
@@ -49,10 +49,11 @@ assert.equal(partialRows.length, 1)
 assert.equal(partialRows[0].id, 'copy-a')
 
 const searchPage = readFileSync(new URL('../pages/buy/search.vue', import.meta.url), 'utf8')
+const searchUtils = readFileSync(new URL('../utils/stockSearchIdentity.js', import.meta.url), 'utf8')
 
 assert.match(searchPage, /:show-more-link="!lastSearchWasExact"/)
 assert.match(searchPage, /lastSearchWasExact\.value = isExactResult/)
-assert.match(searchPage, /mode: 'random'/)
 assert.match(searchPage, /randomSeed/)
+assert.match(searchUtils, /mode: 'random'/)
 
 console.log('PASS exact six stock search params, duplicate row identity, more-link visibility, and random search mode checks')

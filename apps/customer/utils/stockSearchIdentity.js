@@ -36,15 +36,12 @@ export const buildLegacyStockSearchParams = (input = {}, gameId = '') => {
 
         return params
       }, {})
-  const hasSearchSignal = Boolean(number) || Object.keys(digitParams).length > 0
-  const mode = input.mode || (hasSearchSignal ? 'search' : (input.storeId ? 'browse' : 'random'))
-
   return {
     game_id: gameId,
     ...(number ? { number } : {}),
     ...digitParams,
     ...(input.storeId ? { store_id: input.storeId } : {}),
-    mode,
+    mode: 'random',
     ...(input.cursor ? { cursor: input.cursor } : {}),
     ...(input.randomSeed ? { random_seed: input.randomSeed } : {}),
     limit: input.limit || 20

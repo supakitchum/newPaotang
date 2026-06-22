@@ -28,7 +28,6 @@ class VirtualStockService
 {
     private const MAX_BP = 10000;
     private const UNLIMITED = 2147483647;
-    private const SEARCH_SHUFFLE_BLOCK_SIZE = 2048;
     private const SEARCH_SHUFFLE_SEQUENCE_LIMIT = 50001;
     private const STOCK_PATTERN_COVERAGE_SETTING_KEY = 'stock_pattern_coverage_default';
     private const ACTIVE_ALLOCATION_PAIR_STATUSES = ['pending', 'processing', 'allocated', 'partially_allocated'];
@@ -600,7 +599,7 @@ class VirtualStockService
         }
 
         $number = preg_replace('/\D+/', '', trim((string) ($queryParams['number'] ?? ''))) ?? '';
-        $mode = (string) ($queryParams['mode'] ?? 'search');
+        $mode = $this->publicSearchMode($queryParams, $number);
 
         if ($mode !== 'random') {
             return $this->searchLocalStockCopyAware($tenantId, $partnerId, $gameId, $profile, $queryParams, $number, $mode, $limit);
@@ -648,7 +647,7 @@ class VirtualStockService
 
                 $rows[] = $resource;
 
-                if (count($rows) >= $limit + 1) {
+                if (count($rows) + count($deferredRandomRows) >= $limit) {
                     break 2;
                 }
             }
@@ -658,12 +657,23 @@ class VirtualStockService
             }
         }
 
-        $hasMore = count($rows) > $limit;
+        $hasMore = false;
         if ($mode === 'random') {
-            $hasMore = $hasMore || $deferredRandomRows !== [];
             $rows = $this->interleaveAdjacentFullNumbers([...$rows, ...$deferredRandomRows]);
         }
         $rows = array_slice($rows, 0, $limit);
+        $hasMore = count($rows) >= $limit && $this->hasMoreSearchCandidates(
+            $tenantId,
+            $partnerId,
+            $gameId,
+            $profile,
+            $queryParams,
+            $number,
+            $mode,
+            $offset,
+            $trackedQuotaKeys,
+            $quotaUsage,
+        );
 
         return [
             'data' => $rows,
@@ -677,6 +687,45 @@ class VirtualStockService
                 'has_more' => $hasMore,
             ],
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $profile
+     * @param array<string, true> $trackedQuotaKeys
+     * @param array<string, int> $quotaUsage
+     */
+    private function hasMoreSearchCandidates(
+        string $tenantId,
+        string $partnerId,
+        string $gameId,
+        array $profile,
+        array $queryParams,
+        string $number,
+        string $mode,
+        int $offset,
+        array $trackedQuotaKeys,
+        array $quotaUsage,
+    ): bool {
+        $visited = 0;
+
+        foreach ($this->candidateNumbers($queryParams, $number, $mode, $offset) as $candidate) {
+            $visited++;
+            $availability = $this->availabilityForNumber($tenantId, $partnerId, $gameId, $candidate, $profile);
+
+            if ($this->searchQuotaDepleted($availability, $trackedQuotaKeys, $quotaUsage)) {
+                return false;
+            }
+
+            if ($availability['remaining_count'] > 0) {
+                return true;
+            }
+
+            if ($visited > 50000) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1210,7 +1259,12 @@ class VirtualStockService
 
         if ($mode === 'random') {
             $randomSeed = trim((string) ($queryParams['random_seed'] ?? $queryParams['game_id'] ?? 'virtual-stock'));
-            yield from $this->seededShuffledCandidates($query, 'public-stock-random:'.$randomSeed, max(0, $cursor));
+            yield from $this->seededShuffledCandidates(
+                $query,
+                'public-stock-random:'.$randomSeed,
+                max(0, $cursor),
+                $this->candidateNumberMask($queryParams, $number, $positionalPattern),
+            );
 
             return;
         }
@@ -1220,7 +1274,12 @@ class VirtualStockService
             && $this->shouldShuffleSearchCandidates($queryParams, $number, $positionalPattern)
         ) {
             $seed = $this->searchCandidateShuffleSeed($queryParams, $number, $positionalPattern);
-            yield from $this->seededShuffledCandidates($query, $seed, max(0, $cursor));
+            yield from $this->seededShuffledCandidates(
+                $query,
+                $seed,
+                max(0, $cursor),
+                $this->candidateNumberMask($queryParams, $number, $positionalPattern),
+            );
 
             return;
         }
@@ -1236,7 +1295,28 @@ class VirtualStockService
         }
     }
 
-    private function seededShuffledCandidates(mixed $query, string $seed, int $cursor): \Generator
+    private function publicSearchMode(array $queryParams, string $number): string
+    {
+        return strlen($number) >= 6 && ! $this->hasPositionalDigitSearch($queryParams)
+            ? 'search'
+            : 'random';
+    }
+
+    private function hasPositionalDigitSearch(array $queryParams): bool
+    {
+        foreach (range(1, 6) as $position) {
+            if (trim((string) ($queryParams['d'.$position] ?? '')) !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<int, string|null>|null $mask
+     */
+    private function seededShuffledCandidates(mixed $query, string $seed, int $cursor, ?array $mask = null): \Generator
     {
         $total = (int) (clone $query)->count();
         $sequenceLimit = min(self::SEARCH_SHUFFLE_SEQUENCE_LIMIT, $total);
@@ -1245,55 +1325,185 @@ class VirtualStockService
             return;
         }
 
+        if ($total <= self::SEARCH_SHUFFLE_SEQUENCE_LIMIT) {
+            $numbers = (clone $query)
+                ->orderBy('full_number')
+                ->pluck('full_number')
+                ->map(fn (mixed $value): string => (string) $value)
+                ->all();
+
+            $this->sortCandidatesBySeed($numbers, $seed);
+
+            foreach (array_slice($numbers, max(0, $cursor), self::SEARCH_SHUFFLE_SEQUENCE_LIMIT) as $fullNumber) {
+                yield $fullNumber;
+            }
+
+            return;
+        }
+
+        if ($mask !== null) {
+            yield from $this->seededMaskedCandidateNumbers($mask, $seed, $cursor, $sequenceLimit);
+
+            return;
+        }
+
         $seedOffset = $this->hashScore($seed) % max(1, $total);
         $position = max(0, $cursor);
 
         while ($position < $sequenceLimit) {
-            $blockIndex = intdiv($position, self::SEARCH_SHUFFLE_BLOCK_SIZE);
-            $offsetInBlock = $position % self::SEARCH_SHUFFLE_BLOCK_SIZE;
-            $blockStart = $blockIndex * self::SEARCH_SHUFFLE_BLOCK_SIZE;
-            $blockSize = min(self::SEARCH_SHUFFLE_BLOCK_SIZE, $sequenceLimit - $blockStart);
-            $orderedOffset = ($seedOffset + $blockStart) % $total;
-            $numbers = $this->fetchCandidateBlock($query, $orderedOffset, $blockSize, $total);
+            $orderedOffset = ($seedOffset + ($position * $this->permutationStep($seed, $total))) % $total;
+            $row = (clone $query)->orderBy('full_number')->offset($orderedOffset)->limit(1)->first();
 
-            $this->sortCandidatesBySeed($numbers, $seed.':block:'.$blockIndex);
-
-            foreach (array_slice($numbers, $offsetInBlock) as $fullNumber) {
-                yield $fullNumber;
+            if ($row !== null) {
+                yield (string) $row->full_number;
             }
 
-            $position = ($blockIndex + 1) * self::SEARCH_SHUFFLE_BLOCK_SIZE;
+            $position++;
         }
     }
 
     /**
-     * @return array<int, string>
+     * @param array<int, string|null> $mask
      */
-    private function fetchCandidateBlock(mixed $query, int $offset, int $limit, int $total): array
+    private function seededMaskedCandidateNumbers(array $mask, string $seed, int $cursor, int $sequenceLimit): \Generator
     {
-        $firstTake = min($limit, $total - $offset);
-        $numbers = (clone $query)
-            ->orderBy('full_number')
-            ->offset($offset)
-            ->limit($firstTake)
-            ->pluck('full_number')
-            ->map(fn (mixed $value): string => (string) $value)
-            ->all();
+        $unknownPositions = array_values(array_filter(
+            array_keys($mask),
+            fn (int $position): bool => $mask[$position] === null,
+        ));
+        $domain = $this->pow10(count($unknownPositions));
 
-        if ($limit > $firstTake) {
-            $numbers = [
-                ...$numbers,
-                ...(clone $query)
-                    ->orderBy('full_number')
-                    ->offset(0)
-                    ->limit($limit - $firstTake)
-                    ->pluck('full_number')
-                    ->map(fn (mixed $value): string => (string) $value)
-                    ->all(),
-            ];
+        if ($domain < 1 || $cursor >= $domain) {
+            return;
         }
 
-        return $numbers;
+        $start = $this->hashScore($seed.':start') % $domain;
+        $step = $this->permutationStep($seed.':step', $domain);
+        $position = max(0, $cursor);
+        $maxPosition = min($sequenceLimit, $domain);
+        $batchSize = 512;
+
+        while ($position < $maxPosition) {
+            $candidates = [];
+
+            while (count($candidates) < $batchSize && $position < $maxPosition) {
+                $index = ($start + ($position * $step)) % $domain;
+                $candidates[] = $this->numberFromMask($mask, $unknownPositions, $index);
+                $position++;
+            }
+
+            $existing = DB::table('base_lottery_numbers')
+                ->whereIn('full_number', $candidates)
+                ->pluck('full_number')
+                ->mapWithKeys(fn (mixed $value): array => [(string) $value => true])
+                ->all();
+
+            foreach ($candidates as $candidate) {
+                if (isset($existing[$candidate])) {
+                    yield $candidate;
+                }
+            }
+        }
+    }
+
+    /**
+     * @return array<int, string|null>|null
+     */
+    private function candidateNumberMask(array $queryParams, string $number, ?string $positionalPattern): ?array
+    {
+        $mask = array_fill(0, 6, null);
+        $applyDigit = function (int $position, string $digit) use (&$mask): bool {
+            if ($mask[$position] !== null && $mask[$position] !== $digit) {
+                return false;
+            }
+
+            $mask[$position] = $digit;
+
+            return true;
+        };
+
+        if ($positionalPattern !== null) {
+            foreach (str_split($positionalPattern) as $index => $digit) {
+                if ($digit !== '_' && ! $applyDigit($index, $digit)) {
+                    return null;
+                }
+            }
+        }
+
+        foreach ([['front3', 0], ['back3', 3], ['back2', 4]] as [$field, $offset]) {
+            $value = preg_replace('/\D+/', '', (string) ($queryParams[$field] ?? '')) ?? '';
+            $length = $field === 'back2' ? 2 : 3;
+
+            if ($value === '') {
+                continue;
+            }
+
+            foreach (str_split(substr($value, 0, $length)) as $index => $digit) {
+                if (! $applyDigit($offset + $index, $digit)) {
+                    return null;
+                }
+            }
+        }
+
+        if ($number !== '') {
+            foreach (str_split($number) as $index => $digit) {
+                $position = 6 - strlen($number) + $index;
+
+                if ($position >= 0 && ! $applyDigit($position, $digit)) {
+                    return null;
+                }
+            }
+        }
+
+        return $mask;
+    }
+
+    /**
+     * @param array<int, string|null> $mask
+     * @param array<int, int> $unknownPositions
+     */
+    private function numberFromMask(array $mask, array $unknownPositions, int $index): string
+    {
+        $digits = str_split(str_pad((string) $index, count($unknownPositions), '0', STR_PAD_LEFT));
+
+        foreach ($unknownPositions as $digitIndex => $position) {
+            $mask[$position] = $digits[$digitIndex] ?? '0';
+        }
+
+        return implode('', $mask);
+    }
+
+    private function pow10(int $power): int
+    {
+        return (int) (10 ** max(0, $power));
+    }
+
+    private function permutationStep(string $seed, int $domain): int
+    {
+        if ($domain <= 1) {
+            return 1;
+        }
+
+        $step = ($this->hashScore($seed) % ($domain - 1)) + 1;
+
+        while ($this->greatestCommonDivisor($step, $domain) !== 1) {
+            $step++;
+
+            if ($step >= $domain) {
+                $step = 1;
+            }
+        }
+
+        return $step;
+    }
+
+    private function greatestCommonDivisor(int $left, int $right): int
+    {
+        while ($right !== 0) {
+            [$left, $right] = [$right, $left % $right];
+        }
+
+        return abs($left);
     }
 
     private function shouldShuffleSearchCandidates(array $queryParams, string $number, ?string $positionalPattern): bool

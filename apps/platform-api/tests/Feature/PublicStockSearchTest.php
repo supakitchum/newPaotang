@@ -635,14 +635,27 @@ class PublicStockSearchTest extends TestCase
             ->assertOk()
             ->assertJsonCount(10, 'data')
             ->json('data');
+        $forcedSorted = $this->getJson('http://random-seed.newpaotang.test/api/v1/public/stock/search?'.http_build_query([
+            'game_id' => 'gam_random_seed',
+            'mode' => 'search',
+            'sort_by' => 'full_number',
+            'sort_dir' => 'asc',
+            'random_seed' => 'seed-a',
+            'limit' => 10,
+        ]))
+            ->assertOk()
+            ->assertJsonCount(10, 'data')
+            ->json('data');
 
         $firstNumbers = array_values(array_map(fn (array $row): string => (string) $row['full_number'], $first));
         $repeatNumbers = array_values(array_map(fn (array $row): string => (string) $row['full_number'], $repeat));
         $secondNumbers = array_values(array_map(fn (array $row): string => (string) $row['full_number'], $second));
+        $forcedSortedNumbers = array_values(array_map(fn (array $row): string => (string) $row['full_number'], $forcedSorted));
 
         $this->assertSame($firstNumbers, $repeatNumbers);
         $this->assertNotSame(['100001', '100002', '100003', '100004', '100005', '100006', '100007', '100008', '100009', '100010'], $firstNumbers);
         $this->assertNotSame($firstNumbers, $secondNumbers);
+        $this->assertSame($firstNumbers, $forcedSortedNumbers);
     }
 
     public function test_PublicStockSearch_partial_virtual_search_uses_seeded_shuffle_order(): void
