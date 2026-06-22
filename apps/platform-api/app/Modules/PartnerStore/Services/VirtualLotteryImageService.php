@@ -14,6 +14,16 @@ class VirtualLotteryImageService
     private const TOKEN_VERSION = 1;
     private const VARIANTS = ['thumb', 'full'];
 
+    /**
+     * @var array<string, array{url: ?string, status: string, error: ?string}>
+     */
+    private array $previewDescriptorCache = [];
+
+    /**
+     * @var array<string, PartnerLotteryBrandingAssetSet|null>
+     */
+    private array $activePartnerAssetSetCache = [];
+
     public function __construct(
         private readonly LotteryImageGenerator $images,
         private readonly RuntimeStorageService $storage,
@@ -26,21 +36,27 @@ class VirtualLotteryImageService
      */
     public function previewDescriptor(string $tenantId, string $partnerId, string $gameId, string $fullNumber, int $copyIndex, string $variant = 'thumb'): array
     {
+        $cacheKey = implode('|', [$tenantId, $partnerId, $gameId, $fullNumber, $copyIndex, $variant]);
+
+        if (array_key_exists($cacheKey, $this->previewDescriptorCache)) {
+            return $this->previewDescriptorCache[$cacheKey];
+        }
+
         if (! $this->images->enabled()) {
-            return ['url' => null, 'status' => 'skipped', 'error' => 'lottery_image_generation_disabled'];
+            return $this->previewDescriptorCache[$cacheKey] = ['url' => null, 'status' => 'skipped', 'error' => 'lottery_image_generation_disabled'];
         }
 
         if (! in_array($variant, self::VARIANTS, true)) {
-            return ['url' => null, 'status' => 'failed', 'error' => 'lottery_image_variant_unknown:'.$variant];
+            return $this->previewDescriptorCache[$cacheKey] = ['url' => null, 'status' => 'failed', 'error' => 'lottery_image_variant_unknown:'.$variant];
         }
 
         $context = $this->renderContext($tenantId, $partnerId, $gameId, $fullNumber, $copyIndex);
 
         if (($context['error'] ?? null) !== null) {
-            return ['url' => null, 'status' => 'pending_assets', 'error' => (string) $context['error']];
+            return $this->previewDescriptorCache[$cacheKey] = ['url' => null, 'status' => 'pending_assets', 'error' => (string) $context['error']];
         }
 
-        return [
+        return $this->previewDescriptorCache[$cacheKey] = [
             'url' => $this->publicRouteUrl($this->signedToken($this->imagePayload($context, 'preview', $variant))),
             'status' => 'ready',
             'error' => null,
@@ -193,7 +209,7 @@ class VirtualLotteryImageService
         }
 
         $assetSet = $assetSetId === ''
-            ? $this->images->activePartnerAssetSet($partnerId)
+            ? $this->activePartnerAssetSet($partnerId)
             : PartnerLotteryBrandingAssetSet::query()->whereKey($assetSetId)->where('partner_id', $partnerId)->first();
 
         if ($assetSet === null) {
@@ -213,6 +229,15 @@ class VirtualLotteryImageService
             'brand_hash' => $this->assetSetHash($assetSet),
             'background_hash' => substr(hash('sha256', json_encode($assignment, JSON_THROW_ON_ERROR)), 0, 16),
         ];
+    }
+
+    private function activePartnerAssetSet(string $partnerId): ?PartnerLotteryBrandingAssetSet
+    {
+        if (! array_key_exists($partnerId, $this->activePartnerAssetSetCache)) {
+            $this->activePartnerAssetSetCache[$partnerId] = $this->images->activePartnerAssetSet($partnerId);
+        }
+
+        return $this->activePartnerAssetSetCache[$partnerId];
     }
 
     /**

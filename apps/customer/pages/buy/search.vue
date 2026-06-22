@@ -213,7 +213,6 @@ const search = async () => {
     const response = await platformApi.searchStockLegacy({
       digits,
       storeId: storeId.value || undefined,
-      mode: 'random',
       randomSeed
     })
 
@@ -243,7 +242,6 @@ const loadNextPage = async () => {
     const response = await platformApi.searchStockLegacy({
       digits,
       storeId: storeId.value || undefined,
-      mode: 'random',
       randomSeed,
       cursor: pagination.value?.seed || null,
       page: currentPage.value + 1

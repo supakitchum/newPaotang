@@ -14,12 +14,12 @@
     <AdminAlert v-if="successMessage" type="success" :message="successMessage" dismissible @dismiss="successMessage = ''" />
 
     <div class="card custom-card">
-      <div class="card-header align-items-center gap-3">
-        <div>
+      <div class="card-header np-password-card-header">
+        <div class="np-password-card-title">
           <div class="card-title mb-1">Customer Password Reset Queue</div>
           <div class="text-muted fs-12">Customers submit requests here. Issue a one-time link and send it back to the customer.</div>
         </div>
-        <div class="ms-auto d-flex flex-wrap gap-2">
+        <div class="np-password-filter-bar">
           <input
             v-model.trim="filters.q"
             class="form-control form-control-sm np-password-filter"
@@ -126,6 +126,10 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({
+  layout: 'admin',
+})
+
 type ResetRequestRow = Record<string, any>
 
 const api = useAdminApi()
@@ -316,8 +320,27 @@ const formatDateTime = (value: unknown) => {
 </script>
 
 <style scoped>
+.np-password-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.np-password-card-title {
+  min-width: 0;
+}
+
+.np-password-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
 .np-password-filter {
-  min-width: 190px;
+  width: min(220px, 100%);
 }
 
 .np-reset-link-modal {
@@ -330,8 +353,18 @@ const formatDateTime = (value: unknown) => {
 }
 
 @media (max-width: 575.98px) {
+  .np-password-card-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .np-password-filter-bar {
+    margin-left: 0;
+    justify-content: stretch;
+  }
+
   .np-password-filter {
-    min-width: 100%;
+    width: 100%;
   }
 }
 </style>

@@ -327,6 +327,8 @@ class LotteryImageOperationsTest extends TestCase
             ->assertJsonPath('region_present', true)
             ->assertJsonPath('endpoint_present', true)
             ->assertJsonPath('cdn_base_url_present', true)
+            ->assertJsonPath('local_fallback_enabled', false)
+            ->assertJsonPath('s3_local_fallback_disabled', true)
             ->assertJsonPath('queue_configured', true)
             ->assertJsonPath('runtime_webp_ready', true)
             ->assertJsonPath('secrets_redacted', true)
@@ -348,6 +350,45 @@ class LotteryImageOperationsTest extends TestCase
         ] as $secretOrConfigValue) {
             $this->assertStringNotContainsString($secretOrConfigValue, $body);
         }
+    }
+
+    public function test_RuntimeStorageService_skips_local_fallback_for_s3_lottery_image_routes(): void
+    {
+        $blockedRoot = storage_path('framework/testing/lottery-local-root-blocked-'.Str::lower(Str::random(8)));
+        file_put_contents($blockedRoot, 'not-a-directory');
+
+        config([
+            'lottery_images.disk' => 'blocked_lottery_images',
+            'filesystems.disks.blocked_lottery_images' => [
+                'driver' => 'local',
+                'root' => $blockedRoot,
+            ],
+        ]);
+        Storage::forgetDisk('blocked_lottery_images');
+
+        DB::table('platform_storage_routes')->updateOrInsert(
+            ['route_key' => RuntimeStorageService::ROUTE_LOTTERY_IMAGES],
+            [
+                'label' => 'Lottery images',
+                'description' => 'Generated lottery ticket images and stock preview assets.',
+                'driver' => RuntimeStorageService::DRIVER_AWS_S3,
+                'root_prefix' => '',
+                'tenant_scoped' => true,
+                'sort_order' => 10,
+                'metadata_json' => json_encode(['path_hint' => 'lotteries/{game}/{batch}/partners/{partner}'], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        /** @var RuntimeStorageService $storage */
+        $storage = $this->app->make(RuntimeStorageService::class);
+
+        $this->assertFalse($storage->exists(RuntimeStorageService::ROUTE_LOTTERY_IMAGES, 'lotteries/missing/thumb.webp'));
+        $this->assertFalse($storage->existsUsingDriver(RuntimeStorageService::ROUTE_LOTTERY_IMAGES, 'lotteries/missing/thumb.webp', RuntimeStorageService::DRIVER_AWS_S3));
+        $this->assertNull($storage->get(RuntimeStorageService::ROUTE_LOTTERY_IMAGES, 'lotteries/missing/thumb.webp'));
+        $this->assertNull($storage->mimeType(RuntimeStorageService::ROUTE_LOTTERY_IMAGES, 'lotteries/missing/thumb.webp'));
+        $this->assertNull($storage->readStreamUsingDriver(RuntimeStorageService::ROUTE_LOTTERY_IMAGES, 'lotteries/missing/thumb.webp', RuntimeStorageService::DRIVER_AWS_S3));
     }
 
     public function test_LotteryImageOps_object_keys_cdn_urls_and_cache_contract_are_stable(): void

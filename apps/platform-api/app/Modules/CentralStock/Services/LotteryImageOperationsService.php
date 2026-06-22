@@ -1336,6 +1336,8 @@ class LotteryImageOperationsService
             'region_present' => $regionPresent,
             'endpoint_present' => $endpointPresent,
             'cdn_base_url_present' => $cdnPresent,
+            'local_fallback_enabled' => (bool) ($storage['local_fallback_enabled'] ?? true),
+            's3_local_fallback_disabled' => $storage['s3_local_fallback_disabled'] ?? null,
             'queue_configured' => $queues['queue_configured'],
             'runtime_webp_ready' => $runtimeReady,
             'secrets_redacted' => (bool) ($storage['secrets_redacted'] ?? true),

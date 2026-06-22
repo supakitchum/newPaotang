@@ -783,6 +783,7 @@ const stockGenerationHasActiveBatch = ref(false)
 const allocationQueueProcesses = ref<AllocationQueueProcess[]>([])
 const allocationQueueLoading = ref(false)
 const allocationQueueError = ref<any>(null)
+const allocationQueueLastGameId = ref('')
 const sortState = reactive<{ key: string, direction: 'asc' | 'desc' }>({ key: '', direction: 'asc' })
 const meta = reactive({ next_cursor: null as string | null, has_more: false })
 const listMeta = ref<Record<string, any>>({})
@@ -1784,6 +1785,14 @@ const loadAllocationQueueProcesses = async (options: { silent?: boolean } = {}) 
     return
   }
 
+  const requestedGameId = allocationQueueGameId.value
+    || allocationQueueLastGameId.value
+    || String(allocationQueueProcesses.value.find((process) => !isBlank(process.game_id))?.game_id || '').trim()
+
+  if (requestedGameId) {
+    allocationQueueLastGameId.value = requestedGameId
+  }
+
   if (!options.silent) {
     allocationQueueLoading.value = true
   }
@@ -1792,9 +1801,9 @@ const loadAllocationQueueProcesses = async (options: { silent?: boolean } = {}) 
   try {
     const response: any = await api.apiFetch('/admin/central/queue-processes', {
       scope: 'central',
-      query: compactQuery({
+      query: cleanQuery({
         type: 'allocation',
-        game_id: allocationQueueGameId.value,
+        game_id: requestedGameId,
         limit: 20,
       }),
     })
@@ -1813,9 +1822,13 @@ const upsertAllocationQueueProcess = (process: AllocationQueueProcess) => {
   }
 
   const gameId = String(process.game_id || '').trim()
-  if (allocationQueueGameId.value && gameId && gameId !== allocationQueueGameId.value) {
+  const selectedGameId = allocationQueueGameId.value || allocationQueueLastGameId.value
+  if (selectedGameId && gameId && gameId !== selectedGameId) {
     allocationQueueProcesses.value = allocationQueueProcesses.value.filter((item) => item.id !== process.id)
     return
+  }
+  if (gameId) {
+    allocationQueueLastGameId.value = gameId
   }
 
   const next = { ...process, kind: process.kind || 'allocation' }

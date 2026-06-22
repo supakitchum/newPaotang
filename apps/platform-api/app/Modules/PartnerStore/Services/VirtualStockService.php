@@ -31,6 +31,13 @@ class VirtualStockService
     private const STOCK_PATTERN_COVERAGE_SETTING_KEY = 'stock_pattern_coverage_default';
     private const ACTIVE_ALLOCATION_PAIR_STATUSES = ['pending', 'processing', 'allocated', 'partially_allocated'];
 
+    private bool $searchCacheActive = false;
+
+    /**
+     * @var array<string, array<string, mixed>>
+     */
+    private array $searchCache = [];
+
     public function __construct(
         private readonly StockCoverageRealtimeService $coverageRealtime,
         private readonly AuditLogger $auditLogger,
@@ -561,6 +568,24 @@ class VirtualStockService
      */
     public function searchLocalStock(string $tenantId, string $partnerId, array $queryParams, int $limit): ?array
     {
+        $previousCacheActive = $this->searchCacheActive;
+        $previousSearchCache = $this->searchCache;
+        $this->searchCacheActive = true;
+        $this->searchCache = [];
+
+        try {
+            return $this->searchLocalStockWithCache($tenantId, $partnerId, $queryParams, $limit);
+        } finally {
+            $this->searchCacheActive = $previousCacheActive;
+            $this->searchCache = $previousSearchCache;
+        }
+    }
+
+    /**
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, mixed>}|null
+     */
+    private function searchLocalStockWithCache(string $tenantId, string $partnerId, array $queryParams, int $limit): ?array
+    {
         $gameId = trim((string) ($queryParams['game_id'] ?? ''));
         $profile = $this->activeProfile($gameId);
 
@@ -1054,6 +1079,23 @@ class VirtualStockService
         return false;
     }
 
+    private function cachedSearchValue(string $bucket, string $key, callable $resolver): mixed
+    {
+        if (! $this->searchCacheActive) {
+            return $resolver();
+        }
+
+        if (! array_key_exists($bucket, $this->searchCache)) {
+            $this->searchCache[$bucket] = [];
+        }
+
+        if (! array_key_exists($key, $this->searchCache[$bucket])) {
+            $this->searchCache[$bucket][$key] = $resolver();
+        }
+
+        return $this->searchCache[$bucket][$key];
+    }
+
     /**
      * @return array<string, mixed>|null
      */
@@ -1063,24 +1105,26 @@ class VirtualStockService
             return null;
         }
 
-        $profile = DB::table('stock_supply_profiles')
-            ->where('game_id', $gameId)
-            ->where('status', 'active')
-            ->first();
+        return $this->cachedSearchValue('active_profile', $gameId, function () use ($gameId): ?array {
+            $profile = DB::table('stock_supply_profiles')
+                ->where('game_id', $gameId)
+                ->where('status', 'active')
+                ->first();
 
-        if ($profile === null) {
-            return null;
-        }
+            if ($profile === null) {
+                return null;
+            }
 
-        return [
-            'id' => (string) $profile->id,
-            'game_id' => (string) $profile->game_id,
-            'seed' => (string) $profile->seed,
-            'set_distribution' => $this->decodeJsonArray($profile->set_distribution_json),
-            'base_count' => (int) $profile->base_count,
-            'total_capacity' => (int) $profile->total_capacity,
-            'layers' => $this->activeLayersForProfile($profile),
-        ];
+            return [
+                'id' => (string) $profile->id,
+                'game_id' => (string) $profile->game_id,
+                'seed' => (string) $profile->seed,
+                'set_distribution' => $this->decodeJsonArray($profile->set_distribution_json),
+                'base_count' => (int) $profile->base_count,
+                'total_capacity' => (int) $profile->total_capacity,
+                'layers' => $this->activeLayersForProfile($profile),
+            ];
+        });
     }
 
     /**
@@ -1164,7 +1208,29 @@ class VirtualStockService
 
         if ($mode === 'random') {
             $randomSeed = trim((string) ($queryParams['random_seed'] ?? $queryParams['game_id'] ?? 'virtual-stock'));
-            $query->orderByRaw('md5(full_number || ?)', [$randomSeed]);
+            $total = (int) (clone $query)->count();
+            $cursor = max(0, $cursor);
+
+            if ($total < 1 || $cursor >= $total) {
+                return;
+            }
+
+            $take = min(50001, $total - $cursor);
+            $seedOffset = $this->hashScore('public-stock-search:'.$randomSeed) % max(1, $total);
+            $offset = ($seedOffset + $cursor) % $total;
+            $firstTake = min($take, $total - $offset);
+
+            foreach ((clone $query)->orderBy('full_number')->offset($offset)->limit($firstTake)->get() as $row) {
+                yield (string) $row->full_number;
+            }
+
+            if ($take > $firstTake) {
+                foreach ((clone $query)->orderBy('full_number')->offset(0)->limit($take - $firstTake)->get() as $row) {
+                    yield (string) $row->full_number;
+                }
+            }
+
+            return;
         } elseif (($queryParams['sort_by'] ?? null) === 'full_number' && strtolower((string) ($queryParams['sort_dir'] ?? 'asc')) === 'desc') {
             $query->orderByDesc('full_number');
         } else {
@@ -1483,15 +1549,19 @@ class VirtualStockService
 
     private function counterUsed(string $gameId, string $scopeType, string $scopeId, string $dimension, string $value): int
     {
-        $row = DB::table('virtual_stock_counters')
-            ->where('game_id', $gameId)
-            ->where('scope_type', $scopeType)
-            ->where('scope_id', $scopeId)
-            ->where('dimension', $dimension)
-            ->where('value', $value)
-            ->first();
+        $key = implode('|', [$gameId, $scopeType, $scopeId, $dimension, $value]);
 
-        return $row === null ? 0 : (int) $row->reserved_count + (int) $row->sold_count;
+        return (int) $this->cachedSearchValue('counter_used', $key, function () use ($gameId, $scopeType, $scopeId, $dimension, $value): int {
+            $row = DB::table('virtual_stock_counters')
+                ->where('game_id', $gameId)
+                ->where('scope_type', $scopeType)
+                ->where('scope_id', $scopeId)
+                ->where('dimension', $dimension)
+                ->where('value', $value)
+                ->first();
+
+            return $row === null ? 0 : (int) $row->reserved_count + (int) $row->sold_count;
+        });
     }
 
     /**
@@ -1637,15 +1707,19 @@ class VirtualStockService
 
     private function effectiveLimit(string $gameId, string $scopeType, string $scopeId, string $dimension, string $value, int $defaultLimit): int
     {
-        $override = DB::table('stock_sale_limit_overrides')
-            ->where('game_id', $gameId)
-            ->where('scope_type', $scopeType)
-            ->where('scope_id', $scopeId)
-            ->where('dimension', $dimension)
-            ->where('value', $value)
-            ->value('limit');
+        $key = implode('|', [$gameId, $scopeType, $scopeId, $dimension, $value, $defaultLimit]);
 
-        return $override === null ? $defaultLimit : (int) $override;
+        return (int) $this->cachedSearchValue('effective_limit', $key, function () use ($gameId, $scopeType, $scopeId, $dimension, $value, $defaultLimit): int {
+            $override = DB::table('stock_sale_limit_overrides')
+                ->where('game_id', $gameId)
+                ->where('scope_type', $scopeType)
+                ->where('scope_id', $scopeId)
+                ->where('dimension', $dimension)
+                ->where('value', $value)
+                ->value('limit');
+
+            return $override === null ? $defaultLimit : (int) $override;
+        });
     }
 
     /**
@@ -1653,18 +1727,22 @@ class VirtualStockService
      */
     private function limitSettings(string $gameId, string $scopeType, string $scopeId): array
     {
-        $fallback = $this->stockPatternCoverageDefaults()[$scopeType === 'partner' ? 'partner' : 'central'];
-        $row = DB::table('stock_sale_limit_settings')
-            ->where('game_id', $gameId)
-            ->where('scope_type', $scopeType)
-            ->where('scope_id', $scopeId)
-            ->first();
+        $key = implode('|', [$gameId, $scopeType, $scopeId]);
 
-        return [
-            'back2_limit' => $row?->back2_limit === null ? $fallback['back2_limit'] : (int) $row->back2_limit,
-            'back3_limit' => $row?->back3_limit === null ? $fallback['back3_limit'] : (int) $row->back3_limit,
-            'front3_limit' => $row?->front3_limit === null ? $fallback['front3_limit'] : (int) $row->front3_limit,
-        ];
+        return $this->cachedSearchValue('limit_settings', $key, function () use ($gameId, $scopeType, $scopeId): array {
+            $fallback = $this->stockPatternCoverageDefaults()[$scopeType === 'partner' ? 'partner' : 'central'];
+            $row = DB::table('stock_sale_limit_settings')
+                ->where('game_id', $gameId)
+                ->where('scope_type', $scopeType)
+                ->where('scope_id', $scopeId)
+                ->first();
+
+            return [
+                'back2_limit' => $row?->back2_limit === null ? $fallback['back2_limit'] : (int) $row->back2_limit,
+                'back3_limit' => $row?->back3_limit === null ? $fallback['back3_limit'] : (int) $row->back3_limit,
+                'front3_limit' => $row?->front3_limit === null ? $fallback['front3_limit'] : (int) $row->front3_limit,
+            ];
+        });
     }
 
     /**
@@ -1672,32 +1750,34 @@ class VirtualStockService
      */
     private function stockPatternCoverageDefaults(): array
     {
-        $defaults = [
-            'central' => ['back2_limit' => 500, 'back3_limit' => 300, 'front3_limit' => 200],
-            'partner' => ['back2_limit' => 200, 'back3_limit' => 100, 'front3_limit' => 80],
-        ];
-        $value = DB::table('platform_system_settings')
-            ->where('key', self::STOCK_PATTERN_COVERAGE_SETTING_KEY)
-            ->value('value_json');
-        $decoded = is_string($value) ? json_decode($value, true) : null;
+        return $this->cachedSearchValue('stock_pattern_coverage_defaults', 'current', function (): array {
+            $defaults = [
+                'central' => ['back2_limit' => 500, 'back3_limit' => 300, 'front3_limit' => 200],
+                'partner' => ['back2_limit' => 200, 'back3_limit' => 100, 'front3_limit' => 80],
+            ];
+            $value = DB::table('platform_system_settings')
+                ->where('key', self::STOCK_PATTERN_COVERAGE_SETTING_KEY)
+                ->value('value_json');
+            $decoded = is_string($value) ? json_decode($value, true) : null;
 
-        if (! is_array($decoded)) {
-            return $defaults;
-        }
-
-        foreach (['central', 'partner'] as $scope) {
-            if (! is_array($decoded[$scope] ?? null)) {
-                continue;
+            if (! is_array($decoded)) {
+                return $defaults;
             }
 
-            foreach (['back2_limit', 'back3_limit', 'front3_limit'] as $field) {
-                if (array_key_exists($field, $decoded[$scope]) && $decoded[$scope][$field] !== null && $decoded[$scope][$field] !== '') {
-                    $defaults[$scope][$field] = max(0, (int) $decoded[$scope][$field]);
+            foreach (['central', 'partner'] as $scope) {
+                if (! is_array($decoded[$scope] ?? null)) {
+                    continue;
+                }
+
+                foreach (['back2_limit', 'back3_limit', 'front3_limit'] as $field) {
+                    if (array_key_exists($field, $decoded[$scope]) && $decoded[$scope][$field] !== null && $decoded[$scope][$field] !== '') {
+                        $defaults[$scope][$field] = max(0, (int) $decoded[$scope][$field]);
+                    }
                 }
             }
-        }
 
-        return $defaults;
+            return $defaults;
+        });
     }
 
     /**
@@ -1753,32 +1833,34 @@ class VirtualStockService
             return [];
         }
 
-        $rowsByLayer = array_fill_keys($layerIds, []);
-        $rows = DB::table('partner_stock_allocations')
-            ->where('game_id', $gameId)
-            ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
-            ->whereNotNull('allocation_percent_basis_points')
-            ->where('allocation_percent_basis_points', '>', 0)
-            ->orderBy('partner_id')
-            ->orderBy('id')
-            ->get([
-                'partner_id',
-                'allocation_percent_basis_points',
-                'supply_layer_ids_json',
-            ]);
+        return $this->cachedSearchValue('allocation_rows_by_layer', $gameId.'|'.implode(',', $layerIds), function () use ($gameId, $layerIds): array {
+            $rowsByLayer = array_fill_keys($layerIds, []);
+            $rows = DB::table('partner_stock_allocations')
+                ->where('game_id', $gameId)
+                ->whereIn('status', self::ACTIVE_ALLOCATION_PAIR_STATUSES)
+                ->whereNotNull('allocation_percent_basis_points')
+                ->where('allocation_percent_basis_points', '>', 0)
+                ->orderBy('partner_id')
+                ->orderBy('id')
+                ->get([
+                    'partner_id',
+                    'allocation_percent_basis_points',
+                    'supply_layer_ids_json',
+                ]);
 
-        foreach ($rows as $row) {
-            $snapshotLayerIds = $this->snapshotLayerIds($row->supply_layer_ids_json ?? null, $layerIds);
+            foreach ($rows as $row) {
+                $snapshotLayerIds = $this->snapshotLayerIds($row->supply_layer_ids_json ?? null, $layerIds);
 
-            foreach (array_values(array_intersect($layerIds, $snapshotLayerIds)) as $layerId) {
-                $rowsByLayer[$layerId][] = [
-                    'partner_id' => (string) $row->partner_id,
-                    'bp' => (int) $row->allocation_percent_basis_points,
-                ];
+                foreach (array_values(array_intersect($layerIds, $snapshotLayerIds)) as $layerId) {
+                    $rowsByLayer[$layerId][] = [
+                        'partner_id' => (string) $row->partner_id,
+                        'bp' => (int) $row->allocation_percent_basis_points,
+                    ];
+                }
             }
-        }
 
-        return $rowsByLayer;
+            return $rowsByLayer;
+        });
     }
 
     private function defaultTenantStockGameId(string $tenantId, string $partnerId): string
@@ -2547,7 +2629,7 @@ class VirtualStockService
     {
         $stockRef = $this->virtualRef($tenantId, $gameId, $fullNumber, $copyIndex);
         $preview = $this->virtualImages->previewDescriptor($tenantId, $partnerId, $gameId, $fullNumber, $copyIndex);
-        $price = $this->salePrices->effectivePrice($tenantId, $gameId, 1);
+        $price = $this->effectiveUnitPrice($tenantId, $gameId);
 
         return [
             'id' => $stockRef,
@@ -2571,6 +2653,14 @@ class VirtualStockService
             'image_status' => $preview['status'],
             'image_error' => $preview['error'],
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function effectiveUnitPrice(string $tenantId, string $gameId): array
+    {
+        return $this->cachedSearchValue('effective_unit_price', $tenantId.'|'.$gameId, fn (): array => $this->salePrices->effectivePrice($tenantId, $gameId, 1));
     }
 
     /**

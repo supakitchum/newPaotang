@@ -320,7 +320,7 @@
           <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
             <div>
               <div class="card-title mb-1">Queue Process</div>
-              <p class="text-muted mb-0 fs-12">Realtime progress for background zip imports and stock allocation jobs. Manual refresh is only a fallback.</p>
+              <p class="text-muted mb-0 fs-12">Realtime progress for background zip imports. Manual refresh is only a fallback.</p>
             </div>
             <div class="d-flex flex-wrap align-items-center gap-2">
               <AdminStatusBadge :status="zipImportRealtime.status.value" :label="zipImportRealtime.isConfigured.value ? titleize(zipImportRealtime.status.value) : 'Socket unavailable'" />
@@ -334,7 +334,7 @@
           <div class="card-body">
             <AdminAlert v-if="queueProcessesError" :type="alertType(queueProcessesError)" :message="errorMessage(queueProcessesError)" :details="queueProcessesError.details" dismissible @dismiss="queueProcessesError = null" />
             <AdminLoader v-if="queueProcessesLoading && !queueProcesses.length" />
-            <AdminEmptyState v-else-if="!queueProcesses.length" title="No queue processes" message="Queued zip imports and allocation jobs will appear here." icon="ri-loader-4-line" />
+            <AdminEmptyState v-else-if="!queueProcesses.length" title="No queue processes" message="Queued zip imports will appear here." icon="ri-loader-4-line" />
             <div v-else class="d-flex flex-column gap-3">
               <div v-for="process in queueProcesses" :key="`${process.kind}-${process.id}`" class="border rounded p-3">
                 <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
@@ -1231,15 +1231,6 @@ useAdminRealtimeSubscription({
   },
 })
 
-useAdminRealtimeSubscription({
-  channelName: 'private-admin.central.stock-allocation-jobs',
-  eventName: 'stock.allocation_job.updated',
-  enabled: true,
-  onEvent: (payload) => upsertQueueProcess({ ...payload, kind: 'allocation' }),
-  onReconnect: () => {
-    void loadQueueProcesses()
-  },
-})
 const retryMode = ref<'dry-run' | 'execute'>('dry-run')
 const retryResult = ref<any>(null)
 const retryConfirmOpen = ref(false)
@@ -1666,9 +1657,10 @@ const loadQueueProcesses = async () => {
   try {
     const response: any = await api.apiFetch('/admin/central/queue-processes', {
       scope: 'central',
-      query: { limit: 20 },
+      query: { type: 'zip_import', limit: 20 },
     })
-    queueProcesses.value = Array.isArray(response?.data) ? response.data : []
+    queueProcesses.value = (Array.isArray(response?.data) ? response.data : [])
+      .filter((process: QueueProcess) => process.kind === 'zip_import' || process.type === 'zip_import')
   } catch (err) {
     queueProcessesError.value = err
   } finally {
@@ -2183,10 +2175,6 @@ const storageDriverLabel = (driver?: string | null) => {
 const queueProcessTitle = (process: QueueProcess) => {
   if (process.kind === 'zip_import') {
     return `Background zip import${process.set_type ? ` - ${titleize(process.set_type)}` : ''}`
-  }
-
-  if (process.kind === 'allocation') {
-    return `Stock allocation - ${titleize(process.type || 'job')}`
   }
 
   return titleize(process.type || process.kind || 'queue process')

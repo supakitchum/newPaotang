@@ -231,6 +231,10 @@ class RuntimeStorageService
         try {
             return (string) $this->disk($routeKey)->get($key);
         } catch (\Throwable) {
+            if (! $this->allowsLocalFallback($routeKey)) {
+                return null;
+            }
+
             return $this->localFallbackGet($key);
         }
     }
@@ -244,7 +248,7 @@ class RuntimeStorageService
         try {
             return (string) $this->diskForDriver($routeKey, $driver)->get($key);
         } catch (\Throwable) {
-            return $driver === self::DRIVER_LOCAL ? null : $this->localFallbackGet($key);
+            return $driver === self::DRIVER_LOCAL || ! $this->allowsLocalFallback($routeKey, $driver) ? null : $this->localFallbackGet($key);
         }
     }
 
@@ -260,7 +264,7 @@ class RuntimeStorageService
 
             return is_resource($stream) ? $stream : null;
         } catch (\Throwable) {
-            if ($driver === self::DRIVER_LOCAL) {
+            if ($driver === self::DRIVER_LOCAL || ! $this->allowsLocalFallback($routeKey, $driver)) {
                 return null;
             }
 
@@ -283,7 +287,15 @@ class RuntimeStorageService
         } catch (\Throwable) {
         }
 
-        return $this->localDisk()->exists($key);
+        if (! $this->allowsLocalFallback($routeKey)) {
+            return false;
+        }
+
+        try {
+            return $this->localDisk()->exists($key);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     public function existsUsingDriver(string $routeKey, string $key, ?string $driver = null): bool
@@ -295,7 +307,15 @@ class RuntimeStorageService
         try {
             return $this->diskForDriver($routeKey, $driver)->exists($key);
         } catch (\Throwable) {
-            return $driver !== self::DRIVER_LOCAL && $this->localDisk()->exists($key);
+            if ($driver === self::DRIVER_LOCAL || ! $this->allowsLocalFallback($routeKey, $driver)) {
+                return false;
+            }
+
+            try {
+                return $this->localDisk()->exists($key);
+            } catch (\Throwable) {
+                return false;
+            }
         }
     }
 
@@ -304,6 +324,10 @@ class RuntimeStorageService
         try {
             return $this->disk($routeKey)->mimeType($key) ?: null;
         } catch (\Throwable) {
+            if (! $this->allowsLocalFallback($routeKey)) {
+                return null;
+            }
+
             try {
                 return $this->localDisk()->mimeType($key) ?: null;
             } catch (\Throwable) {
@@ -321,8 +345,12 @@ class RuntimeStorageService
         try {
             return $this->diskForDriver($routeKey, $driver)->mimeType($key) ?: null;
         } catch (\Throwable) {
+            if ($driver === self::DRIVER_LOCAL || ! $this->allowsLocalFallback($routeKey, $driver)) {
+                return null;
+            }
+
             try {
-                return $driver === self::DRIVER_LOCAL ? null : ($this->localDisk()->mimeType($key) ?: null);
+                return $this->localDisk()->mimeType($key) ?: null;
             } catch (\Throwable) {
                 return null;
             }
@@ -512,6 +540,10 @@ class RuntimeStorageService
             'cdn_base_url_present' => trim((string) config('lottery_images.cdn_base_url', '')) !== ''
                 || trim((string) config('lottery_images.local_public_base_url', '')) !== ''
                 || $connectionUrl !== '',
+            'local_fallback_enabled' => $this->allowsLocalFallback($routeKey),
+            's3_local_fallback_disabled' => $routeDriver === self::DRIVER_AWS_S3
+                ? ! $this->allowsLocalFallback($routeKey, self::DRIVER_AWS_S3)
+                : null,
             'root_prefix_present' => trim((string) ($row['root_prefix'] ?? '')) !== ''
                 || ($connection instanceof PlatformStorageConnection && trim((string) ($connection->root_prefix ?? '')) !== ''),
             'secrets_redacted' => true,
@@ -588,6 +620,19 @@ class RuntimeStorageService
     private function localDisk(): Filesystem
     {
         return Storage::disk((string) config('lottery_images.disk', 'lottery_images'));
+    }
+
+    private function allowsLocalFallback(string $routeKey, ?string $driver = null): bool
+    {
+        if ($driver === self::DRIVER_LOCAL) {
+            return true;
+        }
+
+        if ($driver === self::DRIVER_AWS_S3) {
+            return false;
+        }
+
+        return $this->routeDriver($routeKey) === self::DRIVER_LOCAL;
     }
 
     private function objectKey(string $routeKey, string $key): string

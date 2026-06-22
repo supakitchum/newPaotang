@@ -42,6 +42,11 @@ class LotteryImageGenerator
     /** @var array<string, array<string, int|string|null>>|null */
     private ?array $layoutCache = null;
 
+    /**
+     * @var array<string, array<int, string>>
+     */
+    private array $backgroundFilesCache = [];
+
     public function __construct(private readonly RuntimeStorageService $storage)
     {
     }
@@ -1047,11 +1052,17 @@ class LotteryImageGenerator
      */
     private function backgroundFiles(string $gameId, string $version, string $setType): array
     {
+        $cacheKey = implode('|', [$gameId, $version, $setType]);
+
+        if (array_key_exists($cacheKey, $this->backgroundFilesCache)) {
+            return $this->backgroundFilesCache[$cacheKey];
+        }
+
         $files = $this->registeredBackgroundFiles($gameId, $version, $setType);
         $directory = rtrim((string) config('lottery_images.asset_root'), '/').'/games/'.$gameId.'/backgrounds/'.$version.'/'.$setType;
 
         if (! is_dir($directory)) {
-            return $files;
+            return $this->backgroundFilesCache[$cacheKey] = $files;
         }
 
         foreach (['webp', 'png', 'jpg', 'jpeg'] as $extension) {
@@ -1060,7 +1071,7 @@ class LotteryImageGenerator
 
         sort($files, SORT_NATURAL);
 
-        return array_values($files);
+        return $this->backgroundFilesCache[$cacheKey] = array_values($files);
     }
 
     /**
