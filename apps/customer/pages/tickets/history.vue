@@ -61,6 +61,8 @@
                 :prizes="getTicketRewardPrizes(ticket)"
                 :claim-label="isTicketClaimable(ticket) ? 'ขึ้นรางวัล' : 'ดูรางวัล'"
                 :claim-to="getTicketClaimTo(ticket)"
+                :image-url="ticket.image_thumb_url || ticket.preview_image_url || ticket.image_url || ticket.image || ''"
+                :image-status="ticket.image_status || ''"
               />
             </div>
           </div>
