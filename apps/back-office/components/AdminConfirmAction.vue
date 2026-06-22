@@ -791,11 +791,14 @@ const syncBulkAllocationRows = () => {
     const defaultPercent = optionNumber(option, 'defaultAllocationPercent')
       ?? optionNumber(option, 'stockPercent')
       ?? 0
-    const disabledReason = activeTenantCount === 0
+    const queueBlockedReason = optionString(option, 'queueBlockedReason')
+      || (optionDisabled(option) && optionString(option, 'activeAllocationJobId') ? 'Allocation job queued' : '')
+    const disabledReason = queueBlockedReason
+      || (activeTenantCount === 0
       ? 'No active tenant'
       : activeTenantCount !== null && activeTenantCount > 1
         ? 'Select tenant manually'
-        : ''
+        : '')
 
     return {
       partner_id: partnerId,
@@ -1311,7 +1314,12 @@ const allocationPartnerOption = (partner: any): OperationOption => {
     existingAllocationPercentBasisPoints: numberOrNull(partner?.existing_allocation_percent_basis_points),
     existingAllocatedCount: numberOrNull(partner?.existing_allocated_count),
     existingRemainingCount: numberOrNull(partner?.existing_remaining_count),
+    hasActiveAllocationJob: Boolean(partner?.has_active_allocation_job || partner?.allocation_queue_blocked),
+    activeAllocationJobId: partner?.active_allocation_job_id || '',
+    activeAllocationJobStatus: partner?.active_allocation_job_status || '',
+    queueBlockedReason: partner?.queue_blocked_reason || '',
     status: String(partner?.status || '').toLowerCase(),
+    disabled: Boolean(partner?.has_active_allocation_job || partner?.allocation_queue_blocked),
   }
 }
 

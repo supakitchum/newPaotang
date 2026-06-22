@@ -63,6 +63,7 @@ class CentralStockService
     private const GENERATION_BATCH_TYPES = ['generate', 'virtual_profile'];
     private const VIRTUAL_MAX_BP = 10000;
     private const ALLOCATION_JOB_TYPES = ['create_allocation', 'open_all_partners', 'update_partner_percent', 'cancel_allocation', 'recall_all', 'redistribute'];
+    private const ACTIVE_ALLOCATION_JOB_STATUSES = ['queued', 'processing'];
     private const VIRTUAL_UNLIMITED = 2147483647;
     private const STOCK_SET_DISTRIBUTION_SETTING_KEY = 'stock_set_distribution_default';
     private const STOCK_PATTERN_COVERAGE_SETTING_KEY = 'stock_pattern_coverage_default';
@@ -4146,7 +4147,13 @@ class CentralStockService
             });
         }
 
-        $rows = $query->get()->map(function (object $partner) use ($gameId, $availableForCreate, $allocatedTenantIdsByPartner, $gameAllocationSnapshot): ?array {
+        $activeJobsByPartner = $gameId === '' ? [] : $this->activeAllocationJobSummariesByPartnerForGame($gameId);
+        $rows = $query->get()->map(function (object $partner) use ($gameId, $availableForCreate, $allocatedTenantIdsByPartner, $gameAllocationSnapshot, $activeJobsByPartner): ?array {
+            $activeAllocationJob = $activeJobsByPartner[(string) $partner->id] ?? null;
+            if ($availableForCreate && $gameId !== '' && $activeAllocationJob !== null) {
+                return null;
+            }
+
             $tenants = $this->activeTenantRowsForPartner((string) $partner->id);
             $allocatedTenantIds = $allocatedTenantIdsByPartner[(string) $partner->id] ?? [];
             $availableTenants = $availableForCreate && $gameId !== ''
@@ -4209,6 +4216,15 @@ class CentralStockService
                 'existing_allocation_percent_basis_points' => $gameAllocationSnapshot['basis_points'] ?? null,
                 'existing_allocated_count' => $gameAllocationSnapshot['allocated_count'] ?? null,
                 'existing_remaining_count' => $gameAllocationSnapshot['remaining_count'] ?? null,
+                'has_active_allocation_job' => $activeAllocationJob !== null,
+                'active_allocation_job_id' => $activeAllocationJob['id'] ?? null,
+                'active_allocation_job_type' => $activeAllocationJob['type'] ?? null,
+                'active_allocation_job_status' => $activeAllocationJob['status'] ?? null,
+                'active_allocation_job_step' => $activeAllocationJob['current_step'] ?? null,
+                'allocation_queue_blocked' => $activeAllocationJob !== null,
+                'queue_blocked_reason' => $activeAllocationJob === null
+                    ? null
+                    : 'This partner already has a queued or processing allocation job for this game.',
             ];
         })->filter()->values()->all();
 
@@ -4240,6 +4256,11 @@ class CentralStockService
         }
 
         if ($availableForCreate && $gameId !== '') {
+            $activeJobsByPartner = $this->activeAllocationJobSummariesByPartnerForGame($gameId);
+            if ($activeJobsByPartner !== []) {
+                $query->whereNotIn('partner_tenants.partner_id', array_keys($activeJobsByPartner));
+            }
+
             $allocatedTenantIds = $this->allocatedTenantIdsForGame($gameId);
             if ($allocatedTenantIds !== []) {
                 $query->whereNotIn('partner_tenants.id', $allocatedTenantIds);
@@ -4395,6 +4416,11 @@ class CentralStockService
             $gameId = (string) (PartnerStockAllocation::query()->whereKey($allocationId)->value('game_id') ?? '');
         }
 
+        $conflictErrors = $this->activeAllocationJobConflictErrors($type, $payload, $gameId);
+        if ($conflictErrors !== []) {
+            return ['error' => 'validation_failed', 'errors' => $conflictErrors];
+        }
+
         $now = now();
         $job = StockAllocationJob::query()->create([
             'id' => 'saj_'.Str::ulid()->toBase32(),
@@ -4525,6 +4551,10 @@ class CentralStockService
             $errors['tenant_id'][] = 'This partner tenant already has an active allocation for this game.';
         }
 
+        if ($gameId !== '' && $partnerId !== '' && $this->activeAllocationJobSummaryForPartnerGame($gameId, $partnerId) !== null) {
+            $errors['partner_id'][] = 'This partner already has a queued or processing allocation job for this game.';
+        }
+
         if ($hasRequestedCount) {
             $errors['requested_count'][] = 'The requested_count field is retired for allocation create. Use allocation_percent.';
         }
@@ -4584,6 +4614,17 @@ class CentralStockService
         }
 
         if (isset($errors['game_id'])) {
+            return $errors;
+        }
+
+        $activeJobsByPartner = $this->activeAllocationJobSummariesByPartnerForGame($gameId);
+        foreach ($parsedRows['rows'] as $row) {
+            if (isset($activeJobsByPartner[(string) $row['partner_id']])) {
+                $errors['allocations.'.$row['index'].'.partner_id'][] = 'This partner already has a queued or processing allocation job for this game.';
+            }
+        }
+
+        if ($errors !== []) {
             return $errors;
         }
 
@@ -6248,9 +6289,21 @@ class CentralStockService
     private function seedAllocationJobItems(StockAllocationJob $job, array $payload): void
     {
         if ((string) $job->type !== 'open_all_partners') {
+            $partnerId = trim((string) ($payload['partner_id'] ?? ''));
+            $tenantId = trim((string) ($payload['tenant_id'] ?? ''));
+            if (($partnerId === '' || $tenantId === '') && $job->allocation_id !== null) {
+                $allocation = PartnerStockAllocation::query()
+                    ->whereKey((string) $job->allocation_id)
+                    ->first(['partner_id', 'tenant_id']);
+                $partnerId = $partnerId === '' ? (string) ($allocation->partner_id ?? '') : $partnerId;
+                $tenantId = $tenantId === '' ? (string) ($allocation->tenant_id ?? '') : $tenantId;
+            }
+
             StockAllocationJobItem::query()->create([
                 'id' => 'saji_'.Str::ulid()->toBase32(),
                 'job_id' => (string) $job->id,
+                'partner_id' => $partnerId === '' ? null : $partnerId,
+                'tenant_id' => $tenantId === '' ? null : $tenantId,
                 'allocation_id' => $job->allocation_id,
                 'status' => 'queued',
                 'created_at' => now(),
@@ -6288,6 +6341,128 @@ class CentralStockService
                 'updated_at' => $now,
             ]);
         }
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function activeAllocationJobSummariesByPartnerForGame(string $gameId): array
+    {
+        if ($gameId === '') {
+            return [];
+        }
+
+        $jobs = StockAllocationJob::query()
+            ->where('game_id', $gameId)
+            ->whereIn('status', self::ACTIVE_ALLOCATION_JOB_STATUSES)
+            ->with('items')
+            ->orderByDesc('created_at')
+            ->get();
+        $summaries = [];
+
+        foreach ($jobs as $job) {
+            $summary = $this->activeAllocationJobSummary($job);
+            foreach ($this->partnerIdsLockedByAllocationJob($job) as $partnerId) {
+                if ($partnerId !== '' && ! isset($summaries[$partnerId])) {
+                    $summaries[$partnerId] = $summary;
+                }
+            }
+        }
+
+        return $summaries;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function activeAllocationJobSummaryForPartnerGame(string $gameId, string $partnerId): ?array
+    {
+        return $this->activeAllocationJobSummariesByPartnerForGame($gameId)[$partnerId] ?? null;
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    private function activeAllocationJobConflictErrors(string $type, array $payload, string $gameId): array
+    {
+        if ($gameId === '' || ! in_array($type, ['create_allocation', 'open_all_partners'], true)) {
+            return [];
+        }
+
+        $activeJobsByPartner = $this->activeAllocationJobSummariesByPartnerForGame($gameId);
+        if ($activeJobsByPartner === []) {
+            return [];
+        }
+
+        if ($type === 'create_allocation') {
+            $partnerId = trim((string) ($payload['partner_id'] ?? ''));
+            return $partnerId !== '' && isset($activeJobsByPartner[$partnerId])
+                ? ['partner_id' => ['This partner already has a queued or processing allocation job for this game.']]
+                : [];
+        }
+
+        $errors = [];
+        $rows = $this->bulkAllocationRowsFromPayload($payload, $gameId)['rows'] ?? [];
+        foreach ($rows as $row) {
+            $partnerId = (string) ($row['partner_id'] ?? '');
+            if ($partnerId !== '' && isset($activeJobsByPartner[$partnerId])) {
+                $errors['allocations.'.$row['index'].'.partner_id'][] = 'This partner already has a queued or processing allocation job for this game.';
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function partnerIdsLockedByAllocationJob(StockAllocationJob $job): array
+    {
+        $partnerIds = [];
+
+        foreach ($job->items as $item) {
+            $partnerId = trim((string) ($item->partner_id ?? ''));
+            if ($partnerId !== '') {
+                $partnerIds[] = $partnerId;
+            }
+        }
+
+        if ($partnerIds !== []) {
+            return array_values(array_unique($partnerIds));
+        }
+
+        $payload = is_array($job->payload_json) ? $job->payload_json : [];
+        if ((string) $job->type === 'open_all_partners') {
+            $gameId = (string) ($job->game_id ?? ($payload['game_id'] ?? ''));
+            $rows = $this->bulkAllocationRowsFromPayload($payload, $gameId)['rows'] ?? [];
+            foreach ($rows as $row) {
+                $partnerId = trim((string) ($row['partner_id'] ?? ''));
+                if ($partnerId !== '') {
+                    $partnerIds[] = $partnerId;
+                }
+            }
+        } else {
+            $partnerId = trim((string) ($payload['partner_id'] ?? ''));
+            if ($partnerId !== '') {
+                $partnerIds[] = $partnerId;
+            }
+        }
+
+        return array_values(array_unique($partnerIds));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function activeAllocationJobSummary(StockAllocationJob $job): array
+    {
+        return [
+            'id' => (string) $job->id,
+            'type' => (string) $job->type,
+            'status' => (string) $job->status,
+            'current_step' => $job->current_step,
+            'updated_at' => $job->updated_at?->toISOString(),
+        ];
     }
 
     private function markAllocationJobProcessing(StockAllocationJob $job): void

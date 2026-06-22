@@ -32,12 +32,14 @@ class QueueProcessController extends Controller
 
         $type = trim((string) $request->query('type', ''));
         $status = trim((string) $request->query('status', ''));
+        $gameId = trim((string) $request->query('game_id', ''));
         $limit = max(1, min(100, (int) $request->query('limit', 30)));
         $rows = [];
 
         if ($type === '' || $type === 'zip_import') {
             $rows = array_merge($rows, LotteryImageBackgroundZipImport::query()
                 ->when($status !== '', fn ($query) => $query->where('status', $status))
+                ->when($gameId !== '', fn ($query) => $query->where('game_id', $gameId))
                 ->orderByDesc('created_at')
                 ->limit($limit)
                 ->get()
@@ -48,6 +50,7 @@ class QueueProcessController extends Controller
         if ($type === '' || $type === 'allocation') {
             $rows = array_merge($rows, StockAllocationJob::query()
                 ->when($status !== '', fn ($query) => $query->where('status', $status))
+                ->when($gameId !== '', fn ($query) => $query->where('game_id', $gameId))
                 ->orderByDesc('created_at')
                 ->limit($limit)
                 ->get()

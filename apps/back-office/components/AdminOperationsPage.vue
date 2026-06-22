@@ -338,6 +338,48 @@
           </div>
         </div>
       </div>
+      <div v-if="showAllocationQueuePanel" class="card custom-card mb-3">
+        <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <div>
+            <div class="card-title mb-1">Allocation Queue</div>
+            <p class="text-muted mb-0 fs-12">Realtime progress for queued stock allocation work in the selected game.</p>
+          </div>
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <AdminStatusBadge :status="allocationQueueRealtime.status.value" :label="allocationQueueRealtime.isConfigured.value ? titleize(allocationQueueRealtime.status.value) : 'Socket unavailable'" />
+            <button class="btn btn-outline-primary btn-sm btn-wave" type="button" :disabled="allocationQueueLoading" @click="loadAllocationQueueProcesses">
+              <span v-if="allocationQueueLoading" class="spinner-border spinner-border-sm me-1" />
+              <i v-else class="ri-refresh-line me-1" />
+              Refresh
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <AdminAlert v-if="allocationQueueError" :type="alertType(allocationQueueError)" :message="errorMessage(allocationQueueError)" :details="allocationQueueError.details" dismissible @dismiss="allocationQueueError = null" />
+          <AdminLoader v-if="allocationQueueLoading && !allocationQueueProcesses.length" />
+          <AdminEmptyState v-else-if="!allocationQueueProcesses.length" title="No allocation queue" message="Create allocation or Open all partners jobs will appear here." icon="ri-loader-4-line" />
+          <div v-else class="d-flex flex-column gap-3">
+            <div v-for="process in allocationQueueProcesses" :key="process.id" class="border rounded p-3">
+              <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
+                <div>
+                  <div class="fw-semibold">{{ allocationQueueTitle(process) }}</div>
+                  <code class="np-admin-code">{{ process.id }}</code>
+                </div>
+                <AdminStatusBadge :status="process.status" :label="titleize(process.status || 'queued')" />
+              </div>
+              <div class="row g-2 small text-muted">
+                <div class="col-md-3">Game: <span class="text-body">{{ allocationQueueGameLabel(process.game_id) }}</span></div>
+                <div class="col-md-3">Step: <span class="text-body">{{ titleize(process.current_step || '-') }}</span></div>
+                <div class="col-md-3">Progress: <span class="text-body">{{ process.progress_current || 0 }} / {{ process.progress_total || 1 }}</span></div>
+                <div class="col-md-3">Updated: <span class="text-body">{{ formatDateTime(process.updated_at) }}</span></div>
+              </div>
+              <div class="progress progress-xs mt-3" role="progressbar" :aria-valuenow="allocationQueuePercent(process)" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar" :class="allocationQueueProgressClass(process)" :style="{ width: `${allocationQueuePercent(process)}%` }" />
+              </div>
+              <div v-if="process.error_message" class="text-danger small mt-2 text-break">{{ process.error_message }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
       <AdminStockGenerationBatches
         v-if="showStockGenerationProgress"
         :game-id="stockSummaryGameId"
@@ -696,6 +738,25 @@ const catalog = useAdminOperationsCatalog()
 const adminLocale = useAdminLocale()
 const reportLocale = computed(() => adminLocale.locale.value)
 
+type AllocationQueueProcess = {
+  kind?: string
+  id: string
+  type?: string
+  status: string
+  game_id?: string | null
+  progress_current?: number
+  progress_total?: number
+  progress_percent?: number
+  created_count?: number
+  skipped_count?: number
+  failed_count?: number
+  current_step?: string | null
+  error_message?: string | null
+  created_at?: string | null
+  updated_at?: string | null
+  heartbeat_at?: string | null
+}
+
 const loading = ref(false)
 const saving = ref(false)
 const error = ref<any>(null)
@@ -719,6 +780,9 @@ const tenantStockCoverageRefreshKey = ref(0)
 const stockGenerationProgressRefreshKey = ref(0)
 const stockGenerationSubmittedBatch = ref<any>(null)
 const stockGenerationHasActiveBatch = ref(false)
+const allocationQueueProcesses = ref<AllocationQueueProcess[]>([])
+const allocationQueueLoading = ref(false)
+const allocationQueueError = ref<any>(null)
 const sortState = reactive<{ key: string, direction: 'asc' | 'desc' }>({ key: '', direction: 'asc' })
 const meta = reactive({ next_cursor: null as string | null, has_more: false })
 const listMeta = ref<Record<string, any>>({})
@@ -908,11 +972,13 @@ const showListSections = computed(() => Boolean(resource.value?.listSections?.le
 const activeRelatedLists = computed(() => showListSections.value ? (resource.value?.listSections || []) : (resource.value?.relatedLists || []))
 const showStockSummaryWidgets = computed(() => Boolean(resource.value?.stockSummaryEndpoint && mode.value === 'list'))
 const showAllocationSummaryWidgets = computed(() => Boolean(isAllocationsRoute.value && mode.value === 'list'))
+const showAllocationQueuePanel = computed(() => Boolean(isAllocationsRoute.value && mode.value === 'list'))
 const showStockGenerationProgress = computed(() => Boolean(isStockGenerationRoute.value && mode.value === 'list'))
 const showTenantStockCoverage = computed(() => Boolean(isTenantStockRoute.value && mode.value === 'list' && selectedTenantStockGameId.value))
 const stockSummaryEndpoint = computed(() => resource.value?.stockSummaryEndpoint || '')
 const stockSummaryGameId = computed(() => filters.value.game_id || '')
 const stockSummaryBatchId = computed(() => filters.value.batch_id || '')
+const allocationQueueGameId = computed(() => String(filters.value.game_id || currentAllocationGameOption.value?.value || '').trim())
 const selectedStockTableGameId = computed(() => String(filters.value.game_id || '').trim())
 const selectedTenantStockGameId = computed(() => isTenantStockRoute.value ? String(filters.value.game_id || '').trim() : '')
 const isCentralGroupedStockRoute = computed(() => Boolean(
@@ -1118,6 +1184,15 @@ useAdminRealtimeSubscription({
   eventName: 'topup.updated',
   enabled: tenantTopupsRealtimeEnabled,
   onEvent: handleTenantTopupRealtimeEvent,
+})
+const allocationQueueRealtime = useAdminRealtimeSubscription({
+  channelName: 'private-admin.central.stock-allocation-jobs',
+  eventName: 'stock.allocation_job.updated',
+  enabled: computed(() => Boolean(showAllocationQueuePanel.value && session.isAuthenticated.value)),
+  onEvent: handleAllocationQueueRealtimeEvent,
+  onReconnect: () => {
+    void loadAllocationQueueProcesses({ silent: true })
+  },
 })
 const tenantRewardClaimsRealtimeChannelName = computed(() => (
   isTenantExchangeRewardRoute.value && session.currentTenantId.value
@@ -1383,6 +1458,9 @@ const initializePage = async () => {
   await loadOptionSourcesForResource()
   applyCurrentGameFilterDefault()
   await load()
+  if (showAllocationQueuePanel.value) {
+    await loadAllocationQueueProcesses()
+  }
 }
 
 const resetFilters = () => {
@@ -1405,6 +1483,9 @@ const applyFilters = (next: Record<string, any>) => {
   stockGenerationSubmittedBatch.value = null
   stockGenerationHasActiveBatch.value = false
   load()
+  if (showAllocationQueuePanel.value) {
+    void loadAllocationQueueProcesses()
+  }
 }
 
 const applySort = (next: { key: string, direction: 'asc' | 'desc' }) => {
@@ -1696,6 +1777,58 @@ const refreshAllocationGameOptions = async () => {
   optionSourceOptions['allocation-games'] = []
   await loadOptionSource('allocation-games')
   filters.value = allocationFiltersWithCurrentGame(filters.value)
+}
+
+const loadAllocationQueueProcesses = async (options: { silent?: boolean } = {}) => {
+  if (!showAllocationQueuePanel.value || !session.isAuthenticated.value) {
+    return
+  }
+
+  if (!options.silent) {
+    allocationQueueLoading.value = true
+  }
+  allocationQueueError.value = null
+
+  try {
+    const response: any = await api.apiFetch('/admin/central/queue-processes', {
+      scope: 'central',
+      query: compactQuery({
+        type: 'allocation',
+        game_id: allocationQueueGameId.value,
+        limit: 20,
+      }),
+    })
+    allocationQueueProcesses.value = (Array.isArray(response?.data) ? response.data : [])
+      .map((process: any) => ({ ...process, kind: 'allocation' }))
+  } catch (err) {
+    allocationQueueError.value = err
+  } finally {
+    allocationQueueLoading.value = false
+  }
+}
+
+const upsertAllocationQueueProcess = (process: AllocationQueueProcess) => {
+  if (!process?.id) {
+    return
+  }
+
+  const gameId = String(process.game_id || '').trim()
+  if (allocationQueueGameId.value && gameId && gameId !== allocationQueueGameId.value) {
+    allocationQueueProcesses.value = allocationQueueProcesses.value.filter((item) => item.id !== process.id)
+    return
+  }
+
+  const next = { ...process, kind: process.kind || 'allocation' }
+  const index = allocationQueueProcesses.value.findIndex((item) => item.id === next.id)
+  if (index >= 0) {
+    allocationQueueProcesses.value.splice(index, 1, { ...allocationQueueProcesses.value[index], ...next })
+  } else {
+    allocationQueueProcesses.value.unshift(next)
+  }
+  allocationQueueProcesses.value = allocationQueueProcesses.value
+    .slice()
+    .sort((a, b) => String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || '')))
+    .slice(0, 20)
 }
 
 const collectOptionSources = (item: OperationResource) => {
@@ -2034,7 +2167,12 @@ const allocationPartnerOption = (partner: any): OperationOption => {
     existingAllocationPercentBasisPoints: numberOrNull(partner?.existing_allocation_percent_basis_points),
     existingAllocatedCount: numberOrNull(partner?.existing_allocated_count),
     existingRemainingCount: numberOrNull(partner?.existing_remaining_count),
+    hasActiveAllocationJob: Boolean(partner?.has_active_allocation_job || partner?.allocation_queue_blocked),
+    activeAllocationJobId: partner?.active_allocation_job_id || '',
+    activeAllocationJobStatus: partner?.active_allocation_job_status || '',
+    queueBlockedReason: partner?.queue_blocked_reason || '',
     status: String(partner?.status || '').toLowerCase(),
+    disabled: Boolean(partner?.has_active_allocation_job || partner?.allocation_queue_blocked),
   }
 }
 
@@ -2774,6 +2912,10 @@ const runConfirmedAction = async (reason: string, payloadJson = '', formValues: 
       stockGenerationHasActiveBatch.value = isActiveStockGenerationBatch(batch)
       stockGenerationProgressRefreshKey.value += 1
     }
+    if (isAllocationJobResponse(response)) {
+      upsertAllocationQueueProcess({ ...response, kind: 'allocation' })
+      void loadAllocationQueueProcesses({ silent: true })
+    }
     confirm.open = false
     await load()
     if (showAllocationSummaryWidgets.value) {
@@ -2949,6 +3091,49 @@ function refreshStockSummaryWidgets() {
   if (showStockSummaryWidgets.value) {
     stockSummaryRefreshKey.value += 1
   }
+}
+
+function handleAllocationQueueRealtimeEvent(payload: any) {
+  if (!showAllocationQueuePanel.value || !payload || typeof payload !== 'object') {
+    return
+  }
+
+  const process = { ...payload, kind: 'allocation' }
+  upsertAllocationQueueProcess(process)
+
+  if (isTerminalAllocationQueueStatus(process.status)) {
+    void load(pageState.cursors[pageState.index] || null, 'current', { silent: true })
+    void refreshAllocationGameOptions()
+    refreshStockSummaryWidgets()
+  }
+}
+
+const isTerminalAllocationQueueStatus = (status: any) => ['completed', 'completed_with_errors', 'failed', 'cancelled'].includes(String(status || ''))
+
+const isAllocationJobResponse = (response: any) => Boolean(
+  response
+  && typeof response === 'object'
+  && (response.kind === 'allocation' || ['create_allocation', 'open_all_partners', 'update_partner_percent', 'cancel_allocation', 'recall_all', 'redistribute'].includes(String(response.type || '')))
+  && !isBlank(response.id)
+  && !isBlank(response.status)
+)
+
+const allocationQueueTitle = (process: AllocationQueueProcess) => `Stock allocation - ${titleize(process.type || 'job')}`
+
+const allocationQueueProgressClass = (process: AllocationQueueProcess) => {
+  if (process.status === 'failed') return 'bg-danger'
+  if (process.status === 'completed' || process.status === 'completed_with_errors') return 'bg-success'
+  if (process.status === 'cancelled') return 'bg-secondary'
+  return ''
+}
+
+const allocationQueuePercent = (process: AllocationQueueProcess) => Math.max(0, Math.min(100, Number.isFinite(Number(process.progress_percent)) ? Number(process.progress_percent) : 0))
+
+const allocationQueueGameLabel = (gameId?: string | null) => {
+  const id = String(gameId || '').trim()
+  if (!id) return '-'
+  const option = optionSourceOptions['allocation-games'].find((entry) => String(optionValue(entry)) === id)
+  return option ? optionLabel(option) : id
 }
 
 function isSafeStockTableRealtimeRow(row: any) {
