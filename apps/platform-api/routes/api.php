@@ -624,6 +624,12 @@ Route::get('/admin/tenant/payment-settings', [TenantPaymentSettingsController::c
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::patch('/admin/tenant/payment-settings', [TenantPaymentSettingsController::class, 'updateSettings'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/payment-settings/deepay-kbank', [TenantPaymentSettingsController::class, 'deepayKbankConnection'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::put('/admin/tenant/payment-settings/deepay-kbank', [TenantPaymentSettingsController::class, 'saveDeepayKbankConnection'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::delete('/admin/tenant/payment-settings/deepay-kbank', [TenantPaymentSettingsController::class, 'deactivateDeepayKbankConnection'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/payment-channels', [TenantPaymentSettingsController::class, 'channels'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/payment-channels', [TenantPaymentSettingsController::class, 'createChannel'])

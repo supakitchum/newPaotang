@@ -5,6 +5,8 @@ export interface DepositHistory {
   status?: number | string
   status_raw?: string
   presentation_status?: string
+  provider?: string
+  channel?: string
   transfer_at?: string
   created_at?: string
   updated_at?: string

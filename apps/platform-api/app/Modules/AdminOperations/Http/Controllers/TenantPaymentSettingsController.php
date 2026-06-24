@@ -55,6 +55,59 @@ class TenantPaymentSettingsController extends Controller
         );
     }
 
+    public function deepayKbankConnection(Request $request): JsonResponse
+    {
+        $context = $this->tenantContext($request, 'payment_settings.view');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $connection = $this->paymentSettings->deepayKbankConnection((string) $context->activeTenantId());
+
+        return $connection === null ? ApiErrorResponse::notFound($request) : response()->json($connection);
+    }
+
+    public function saveDeepayKbankConnection(Request $request): JsonResponse
+    {
+        $context = $this->tenantContext($request, 'payment_settings.manage');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $tenantId = (string) $context->activeTenantId();
+
+        return $this->writeWithIdempotency(
+            $request,
+            $context,
+            $tenantId,
+            'admin.tenant.payment-settings.deepay-kbank.put',
+            'payment_settings.manage',
+            fn (array $payload): array => $this->paymentSettings->saveDeepayKbankConnection($tenantId, $payload, $context, $request),
+        );
+    }
+
+    public function deactivateDeepayKbankConnection(Request $request): JsonResponse
+    {
+        $context = $this->tenantContext($request, 'payment_settings.manage');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $tenantId = (string) $context->activeTenantId();
+
+        return $this->writeWithIdempotency(
+            $request,
+            $context,
+            $tenantId,
+            'admin.tenant.payment-settings.deepay-kbank.delete',
+            'payment_settings.manage',
+            fn (array $payload): array => $this->paymentSettings->deactivateDeepayKbankConnection($tenantId, $context, $request),
+        );
+    }
+
     public function channels(Request $request): JsonResponse
     {
         $context = $this->tenantContext($request, 'payment_settings.view');

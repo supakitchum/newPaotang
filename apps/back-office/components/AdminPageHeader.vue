@@ -41,6 +41,14 @@ const normalizePath = (path: string) => {
   return normalized || '/'
 }
 
+const activeMenuPath = (path: string) => {
+  if (path === '/admin/tenant/payment-provider-settings') {
+    return '/admin/tenant/payment-settings'
+  }
+
+  return path
+}
+
 const flattenMenuItems = (items: HeaderMenuItem[]): HeaderMenuItem[] => items.flatMap((item) => [
   item,
   ...flattenMenuItems(Array.isArray(item.children) ? item.children : []),
@@ -51,7 +59,7 @@ const currentMenuTitle = computed(() => {
     return ''
   }
 
-  const currentPath = normalizePath(route.path)
+  const currentPath = normalizePath(activeMenuPath(route.path))
   const matched = flattenMenuItems(navigationMenus.value as HeaderMenuItem[])
     .find((item) => !item.children?.length && normalizePath(mapRoute(item)) === currentPath)
 

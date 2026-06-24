@@ -46,6 +46,7 @@ class TenantTopupTest extends TestCase
                 'X-Tenant-Id' => 'ten_tenant_topup',
             ])
             ->assertOk()
+            ->assertJsonPath('meta.pending_count', 3)
             ->assertJsonCount(3, 'data')
             ->assertJsonPath('data.0.id', $topups['cancel']['id']);
 
@@ -55,6 +56,7 @@ class TenantTopupTest extends TestCase
                 'X-Tenant-Id' => 'ten_tenant_topup',
             ])
             ->assertOk()
+            ->assertJsonPath('meta.pending_count', 3)
             ->assertJsonCount(0, 'data');
 
         $this->withToken($viewer['access_token'])
@@ -153,6 +155,7 @@ class TenantTopupTest extends TestCase
                 'X-Tenant-Id' => 'ten_tenant_topup',
             ])
             ->assertOk()
+            ->assertJsonPath('meta.pending_count', 0)
             ->assertJsonCount(0, 'data');
 
         $this->withToken($viewer['access_token'])
@@ -161,6 +164,7 @@ class TenantTopupTest extends TestCase
                 'X-Tenant-Id' => 'ten_tenant_topup',
             ])
             ->assertOk()
+            ->assertJsonPath('meta.pending_count', 0)
             ->assertJsonCount(3, 'data')
             ->assertJsonPath('data.0.id', $topups['cancel']['id']);
 

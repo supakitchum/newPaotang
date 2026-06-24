@@ -95,6 +95,10 @@ const normalizePath = (path: string) => {
 const activeRoutePaths = (currentPath: string) => {
   const paths = [currentPath]
 
+  if (currentPath === '/admin/tenant/payment-provider-settings') {
+    paths.push('/admin/tenant/payment-settings')
+  }
+
   if (currentPath === '/admin/central/lottery-images' || currentPath.startsWith('/admin/central/lottery-images/')) {
     paths.push('/admin/central/games')
   }

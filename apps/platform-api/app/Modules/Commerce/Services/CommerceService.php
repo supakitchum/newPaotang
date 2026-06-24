@@ -15,6 +15,7 @@ use App\Models\StockReservationItem;
 use App\Models\SyncInbox;
 use App\Models\SyncOutbox;
 use App\Models\TenantPaymentSetting;
+use App\Models\TenantPaymentProviderConnection;
 use App\Models\Ticket;
 use App\Models\TopupRequest;
 use App\Models\Wallet;
@@ -22,6 +23,7 @@ use App\Models\WalletLedger;
 use App\Models\WebhookCallback;
 use App\Modules\Commerce\Events\CustomerTopupUpdated;
 use App\Modules\Commerce\Events\TopupUpdated;
+use App\Modules\Commerce\Services\PaymentProviders\DeepayKbankPaymentProvider;
 use App\Modules\Rbac\Events\AdminMenuBadgesUpdated;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
@@ -77,6 +79,7 @@ class CommerceService
         private readonly TenantLineNotificationService $lineNotifications,
         private readonly RuntimeStorageService $storage,
         private readonly CentralTelegramNotificationService $telegramNotifications,
+        private readonly DeepayKbankPaymentProvider $deepayKbankProvider,
     ) {
     }
 
@@ -620,7 +623,12 @@ class CommerceService
             return ['error' => 'payment_method_disabled'];
         }
 
-        return DB::transaction(function () use ($tenantId, $customer, $normalized, $idempotencyKey, $credit, $slip): array {
+        $paymentProvider = $this->topupProviderForChannel($tenantId, $normalized['channel']);
+        if ($this->topupChannelUsesProvider($normalized['channel']) && $paymentProvider === null) {
+            return ['error' => 'payment_provider_not_configured'];
+        }
+
+        return DB::transaction(function () use ($tenantId, $customer, $normalized, $idempotencyKey, $credit, $slip, $paymentProvider): array {
             $replay = $this->idempotency->replayOrConflict($tenantId, 'customer', $customer->customerId(), $credit ? 'customer.topups.credit' : 'customer.topups.create', $idempotencyKey, $normalized, lock: true);
 
             if (is_array($replay)) {
@@ -637,8 +645,18 @@ class CommerceService
             $paymentId = null;
             $reference = 'TOP-'.Str::upper(Str::random(10));
             $slipAsset = $slip === null ? null : $this->storeTopupSlipAsset($tenantId, $topupId, $slip);
+            $providerBill = null;
 
-            if ($credit) {
+            if ($paymentProvider !== null) {
+                $providerBill = $this->createTopupProviderBill($tenantId, $paymentProvider, $normalized['channel'], $topupId, $normalized['amount']);
+
+                if (($providerBill['ok'] ?? false) !== true) {
+                    return [
+                        'error' => (string) ($providerBill['error_code'] ?? 'payment_provider_failed'),
+                        'message' => $providerBill['message'] ?? null,
+                    ];
+                }
+
                 $paymentId = 'pay_'.Str::ulid()->toBase32();
                 Payment::query()->insert([
                     'id' => $paymentId,
@@ -646,17 +664,17 @@ class CommerceService
                     'customer_id' => $customer->customerId(),
                     'order_id' => null,
                     'topup_request_id' => null,
-                    'provider' => 'credit_card',
+                    'provider' => $paymentProvider,
                     'status' => 'pending',
                     'amount' => $normalized['amount'],
                     'currency' => 'THB',
                     'reference' => $reference,
-                    'redirect_url' => 'https://payments.example.test/topups/'.$topupId,
+                    'redirect_url' => $providerBill['redirect_url'] ?? null,
                     'idempotency_key' => $idempotencyKey,
                     'payload_hash' => $this->idempotency->payloadHash($normalized),
                     'provider_event_id' => null,
-                    'provider_reference' => $reference,
-                    'provider_payload_json' => null,
+                    'provider_reference' => $providerBill['provider_reference'] ?? $reference,
+                    'provider_payload_json' => json_encode($providerBill['payload'] ?? [], JSON_THROW_ON_ERROR),
                     'paid_at' => null,
                     'created_at' => $now,
                     'updated_at' => $now,
@@ -669,9 +687,9 @@ class CommerceService
                 'customer_id' => $customer->customerId(),
                 'wallet_id' => $walletId,
                 'payment_id' => $paymentId,
-                'provider' => $credit ? 'credit_card' : 'manual',
+                'provider' => $paymentProvider ?? 'manual',
                 'channel' => $normalized['channel'],
-                'status' => $credit ? 'processing' : 'pending',
+                'status' => $paymentProvider !== null ? 'processing' : 'pending',
                 'amount' => $normalized['amount'],
                 'bonus_amount' => 0,
                 'currency' => 'THB',
@@ -687,7 +705,7 @@ class CommerceService
                 'reviewed_by_admin_id' => null,
                 'reviewed_at' => null,
                 'admin_note' => null,
-                'provider_payload_json' => null,
+                'provider_payload_json' => $providerBill === null ? null : json_encode($providerBill['payload'] ?? [], JSON_THROW_ON_ERROR),
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
@@ -766,12 +784,17 @@ class CommerceService
                 return ['error' => 'resource_conflict'];
             }
 
+            if ((string) $topup->provider !== 'manual' && ! in_array((string) $topup->channel, ['qr', 'credit_card'], true)) {
+                return ['error' => 'payment_provider_managed'];
+            }
+
             $oldPaths = [
                 trim((string) ($topup->slip_storage_path ?? '')),
                 trim((string) ($topup->slip_thumb_storage_path ?? '')),
             ];
             $slipAsset = $this->storeTopupSlipAsset($tenantId, $topupId, $slip);
             $updates = [
+                'status' => 'pending',
                 'slip_url' => $slipAsset['url'],
                 'slip_thumb_url' => $slipAsset['thumb_url'],
                 'slip_storage_path' => $slipAsset['storage_path'],
@@ -838,6 +861,16 @@ class CommerceService
 
             if ($payment !== null && ! in_array((string) $payment->status, ['pending', 'processing'], true)) {
                 return ['error' => 'resource_conflict'];
+            }
+
+            if ($payment !== null && (string) $payment->provider === DeepayKbankPaymentProvider::PROVIDER && trim((string) $payment->provider_reference) !== '') {
+                $cancelResult = $this->cancelTopupProviderPayment($tenantId, $payment);
+                if (($cancelResult['ok'] ?? false) !== true) {
+                    return [
+                        'error' => (string) ($cancelResult['error_code'] ?? 'payment_provider_failed'),
+                        'message' => $cancelResult['message'] ?? null,
+                    ];
+                }
             }
 
             TopupRequest::query()->where('id', $topupId)->update([
@@ -1367,8 +1400,17 @@ class CommerceService
             'meta' => [
                 'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->id : null,
                 'has_more' => $hasMore,
+                'pending_count' => $this->pendingTopupCount($tenantId),
             ],
         ];
+    }
+
+    private function pendingTopupCount(string $tenantId): int
+    {
+        return TopupRequest::query()
+            ->forTenant($tenantId)
+            ->whereIn('status', ['pending', 'processing'])
+            ->count();
     }
 
     public function adminTopup(string $tenantId, string $topupId): ?array
@@ -1399,6 +1441,7 @@ class CommerceService
                 'admin_note' => $adminNote,
                 'updated_at' => now(),
             ]);
+            $this->markTopupPaymentReviewed($topup, 'succeeded');
 
             $this->insertOutboxEvent('wallet.updated.v1', (string) $topup->tenant_id, null, null, 'wallet', (string) $topup->wallet_id, (string) $request->header('Idempotency-Key'), $request->header('X-Request-Id'), [
                 'tenant_id' => (string) $topup->tenant_id,
@@ -1427,6 +1470,7 @@ class CommerceService
                 'admin_note' => $this->optionalAdminNote($payload),
                 'updated_at' => now(),
             ]);
+            $this->markTopupPaymentReviewed($topup, 'failed');
         }, 'topup.rejected');
     }
 
@@ -1444,6 +1488,7 @@ class CommerceService
                 'admin_note' => $this->optionalAdminNote($payload),
                 'updated_at' => now(),
             ]);
+            $this->markTopupPaymentReviewed($topup, 'cancelled');
         }, 'topup.cancelled');
     }
 
@@ -2210,13 +2255,23 @@ class CommerceService
     {
         $topup = TopupRequest::query()->where('id', $topup->id)->lockForUpdate()->first();
 
-        if ($topup === null || $topup->status === 'succeeded') {
+        if ($topup === null || ! in_array((string) $topup->status, ['pending', 'processing'], true)) {
+            return;
+        }
+
+        $payment = $topup->payment_id === null
+            ? null
+            : Payment::query()->where('id', $topup->payment_id)->lockForUpdate()->first();
+
+        if ($payment !== null && ! in_array((string) $payment->status, ['pending', 'processing'], true)) {
             return;
         }
 
         $ledger = $this->postLedger((string) $topup->tenant_id, (string) $topup->wallet_id, (string) $topup->customer_id, 'credit', (int) $topup->amount, 'topup_webhook', (string) $topup->id, 'webhook-'.$topup->id);
         TopupRequest::query()->where('id', $topup->id)->update(['status' => 'succeeded', 'reviewed_at' => now(), 'updated_at' => now()]);
-        Payment::query()->where('id', $topup->payment_id)->update(['status' => 'succeeded', 'paid_at' => now(), 'updated_at' => now()]);
+        if ($payment !== null) {
+            Payment::query()->where('id', $payment->id)->update(['status' => 'succeeded', 'paid_at' => now(), 'updated_at' => now()]);
+        }
         $this->insertOutboxEvent('wallet.updated.v1', (string) $topup->tenant_id, null, null, 'wallet', (string) $topup->wallet_id, 'webhook-'.$topup->id, $request->header('X-Request-Id'), [
             'tenant_id' => (string) $topup->tenant_id,
             'customer_id' => (string) $topup->customer_id,
@@ -2232,11 +2287,21 @@ class CommerceService
 
     private function paymentForWebhook(string $domain, string $provider, array $payload): ?object
     {
-        if ($domain !== 'payments') {
+        if (! in_array($domain, ['payments', 'topups'], true)) {
             return null;
         }
 
-        $reference = (string) ($payload['reference'] ?? data_get($payload, 'payload.reference', ''));
+        $providerReference = trim((string) ($payload['partnerTxnUid'] ?? data_get($payload, 'payload.partnerTxnUid', '')));
+        if ($providerReference !== '') {
+            $payment = Payment::where('provider', $provider)->where('provider_reference', $providerReference)->first()
+                ?? Payment::where('provider_reference', $providerReference)->first();
+
+            if ($payment !== null) {
+                return $payment;
+            }
+        }
+
+        $reference = (string) ($payload['reference'] ?? $payload['reference1'] ?? data_get($payload, 'payload.reference', ''));
 
         if ($reference === '') {
             return null;
@@ -2256,18 +2321,29 @@ class CommerceService
             return TopupRequest::where('id', $payment->topup_request_id)->first();
         }
 
-        $reference = (string) ($payload['reference'] ?? data_get($payload, 'payload.reference', ''));
+        $providerReference = trim((string) ($payload['partnerTxnUid'] ?? data_get($payload, 'payload.partnerTxnUid', '')));
+        if ($providerReference !== '') {
+            $providerPayment = Payment::where('provider', $provider)->where('provider_reference', $providerReference)->first()
+                ?? Payment::where('provider_reference', $providerReference)->first();
+
+            if ($providerPayment !== null && $providerPayment->topup_request_id !== null) {
+                return TopupRequest::where('id', $providerPayment->topup_request_id)->first();
+            }
+        }
+
+        $reference = (string) ($payload['reference'] ?? $payload['reference1'] ?? data_get($payload, 'payload.reference', ''));
 
         if ($reference === '') {
             return null;
         }
 
-        return TopupRequest::where('reference', $reference)->first();
+        return TopupRequest::where('reference', $reference)->first()
+            ?? TopupRequest::where('id', $reference)->first();
     }
 
     private function webhookCallbackKey(array $payload): string
     {
-        foreach (['id', 'reference', 'event'] as $field) {
+        foreach (['partnerTxnUid', 'id', 'reference', 'reference1', 'event'] as $field) {
             if (($payload[$field] ?? null) !== null && trim((string) $payload[$field]) !== '') {
                 return trim((string) $payload[$field]);
             }
@@ -2279,6 +2355,9 @@ class CommerceService
     private function webhookIsSuccessful(array $payload): bool
     {
         $status = strtolower((string) ($payload['status'] ?? $payload['event'] ?? data_get($payload, 'payload.status', '')));
+        if ($status === '' && trim((string) ($payload['partnerTxnUid'] ?? '')) !== '' && (string) ($payload['reference2'] ?? '') === 'wallet') {
+            return true;
+        }
 
         return in_array($status, ['success', 'succeeded', 'paid', 'payment.succeeded', 'topup.succeeded'], true);
     }
@@ -2458,19 +2537,24 @@ class CommerceService
     private function topupResource(object $topup): array
     {
         $payment = $topup->payment_id === null ? null : Payment::where('id', $topup->payment_id)->first();
+        $qrCode = $payment === null
+            ? null
+            : $this->topupPaymentQrCode($payment);
 
         return [
             'id' => (string) $topup->id,
             'amount' => $this->money((int) $topup->amount, (string) $topup->currency),
             'bonus_amount' => $this->money((int) $topup->bonus_amount, (string) $topup->currency),
             'status' => $this->topupPresentationStatus($topup),
+            'provider' => (string) $topup->provider,
+            'channel' => (string) $topup->channel,
             'transfer_at' => $topup->transfer_at,
             'created_at' => $topup->created_at,
             'slip' => $this->topupSlipResource($topup),
             'slip_url' => PublicUrl::normalizeAssetUrl($topup->slip_url ?? null),
             'slip_thumb_url' => PublicUrl::normalizeAssetUrl($topup->slip_thumb_url ?? null),
             'payment' => [
-                'qr_code' => in_array((string) $topup->channel, ['qr', 'credit_card'], true) ? 'stub-qr-'.$topup->reference : null,
+                'qr_code' => in_array((string) $topup->channel, ['qr', 'credit_card'], true) ? $qrCode : null,
                 'redirect_url' => $payment?->redirect_url,
                 'message' => null,
             ],
@@ -2818,6 +2902,108 @@ class CommerceService
         $methods = $this->tenantTopupPaymentMethods($tenantId);
 
         return in_array(TenantPaymentMethods::normalizeTopupChannel($channel), $methods['enabled_methods'], true);
+    }
+
+    private function topupChannelUsesProvider(string $channel): bool
+    {
+        return in_array(TenantPaymentMethods::normalizeTopupChannel($channel), [
+            TenantPaymentMethods::QR,
+            TenantPaymentMethods::CREDIT_CARD,
+        ], true);
+    }
+
+    private function topupProviderForChannel(string $tenantId, string $channel): ?string
+    {
+        $key = TenantPaymentMethods::normalizeTopupChannel($channel);
+        $settings = TenantPaymentSetting::query()->forTenant($tenantId)->first();
+        $methods = TenantPaymentMethods::normalize(is_array($settings?->config_json) ? $settings->config_json : null);
+        $provider = trim((string) ($methods[$key]['provider'] ?? ''));
+
+        if ($provider === '' || ! $this->topupChannelUsesProvider($key)) {
+            return null;
+        }
+
+        return $this->tenantPaymentProviderConnection($tenantId, $provider) === null ? null : $provider;
+    }
+
+    private function tenantPaymentProviderConnection(string $tenantId, string $provider): ?TenantPaymentProviderConnection
+    {
+        return TenantPaymentProviderConnection::query()
+            ->forTenant($tenantId)
+            ->where('provider', $provider)
+            ->where('status', 'active')
+            ->whereNotNull('api_key_encrypted')
+            ->first();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function createTopupProviderBill(string $tenantId, string $provider, string $channel, string $topupId, int $amount): array
+    {
+        $connection = $this->tenantPaymentProviderConnection($tenantId, $provider);
+
+        if ($connection === null) {
+            return [
+                'ok' => false,
+                'error_code' => 'payment_provider_not_configured',
+                'message' => 'Payment provider is not configured.',
+            ];
+        }
+
+        return match ($provider) {
+            DeepayKbankPaymentProvider::PROVIDER => $this->deepayKbankProvider->createTopupBill($connection, $channel, $tenantId, $topupId, $amount),
+            default => [
+                'ok' => false,
+                'error_code' => 'payment_provider_not_supported',
+                'message' => 'Payment provider is not supported.',
+            ],
+        };
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function cancelTopupProviderPayment(string $tenantId, object $payment): array
+    {
+        $provider = (string) $payment->provider;
+        $connection = $this->tenantPaymentProviderConnection($tenantId, $provider);
+
+        if ($connection === null) {
+            return [
+                'ok' => false,
+                'error_code' => 'payment_provider_not_configured',
+                'message' => 'Payment provider is not configured.',
+            ];
+        }
+
+        return match ($provider) {
+            DeepayKbankPaymentProvider::PROVIDER => $this->deepayKbankProvider->cancel($connection, (string) $payment->provider_reference),
+            default => [
+                'ok' => false,
+                'error_code' => 'payment_provider_not_supported',
+                'message' => 'Payment provider is not supported.',
+            ],
+        };
+    }
+
+    private function topupPaymentQrCode(object $payment): ?string
+    {
+        $payload = $this->decodeJsonObject($payment->provider_payload_json);
+        $qrCode = data_get($payload, 'qr_code')
+            ?? data_get($payload, 'response.result.qr')
+            ?? data_get($payload, 'response.qr');
+
+        $qrCode = trim((string) $qrCode);
+        if ($qrCode === '') {
+            return null;
+        }
+
+        if (str_starts_with($qrCode, 'data:image/')) {
+            return $qrCode;
+        }
+
+        return 'data:image/jpeg;base64,'.$qrCode;
     }
 
     /**
@@ -3188,6 +3374,7 @@ class CommerceService
                 'tenant_id' => $tenantId,
                 'topup_id' => $topupId,
                 'topup' => $this->adminTopupSummaryResource($topup),
+                'pending_count' => $this->pendingTopupCount($tenantId),
                 'updated_at' => now()->toISOString(),
             ]);
             AdminMenuBadgesUpdated::dispatch('tenant', $tenantId, 'topups');
@@ -3205,15 +3392,47 @@ class CommerceService
 
     private function topupPresentationStatus(object $topup): string
     {
+        $hasSlip = $this->topupHasSlip($topup);
+
         return match ((string) $topup->status) {
-            'pending' => $topup->channel === 'bank_transfer' ? 'pending_review' : 'pending_payment',
-            'processing' => 'pending_payment',
+            'pending' => $topup->channel === 'bank_transfer' || $hasSlip ? 'pending_review' : 'pending_payment',
+            'processing' => $hasSlip ? 'pending_review' : 'pending_payment',
             'succeeded' => 'approved',
             'failed', 'reversed' => 'rejected',
             'cancelled' => 'cancelled',
             'expired' => 'expired',
             default => 'pending_payment',
         };
+    }
+
+    private function topupHasSlip(object $topup): bool
+    {
+        return trim((string) ($topup->slip_storage_path ?? '')) !== ''
+            || trim((string) ($topup->slip_url ?? '')) !== ''
+            || trim((string) ($topup->slip_thumb_url ?? '')) !== '';
+    }
+
+    private function markTopupPaymentReviewed(object $topup, string $status): void
+    {
+        $paymentId = trim((string) ($topup->payment_id ?? ''));
+
+        if ($paymentId === '') {
+            return;
+        }
+
+        $updates = [
+            'status' => $status,
+            'updated_at' => now(),
+        ];
+
+        if ($status === 'succeeded') {
+            $updates['paid_at'] = now();
+        }
+
+        Payment::query()
+            ->where('id', $paymentId)
+            ->whereIn('status', ['pending', 'processing'])
+            ->update($updates);
     }
 
     /**

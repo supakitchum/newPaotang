@@ -4,12 +4,15 @@ namespace App\Modules\AdminOperations\Services;
 
 use App\Models\PartnerTenant;
 use App\Models\TenantPaymentChannel;
+use App\Models\TenantPaymentProviderConnection;
 use App\Models\TenantPaymentSetting;
+use App\Modules\Commerce\Services\PaymentProviders\DeepayKbankPaymentProvider;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Support\ThaiBankCatalog;
 use App\Support\TenantPaymentMethods;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -36,6 +39,16 @@ class TenantPaymentSettingsService
         'webhook',
         'signature',
         'private',
+    ];
+
+    private const PROVIDER_CONNECTION_STATUSES = ['active', 'inactive', 'disabled'];
+
+    private const PAYMENT_PROVIDER_OPTIONS = [
+        DeepayKbankPaymentProvider::PROVIDER => [
+            'value' => DeepayKbankPaymentProvider::PROVIDER,
+            'label' => 'DeePay KBank',
+            'description' => 'KBank QR Code and Credit QR Code through DeePay.',
+        ],
     ];
 
     public function __construct(private readonly AuditLogger $auditLogger)
@@ -86,6 +99,124 @@ class TenantPaymentSettingsService
             $this->audit($actor, $request, 'payment_settings.updated', 'tenant_payment_setting', (string) $settings->id, $payload, $tenantId, (string) $tenant->partner_id);
 
             return ['resource' => $this->settings($tenantId)];
+        });
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function deepayKbankConnection(string $tenantId): ?array
+    {
+        $tenant = PartnerTenant::whereKey($tenantId)->first();
+
+        if ($tenant === null) {
+            return null;
+        }
+
+        return $this->providerConnectionResource($tenantId, DeepayKbankPaymentProvider::PROVIDER);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, error?: string, errors?: array<string, array<int, string>>}
+     */
+    public function saveDeepayKbankConnection(string $tenantId, array $payload, AdminSessionContext $actor, Request $request): array
+    {
+        $tenant = PartnerTenant::whereKey($tenantId)->first();
+
+        if ($tenant === null) {
+            return ['error' => 'not_found'];
+        }
+
+        $provider = DeepayKbankPaymentProvider::PROVIDER;
+        $existing = TenantPaymentProviderConnection::query()
+            ->forTenant($tenantId)
+            ->where('provider', $provider)
+            ->first();
+
+        $status = trim((string) ($payload['status'] ?? 'active'));
+        $apiKey = trim((string) ($payload['api_key'] ?? ''));
+        $errors = [];
+
+        if (! in_array($status, self::PROVIDER_CONNECTION_STATUSES, true)) {
+            $errors['status'][] = 'The status field is invalid.';
+        }
+
+        if ($status === 'active' && $apiKey === '' && $existing?->api_key_encrypted === null) {
+            $errors['api_key'][] = 'The API key field is required.';
+        }
+
+        if ($errors !== []) {
+            return ['error' => 'validation_failed', 'errors' => $errors];
+        }
+
+        return DB::transaction(function () use ($tenantId, $provider, $existing, $status, $apiKey, $actor, $request, $payload, $tenant): array {
+            TenantPaymentProviderConnection::query()->updateOrInsert(
+                [
+                    'tenant_id' => $tenantId,
+                    'provider' => $provider,
+                ],
+                [
+                    'id' => $existing?->id ?? 'tppc_'.substr(sha1($tenantId.':'.$provider), 0, 20),
+                    'status' => $status,
+                    'api_key_encrypted' => $apiKey !== ''
+                        ? Crypt::encryptString($apiKey)
+                        : $existing?->api_key_encrypted,
+                    'last_test_status' => null,
+                    'last_error' => null,
+                    'metadata_json' => [
+                        'callback_path' => $this->providerCallbackPath($provider),
+                    ],
+                    'updated_at' => now(),
+                    'created_at' => $existing?->created_at ?? now(),
+                ],
+            );
+
+            $this->audit($actor, $request, 'payment_provider_connection.updated', 'tenant_payment_provider_connection', $existing?->id ?? $provider, [
+                ...$payload,
+                'api_key' => $apiKey === '' ? null : '[CONFIGURED]',
+            ], $tenantId, (string) $tenant->partner_id);
+
+            return ['resource' => $this->providerConnectionResource($tenantId, $provider)];
+        });
+    }
+
+    /**
+     * @return array{resource?: array<string, mixed>, error?: string}
+     */
+    public function deactivateDeepayKbankConnection(string $tenantId, AdminSessionContext $actor, Request $request): array
+    {
+        $tenant = PartnerTenant::whereKey($tenantId)->first();
+
+        if ($tenant === null) {
+            return ['error' => 'not_found'];
+        }
+
+        $provider = DeepayKbankPaymentProvider::PROVIDER;
+
+        return DB::transaction(function () use ($tenantId, $provider, $actor, $request, $tenant): array {
+            $connection = TenantPaymentProviderConnection::query()
+                ->forTenant($tenantId)
+                ->where('provider', $provider)
+                ->lockForUpdate()
+                ->first();
+
+            if ($connection === null) {
+                return ['resource' => $this->providerConnectionResource($tenantId, $provider)];
+            }
+
+            TenantPaymentProviderConnection::query()
+                ->where('id', $connection->id)
+                ->update([
+                    'status' => 'inactive',
+                    'updated_at' => now(),
+                ]);
+
+            $this->audit($actor, $request, 'payment_provider_connection.deactivated', 'tenant_payment_provider_connection', (string) $connection->id, [
+                'provider' => $provider,
+            ], $tenantId, (string) $tenant->partner_id);
+
+            return ['resource' => $this->providerConnectionResource($tenantId, $provider)];
         });
     }
 
@@ -332,6 +463,49 @@ class TenantPaymentSettingsService
             $errors['payment_provider_status'][] = 'The payment_provider_status field is invalid.';
         }
 
+        $errors = array_replace_recursive($errors, $this->paymentMethodProviderErrors($tenantId, $payload));
+
+        return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    private function paymentMethodProviderErrors(string $tenantId, array $payload): array
+    {
+        $incomingConfig = is_array($payload['config_json'] ?? null) ? $payload['config_json'] : [];
+        $settings = TenantPaymentSetting::query()->forTenant($tenantId)->first();
+        $currentConfig = $settings !== null && is_array($settings->config_json) ? $settings->config_json : [];
+        $config = array_replace_recursive($currentConfig, $incomingConfig);
+        $methods = is_array($config['payment_methods'] ?? null) ? $config['payment_methods'] : [];
+        $errors = [];
+
+        foreach ([TenantPaymentMethods::QR, TenantPaymentMethods::CREDIT_CARD] as $method) {
+            if (! array_key_exists($method, $methods)) {
+                continue;
+            }
+
+            $rawMethodConfig = $methods[$method];
+            $methodConfig = is_array($rawMethodConfig) ? $rawMethodConfig : [];
+
+            if (! TenantPaymentMethods::isEnabled($config, $method)) {
+                continue;
+            }
+
+            $provider = trim((string) ($methodConfig['provider'] ?? ''));
+            $field = 'config.payment_methods.'.$method.'.provider';
+
+            if ($provider === '') {
+                $errors[$field][] = 'Select a payment provider before enabling this payment method.';
+                continue;
+            }
+
+            if (! array_key_exists($provider, self::PAYMENT_PROVIDER_OPTIONS)) {
+                $errors[$field][] = 'The selected payment provider is invalid.';
+            }
+        }
+
         return $errors;
     }
 
@@ -500,9 +674,101 @@ class TenantPaymentSettingsService
             'enabled_payment_methods' => TenantPaymentMethods::enabledKeys(is_array($settings->config_json) ? $settings->config_json : []),
             'bank_transfer' => $this->bankTransferResource(is_array($settings->config_json) ? $settings->config_json : []),
             'bank_catalog' => ThaiBankCatalog::all(),
+            'payment_provider_options' => $this->paymentProviderOptions((string) $settings->tenant_id),
+            'payment_provider_connections' => $this->providerConnectionsResource((string) $settings->tenant_id),
             'secret_status' => $settings->secret_status_json ?? [],
             'production_provider_ready' => false,
         ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function paymentProviderOptions(string $tenantId): array
+    {
+        $connections = $this->providerConnectionsResource($tenantId);
+
+        return array_values(array_map(function (array $provider) use ($connections): array {
+            $key = (string) $provider['value'];
+            $connection = $connections[$key] ?? null;
+
+            return $provider + [
+                'configured' => (bool) ($connection['configured'] ?? false),
+                'ready' => (bool) ($connection['ready'] ?? false),
+                'status' => (string) ($connection['status'] ?? 'inactive'),
+            ];
+        }, self::PAYMENT_PROVIDER_OPTIONS));
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function providerConnectionsResource(string $tenantId): array
+    {
+        return [
+            DeepayKbankPaymentProvider::PROVIDER => $this->providerConnectionResource($tenantId, DeepayKbankPaymentProvider::PROVIDER),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function providerConnectionResource(string $tenantId, string $provider): array
+    {
+        $connection = TenantPaymentProviderConnection::query()
+            ->forTenant($tenantId)
+            ->where('provider', $provider)
+            ->first();
+
+        $apiKeyConfigured = $connection !== null && $connection->api_key_encrypted !== null;
+        $status = (string) ($connection?->status ?? 'inactive');
+
+        return [
+            'provider' => $provider,
+            'label' => self::PAYMENT_PROVIDER_OPTIONS[$provider]['label'] ?? $provider,
+            'status' => $status,
+            'configured' => $apiKeyConfigured,
+            'ready' => $status === 'active' && $apiKeyConfigured,
+            'api_key_configured' => $apiKeyConfigured,
+            'api_key_masked' => $this->maskedSecret($connection?->api_key_encrypted),
+            'verified_at' => $connection?->verified_at?->toISOString(),
+            'last_tested_at' => $connection?->last_tested_at?->toISOString(),
+            'last_test_status' => $connection?->last_test_status,
+            'last_error' => $connection?->last_error,
+            'callback_path' => $this->providerCallbackPath($provider),
+            'callback_url' => $this->providerCallbackUrl($provider),
+        ];
+    }
+
+    private function providerCallbackPath(string $provider): string
+    {
+        return '/api/v1/webhooks/topups/'.$provider;
+    }
+
+    private function providerCallbackUrl(string $provider): string
+    {
+        return rtrim((string) config('app.url'), '/').$this->providerCallbackPath($provider);
+    }
+
+    private function maskedSecret(mixed $encrypted): ?string
+    {
+        $value = trim((string) $encrypted);
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            $plain = Crypt::decryptString($value);
+        } catch (\Throwable) {
+            return '[CONFIGURED]';
+        }
+
+        $length = strlen($plain);
+        if ($length <= 8) {
+            return str_repeat('•', max(4, $length));
+        }
+
+        return substr($plain, 0, 4).str_repeat('•', max(4, $length - 8)).substr($plain, -4);
     }
 
     /**

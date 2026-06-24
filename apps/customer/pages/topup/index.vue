@@ -57,13 +57,13 @@
       <div v-else-if="waitingQrCode" class="topup-waiting-payment">
         <h3>สแกน QR Code เพื่อชำระเงิน</h3>
         <img :src="waitingQrCode" alt="QR Code สำหรับชำระรายการเติมเงินค้างอยู่">
-        <p>หลังชำระเงินแล้วให้อัพโหลดสลิปเพื่อส่งตรวจสอบ</p>
+        <p>หลังชำระแล้วสามารถแนบสลิปเพื่อให้ร้านค้าตรวจสอบได้</p>
       </div>
       <div v-else class="topup-waiting-note">
         {{ waitingPaymentMessage || 'รายการนี้รอทีมงานตรวจสอบ' }}
       </div>
 
-      <div v-if="!isWaitingTopupTerminal" class="topup-waiting-slip">
+      <div v-if="!isWaitingTopupTerminal && waitingNeedsSlip" class="topup-waiting-slip">
         <div class="topup-waiting-slip-head">
           <div>
             <h3>สลิปชำระเงิน</h3>
@@ -113,7 +113,7 @@
         <div v-if="activeChannel === 'qr'" class="topup-method">
           <div class="topup-deferred-slip-note">
             <i class="bi bi-info-circle" />
-            <span>สร้าง QR Code ก่อน แล้วอัพโหลดสลิปจากรายการที่รอชำระภายหลัง</span>
+            <span>สร้าง QR Code แล้วแนบสลิปหลังชำระเงินเพื่อให้ร้านค้าตรวจสอบ</span>
           </div>
           <button class="primary-pill w-100" type="button" :disabled="isSubmitting" @click="createQrTopup">
             {{ isSubmitting ? 'กำลังสร้าง QR...' : 'สร้าง QR Code' }}
@@ -123,7 +123,7 @@
         <div v-else-if="activeChannel === 'credit'" class="topup-method">
           <div class="topup-deferred-slip-note">
             <i class="bi bi-info-circle" />
-            <span>ช่องทางนี้จะแสดงเป็น QR Code เช่นกัน และอัพโหลดสลิปหลังชำระเงินได้</span>
+            <span>ช่องทางนี้จะแสดงเป็น QR Code และแนบสลิปหลังชำระเงินได้</span>
           </div>
           <button class="primary-pill w-100" type="button" :disabled="isSubmitting" @click="createCreditTopup">
             {{ isSubmitting ? 'กำลังสร้าง QR...' : 'สร้าง QR Code' }}
@@ -155,7 +155,7 @@
         <div v-if="qrCode" class="topup-qr-result">
           <h2>สแกนเพื่อชำระเงิน</h2>
           <img :src="qrCode" alt="QR Code สำหรับเติมเงิน">
-          <p class="muted-text">เมื่อชำระสำเร็จ ระบบจะเติมเงินเข้า wallet ให้อัตโนมัติ</p>
+          <p class="muted-text">หลังชำระเงินแล้วแนบสลิปในรายการเติมเงินค้างอยู่</p>
         </div>
       </div>
     </div>
@@ -324,6 +324,12 @@ const waitingHasSlip = computed(() => Boolean(
   || waitingDeposit.value?.slip_thumb_url
   || waitingDeposit.value?.slip
 ))
+const waitingNeedsSlip = computed(() => {
+  const channel = String(waitingDeposit.value?.channel || '').toLowerCase()
+  const provider = String(waitingDeposit.value?.provider || '').toLowerCase()
+
+  return ['bank_transfer', 'qr', 'credit_card'].includes(channel) || provider === 'manual'
+})
 const topupBackTo = computed(() => {
   const value = Array.isArray(route.query.back) ? route.query.back[0] : route.query.back
   const target = String(value || '').trim()

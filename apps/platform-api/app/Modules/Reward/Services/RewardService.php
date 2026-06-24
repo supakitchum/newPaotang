@@ -2319,7 +2319,7 @@ class RewardService
             $query->where('reward_claims.id', $operator, trim((string) $queryParams['cursor']));
         }
 
-        return $this->claimListResponse($query->get()->all(), $limit);
+        return $this->claimListResponse($query->get()->all(), $limit, $tenantId);
     }
 
     /**
@@ -3387,18 +3387,32 @@ class RewardService
      * @param array<int, object> $rows
      * @return array<string, mixed>
      */
-    private function claimListResponse(array $rows, int $limit): array
+    private function claimListResponse(array $rows, int $limit, ?string $tenantId = null): array
     {
         $hasMore = count($rows) > $limit;
         $rows = array_slice($rows, 0, $limit);
 
+        $meta = [
+            'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->id : null,
+            'has_more' => $hasMore,
+        ];
+
+        if ($tenantId !== null && $tenantId !== '') {
+            $meta['pending_count'] = $this->pendingRewardClaimCount($tenantId);
+        }
+
         return [
             'data' => array_map(fn (object $claim): array => $this->claimResource($claim), $rows),
-            'meta' => [
-                'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->id : null,
-                'has_more' => $hasMore,
-            ],
+            'meta' => $meta,
         ];
+    }
+
+    private function pendingRewardClaimCount(string $tenantId): int
+    {
+        return RewardClaim::query()
+            ->forTenant($tenantId)
+            ->whereIn('status', self::PENDING_CLAIM_STATUSES)
+            ->count();
     }
 
     /**
@@ -3891,6 +3905,7 @@ class RewardService
                 'tenant_id' => $tenantId,
                 'claim_id' => $claimId,
                 'claim' => $this->claimResource($claim),
+                'pending_count' => $this->pendingRewardClaimCount($tenantId),
                 'updated_at' => now()->toISOString(),
             ]);
             AdminMenuBadgesUpdated::dispatch('tenant', $tenantId, 'exchange_reward');

@@ -280,6 +280,13 @@ class CustomerCommerceController extends Controller
             'wallet_insufficient_balance' => ApiErrorResponse::walletInsufficientBalance($request),
             'not_found' => ApiErrorResponse::notFound($request),
             'payment_method_disabled' => ApiErrorResponse::validationFailed($request, ['channel' => ['This payment method is currently disabled.']]),
+            'payment_provider_not_configured' => ApiErrorResponse::validationFailed($request, ['channel' => ['This payment provider is not configured. Please contact the store.']]),
+            'payment_provider_managed' => ApiErrorResponse::validationFailed($request, ['slip' => ['This payment method does not require a transfer slip.']]),
+            'payment_provider_not_supported' => ApiErrorResponse::validationFailed($request, ['channel' => ['This payment provider is not supported.']]),
+            'payment_provider_invalid_response',
+            'payment_provider_unavailable',
+            'payment_provider_failed',
+            'payment_provider_cancel_failed' => ApiErrorResponse::make($request, 502, $result['error'] ?? 'payment_provider_failed', (string) ($result['message'] ?? 'The payment provider is temporarily unavailable. Please try again later.')),
             'validation_failed' => ApiErrorResponse::validationFailed($request, ['payload' => ['The request payload is invalid.']]),
             default => response()->json($result['resource'] ?? [], $result['status'] ?? $defaultStatus),
         };

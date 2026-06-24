@@ -11,6 +11,14 @@
           <i class="ri-arrow-left-line me-1" />
           {{ phrase('Back') }}
         </NuxtLink>
+        <NuxtLink v-if="isPaymentSettingsRoute" to="/admin/tenant/payment-provider-settings" class="btn btn-primary btn-wave">
+          <i class="ri-settings-3-line me-1" />
+          {{ phrase('Provider settings') }}
+        </NuxtLink>
+        <NuxtLink v-if="isPaymentProviderSettingsRoute" to="/admin/tenant/payment-settings" class="btn btn-light btn-wave">
+          <i class="ri-arrow-left-line me-1" />
+          {{ phrase('Back to payment methods') }}
+        </NuxtLink>
         <button v-if="canReload" class="btn btn-outline-primary btn-wave" type="button" :disabled="loading" @click="load()">
           <span v-if="loading" class="spinner-border spinner-border-sm me-1" />
           <i v-else class="ri-refresh-line me-1" />
@@ -58,13 +66,15 @@
         @saved="handleStockCoverageSettingsSaved"
       />
       <template v-else-if="hasSettingsForm">
-        <template v-if="isPaymentSettingsRoute">
+        <template v-if="isPaymentSettingsRoute || isPaymentProviderSettingsRoute">
           <AdminLoader v-if="loading" />
           <template v-else>
             <AdminPaymentSettingsCards
               :fields="resource.settingsFields || []"
               :loading="loading"
+              :mode="isPaymentProviderSettingsRoute ? 'provider' : 'channels'"
               :model-value="settingsForm"
+              :provider-options="detail?.payment_provider_options || []"
               :saving="saving"
               @reset="resetSettingsForm"
               @save="saveSettingsForm"
@@ -547,7 +557,21 @@
     </template>
 
     <template v-if="showRelatedLists">
-      <div v-for="related in activeRelatedLists" :key="related.key" class="np-related-list-block">
+      <div v-if="showRelatedTabs" class="np-related-tabs">
+        <button
+          v-for="related in activeRelatedLists"
+          :key="related.key"
+          type="button"
+          :class="['np-related-tab-button', { active: selectedRelatedTabKey === related.key }]"
+          @click="activeRelatedTab = related.key"
+        >
+          <span>{{ relatedTabLabel(related) }}</span>
+          <span v-if="relatedTabBadge(related) !== null" class="badge rounded-pill bg-danger text-white">
+            {{ relatedTabBadge(related) }}
+          </span>
+        </button>
+      </div>
+      <div v-for="related in visibleRelatedLists" :key="related.key" class="np-related-list-block">
         <AdminFilterBar
           v-if="related.filters?.length"
           :filters="hydrateFilters(related.filters || [])"
@@ -818,9 +842,10 @@ const relatedFilters = reactive<Record<string, Record<string, any>>>({})
 const relatedRows = reactive<Record<string, any[]>>({})
 const relatedLoading = reactive<Record<string, boolean>>({})
 const relatedErrors = reactive<Record<string, any>>({})
-const relatedMeta = reactive<Record<string, { next_cursor: string | null, has_more: boolean }>>({})
+const relatedMeta = reactive<Record<string, Record<string, any>>>({})
 const relatedPageState = reactive<Record<string, { cursors: Array<string | null>, index: number }>>({})
 const relatedSortState = reactive<Record<string, { key: string, direction: 'asc' | 'desc' }>>({})
+const activeRelatedTab = ref('')
 const confirm = reactive<{
   open: boolean
   title: string
@@ -997,7 +1022,43 @@ const isPriceRulesRoute = computed(() => props.scope === 'tenant' && resource.va
 const isCentralRewardPayoutRulesRoute = computed(() => props.scope === 'central' && resource.value?.slug === 'reward-payout-rules')
 const isSalePriceRulesRoute = computed(() => resource.value?.slug === 'sale-price-rules')
 const showListSections = computed(() => Boolean(resource.value?.listSections?.length && mode.value === 'list'))
-const activeRelatedLists = computed(() => showListSections.value ? (resource.value?.listSections || []) : (resource.value?.relatedLists || []))
+const activeRelatedLists = computed(() => {
+  if (isPaymentSettingsRoute.value) {
+    return []
+  }
+
+  return showListSections.value ? (resource.value?.listSections || []) : (resource.value?.relatedLists || [])
+})
+const hasReviewQueueTabs = computed(() => Boolean(isTenantTopupsRoute.value || isTenantExchangeRewardRoute.value))
+const showRelatedTabs = computed(() => Boolean(hasReviewQueueTabs.value && showListSections.value && activeRelatedLists.value.length > 1))
+const selectedRelatedTabKey = computed(() => {
+  if (activeRelatedLists.value.some((related) => related.key === activeRelatedTab.value)) {
+    return activeRelatedTab.value
+  }
+
+  return activeRelatedLists.value[0]?.key || ''
+})
+const visibleRelatedLists = computed(() => {
+  if (!showRelatedTabs.value) {
+    return activeRelatedLists.value
+  }
+
+  return activeRelatedLists.value.filter((related) => related.key === selectedRelatedTabKey.value)
+})
+const pendingReviewRelatedList = computed(() => activeRelatedLists.value.find((related) => related.key === 'pending-topups' || related.key === 'pending-reward-claims') || null)
+const pendingReviewBadgeCount = computed(() => {
+  const pendingKey = pendingReviewRelatedList.value?.key
+  if (!pendingKey) {
+    return 0
+  }
+
+  const metaCount = Number(relatedMeta[pendingKey]?.pending_count)
+  if (Number.isFinite(metaCount)) {
+    return Math.max(0, metaCount)
+  }
+
+  return relatedRows[pendingKey]?.length || 0
+})
 const showStockSummaryWidgets = computed(() => Boolean(resource.value?.stockSummaryEndpoint && mode.value === 'list'))
 const showAllocationSummaryWidgets = computed(() => Boolean(isAllocationsRoute.value && mode.value === 'list'))
 const showAllocationQueuePanel = computed(() => Boolean(isAllocationsRoute.value && mode.value === 'list'))
@@ -1399,6 +1460,7 @@ const relatedDetailSectionRecord = computed(() => {
 })
 const hasSettingsForm = computed(() => Boolean(resource.value?.settingsFields?.length))
 const isPaymentSettingsRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'payment-settings')
+const isPaymentProviderSettingsRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'payment-provider-settings')
 const isMenuManagement = computed(() => resource.value?.slug === 'menu-management')
 const showRelatedLists = computed(() => Boolean(
   activeRelatedLists.value.length
@@ -1541,6 +1603,26 @@ const applyRelatedSort = (related: OperationRelatedList, next: { key: string, di
 
   relatedSortState[related.key] = { key: next.key, direction: next.direction }
   loadRelatedList(related)
+}
+
+const relatedTabLabel = (related: OperationRelatedList) => {
+  if (related.key === 'pending-topups' || related.key === 'pending-reward-claims') {
+    return phrase('Pending')
+  }
+
+  if (related.key === 'topup-history' || related.key === 'reward-claim-history') {
+    return phrase('History')
+  }
+
+  return phrase(related.title)
+}
+
+const relatedTabBadge = (related: OperationRelatedList) => {
+  if (related.key !== pendingReviewRelatedList.value?.key) {
+    return null
+  }
+
+  return pendingReviewBadgeCount.value
 }
 
 async function load(cursor?: string | null, pageMode: 'reset' | 'next' | 'previous' | 'current' = 'reset', options: LoadOptions = {}) {
@@ -3062,6 +3144,19 @@ function handleTenantTopupRealtimeEvent(payload: any) {
     return
   }
 
+  const pendingCount = Number(payload.pending_count)
+  if (Number.isFinite(pendingCount)) {
+    for (const section of activeRelatedLists.value) {
+      if (section.key === 'pending-topups') {
+        relatedMeta[section.key] = {
+          ...(relatedMeta[section.key] || {}),
+          pending_count: Math.max(0, pendingCount),
+        }
+        break
+      }
+    }
+  }
+
   for (const section of activeRelatedLists.value) {
     if (!String(section.listEndpoint || '').includes('/topups')) {
       continue
@@ -3089,6 +3184,19 @@ function handleTenantRewardClaimRealtimeEvent(payload: any) {
   const claimId = String(row?.id || payload.claim_id || '').trim()
   if (!claimId) {
     return
+  }
+
+  const pendingCount = Number(payload.pending_count)
+  if (Number.isFinite(pendingCount)) {
+    for (const section of activeRelatedLists.value) {
+      if (section.key === 'pending-reward-claims') {
+        relatedMeta[section.key] = {
+          ...(relatedMeta[section.key] || {}),
+          pending_count: Math.max(0, pendingCount),
+        }
+        break
+      }
+    }
   }
 
   for (const section of activeRelatedLists.value) {
@@ -3329,6 +3437,7 @@ const loadRelatedList = async (related: OperationRelatedList, cursor?: string | 
     relatedRows[related.key] = nextRows
     const nextMeta = extractMeta(response)
     relatedMeta[related.key] = {
+      ...nextMeta,
       next_cursor: nextMeta.next_cursor || null,
       has_more: Boolean(nextMeta.has_more || nextMeta.next_cursor),
     }
@@ -4307,6 +4416,36 @@ const formatLines = (value: any, valueKey?: string) => {
 </script>
 
 <style scoped>
+.np-related-tabs {
+  align-items: center;
+  background: #fff;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 0.5rem;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+}
+
+.np-related-tab-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 0.45rem;
+  color: #64748b;
+  display: inline-flex;
+  font-weight: 700;
+  gap: 0.5rem;
+  min-height: 2.35rem;
+  padding: 0.45rem 0.85rem;
+}
+
+.np-related-tab-button.active {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
 .np-related-list-block {
   display: grid;
   gap: 1rem;

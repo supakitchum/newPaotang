@@ -14,6 +14,7 @@ class TenantPaymentMethods
             'label' => 'QR Code',
             'description' => 'Generate QR Code for wallet topup.',
             'enabled' => true,
+            'provider' => 'deepay_kbank',
             'sort_order' => 10,
         ],
         self::CREDIT_CARD => [
@@ -21,6 +22,7 @@ class TenantPaymentMethods
             'label' => 'Credit Card QR',
             'description' => 'Generate external provider QR for credit card topup.',
             'enabled' => true,
+            'provider' => 'deepay_kbank',
             'sort_order' => 20,
         ],
         self::BANK_TRANSFER => [
@@ -28,6 +30,7 @@ class TenantPaymentMethods
             'label' => 'Bank Transfer',
             'description' => 'Customer transfers to the tenant bank account and uploads a slip.',
             'enabled' => true,
+            'provider' => null,
             'sort_order' => 30,
         ],
     ];
@@ -59,6 +62,7 @@ class TenantPaymentMethods
                 'label' => trim((string) ($methodConfig['label'] ?? '')) !== '' ? trim((string) $methodConfig['label']) : $default['label'],
                 'description' => trim((string) ($methodConfig['description'] ?? '')) !== '' ? trim((string) $methodConfig['description']) : $default['description'],
                 'enabled' => self::boolValue($enabledSource, (bool) $default['enabled']),
+                'provider' => self::providerValue($methodConfig['provider'] ?? $default['provider'] ?? null),
                 'sort_order' => (int) ($methodConfig['sort_order'] ?? $default['sort_order']),
             ];
         }
@@ -129,5 +133,12 @@ class TenantPaymentMethods
         $filtered = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
 
         return $filtered ?? $fallback;
+    }
+
+    private static function providerValue(mixed $value): ?string
+    {
+        $provider = trim((string) $value);
+
+        return $provider === '' ? null : $provider;
     }
 }

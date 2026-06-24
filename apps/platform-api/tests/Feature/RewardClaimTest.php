@@ -62,6 +62,7 @@ class RewardClaimTest extends TestCase
                 'X-Tenant-Id' => $walletWorld['tenant_id'],
             ])
             ->assertOk()
+            ->assertJsonPath('meta.pending_count', 1)
             ->assertJsonPath('data.0.id', $walletClaim->id);
 
         $bankWorld = $this->prepareRewardWorld('par_auto_bank', 'ten_auto_bank', 'auto-bank.m7.test', 'gam_auto_bank', '0807201200', 791201);
@@ -190,6 +191,7 @@ class RewardClaimTest extends TestCase
                 'X-Tenant-Id' => $world['tenant_id'],
             ])
             ->assertOk()
+            ->assertJsonPath('meta.pending_count', 1)
             ->assertJsonPath('data.0.id', $claim['id']);
 
         $approved = $this->withToken($tenantPayer['access_token'])
@@ -655,17 +657,20 @@ class RewardClaimTest extends TestCase
             ($event->payload['tenant_id'] ?? null) === $world['tenant_id']
             && ($event->payload['claim_id'] ?? null) === $secondClaim['id']
             && ($event->payload['claim']['status'] ?? null) === 'submitted'
+            && ($event->payload['pending_count'] ?? null) === 1
         ));
 
         $this->withToken($tenantPayer['access_token'])
             ->getJson('/api/v1/admin/tenant/reward-claims?section=pending&sort_by=submitted_at&sort_dir=asc', $this->tenantClaimHeaders($world, 'reward-pending-section'))
             ->assertOk()
+            ->assertJsonPath('meta.pending_count', 1)
             ->assertJsonPath('data.0.id', $secondClaim['id'])
             ->assertJsonPath('data.0.status', 'submitted');
 
         $this->withToken($tenantPayer['access_token'])
             ->getJson('/api/v1/admin/tenant/reward-claims?section=history&sort_by=updated_at&sort_dir=desc', $this->tenantClaimHeaders($world, 'reward-history-section'))
             ->assertOk()
+            ->assertJsonPath('meta.pending_count', 1)
             ->assertJsonPath('data.0.id', $claim['id'])
             ->assertJsonPath('data.0.status', 'rejected');
 

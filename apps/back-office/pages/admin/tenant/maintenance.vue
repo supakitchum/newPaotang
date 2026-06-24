@@ -11,7 +11,7 @@
 
     <AdminAlert v-if="!tenantId" type="warning" message="Select a tenant scope before editing maintenance." />
     <AdminAlert v-if="error" :type="alertType(error)" :message="error.message" :details="error.details" />
-    <AdminAlert v-if="retryAfter" type="warning" :message="`Maintenance is active. Retry-After: ${retryAfter} seconds.`" />
+    <AdminAlert v-if="retryAfter" type="warning" :message="maintenanceRetryMessage" />
 
     <AdminLoader v-if="loading" />
     <div v-else class="row g-4">
@@ -292,6 +292,8 @@ definePageMeta({ layout: 'admin' })
 
 const api = useAdminApi()
 const session = useAdminSession()
+const adminLocale = useAdminLocale()
+const phrase = (source: unknown) => adminLocale.phrase(source)
 const tenantId = computed(() => session.currentTenantId.value)
 const loading = ref(false)
 const saving = ref(false)
@@ -389,6 +391,7 @@ const bypassSubmitDisabled = computed(() => Boolean(
   || !String(bypass.reason || '').trim()
   || bypassTicketMissing.value,
 ))
+const maintenanceRetryMessage = computed(() => `${phrase('Maintenance is active. Retry-After:')} ${retryAfter.value} ${phrase('seconds')}.`)
 
 const stringList = (value: any) => Array.isArray(value)
   ? value.map((item) => String(item || '').trim()).filter(Boolean)

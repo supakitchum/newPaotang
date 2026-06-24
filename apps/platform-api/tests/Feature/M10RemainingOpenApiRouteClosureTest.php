@@ -150,6 +150,22 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
         $otherTenant = $this->createTenantSession('ten_pay_other_m10', 'par_pay_other_m10', ['payment_settings.view'], 'adm_tenant_pay_other', 'tenant-pay-other@example.test');
         $headers = ['X-Admin-Scope' => 'tenant', 'X-Tenant-Id' => 'ten_pay_m10'];
 
+        $providerMissingFields = $this->withToken($tenant['access_token'])
+            ->patchJson('/api/v1/admin/tenant/payment-settings', [
+                'config' => [
+                    'payment_methods' => [
+                        'qr' => ['enabled' => true, 'provider' => ''],
+                    ],
+                ],
+            ], $headers + ['Idempotency-Key' => 'payment-settings-provider-required-m10'])
+            ->assertUnprocessable()
+            ->json('error.details.fields');
+
+        $this->assertSame(
+            ['Select a payment provider before enabling this payment method.'],
+            $providerMissingFields['config.payment_methods.qr.provider'] ?? null,
+        );
+
         $settings = $this->withToken($tenant['access_token'])
             ->patchJson('/api/v1/admin/tenant/payment-settings', [
                 'provider_mode' => 'external_configured',
@@ -165,7 +181,7 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
                     'nested' => ['api_key' => 'secret-key'],
                     'payment_methods' => [
                         'qr' => ['enabled' => false],
-                        'credit_card' => ['enabled' => true],
+                        'credit_card' => ['enabled' => true, 'provider' => 'deepay_kbank'],
                         'bank_transfer' => ['enabled' => true],
                     ],
                 ],

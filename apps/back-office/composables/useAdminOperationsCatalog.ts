@@ -414,6 +414,10 @@ const thaiBankOptions: OperationOption[] = [
   { value: 'thai_credit', label: 'ธนาคารไทยเครดิต', icon: 'bi-bank' },
   { value: 'icbc', label: 'ธนาคารไอซีบีซี (ไทย)', icon: 'bi-bank' },
 ]
+
+const paymentProviderOptions: OperationOption[] = [
+  { value: 'deepay_kbank', label: 'DeePay KBank' },
+]
 const memberStatusOptions = ['active', 'pending_verification', 'suspended', 'disabled']
 const notifyCustomerField: OperationFormField = {
   key: 'notify_customer',
@@ -2504,7 +2508,9 @@ const tenant: OperationResource[] = [
       { key: 'payment_provider_status', label: 'Provider status', type: 'select', options: ['blocked_external', 'local_dev_configured', 'manual_only', 'disabled'], defaultValue: 'manual_only' },
       { key: 'config.display_name', label: 'Display name', placeholder: 'Optional customer-facing payment label' },
       { key: 'config.payment_methods.qr.enabled', sourceKey: 'payment_methods.qr.enabled', label: 'Enable QR Code topup', type: 'checkbox', defaultValue: true, help: 'Show QR Code topup on the customer topup page.' },
+      { key: 'config.payment_methods.qr.provider', sourceKey: 'payment_methods.qr.provider', label: 'QR Code provider', type: 'select', options: paymentProviderOptions, defaultValue: 'deepay_kbank', help: 'Provider used to generate QR Code topup.' },
       { key: 'config.payment_methods.credit_card.enabled', sourceKey: 'payment_methods.credit_card.enabled', label: 'Enable credit card QR topup', type: 'checkbox', defaultValue: true, help: 'Show credit card QR topup on the customer topup page.' },
+      { key: 'config.payment_methods.credit_card.provider', sourceKey: 'payment_methods.credit_card.provider', label: 'Credit QR provider', type: 'select', options: paymentProviderOptions, defaultValue: 'deepay_kbank', help: 'Provider used to generate Credit QR topup.' },
       { key: 'config.payment_methods.bank_transfer.enabled', sourceKey: 'payment_methods.bank_transfer.enabled', label: 'Enable bank transfer topup', type: 'checkbox', defaultValue: true, help: 'Show bank transfer with slip upload on the customer topup page.' },
       { key: 'config.bank_transfer.bank_code', label: 'Bank transfer bank', type: 'select', options: thaiBankOptions, defaultValue: 'kbank' },
       { key: 'config.bank_transfer.account_name', label: 'Bank account name', placeholder: 'Tenant Wallet' },
@@ -3402,6 +3408,7 @@ const resourceAliases: Record<string, { target: string, title: string }> = {
   'central:stock-generation': { target: 'stock', title: 'Stock Manager' },
   'central:stock-coverage': { target: 'stock-pattern-coverage', title: 'Stock Pattern Coverage' },
   'tenant:reward-claims': { target: 'exchange-reward', title: 'Exchange Reward' },
+  'tenant:payment-provider-settings': { target: 'payment-settings', title: 'Payment Provider Settings' },
 }
 
 export const useAdminOperationsCatalog = () => {
