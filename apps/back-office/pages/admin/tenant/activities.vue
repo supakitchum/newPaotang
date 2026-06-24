@@ -4,16 +4,16 @@
       <template #actions>
         <button class="btn btn-light btn-wave" type="button" :disabled="!tenantId" @click="openCreateModal">
           <i class="ri-add-line me-1" />
-          New activity
+          {{ phrase('New activity') }}
         </button>
         <button class="btn btn-primary btn-wave" type="button" :disabled="!tenantId" @click="loadAll">
           <i class="ri-refresh-line me-1" />
-          Refresh
+          {{ phrase('Refresh') }}
         </button>
       </template>
     </AdminPageHeader>
 
-    <AdminAlert v-if="!tenantId" type="warning" message="Select a tenant scope before editing activities." />
+    <AdminAlert v-if="!tenantId" type="warning" :message="phrase('Select a tenant scope before editing activities.')" />
     <AdminAlert v-if="error" :type="alertType(error)" :message="error.message" :details="error.details" />
     <AdminAlert v-if="successMessage" type="success" :message="successMessage" dismissible @dismiss="successMessage = ''" />
 
@@ -21,31 +21,59 @@
       <div class="col-12">
         <div class="card custom-card">
           <div class="card-header align-items-center gap-3">
-            <div class="card-title">Activity list</div>
-            <div class="ms-auto d-flex flex-wrap gap-2">
-              <input v-model="filters.q" class="form-control form-control-sm np-act-search" placeholder="Search activity" @keyup.enter="handleFilterChange">
-              <select v-model="filters.game_id" class="form-select form-select-sm np-act-game-filter" @change="handleFilterChange">
-                <option v-if="!filters.game_id" value="">Current game</option>
-                <option v-for="game in activityGameOptions" :key="game.id" :value="game.id">{{ gameLabel(game) }}</option>
-              </select>
-              <select v-model="filters.type" class="form-select form-select-sm np-act-filter" @change="handleFilterChange">
-                <option value="">All types</option>
-                <option value="lucky_board">Lucky board</option>
-                <option value="cashback">Cashback</option>
-              </select>
-              <select v-model="filters.status" class="form-select form-select-sm np-act-filter" @change="handleFilterChange">
-                <option value="">All statuses</option>
-                <option v-for="status in statuses" :key="status" :value="status">{{ titleize(status) }}</option>
-              </select>
-            </div>
+            <div class="card-title">{{ phrase('Activity list') }}</div>
           </div>
           <div class="card-body">
+            <div class="np-act-filter-panel mb-3">
+              <div class="np-act-filter-field np-act-filter-search-field">
+                <label class="form-label">{{ phrase('Search') }}</label>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text"><i class="ri-search-line" /></span>
+                  <input v-model="filters.q" class="form-control" :placeholder="phrase('Search activity')" @keyup.enter="handleFilterChange">
+                </div>
+              </div>
+              <div class="np-act-filter-field">
+                <label class="form-label">{{ phrase('Game / draw') }}</label>
+                <select v-model="filters.game_id" class="form-select form-select-sm" @change="handleFilterChange">
+                  <option v-if="!filters.game_id" value="">{{ phrase('Current game') }}</option>
+                  <option v-for="game in activityGameOptions" :key="game.id" :value="game.id">{{ gameLabel(game) }}</option>
+                </select>
+              </div>
+              <div class="np-act-filter-field np-act-type-field">
+                <label class="form-label">{{ phrase('Activity type') }}</label>
+                <div class="btn-group btn-group-sm np-act-type-toggle" role="group" :aria-label="phrase('Activity type')">
+                  <button
+                    v-for="option in activityTypeFilters"
+                    :key="option.value || 'all'"
+                    class="btn"
+                    :class="filters.type === option.value ? 'btn-primary' : 'btn-light'"
+                    type="button"
+                    @click="setTypeFilter(option.value)"
+                  >
+                    {{ phrase(option.label) }}
+                  </button>
+                </div>
+              </div>
+              <div class="np-act-filter-field">
+                <label class="form-label">{{ phrase('Status') }}</label>
+                <select v-model="filters.status" class="form-select form-select-sm" @change="handleFilterChange">
+                  <option value="">{{ phrase('All statuses') }}</option>
+                  <option v-for="status in statuses" :key="status" :value="status">{{ phrase(titleize(status)) }}</option>
+                </select>
+              </div>
+              <div class="np-act-filter-actions">
+                <button class="btn btn-sm btn-light btn-wave" type="button" :disabled="!hasActivityFilters" @click="clearActivityFilters">
+                  <i class="ri-filter-off-line me-1" />
+                  {{ phrase('Clear filters') }}
+                </button>
+              </div>
+            </div>
             <AdminDataTable
               :columns="activityColumns"
               :rows="activities"
               :loading="loading"
-              empty-title="No activities"
-              empty-message="Create a lucky board or cashback campaign for this partner."
+              :empty-title="phrase('No activities')"
+              :empty-message="phrase('Create a lucky board or cashback campaign for this partner.')"
               sortable
               embedded
               :sort-key="sort.key"
@@ -60,12 +88,12 @@
               </template>
               <template #cell-type="{ row }">
                 <span class="badge" :class="row.type === 'cashback' ? 'bg-success-transparent text-success' : 'bg-primary-transparent text-primary'">
-                  {{ row.type === 'cashback' ? 'Cashback' : 'Lucky board' }}
+                  {{ phrase(row.type === 'cashback' ? 'Cashback' : 'Lucky board') }}
                 </span>
               </template>
               <template #cell-game="{ row }">
                 <div class="fw-semibold">{{ row.game?.name || row.game_id }}</div>
-                <div class="text-muted fs-12">{{ row.game?.status || '-' }}</div>
+                <div class="text-muted fs-12">{{ row.game?.status ? phrase(titleize(row.game.status)) : '-' }}</div>
               </template>
               <template #cell-config_summary="{ row }">
                 <div>{{ configSummary(row) }}</div>
@@ -74,10 +102,10 @@
               <template #rowActions="{ row }">
                 <div class="d-flex flex-wrap gap-2">
                   <button class="btn btn-sm btn-primary-light btn-wave" type="button" @click="selectActivity(row)">
-                    View
+                    {{ phrase('View') }}
                   </button>
                   <button class="btn btn-sm btn-light btn-wave" type="button" @click="openEditModal(row)">
-                    Edit
+                    {{ phrase('Edit') }}
                   </button>
                 </div>
               </template>
@@ -101,28 +129,28 @@
               <img v-if="selectedActivity.image_thumb_url" :src="selectedActivity.image_thumb_url" alt="Activity thumbnail">
               <div>
                 <div class="card-title mb-1">{{ selectedActivity.name }}</div>
-                <div class="text-muted fs-12">{{ selectedActivity.game?.name || selectedActivity.game_id }} · {{ titleize(selectedActivity.status) }}</div>
+                <div class="text-muted fs-12">{{ selectedActivity.game?.name || selectedActivity.game_id }} · {{ phrase(titleize(selectedActivity.status)) }}</div>
               </div>
             </div>
             <div class="ms-auto d-flex flex-wrap gap-2">
               <button class="btn btn-sm btn-light btn-wave" type="button" @click="openEditModal(selectedActivity)">
-                Edit activity
+                {{ phrase('Edit activity') }}
               </button>
               <button class="btn btn-sm btn-primary btn-wave" type="button" @click="loadActivityDetails">
-                Refresh detail
+                {{ phrase('Refresh detail') }}
               </button>
             </div>
           </div>
           <div class="card-body">
             <ul class="nav nav-tabs mb-3">
               <li class="nav-item">
-                <button class="nav-link" :class="{ active: detailTab === 'entries' }" type="button" @click="setDetailTab('entries')">Entries</button>
+                <button class="nav-link" :class="{ active: detailTab === 'entries' }" type="button" @click="setDetailTab('entries')">{{ phrase('Entries') }}</button>
               </li>
               <li class="nav-item">
-                <button class="nav-link" :class="{ active: detailTab === 'awards' }" type="button" @click="setDetailTab('awards')">Awards</button>
+                <button class="nav-link" :class="{ active: detailTab === 'awards' }" type="button" @click="setDetailTab('awards')">{{ phrase('Awards') }}</button>
               </li>
               <li class="nav-item">
-                <button class="nav-link" :class="{ active: detailTab === 'claims' }" type="button" @click="setDetailTab('claims')">Claims</button>
+                <button class="nav-link" :class="{ active: detailTab === 'claims' }" type="button" @click="setDetailTab('claims')">{{ phrase('Claims') }}</button>
               </li>
             </ul>
 
@@ -131,14 +159,15 @@
               :columns="entryColumns"
               :rows="entries"
               :loading="detailLoading"
-              empty-title="No entries"
-              empty-message="Customer lucky board entries will appear here."
+              :empty-title="phrase('No entries')"
+              :empty-message="phrase('Customer lucky board entries will appear here.')"
               embedded
             >
               <template #cell-customer="{ row }">
                 <div class="fw-semibold">{{ row.customer?.name || row.customer_id }}</div>
                 <div class="text-muted fs-12">{{ row.customer?.phone || '-' }}</div>
               </template>
+              <template #cell-prediction_type="{ row }">{{ predictionLabel(row.prediction_type || '') }}</template>
               <template #cell-selected_number="{ row }">
                 <span class="np-act-number">{{ row.selected_number }}</span>
               </template>
@@ -149,12 +178,12 @@
               :columns="awardColumns"
               :rows="awards"
               :loading="detailLoading"
-              empty-title="No awards"
-              empty-message="Awards are created after reward results are published."
+              :empty-title="phrase('No awards')"
+              :empty-message="phrase('Awards are created after reward results are published.')"
               embedded
             >
               <template #cell-amount="{ row }">{{ formatMoney(row.amount) }}</template>
-              <template #cell-source="{ row }">{{ row.type === 'cashback' ? 'Cashback' : titleize(row.prediction_type || 'Lucky board') }}</template>
+              <template #cell-source="{ row }">{{ row.type === 'cashback' ? phrase('Cashback') : predictionLabel(row.prediction_type || '') }}</template>
             </AdminDataTable>
 
             <AdminDataTable
@@ -162,8 +191,8 @@
               :columns="claimColumns"
               :rows="claims"
               :loading="detailLoading"
-              empty-title="No activity claims"
-              empty-message="Customer payout claims for activity awards will appear here."
+              :empty-title="phrase('No activity claims')"
+              :empty-message="phrase('Customer payout claims for activity awards will appear here.')"
               embedded
             >
               <template #cell-customer="{ row }">
@@ -174,10 +203,10 @@
               <template #rowActions="{ row }">
                 <div class="d-flex flex-wrap gap-2">
                   <button v-if="isPendingClaim(row)" class="btn btn-sm btn-success-light btn-wave" type="button" :disabled="saving" @click="approveClaim(row)">
-                    Approve
+                    {{ phrase('Approve') }}
                   </button>
                   <button v-if="isPendingClaim(row)" class="btn btn-sm btn-danger-light btn-wave" type="button" :disabled="saving" @click="rejectClaim(row)">
-                    Reject
+                    {{ phrase('Reject') }}
                   </button>
                 </div>
               </template>
@@ -192,17 +221,17 @@
         <div class="modal-content">
           <div class="modal-header">
             <div>
-              <h5 class="modal-title">{{ form.id ? 'Edit activity' : 'Create activity' }}</h5>
-              <div class="text-muted fs-12">Configure lucky board or cashback campaign for one draw.</div>
+              <h5 class="modal-title">{{ phrase(form.id ? 'Edit activity' : 'Create activity') }}</h5>
+              <div class="text-muted fs-12">{{ phrase('Configure lucky board or cashback campaign for one draw.') }}</div>
             </div>
-            <button class="btn-close" type="button" aria-label="Close" :disabled="saving" @click="closeFormModal" />
+            <button class="btn-close" type="button" :aria-label="phrase('Close')" :disabled="saving" @click="closeFormModal" />
           </div>
           <div class="modal-body">
             <form class="row g-3" @submit.prevent="saveActivity">
               <div class="col-12">
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-                  <label class="form-label mb-0">Localized content</label>
-                  <div class="btn-group btn-group-sm" role="group" aria-label="Activity language tabs">
+                  <label class="form-label mb-0">{{ phrase('Localized content') }}</label>
+                  <div class="btn-group btn-group-sm" role="group" :aria-label="phrase('Activity language tabs')">
                     <button
                       v-for="option in localeOptions"
                       :key="option.value"
@@ -215,132 +244,132 @@
                     </button>
                   </div>
                 </div>
-                <div class="form-text">Customer activity pages use the selected language and fall back to Thai/default if blank.</div>
+                <div class="form-text">{{ phrase('Customer activity pages use the selected language and fall back to Thai/default if blank.') }}</div>
               </div>
               <div class="col-12 col-lg-7">
-                <label class="form-label">Activity name ({{ localeLabel(contentLocale) }})</label>
-                <input v-model="form.name_i18n[contentLocale]" class="form-control" :class="invalidClass('name')" placeholder="Customer-facing campaign name">
+                <label class="form-label">{{ phrase('Activity name') }} ({{ localeLabel(contentLocale) }})</label>
+                <input v-model="form.name_i18n[contentLocale]" class="form-control" :class="invalidClass('name')" :placeholder="phrase('Customer-facing campaign name')">
                 <div class="invalid-feedback">{{ fieldError('name') }}</div>
               </div>
               <div class="col-12 col-lg-5">
-                <label class="form-label">Activity code</label>
-                <input :value="form.slug || 'Generated after save'" class="form-control" disabled>
-                <div class="form-text">Generated automatically from partner code.</div>
+                <label class="form-label">{{ phrase('Activity code') }}</label>
+                <input :value="form.slug || phrase('Generated after save')" class="form-control" disabled>
+                <div class="form-text">{{ phrase('Generated automatically from partner code.') }}</div>
               </div>
               <div class="col-md-4">
-                <label class="form-label">Game</label>
+                <label class="form-label">{{ phrase('Game') }}</label>
                 <select v-model="form.game_id" class="form-select" :class="invalidClass('game_id')">
-                  <option value="">Select game</option>
+                  <option value="">{{ phrase('Select game') }}</option>
                   <option v-for="game in games" :key="game.id" :value="game.id">{{ gameLabel(game) }}</option>
                 </select>
                 <div class="invalid-feedback">{{ fieldError('game_id') }}</div>
               </div>
               <div class="col-md-4">
-                <label class="form-label">Activity type</label>
+                <label class="form-label">{{ phrase('Activity type') }}</label>
                 <select v-model="form.type" class="form-select" :class="invalidClass('type')">
-                  <option value="lucky_board">Lucky board</option>
-                  <option value="cashback">Cashback</option>
+                  <option value="lucky_board">{{ phrase('Lucky board') }}</option>
+                  <option value="cashback">{{ phrase('Cashback') }}</option>
                 </select>
                 <div class="invalid-feedback">{{ fieldError('type') }}</div>
               </div>
               <div class="col-md-2">
-                <label class="form-label">Status</label>
+                <label class="form-label">{{ phrase('Status') }}</label>
                 <select v-model="form.status" class="form-select" :class="invalidClass('status')">
-                  <option v-for="status in statuses" :key="status" :value="status">{{ titleize(status) }}</option>
+                  <option v-for="status in statuses" :key="status" :value="status">{{ phrase(titleize(status)) }}</option>
                 </select>
                 <div class="invalid-feedback">{{ fieldError('status') }}</div>
               </div>
               <div class="col-md-2">
-                <label class="form-label">Sort order</label>
+                <label class="form-label">{{ phrase('Sort order') }}</label>
                 <input v-model.number="form.sort_order" type="number" class="form-control" :class="invalidClass('sort_order')">
                 <div class="invalid-feedback">{{ fieldError('sort_order') }}</div>
               </div>
 
               <template v-if="form.type === 'lucky_board'">
                 <div class="col-12">
-                  <div class="np-act-config-title">Lucky board settings</div>
+                  <div class="np-act-config-title">{{ phrase('Lucky board settings') }}</div>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">Eligibility rule</label>
+                  <label class="form-label">{{ phrase('Eligibility rule') }}</label>
                   <select v-model="form.config.eligibility_rule" class="form-select" :class="invalidClass('config.eligibility_rule')">
-                    <option value="cumulative_tickets">Every N cumulative tickets gives 1 right</option>
-                    <option value="single_order_exact_tickets">Every N tickets in one order gives 1 right</option>
+                    <option value="cumulative_tickets">{{ phrase('Every N cumulative tickets gives 1 right') }}</option>
+                    <option value="single_order_exact_tickets">{{ phrase('Every N tickets in one order gives 1 right') }}</option>
                   </select>
                   <div class="invalid-feedback">{{ fieldError('config.eligibility_rule') }}</div>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">Threshold tickets</label>
+                  <label class="form-label">{{ phrase('Threshold tickets') }}</label>
                   <input v-model.number="form.config.threshold_tickets" type="number" min="1" class="form-control" :class="invalidClass('config.threshold_tickets')">
                   <div class="invalid-feedback">{{ fieldError('config.threshold_tickets') }}</div>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">Prediction type</label>
+                  <label class="form-label">{{ phrase('Prediction type') }}</label>
                   <select v-model="form.config.prediction_type" class="form-select" :class="invalidClass('config.prediction_type')">
-                    <option v-for="option in predictionTypeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                    <option v-for="option in predictionTypeOptions" :key="option.value" :value="option.value">{{ predictionLabel(option.value) }}</option>
                   </select>
                   <div class="invalid-feedback">{{ fieldError('config.prediction_type') }}</div>
                 </div>
                 <div v-if="form.config.prediction_type === 'first_prize_last2'" class="col-md-6">
-                  <label class="form-label">First prize last 2 payout (baht)</label>
+                  <label class="form-label">{{ phrase('First prize last 2 payout (baht)') }}</label>
                   <input v-model.number="form.config.first_prize_last2_baht" type="number" min="0" step="0.01" class="form-control">
                 </div>
                 <div v-else-if="form.config.prediction_type === 'first_prize_last3'" class="col-md-6">
-                  <label class="form-label">First prize last 3 payout (baht)</label>
+                  <label class="form-label">{{ phrase('First prize last 3 payout (baht)') }}</label>
                   <input v-model.number="form.config.first_prize_last3_baht" type="number" min="0" step="0.01" class="form-control">
                 </div>
                 <div v-else class="col-md-6">
-                  <label class="form-label">Last 2 payout (baht)</label>
+                  <label class="form-label">{{ phrase('Last 2 payout (baht)') }}</label>
                   <input v-model.number="form.config.last2_baht" type="number" min="0" step="0.01" class="form-control">
                 </div>
               </template>
 
               <template v-else>
                 <div class="col-12">
-                  <div class="np-act-config-title">Cashback settings</div>
+                  <div class="np-act-config-title">{{ phrase('Cashback settings') }}</div>
                 </div>
                 <div class="col-md-4">
-                  <label class="form-label">Cashback type</label>
+                  <label class="form-label">{{ phrase('Cashback type') }}</label>
                   <select v-model="form.config.cashback_type" class="form-select" :class="invalidClass('config.cashback_type')">
-                    <option value="percent">Percent of purchase amount</option>
-                    <option value="fixed">Fixed amount</option>
+                    <option value="percent">{{ phrase('Percent of purchase amount') }}</option>
+                    <option value="fixed">{{ phrase('Fixed amount') }}</option>
                   </select>
                   <div class="invalid-feedback">{{ fieldError('config.cashback_type') }}</div>
                 </div>
                 <div v-if="form.config.cashback_type === 'percent'" class="col-md-4">
-                  <label class="form-label">Cashback percent</label>
+                  <label class="form-label">{{ phrase('Cashback percent') }}</label>
                   <input v-model.number="form.config.cashback_percent" type="number" min="0.01" max="100" step="0.01" class="form-control">
                 </div>
                 <div v-else class="col-md-4">
-                  <label class="form-label">Fixed cashback (baht)</label>
+                  <label class="form-label">{{ phrase('Fixed cashback (baht)') }}</label>
                   <input v-model.number="form.config.fixed_baht" type="number" min="0" step="0.01" class="form-control">
                 </div>
                 <div class="col-md-4">
-                  <label class="form-label">Minimum by</label>
+                  <label class="form-label">{{ phrase('Minimum by') }}</label>
                   <select v-model="form.config.minimum_type" class="form-select" :class="invalidClass('config.minimum_type')">
-                    <option value="tickets">Tickets</option>
-                    <option value="amount">Purchase amount</option>
+                    <option value="tickets">{{ phrase('Tickets') }}</option>
+                    <option value="amount">{{ phrase('Purchase amount') }}</option>
                   </select>
                   <div class="invalid-feedback">{{ fieldError('config.minimum_type') }}</div>
                 </div>
                 <div v-if="form.config.minimum_type === 'tickets'" class="col-md-4">
-                  <label class="form-label">Minimum tickets</label>
+                  <label class="form-label">{{ phrase('Minimum tickets') }}</label>
                   <input v-model.number="form.config.min_ticket_count" type="number" min="0" class="form-control">
                 </div>
                 <div v-else class="col-md-4">
-                  <label class="form-label">Minimum purchase (baht)</label>
+                  <label class="form-label">{{ phrase('Minimum purchase (baht)') }}</label>
                   <input v-model.number="form.config.min_purchase_baht" type="number" min="0" step="0.01" class="form-control">
                 </div>
               </template>
 
               <div class="col-12">
-                <label class="form-label">Activity image</label>
+                <label class="form-label">{{ phrase('Activity image') }}</label>
                 <input class="form-control" type="file" accept="image/*" :class="invalidClass('file')" @change="handleImageChange">
                 <div class="invalid-feedback">{{ fieldError('file') || imageError }}</div>
-                <div class="form-text">The API stores full and thumbnail variants for customer pages.</div>
+                <div class="form-text">{{ phrase('The API stores full and thumbnail variants for customer pages.') }}</div>
               </div>
               <div v-if="previewUrl || form.image_thumb_url" class="col-12">
                 <div class="np-act-preview">
-                  <img :src="previewUrl || form.image_thumb_url" alt="Activity preview">
+                  <img :src="previewUrl || form.image_thumb_url" :alt="phrase('Activity preview')">
                 </div>
               </div>
               <button class="d-none" type="submit" aria-hidden="true" tabindex="-1" />
@@ -349,14 +378,14 @@
           <div class="modal-footer justify-content-between">
             <button v-if="form.id" class="btn btn-danger-light btn-wave" type="button" :disabled="saving" @click="archiveActivity">
               <i class="ri-archive-line me-1" />
-              Archive
+              {{ phrase('Archive') }}
             </button>
             <span v-else />
             <div class="d-flex gap-2">
-              <button class="btn btn-light btn-wave" type="button" :disabled="saving" @click="resetForm">Reset</button>
+              <button class="btn btn-light btn-wave" type="button" :disabled="saving" @click="resetForm">{{ phrase('Reset') }}</button>
               <button class="btn btn-primary btn-wave" type="button" :disabled="saveDisabled" @click="saveActivity">
                 <span v-if="saving" class="spinner-border spinner-border-sm me-2" />
-                Save activity
+                {{ phrase('Save activity') }}
               </button>
             </div>
           </div>
@@ -376,6 +405,9 @@ type AnyRecord = Record<string, any>
 
 const api = useAdminApi()
 const session = useAdminSession()
+const adminLocale = useAdminLocale()
+const phrase = (source: unknown) => adminLocale.phrase(source)
+const currentLocale = computed(() => adminLocale.locale.value === 'th-TH' ? 'th-TH' : 'en-US')
 const tenantId = computed(() => session.currentTenantId.value)
 const statuses = ['draft', 'active', 'inactive', 'archived']
 const localeOptions = [
@@ -386,6 +418,23 @@ const predictionTypeOptions = [
   { value: 'first_prize_last2', label: 'First prize last 2 digits' },
   { value: 'first_prize_last3', label: 'First prize last 3 digits' },
   { value: 'last2', label: 'Last 2 digits' },
+]
+const predictionTypeLabels = {
+  'th-TH': {
+    first_prize_last2: '2 ตัวท้ายรางวัลที่ 1',
+    first_prize_last3: '3 ตัวท้ายรางวัลที่ 1',
+    last2: 'เลขท้าย 2 ตัว',
+  },
+  'en-US': {
+    first_prize_last2: 'First prize last 2 digits',
+    first_prize_last3: 'First prize last 3 digits',
+    last2: 'Last 2 digits',
+  },
+} as const
+const activityTypeFilters = [
+  { value: '', label: 'All types' },
+  { value: 'lucky_board', label: 'Lucky board' },
+  { value: 'cashback', label: 'Cashback' },
 ]
 const activityColumns = [
   { key: 'name', label: 'Activity' },
@@ -428,6 +477,7 @@ const meta = ref<AnyRecord>({})
 const pageState = ref({ index: 0, cursors: [''] })
 const sort = reactive({ key: 'created_at', direction: 'desc' as 'asc' | 'desc' })
 const filters = reactive({ q: '', status: '', type: '', game_id: '' })
+const defaultFilterGameId = ref('')
 const formModalOpen = ref(false)
 const contentLocale = ref<'th-TH' | 'en-US'>('th-TH')
 const fieldErrors = ref<Record<string, string[]>>({})
@@ -447,6 +497,11 @@ const saveDisabled = computed(() => (
   || !firstLocalizedValue(form.name_i18n, form.name)
   || !String(form.game_id || '').trim()
   || Boolean(imageError.value)
+))
+const hasActivityFilters = computed(() => (
+  Boolean(filters.q || filters.status || filters.type)
+  || Boolean(defaultFilterGameId.value && filters.game_id && filters.game_id !== defaultFilterGameId.value)
+  || Boolean(!defaultFilterGameId.value && filters.game_id)
 ))
 const activityGameOptions = computed(() => {
   const merged = new Map<string, AnyRecord>()
@@ -503,6 +558,7 @@ const loadGames = async () => {
     tenantId: tenantId.value,
   })
   games.value = Array.isArray(response.data) ? response.data : []
+  defaultFilterGameId.value = response.meta?.default_game_id ? String(response.meta.default_game_id) : ''
   if (!form.game_id && response.meta?.default_game_id) {
     form.game_id = response.meta.default_game_id
   }
@@ -555,6 +611,20 @@ const handleFilterChange = () => {
   pageState.value = { index: 0, cursors: [''] }
   selectedActivity.value = null
   void loadActivities()
+}
+
+const setTypeFilter = (type: string) => {
+  if (filters.type === type) return
+  filters.type = type
+  handleFilterChange()
+}
+
+const clearActivityFilters = () => {
+  filters.q = ''
+  filters.status = ''
+  filters.type = ''
+  filters.game_id = defaultFilterGameId.value || ''
+  handleFilterChange()
 }
 
 const loadNextPage = () => {
@@ -701,7 +771,7 @@ const saveActivity = async () => {
       await uploadImage(saved.id)
     }
 
-    successMessage.value = 'Activity saved.'
+    successMessage.value = phrase('Activity saved.')
     formModalOpen.value = false
     resetForm()
     await loadActivities(pageState.value.cursors[pageState.value.index] || '')
@@ -728,7 +798,7 @@ const archiveActivity = async () => {
       idempotencyKey: api.idempotencyKey(),
       body: { reason: 'Archived from activity manager' },
     })
-    successMessage.value = 'Activity archived.'
+    successMessage.value = phrase('Activity archived.')
     formModalOpen.value = false
     resetForm()
     await loadActivities()
@@ -768,7 +838,7 @@ const claimAction = async (row: AnyRecord, action: 'approve' | 'reject') => {
       idempotencyKey: api.idempotencyKey(),
       body: { reason: `${titleize(action)} from activity manager` },
     })
-    successMessage.value = action === 'approve' ? 'Activity claim approved.' : 'Activity claim rejected.'
+    successMessage.value = phrase(action === 'approve' ? 'Activity claim approved.' : 'Activity claim rejected.')
     await loadActivityDetails()
   } catch (err) {
     error.value = err
@@ -840,12 +910,12 @@ const handleImageChange = (event: Event) => {
   if (!file) return
 
   if (!file.type.startsWith('image/')) {
-    imageError.value = 'Only image files are accepted.'
+    imageError.value = phrase('Only image files are accepted.')
     return
   }
 
   if (file.size < 1 || file.size > 8 * 1024 * 1024) {
-    imageError.value = 'Image size must be between 1 byte and 8 MB.'
+    imageError.value = phrase('Image size must be between 1 byte and 8 MB.')
     return
   }
 
@@ -866,8 +936,8 @@ const configSummary = (row: AnyRecord) => {
   const config = row.config || {}
   if (row.type === 'cashback') {
     return config.cashback_type === 'fixed'
-      ? `Cashback ${formatMoney(config.fixed_amount)}`
-      : `Cashback ${Number(config.cashback_percent_bps || 0) / 100}%`
+      ? `${phrase('Cashback')} ${formatMoney(config.fixed_amount)}`
+      : `${phrase('Cashback')} ${Number(config.cashback_percent_bps || 0) / 100}%`
   }
 
   const prizes = config.prizes || {}
@@ -882,11 +952,11 @@ const configSummary = (row: AnyRecord) => {
 
 const rightsSummary = (row: AnyRecord) => {
   const config = row.config || {}
-  const rule = config.eligibility_rule === 'single_order_exact_tickets' ? 'Per order' : 'Cumulative'
-  return `${rule}: every ${Number(config.threshold_tickets || 1)} tickets = 1 right`
+  const rule = config.eligibility_rule === 'single_order_exact_tickets' ? phrase('Per order') : phrase('Cumulative')
+  return `${rule}: ${phrase('every')} ${Number(config.threshold_tickets || 1)} ${phrase('tickets')} = 1 ${phrase('right')}`
 }
 
-const gameLabel = (game: AnyRecord) => `${game.name || game.code || game.id}${game.status ? ` (${game.status})` : ''}`
+const gameLabel = (game: AnyRecord) => `${game.name || game.code || game.id}${game.status ? ` (${phrase(titleize(game.status))})` : ''}`
 const isPendingClaim = (row: AnyRecord) => ['submitted', 'under_review', 'approved'].includes(String(row.status || ''))
 const fieldError = (field: string) => (fieldErrors.value[field] || [])[0] || ''
 const invalidClass = (field: string) => (fieldError(field) || (field === 'file' && imageError.value) ? 'is-invalid' : '')
@@ -903,7 +973,12 @@ const selectedMinimumType = (config: AnyRecord) => {
   if (direct === 'amount' || direct === 'tickets') return direct
   return minorToBaht(config?.min_purchase_amount) > 0 && Number(config?.min_ticket_count || 0) < 1 ? 'amount' : 'tickets'
 }
-const predictionLabel = (value: string) => predictionTypeOptions.find((option) => option.value === value)?.label || titleize(value)
+const predictionLabel = (value: string) => {
+  const key = value as keyof typeof predictionTypeLabels['th-TH']
+  return predictionTypeLabels[currentLocale.value][key]
+    || predictionTypeLabels['en-US'][key]
+    || phrase(titleize(value))
+}
 const normalizeFieldErrors = (err: any) => {
   const details = err?.details?.fields || err?.details || {}
   return Object.fromEntries(Object.entries(details).map(([key, value]) => [key, Array.isArray(value) ? value : [String(value)]]))
@@ -957,16 +1032,84 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.np-act-search {
-  min-width: 220px;
+.np-act-filter-panel {
+  align-items: end;
+  background: #f8fafc;
+  border: 1px solid #edf1f7;
+  border-radius: .75rem;
+  display: grid;
+  gap: .85rem;
+  grid-template-columns: minmax(220px, 1.35fr) minmax(220px, 1fr) minmax(250px, auto) minmax(160px, .75fr) auto;
+  padding: 1rem;
 }
 
-.np-act-filter {
-  min-width: 150px;
+.np-act-filter-field {
+  min-width: 0;
 }
 
-.np-act-game-filter {
-  min-width: 220px;
+.np-act-filter-field .form-label {
+  color: #64748b;
+  font-size: .78rem;
+  font-weight: 700;
+  margin-bottom: .35rem;
+}
+
+.np-act-type-toggle {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: .55rem;
+  display: inline-flex;
+  padding: .18rem;
+}
+
+.np-act-type-toggle .btn {
+  border: 0;
+  border-radius: .45rem !important;
+  font-weight: 700;
+  min-width: 82px;
+}
+
+.np-act-filter-actions {
+  align-self: end;
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 1399.98px) {
+  .np-act-filter-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .np-act-type-field,
+  .np-act-filter-actions {
+    grid-column: span 2;
+  }
+
+  .np-act-filter-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .np-act-filter-panel {
+    grid-template-columns: 1fr;
+    padding: .85rem;
+  }
+
+  .np-act-type-field,
+  .np-act-filter-actions {
+    grid-column: auto;
+  }
+
+  .np-act-type-toggle {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .np-act-type-toggle .btn {
+    width: 100%;
+  }
 }
 
 .np-act-selected {

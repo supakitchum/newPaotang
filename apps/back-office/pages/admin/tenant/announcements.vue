@@ -4,27 +4,27 @@
       <template #actions>
         <button class="btn btn-light btn-wave" type="button" @click="openCreateModal">
           <i class="ri-add-line me-1" />
-          New announcement
+          {{ phrase('New announcement') }}
         </button>
         <button class="btn btn-primary btn-wave" type="button" @click="loadAnnouncements">
           <i class="ri-refresh-line me-1" />
-          Refresh
+          {{ phrase('Refresh') }}
         </button>
       </template>
     </AdminPageHeader>
 
-    <AdminAlert v-if="!tenantId" type="warning" message="Select a tenant scope before editing announcements." />
+    <AdminAlert v-if="!tenantId" type="warning" :message="phrase('Select a tenant scope before editing announcements.')" />
     <AdminAlert v-if="error" :type="alertType(error)" :message="error.message" :details="error.details" />
     <AdminAlert v-if="successMessage" type="success" :message="successMessage" dismissible @dismiss="successMessage = ''" />
 
     <div class="card custom-card">
       <div class="card-header align-items-center gap-3">
-        <div class="card-title">Announcement list</div>
+        <div class="card-title">{{ phrase('Announcement list') }}</div>
         <div class="ms-auto d-flex flex-wrap gap-2">
-          <input v-model="filters.q" class="form-control form-control-sm np-ann-search" placeholder="Search title or slug" @keyup.enter="loadAnnouncements">
+          <input v-model="filters.q" class="form-control form-control-sm np-ann-search" :placeholder="phrase('Search title or slug')" @keyup.enter="loadAnnouncements">
           <select v-model="filters.status" class="form-select form-select-sm np-ann-status" @change="loadAnnouncements">
-            <option value="">All statuses</option>
-            <option v-for="status in statuses" :key="status" :value="status">{{ titleize(status) }}</option>
+            <option value="">{{ phrase('All statuses') }}</option>
+            <option v-for="status in statuses" :key="status" :value="status">{{ phrase(titleize(status)) }}</option>
           </select>
         </div>
       </div>
@@ -33,8 +33,8 @@
           :columns="columns"
           :rows="announcements"
           :loading="loading"
-          empty-title="No announcements"
-          empty-message="Create the first customer-facing announcement for this partner."
+          :empty-title="phrase('No announcements')"
+          :empty-message="phrase('Create the first customer-facing announcement for this partner.')"
           sortable
           embedded
           :sort-key="sort.key"
@@ -48,19 +48,19 @@
             <div class="text-muted fs-12">{{ row.slug }}</div>
           </template>
           <template #cell-modal_enabled="{ row }">
-            <AdminStatusBadge :status="row.modal_enabled" :label="row.modal_enabled ? 'Modal' : 'Hidden'" />
+            <AdminStatusBadge :status="row.modal_enabled" :label="phrase(row.modal_enabled ? 'Modal' : 'Hidden')" />
           </template>
           <template #cell-important="{ row }">
-            <span v-if="row.important" class="badge bg-warning-transparent text-warning">Important</span>
+            <span v-if="row.important" class="badge bg-warning-transparent text-warning">{{ phrase('Important') }}</span>
             <span v-else class="text-muted">-</span>
           </template>
           <template #cell-display_window="{ row }">
             <div>{{ formatDateTime(row.display_start_at) }}</div>
-            <div class="text-muted fs-12">to {{ formatDateTime(row.display_end_at) }}</div>
+            <div class="text-muted fs-12">{{ phrase('to') }} {{ formatDateTime(row.display_end_at) }}</div>
           </template>
           <template #rowActions="{ row }">
             <button class="btn btn-sm btn-primary-light btn-wave" type="button" @click="openEditModal(row)">
-              Edit
+              {{ phrase('Edit') }}
             </button>
           </template>
         </AdminDataTable>
@@ -80,17 +80,17 @@
         <div class="modal-content">
           <div class="modal-header">
             <div>
-              <h5 class="modal-title">{{ form.id ? 'Edit announcement' : 'Create announcement' }}</h5>
-              <div class="text-muted fs-12">Customer modal image, schedule, and detail page content</div>
+              <h5 class="modal-title">{{ phrase(form.id ? 'Edit announcement' : 'Create announcement') }}</h5>
+              <div class="text-muted fs-12">{{ phrase('Customer modal image, schedule, and detail page content') }}</div>
             </div>
-            <button class="btn-close" type="button" aria-label="Close" :disabled="saving" @click="closeFormModal" />
+            <button class="btn-close" type="button" :aria-label="phrase('Close')" :disabled="saving" @click="closeFormModal" />
           </div>
           <div class="modal-body">
             <form class="row g-3" @submit.prevent="saveAnnouncement">
               <div class="col-12">
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-                  <label class="form-label mb-0">Localized content</label>
-                  <div class="btn-group btn-group-sm" role="group" aria-label="Announcement language tabs">
+                  <label class="form-label mb-0">{{ phrase('Localized content') }}</label>
+                  <div class="btn-group btn-group-sm" role="group" :aria-label="phrase('Announcement language tabs')">
                     <button
                       v-for="option in localeOptions"
                       :key="option.value"
@@ -103,83 +103,83 @@
                     </button>
                   </div>
                 </div>
-                <div class="form-text">The public API returns the matching language and falls back to Thai/default content if blank.</div>
+                <div class="form-text">{{ phrase('The public API returns the matching language and falls back to Thai/default content if blank.') }}</div>
               </div>
               <div class="col-12 col-lg-7">
-                <label class="form-label">Title ({{ localeLabel(contentLocale) }})</label>
-                <input v-model="form.title_i18n[contentLocale]" class="form-control" :class="invalidClass('title')" placeholder="Customer-facing title">
+                <label class="form-label">{{ phrase('Title') }} ({{ localeLabel(contentLocale) }})</label>
+                <input v-model="form.title_i18n[contentLocale]" class="form-control" :class="invalidClass('title')" :placeholder="phrase('Customer-facing title')">
                 <div class="invalid-feedback">{{ fieldError('title') }}</div>
               </div>
               <div class="col-12 col-lg-5">
-                <label class="form-label">Slug</label>
-                <input v-model="form.slug" class="form-control" :class="invalidClass('slug')" placeholder="Auto-generated from title if blank">
+                <label class="form-label">{{ phrase('Slug') }}</label>
+                <input v-model="form.slug" class="form-control" :class="invalidClass('slug')" :placeholder="phrase('Auto-generated from title if blank')">
                 <div class="invalid-feedback">{{ fieldError('slug') }}</div>
               </div>
               <div class="col-md-6">
-                <label class="form-label">Status</label>
+                <label class="form-label">{{ phrase('Status') }}</label>
                 <select v-model="form.status" class="form-select" :class="invalidClass('status')">
-                  <option v-for="status in statuses" :key="status" :value="status">{{ titleize(status) }}</option>
+                  <option v-for="status in statuses" :key="status" :value="status">{{ phrase(titleize(status)) }}</option>
                 </select>
                 <div class="invalid-feedback">{{ fieldError('status') }}</div>
               </div>
               <div class="col-md-6">
-                <label class="form-label">Sort order</label>
+                <label class="form-label">{{ phrase('Sort order') }}</label>
                 <input v-model.number="form.sort_order" type="number" class="form-control" :class="invalidClass('sort_order')">
                 <div class="invalid-feedback">{{ fieldError('sort_order') }}</div>
               </div>
               <div class="col-md-6">
-                <label class="form-label">Display start</label>
+                <label class="form-label">{{ phrase('Display start') }}</label>
                 <input v-model="form.display_start_at" type="datetime-local" class="form-control" :class="invalidClass('display_start_at')">
                 <div class="invalid-feedback">{{ fieldError('display_start_at') }}</div>
               </div>
               <div class="col-md-6">
-                <label class="form-label">Display end</label>
+                <label class="form-label">{{ phrase('Display end') }}</label>
                 <input v-model="form.display_end_at" type="datetime-local" class="form-control" :class="invalidClass('display_end_at')">
                 <div class="invalid-feedback">{{ fieldError('display_end_at') }}</div>
               </div>
               <div class="col-12 d-flex flex-wrap gap-3">
                 <label class="form-check form-switch mb-0">
                   <input v-model="form.modal_enabled" class="form-check-input" type="checkbox">
-                  <span class="form-check-label">Show as modal</span>
+                  <span class="form-check-label">{{ phrase('Show as modal') }}</span>
                 </label>
                 <label class="form-check form-switch mb-0">
                   <input v-model="form.important" class="form-check-input" type="checkbox">
-                  <span class="form-check-label">Important</span>
+                  <span class="form-check-label">{{ phrase('Important') }}</span>
                 </label>
               </div>
               <div class="col-12">
-                <label class="form-label">Summary ({{ localeLabel(contentLocale) }})</label>
+                <label class="form-label">{{ phrase('Summary') }} ({{ localeLabel(contentLocale) }})</label>
                 <textarea v-model="form.summary_i18n[contentLocale]" class="form-control" rows="2" :class="invalidClass('summary')" />
                 <div class="invalid-feedback">{{ fieldError('summary') }}</div>
               </div>
               <div class="col-12">
-                <label class="form-label">Body ({{ localeLabel(contentLocale) }})</label>
-                <textarea v-model="form.body_i18n[contentLocale]" class="form-control" rows="6" :class="invalidClass('body')" placeholder="Full detail shown on the customer news page." />
+                <label class="form-label">{{ phrase('Body') }} ({{ localeLabel(contentLocale) }})</label>
+                <textarea v-model="form.body_i18n[contentLocale]" class="form-control" rows="6" :class="invalidClass('body')" :placeholder="phrase('Full detail shown on the customer news page.')" />
                 <div class="invalid-feedback">{{ fieldError('body') }}</div>
               </div>
               <div class="col-12">
-                <label class="form-label">Modal image</label>
+                <label class="form-label">{{ phrase('Modal image') }}</label>
                 <input class="form-control" type="file" accept="image/*" :class="invalidClass('file')" @change="handleImageChange">
                 <div class="invalid-feedback">{{ fieldError('file') || imageError }}</div>
-                <div class="form-text">The API stores full and thumbnail variants for modal and list/detail pages.</div>
+                <div class="form-text">{{ phrase('The API stores full and thumbnail variants for modal and list/detail pages.') }}</div>
               </div>
               <div v-if="previewUrl || form.image_thumb_url" class="col-12">
                 <div class="np-ann-preview">
-                  <img :src="previewUrl || form.image_thumb_url" alt="Announcement preview">
+                  <img :src="previewUrl || form.image_thumb_url" :alt="phrase('Announcement preview')">
                 </div>
               </div>
               <div class="col-12">
                 <div class="np-ann-behavior">
                   <div>
-                    <span class="text-muted fs-12 d-block">Modal pick</span>
-                    <span>Important first, otherwise random active news</span>
+                    <span class="text-muted fs-12 d-block">{{ phrase('Modal pick') }}</span>
+                    <span>{{ phrase('Important first, otherwise random active news') }}</span>
                   </div>
                   <div>
-                    <span class="text-muted fs-12 d-block">Audience</span>
-                    <span>Guests and logged-in customers</span>
+                    <span class="text-muted fs-12 d-block">{{ phrase('Audience') }}</span>
+                    <span>{{ phrase('Guests and logged-in customers') }}</span>
                   </div>
                   <div>
-                    <span class="text-muted fs-12 d-block">Detail path</span>
+                    <span class="text-muted fs-12 d-block">{{ phrase('Detail path') }}</span>
                     <code>/news/{{ form.slug || 'slug' }}</code>
                   </div>
                 </div>
@@ -190,14 +190,14 @@
           <div class="modal-footer justify-content-between">
             <button v-if="form.id" class="btn btn-danger-light btn-wave" type="button" :disabled="saving" @click="archiveAnnouncement">
               <i class="ri-archive-line me-1" />
-              Archive
+              {{ phrase('Archive') }}
             </button>
             <span v-else />
             <div class="d-flex gap-2">
-              <button class="btn btn-light btn-wave" type="button" :disabled="saving" @click="resetForm">Reset</button>
+              <button class="btn btn-light btn-wave" type="button" :disabled="saving" @click="resetForm">{{ phrase('Reset') }}</button>
               <button class="btn btn-primary btn-wave" type="button" :disabled="saveDisabled" @click="saveAnnouncement">
                 <span v-if="saving" class="spinner-border spinner-border-sm me-2" />
-                Save announcement
+                {{ phrase('Save announcement') }}
               </button>
             </div>
           </div>
@@ -217,6 +217,9 @@ type Announcement = Record<string, any>
 
 const api = useAdminApi()
 const session = useAdminSession()
+const adminLocale = useAdminLocale()
+const phrase = (source: unknown) => adminLocale.phrase(source)
+const currentLocale = computed(() => adminLocale.locale.value)
 const tenantId = computed(() => session.currentTenantId.value)
 const statuses = ['draft', 'active', 'inactive', 'archived']
 const localeOptions = [
@@ -403,7 +406,7 @@ const saveAnnouncement = async () => {
       selectAnnouncement(saved)
     }
 
-    successMessage.value = 'Announcement saved.'
+    successMessage.value = phrase('Announcement saved.')
     await loadAnnouncements(pageState.value.cursors[pageState.value.index] || '')
     formModalOpen.value = false
     resetForm()
@@ -429,7 +432,7 @@ const archiveAnnouncement = async () => {
       idempotencyKey: api.idempotencyKey(),
       body: { reason: 'Archived from announcement manager' },
     })
-    successMessage.value = 'Announcement archived.'
+    successMessage.value = phrase('Announcement archived.')
     formModalOpen.value = false
     resetForm()
     await loadAnnouncements(pageState.value.cursors[pageState.value.index] || '')
@@ -479,12 +482,12 @@ const handleImageChange = (event: Event) => {
   if (!file) return
 
   if (!file.type.startsWith('image/')) {
-    imageError.value = 'Only image files are accepted.'
+    imageError.value = phrase('Only image files are accepted.')
     return
   }
 
   if (file.size < 1 || file.size > 8 * 1024 * 1024) {
-    imageError.value = 'Image size must be between 1 byte and 8 MB.'
+    imageError.value = phrase('Image size must be between 1 byte and 8 MB.')
     return
   }
 
@@ -526,7 +529,7 @@ const formatDateTime = (value: string | null | undefined) => {
   if (!value) return '-'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
-  return new Intl.DateTimeFormat('en-GB', {
+  return new Intl.DateTimeFormat(currentLocale.value === 'th-TH' ? 'th-TH' : 'en-GB', {
     dateStyle: 'medium',
     timeStyle: 'short',
     timeZone: 'Asia/Bangkok',

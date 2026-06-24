@@ -2934,9 +2934,9 @@ class TenantActivityService
         }
 
         return match ($type) {
-            'first_prize_last2' => 'ทายเลข 2 ตัวรางวัลที่ 1',
-            'first_prize_last3' => 'ทายเลข 3 ตัวรางวัลที่ 1',
-            'last2' => 'ทายเลข 2 ตัวท้าย',
+            'first_prize_last2' => '2 ตัวท้ายรางวัลที่ 1',
+            'first_prize_last3' => '3 ตัวท้ายรางวัลที่ 1',
+            'last2' => 'เลขท้าย 2 ตัว',
             default => $type,
         };
     }
