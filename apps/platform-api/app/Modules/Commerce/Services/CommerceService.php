@@ -1079,37 +1079,264 @@ class CommerceService
      */
     public function adminTickets(string $tenantId, array $queryParams): array
     {
-        $limit = $this->limit($queryParams['limit'] ?? null);
-        $query = Ticket::query()->forTenant($tenantId)->orderBy('id')->limit($limit + 1);
+        if (($queryParams['view'] ?? null) === 'tickets') {
+            return $this->adminCustomerTicketRows($tenantId, $queryParams);
+        }
 
-        foreach (['status', 'game_id', 'customer_id'] as $field) {
-            if (($queryParams[$field] ?? null) !== null && trim((string) $queryParams[$field]) !== '') {
-                $query->where($field, trim((string) $queryParams[$field]));
-            }
+        return $this->adminTicketCustomerSummaries($tenantId, $queryParams);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function adminTicketCustomerSummaries(string $tenantId, array $queryParams): array
+    {
+        $limit = $this->limit($queryParams['limit'] ?? null);
+        $gameOptions = $this->adminTicketGameOptions($tenantId);
+        $gameId = $this->resolveAdminTicketGameId($queryParams, $gameOptions);
+        $query = DB::table('tickets')
+            ->leftJoin('customers', function ($join) use ($tenantId): void {
+                $join->on('customers.id', '=', 'tickets.customer_id')
+                    ->where('customers.tenant_id', '=', $tenantId);
+            })
+            ->where('tickets.tenant_id', $tenantId)
+            ->when($gameId !== '', fn ($builder) => $builder->where('tickets.game_id', $gameId));
+
+        if (($queryParams['status'] ?? null) !== null && trim((string) $queryParams['status']) !== '') {
+            $query->where('tickets.status', trim((string) $queryParams['status']));
         }
 
         if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
-            $query->where('id', '>', trim((string) $queryParams['cursor']));
+            $query->where('tickets.customer_id', '>', trim((string) $queryParams['cursor']));
         }
+
+        $search = trim((string) ($queryParams['q'] ?? $queryParams['search'] ?? ''));
+        if ($search !== '') {
+            $needle = '%'.strtolower($search).'%';
+            $query->where(function ($builder) use ($needle): void {
+                $builder
+                    ->whereRaw('lower(tickets.customer_id) like ?', [$needle])
+                    ->orWhereRaw('lower(tickets.full_number) like ?', [$needle])
+                    ->orWhereRaw('lower(coalesce(customers.customer_no, \'\')) like ?', [$needle])
+                    ->orWhereRaw('lower(coalesce(customers.name, \'\')) like ?', [$needle])
+                    ->orWhereRaw('lower(coalesce(customers.phone, \'\')) like ?', [$needle])
+                    ->orWhereRaw('lower(coalesce(customers.email, \'\')) like ?', [$needle]);
+            });
+        }
+
+        $query
+            ->select([
+                'tickets.customer_id',
+                'customers.customer_no',
+                'customers.name',
+                'customers.phone',
+                'customers.email',
+                'customers.status as customer_status',
+                DB::raw('count(*) as ticket_count'),
+                DB::raw('count(distinct tickets.order_id) as order_count'),
+                DB::raw('min(tickets.created_at) as first_ticket_at'),
+                DB::raw('max(tickets.created_at) as last_ticket_at'),
+                DB::raw("sum(case when tickets.status = 'active' then 1 else 0 end) as active_ticket_count"),
+                DB::raw("sum(case when tickets.status in ('paid_out', 'claimed') then 1 else 0 end) as paid_out_ticket_count"),
+                DB::raw("sum(case when tickets.status in ('cancelled', 'voided') then 1 else 0 end) as cancelled_ticket_count"),
+            ])
+            ->groupBy([
+                'tickets.customer_id',
+                'customers.customer_no',
+                'customers.name',
+                'customers.phone',
+                'customers.email',
+                'customers.status',
+            ])
+            ->orderBy('tickets.customer_id')
+            ->limit($limit + 1);
 
         $rows = $query->get()->all();
         $hasMore = count($rows) > $limit;
         $rows = array_slice($rows, 0, $limit);
 
         return [
+            'data' => array_map(fn (object $row): array => $this->adminTicketCustomerSummaryResource($tenantId, $gameId, $row), $rows),
+            'meta' => [
+                'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->customer_id : null,
+                'has_more' => $hasMore,
+                'selected_game_id' => $gameId === '' ? null : $gameId,
+                'default_game_id' => $gameOptions[0]['id'] ?? null,
+                'games' => $gameOptions,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function adminCustomerTicketRows(string $tenantId, array $queryParams): array
+    {
+        $customerId = trim((string) ($queryParams['customer_id'] ?? ''));
+        if ($customerId === '') {
+            return [
+                'data' => [],
+                'meta' => [
+                    'next_cursor' => null,
+                    'has_more' => false,
+                    'error' => 'customer_id_required',
+                ],
+            ];
+        }
+
+        $limit = $this->limit($queryParams['limit'] ?? null);
+        $gameOptions = $this->adminTicketGameOptions($tenantId);
+        $gameId = $this->resolveAdminTicketGameId($queryParams, $gameOptions);
+        $query = Ticket::query()
+            ->with(['game', 'customer', 'localStockItem'])
+            ->forTenant($tenantId)
+            ->where('customer_id', $customerId)
+            ->when($gameId !== '', fn (Builder $builder) => $builder->where('game_id', $gameId));
+
+        if (($queryParams['status'] ?? null) !== null && trim((string) $queryParams['status']) !== '') {
+            $query->where('status', trim((string) $queryParams['status']));
+        }
+
+        if (($queryParams['cursor'] ?? null) !== null && trim((string) $queryParams['cursor']) !== '') {
+            $query->where('id', '>', trim((string) $queryParams['cursor']));
+        }
+
+        $query->orderBy('id')->limit($limit + 1);
+
+        $rows = $query->get()->all();
+        $hasMore = count($rows) > $limit;
+        $rows = array_slice($rows, 0, $limit);
+        $customer = Customer::query()
+            ->where('tenant_id', $tenantId)
+            ->where('id', $customerId)
+            ->first();
+
+        return [
             'data' => array_map(fn (object $ticket): array => $this->ticketDetailResource($ticket), $rows),
             'meta' => [
                 'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->id : null,
                 'has_more' => $hasMore,
+                'selected_game_id' => $gameId === '' ? null : $gameId,
+                'default_game_id' => $gameOptions[0]['id'] ?? null,
+                'games' => $gameOptions,
+                'customer' => $customer === null ? null : $this->customerProfile($customer),
             ],
         ];
     }
 
     public function adminTicket(string $tenantId, string $ticketId): ?array
     {
-        $ticket = Ticket::query()->forTenant($tenantId)->where('id', $ticketId)->first();
+        $ticket = Ticket::query()
+            ->with(['game', 'customer', 'localStockItem'])
+            ->forTenant($tenantId)
+            ->where('id', $ticketId)
+            ->first();
 
         return $ticket === null ? null : $this->ticketDetailResource($ticket);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $gameOptions
+     */
+    private function resolveAdminTicketGameId(array $queryParams, array $gameOptions): string
+    {
+        $requested = trim((string) ($queryParams['game_id'] ?? ''));
+
+        if ($requested !== '') {
+            return $requested;
+        }
+
+        return (string) ($gameOptions[0]['id'] ?? '');
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function adminTicketGameOptions(string $tenantId): array
+    {
+        return DB::table('games')
+            ->leftJoin('tickets', function ($join) use ($tenantId): void {
+                $join->on('tickets.game_id', '=', 'games.id')
+                    ->where('tickets.tenant_id', '=', $tenantId);
+            })
+            ->select([
+                'games.id',
+                'games.code',
+                'games.name',
+                'games.status',
+                'games.sale_start_at',
+                'games.draw_at',
+                'games.close_at',
+                DB::raw('count(tickets.id) as ticket_count'),
+            ])
+            ->groupBy([
+                'games.id',
+                'games.code',
+                'games.name',
+                'games.status',
+                'games.sale_start_at',
+                'games.draw_at',
+                'games.close_at',
+                'games.created_at',
+            ])
+            ->orderByDesc('games.draw_at')
+            ->orderByDesc('games.sale_start_at')
+            ->orderByDesc('games.created_at')
+            ->limit(100)
+            ->get()
+            ->map(fn (object $game): array => [
+                'id' => (string) $game->id,
+                'value' => (string) $game->id,
+                'label' => trim((string) $game->name) !== '' ? (string) $game->name : (string) $game->code,
+                'code' => (string) $game->code,
+                'name' => (string) $game->name,
+                'status' => (string) $game->status,
+                'sale_start_at' => $game->sale_start_at,
+                'draw_at' => $game->draw_at,
+                'close_at' => $game->close_at,
+                'ticket_count' => (int) $game->ticket_count,
+            ])
+            ->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function adminTicketCustomerSummaryResource(string $tenantId, string $gameId, object $row): array
+    {
+        $customerNo = CustomerNo::display($row->customer_no ?? null, (string) $row->customer_id);
+        $name = trim((string) ($row->name ?? ''));
+
+        return [
+            'id' => (string) $row->customer_id,
+            '__id' => (string) $row->customer_id,
+            'tenant_id' => $tenantId,
+            'game_id' => $gameId === '' ? null : $gameId,
+            'customer_id' => (string) $row->customer_id,
+            'customer_no' => $customerNo,
+            'member_no' => $customerNo,
+            'customer_name' => $name !== '' ? $name : '-',
+            'phone' => $row->phone,
+            'email' => $row->email,
+            'customer_status' => $row->customer_status,
+            'ticket_count' => (int) $row->ticket_count,
+            'order_count' => (int) $row->order_count,
+            'active_ticket_count' => (int) $row->active_ticket_count,
+            'paid_out_ticket_count' => (int) $row->paid_out_ticket_count,
+            'cancelled_ticket_count' => (int) $row->cancelled_ticket_count,
+            'first_ticket_at' => $row->first_ticket_at,
+            'last_ticket_at' => $row->last_ticket_at,
+            'customer' => [
+                'id' => (string) $row->customer_id,
+                'tenant_id' => $tenantId,
+                'customer_no' => $customerNo,
+                'member_no' => $customerNo,
+                'name' => $name !== '' ? $name : null,
+                'phone' => $row->phone,
+                'email' => $row->email,
+                'status' => $row->customer_status,
+            ],
+        ];
     }
 
     /**
@@ -3268,15 +3495,27 @@ class CommerceService
 
     private function ticketDetailResource(object $ticket): array
     {
+        $customer = method_exists($ticket, 'relationLoaded') && $ticket->relationLoaded('customer')
+            ? $ticket->customer
+            : Customer::where('id', $ticket->customer_id)->first();
+        $orderItem = OrderItem::query()->where('ticket_id', $ticket->id)->first();
+        $localStock = method_exists($ticket, 'relationLoaded') && $ticket->relationLoaded('localStockItem')
+            ? $ticket->localStockItem
+            : LocalStockItem::query()->whereKey((string) ($ticket->local_stock_item_id ?? ''))->first();
+
         return $this->ticketResource($ticket) + [
             'tenant_id' => (string) $ticket->tenant_id,
+            'customer_id' => (string) $ticket->customer_id,
+            'customer' => $customer === null ? null : $this->customerProfile($customer),
+            'order_id' => (string) $ticket->order_id,
             'order' => $this->orderResource(Order::where('id', $ticket->order_id)->first()),
-            'reward_status' => [
-                'ticket_id' => (string) $ticket->id,
-                'status' => 'pending_result',
-                'claimable' => false,
-            ],
+            'local_stock_item_id' => $ticket->local_stock_item_id,
+            'stock' => $localStock === null ? null : $this->localStockResource($localStock),
+            'price' => $orderItem === null ? null : $this->money((int) $orderItem->price_amount, (string) $orderItem->currency),
+            'sale_price_rule_snapshot' => $orderItem?->sale_price_rule_snapshot_json,
             'history' => [],
+            'created_at' => $ticket->created_at,
+            'updated_at' => $ticket->updated_at,
         ];
     }
 

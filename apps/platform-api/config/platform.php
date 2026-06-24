@@ -80,6 +80,17 @@ return [
             explode(',', (string) env('PLATFORM_WORKER_QUEUES', 'partner-inbox-high,partner-inbox-normal,stock-allocation,stock-generation,stock-image-generation,stock-partner-image-generation,stock-sold-events,stock-recall,reservation-expiration,checkout-finalize,central-outbox,affiliate-commission,reward-validate,reward-check-high,reward-check-normal,reward-summary,reward-publish,reward-notification,report-build,webhook-dispatch,notification,usage-metering,partner-monitoring,default')),
         ))),
     ],
+    'database_guard' => [
+        'unsafe_commands' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('PLATFORM_UNSAFE_DB_COMMANDS', 'migrate:fresh,migrate:refresh,migrate:reset,db:wipe,schema:load,runtime:mock-data:seed')),
+        ))),
+        'test_database_suffixes' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('PLATFORM_TEST_DATABASE_SUFFIXES', '_test')),
+        ))),
+        'bypass_token' => env('PLATFORM_DESTRUCTIVE_DB_BYPASS_TOKEN', 'I_UNDERSTAND_THIS_WILL_DESTROY_RUNTIME_DATA'),
+    ],
     'stock_generation' => [
         'queue' => env('STOCK_GENERATION_QUEUE', 'stock-generation'),
         'chunk_rounds' => max(1, (int) env('STOCK_GENERATE_CHUNK_ROUNDS', 5)),

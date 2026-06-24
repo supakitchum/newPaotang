@@ -131,6 +131,8 @@ QA และ agent ทุกตัวห้ามรันคำสั่ง des
 docker compose -p newpaotang run --rm -e APP_ENV=testing -e DB_DATABASE=newpaotang_test platform-api php artisan migrate:fresh --seed --env=testing
 ```
 
+ห้ามใช้ `docker compose exec platform-api php artisan migrate:fresh --env=testing` เพราะ container อาจ inject `DB_DATABASE=newpaotang` และ override `.env.testing` ได้ ต้องใช้ `docker compose run --rm -e DB_DATABASE=newpaotang_test` เท่านั้น
+
 คำสั่งรัน backend tests ที่ถูกต้อง:
 
 ```sh
@@ -166,4 +168,25 @@ recall/redistribute allocation จริง
 APP_ENV=testing
 DB_DATABASE=newpaotang_test
 --env=testing
+```
+
+## Artisan Destructive Command Guard
+
+Platform API มี guard ใน `AppServiceProvider` ที่บล็อกคำสั่ง destructive ต่อไปนี้ หาก effective database ไม่ได้ลงท้ายด้วย `_test`:
+
+```text
+migrate:fresh
+migrate:refresh
+migrate:reset
+db:wipe
+schema:load
+runtime:mock-data:seed
+```
+
+Guard นี้ตั้งใจป้องกันเคสที่ `--env=testing` ทำงานแล้ว แต่ Docker environment ยังทำให้ database จริงเป็น `newpaotang`
+
+ถ้ามีเหตุจำเป็นต้องล้าง runtime DB จริง ๆ ต้องได้รับคำสั่งชัดเจนจาก user ใน turn นั้น และต้องตั้ง override เฉพาะคำสั่งเดียว:
+
+```sh
+PLATFORM_ALLOW_DESTRUCTIVE_DB_COMMANDS=I_UNDERSTAND_THIS_WILL_DESTROY_RUNTIME_DATA
 ```

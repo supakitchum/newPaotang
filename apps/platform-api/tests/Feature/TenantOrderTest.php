@@ -12,6 +12,47 @@ class TenantOrderTest extends TestCase
     use M5CommerceFixtures;
     use RefreshDatabase;
 
+    public function test_TenantTickets_lists_customer_inventory_by_draw_and_returns_ticket_details(): void
+    {
+        $world = $this->prepareReservedCart('par_tenant_ticket', 'ten_tenant_ticket', 'tenant-ticket.m5.test', 'gam_tenant_ticket', '0805006100', 750001);
+        $order = $this->checkoutWallet($world, 'tenant-ticket-checkout');
+        $viewer = $this->tenantAdmin($world, ['ticket.view'], 'ticketview');
+        $ticketId = (string) DB::table('tickets')->where('order_id', $order['id'])->value('id');
+
+        DB::table('tickets')->where('id', $ticketId)->update([
+            'image_url' => 'https://cdn.example.test/tickets/'.$ticketId.'/full.webp',
+            'image_thumb_url' => 'https://cdn.example.test/tickets/'.$ticketId.'/thumb.webp',
+            'updated_at' => now(),
+        ]);
+
+        $this->withToken($viewer['access_token'])
+            ->getJson('/api/v1/admin/tenant/tickets', [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_tenant_ticket',
+            ])
+            ->assertOk()
+            ->assertJsonPath('meta.selected_game_id', 'gam_tenant_ticket')
+            ->assertJsonPath('meta.games.0.id', 'gam_tenant_ticket')
+            ->assertJsonPath('data.0.customer_id', $world['auth']['user']['id'])
+            ->assertJsonPath('data.0.ticket_count', 1);
+
+        $this->withToken($viewer['access_token'])
+            ->getJson('/api/v1/admin/tenant/tickets?'.http_build_query([
+                'view' => 'tickets',
+                'customer_id' => $world['auth']['user']['id'],
+                'game_id' => 'gam_tenant_ticket',
+            ]), [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_tenant_ticket',
+            ])
+            ->assertOk()
+            ->assertJsonPath('meta.customer.id', $world['auth']['user']['id'])
+            ->assertJsonPath('data.0.id', $ticketId)
+            ->assertJsonPath('data.0.customer.id', $world['auth']['user']['id'])
+            ->assertJsonPath('data.0.image_url', 'http://cdn.example.test/tickets/'.$ticketId.'/full.webp')
+            ->assertJsonPath('data.0.price.amount', 8000);
+    }
+
     public function test_TenantOrder_permissions_update_cancel_and_refund_are_idempotent_and_tenant_scoped(): void
     {
         $world = $this->prepareReservedCart('par_tenant_order', 'ten_tenant_order', 'tenant-order.m5.test', 'gam_tenant_order', '0805006000', 740001);
