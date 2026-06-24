@@ -2,23 +2,20 @@
   <MobileShell time="12:59">
     <BlueHeader title="เติมเงินเข้า G-Wallet" :back-to="topupBackTo" :min-height="waitingDeposit ? '340px' : '100vh'">
       <h2 class="fs-5 fw-bold mt-4 mb-3">เลือกช่องทางการเติมเงิน</h2>
-      <div v-if="channels.length" class="topup-channels">
+      <div class="topup-channels">
         <button
-          v-for="channel in channels"
+          v-for="channel in displayChannels"
           :key="channel.value"
           class="topup-channel"
+          :class="{ 'is-unavailable': !channel.enabled }"
           type="button"
-          :disabled="hasBlockingWaitingTopup"
+          :disabled="hasBlockingWaitingTopup || !channel.enabled"
           @click="openTopupModal(channel.value)"
         >
           <i class="bi" :class="channel.icon" />
           <span>{{ channel.label }}</span>
+          <span v-if="!channel.enabled" class="topup-channel-badge">ปิดบริการชั่วคราว</span>
         </button>
-      </div>
-      <div v-else class="topup-no-channels">
-        <i class="bi bi-slash-circle" />
-        <strong>ยังไม่เปิดช่องทางเติมเงิน</strong>
-        <span>กรุณาติดต่อร้านค้าเพื่อเปิดช่องทางชำระเงิน</span>
       </div>
 
       <NuxtLink class="topup-history-button" to="/topup/history">
@@ -195,6 +192,8 @@ definePageMeta({
 })
 
 type TopupChannel = 'qr' | 'credit' | 'bank_transfer'
+type TopupChannelConfig = { value: TopupChannel, label: string, icon: string }
+type TopupDisplayChannel = TopupChannelConfig & { enabled: boolean }
 
 import type { DepositHistory, WebsiteBank } from '~/composables/useTopup'
 
@@ -205,7 +204,7 @@ const { toNumber, formatMoney, formatDate } = useTopup()
 const { isAuthenticated } = useAuth()
 const { config: siteConfig, fetchSiteConfig } = useSiteConfig()
 
-const baseChannels: Array<{ value: TopupChannel, label: string, icon: string }> = [
+const baseChannels: TopupChannelConfig[] = [
   { value: 'qr', label: 'QR Code', icon: 'bi-qr-code' },
   { value: 'credit', label: 'Credit Card QR', icon: 'bi-qr-code-scan' },
   { value: 'bank_transfer', label: 'โอนธนาคาร', icon: 'bi-bank' }
@@ -250,9 +249,13 @@ const paymentMethodEnabled = (method: string) => {
 
   return enabledMethods.length > 0 ? enabledMethods.includes(method) : true
 }
-const channels = computed(() => baseChannels.filter((channel) => paymentMethodEnabled(topupChannelMethod(channel.value))))
+const displayChannels = computed<TopupDisplayChannel[]>(() => baseChannels.map((channel) => ({
+  ...channel,
+  enabled: paymentMethodEnabled(topupChannelMethod(channel.value))
+})))
+const enabledChannels = computed(() => displayChannels.value.filter((channel) => channel.enabled))
 const currentChannel = computed(() => (
-  channels.value.find((channel) => channel.value === activeChannel.value) || channels.value[0] || baseChannels[0]
+  displayChannels.value.find((channel) => channel.value === activeChannel.value) || displayChannels.value[0] || baseChannels[0]
 ))
 const modalTitle = computed(() => currentChannel.value.label)
 const modalDescription = computed(() => channelDescriptions[activeChannel.value])
@@ -692,7 +695,7 @@ watch(activeChannel, () => {
   slipFile.value = null
 })
 
-watch(channels, (availableChannels) => {
+watch(enabledChannels, (availableChannels) => {
   if (availableChannels.length > 0 && !availableChannels.some((channel) => channel.value === activeChannel.value)) {
     activeChannel.value = availableChannels[0].value
   }
@@ -713,6 +716,7 @@ onMounted(async () => {
 }
 
 .topup-channel {
+  position: relative;
   min-height: 104px;
   border: 1px solid rgba(255, 255, 255, .25);
   border-radius: 12px;
@@ -725,38 +729,39 @@ onMounted(async () => {
   padding: 12px 8px;
 }
 
+.topup-channel.is-unavailable {
+  border-color: rgba(148, 163, 184, .38);
+  background: #eef2f7;
+  color: #64748b;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55);
+}
+
 .topup-channel i {
   font-size: 28px;
   color: #0b69dc;
 }
 
-.topup-channel:disabled {
-  opacity: .55;
-  cursor: not-allowed;
-}
-
-.topup-no-channels {
-  min-height: 142px;
-  border: 1px solid rgba(255, 255, 255, .38);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, .94);
-  color: #17335f;
-  display: grid;
-  place-items: center;
-  gap: 6px;
-  padding: 18px;
-  text-align: center;
-  box-shadow: 0 12px 28px rgba(17, 51, 95, .12);
-}
-
-.topup-no-channels i {
-  font-size: 32px;
+.topup-channel.is-unavailable i {
   color: #94a3b8;
 }
 
-.topup-no-channels span {
-  color: #64748b;
-  font-weight: 700;
+.topup-channel-badge {
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.1;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
+.topup-channel:disabled {
+  cursor: not-allowed;
+}
+
+.topup-channel:disabled:not(.is-unavailable) {
+  opacity: .62;
 }
 
 .topup-history-button {
