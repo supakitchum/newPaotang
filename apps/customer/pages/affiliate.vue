@@ -33,8 +33,18 @@
         </div>
         <div>
           <h2>เริ่มเป็นตัวแทนจำหน่าย</h2>
-          <p>ระบบจะสร้างรหัสแนะนำ 6 ตัวและลิงก์สำหรับแชร์ให้ทันที</p>
+          <p>กรอกชื่อร้านที่จะแสดงให้ลูกค้าเห็น แล้วระบบจะสร้างรหัสแนะนำและลิงก์สำหรับแชร์ให้ทันที</p>
         </div>
+        <label class="affiliate-store-field">
+          <span>ชื่อร้าน</span>
+          <input
+            v-model.trim="affiliateStoreName"
+            maxlength="80"
+            placeholder="เช่น ร้านโชคดีออนไลน์"
+            autocomplete="organization"
+          >
+        </label>
+        <p v-if="affiliateStoreNameError" class="affiliate-form-alert mb-0">{{ affiliateStoreNameError }}</p>
         <button class="primary-pill" type="button" :disabled="isSubmitting" @click="register">
           <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-2" />
           สมัครเป็นตัวแทนจำหน่าย
@@ -42,6 +52,17 @@
       </div>
 
       <template v-else>
+        <article class="affiliate-card affiliate-store-summary">
+          <div class="affiliate-store-summary-icon">
+            <i class="bi bi-shop" />
+          </div>
+          <div>
+            <span>ชื่อร้านของคุณ</span>
+            <strong>{{ affiliateStoreDisplayName }}</strong>
+            <p>ชื่อนี้จะแสดงให้ลูกค้าที่เข้าผ่านลิงก์แนะนำเห็น</p>
+          </div>
+        </article>
+
         <section class="affiliate-metrics" aria-label="Affiliate summary">
           <article v-for="widget in statWidgets" :key="widget.key" class="affiliate-widget">
             <span>{{ widget.label }}</span>
@@ -243,6 +264,8 @@ const affiliatePinError = ref('')
 const isLoading = ref(false)
 const isSubmitting = ref(false)
 const isVerifyingPin = ref(false)
+const affiliateStoreName = ref('')
+const affiliateStoreNameError = ref('')
 const payoutAmount = ref('')
 const payoutMethod = ref('bank_transfer')
 const bankName = ref('')
@@ -258,6 +281,12 @@ const tabs = [
 
 const primaryLink = computed(() => overview.value.links[0] || null)
 const referralCode = computed(() => String(primaryLink.value?.code || overview.value.affiliate?.code || '').trim())
+const affiliateStoreDisplayName = computed(() => String(
+  overview.value.affiliate?.name ||
+  overview.value.affiliate?.store_name ||
+  overview.value.affiliate?.display_name ||
+  'ร้านตัวแทนจำหน่าย'
+).trim())
 const isCanonicalRefLink = (value: string) => value.includes(`ref=${encodeURIComponent(referralCode.value)}`) && !value.includes('/a/')
 const canonicalReferralLink = computed(() => {
   if (!referralCode.value) {
@@ -495,12 +524,22 @@ const goBackFromPin = async () => {
 }
 
 const register = async () => {
+  if (affiliateStoreName.value.trim() === '') {
+    affiliateStoreNameError.value = 'กรุณากรอกชื่อร้านก่อนสมัครเป็นตัวแทนจำหน่าย'
+    return
+  }
+
   isSubmitting.value = true
+  affiliateStoreNameError.value = ''
   try {
-    overview.value = await platformApi.registerAffiliate()
+    overview.value = await platformApi.registerAffiliate({
+      name: affiliateStoreName.value.trim()
+    })
     hydrateBankAccount(overview.value.profile)
     showAlert({ title: 'สมัคร Affiliate สำเร็จ', message: 'ระบบสร้างลิงก์แนะนำให้แล้ว', variant: 'success' })
   } catch (error: any) {
+    const fields = error?.response?.data?.error?.details?.fields || error?.response?.data?.details?.fields || {}
+    affiliateStoreNameError.value = fields.name?.[0] || ''
     showAlert({
       title: 'สมัคร Affiliate ไม่สำเร็จ',
       message: error?.response?.data?.message || 'กรุณาลองใหม่อีกครั้ง',
@@ -675,10 +714,82 @@ onMounted(resetAffiliatePinEntry)
   margin: 0;
 }
 
+.affiliate-store-field {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+}
+
+.affiliate-store-field span {
+  color: #172554;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.affiliate-store-field input {
+  background: #f8fbff;
+  border: 1px solid #d8e7f7;
+  border-radius: 14px;
+  color: #172554;
+  font-size: 15px;
+  font-weight: 800;
+  min-height: 48px;
+  outline: 0;
+  padding: 0 14px;
+  width: 100%;
+}
+
+.affiliate-store-field input:focus {
+  border-color: #0b69dc;
+  box-shadow: 0 0 0 3px rgba(11, 105, 220, .12);
+}
+
 .affiliate-card .affiliate-minimum-note {
   color: #0b69dc;
   font-weight: 800;
   margin-top: 3px;
+}
+
+.affiliate-store-summary {
+  align-items: center;
+  border-radius: 16px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 16px;
+}
+
+.affiliate-store-summary-icon {
+  align-items: center;
+  background: #eaf5ff;
+  border-radius: 14px;
+  color: #0b69dc;
+  display: inline-flex;
+  font-size: 22px;
+  height: 48px;
+  justify-content: center;
+  width: 48px;
+}
+
+.affiliate-store-summary span {
+  color: #64748b;
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+
+.affiliate-store-summary strong {
+  color: #172554;
+  display: block;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.affiliate-store-summary p {
+  margin-top: 4px;
 }
 
 .affiliate-metrics {

@@ -2,7 +2,7 @@
 
 namespace App\Modules\PublicSite\Services;
 
-use App\Models\LocalStockItem;
+use App\Models\AffiliateAccount;
 use App\Modules\AdminOperations\Services\TenantAnnouncementService;
 use App\Modules\AdminOperations\Services\TenantSeoService;
 use App\Modules\Tenancy\Services\TenantConfigurationService;
@@ -118,26 +118,28 @@ class PublicContentService
 
         $tenantId = (string) $site['data']['tenant_id'];
         $limit = $this->limit($request->query('limit'));
-        $query = LocalStockItem::query()
+        $query = AffiliateAccount::query()
             ->forTenant($tenantId)
-            ->whereNotNull('store_id')
-            ->where('store_id', '!=', '')
-            ->where('status', 'available')
-            ->select('store_id')
-            ->distinct()
-            ->orderBy('store_id')
+            ->where('status', 'active')
+            ->whereNotNull('name')
+            ->where('name', '!=', '')
+            ->select(['id', 'name', 'code'])
+            ->orderBy('id')
             ->limit($limit + 1);
 
         $q = trim((string) $request->query('q', ''));
 
         if ($q !== '') {
-            $query->where('store_id', 'like', '%'.$q.'%');
+            $query->where(function ($query) use ($q): void {
+                $query->where('name', 'like', '%'.$q.'%')
+                    ->orWhere('code', 'like', '%'.$q.'%');
+            });
         }
 
         $cursor = trim((string) $request->query('cursor', ''));
 
         if ($cursor !== '') {
-            $query->where('store_id', '>', $cursor);
+            $query->where('id', '>', $cursor);
         }
 
         $rows = $query->get()->all();
@@ -147,12 +149,15 @@ class PublicContentService
         return [
             'resource' => [
                 'data' => array_map(fn (object $row): array => [
-                    'id' => (string) $row->store_id,
-                    'name' => (string) $row->store_id,
+                    'id' => (string) $row->id,
+                    'name' => (string) $row->name,
+                    'store_name' => (string) $row->name,
+                    'affiliate_id' => (string) $row->id,
+                    'code' => (string) $row->code,
                     'status' => 'active',
                 ], $rows),
                 'meta' => [
-                    'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->store_id : null,
+                    'next_cursor' => $hasMore && $rows !== [] ? (string) end($rows)->id : null,
                     'has_more' => $hasMore,
                 ],
             ],

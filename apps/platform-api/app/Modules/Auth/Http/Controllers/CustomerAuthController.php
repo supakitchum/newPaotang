@@ -369,6 +369,7 @@ class CustomerAuthController extends Controller
             'customer_suspended' => ApiErrorResponse::customerSuspended($request, $result['suspension'] ?? []),
             'pin_invalid' => ApiErrorResponse::make($request, 422, 'pin_invalid', 'The customer PIN is incorrect.'),
             'password_invalid' => ApiErrorResponse::make($request, 422, 'password_invalid', 'The account password is incorrect.'),
+            'otp_required' => ApiErrorResponse::validationFailed($request, $result['errors'] ?? ['otp_verification_token' => ['OTP verification is required.']]),
             'pin_reset_not_verified' => ApiErrorResponse::make($request, 403, 'pin_reset_not_verified', 'Please verify the account password before resetting PIN.'),
             default => response()->json($result['resource'] ?? [], $result['status'] ?? $defaultStatus),
         };

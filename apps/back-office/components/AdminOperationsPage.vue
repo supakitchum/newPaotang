@@ -9,12 +9,12 @@
       <template #actions>
         <NuxtLink v-if="mode === 'detail'" :to="listPath" class="btn btn-light btn-wave">
           <i class="ri-arrow-left-line me-1" />
-          Back
+          {{ phrase('Back') }}
         </NuxtLink>
         <button v-if="canReload" class="btn btn-outline-primary btn-wave" type="button" :disabled="loading" @click="load()">
           <span v-if="loading" class="spinner-border spinner-border-sm me-1" />
           <i v-else class="ri-refresh-line me-1" />
-          Refresh
+          {{ phrase('Refresh') }}
         </button>
       </template>
     </AdminOperationHeader>
@@ -57,99 +57,115 @@
         v-else-if="isStockSettingsRoute"
         @saved="handleStockCoverageSettingsSaved"
       />
-      <div v-else-if="hasSettingsForm" class="card custom-card">
-        <div class="card-header">
-          <div class="card-title">Configuration</div>
-        </div>
-        <div class="card-body">
+      <template v-else-if="hasSettingsForm">
+        <template v-if="isPaymentSettingsRoute">
           <AdminLoader v-if="loading" />
-          <div v-else class="row g-3">
-            <div v-for="field in resource.settingsFields || []" :key="field.key" :class="field.type === 'textarea' || field.type === 'json' || field.type === 'lines' ? 'col-12' : 'col-md-6'">
-              <div v-if="field.type === 'checkbox'" class="form-check form-switch mt-4">
-                <input :id="fieldId(`settings-${field.key}`)" v-model="settingsForm[field.key]" class="form-check-input" type="checkbox">
-                <label class="form-check-label" :for="fieldId(`settings-${field.key}`)">{{ field.label }}</label>
-                <div v-if="field.help" class="form-text">{{ field.help }}</div>
-              </div>
-              <template v-else>
-                <label class="form-label" :for="fieldId(`settings-${field.key}`)">{{ field.label }}</label>
-                <select v-if="field.type === 'select'" :id="fieldId(`settings-${field.key}`)" v-model="settingsForm[field.key]" class="form-select">
-                  <option value="">Select</option>
-                  <option v-for="option in field.options || []" :key="optionValue(option)" :value="optionValue(option)">{{ optionLabel(option) }}</option>
-                </select>
-                <div v-else-if="field.type === 'stock-set-distribution'" class="border rounded p-3">
-                  <div class="d-grid gap-2">
-                    <div class="d-none d-md-grid text-muted fw-semibold fs-12" style="grid-template-columns: minmax(7rem, 10rem) minmax(9rem, 14rem) 2.5rem; gap: .75rem;">
-                      <span>Set size</span>
-                      <span>Percent</span>
-                      <span />
-                    </div>
-                    <div
-                      v-for="(row, index) in settingsForm[field.key] || []"
-                      :key="row.__key || index"
-                      class="d-grid align-items-center"
-                      style="grid-template-columns: minmax(7rem, 10rem) minmax(9rem, 14rem) 2.5rem; gap: .75rem;"
-                    >
-                      <input
-                        v-model.number="row.set_size"
-                        class="form-control"
-                        type="number"
-                        min="1"
-                        max="99"
-                        step="1"
-                        placeholder="2"
+          <template v-else>
+            <AdminPaymentSettingsCards
+              :fields="resource.settingsFields || []"
+              :loading="loading"
+              :model-value="settingsForm"
+              :saving="saving"
+              @reset="resetSettingsForm"
+              @save="saveSettingsForm"
+              @update:field="setSettingsField"
+            />
+          </template>
+        </template>
+        <div v-else class="card custom-card">
+          <div class="card-header">
+            <div class="card-title">Configuration</div>
+          </div>
+          <div class="card-body">
+            <AdminLoader v-if="loading" />
+            <div v-else class="row g-3">
+              <div v-for="field in resource.settingsFields || []" :key="field.key" :class="field.type === 'textarea' || field.type === 'json' || field.type === 'lines' ? 'col-12' : 'col-md-6'">
+                <div v-if="field.type === 'checkbox'" class="form-check form-switch mt-4">
+                  <input :id="fieldId(`settings-${field.key}`)" v-model="settingsForm[field.key]" class="form-check-input" type="checkbox">
+                  <label class="form-check-label" :for="fieldId(`settings-${field.key}`)">{{ field.label }}</label>
+                  <div v-if="field.help" class="form-text">{{ field.help }}</div>
+                </div>
+                <template v-else>
+                  <label class="form-label" :for="fieldId(`settings-${field.key}`)">{{ field.label }}</label>
+                  <select v-if="field.type === 'select'" :id="fieldId(`settings-${field.key}`)" v-model="settingsForm[field.key]" class="form-select">
+                    <option value="">Select</option>
+                    <option v-for="option in field.options || []" :key="optionValue(option)" :value="optionValue(option)">{{ optionLabel(option) }}</option>
+                  </select>
+                  <div v-else-if="field.type === 'stock-set-distribution'" class="border rounded p-3">
+                    <div class="d-grid gap-2">
+                      <div class="d-none d-md-grid text-muted fw-semibold fs-12" style="grid-template-columns: minmax(7rem, 10rem) minmax(9rem, 14rem) 2.5rem; gap: .75rem;">
+                        <span>Set size</span>
+                        <span>Percent</span>
+                        <span />
+                      </div>
+                      <div
+                        v-for="(row, index) in settingsForm[field.key] || []"
+                        :key="row.__key || index"
+                        class="d-grid align-items-center"
+                        style="grid-template-columns: minmax(7rem, 10rem) minmax(9rem, 14rem) 2.5rem; gap: .75rem;"
                       >
-                      <div class="input-group">
                         <input
-                          v-model.number="row.percent"
+                          v-model.number="row.set_size"
                           class="form-control"
                           type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          placeholder="10"
+                          min="1"
+                          max="99"
+                          step="1"
+                          placeholder="2"
                         >
-                        <span class="input-group-text">%</span>
+                        <div class="input-group">
+                          <input
+                            v-model.number="row.percent"
+                            class="form-control"
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            placeholder="10"
+                          >
+                          <span class="input-group-text">%</span>
+                        </div>
+                        <button class="btn btn-light btn-icon" type="button" title="Remove set" @click="removeStockSetDistributionRow(field, index)">
+                          <i class="ri-delete-bin-line" />
+                        </button>
                       </div>
-                      <button class="btn btn-light btn-icon" type="button" title="Remove set" @click="removeStockSetDistributionRow(field, index)">
-                        <i class="ri-delete-bin-line" />
-                      </button>
                     </div>
+                    <button class="btn btn-outline-primary btn-sm btn-wave mt-3" type="button" @click="addStockSetDistributionRow(field)">
+                      <i class="ri-add-line me-1" /> Add set
+                    </button>
                   </div>
-                  <button class="btn btn-outline-primary btn-sm btn-wave mt-3" type="button" @click="addStockSetDistributionRow(field)">
-                    <i class="ri-add-line me-1" /> Add set
-                  </button>
-                </div>
-                <textarea
-                  v-else-if="field.type === 'textarea' || field.type === 'json' || field.type === 'lines'"
-                  :id="fieldId(`settings-${field.key}`)"
-                  v-model="settingsForm[field.key]"
-                  class="form-control"
-                  rows="4"
-                  :placeholder="field.placeholder"
-                />
-                <input
-                  v-else
-                  :id="fieldId(`settings-${field.key}`)"
-                  v-model="settingsForm[field.key]"
-                  class="form-control"
-                  :type="inputType(field)"
-                  :min="field.min"
-                  :step="field.step"
-                  :placeholder="field.placeholder"
-                >
-                <div v-if="field.help" class="form-text">{{ field.help }}</div>
-              </template>
+                  <textarea
+                    v-else-if="field.type === 'textarea' || field.type === 'json' || field.type === 'lines'"
+                    :id="fieldId(`settings-${field.key}`)"
+                    v-model="settingsForm[field.key]"
+                    class="form-control"
+                    rows="4"
+                    :placeholder="field.placeholder"
+                  />
+                  <input
+                    v-else
+                    :id="fieldId(`settings-${field.key}`)"
+                    v-model="settingsForm[field.key]"
+                    class="form-control"
+                    :type="inputType(field)"
+                    :min="field.min"
+                    :step="field.step"
+                    :placeholder="field.placeholder"
+                  >
+                  <div v-if="field.help" class="form-text">{{ field.help }}</div>
+                </template>
+              </div>
             </div>
           </div>
+          <div class="card-footer d-flex justify-content-end gap-2">
+            <button class="btn btn-light btn-wave" type="button" :disabled="loading" @click="resetSettingsForm">Reset</button>
+            <button class="btn btn-primary btn-wave" type="button" :disabled="saving" @click="saveSettingsForm">
+              <span v-if="saving" class="spinner-border spinner-border-sm me-2" />
+              Save
+            </button>
+          </div>
         </div>
-        <div class="card-footer d-flex justify-content-end gap-2">
-          <button class="btn btn-light btn-wave" type="button" :disabled="loading" @click="resetSettingsForm">Reset</button>
-          <button class="btn btn-primary btn-wave" type="button" :disabled="saving" @click="saveSettingsForm">
-            <span v-if="saving" class="spinner-border spinner-border-sm me-2" />
-            Save
-          </button>
-        </div>
-      </div>
+      </template>
       <div v-else class="card custom-card">
         <div class="card-header">
           <div class="card-title">Configuration JSON</div>
@@ -277,6 +293,11 @@
       />
       <AdminTopupDetail
         v-else-if="resource.detailRenderer === 'topup'"
+        :record="detailDisplayRecord"
+        :loading="loading && !detailGap"
+      />
+      <AdminAuditLogDetail
+        v-else-if="resource.detailRenderer === 'audit-log'"
         :record="detailDisplayRecord"
         :loading="loading && !detailGap"
       />
@@ -474,7 +495,7 @@
               :to="`${scopeBasePath}/${resource.slug}/${row.__id}`"
               class="btn btn-sm btn-primary btn-wave"
             >
-              Detail
+              {{ phrase('Detail') }}
             </NuxtLink>
             <button
               v-if="isStockGrouped"
@@ -482,7 +503,7 @@
               class="btn btn-sm btn-primary btn-wave"
               @click="openStockNumberDetail(row)"
             >
-              View number
+              {{ phrase('View number') }}
             </button>
             <template v-for="action in isStockGrouped ? [] : rowActionsForRow(row)" :key="action.key">
               <NuxtLink
@@ -491,7 +512,7 @@
                 :target="action.target"
                 :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
               >
-                {{ action.label }}
+                {{ phrase(action.label) }}
               </NuxtLink>
               <button
                 v-else
@@ -501,22 +522,23 @@
                 :title="actionDisabledReason(action, row)"
                 @click="openRowAction(action, row)"
               >
-                {{ action.label }}
+                {{ phrase(action.label) }}
               </button>
             </template>
           </div>
         </template>
+        <template #footer>
+          <AdminPagination
+            :next-cursor="meta.next_cursor"
+            :has-previous="pageState.index > 0"
+            :loading="loading"
+            :current-page="pageState.index + 1"
+            :page-size="filters.limit || 20"
+            @previous="loadPreviousPage"
+            @next="loadNextPage"
+          />
+        </template>
       </AdminDataTable>
-      <AdminPagination
-        v-if="!showListSections"
-        :next-cursor="meta.next_cursor"
-        :has-previous="pageState.index > 0"
-        :loading="loading"
-        :current-page="pageState.index + 1"
-        :page-size="filters.limit || 20"
-        @previous="loadPreviousPage"
-        @next="loadNextPage"
-      />
       <AdminTenantStockCoverage
         v-if="showTenantStockCoverage"
         :game-id="selectedTenantStockGameId"
@@ -525,7 +547,7 @@
     </template>
 
     <template v-if="showRelatedLists">
-      <div v-for="related in activeRelatedLists" :key="related.key">
+      <div v-for="related in activeRelatedLists" :key="related.key" class="np-related-list-block">
         <AdminFilterBar
           v-if="related.filters?.length"
           :filters="hydrateFilters(related.filters || [])"
@@ -559,7 +581,7 @@
                 class="btn btn-sm btn-primary btn-wave"
                 @click="openRelatedDetail(related, row)"
               >
-                Detail
+                {{ phrase('Detail') }}
               </button>
               <button
                 v-for="action in relatedRowActionsForRow(related, row)"
@@ -570,21 +592,22 @@
                 :title="actionDisabledReason(action, row)"
                 @click="openRelatedRowAction(related, action, row)"
               >
-                {{ action.label }}
+                {{ phrase(action.label) }}
               </button>
             </div>
           </template>
+          <template v-if="related.filters?.length" #footer>
+            <AdminPagination
+              :next-cursor="relatedMeta[related.key]?.next_cursor || null"
+              :has-previous="(relatedPageState[related.key]?.index || 0) > 0"
+              :loading="relatedLoading[related.key]"
+              :current-page="(relatedPageState[related.key]?.index || 0) + 1"
+              :page-size="relatedFilters[related.key]?.limit || 20"
+              @previous="loadPreviousRelatedPage(related)"
+              @next="loadNextRelatedPage(related)"
+            />
+          </template>
         </AdminDataTable>
-        <AdminPagination
-          v-if="related.filters?.length"
-          :next-cursor="relatedMeta[related.key]?.next_cursor || null"
-          :has-previous="(relatedPageState[related.key]?.index || 0) > 0"
-          :loading="relatedLoading[related.key]"
-          :current-page="(relatedPageState[related.key]?.index || 0) + 1"
-          :page-size="relatedFilters[related.key]?.limit || 20"
-          @previous="loadPreviousRelatedPage(related)"
-          @next="loadNextRelatedPage(related)"
-        />
       </div>
     </template>
 
@@ -626,7 +649,7 @@
         :error="stockNumberDetail.error"
       />
       <template #footer>
-        <button class="btn btn-light btn-wave" type="button" @click="stockNumberDetail.open = false">Close</button>
+        <button class="btn btn-light btn-wave" type="button" @click="stockNumberDetail.open = false">{{ phrase('Close') }}</button>
       </template>
     </AdminModal>
 
@@ -655,21 +678,23 @@
             :class="`btn btn-sm btn-${action.variant || 'outline-primary'} btn-wave`"
             @click="openStockTicketAction(action, row)"
           >
-            {{ action.label }}
+            {{ phrase(action.label) }}
           </button>
         </template>
+        <template #footer>
+          <AdminPagination
+            :next-cursor="stockTickets.meta.next_cursor"
+            :has-previous="stockTickets.pageState.index > 0"
+            :loading="stockTickets.loading"
+            :current-page="stockTickets.pageState.index + 1"
+            :page-size="stockTickets.limit"
+            @previous="loadPreviousStockTicketPage"
+            @next="loadNextStockTicketPage"
+          />
+        </template>
       </AdminDataTable>
-      <AdminPagination
-        :next-cursor="stockTickets.meta.next_cursor"
-        :has-previous="stockTickets.pageState.index > 0"
-        :loading="stockTickets.loading"
-        :current-page="stockTickets.pageState.index + 1"
-        :page-size="stockTickets.limit"
-        @previous="loadPreviousStockTicketPage"
-        @next="loadNextStockTicketPage"
-      />
       <template #footer>
-        <button class="btn btn-light btn-wave" type="button" @click="stockTickets.open = false">Close</button>
+        <button class="btn btn-light btn-wave" type="button" @click="stockTickets.open = false">{{ phrase('Close') }}</button>
       </template>
     </AdminModal>
 
@@ -709,7 +734,7 @@
         :loading="relatedDetail.loading"
       />
       <template #footer>
-        <button class="btn btn-light btn-wave" type="button" @click="relatedDetail.open = false">Close</button>
+        <button class="btn btn-light btn-wave" type="button" @click="relatedDetail.open = false">{{ phrase('Close') }}</button>
       </template>
     </AdminModal>
   </div>
@@ -736,6 +761,7 @@ const api = useAdminApi()
 const session = useAdminSession()
 const catalog = useAdminOperationsCatalog()
 const adminLocale = useAdminLocale()
+const phrase = (source: unknown) => adminLocale.phrase(source)
 const reportLocale = computed(() => adminLocale.locale.value)
 
 type AllocationQueueProcess = {
@@ -932,7 +958,7 @@ const scopeLabel = computed(() => props.scope === 'tenant' ? 'Tenant' : 'Central
 const scopeBasePath = computed(() => `/admin/${props.scope}`)
 const pageGroup = computed(() => (mode.value === 'report-index' || mode.value === 'report-detail')
   ? reportIndexTitle(props.scope, reportLocale.value)
-  : resource.value?.group || 'Operations')
+  : phrase(resource.value?.group || 'Operations'))
 const pageTitle = computed(() => {
   if (mode.value === 'report-index') {
     return reportIndexTitle(props.scope, reportLocale.value)
@@ -941,7 +967,8 @@ const pageTitle = computed(() => {
     return reportTitle(recordId.value || resource.value?.title || 'report', reportLocale.value)
   }
 
-  return mode.value === 'detail' ? `${resource.value?.title || 'Detail'} detail` : resource.value?.title || 'Operations'
+  const title = phrase(resource.value?.title || 'Operations')
+  return mode.value === 'detail' ? `${title} ${phrase('detail')}` : title
 })
 const listPath = computed(() => resource.value ? `${scopeBasePath.value}/${resource.value.slug}` : scopeBasePath.value)
 const canReload = computed(() => Boolean(resource.value && mode.value !== 'report-index' && !resource.value.apiGap && !detailGap.value && !isStockPatternCoverageRoute.value))
@@ -1371,6 +1398,7 @@ const relatedDetailSectionRecord = computed(() => {
   return relatedDetail.record
 })
 const hasSettingsForm = computed(() => Boolean(resource.value?.settingsFields?.length))
+const isPaymentSettingsRoute = computed(() => props.scope === 'tenant' && resource.value?.slug === 'payment-settings')
 const isMenuManagement = computed(() => resource.value?.slug === 'menu-management')
 const showRelatedLists = computed(() => Boolean(
   activeRelatedLists.value.length
@@ -2560,6 +2588,10 @@ const resetSettingsForm = () => {
       ? normalizeInitialFieldValue(field, value)
       : field.defaultValue !== undefined ? field.defaultValue : normalizeInitialFieldValue(field, value)
   }
+}
+
+const setSettingsField = ({ key, value }: { key: string, value: any }) => {
+  settingsForm[key] = value
 }
 
 const saveSettingsForm = async () => {
@@ -4273,3 +4305,14 @@ const formatLines = (value: any, valueKey?: string) => {
     .join('\n')
 }
 </script>
+
+<style scoped>
+.np-related-list-block {
+  display: grid;
+  gap: 1rem;
+}
+
+.np-related-list-block + .np-related-list-block {
+  margin-top: 1.25rem;
+}
+</style>

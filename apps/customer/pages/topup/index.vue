@@ -2,7 +2,7 @@
   <MobileShell time="12:59">
     <BlueHeader title="เติมเงินเข้า G-Wallet" :back-to="topupBackTo" :min-height="waitingDeposit ? '340px' : '100vh'">
       <h2 class="fs-5 fw-bold mt-4 mb-3">เลือกช่องทางการเติมเงิน</h2>
-      <div class="topup-channels">
+      <div v-if="channels.length" class="topup-channels">
         <button
           v-for="channel in channels"
           :key="channel.value"
@@ -14,6 +14,11 @@
           <i class="bi" :class="channel.icon" />
           <span>{{ channel.label }}</span>
         </button>
+      </div>
+      <div v-else class="topup-no-channels">
+        <i class="bi bi-slash-circle" />
+        <strong>ยังไม่เปิดช่องทางเติมเงิน</strong>
+        <span>กรุณาติดต่อร้านค้าเพื่อเปิดช่องทางชำระเงิน</span>
       </div>
 
       <NuxtLink class="topup-history-button" to="/topup/history">
@@ -198,8 +203,9 @@ const route = useRoute()
 const { showAlert } = useAppAlert()
 const { toNumber, formatMoney, formatDate } = useTopup()
 const { isAuthenticated } = useAuth()
+const { config: siteConfig, fetchSiteConfig } = useSiteConfig()
 
-const channels: Array<{ value: TopupChannel, label: string, icon: string }> = [
+const baseChannels: Array<{ value: TopupChannel, label: string, icon: string }> = [
   { value: 'qr', label: 'QR Code', icon: 'bi-qr-code' },
   { value: 'credit', label: 'Credit Card QR', icon: 'bi-qr-code-scan' },
   { value: 'bank_transfer', label: 'โอนธนาคาร', icon: 'bi-bank' }
@@ -229,8 +235,24 @@ const isCancelingTopup = ref(false)
 const isUploadingWaitingSlip = ref(false)
 const showCancelConfirm = ref(false)
 
+const topupChannelMethod = (channel: TopupChannel) => channel === 'credit' ? 'credit_card' : channel
+const paymentMethodEnabled = (method: string) => {
+  const payment = siteConfig.value?.payment || {}
+  const methods = Array.isArray(payment.methods) ? payment.methods : []
+
+  if (methods.length > 0) {
+    const matched = methods.find((item) => String(item?.key || '') === method)
+
+    return matched ? matched.enabled !== false : true
+  }
+
+  const enabledMethods = Array.isArray(payment.enabled_methods) ? payment.enabled_methods : []
+
+  return enabledMethods.length > 0 ? enabledMethods.includes(method) : true
+}
+const channels = computed(() => baseChannels.filter((channel) => paymentMethodEnabled(topupChannelMethod(channel.value))))
 const currentChannel = computed(() => (
-  channels.find((channel) => channel.value === activeChannel.value) || channels[0]
+  channels.value.find((channel) => channel.value === activeChannel.value) || channels.value[0] || baseChannels[0]
 ))
 const modalTitle = computed(() => currentChannel.value.label)
 const modalDescription = computed(() => channelDescriptions[activeChannel.value])
@@ -313,6 +335,15 @@ useCustomerStockRealtime({
 })
 
 const openTopupModal = (channel: TopupChannel) => {
+  if (!paymentMethodEnabled(topupChannelMethod(channel))) {
+    showAlert({
+      title: 'ช่องทางนี้ยังไม่เปิดให้ใช้งาน',
+      message: 'กรุณาเลือกช่องทางอื่นหรือติดต่อร้านค้า',
+      variant: 'warning'
+    })
+    return
+  }
+
   if (hasBlockingWaitingTopup.value) {
     showAlert({
       title: 'มีรายการเติมเงินค้างอยู่',
@@ -661,8 +692,15 @@ watch(activeChannel, () => {
   slipFile.value = null
 })
 
-onMounted(() => {
+watch(channels, (availableChannels) => {
+  if (availableChannels.length > 0 && !availableChannels.some((channel) => channel.value === activeChannel.value)) {
+    activeChannel.value = availableChannels[0].value
+  }
+}, { immediate: true })
+
+onMounted(async () => {
   setDefaultTransferAt()
+  await fetchSiteConfig({ force: true }).catch(() => null)
   fetchTopupInfo()
 })
 </script>
@@ -695,6 +733,30 @@ onMounted(() => {
 .topup-channel:disabled {
   opacity: .55;
   cursor: not-allowed;
+}
+
+.topup-no-channels {
+  min-height: 142px;
+  border: 1px solid rgba(255, 255, 255, .38);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .94);
+  color: #17335f;
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  padding: 18px;
+  text-align: center;
+  box-shadow: 0 12px 28px rgba(17, 51, 95, .12);
+}
+
+.topup-no-channels i {
+  font-size: 32px;
+  color: #94a3b8;
+}
+
+.topup-no-channels span {
+  color: #64748b;
+  font-weight: 700;
 }
 
 .topup-history-button {

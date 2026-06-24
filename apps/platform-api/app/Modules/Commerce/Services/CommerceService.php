@@ -38,6 +38,7 @@ use App\Shared\Idempotency\IdempotencyService;
 use App\Support\CustomerNo;
 use App\Support\PublicUrl;
 use App\Support\ThaiBankCatalog;
+use App\Support\TenantPaymentMethods;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -567,8 +568,12 @@ class CommerceService
             ->orderByDesc('created_at')
             ->first();
 
+        $paymentMethods = $this->tenantTopupPaymentMethods($tenantId);
+
         return [
             'bank' => $this->tenantTopupBank($tenantId),
+            'payment_methods' => $paymentMethods['methods'],
+            'enabled_payment_methods' => $paymentMethods['enabled_methods'],
             'waiting' => $waiting === null ? null : $this->topupResource($waiting),
             'histories' => array_map(fn (object $topup): array => $this->topupResource($topup), $rows),
             'meta' => [
@@ -609,6 +614,10 @@ class CommerceService
 
         if (! in_array($normalized['channel'], ['qr', 'bank_transfer', 'credit_card'], true)) {
             return ['error' => 'validation_failed'];
+        }
+
+        if (! $this->tenantTopupPaymentMethodEnabled($tenantId, $normalized['channel'])) {
+            return ['error' => 'payment_method_disabled'];
         }
 
         return DB::transaction(function () use ($tenantId, $customer, $normalized, $idempotencyKey, $credit, $slip): array {
@@ -2780,6 +2789,35 @@ class CommerceService
             'draw_at' => $game->draw_at,
             'status' => (string) $game->status,
         ];
+    }
+
+    /**
+     * @return array{methods: array<int, array<string, mixed>>, enabled_methods: array<int, string>}
+     */
+    private function tenantTopupPaymentMethods(string $tenantId): array
+    {
+        $settings = TenantPaymentSetting::query()->forTenant($tenantId)->first();
+
+        if ($settings !== null && (string) $settings->status !== 'active') {
+            $methods = TenantPaymentMethods::normalize(is_array($settings->config_json) ? $settings->config_json : []);
+            foreach ($methods as $key => $method) {
+                $methods[$key]['enabled'] = false;
+            }
+
+            return [
+                'methods' => array_values($methods),
+                'enabled_methods' => [],
+            ];
+        }
+
+        return TenantPaymentMethods::customerPayload(is_array($settings?->config_json) ? $settings->config_json : null);
+    }
+
+    private function tenantTopupPaymentMethodEnabled(string $tenantId, string $channel): bool
+    {
+        $methods = $this->tenantTopupPaymentMethods($tenantId);
+
+        return in_array(TenantPaymentMethods::normalizeTopupChannel($channel), $methods['enabled_methods'], true);
     }
 
     /**

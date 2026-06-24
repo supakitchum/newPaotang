@@ -102,8 +102,34 @@
         <span>ยอมรับเงื่อนไขการใช้งานและนโยบายความเป็นส่วนตัว</span>
       </label>
 
+      <div v-if="otpSent" class="register-otp-panel">
+        <div>
+          <strong>ยืนยันเบอร์โทรศัพท์</strong>
+          <p>กรอกรหัส OTP 6 หลักที่ส่งไปยัง {{ maskedPhone || phone }}</p>
+        </div>
+        <label class="login-field">
+          <span>รหัส OTP</span>
+          <div class="login-input">
+            <i class="bi bi-chat-dots" />
+            <input
+                v-model="otpCode"
+                inputmode="numeric"
+                maxlength="6"
+                pattern="[0-9]*"
+                placeholder="กรอกรหัส OTP"
+                type="tel"
+                @beforeinput="allowDigitsOnly"
+                @input="sanitizeOtp"
+            >
+          </div>
+        </label>
+        <button class="register-resend" type="button" :disabled="resendCountdown > 0 || isSubmitting" @click="requestRegisterOtp">
+          {{ resendCountdown > 0 ? `ส่งรหัสใหม่ได้ใน ${resendCountdown} วินาที` : 'ส่งรหัสใหม่' }}
+        </button>
+      </div>
+
       <button class="primary-pill login-submit" type="submit">
-        สมัครใช้งาน
+        {{ otpSent ? 'ยืนยัน OTP และสมัครใช้งาน' : 'สมัครใช้งาน' }}
       </button>
 
       <div class="login-register">
@@ -131,6 +157,12 @@ const acceptedTerms = ref(false)
 const showPassword = ref(false)
 const showConfirmPassword = ref(false)
 const isSubmitting = ref(false)
+const otpSent = ref(false)
+const otpCode = ref('')
+const otpToken = ref('')
+const maskedPhone = ref('')
+const resendCountdown = ref(0)
+let resendTimer: ReturnType<typeof setInterval> | null = null
 const platformApi = usePlatformApi()
 const route = useRoute()
 const { setAuthSession } = useAuth()
@@ -175,6 +207,87 @@ const sanitizePhone = () => {
   phone.value = phone.value.replace(/\D/g, '').slice(0, 10)
 }
 
+const sanitizeOtp = () => {
+  otpCode.value = otpCode.value.replace(/\D/g, '').slice(0, 6)
+}
+
+const startResendCountdown = (seconds: number) => {
+  resendCountdown.value = Math.max(0, Number(seconds) || 0)
+  if (resendTimer) {
+    clearInterval(resendTimer)
+  }
+  if (resendCountdown.value <= 0) {
+    return
+  }
+  resendTimer = setInterval(() => {
+    resendCountdown.value = Math.max(0, resendCountdown.value - 1)
+    if (resendCountdown.value <= 0 && resendTimer) {
+      clearInterval(resendTimer)
+      resendTimer = null
+    }
+  }, 1000)
+}
+
+const apiMessage = (error: any, fallback: string) => error?.data?.error?.message ||
+  error?.response?._data?.error?.message ||
+  error?.response?.data?.error?.message ||
+  error?.message ||
+  fallback
+
+const apiCode = (error: any) => error?.data?.error?.code ||
+  error?.response?._data?.error?.code ||
+  error?.response?.data?.error?.code ||
+  error?.code
+
+const formPayload = () => {
+  const fullName = `${firstName.value} ${lastName.value}`.trim()
+
+  return {
+    first_name: firstName.value,
+    last_name: lastName.value,
+    name: fullName,
+    phone: phone.value,
+    username: phone.value,
+    password: password.value,
+    password_confirmation: confirmPassword.value,
+    ...(otpToken.value ? { otp_verification_token: otpToken.value } : {})
+  }
+}
+
+const requestRegisterOtp = async () => {
+  const response = await platformApi.requestOtp({
+    phone: phone.value,
+    purpose: 'register'
+  })
+  otpSent.value = true
+  otpToken.value = ''
+  otpCode.value = ''
+  maskedPhone.value = response?.phone_masked || ''
+  startResendCountdown(response?.resend_after_seconds || 60)
+}
+
+const completeRegistration = async () => {
+  const response = await platformApi.register(formPayload())
+
+  if (response?.token) {
+    setAuthSession(response)
+    await applyStoredRef({ registered: true })
+
+    if (needsPinUnlock(response)) {
+      await navigateTo({
+        path: '/pin',
+        query: {
+          redirect: getSafeRedirect()
+        }
+      })
+      return
+    }
+
+    await refreshAppInit(response.token)
+    await navigateTo(getSafeRedirect())
+  }
+}
+
 const handleSubmit = async () => {
   if (isSubmitting.value) {
     return
@@ -203,42 +316,80 @@ const handleSubmit = async () => {
   isSubmitting.value = true
 
   try {
-    const fullName = `${firstName.value} ${lastName.value}`.trim()
-    const response = await platformApi.register({
-      first_name: firstName.value,
-      last_name: lastName.value,
-      name: fullName,
-      phone: phone.value,
-      username: phone.value,
-      password: password.value,
-      password_confirmation: confirmPassword.value
-    })
-
-    if (response?.token) {
-      setAuthSession(response)
-      await applyStoredRef({ registered: true })
-
-      if (needsPinUnlock(response)) {
-        await navigateTo({
-          path: '/pin',
-          query: {
-            redirect: getSafeRedirect()
-          }
+    if (!otpSent.value) {
+      try {
+        await requestRegisterOtp()
+        showAlert({
+          title: 'ส่งรหัส OTP แล้ว',
+          message: 'กรุณากรอกรหัส OTP เพื่อสมัครสมาชิก',
+          variant: 'success'
         })
         return
+      } catch (error: any) {
+        if (apiCode(error) !== 'sms_otp_provider_not_configured') {
+          throw error
+        }
       }
-
-      await refreshAppInit(response.token)
-      await navigateTo(getSafeRedirect())
     }
+
+    if (otpSent.value && !otpToken.value) {
+      sanitizeOtp()
+      const verify = await platformApi.verifyOtp({
+        phone: phone.value,
+        purpose: 'register',
+        otp: otpCode.value
+      })
+      otpToken.value = verify?.otp_verification_token || ''
+      if (!otpToken.value) {
+        throw new Error('OTP verification failed.')
+      }
+    }
+
+    await completeRegistration()
   } catch (error: any) {
     showAlert({
       title: 'สมัครใช้งานไม่สำเร็จ',
-      message: error?.response?.data?.message || 'กรุณาตรวจสอบข้อมูลและลองใหม่อีกครั้ง',
+      message: apiMessage(error, 'กรุณาตรวจสอบข้อมูลและลองใหม่อีกครั้ง'),
       variant: 'error'
     })
   } finally {
     isSubmitting.value = false
   }
 }
+
+onBeforeUnmount(() => {
+  if (resendTimer) {
+    clearInterval(resendTimer)
+  }
+})
 </script>
+
+<style scoped>
+.register-otp-panel {
+  background: #f3f8ff;
+  border: 1px solid rgba(27, 116, 228, .18);
+  border-radius: 18px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.register-otp-panel p {
+  color: #6b7890;
+  font-size: .9rem;
+  margin: 4px 0 0;
+}
+
+.register-resend {
+  align-self: flex-start;
+  background: transparent;
+  border: 0;
+  color: #0b74de;
+  font-weight: 800;
+  padding: 0;
+}
+
+.register-resend:disabled {
+  color: #8c9aad;
+}
+</style>

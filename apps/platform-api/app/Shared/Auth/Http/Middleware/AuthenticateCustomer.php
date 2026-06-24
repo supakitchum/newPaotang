@@ -88,6 +88,9 @@ class AuthenticateCustomer
             'api/v1/customer/auth/pin/change',
             'api/v1/customer/auth/pin/reset',
             'api/v1/customer/auth/pin/reset/verify-password',
+            'api/v1/customer/auth/pin/reset/request-otp',
+            'api/v1/customer/auth/pin/reset/verify-otp',
+            'api/v1/customer/auth/pin/reset/confirm-otp',
             'api/v1/customer/affiliate/referrals/apply',
         );
     }

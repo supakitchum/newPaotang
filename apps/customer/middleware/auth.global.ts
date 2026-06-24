@@ -14,6 +14,7 @@ const getSafeRedirect = (value: unknown) => {
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const requiresAuth = !isPublicCustomerRoute(to.path)
+  const requiresPinBeforeUse = requiresAuth || to.path === '/'
   const guestOnly = to.meta.guestOnly === true
   const isPinPage = to.path === '/pin'
   const handlesPinInline = handlesCustomerPinInline(to.path)
@@ -82,6 +83,14 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
   }
 
+  if (requiresPinBeforeUse && !requiresAuth && !isAuthenticated.value && refreshToken.value) {
+    const refreshed = await refreshSession()
+
+    if (!refreshed && accountSuspension.value) {
+      return suspensionRedirect()
+    }
+  }
+
   const userPinStateKnown = typeof (user.value as Record<string, unknown> | null)?.has_pin === 'boolean'
 
   if (isAuthenticated.value && (!user.value || !userPinStateKnown)) {
@@ -112,7 +121,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
   }
 
-  if (requiresAuth && !isPinPage && (pinSetupRequired.value || (pinRequired.value && !handlesPinInline))) {
+  if (requiresPinBeforeUse && !isPinPage && (pinSetupRequired.value || (pinRequired.value && !handlesPinInline))) {
     const restored = await restoreOrRefreshSession(true)
 
     if (!restored) {

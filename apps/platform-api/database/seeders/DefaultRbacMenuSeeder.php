@@ -78,6 +78,7 @@ class DefaultRbacMenuSeeder extends Seeder
         $this->grantTenantAnnouncementsToPartnerOwners($now);
         $this->grantTenantActivitiesToPartnerOwners($now);
         $this->grantTenantLineNotificationsToPartnerOwners($now);
+        $this->grantTenantSmsOtpToPartnerOwners($now);
         $this->grantTenantPasswordResetToPartnerOwners($now);
     }
 
@@ -203,6 +204,8 @@ class DefaultRbacMenuSeeder extends Seeder
                 'announcement.manage' => 'Manage tenant announcements',
                 'line_notification.view' => 'View tenant LINE notification settings',
                 'line_notification.manage' => 'Manage LINE notification settings and templates',
+                'sms_otp.view' => 'View tenant SMS OTP provider settings',
+                'sms_otp.manage' => 'Manage tenant SMS OTP provider settings',
                 'activity.view' => 'View tenant activities',
                 'activity.manage' => 'Manage tenant activities',
                 'maintenance.view' => 'View maintenance settings',
@@ -286,6 +289,7 @@ class DefaultRbacMenuSeeder extends Seeder
                 'agents' => 'agent.view',
                 'agent_quotas' => 'agent.quota.manage',
                 'payment_settings' => 'payment_settings.view',
+                'affiliate' => 'affiliate.view',
                 'affiliate_programs' => 'affiliate_program.view',
                 'affiliate_accounts' => 'affiliate.view',
                 'affiliate_links' => 'affiliate_link.view',
@@ -293,6 +297,7 @@ class DefaultRbacMenuSeeder extends Seeder
                 'commission_rules' => 'commission_rule.view',
                 'announcements' => 'announcement.view',
                 'line_notifications' => 'line_notification.view',
+                'sms_otp' => 'sms_otp.view',
                 'password_reset_requests' => 'customer_password_reset.view',
                 'activities' => 'activity.view',
                 'activity_claims' => 'activity.view',
@@ -353,6 +358,10 @@ class DefaultRbacMenuSeeder extends Seeder
 
             if ($scopeType === 'central' && str_starts_with($code, 'dashboard_')) {
                 $row['parent_code'] = 'dashboard';
+            }
+
+            if ($scopeType === 'tenant' && in_array($code, $this->tenantAffiliateChildMenuCodes(), true)) {
+                $row['parent_code'] = 'affiliate';
             }
 
             $rows[] = $row;
@@ -419,9 +428,11 @@ class DefaultRbacMenuSeeder extends Seeder
             'tenant:payment_settings' => '/admin/tenant/payment-settings',
             'tenant:announcements' => '/admin/tenant/announcements',
             'tenant:line_notifications' => '/admin/tenant/line-notifications',
+            'tenant:sms_otp' => '/admin/tenant/sms-otp',
             'tenant:password_reset_requests' => '/admin/tenant/password-reset-requests',
             'tenant:activities' => '/admin/tenant/activities',
             'tenant:activity_claims' => '/admin/tenant/activity-claims',
+            'tenant:affiliate' => '/admin/tenant/growth/affiliates',
             'tenant:affiliate_programs' => '/admin/tenant/growth/affiliate-programs',
             'tenant:affiliate_accounts' => '/admin/tenant/growth/affiliates',
             'tenant:affiliate_links' => '/admin/tenant/growth/affiliate-links',
@@ -480,6 +491,10 @@ class DefaultRbacMenuSeeder extends Seeder
             return 'LINE Notifications';
         }
 
+        if ($code === 'sms_otp') {
+            return 'SMS OTP';
+        }
+
         if ($code === 'password_reset_requests') {
             return 'Password Reset Requests';
         }
@@ -498,6 +513,10 @@ class DefaultRbacMenuSeeder extends Seeder
 
         if ($code === 'reward_entry') {
             return 'Result Entry';
+        }
+
+        if ($scopeType === 'tenant' && $code === 'affiliate') {
+            return 'Affiliate';
         }
 
         return str($code)->replace('_', ' ')->title()->toString();
@@ -519,8 +538,8 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:lottery_images',
             'central:stock_generation',
             'central:stock_settings',
-            'central:allocations' => 'Lottery Operations',
             'central:reward_entry',
+            'central:allocations' => 'Lottery Operations',
             'central:translations' => 'Review Queue',
             'central:partners',
             'central:maintenance',
@@ -532,13 +551,13 @@ class DefaultRbacMenuSeeder extends Seeder
             'central:alert_events' => 'Partner Operations',
             'central:reports',
             'central:settlement' => 'Finance And Reports',
+            'central:telegram_notifications',
+            'central:storage_connections' => 'Plugins',
             'central:webhook_logs',
             'central:audit_logs',
             'central:admin_users',
             'central:roles_permissions',
             'central:menu_management',
-            'central:telegram_notifications',
-            'central:storage_connections',
             'central:system_settings' => 'Administration',
             'tenant:local_stock',
             'tenant:price_rules',
@@ -550,22 +569,24 @@ class DefaultRbacMenuSeeder extends Seeder
             'tenant:tickets',
             'tenant:winners',
             'tenant:payment_settings' => 'Store Operations',
-            'tenant:announcements',
             'tenant:line_notifications',
+            'tenant:sms_otp' => 'Plugins',
             'tenant:password_reset_requests',
-            'tenant:activities',
             'tenant:topups',
             'tenant:exchange_reward',
             'tenant:activity_claims',
-            'tenant:commission_transactions',
             'tenant:support_access_logs' => 'Review Queue',
             'tenant:agents',
             'tenant:agent_quotas',
+            'tenant:announcements',
+            'tenant:activities',
+            'tenant:affiliate',
             'tenant:affiliate_programs',
             'tenant:affiliate_accounts',
             'tenant:affiliate_links',
             'tenant:affiliate_attributions',
             'tenant:commission_rules',
+            'tenant:commission_transactions',
             'tenant:payouts' => 'Growth',
             'tenant:seo_settings',
             'tenant:maintenance',
@@ -603,6 +624,7 @@ class DefaultRbacMenuSeeder extends Seeder
             str_contains($code, 'storage') => 'ri-database-2-line',
             str_contains($code, 'translation') => 'ri-translate-2',
             str_contains($code, 'line_notification') => 'ri-line-line',
+            str_contains($code, 'sms_otp') => 'ri-message-2-line',
             str_contains($code, 'password_reset') => 'ri-lock-password-line',
             str_contains($code, 'activity') => 'ri-gift-line',
             str_contains($code, 'report') || str_contains($code, 'usage') => 'ri-bar-chart-box-line',
@@ -619,6 +641,22 @@ class DefaultRbacMenuSeeder extends Seeder
             $scopeType === 'central' => 'ri-apps-2-line',
             default => 'ri-dashboard-line',
         };
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function tenantAffiliateChildMenuCodes(): array
+    {
+        return [
+            'affiliate_programs',
+            'affiliate_accounts',
+            'affiliate_links',
+            'affiliate_attributions',
+            'commission_rules',
+            'commission_transactions',
+            'payouts',
+        ];
     }
 
     private function grantSalePricePermissionsToDefaultRoles(mixed $now): void
@@ -1575,6 +1613,67 @@ class DefaultRbacMenuSeeder extends Seeder
         $menuIds = DB::table('admin_menus')
             ->where('scope_type', 'tenant')
             ->where('code', 'line_notifications')
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($menuIds !== []) {
+            $menuRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($menuIds as $menuId) {
+                    $menuRows[] = [
+                        'role_id' => $roleId,
+                        'menu_id' => $menuId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_menus')->insertOrIgnore($menuRows);
+        }
+
+        $this->bumpPermissionCacheVersions($roleIds, $now);
+    }
+
+    private function grantTenantSmsOtpToPartnerOwners(mixed $now): void
+    {
+        $roleIds = DB::table('roles')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['owner_partner', 'owner'])
+            ->pluck('id')
+            ->all();
+
+        if ($roleIds === []) {
+            return;
+        }
+
+        $permissionIds = DB::table('permissions')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', ['sms_otp.view', 'sms_otp.manage'])
+            ->where('status', 'active')
+            ->pluck('id')
+            ->all();
+
+        if ($permissionIds !== []) {
+            $permissionRows = [];
+            foreach ($roleIds as $roleId) {
+                foreach ($permissionIds as $permissionId) {
+                    $permissionRows[] = [
+                        'role_id' => $roleId,
+                        'permission_id' => $permissionId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            DB::table('role_permissions')->insertOrIgnore($permissionRows);
+        }
+
+        $menuIds = DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->where('code', 'sms_otp')
             ->where('status', 'active')
             ->pluck('id')
             ->all();

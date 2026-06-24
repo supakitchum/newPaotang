@@ -54,6 +54,8 @@ use App\Modules\Maintenance\Http\Controllers\CentralMaintenanceController;
 use App\Modules\Maintenance\Http\Controllers\TenantMaintenanceController;
 use App\Modules\LineNotifications\Http\Controllers\CustomerLineNotificationController;
 use App\Modules\LineNotifications\Http\Controllers\TenantLineNotificationController;
+use App\Modules\SmsOtp\Http\Controllers\CustomerSmsOtpController;
+use App\Modules\SmsOtp\Http\Controllers\TenantSmsOtpController;
 use App\Modules\TelegramNotifications\Http\Controllers\CentralTelegramNotificationController;
 use App\Modules\Translations\Http\Controllers\CentralTranslationController;
 use App\Modules\Translations\Http\Controllers\PublicTranslationController;
@@ -95,8 +97,11 @@ Route::get('/public/results/{game_id}', [PublicRewardController::class, 'show'])
 
 Route::post('/customer/auth/register', [CustomerAuthController::class, 'register']);
 Route::post('/customer/auth/login', [CustomerAuthController::class, 'login']);
+Route::post('/customer/auth/otp/request', [CustomerSmsOtpController::class, 'request']);
+Route::post('/customer/auth/otp/verify', [CustomerSmsOtpController::class, 'verify']);
 Route::post('/customer/auth/password/forgot', [CustomerPasswordResetController::class, 'forgot']);
 Route::post('/customer/auth/password/reset', [CustomerPasswordResetController::class, 'reset']);
+Route::post('/customer/auth/password/reset/otp', [CustomerSmsOtpController::class, 'resetPassword']);
 Route::post('/customer/auth/line/login', [CustomerLineAuthController::class, 'login']);
 Route::get('/customer/auth/line/callback', [CustomerLineAuthController::class, 'callback']);
 Route::post('/customer/auth/line/link-phone', [CustomerLineAuthController::class, 'linkPhone']);
@@ -109,6 +114,9 @@ Route::post('/customer/auth/pin/verify', [CustomerAuthController::class, 'verify
 Route::post('/customer/auth/pin/change', [CustomerAuthController::class, 'changePin'])->middleware('customer.auth');
 Route::post('/customer/auth/pin/reset/verify-password', [CustomerAuthController::class, 'verifyPinResetPassword'])->middleware('customer.auth');
 Route::post('/customer/auth/pin/reset', [CustomerAuthController::class, 'resetPin'])->middleware('customer.auth');
+Route::post('/customer/auth/pin/reset/request-otp', [CustomerSmsOtpController::class, 'requestPinReset'])->middleware('customer.auth');
+Route::post('/customer/auth/pin/reset/verify-otp', [CustomerSmsOtpController::class, 'verifyPinReset'])->middleware('customer.auth');
+Route::post('/customer/auth/pin/reset/confirm-otp', [CustomerSmsOtpController::class, 'confirmPinReset'])->middleware('customer.auth');
 Route::get('/customer/profile', [CustomerAuthController::class, 'profile'])->middleware('customer.auth');
 Route::patch('/customer/profile', [CustomerAuthController::class, 'updateProfile'])->middleware('customer.auth');
 Route::get('/customer/line-notifications', [CustomerLineNotificationController::class, 'show'])->middleware('customer.auth');
@@ -199,6 +207,8 @@ Route::get('/admin/central/menu-management', [AdminOperationsController::class, 
 Route::put('/admin/central/menu-management', [AdminOperationsController::class, 'centralUpdateMenuManagement'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/audit-logs', [AdminOperationsController::class, 'centralAuditLogs'])
+    ->middleware(['admin.auth', 'admin.scope:central']);
+Route::get('/admin/central/audit-logs/{audit_log_id}', [AdminOperationsController::class, 'centralAuditLog'])
     ->middleware(['admin.auth', 'admin.scope:central']);
 Route::get('/admin/central/partner-monitoring', [BoMenuCompletionController::class, 'partnerMonitoringIndex'])
     ->middleware(['admin.auth', 'admin.scope:central']);
@@ -564,6 +574,8 @@ Route::put('/admin/tenant/menu-management', [AdminOperationsController::class, '
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/audit-logs', [AdminOperationsController::class, 'tenantAuditLogs'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/audit-logs/{audit_log_id}', [AdminOperationsController::class, 'tenantAuditLog'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/maintenance', [TenantMaintenanceController::class, 'show'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::put('/admin/tenant/maintenance', [TenantMaintenanceController::class, 'update'])
@@ -673,6 +685,14 @@ Route::get('/admin/tenant/line-notifications/customers', [TenantLineNotification
 Route::get('/admin/tenant/line-notifications/deliveries', [TenantLineNotificationController::class, 'deliveries'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/line-notifications/test-send', [TenantLineNotificationController::class, 'testSend'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/sms-otp', [TenantSmsOtpController::class, 'show'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::put('/admin/tenant/sms-otp/connection', [TenantSmsOtpController::class, 'update'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::post('/admin/tenant/sms-otp/test-send', [TenantSmsOtpController::class, 'testSend'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::patch('/admin/tenant/sms-otp/providers/{provider_id}/status', [TenantSmsOtpController::class, 'updateProviderStatus'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/password-reset-requests', [CustomerPasswordResetController::class, 'tenantIndex'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);

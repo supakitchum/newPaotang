@@ -343,7 +343,7 @@ class GrowthService
     {
         $normalized = $this->normalizeAffiliatePayload($payload, true);
         unset($normalized['code']);
-        $errors = $this->basicNameErrors($normalized, 'name');
+        $errors = $this->affiliateStoreNameErrors($normalized);
 
         if (($normalized['customer_id'] ?? null) === null) {
             $errors['customer_id'][] = 'The customer_id field is required for affiliate accounts.';
@@ -818,7 +818,7 @@ class GrowthService
 
         $normalized = [
             'customer_id' => $customer->customerId(),
-            'name' => trim((string) ($payload['name'] ?? $customerRow->name ?? 'Affiliate')),
+            'name' => trim((string) ($payload['name'] ?? $payload['store_name'] ?? '')),
             'phone' => $this->nullableString($payload['phone'] ?? $customerRow->phone ?? null),
             'email' => $this->nullableString($payload['email'] ?? $customerRow->email ?? null),
             'status' => 'active',
@@ -826,7 +826,7 @@ class GrowthService
             'payout_profile' => is_array($payload['payout_profile'] ?? null) ? $payload['payout_profile'] : [],
             'metadata' => is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [],
         ];
-        $errors = $this->basicNameErrors($normalized, 'name');
+        $errors = $this->affiliateStoreNameErrors($normalized);
 
         if ($errors !== []) {
             return ['error' => 'validation_failed', 'errors' => $errors];
@@ -2492,6 +2492,21 @@ class GrowthService
         }
 
         return [];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    private function affiliateStoreNameErrors(array $payload): array
+    {
+        $errors = $this->basicNameErrors($payload, 'name');
+
+        if (($errors['name'] ?? []) !== []) {
+            $errors['name'] = ['The store name field is required for affiliate accounts.'];
+        }
+
+        return $errors;
     }
 
     /**

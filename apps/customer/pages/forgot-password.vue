@@ -4,18 +4,18 @@
       <div class="forgot-hero">
         <i class="bi bi-shield-lock" />
         <h1>ขอรีเซ็ตรหัสผ่าน</h1>
-        <p>ส่งคำร้องให้ร้านค้าออกลิงก์รีเซ็ตรหัสผ่าน หรือใช้ LINE ที่ผูกไว้เพื่อรีเซ็ตทันที</p>
+        <p>ยืนยันตัวตนด้วย OTP แล้วตั้งรหัสผ่านใหม่ได้ทันที</p>
       </div>
     </BlueHeader>
 
     <section class="content-sheet forgot-sheet">
       <form class="forgot-card" @submit.prevent="submitRequest">
         <div class="forgot-card-head">
-          <h2>ส่งคำร้องให้ร้านค้า</h2>
-          <p>กรอกเบอร์โทรศัพท์ที่ใช้สมัคร ระบบจะส่งคำร้องไปยังผู้ดูแลร้านค้า</p>
+          <h2>{{ stepTitle }}</h2>
+          <p>{{ stepDescription }}</p>
         </div>
 
-        <label class="forgot-field">
+        <label v-if="step === 'phone'" class="forgot-field">
           <span>เบอร์โทรศัพท์</span>
           <div class="forgot-input">
             <i class="bi bi-phone" />
@@ -32,15 +32,52 @@
           </div>
         </label>
 
+        <label v-else-if="step === 'otp'" class="forgot-field">
+          <span>รหัส OTP</span>
+          <div class="forgot-input">
+            <i class="bi bi-chat-dots" />
+            <input
+              v-model="otpCode"
+              type="tel"
+              inputmode="numeric"
+              maxlength="6"
+              pattern="[0-9]*"
+              placeholder="กรอกรหัส OTP"
+              @beforeinput="allowDigitsOnly"
+              @input="sanitizeOtp"
+            >
+          </div>
+          <button class="forgot-link-button" type="button" :disabled="resendCountdown > 0 || submitting" @click="requestPasswordOtp">
+            {{ resendCountdown > 0 ? `ส่งรหัสใหม่ได้ใน ${resendCountdown} วินาที` : 'ส่งรหัสใหม่' }}
+          </button>
+        </label>
+
+        <div v-else class="forgot-password-grid">
+          <label class="forgot-field">
+            <span>รหัสผ่านใหม่</span>
+            <div class="forgot-input">
+              <i class="bi bi-lock" />
+              <input v-model="password" type="password" autocomplete="new-password" placeholder="ตั้งรหัสผ่านใหม่">
+            </div>
+          </label>
+          <label class="forgot-field">
+            <span>ยืนยันรหัสผ่านใหม่</span>
+            <div class="forgot-input">
+              <i class="bi bi-shield-lock" />
+              <input v-model="passwordConfirmation" type="password" autocomplete="new-password" placeholder="กรอกรหัสผ่านอีกครั้ง">
+            </div>
+          </label>
+        </div>
+
         <button class="primary-pill forgot-submit" type="submit" :disabled="submitting">
-          {{ submitting ? 'กำลังส่งคำร้อง' : 'ส่งคำร้องลืมรหัสผ่าน' }}
+          {{ submitLabel }}
         </button>
 
         <div v-if="submitted" class="forgot-success">
           <i class="bi bi-check-circle-fill" />
           <div>
-            <strong>ส่งคำร้องแล้ว</strong>
-            <p>กรุณารอผู้ดูแลร้านค้าออกลิงก์รีเซ็ตรหัสผ่านให้คุณ</p>
+            <strong>เปลี่ยนรหัสผ่านแล้ว</strong>
+            <p>คุณสามารถเข้าสู่ระบบด้วยรหัสผ่านใหม่ได้ทันที</p>
           </div>
         </div>
       </form>
@@ -67,9 +104,17 @@ definePageMeta({
 })
 
 const phone = ref('')
+const otpCode = ref('')
+const otpToken = ref('')
+const password = ref('')
+const passwordConfirmation = ref('')
+const step = ref<'phone' | 'otp' | 'password'>('phone')
 const submitting = ref(false)
 const lineSubmitting = ref(false)
 const submitted = ref(false)
+const maskedPhone = ref('')
+const resendCountdown = ref(0)
+let resendTimer: ReturnType<typeof setInterval> | null = null
 const platformApi = usePlatformApi()
 const { setLineRedirect } = useAuth()
 const { showAlert } = useAppAlert()
@@ -85,6 +130,64 @@ const sanitizePhone = () => {
   phone.value = phone.value.replace(/\D/g, '').slice(0, 10)
 }
 
+const sanitizeOtp = () => {
+  otpCode.value = otpCode.value.replace(/\D/g, '').slice(0, 6)
+}
+
+const stepTitle = computed(() => {
+  if (step.value === 'otp') return 'ยืนยันรหัส OTP'
+  if (step.value === 'password') return 'ตั้งรหัสผ่านใหม่'
+  return 'รีเซ็ตด้วย SMS OTP'
+})
+
+const stepDescription = computed(() => {
+  if (step.value === 'otp') return `กรอกรหัส 6 หลักที่ส่งไปยัง ${maskedPhone.value || phone.value}`
+  if (step.value === 'password') return 'กรอกรหัสผ่านใหม่สำหรับบัญชีของคุณ'
+  return 'กรอกเบอร์โทรศัพท์ที่ใช้สมัครเพื่อรับรหัส OTP'
+})
+
+const submitLabel = computed(() => {
+  if (submitting.value) return 'กำลังดำเนินการ'
+  if (step.value === 'otp') return 'ยืนยัน OTP'
+  if (step.value === 'password') return 'บันทึกรหัสผ่านใหม่'
+  return 'ส่งรหัส OTP'
+})
+
+const apiMessage = (error: any, fallback: string) => error?.data?.error?.message ||
+  error?.response?._data?.error?.message ||
+  error?.response?.data?.error?.message ||
+  error?.message ||
+  fallback
+
+const startResendCountdown = (seconds: number) => {
+  resendCountdown.value = Math.max(0, Number(seconds) || 0)
+  if (resendTimer) {
+    clearInterval(resendTimer)
+  }
+  if (resendCountdown.value <= 0) {
+    return
+  }
+  resendTimer = setInterval(() => {
+    resendCountdown.value = Math.max(0, resendCountdown.value - 1)
+    if (resendCountdown.value <= 0 && resendTimer) {
+      clearInterval(resendTimer)
+      resendTimer = null
+    }
+  }, 1000)
+}
+
+const requestPasswordOtp = async () => {
+  const response = await platformApi.requestOtp({
+    phone: phone.value,
+    purpose: 'password_reset'
+  })
+  maskedPhone.value = response?.phone_masked || ''
+  otpCode.value = ''
+  otpToken.value = ''
+  step.value = 'otp'
+  startResendCountdown(response?.resend_after_seconds || 60)
+}
+
 const submitRequest = async () => {
   if (submitting.value) return
 
@@ -93,17 +196,54 @@ const submitRequest = async () => {
   submitted.value = false
 
   try {
-    await platformApi.forgotPassword({ phone: phone.value })
+    if (step.value === 'phone') {
+      await requestPasswordOtp()
+      showAlert({
+        title: 'ส่งรหัส OTP แล้ว',
+        message: 'กรุณากรอกรหัส OTP เพื่อรีเซ็ตรหัสผ่าน',
+        variant: 'success'
+      })
+      return
+    }
+
+    if (step.value === 'otp') {
+      sanitizeOtp()
+      const response = await platformApi.verifyOtp({
+        phone: phone.value,
+        purpose: 'password_reset',
+        otp: otpCode.value
+      })
+      otpToken.value = response?.otp_verification_token || ''
+      step.value = 'password'
+      return
+    }
+
+    if (password.value !== passwordConfirmation.value) {
+      showAlert({
+        title: 'รหัสผ่านไม่ตรงกัน',
+        message: 'กรุณากรอกรหัสผ่านและยืนยันรหัสผ่านให้ตรงกัน',
+        variant: 'warning'
+      })
+      return
+    }
+
+    await platformApi.resetPasswordWithOtp({
+      phone: phone.value,
+      otp_verification_token: otpToken.value,
+      password: password.value,
+      password_confirmation: passwordConfirmation.value
+    })
     submitted.value = true
     showAlert({
-      title: 'ส่งคำร้องแล้ว',
-      message: 'ผู้ดูแลร้านค้าจะออกลิงก์รีเซ็ตรหัสผ่านให้คุณ',
+      title: 'เปลี่ยนรหัสผ่านแล้ว',
+      message: 'เข้าสู่ระบบด้วยรหัสผ่านใหม่ได้ทันที',
       variant: 'success'
     })
+    await navigateTo('/login')
   } catch (error: any) {
     showAlert({
-      title: 'ส่งคำร้องไม่สำเร็จ',
-      message: error?.response?.data?.message || error?.message || 'กรุณาตรวจสอบเบอร์โทรศัพท์และลองใหม่อีกครั้ง',
+      title: 'รีเซ็ตรหัสผ่านไม่สำเร็จ',
+      message: apiMessage(error, 'กรุณาตรวจสอบข้อมูลและลองใหม่อีกครั้ง'),
       variant: 'error'
     })
   } finally {
@@ -146,6 +286,12 @@ const isSafeLineLoginUrl = (value: string) => {
     return false
   }
 }
+
+onBeforeUnmount(() => {
+  if (resendTimer) {
+    clearInterval(resendTimer)
+  }
+})
 </script>
 
 <style scoped>
@@ -209,6 +355,11 @@ const isSafeLineLoginUrl = (value: string) => {
   margin-top: 18px;
 }
 
+.forgot-password-grid {
+  display: grid;
+  gap: 12px;
+}
+
 .forgot-field span {
   color: #17345f;
   font-weight: 900;
@@ -247,6 +398,19 @@ const isSafeLineLoginUrl = (value: string) => {
   margin-top: 18px;
   min-height: 52px;
   width: 100%;
+}
+
+.forgot-link-button {
+  background: transparent;
+  border: 0;
+  color: #0b74de;
+  font-weight: 900;
+  justify-self: start;
+  padding: 0;
+}
+
+.forgot-link-button:disabled {
+  color: #8c9aad;
 }
 
 .forgot-success {

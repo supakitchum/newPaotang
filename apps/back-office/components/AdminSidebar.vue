@@ -30,11 +30,24 @@
                 <span v-if="badgeFor(item) > 0" class="np-menu-badge">{{ formatBadge(badgeFor(item)) }}</span>
               </NuxtLink>
               <ul v-if="item.children?.length" class="slide-menu child1">
-                <li v-for="child in item.children" :key="child.key" :class="['slide', { active: isActive(child) }]">
-                  <NuxtLink :to="mapRoute(child)" :class="['side-menu__item', { active: isActive(child) }]" @click="closeMobile">
+                <li v-for="child in item.children" :key="child.key" :class="['slide', { 'has-sub': child.children?.length, open: isOpen(child.key), active: isActive(child) }]">
+                  <a v-if="child.children?.length" href="#" :class="['side-menu__item', { active: isActive(child) }]" @click.prevent="toggle(child.key)">
+                    <span class="side-menu__label">{{ child.label }}</span>
+                    <span v-if="badgeFor(child) > 0" class="np-menu-badge">{{ formatBadge(badgeFor(child)) }}</span>
+                    <i class="ri-arrow-right-s-line side-menu__angle" />
+                  </a>
+                  <NuxtLink v-else :to="mapRoute(child)" :class="['side-menu__item', { active: isActive(child) }]" @click="closeMobile">
                     <span class="side-menu__label">{{ child.label }}</span>
                     <span v-if="badgeFor(child) > 0" class="np-menu-badge">{{ formatBadge(badgeFor(child)) }}</span>
                   </NuxtLink>
+                  <ul v-if="child.children?.length" class="slide-menu child2">
+                    <li v-for="grandchild in child.children" :key="grandchild.key" :class="['slide', { active: isActive(grandchild) }]">
+                      <NuxtLink :to="mapRoute(grandchild)" :class="['side-menu__item', { active: isActive(grandchild) }]" @click="closeMobile">
+                        <span class="side-menu__label">{{ grandchild.label }}</span>
+                        <span v-if="badgeFor(grandchild) > 0" class="np-menu-badge">{{ formatBadge(badgeFor(grandchild)) }}</span>
+                      </NuxtLink>
+                    </li>
+                  </ul>
                 </li>
               </ul>
             </li>
@@ -126,10 +139,26 @@ const closeMobile = () => {
   }
 }
 
+const activeParentKeys = (items: any[]): string[] => {
+  const keys: string[] = []
+
+  for (const item of items) {
+    if (!Array.isArray(item?.children) || item.children.length === 0) {
+      continue
+    }
+
+    if (isActive(item)) {
+      keys.push(item.key)
+    }
+
+    keys.push(...activeParentKeys(item.children))
+  }
+
+  return keys
+}
+
 watch([visibleMenus, () => route.path], ([items]) => {
-  const activeParents = items
-    .filter((item: any) => item.children?.length && isActive(item))
-    .map((item: any) => item.key)
+  const activeParents = activeParentKeys(items)
   const defaultOpenParents = openKeys.value.length === 0
     ? items
         .filter((item: any) => item.key === 'dashboard' && item.children?.length)
@@ -148,7 +177,6 @@ watch([visibleMenus, () => route.path], ([items]) => {
 .side-menu__label {
   flex: 1 1 auto;
   min-width: 0;
-  overflow: hidden;
   text-overflow: ellipsis;
 }
 

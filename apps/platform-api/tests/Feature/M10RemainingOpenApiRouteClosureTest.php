@@ -163,6 +163,11 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
                     ],
                     'secret_token' => 'super-secret',
                     'nested' => ['api_key' => 'secret-key'],
+                    'payment_methods' => [
+                        'qr' => ['enabled' => false],
+                        'credit_card' => ['enabled' => true],
+                        'bank_transfer' => ['enabled' => true],
+                    ],
                 ],
             ], $headers + ['Idempotency-Key' => 'payment-settings-m10'])
             ->assertOk()
@@ -171,6 +176,9 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
             ->assertJsonPath('config.display_name', 'Gateway')
             ->assertJsonPath('config.bank_transfer.bank_code', 'scb')
             ->assertJsonPath('config.bank_transfer.account_name', 'Alpha Co')
+            ->assertJsonPath('payment_methods.qr.enabled', false)
+            ->assertJsonPath('payment_methods.credit_card.enabled', true)
+            ->assertJsonPath('enabled_payment_methods.0', 'credit_card')
             ->assertJsonPath('bank_transfer.bank_name', 'ธนาคารไทยพาณิชย์')
             ->assertJsonPath('bank_transfer.bank_icon', 'bi-bank')
             ->assertJsonPath('secret_status.secret_token', '[CONFIGURED]')
@@ -266,7 +274,8 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
 
         $this->getJson('http://seo.m10.test/api/v1/public/stores')
             ->assertOk()
-            ->assertJsonPath('data.0.id', 'store-alpha')
+            ->assertJsonPath('data.0.id', 'aff_public_store_m10')
+            ->assertJsonPath('data.0.name', 'Affiliate Store Alpha')
             ->assertJsonPath('data.0.status', 'active');
 
         $this->getJson('http://seo.m10.test/api/v1/public/news')
@@ -310,44 +319,20 @@ class M10RemainingOpenApiRouteClosureTest extends TestCase
 
     private function insertPublicStoreFixture(): void
     {
-        $this->insertGame('gam_public_store_m10');
-
-        DB::table('stock_items')->insert([
-            'id' => 'stk_public_store_m10',
-            'game_id' => 'gam_public_store_m10',
-            'batch_id' => null,
-            'full_number' => '123456',
-            'front3' => '123',
-            'back3' => '456',
-            'back2' => '56',
-            'status' => 'available',
-            'partner_id' => null,
-            'tenant_id' => null,
-            'allocation_id' => null,
-            'recall_reason' => null,
-            'recalled_at' => null,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        DB::table('local_stock_items')->insert([
-            'id' => 'lst_public_store_m10',
+        DB::table('affiliate_accounts')->insert([
+            'id' => 'aff_public_store_m10',
             'tenant_id' => 'ten_seo_m10',
-            'partner_id' => 'par_seo_m10',
-            'store_id' => 'store-alpha',
-            'game_id' => 'gam_public_store_m10',
-            'stock_item_id' => 'stk_public_store_m10',
-            'allocation_id' => null,
-            'full_number' => '123456',
-            'front3' => '123',
-            'back3' => '456',
-            'back2' => '56',
-            'image_url' => null,
-            'image_thumb_url' => null,
-            'status' => 'available',
-            'synced_at' => now(),
-            'reserved_at' => null,
-            'sold_at' => null,
+            'customer_id' => null,
+            'code' => 'PUBM10',
+            'name' => 'Affiliate Store Alpha',
+            'phone' => null,
+            'email' => null,
+            'status' => 'active',
+            'wallet_balance_amount' => 0,
+            'currency' => 'THB',
+            'payout_profile_json' => null,
+            'metadata_json' => null,
+            'created_by_admin_id' => null,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

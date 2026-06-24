@@ -923,6 +923,11 @@ class AdminOperationsTest extends TestCase
         $this->assertCount(1, $centralLogs);
         $this->assertSame('central', $centralLogs[0]['scope']);
         $this->assertNull($centralLogs[0]['tenant_id']);
+        $this->assertSame('Menu Changed', $centralLogs[0]['action_label']);
+        $this->assertSame('Admin adm_central (central@example.test)', $centralLogs[0]['actor_label']);
+        $this->assertSame('Admin Menu Tree scp_central', $centralLogs[0]['target_label']);
+        $this->assertSame('Admin adm_central (central@example.test) Menu Changed on Admin Menu Tree scp_central', $centralLogs[0]['summary']);
+        $this->assertNotEmpty($centralLogs[0]['payload_entries']);
         $this->assertSame('[REDACTED]', $centralLogs[0]['payload']['password']);
         $this->assertSame('[REDACTED]', $centralLogs[0]['payload']['token_hash']);
         $this->assertSame('[REDACTED]', $centralLogs[0]['payload']['invitation_url']);
@@ -930,6 +935,12 @@ class AdminOperationsTest extends TestCase
         $this->assertSame('[REDACTED]', $centralLogs[0]['payload']['invite_link']);
         $this->assertStringNotContainsString('central-raw', json_encode($centralLogs, JSON_THROW_ON_ERROR));
         $this->assertStringNotContainsString('CENTRAL-INVITE-CODE', json_encode($centralLogs, JSON_THROW_ON_ERROR));
+
+        $this->withToken($centralLogin['access_token'])
+            ->getJson('/api/v1/admin/central/audit-logs/'.$centralLogs[0]['id'], ['X-Admin-Scope' => 'central'])
+            ->assertOk()
+            ->assertJsonPath('data.action_label', 'Menu Changed')
+            ->assertJsonPath('data.actor_label', 'Admin adm_central (central@example.test)');
 
         $tenantLogs = $this->withToken($tenantLogin['access_token'])
             ->getJson('/api/v1/admin/tenant/audit-logs?action=menu.changed&limit=10', [
@@ -942,11 +953,21 @@ class AdminOperationsTest extends TestCase
 
         $this->assertCount(1, $tenantLogs);
         $this->assertSame('ten_auth', $tenantLogs[0]['tenant_id']);
+        $this->assertSame('Tenant ten_auth / ten_auth', $tenantLogs[0]['tenant_label']);
+        $this->assertSame('Auth Partner par_auth / par_auth', $tenantLogs[0]['partner_label']);
         $this->assertSame('[REDACTED]', $tenantLogs[0]['payload']['password_hash']);
         $this->assertSame('[REDACTED]', $tenantLogs[0]['payload']['invitation_material']);
         $this->assertStringNotContainsString('tenant-raw', json_encode($tenantLogs, JSON_THROW_ON_ERROR));
         $this->assertStringNotContainsString('TENANT-INVITE-CODE', json_encode($tenantLogs, JSON_THROW_ON_ERROR));
         $this->assertStringNotContainsString('other-secret', json_encode($tenantLogs, JSON_THROW_ON_ERROR));
+
+        $this->withToken($tenantLogin['access_token'])
+            ->getJson('/api/v1/admin/tenant/audit-logs/'.$tenantLogs[0]['id'], [
+                'X-Admin-Scope' => 'tenant',
+                'X-Tenant-Id' => 'ten_auth',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.tenant_label', 'Tenant ten_auth / ten_auth');
 
         $this->withToken($tenantLogin['access_token'])
             ->getJson('/api/v1/admin/tenant/audit-logs?action=menu.changed', [

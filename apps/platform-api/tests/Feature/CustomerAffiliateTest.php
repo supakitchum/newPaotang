@@ -37,15 +37,24 @@ class CustomerAffiliateTest extends TestCase
             ->assertOk()
             ->assertJsonPath('reward_payout_bank_account.bank_name', 'Example Bank');
 
+        $this->withToken($token)
+            ->postJson('http://'.$host.'/api/v1/customer/affiliate', [], [
+                'Idempotency-Key' => 'customer-affiliate-register-no-store',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.name.0', 'The store name field is required for affiliate accounts.');
+
         $registered = $this->withToken($token)
             ->postJson('http://'.$host.'/api/v1/customer/affiliate', [
                 'code' => 'lucky customer',
+                'name' => 'Lucky Customer Shop',
             ], [
                 'Idempotency-Key' => 'customer-affiliate-register',
             ])
             ->assertCreated()
             ->assertJsonPath('is_affiliate', true)
             ->assertJsonPath('affiliate.customer_id', $customerId)
+            ->assertJsonPath('affiliate.name', 'Lucky Customer Shop')
             ->assertJsonPath('profile.reward_payout_bank_account.account_number', '1234567890')
             ->assertJsonPath('payout_policy.minimum_payout.amount', 30000)
             ->json();
@@ -196,7 +205,9 @@ class CustomerAffiliateTest extends TestCase
         $buyerToken = $this->issueCustomerToken($tenantId, $buyerId);
 
         $registered = $this->withToken($affiliateToken)
-            ->postJson('http://'.$host.'/api/v1/customer/affiliate', [], [
+            ->postJson('http://'.$host.'/api/v1/customer/affiliate', [
+                'name' => 'Referral Apply Shop',
+            ], [
                 'Idempotency-Key' => 'customer-referral-affiliate-register',
             ])
             ->assertCreated()

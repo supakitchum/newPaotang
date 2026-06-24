@@ -279,6 +279,7 @@ class CustomerCommerceController extends Controller
             'reservation_expired' => ApiErrorResponse::reservationExpired($request),
             'wallet_insufficient_balance' => ApiErrorResponse::walletInsufficientBalance($request),
             'not_found' => ApiErrorResponse::notFound($request),
+            'payment_method_disabled' => ApiErrorResponse::validationFailed($request, ['channel' => ['This payment method is currently disabled.']]),
             'validation_failed' => ApiErrorResponse::validationFailed($request, ['payload' => ['The request payload is invalid.']]),
             default => response()->json($result['resource'] ?? [], $result['status'] ?? $defaultStatus),
         };

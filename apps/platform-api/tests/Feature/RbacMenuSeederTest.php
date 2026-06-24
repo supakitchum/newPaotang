@@ -16,7 +16,7 @@ class RbacMenuSeederTest extends TestCase
         $this->seed(DefaultRbacMenuSeeder::class);
 
         $this->assertSame(55, DB::table('permissions')->where('scope_type', 'central')->count());
-        $this->assertSame(75, DB::table('permissions')->where('scope_type', 'tenant')->count());
+        $this->assertSame(79, DB::table('permissions')->where('scope_type', 'tenant')->count());
 
         $this->assertDatabaseHas('permissions', [
             'scope_type' => 'central',
@@ -43,6 +43,13 @@ class RbacMenuSeederTest extends TestCase
             'scope_type' => 'tenant',
             'code' => 'line_notification.manage',
             'name' => 'Manage LINE notification settings and templates',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('permissions', [
+            'scope_type' => 'tenant',
+            'code' => 'sms_otp.manage',
+            'name' => 'Manage tenant SMS OTP provider settings',
             'status' => 'active',
         ]);
 
@@ -80,7 +87,7 @@ class RbacMenuSeederTest extends TestCase
         $this->seed(DefaultRbacMenuSeeder::class);
 
         $this->assertSame(36, DB::table('admin_menus')->where('scope_type', 'central')->count());
-        $this->assertSame(38, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
+        $this->assertSame(41, DB::table('admin_menus')->where('scope_type', 'tenant')->count());
 
         $dashboardParentId = (string) DB::table('admin_menus')
             ->where('scope_type', 'central')
@@ -121,7 +128,7 @@ class RbacMenuSeederTest extends TestCase
             'code' => 'storage_connections',
             'label' => 'Storage Connections',
             'route' => '/admin/central/storage-connections',
-            'category' => 'Administration',
+            'category' => 'Plugins',
             'required_permission_code' => 'storage_connection.view',
             'status' => 'active',
         ]);
@@ -211,7 +218,7 @@ class RbacMenuSeederTest extends TestCase
             'code' => 'exchange_reward',
             'label' => 'Exchange Reward',
             'route' => '/admin/tenant/exchange-reward',
-            'category' => 'Store Operations',
+            'category' => 'Review Queue',
             'required_permission_code' => 'reward_claim.view',
             'status' => 'active',
         ]);
@@ -221,7 +228,7 @@ class RbacMenuSeederTest extends TestCase
             'code' => 'announcements',
             'label' => 'Announcements',
             'route' => '/admin/tenant/announcements',
-            'category' => 'Store Operations',
+            'category' => 'Growth',
             'required_permission_code' => 'announcement.view',
             'status' => 'active',
         ]);
@@ -231,17 +238,47 @@ class RbacMenuSeederTest extends TestCase
             'code' => 'activities',
             'label' => 'Activities',
             'route' => '/admin/tenant/activities',
-            'category' => 'Store Operations',
+            'category' => 'Growth',
             'required_permission_code' => 'activity.view',
             'status' => 'active',
         ]);
+
+        $affiliateParentId = (string) DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->where('code', 'affiliate')
+            ->value('id');
+
+        $this->assertNotSame('', $affiliateParentId);
+        $this->assertDatabaseHas('admin_menus', [
+            'scope_type' => 'tenant',
+            'code' => 'affiliate',
+            'label' => 'Affiliate',
+            'route' => '/admin/tenant/growth/affiliates',
+            'category' => 'Growth',
+            'required_permission_code' => 'affiliate.view',
+            'status' => 'active',
+        ]);
+
+        $this->assertSame(7, DB::table('admin_menus')
+            ->where('scope_type', 'tenant')
+            ->whereIn('code', [
+                'affiliate_programs',
+                'affiliate_accounts',
+                'affiliate_links',
+                'affiliate_attributions',
+                'commission_rules',
+                'commission_transactions',
+                'payouts',
+            ])
+            ->where('parent_id', $affiliateParentId)
+            ->count());
 
         $this->assertDatabaseHas('admin_menus', [
             'scope_type' => 'tenant',
             'code' => 'activity_claims',
             'label' => 'Activity Claims',
             'route' => '/admin/tenant/activity-claims',
-            'category' => 'Store Operations',
+            'category' => 'Review Queue',
             'required_permission_code' => 'activity.view',
             'status' => 'active',
         ]);
@@ -251,8 +288,18 @@ class RbacMenuSeederTest extends TestCase
             'code' => 'line_notifications',
             'label' => 'LINE Notifications',
             'route' => '/admin/tenant/line-notifications',
-            'category' => 'Store Operations',
+            'category' => 'Plugins',
             'required_permission_code' => 'line_notification.view',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('admin_menus', [
+            'scope_type' => 'tenant',
+            'code' => 'sms_otp',
+            'label' => 'SMS OTP',
+            'route' => '/admin/tenant/sms-otp',
+            'category' => 'Plugins',
+            'required_permission_code' => 'sms_otp.view',
             'status' => 'active',
         ]);
 
@@ -288,7 +335,7 @@ class RbacMenuSeederTest extends TestCase
             'code' => 'telegram_notifications',
             'label' => 'Telegram Notifications',
             'route' => '/admin/central/telegram-notifications',
-            'category' => 'Administration',
+            'category' => 'Plugins',
             'required_permission_code' => 'telegram_notification.view',
             'status' => 'active',
         ]);
@@ -298,7 +345,7 @@ class RbacMenuSeederTest extends TestCase
             'code' => 'translations',
             'label' => 'Translation Center',
             'route' => '/admin/central/translations',
-            'category' => 'Administration',
+            'category' => 'Review Queue',
             'required_permission_code' => 'translation.view',
             'status' => 'active',
         ]);

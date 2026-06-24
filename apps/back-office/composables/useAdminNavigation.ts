@@ -61,12 +61,14 @@ const scopedRouteOverrides: Record<string, string> = {
   'tenant:customers': '/admin/tenant/customers',
   'tenant:announcements': '/admin/tenant/announcements',
   'tenant:line_notifications': '/admin/tenant/line-notifications',
+  'tenant:sms_otp': '/admin/tenant/sms-otp',
   'tenant:password_reset_requests': '/admin/tenant/password-reset-requests',
   'tenant:activities': '/admin/tenant/activities',
   'tenant:activity_claims': '/admin/tenant/activity-claims',
   'tenant:winners': '/admin/tenant/winners',
   'tenant:exchange_reward': '/admin/tenant/exchange-reward',
   'tenant:agent_quotas': '/admin/tenant/growth/agent-quotas',
+  'tenant:affiliate': '/admin/tenant/growth/affiliates',
   'tenant:monitoring': '/admin/tenant/monitoring',
   'tenant:usage': '/admin/tenant/usage',
   'tenant:reports': '/admin/tenant/reports',
@@ -144,6 +146,7 @@ export const useAdminNavigation = () => {
     const key = item.key || ''
     if (key.includes('announcement')) return 'ri-megaphone-line'
     if (key.includes('line_notification')) return 'ri-line-line'
+    if (key.includes('sms_otp')) return 'ri-message-2-line'
     if (key.includes('password_reset')) return 'ri-lock-password-line'
     if (key.includes('storage')) return 'ri-database-2-line'
     if (key.includes('maintenance')) return 'ri-tools-line'
@@ -281,6 +284,7 @@ const categoryIcon = (category: string) => {
   if (value.includes('partner')) return 'ri-building-4-line'
   if (value.includes('finance') || value.includes('report')) return 'ri-bar-chart-box-line'
   if (value.includes('store')) return 'ri-store-2-line'
+  if (value.includes('plugin')) return 'ri-plug-2-line'
   if (value.includes('growth')) return 'ri-line-chart-line'
   if (value.includes('control')) return 'ri-pulse-line'
   if (value.includes('review') || value.includes('queue')) return 'ri-inbox-archive-line'

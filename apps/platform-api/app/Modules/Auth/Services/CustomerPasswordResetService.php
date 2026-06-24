@@ -74,6 +74,37 @@ class CustomerPasswordResetService
     }
 
     /**
+     * @param array<string, mixed> $payload
+     * @return array<string, array<int, string>>
+     */
+    public function resetPasswordWithOtpErrors(array $payload): array
+    {
+        $errors = [];
+        $phone = $this->normalizePhone($payload['phone'] ?? null);
+        $token = trim((string) ($payload['otp_verification_token'] ?? ''));
+        $password = (string) ($payload['password'] ?? '');
+        $confirmation = (string) ($payload['password_confirmation'] ?? '');
+
+        if ($phone === null) {
+            $errors['phone'][] = 'The phone field must contain a valid phone number.';
+        }
+
+        if ($token === '') {
+            $errors['otp_verification_token'][] = 'The OTP verification token field is required.';
+        }
+
+        if ($password === '') {
+            $errors['password'][] = 'The password field is required.';
+        }
+
+        if ($password !== $confirmation) {
+            $errors['password_confirmation'][] = 'The password confirmation does not match.';
+        }
+
+        return $errors;
+    }
+
+    /**
      * @param array<string, mixed> $tenant
      * @param array<string, mixed> $payload
      * @return array{resource?: array<string, mixed>, status?: int, error?: string, errors?: array<string, mixed>}
@@ -314,6 +345,77 @@ class CustomerPasswordResetService
     }
 
     /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, status?: int, error?: string}
+     */
+    public function resetPasswordForVerifiedPhone(string $tenantId, string $phone, array $payload, Request $request): array
+    {
+        if (! $this->storageReady()) {
+            return $this->storageUnavailable();
+        }
+
+        $phone = $this->normalizePhone($phone);
+        $password = (string) ($payload['password'] ?? '');
+
+        if ($phone === null || $password === '') {
+            return ['error' => 'authentication_required'];
+        }
+
+        return DB::transaction(function () use ($tenantId, $phone, $password, $request): array {
+            $customer = Customer::query()
+                ->where('tenant_id', $tenantId)
+                ->where('phone', $phone)
+                ->where('status', 'active')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $customer instanceof Customer) {
+                return ['error' => 'authentication_required'];
+            }
+
+            Customer::query()
+                ->where('id', $customer->id)
+                ->update([
+                    'password_hash' => Hash::make($password),
+                    'updated_at' => now(),
+                ]);
+
+            CustomerPasswordResetRequest::query()->create([
+                'id' => 'cpr_'.Str::ulid()->toBase32(),
+                'tenant_id' => $tenantId,
+                'customer_id' => (string) $customer->id,
+                'channel' => 'sms_otp',
+                'status' => 'consumed',
+                'requested_identifier' => $phone,
+                'phone' => $phone,
+                'email' => $customer->email,
+                'reset_token_hash' => null,
+                'link_issued_at' => null,
+                'expires_at' => null,
+                'consumed_at' => now(),
+                'issued_by_admin_id' => null,
+                'requested_ip' => $request->ip(),
+                'requested_user_agent' => $request->userAgent(),
+                'metadata_json' => [
+                    'source' => 'sms_otp',
+                    'consumed_ip' => $request->ip(),
+                    'consumed_user_agent' => $request->userAgent(),
+                ],
+            ]);
+
+            $this->revokeCustomerSessions((string) $customer->id);
+
+            return [
+                'resource' => [
+                    'status' => 'password_reset',
+                    'message' => 'Password has been reset.',
+                ],
+                'status' => 200,
+            ];
+        });
+    }
+
+    /**
      * @return array{resource?: array<string, mixed>, status?: int, error?: string, details?: array<string, mixed>}
      */
     public function issueLineResetToken(string $tenantId, string $lineUserId, Request $request): array
@@ -500,7 +602,15 @@ class CustomerPasswordResetService
     {
         $phone = preg_replace('/\D+/', '', (string) $value);
 
-        return is_string($phone) && $phone !== '' ? $phone : null;
+        if (! is_string($phone) || $phone === '') {
+            return null;
+        }
+
+        if (str_starts_with($phone, '66') && strlen($phone) === 11) {
+            $phone = '0'.substr($phone, 2);
+        }
+
+        return strlen($phone) >= 9 && strlen($phone) <= 10 ? $phone : null;
     }
 
     private function normalizeEmail(mixed $value): ?string

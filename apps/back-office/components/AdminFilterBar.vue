@@ -3,7 +3,7 @@
     <div class="card-body">
       <div class="row g-2 align-items-end">
         <div v-for="filter in filters" :key="filter.key" class="col-sm-6 col-lg-3">
-          <label class="form-label">{{ filter.label }}</label>
+          <label class="form-label">{{ phrase(filter.label) }}</label>
           <select v-if="filter.type === 'select'" v-model="draft[filter.key]" class="form-select">
             <option v-if="!filter.hideEmptyOption" value="">{{ filter.emptyOptionLabel || translateReportText('All', locale) }}</option>
             <option v-else-if="!visibleOptions(filter).length" value="" disabled>{{ filter.emptyOptionLabel || translateReportText('No options available', locale) }}</option>
@@ -51,7 +51,9 @@ defineEmits<{
 }>()
 
 const draft = reactive<Record<string, any>>({})
-const { locale } = useAdminLocale()
+const adminLocale = useAdminLocale()
+const { locale } = adminLocale
+const phrase = (source: unknown) => adminLocale.phrase(source)
 
 watch(() => props.modelValue, (value) => {
   for (const filter of props.filters) {
@@ -95,7 +97,7 @@ const visibleOptions = (filter: OperationFilter) => {
 }
 
 const optionValue = (option: any) => typeof option === 'object' && option !== null ? option.value : option
-const optionLabel = (option: any) => typeof option === 'object' && option !== null ? option.label : titleize(String(option))
+const optionLabel = (option: any) => phrase(typeof option === 'object' && option !== null ? option.label : titleize(String(option)))
 const optionDisabled = (option: any) => Boolean(typeof option === 'object' && option !== null && option.disabled)
 const optionPartnerId = (option: any) => String(typeof option === 'object' && option !== null ? option.partnerId || option.partner_id || '' : '')
 </script>

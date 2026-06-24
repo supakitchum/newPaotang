@@ -1,7 +1,7 @@
 <template>
   <div :class="embedded ? 'np-data-table' : 'card custom-card'">
     <div v-if="title || $slots.actions" :class="embedded ? 'd-flex flex-wrap align-items-center justify-content-between gap-2 mb-3' : 'card-header'">
-      <div class="card-title">{{ title }}</div>
+      <div class="card-title">{{ phrase(title) }}</div>
       <div v-if="$slots.actions" class="ms-auto">
         <slot name="actions" />
       </div>
@@ -9,7 +9,7 @@
     <div :class="embedded ? 'p-0' : 'card-body'">
       <slot name="beforeTable" />
       <AdminLoader v-if="loading" />
-      <AdminEmptyState v-else-if="!rows.length" :title="emptyTitle" :message="emptyMessage" />
+      <AdminEmptyState v-else-if="!rows.length" :title="phrase(emptyTitle)" :message="phrase(emptyMessage)" />
       <div v-else class="table-responsive">
         <table class="table table-bordered text-nowrap w-100">
           <thead>
@@ -27,12 +27,12 @@
               </th>
               <th v-for="column in columns" :key="column.key" scope="col" :aria-sort="sortable ? ariaSort(column.key) : undefined">
                 <button v-if="sortable" class="np-sort-button" type="button" @click="toggleSort(column)">
-                  <span>{{ column.label }}</span>
+                  <span>{{ phrase(column.label) }}</span>
                   <i :class="sortIcon(column.key)" aria-hidden="true" />
                 </button>
-                <span v-else>{{ column.label }}</span>
+                <span v-else>{{ phrase(column.label) }}</span>
               </th>
-              <th v-if="$slots.rowActions" scope="col" class="text-end">Action</th>
+              <th v-if="$slots.rowActions" scope="col" class="text-end">{{ phrase('Action') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -58,6 +58,9 @@
           </tbody>
         </table>
       </div>
+    </div>
+    <div v-if="$slots.footer" :class="embedded ? 'np-data-table-footer is-embedded' : 'card-footer np-data-table-footer'">
+      <slot name="footer" />
     </div>
   </div>
 </template>
@@ -105,6 +108,8 @@ const emit = defineEmits<{
   'update:selectedIds': [value: string[]]
 }>()
 
+const adminLocale = useAdminLocale()
+const phrase = (source: unknown) => adminLocale.phrase(source)
 const visibleIds = computed(() => props.rows.map(rowId).filter(Boolean))
 const selectedSet = computed(() => new Set(props.selectedIds))
 const allVisibleSelected = computed(() => visibleIds.value.length > 0 && visibleIds.value.every((id) => selectedSet.value.has(id)))
@@ -204,5 +209,17 @@ const formatCell = (row: any, column: DataTableColumn) => formatAdminValue(cellV
 .np-select-col {
   text-align: center;
   width: 44px;
+}
+
+.np-data-table-footer {
+  background: rgba(248, 250, 252, 0.72);
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+  padding: 0.85rem 1rem;
+}
+
+.np-data-table-footer.is-embedded {
+  background: transparent;
+  border-top: 0;
+  padding: 0.85rem 0 0;
 }
 </style>

@@ -1,20 +1,20 @@
 <template>
   <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
     <div class="text-muted small">
-      Page {{ currentPage }}
-      <span v-if="pageSize">· {{ pageSize }} rows per page</span>
+      {{ phrase('Page') }} {{ currentPage }}
+      <span v-if="pageSize">· {{ pageSize }} {{ phrase('rows per page') }}</span>
     </div>
     <div class="dataTables_paginate paging_simple_numbers">
       <ul class="pagination mb-0">
         <li :class="['paginate_button page-item previous', { disabled: !hasPrevious || loading }]">
           <button class="page-link" type="button" :disabled="!hasPrevious || loading" @click="$emit('previous')">
-            Previous
+            {{ phrase('Previous page') }}
           </button>
         </li>
         <li :class="['paginate_button page-item next', { disabled: !nextCursor || loading }]">
           <button class="page-link" type="button" :disabled="!nextCursor || loading" @click="$emit('next')">
             <span v-if="loading" class="spinner-border spinner-border-sm me-1" />
-            Next
+            {{ phrase('Next page') }}
           </button>
         </li>
       </ul>
@@ -37,4 +37,7 @@ withDefaults(defineProps<{
   currentPage: 1,
   pageSize: '',
 })
+
+const adminLocale = useAdminLocale()
+const phrase = (source: unknown) => adminLocale.phrase(source)
 </script>

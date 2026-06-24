@@ -80,9 +80,19 @@ class AdminOperationsController extends Controller
         return $this->auditLogs($request, 'central');
     }
 
+    public function centralAuditLog(Request $request, string $auditLogId): JsonResponse
+    {
+        return $this->auditLog($request, 'central', $auditLogId);
+    }
+
     public function tenantAuditLogs(Request $request): JsonResponse
     {
         return $this->auditLogs($request, 'tenant');
+    }
+
+    public function tenantAuditLog(Request $request, string $auditLogId): JsonResponse
+    {
+        return $this->auditLog($request, 'tenant', $auditLogId);
     }
 
     private function dashboardSummary(Request $request, string $scopeType): JsonResponse
@@ -181,6 +191,19 @@ class AdminOperationsController extends Controller
         }
 
         return response()->json($this->operations->auditLogs($scopeType, $context->activeTenantId(), $request->query()));
+    }
+
+    private function auditLog(Request $request, string $scopeType, string $auditLogId): JsonResponse
+    {
+        $context = $this->authorizedContext($request, $scopeType, 'audit.view');
+
+        if (! $context instanceof AdminSessionContext) {
+            return $context;
+        }
+
+        $resource = $this->operations->auditLog($scopeType, $context->activeTenantId(), $auditLogId);
+
+        return $resource === null ? ApiErrorResponse::notFound($request) : response()->json(['data' => $resource]);
     }
 
     /**

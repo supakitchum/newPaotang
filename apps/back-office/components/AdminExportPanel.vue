@@ -14,9 +14,9 @@
           @click="$emit('run', action)"
         >
           <i :class="action.route ? 'ri-arrow-right-line me-1' : 'ri-play-line me-1'" />
-          {{ action.label }}
+          {{ phrase(action.label) }}
         </button>
-        <span v-if="action.disabled && action.disabledReason" class="text-muted fs-12 mt-1">{{ action.disabledReason }}</span>
+        <span v-if="action.disabled && action.disabledReason" class="text-muted fs-12 mt-1">{{ phrase(action.disabledReason) }}</span>
       </div>
     </div>
   </div>
@@ -32,4 +32,7 @@ defineProps<{
 defineEmits<{
   run: [action: OperationAction]
 }>()
+
+const adminLocale = useAdminLocale()
+const phrase = (source: unknown) => adminLocale.phrase(source)
 </script>

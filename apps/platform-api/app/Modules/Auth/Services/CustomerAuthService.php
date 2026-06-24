@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\CustomerAuthSession;
 use App\Models\PartnerTenant;
 use App\Models\Wallet;
+use App\Modules\SmsOtp\Services\SmsOtpService;
 use App\Shared\Auth\CustomerSessionContext;
 use App\Shared\Auth\CustomerSuspensionService;
 use App\Shared\Idempotency\IdempotencyService;
@@ -27,6 +28,7 @@ class CustomerAuthService
     public function __construct(
         private readonly IdempotencyService $idempotency,
         private readonly CustomerSuspensionService $customerSuspensions,
+        private readonly SmsOtpService $smsOtp,
     ) {
     }
 
@@ -59,6 +61,24 @@ class CustomerAuthService
 
         if (Customer::where('tenant_id', $tenant['tenant_id'])->where('phone', $normalized['phone'])->exists()) {
             return ['error' => 'resource_conflict'];
+        }
+
+        if ($this->smsOtp->providerRequiredForRegister((string) $tenant['tenant_id'])) {
+            $consume = $this->smsOtp->consumeVerifiedToken(
+                (string) $tenant['tenant_id'],
+                $normalized['phone'],
+                SmsOtpService::PURPOSE_REGISTER,
+                (string) ($payload['otp_verification_token'] ?? ''),
+            );
+
+            if (($consume['ok'] ?? false) !== true) {
+                return [
+                    'error' => 'otp_required',
+                    'errors' => [
+                        'otp_verification_token' => ['OTP verification is required before registration.'],
+                    ],
+                ];
+            }
         }
 
         return DB::transaction(function () use ($tenant, $payload, $request, $normalized, $idempotencyKey, $actorId): array {
@@ -538,6 +558,45 @@ class CustomerAuthService
 
         $pin = trim((string) ($payload['pin'] ?? ''));
 
+        return DB::transaction(function () use ($context, $pin): array {
+            $customer = Customer::query()
+                ->where('tenant_id', $context->tenantId())
+                ->where('id', $context->customerId())
+                ->lockForUpdate()
+                ->first();
+
+            if ($customer === null) {
+                return ['error' => 'authentication_required'];
+            }
+
+            if (! $this->customerHasPin($customer)) {
+                return ['error' => 'pin_setup_required'];
+            }
+
+            $now = now();
+            Customer::query()->where('id', $customer->id)->update([
+                'pin_hash' => Hash::make($pin),
+                'pin_set_at' => $customer->pin_set_at ?? $now,
+                'pin_changed_at' => $now,
+                'pin_failed_attempts' => 0,
+                'pin_locked_until' => null,
+                'pin_last_verified_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            Cache::forget($this->pinResetCacheKey($context));
+            $this->markSessionPinVerified((string) $context->session['id'], $now);
+            $fresh = Customer::whereKey($customer->id)->first();
+
+            return ['resource' => $this->pinResponse($fresh, true)];
+        });
+    }
+
+    /**
+     * @return array{resource?: array<string, mixed>, error?: string}
+     */
+    public function resetPinAfterOtp(CustomerSessionContext $context, string $pin): array
+    {
         return DB::transaction(function () use ($context, $pin): array {
             $customer = Customer::query()
                 ->where('tenant_id', $context->tenantId())

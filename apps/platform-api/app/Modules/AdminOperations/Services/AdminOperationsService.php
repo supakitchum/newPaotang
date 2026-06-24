@@ -195,33 +195,57 @@ class AdminOperationsService
     public function auditLogs(string $scopeType, ?string $tenantId, array $queryParams): array
     {
         $limit = $this->limit($queryParams['limit'] ?? null);
-        $query = AuditLog::query()
-            ->where('scope_type', $scopeType)
-            ->orderByDesc('created_at')
-            ->orderByDesc('id');
-
-        if ($scopeType === 'tenant') {
-            $query->where('tenant_id', $tenantId);
-        } else {
-            $query->whereNull('tenant_id');
-        }
+        $query = $this->auditLogQuery($scopeType, $tenantId)
+            ->orderByDesc('audit_logs.created_at')
+            ->orderByDesc('audit_logs.id');
 
         if (($queryParams['action'] ?? null) !== null && trim((string) $queryParams['action']) !== '') {
-            $query->where('action', trim((string) $queryParams['action']));
+            $query->where('audit_logs.action', trim((string) $queryParams['action']));
         }
 
         if (($queryParams['actor_id'] ?? null) !== null && trim((string) $queryParams['actor_id']) !== '') {
-            $query->where('actor_id', trim((string) $queryParams['actor_id']));
+            $query->where('audit_logs.actor_id', trim((string) $queryParams['actor_id']));
+        }
+
+        if (($queryParams['target_type'] ?? null) !== null && trim((string) $queryParams['target_type']) !== '') {
+            $query->where('audit_logs.target_type', trim((string) $queryParams['target_type']));
+        }
+
+        if (($queryParams['target_id'] ?? null) !== null && trim((string) $queryParams['target_id']) !== '') {
+            $query->where('audit_logs.target_id', trim((string) $queryParams['target_id']));
+        }
+
+        if (($queryParams['request_id'] ?? null) !== null && trim((string) $queryParams['request_id']) !== '') {
+            $query->where('audit_logs.request_id', trim((string) $queryParams['request_id']));
+        }
+
+        if (($queryParams['q'] ?? null) !== null && trim((string) $queryParams['q']) !== '') {
+            $needle = '%'.strtolower(trim((string) $queryParams['q'])).'%';
+            $query->where(function ($nested) use ($needle): void {
+                $nested->whereRaw('LOWER(audit_logs.action) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(audit_logs.actor_id) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(COALESCE(actor_users.name, \'\')) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(COALESCE(actor_users.email, \'\')) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(COALESCE(audit_logs.target_type, \'\')) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(COALESCE(audit_logs.target_id, \'\')) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(COALESCE(audit_logs.request_id, \'\')) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(COALESCE(audit_partners.name, \'\')) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(COALESCE(audit_tenants.name, \'\')) LIKE ?', [$needle]);
+
+                if (Schema::hasColumn('admin_users', 'username')) {
+                    $nested->orWhereRaw('LOWER(COALESCE(actor_users.username, \'\')) LIKE ?', [$needle]);
+                }
+            });
         }
 
         $cursor = $this->decodeCursor($queryParams['cursor'] ?? null);
 
         if ($cursor !== null) {
             $query->where(function ($nested) use ($cursor): void {
-                $nested->where('created_at', '<', $cursor['created_at'])
+                $nested->where('audit_logs.created_at', '<', $cursor['created_at'])
                     ->orWhere(function ($sameCreatedAt) use ($cursor): void {
-                        $sameCreatedAt->where('created_at', '=', $cursor['created_at'])
-                            ->where('id', '<', $cursor['id']);
+                        $sameCreatedAt->where('audit_logs.created_at', '=', $cursor['created_at'])
+                            ->where('audit_logs.id', '<', $cursor['id']);
                     });
             });
         }
@@ -237,6 +261,50 @@ class AdminOperationsService
                 'has_more' => $hasMore,
             ],
         ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function auditLog(string $scopeType, ?string $tenantId, string $auditLogId): ?array
+    {
+        $row = $this->auditLogQuery($scopeType, $tenantId)
+            ->where('audit_logs.id', $auditLogId)
+            ->first();
+
+        return $row ? $this->auditLogResource($row) : null;
+    }
+
+    private function auditLogQuery(string $scopeType, ?string $tenantId)
+    {
+        $query = AuditLog::query()
+            ->leftJoin('admin_users as actor_users', 'actor_users.id', '=', 'audit_logs.actor_id')
+            ->leftJoin('partner_tenants as audit_tenants', 'audit_tenants.id', '=', 'audit_logs.tenant_id')
+            ->leftJoin('partners as audit_partners', function ($join): void {
+                $join->on('audit_partners.id', '=', 'audit_logs.partner_id')
+                    ->orOn('audit_partners.id', '=', 'audit_tenants.partner_id');
+            })
+            ->select([
+                'audit_logs.*',
+                'actor_users.name as actor_name',
+                'actor_users.email as actor_email',
+                'audit_partners.name as partner_name',
+                'audit_partners.code as partner_code',
+                'audit_tenants.name as tenant_name',
+                'audit_tenants.code as tenant_code',
+            ])
+            ->when(Schema::hasColumn('admin_users', 'username'), function ($query): void {
+                $query->addSelect('actor_users.username as actor_username');
+            })
+            ->where('audit_logs.scope_type', $scopeType);
+
+        if ($scopeType === 'tenant') {
+            $query->where('audit_logs.tenant_id', $tenantId);
+        } else {
+            $query->whereNull('audit_logs.tenant_id');
+        }
+
+        return $query;
     }
 
     /**
@@ -4784,6 +4852,15 @@ class AdminOperationsService
             $payload = is_array($decoded) ? $this->auditLogger->redactPayload($decoded) : [];
         }
 
+        $actionLabel = $this->auditReadableLabel((string) $row->action);
+        $actorLabel = $this->auditActorLabel($row);
+        $targetLabel = $this->auditTargetLabel($row);
+        $tenantLabel = $this->auditNamedEntityLabel($row->tenant_name ?? null, $row->tenant_code ?? null, $row->tenant_id ?? null);
+        $partnerLabel = $this->auditNamedEntityLabel($row->partner_name ?? null, $row->partner_code ?? null, $row->partner_id ?? null);
+        $payloadEntries = $this->auditPayloadEntries($payload);
+        $payloadSummary = $this->auditPayloadSummary($payloadEntries);
+        $summary = trim($actorLabel.' '.$actionLabel.($targetLabel !== '-' ? ' on '.$targetLabel : ''));
+
         return [
             'id' => (string) $row->id,
             'tenant_id' => $row->tenant_id,
@@ -4793,12 +4870,202 @@ class AdminOperationsService
             'scope' => (string) $row->scope_type,
             'actor_type' => (string) $row->actor_type,
             'actor_id' => (string) $row->actor_id,
+            'actor_label' => $actorLabel,
             'partner_id' => $row->partner_id,
+            'partner_label' => $partnerLabel,
+            'tenant_label' => $tenantLabel,
             'action' => (string) $row->action,
+            'action_label' => $actionLabel,
             'target_type' => $row->target_type,
             'target_id' => $row->target_id,
+            'target_label' => $targetLabel,
             'request_id' => $row->request_id,
+            'ip_address' => $row->ip_address,
+            'user_agent' => $row->user_agent,
+            'summary' => $summary !== '' ? $summary : $actionLabel,
+            'payload_summary' => $payloadSummary,
+            'payload_entries' => $payloadEntries,
             'payload' => $payload,
         ];
+    }
+
+    private function auditActorLabel(object $row): string
+    {
+        $username = trim((string) ($row->actor_username ?? ''));
+        $name = trim((string) ($row->actor_name ?? ''));
+        $email = trim((string) ($row->actor_email ?? ''));
+        $actorId = trim((string) ($row->actor_id ?? ''));
+
+        if ($username !== '') {
+            return $username.($name !== '' ? ' ('.$name.')' : '');
+        }
+
+        if ($name !== '') {
+            return $name.($email !== '' ? ' ('.$email.')' : '');
+        }
+
+        if ($email !== '') {
+            return $email;
+        }
+
+        return $actorId !== '' ? $actorId : '-';
+    }
+
+    private function auditTargetLabel(object $row): string
+    {
+        $type = trim((string) ($row->target_type ?? ''));
+        $id = trim((string) ($row->target_id ?? ''));
+
+        if ($type === '' && $id === '') {
+            return '-';
+        }
+
+        $label = $type !== '' ? $this->auditReadableLabel($type) : 'Target';
+
+        return $id !== '' ? $label.' '.$id : $label;
+    }
+
+    private function auditNamedEntityLabel(mixed $name, mixed $code, mixed $id): string
+    {
+        $parts = [];
+        $name = trim((string) ($name ?? ''));
+        $code = trim((string) ($code ?? ''));
+        $id = trim((string) ($id ?? ''));
+
+        if ($name !== '') {
+            $parts[] = $name;
+        }
+
+        if ($code !== '') {
+            $parts[] = $code;
+        }
+
+        if ($parts !== []) {
+            return implode(' / ', $parts);
+        }
+
+        return $id !== '' ? $id : '-';
+    }
+
+    private function auditReadableLabel(string $value): string
+    {
+        $value = trim(preg_replace('/[._-]+/', ' ', $value) ?? '');
+
+        return $value !== '' ? ucwords($value) : '-';
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<int, array{key: string, label: string, value: string}>
+     */
+    private function auditPayloadEntries(array $payload): array
+    {
+        $entries = [];
+        $this->auditFlattenPayload($payload, '', $entries);
+
+        return array_slice($entries, 0, 40);
+    }
+
+    /**
+     * @param array<int, array{key: string, label: string, value: string}> $entries
+     */
+    private function auditPayloadSummary(array $entries): string
+    {
+        if ($entries === []) {
+            return 'No additional audit payload';
+        }
+
+        $preview = array_slice(array_map(
+            fn (array $entry): string => $entry['label'].': '.$entry['value'],
+            $entries
+        ), 0, 4);
+
+        $remaining = count($entries) - count($preview);
+
+        return implode(', ', $preview).($remaining > 0 ? ' +'.$remaining.' more' : '');
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @param array<int, array{key: string, label: string, value: string}> $entries
+     */
+    private function auditFlattenPayload(array $payload, string $prefix, array &$entries, int $depth = 0): void
+    {
+        foreach ($payload as $key => $value) {
+            if (count($entries) >= 40) {
+                return;
+            }
+
+            $path = $prefix !== '' ? $prefix.'.'.$key : (string) $key;
+
+            if (is_array($value) && $depth < 3 && ! $this->isListArray($value) && $value !== []) {
+                $this->auditFlattenPayload($value, $path, $entries, $depth + 1);
+                continue;
+            }
+
+            $entries[] = [
+                'key' => $path,
+                'label' => $this->auditReadableLabel($path),
+                'value' => $this->auditDisplayValue($value),
+            ];
+        }
+    }
+
+    private function auditDisplayValue(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return '-';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'Yes' : 'No';
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return (string) $value;
+        }
+
+        if (is_string($value)) {
+            return mb_strlen($value) > 140 ? mb_substr($value, 0, 137).'...' : $value;
+        }
+
+        if (is_array($value)) {
+            if ($value === []) {
+                return 'Empty';
+            }
+
+            if ($this->isMoneyObject($value)) {
+                return number_format(((int) ($value['amount'] ?? 0)) / 100, 2).' '.strtoupper((string) ($value['currency'] ?? 'THB'));
+            }
+
+            if ($this->isListArray($value)) {
+                $scalarPreview = array_values(array_filter($value, fn (mixed $item): bool => is_scalar($item)));
+                if ($scalarPreview !== []) {
+                    return count($value).' items: '.implode(', ', array_slice(array_map('strval', $scalarPreview), 0, 5));
+                }
+
+                return count($value).' items';
+            }
+
+            return count($value).' fields';
+        }
+
+        return 'Object';
+    }
+
+    /**
+     * @param array<mixed> $value
+     */
+    private function isMoneyObject(array $value): bool
+    {
+        return array_key_exists('amount', $value) && array_key_exists('currency', $value);
+    }
+
+    /**
+     * @param array<mixed> $value
+     */
+    private function isListArray(array $value): bool
+    {
+        return array_keys($value) === range(0, count($value) - 1);
     }
 }

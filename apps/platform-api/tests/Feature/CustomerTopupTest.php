@@ -103,6 +103,79 @@ class CustomerTopupTest extends TestCase
         $this->assertSame(2, DB::table('topup_requests')->where('tenant_id', 'ten_cust_topup')->count());
     }
 
+    public function test_CustomerTopup_respects_tenant_payment_method_toggles(): void
+    {
+        $world = $this->prepareReservedCart('par_cust_topup_toggle', 'ten_cust_topup_toggle', 'customer-topup-toggle.m5.test', 'gam_cust_topup_toggle', '0804005001', 730101);
+
+        DB::table('tenant_payment_settings')->insert([
+            'id' => 'tps_customer_topup_toggle',
+            'tenant_id' => 'ten_cust_topup_toggle',
+            'status' => 'active',
+            'provider_mode' => 'manual_only',
+            'default_currency' => 'THB',
+            'allow_manual_topup' => true,
+            'allow_external_payment' => false,
+            'payment_provider_status' => 'manual_only',
+            'config_json' => json_encode([
+                'payment_methods' => [
+                    'qr' => ['enabled' => false],
+                    'credit_card' => ['enabled' => false],
+                    'bank_transfer' => ['enabled' => true],
+                ],
+            ], JSON_THROW_ON_ERROR),
+            'secret_status_json' => json_encode([], JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/topups')
+            ->assertOk()
+            ->assertJsonPath('payment_methods.0.key', 'qr')
+            ->assertJsonPath('payment_methods.0.enabled', false)
+            ->assertJsonPath('payment_methods.1.key', 'credit_card')
+            ->assertJsonPath('payment_methods.1.enabled', false)
+            ->assertJsonPath('payment_methods.2.key', 'bank_transfer')
+            ->assertJsonPath('payment_methods.2.enabled', true)
+            ->assertJsonPath('enabled_payment_methods.0', 'bank_transfer');
+
+        $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/topups', [
+                'channel' => 'qr',
+                'amount' => 20000,
+            ], [
+                'Idempotency-Key' => 'customer-topup-disabled-qr',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.channel.0', 'This payment method is currently disabled.');
+
+        $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/topups/credit', [
+                'amount' => 400,
+            ], [
+                'Idempotency-Key' => 'customer-topup-disabled-credit',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.details.fields.channel.0', 'This payment method is currently disabled.');
+
+        $bankTopup = $this->withToken($world['auth']['token'])
+            ->postJson('http://'.$world['host'].'/api/v1/customer/topups', [
+                'channel' => 'bank_transfer',
+                'amount' => 20000,
+                'transfer_at' => now()->toISOString(),
+            ], [
+                'Idempotency-Key' => 'customer-topup-enabled-bank-transfer',
+            ])
+            ->assertCreated()
+            ->json();
+
+        $this->assertDatabaseHas('topup_requests', [
+            'id' => $bankTopup['id'],
+            'tenant_id' => 'ten_cust_topup_toggle',
+            'channel' => 'bank_transfer',
+        ]);
+    }
+
     public function test_CustomerWallet_ledger_lists_current_customer_movements(): void
     {
         $world = $this->prepareReservedCart('par_cust_wallet', 'ten_cust_wallet', 'customer-wallet.m5.test', 'gam_cust_wallet', '0804005333', 730301);

@@ -71,6 +71,16 @@ export interface SiteConfig {
     bot_basic_id?: string | null
     add_friend_url?: string | null
   }
+  payment?: {
+    methods?: Array<{
+      key?: string
+      label?: string
+      description?: string
+      enabled?: boolean
+      sort_order?: number
+    }>
+    enabled_methods?: string[]
+  }
   [key: string]: unknown
 }
 

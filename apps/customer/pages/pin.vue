@@ -38,24 +38,31 @@
           <i class="bi bi-shield-lock" />
         </div>
         <h2>รีเซ็ต PIN</h2>
-        <p>กรอกรหัสผ่านบัญชีของคุณเพื่อยืนยันตัวตนก่อนตั้ง PIN ใหม่</p>
+        <p>กรอกรหัส OTP 6 หลักที่ส่งไปยังเบอร์โทรศัพท์บัญชีนี้ก่อนตั้ง PIN ใหม่</p>
 
         <form class="pin-reset-form" @submit.prevent="submitResetPassword">
-          <label for="pin-reset-password">รหัสผ่าน</label>
+          <label for="pin-reset-otp">รหัส OTP</label>
           <input
-            id="pin-reset-password"
-            v-model="resetPassword"
-            type="password"
-            autocomplete="current-password"
-            inputmode="text"
-            placeholder="กรอกรหัสผ่าน"
+            id="pin-reset-otp"
+            v-model="resetOtp"
+            type="tel"
+            autocomplete="one-time-code"
+            inputmode="numeric"
+            maxlength="6"
+            pattern="[0-9]*"
+            placeholder="กรอกรหัส OTP"
             :disabled="isSubmitting"
+            @beforeinput="allowDigitsOnly"
+            @input="sanitizeResetOtp"
           >
           <p class="pin-reset-error" :class="{ visible: Boolean(passwordError) }">
             {{ passwordError }}
           </p>
-          <button class="pin-reset-submit" type="submit" :disabled="isSubmitting || resetPassword.trim() === ''">
-            {{ isSubmitting ? 'กำลังตรวจสอบ' : 'ยืนยันรหัสผ่าน' }}
+          <button class="pin-reset-submit" type="submit" :disabled="isSubmitting || resetOtp.trim().length !== 6">
+            {{ isSubmitting ? 'กำลังตรวจสอบ' : 'ยืนยัน OTP' }}
+          </button>
+          <button class="pin-reset-secondary" type="button" :disabled="isSubmitting || resendCountdown > 0" @click="requestPinResetOtp">
+            {{ resendCountdown > 0 ? `ส่งรหัสใหม่ได้ใน ${resendCountdown} วินาที` : 'ส่งรหัสใหม่' }}
           </button>
           <button class="pin-reset-secondary" type="button" :disabled="isSubmitting" @click="handleBack">
             กลับไปกรอก PIN
@@ -84,11 +91,15 @@ const pinConfirmation = ref('')
 const setupStep = ref<SetupStep>('pin')
 const resetStep = ref<ResetStep>('pin')
 const resetPassword = ref('')
+const resetOtp = ref('')
+const resetOtpToken = ref('')
 const resetPinValue = ref('')
 const resetPinConfirmation = ref('')
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 const passwordError = ref('')
+const resendCountdown = ref(0)
+let resendTimer: ReturnType<typeof setInterval> | null = null
 
 const mode = computed(() => hasPin.value ? 'verify' : 'setup')
 const isResetFlow = computed(() => mode.value === 'verify' && resetStep.value !== 'pin')
@@ -186,6 +197,8 @@ const resetPinEntry = () => {
 const resetResetPinEntry = () => {
   resetStep.value = 'pin'
   resetPassword.value = ''
+  resetOtp.value = ''
+  resetOtpToken.value = ''
   resetPinValue.value = ''
   resetPinConfirmation.value = ''
   passwordError.value = ''
@@ -209,28 +222,81 @@ const startResetPin = () => {
     return
   }
 
+  void requestPinResetOtp()
+}
+
+const allowDigitsOnly = (event: InputEvent) => {
+  if (event.data && !/^\d+$/.test(event.data)) {
+    event.preventDefault()
+  }
+}
+
+const sanitizeResetOtp = () => {
+  resetOtp.value = resetOtp.value.replace(/\D/g, '').slice(0, 6)
+}
+
+const startResendCountdown = (seconds: number) => {
+  resendCountdown.value = Math.max(0, Number(seconds) || 0)
+  if (resendTimer) {
+    clearInterval(resendTimer)
+  }
+  if (resendCountdown.value <= 0) {
+    return
+  }
+  resendTimer = setInterval(() => {
+    resendCountdown.value = Math.max(0, resendCountdown.value - 1)
+    if (resendCountdown.value <= 0 && resendTimer) {
+      clearInterval(resendTimer)
+      resendTimer = null
+    }
+  }, 1000)
+}
+
+const requestPinResetOtp = async () => {
+  if (isSubmitting.value) {
+    return
+  }
+
   pin.value = ''
   pinConfirmation.value = ''
   errorMessage.value = ''
   passwordError.value = ''
   resetPassword.value = ''
+  resetOtp.value = ''
+  resetOtpToken.value = ''
   resetPinValue.value = ''
   resetPinConfirmation.value = ''
-  resetStep.value = 'password'
+  isSubmitting.value = true
+
+  try {
+    const response = await platformApi.requestPinResetOtp()
+    resetStep.value = 'password'
+    startResendCountdown(response?.resend_after_seconds || 60)
+  } catch (error: any) {
+    const code = error?.data?.error?.code || error?.response?._data?.error?.code || error?.response?.data?.error?.code
+    passwordError.value = code === 'sms_otp_provider_not_configured'
+      ? 'ร้านค้ายังไม่ได้ตั้งค่า SMS OTP กรุณาติดต่อผู้ดูแลร้านค้า'
+      : error?.data?.error?.message || error?.response?._data?.error?.message || error?.response?.data?.error?.message || 'ไม่สามารถส่ง OTP ได้ กรุณาลองใหม่อีกครั้ง'
+    resetStep.value = 'password'
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
 const submitResetPassword = async () => {
-  if (isSubmitting.value || resetPassword.value.trim() === '') {
+  if (isSubmitting.value || resetOtp.value.trim().length !== 6) {
     return
   }
 
   isSubmitting.value = true
   passwordError.value = ''
+  sanitizeResetOtp()
 
   try {
-    await platformApi.verifyPinResetPassword({
-      password: resetPassword.value
+    const response = await platformApi.verifyPinResetOtp({
+      otp: resetOtp.value
     })
+    resetOtpToken.value = response?.otp_verification_token || ''
     resetPinValue.value = ''
     resetPinConfirmation.value = ''
     resetStep.value = 'new'
@@ -253,17 +319,18 @@ const submitResetPin = async () => {
   errorMessage.value = ''
 
   try {
-    const response = await platformApi.resetPin({
+    const response = await platformApi.confirmPinResetOtp({
       pin: resetPinValue.value,
-      pin_confirmation: resetPinConfirmation.value
+      pin_confirmation: resetPinConfirmation.value,
+      otp_verification_token: resetOtpToken.value
     })
 
     await applyPinResponse(response)
   } catch (error: any) {
     const code = error?.response?.data?.error?.code || error?.response?.data?.code
 
-    if (code === 'pin_reset_not_verified') {
-      passwordError.value = 'กรุณายืนยันรหัสผ่านอีกครั้ง'
+    if (code === 'otp_invalid' || code === 'otp_required') {
+      passwordError.value = 'กรุณายืนยัน OTP อีกครั้ง'
       resetStep.value = 'password'
     } else {
       errorMessage.value = error?.response?.data?.message || 'ไม่สามารถตั้ง PIN ใหม่ได้ กรุณาลองใหม่อีกครั้ง'
@@ -444,6 +511,9 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeydown)
+  if (resendTimer) {
+    clearInterval(resendTimer)
+  }
 })
 </script>
 

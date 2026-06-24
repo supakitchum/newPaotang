@@ -8,6 +8,7 @@ use App\Models\TenantPaymentSetting;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Support\ThaiBankCatalog;
+use App\Support\TenantPaymentMethods;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -270,6 +271,7 @@ class TenantPaymentSettingsService
                     'account_name' => 'Tenant Wallet',
                     'account_number' => '000-000-0000',
                 ],
+                'payment_methods' => TenantPaymentMethods::defaults(),
             ],
             'secret_status_json' => [],
             'created_at' => now(),
@@ -494,6 +496,8 @@ class TenantPaymentSettingsService
             'allow_external_payment' => (bool) $settings->allow_external_payment,
             'payment_provider_status' => (string) $settings->payment_provider_status,
             'config' => $settings->config_json ?? [],
+            'payment_methods' => TenantPaymentMethods::normalize(is_array($settings->config_json) ? $settings->config_json : []),
+            'enabled_payment_methods' => TenantPaymentMethods::enabledKeys(is_array($settings->config_json) ? $settings->config_json : []),
             'bank_transfer' => $this->bankTransferResource(is_array($settings->config_json) ? $settings->config_json : []),
             'bank_catalog' => ThaiBankCatalog::all(),
             'secret_status' => $settings->secret_status_json ?? [],

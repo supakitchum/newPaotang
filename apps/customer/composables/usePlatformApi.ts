@@ -964,6 +964,12 @@ export const usePlatformApi = () => {
 
   const resetPassword = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/customer/auth/password/reset', payload))
 
+  const requestOtp = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/customer/auth/otp/request', payload))
+
+  const verifyOtp = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/customer/auth/otp/verify', payload))
+
+  const resetPasswordWithOtp = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/customer/auth/password/reset/otp', payload))
+
   const me = async () => unwrapData<AnyRecord>(await axios.get('/customer/auth/me'))
 
   const pinStatus = async () => unwrapData<AnyRecord>(await axios.get('/customer/auth/pin/status'))
@@ -977,6 +983,12 @@ export const usePlatformApi = () => {
   const verifyPinResetPassword = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/customer/auth/pin/reset/verify-password', payload))
 
   const resetPin = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/customer/auth/pin/reset', payload))
+
+  const requestPinResetOtp = async () => unwrapData<AnyRecord>(await axios.post('/customer/auth/pin/reset/request-otp', {}))
+
+  const verifyPinResetOtp = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/customer/auth/pin/reset/verify-otp', payload))
+
+  const confirmPinResetOtp = async (payload: AnyRecord) => unwrapData<AnyRecord>(await axios.post('/customer/auth/pin/reset/confirm-otp', payload))
 
   const refresh = async (refreshToken: string | null | undefined) => {
     if (!refreshToken) {
@@ -1471,6 +1483,9 @@ export const usePlatformApi = () => {
     login,
     forgotPassword,
     resetPassword,
+    requestOtp,
+    verifyOtp,
+    resetPasswordWithOtp,
     me,
     pinStatus,
     setupPin,
@@ -1478,6 +1493,9 @@ export const usePlatformApi = () => {
     changePin,
     verifyPinResetPassword,
     resetPin,
+    requestPinResetOtp,
+    verifyPinResetOtp,
+    confirmPinResetOtp,
     refresh,
     logout,
     register,

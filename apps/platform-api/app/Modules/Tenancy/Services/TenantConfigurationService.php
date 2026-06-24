@@ -9,11 +9,13 @@ use App\Models\PartnerTenantSetting;
 use App\Models\PartnerTenantTheme;
 use App\Models\PlatformSystemSetting;
 use App\Models\TenantLineChannel;
+use App\Models\TenantPaymentSetting;
 use App\Shared\Audit\AuditLogger;
 use App\Shared\Auth\AdminSessionContext;
 use App\Modules\Maintenance\Services\MaintenanceService;
 use App\Shared\Tenancy\PartnerBoHostResolver;
 use App\Shared\Tenancy\TenantHostNormalizer;
+use App\Support\TenantPaymentMethods;
 use App\Support\YoutubeLiveUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -382,6 +384,7 @@ class TenantConfigurationService
             'live' => $this->livePayload($settings),
             'legal' => $this->legalPayload($settings),
             'line' => $this->linePayload((string) $record->tenant_id),
+            'payment' => $this->paymentPayload((string) $record->tenant_id),
             'timestamps' => [
                 'config_version' => max((int) $settings->config_version, (int) $theme->config_version),
                 'updated_at' => max((string) $settings->updated_at, (string) $theme->updated_at),
@@ -477,6 +480,34 @@ class TenantConfigurationService
             'bot_basic_id' => $botBasicId !== '' ? $botBasicId : null,
             'add_friend_url' => $botBasicId !== '' ? 'https://line.me/R/ti/p/@'.ltrim($botBasicId, '@') : null,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function paymentPayload(string $tenantId): array
+    {
+        if (! Schema::hasTable('tenant_payment_settings')) {
+            return TenantPaymentMethods::customerPayload(null);
+        }
+
+        $settings = TenantPaymentSetting::query()
+            ->where('tenant_id', $tenantId)
+            ->first();
+
+        if ($settings !== null && ! in_array((string) $settings->status, ['active'], true)) {
+            $disabled = TenantPaymentMethods::normalize(is_array($settings->config_json) ? $settings->config_json : []);
+            foreach ($disabled as $key => $method) {
+                $disabled[$key]['enabled'] = false;
+            }
+
+            return [
+                'methods' => array_values($disabled),
+                'enabled_methods' => [],
+            ];
+        }
+
+        return TenantPaymentMethods::customerPayload(is_array($settings?->config_json) ? $settings->config_json : null);
     }
 
     private function ensureSettings(object $tenant): object

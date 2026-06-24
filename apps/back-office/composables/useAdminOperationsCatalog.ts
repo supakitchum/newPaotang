@@ -122,7 +122,7 @@ export type OperationRelatedList = {
   title: string
   listEndpoint: string
   detailEndpoint?: string
-  detailRenderer?: 'reward' | 'price-rule' | 'partner' | 'customer' | 'wallet' | 'order' | 'topup'
+  detailRenderer?: 'reward' | 'price-rule' | 'partner' | 'customer' | 'wallet' | 'order' | 'topup' | 'audit-log'
   detailFields?: OperationColumn[]
   idParam: string
   idKey?: string
@@ -170,7 +170,7 @@ export type OperationResource = {
   detailFields?: OperationColumn[]
   reportKeys?: string[]
   detailJsonEditor?: boolean
-  detailRenderer?: 'reward' | 'price-rule' | 'partner' | 'customer' | 'wallet' | 'order' | 'topup'
+  detailRenderer?: 'reward' | 'price-rule' | 'partner' | 'customer' | 'wallet' | 'order' | 'topup' | 'audit-log'
   defaultQuery?: Record<string, any>
   stockGrouped?: boolean
   stockSummaryEndpoint?: string
@@ -295,14 +295,12 @@ const partnerStockPercentField = (overrides: Partial<OperationFormField> = {}): 
 })
 
 const auditColumns: OperationColumn[] = [
-  { key: 'id', label: 'Log' },
-  { key: 'action', label: 'Action' },
-  { key: 'actor_id', label: 'Actor' },
-  { key: 'target_type', label: 'Target' },
-  { key: 'target_id', label: 'Target ID' },
-  { key: 'tenant_id', label: 'Tenant' },
+  { key: 'created_at', label: 'When', type: 'datetime' },
+  { key: 'action_label', label: 'Action' },
+  { key: 'actor_label', label: 'Actor' },
+  { key: 'target_label', label: 'Target' },
+  { key: 'payload_summary', label: 'Changes' },
   { key: 'request_id', label: 'Request' },
-  { key: 'created_at', label: 'Created', type: 'datetime' },
 ]
 
 const syncColumns: OperationColumn[] = [
@@ -1161,7 +1159,7 @@ const affiliateAccountDetailFields: OperationColumn[] = [
   { key: 'customer_name', label: 'Customer name' },
   { key: 'code', label: 'Generated code' },
   { key: 'canonical_url', label: 'Referral URL', fallbackKeys: ['referral_url', 'url'] },
-  { key: 'name', label: 'Name' },
+  { key: 'name', label: 'Store name' },
   { key: 'phone', label: 'Phone' },
   { key: 'email', label: 'Email' },
   { key: 'status', label: 'Status', type: 'status' },
@@ -1241,7 +1239,7 @@ const affiliateProgramCreateFields: OperationFormField[] = [
 const affiliateProgramUpdateFields = updateFields(affiliateProgramCreateFields)
 const affiliateAccountCreateFields: OperationFormField[] = [
   customerSelectField(),
-  { key: 'name', label: 'Name', required: true, placeholder: 'Affiliate Alpha' },
+  { key: 'name', label: 'Store name', required: true, placeholder: 'Lucky Affiliate Shop', help: 'This name appears in the customer store list.' },
   { key: 'phone', label: 'Phone' },
   { key: 'email', label: 'Email', placeholder: 'affiliate@example.test' },
   { key: 'status', label: 'Status', type: 'select', options: affiliateStatusOptions, defaultValue: 'active' },
@@ -2272,6 +2270,7 @@ const tenant: OperationResource[] = [
     detailFields: affiliateAccountDetailFields,
     columns: [
       { key: 'code', label: 'Code' },
+      { key: 'name', label: 'Store name' },
       { key: 'customer_no', label: 'Customer no' },
       { key: 'customer_name', label: 'Customer name' },
       { key: 'visitor_count', label: 'Visitors', type: 'number' },
@@ -2504,6 +2503,9 @@ const tenant: OperationResource[] = [
       { key: 'allow_external_payment', label: 'Allow external payment', type: 'checkbox', defaultValue: false },
       { key: 'payment_provider_status', label: 'Provider status', type: 'select', options: ['blocked_external', 'local_dev_configured', 'manual_only', 'disabled'], defaultValue: 'manual_only' },
       { key: 'config.display_name', label: 'Display name', placeholder: 'Optional customer-facing payment label' },
+      { key: 'config.payment_methods.qr.enabled', sourceKey: 'payment_methods.qr.enabled', label: 'Enable QR Code topup', type: 'checkbox', defaultValue: true, help: 'Show QR Code topup on the customer topup page.' },
+      { key: 'config.payment_methods.credit_card.enabled', sourceKey: 'payment_methods.credit_card.enabled', label: 'Enable credit card QR topup', type: 'checkbox', defaultValue: true, help: 'Show credit card QR topup on the customer topup page.' },
+      { key: 'config.payment_methods.bank_transfer.enabled', sourceKey: 'payment_methods.bank_transfer.enabled', label: 'Enable bank transfer topup', type: 'checkbox', defaultValue: true, help: 'Show bank transfer with slip upload on the customer topup page.' },
       { key: 'config.bank_transfer.bank_code', label: 'Bank transfer bank', type: 'select', options: thaiBankOptions, defaultValue: 'kbank' },
       { key: 'config.bank_transfer.account_name', label: 'Bank account name', placeholder: 'Tenant Wallet' },
       { key: 'config.bank_transfer.account_number', label: 'Bank account number', placeholder: '000-000-0000' },
@@ -2677,8 +2679,16 @@ const tenant: OperationResource[] = [
     title: 'Audit Logs',
     group: 'Tenant Operations',
     listEndpoint: '/admin/tenant/audit-logs',
+    detailEndpoint: '/admin/tenant/audit-logs/{audit_log_id}',
     columns: auditColumns,
-    filters: cursorFilters([{ key: 'action', label: 'Action' }]),
+    filters: cursorFilters([
+      { key: 'q', label: 'Search' },
+      { key: 'action', label: 'Action code' },
+      { key: 'actor_id', label: 'Actor ID' },
+      { key: 'target_type', label: 'Target type' },
+      { key: 'target_id', label: 'Target ID' },
+    ]),
+    detailRenderer: 'audit-log',
   },
   {
     scope: 'tenant',
@@ -3352,8 +3362,17 @@ const central: OperationResource[] = [
     title: 'Audit Logs',
     group: 'Central Operations',
     listEndpoint: '/admin/central/audit-logs',
+    detailEndpoint: '/admin/central/audit-logs/{audit_log_id}',
     columns: auditColumns,
-    filters: cursorFilters([{ key: 'actor_id', label: 'Actor ID' }, { key: 'action', label: 'Action' }]),
+    filters: cursorFilters([
+      { key: 'q', label: 'Search' },
+      { key: 'actor_id', label: 'Actor ID' },
+      { key: 'action', label: 'Action code' },
+      { key: 'target_type', label: 'Target type' },
+      { key: 'target_id', label: 'Target ID' },
+      { key: 'request_id', label: 'Request ID' },
+    ]),
+    detailRenderer: 'audit-log',
   },
   {
     scope: 'central',
