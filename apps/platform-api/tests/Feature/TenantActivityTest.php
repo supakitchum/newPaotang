@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Modules\Activities\Services\TenantActivityService;
+use App\Modules\Activities\Events\ActivityClaimUpdated;
 use App\Shared\Auth\AdminSessionContext;
 use App\Shared\Auth\CustomerSessionContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -15,6 +16,19 @@ class TenantActivityTest extends TestCase
 {
     use PartnerStoreFixtures;
     use RefreshDatabase;
+
+    public function test_activity_claim_updated_event_broadcasts_to_current_customer_channel(): void
+    {
+        $event = new ActivityClaimUpdated([
+            'tenant_id' => 'ten_activity_rt',
+            'customer_id' => 'cus_activity_rt',
+            'claim_id' => 'acl_activity_rt',
+        ]);
+
+        $this->assertSame([
+            'private-customer.tenant.ten_activity_rt.customer.cus_activity_rt.activity-claims',
+        ], array_map(fn (object $channel): string => (string) $channel->name, $event->broadcastOn()));
+    }
 
     public function test_lucky_board_rights_use_paid_ticket_counts_and_block_overuse(): void
     {

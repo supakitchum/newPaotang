@@ -61,6 +61,7 @@ const scopedRouteOverrides: Record<string, string> = {
   'tenant:customers': '/admin/tenant/customers',
   'tenant:announcements': '/admin/tenant/announcements',
   'tenant:line_notifications': '/admin/tenant/line-notifications',
+  'tenant:social_login': '/admin/tenant/social-login',
   'tenant:sms_otp': '/admin/tenant/sms-otp',
   'tenant:password_reset_requests': '/admin/tenant/password-reset-requests',
   'tenant:activities': '/admin/tenant/activities',
@@ -146,6 +147,7 @@ export const useAdminNavigation = () => {
     const key = item.key || ''
     if (key.includes('announcement')) return 'ri-megaphone-line'
     if (key.includes('line_notification')) return 'ri-line-line'
+    if (key.includes('social_login')) return 'ri-login-circle-line'
     if (key.includes('sms_otp')) return 'ri-message-2-line'
     if (key.includes('password_reset')) return 'ri-lock-password-line'
     if (key.includes('storage')) return 'ri-database-2-line'

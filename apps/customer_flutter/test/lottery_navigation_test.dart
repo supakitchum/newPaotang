@@ -1,0 +1,73 @@
+import 'package:customer_flutter/features/lottery/presentation/lottery_navigation.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('lotterySearchPath preserves digit filters and store context', () {
+    final uri = Uri.parse(
+      lotterySearchPath(
+        digits: ['2', 'x', '3', '', '7', '09'],
+        storeId: 'store_1',
+      ),
+    );
+
+    expect(uri.path, '/buy/search');
+    expect(uri.queryParameters['d1'], '2');
+    expect(uri.queryParameters.containsKey('d2'), isFalse);
+    expect(uri.queryParameters['d3'], '3');
+    expect(uri.queryParameters['d5'], '7');
+    expect(uri.queryParameters['d6'], '0');
+    expect(uri.queryParameters['store_id'], 'store_1');
+  });
+
+  test('lotterySearchPath uses exact number before digit filters', () {
+    final uri = Uri.parse(
+      lotterySearchPath(
+        number: '12-34-56-99',
+        digits: const ['9', '9', '9', '9', '9', '9'],
+      ),
+    );
+
+    expect(uri.queryParameters['number'], '123456');
+    expect(uri.queryParameters.containsKey('d1'), isFalse);
+  });
+
+  test('lotteryMorePath carries safe back path for search restore', () {
+    final back = lotterySearchPath(
+      digits: const ['2', '', '3'],
+      storeId: 'store_1',
+    );
+    final uri = Uri.parse(
+      lotteryMorePath(
+        number: '273707',
+        storeId: 'store_1',
+        backPath: back,
+      ),
+    );
+
+    expect(uri.path, '/buy/more');
+    expect(uri.queryParameters['number'], '273707');
+    expect(uri.queryParameters['store_id'], 'store_1');
+    expect(uri.queryParameters['back'], back);
+  });
+
+  test('safeLotteryBackPath rejects external and non-lottery destinations', () {
+    expect(safeLotteryBackPath('https://evil.test/buy'), '/buy');
+    expect(safeLotteryBackPath('//evil.test/buy'), '/buy');
+    expect(safeLotteryBackPath('/profile'), '/buy');
+    expect(
+      safeLotteryBackPath('/buy/search?number=123456&store_id=store_1'),
+      '/buy/search?number=123456&store_id=store_1',
+    );
+  });
+
+  test('lotteryMorePath omits unsafe back path', () {
+    final uri = Uri.parse(
+      lotteryMorePath(
+        number: '273707',
+        backPath: 'https://evil.test/buy/search',
+      ),
+    );
+
+    expect(uri.queryParameters.containsKey('back'), isFalse);
+  });
+}

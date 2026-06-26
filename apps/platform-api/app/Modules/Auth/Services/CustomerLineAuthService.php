@@ -24,6 +24,7 @@ class CustomerLineAuthService
         private readonly CustomerPasswordResetService $passwordResets,
         private readonly LineMessagingClient $line,
         private readonly TenantLineNotificationService $lineNotifications,
+        private readonly TenantSocialAuthService $socialAuth,
         private readonly CustomerSuspensionService $customerSuspensions,
     ) {
     }
@@ -38,11 +39,15 @@ class CustomerLineAuthService
         $channel = $this->lineNotifications->activeChannelForTenant((string) $tenant['tenant_id']);
 
         if (! $this->lineNotifications->channelReadyForLogin($channel)) {
+            if ($this->legacyLineConfigReady()) {
+                return $this->legacyBlockedRedirect($tenant, $payload, $request);
+            }
+
             return $this->providerBlocked('provider_not_configured');
         }
 
         $state = 'line_'.bin2hex(random_bytes(24));
-        $redirectUri = $this->callbackUrl($request);
+        $redirectUri = $this->callbackUrl($tenant);
         $stateId = 'les_'.Str::ulid()->toBase32();
         $loginChannelId = $this->lineNotifications->decrypted($channel, 'login_channel_id_encrypted');
         $purpose = $this->linePurpose($payload['purpose'] ?? null);
@@ -89,10 +94,6 @@ class CustomerLineAuthService
     {
         $channel = $this->lineNotifications->activeChannelForTenant((string) $tenant['tenant_id']);
 
-        if (! $this->lineNotifications->channelReadyForLogin($channel)) {
-            return $this->providerBlocked('provider_not_configured');
-        }
-
         $code = trim((string) ($query['code'] ?? ''));
         $state = trim((string) ($query['state'] ?? ''));
 
@@ -113,45 +114,37 @@ class CustomerLineAuthService
             ];
         }
 
-        $stateRecord = DB::transaction(function () use ($tenant, $state, $request): ?CustomerExternalAuthState {
-            $record = CustomerExternalAuthState::query()
-                ->where('tenant_id', $tenant['tenant_id'])
-                ->where('provider', self::PROVIDER)
-                ->where('state_hash', hash('sha256', $state))
-                ->where('status', 'pending')
-                ->whereNull('consumed_at')
-                ->where('expires_at', '>', now())
-                ->lockForUpdate()
-                ->first();
-
-            if ($record === null) {
-                return null;
+        if (! $this->lineNotifications->channelReadyForLogin($channel)) {
+            if (! $this->legacyLineConfigReady()) {
+                return $this->providerBlocked('provider_not_configured');
             }
 
-            $metadata = is_array($record->metadata_json) ? $record->metadata_json : [];
-            $host = (string) ($metadata['host'] ?? '');
+            $stateRecord = $this->consumePendingState($tenant, $state, $request);
 
-            if ($host === '' || ! hash_equals($host, $request->getHost())) {
-                return null;
+            if ($stateRecord === null) {
+                return ['error' => 'authentication_required'];
             }
 
-            CustomerExternalAuthState::query()
-                ->where('id', $record->id)
-                ->update([
-                    'status' => 'consumed',
-                    'consumed_at' => now(),
-                    'updated_at' => now(),
-                ]);
+            return [
+                'error' => 'provider_exchange_blocked',
+                'details' => [
+                    'provider' => self::PROVIDER,
+                    'provider_status' => 'blocked_external',
+                    'production_line_ready' => false,
+                    'line_code' => '[REDACTED]',
+                    'reason' => 'LINE login is running in legacy blocked mode.',
+                ],
+            ];
+        }
 
-            return $record;
-        });
+        $stateRecord = $this->consumePendingState($tenant, $state, $request);
 
         if ($stateRecord === null) {
             return ['error' => 'authentication_required'];
         }
 
         $metadata = is_array($stateRecord->metadata_json) ? $stateRecord->metadata_json : [];
-        $redirectUri = (string) ($metadata['redirect_uri'] ?? $this->callbackUrl($request));
+        $redirectUri = (string) ($metadata['redirect_uri'] ?? $this->callbackUrl($tenant));
         $purpose = $this->linePurpose($metadata['purpose'] ?? null);
         $exchange = $this->line->exchangeLoginCode(
             $this->lineNotifications->decrypted($channel, 'login_channel_id_encrypted'),
@@ -472,6 +465,52 @@ class CustomerLineAuthService
         ];
     }
 
+    /**
+     * @param array<string, mixed> $tenant
+     * @param array<string, mixed> $payload
+     * @return array{resource: array<string, mixed>, status: int}
+     */
+    private function legacyBlockedRedirect(array $tenant, array $payload, Request $request): array
+    {
+        $state = 'line_'.bin2hex(random_bytes(24));
+        $redirectUri = $this->legacyCallbackUrl($tenant);
+        $stateId = 'les_'.Str::ulid()->toBase32();
+        $clientId = trim((string) config('platform.line.client_id', ''));
+        $purpose = $this->linePurpose($payload['purpose'] ?? null);
+
+        CustomerExternalAuthState::query()->insert([
+            'id' => $stateId,
+            'tenant_id' => (string) $tenant['tenant_id'],
+            'provider' => self::PROVIDER,
+            'state_hash' => hash('sha256', $state),
+            'store_id' => $this->nullableString($payload['store_id'] ?? null),
+            'status' => 'pending',
+            'redirect_uri' => $redirectUri,
+            'expires_at' => now()->addSeconds((int) config('platform.line.state_ttl_seconds', 600)),
+            'consumed_at' => null,
+            'metadata_json' => json_encode([
+                'host' => $request->getHost(),
+                'redirect_uri' => $redirectUri,
+                'line_channel_id' => $clientId,
+                'purpose' => $purpose,
+                'provider_readiness' => 'blocked_external',
+                'production_line_ready' => false,
+            ], JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return [
+            'resource' => [
+                'url' => $this->authorizationUrl($clientId, $state, $redirectUri),
+                'provider' => self::PROVIDER,
+                'provider_status' => 'blocked_external',
+                'production_line_ready' => false,
+            ],
+            'status' => 200,
+        ];
+    }
+
     private function authorizationUrl(string $clientId, string $state, string $redirectUri): string
     {
         return (string) config('platform.line.authorize_url', 'https://access.line.me/oauth2/v2.1/authorize').'?'.http_build_query([
@@ -484,7 +523,7 @@ class CustomerLineAuthService
         ]);
     }
 
-    private function callbackUrl(Request $request): string
+    private function callbackUrl(array $tenant): string
     {
         $configured = trim((string) config('platform.line.callback_url', ''));
 
@@ -492,12 +531,57 @@ class CustomerLineAuthService
             return $configured;
         }
 
-        return $this->callbackScheme($request->getHost()).'://'.$request->getHttpHost().'/line/callback';
+        return $this->socialAuth->customerCallbackUrl((string) $tenant['tenant_id'], self::PROVIDER);
     }
 
-    private function callbackScheme(string $host): string
+    private function legacyCallbackUrl(array $tenant): string
     {
-        return preg_match('/(^localhost$|\.localhost$|\.test$)/i', $host) === 1 ? 'http' : 'https';
+        $configured = trim((string) config('platform.line.callback_url', ''));
+
+        return $configured !== '' ? $configured : $this->callbackUrl($tenant);
+    }
+
+    private function legacyLineConfigReady(): bool
+    {
+        return trim((string) config('platform.line.client_id', '')) !== ''
+            && trim((string) config('platform.line.client_secret', '')) !== ''
+            && trim((string) config('platform.line.callback_url', '')) !== '';
+    }
+
+    private function consumePendingState(array $tenant, string $state, Request $request): ?CustomerExternalAuthState
+    {
+        return DB::transaction(function () use ($tenant, $state, $request): ?CustomerExternalAuthState {
+            $record = CustomerExternalAuthState::query()
+                ->where('tenant_id', $tenant['tenant_id'])
+                ->where('provider', self::PROVIDER)
+                ->where('state_hash', hash('sha256', $state))
+                ->where('status', 'pending')
+                ->whereNull('consumed_at')
+                ->where('expires_at', '>', now())
+                ->lockForUpdate()
+                ->first();
+
+            if ($record === null) {
+                return null;
+            }
+
+            $metadata = is_array($record->metadata_json) ? $record->metadata_json : [];
+            $host = (string) ($metadata['host'] ?? '');
+
+            if ($host === '' || ! hash_equals($host, $request->getHost())) {
+                return null;
+            }
+
+            CustomerExternalAuthState::query()
+                ->where('id', $record->id)
+                ->update([
+                    'status' => 'consumed',
+                    'consumed_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+            return $record;
+        });
     }
 
     private function createLinkToken(string $tenantId, array $profile, bool $friendFlag): string

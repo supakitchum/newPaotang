@@ -17,6 +17,20 @@ class RewardClaimTest extends TestCase
     use M7RewardFixtures;
     use RefreshDatabase;
 
+    public function test_RewardClaim_updated_event_broadcasts_to_admin_and_customer_channels(): void
+    {
+        $event = new RewardClaimUpdated([
+            'tenant_id' => 'ten_reward_rt',
+            'customer_id' => 'cus_reward_rt',
+            'claim_id' => 'rcl_reward_rt',
+        ]);
+
+        $this->assertSame([
+            'private-admin.tenant.ten_reward_rt.reward-claims',
+            'private-customer.tenant.ten_reward_rt.customer.cus_reward_rt.reward-claims',
+        ], array_map(fn (object $channel): string => (string) $channel->name, $event->broadcastOn()));
+    }
+
     public function test_RewardClaim_auto_claims_are_created_on_publish_for_wallet_and_bank_settings(): void
     {
         $walletWorld = $this->prepareRewardWorld('par_auto_wallet', 'ten_auto_wallet', 'auto-wallet.m7.test', 'gam_auto_wallet', '0807201100', 791101);

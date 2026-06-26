@@ -54,7 +54,7 @@ class PartnerStoreService
      */
     public function tenantContextForRequest(Request $request, bool|string $maintenanceOperation): array
     {
-        $host = $this->normalizeHost($request->getHost());
+        $host = $this->tenantHostForRequest($request);
         $record = PartnerTenantDomain::query()
             ->join('partner_tenants', 'partner_tenants.id', '=', 'partner_tenant_domains.tenant_id')
             ->join('partners', 'partners.id', '=', 'partner_tenant_domains.partner_id')
@@ -1377,6 +1377,28 @@ class PartnerStoreService
     private function normalizeHost(string $host): string
     {
         return TenantHostNormalizer::normalize($host);
+    }
+
+    private function tenantHostForRequest(Request $request): string
+    {
+        $hint = $this->firstForwardedHost((string) $request->headers->get('X-Tenant-Host', ''));
+
+        if ($hint === '') {
+            $hint = $this->firstForwardedHost((string) $request->headers->get('X-Forwarded-Host', ''));
+        }
+
+        return $this->normalizeHost($hint !== '' ? $hint : $request->getHost());
+    }
+
+    private function firstForwardedHost(string $value): string
+    {
+        $host = trim(explode(',', $value)[0] ?? '');
+
+        if ($host === '' || str_starts_with($host, '[')) {
+            return '';
+        }
+
+        return $host;
     }
 
     private function limit(mixed $value): int

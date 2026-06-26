@@ -92,6 +92,7 @@ class CustomerRealtimeAuthService
             'private-customer.tenant.'.$tenantId.'.customer.'.$customerId.'.topups',
             'private-customer.tenant.'.$tenantId.'.customer.'.$customerId.'.wallet',
             'private-customer.tenant.'.$tenantId.'.customer.'.$customerId.'.reward-claims',
+            'private-customer.tenant.'.$tenantId.'.customer.'.$customerId.'.activity-claims',
             'presence-customer.tenant.'.$tenantId.'.customers',
         ], true) || preg_match('/^private-customer\.tenant\.'.preg_quote($tenantId, '/').'\.stock\.game\.[A-Za-z0-9_-]+$/', $channelName) === 1;
     }

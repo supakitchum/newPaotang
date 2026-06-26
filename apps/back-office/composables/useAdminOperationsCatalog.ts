@@ -747,6 +747,8 @@ const tenantPermissionOptions = permissionOptions({
   'seo.redirect.manage': 'Manage tenant redirects',
   'announcement.view': 'View tenant announcements',
   'announcement.manage': 'Manage tenant announcements',
+  'social_login.view': 'View tenant social login provider settings',
+  'social_login.manage': 'Manage tenant social login provider settings',
   'maintenance.view': 'View maintenance settings',
   'maintenance.update': 'Update maintenance settings',
   'maintenance.schedule': 'Schedule maintenance',

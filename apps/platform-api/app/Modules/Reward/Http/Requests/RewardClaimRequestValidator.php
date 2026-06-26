@@ -23,7 +23,8 @@ class RewardClaimRequestValidator
             $errors['ticket_id'][] = 'The ticket_id field is required.';
         }
 
-        if (! preg_match('/^\d{6}$/', trim((string) ($payload['pin'] ?? '')))) {
+        $assertionToken = trim((string) ($payload['pin_assertion_token'] ?? ''));
+        if ($assertionToken === '' && ! preg_match('/^\d{6}$/', trim((string) ($payload['pin'] ?? '')))) {
             $errors['pin'][] = 'The pin field must contain exactly 6 digits.';
         }
 

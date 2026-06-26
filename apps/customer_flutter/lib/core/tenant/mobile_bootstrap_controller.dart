@@ -1,0 +1,401 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../config/app_config.dart';
+import '../i18n/app_locale.dart';
+import '../theme/app_theme.dart';
+import 'mobile_bootstrap_repository.dart';
+
+final mobileBootstrapProvider = FutureProvider<MobileBootstrap>((ref) async {
+  final config = ref.watch(appConfigProvider);
+  final data = await ref.watch(mobileBootstrapRepositoryProvider).load();
+  return MobileBootstrap.fromJson(data, defaultLocale: config.defaultLocale);
+});
+
+class MobileBootstrap {
+  const MobileBootstrap({
+    required this.siteName,
+    required this.tenantId,
+    required this.locale,
+    required this.supportPhone,
+    required this.brand,
+    required this.theme,
+    required this.authProviders,
+    required this.line,
+    required this.realtime,
+    required this.biometric,
+    required this.screenSecurity,
+    required this.featureFlags,
+    required this.termsContent,
+    required this.maintenance,
+  });
+
+  factory MobileBootstrap.fromJson(
+    Map<String, dynamic> json, {
+    String defaultLocale = 'th-TH',
+  }) {
+    final mobile = json['mobile'] is Map<String, dynamic>
+        ? json['mobile'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final site = json['site'] is Map<String, dynamic>
+        ? json['site'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final legal = json['legal'] is Map<String, dynamic>
+        ? json['legal'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final brand = json['brand'] is Map<String, dynamic>
+        ? json['brand'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final theme = json['theme'] is Map<String, dynamic>
+        ? json['theme'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final maintenance = json['maintenance'] is Map<String, dynamic>
+        ? json['maintenance'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final providers = mobile['auth_providers'] is List
+        ? (mobile['auth_providers'] as List)
+            .whereType<Map>()
+            .map(
+              (value) => SocialAuthProvider.fromJson(
+                Map<String, dynamic>.from(value),
+              ),
+            )
+            .where((value) => value.enabled && value.supported)
+            .toList()
+        : <SocialAuthProvider>[];
+    final biometric = mobile['biometric'] is Map<String, dynamic>
+        ? mobile['biometric'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final screenSecurity = mobile['screen_security'] is Map<String, dynamic>
+        ? mobile['screen_security'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final featureFlags = mobile['feature_flags'] is Map<String, dynamic>
+        ? mobile['feature_flags'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final line = mobile['line'] is Map<String, dynamic>
+        ? mobile['line'] as Map<String, dynamic>
+        : json['line'] is Map<String, dynamic>
+            ? json['line'] as Map<String, dynamic>
+            : <String, dynamic>{};
+    final realtime = mobile['realtime'] is Map<String, dynamic>
+        ? mobile['realtime'] as Map<String, dynamic>
+        : <String, dynamic>{};
+
+    return MobileBootstrap(
+      siteName: site['display_name']?.toString() ??
+          site['site_name']?.toString() ??
+          'Customer App',
+      tenantId: json['tenant_id']?.toString() ?? '',
+      locale: parseCustomerLocale(
+        site['locale']?.toString() ?? mobile['locale']?.toString(),
+        fallback: parseCustomerLocale(defaultLocale),
+      ),
+      supportPhone: site['support_phone']?.toString() ?? '',
+      brand: MobileBrandConfig.fromJson(brand),
+      theme: AppThemeTokens.fromJson(theme),
+      authProviders: providers,
+      line: MobileLineConfig.fromJson(line),
+      realtime: MobileRealtimeConfig.fromJson(realtime),
+      biometric: MobileBiometricConfig.fromJson(biometric),
+      screenSecurity: MobileScreenSecurityConfig.fromJson(screenSecurity),
+      featureFlags: MobileFeatureFlags.fromJson(featureFlags),
+      termsContent: legal['terms_content']?.toString() ?? '',
+      maintenance: MaintenanceConfig.fromJson(maintenance),
+    );
+  }
+
+  final String siteName;
+  final String tenantId;
+  final Locale locale;
+  final String supportPhone;
+  final MobileBrandConfig brand;
+  final AppThemeTokens theme;
+  final List<SocialAuthProvider> authProviders;
+  final MobileLineConfig line;
+  final MobileRealtimeConfig realtime;
+  final MobileBiometricConfig biometric;
+  final MobileScreenSecurityConfig screenSecurity;
+  final MobileFeatureFlags featureFlags;
+  final String termsContent;
+  final MaintenanceConfig maintenance;
+}
+
+class MobileRealtimeConfig {
+  const MobileRealtimeConfig({
+    required this.enabled,
+    required this.url,
+    required this.key,
+    required this.authEndpoint,
+    required this.protocol,
+    required this.client,
+  });
+
+  factory MobileRealtimeConfig.fromJson(Map<String, dynamic> json) {
+    final url = json['url']?.toString().trim() ?? '';
+    final key = json['key']?.toString().trim() ?? '';
+    final client = json['client']?.toString().trim() ?? '';
+    return MobileRealtimeConfig(
+      enabled: json['enabled'] == true && url.isNotEmpty,
+      url: url,
+      key: key.isEmpty ? 'newpaotang-customer' : key,
+      authEndpoint: json['auth_endpoint']?.toString().trim().isNotEmpty == true
+          ? json['auth_endpoint'].toString().trim()
+          : '/customer/realtime/auth',
+      protocol: int.tryParse(json['protocol']?.toString() ?? '') ?? 7,
+      client: client.isEmpty ? 'newpaotang-customer' : client,
+    );
+  }
+
+  final bool enabled;
+  final String url;
+  final String key;
+  final String authEndpoint;
+  final int protocol;
+  final String client;
+
+  bool get configured => enabled && url.isNotEmpty && key.isNotEmpty;
+}
+
+class MobileLineConfig {
+  const MobileLineConfig({
+    required this.liffId,
+    required this.liffEnabled,
+    required this.botBasicId,
+    required this.addFriendUrl,
+  });
+
+  factory MobileLineConfig.fromJson(Map<String, dynamic> json) {
+    final liffId = json['liff_id']?.toString().trim() ?? '';
+    final botBasicId = json['bot_basic_id']?.toString().trim() ?? '';
+
+    return MobileLineConfig(
+      liffId: liffId,
+      liffEnabled: json['liff_enabled'] == true || liffId.isNotEmpty,
+      botBasicId: botBasicId,
+      addFriendUrl: json['add_friend_url']?.toString().trim() ?? '',
+    );
+  }
+
+  final String liffId;
+  final bool liffEnabled;
+  final String botBasicId;
+  final String addFriendUrl;
+
+  bool get configured => liffEnabled && liffId.isNotEmpty;
+}
+
+class MobileBrandConfig {
+  const MobileBrandConfig({
+    required this.logoUrl,
+    required this.faviconUrl,
+    required this.ogImageUrl,
+  });
+
+  factory MobileBrandConfig.fromJson(Map<String, dynamic> json) {
+    return MobileBrandConfig(
+      logoUrl: json['logo_url']?.toString() ?? '',
+      faviconUrl: json['favicon_url']?.toString() ?? '',
+      ogImageUrl: json['og_image_url']?.toString() ?? '',
+    );
+  }
+
+  final String logoUrl;
+  final String faviconUrl;
+  final String ogImageUrl;
+}
+
+class SocialAuthProvider {
+  const SocialAuthProvider({
+    required this.provider,
+    required this.label,
+    required this.enabled,
+  });
+
+  factory SocialAuthProvider.fromJson(Map<String, dynamic> json) {
+    final provider = _normalizeSocialProvider(
+      json['provider']?.toString() ?? json['key']?.toString() ?? '',
+    );
+    final label = json['label']?.toString().trim() ?? '';
+
+    return SocialAuthProvider(
+      provider: provider,
+      label: label.isEmpty ? _defaultSocialProviderLabel(provider) : label,
+      enabled: json['enabled'] == true,
+    );
+  }
+
+  final String provider;
+  final String label;
+  final bool enabled;
+
+  bool get supported => _supportedSocialProviders.contains(provider);
+}
+
+class MobileBiometricConfig {
+  const MobileBiometricConfig({
+    required this.enabled,
+    required this.requiresPinSetup,
+    required this.assertionTokenTtlSeconds,
+    required this.platforms,
+  });
+
+  factory MobileBiometricConfig.fromJson(Map<String, dynamic> json) {
+    return MobileBiometricConfig(
+      enabled: json['enabled'] != false,
+      requiresPinSetup: json['requires_pin_setup'] != false,
+      assertionTokenTtlSeconds: int.tryParse(
+            json['assertion_token_ttl_seconds']?.toString() ?? '',
+          ) ??
+          180,
+      platforms: _platformMap(json['platforms']),
+    );
+  }
+
+  final bool enabled;
+  final bool requiresPinSetup;
+  final int assertionTokenTtlSeconds;
+  final Map<String, List<String>> platforms;
+
+  bool supportsPlatform(String platform) {
+    return platforms[platform.trim().toLowerCase()]?.isNotEmpty == true;
+  }
+}
+
+class MobileScreenSecurityConfig {
+  const MobileScreenSecurityConfig({
+    required this.androidFlagSecure,
+    required this.androidProtectRecentAppPreview,
+    required this.iosScreenshotPolicy,
+    required this.iosScreenCaptureOverlay,
+    required this.iosExitApp,
+    required this.webSensitiveScreenMode,
+    required this.webWatermarkEnabled,
+    required this.sensitiveRoutes,
+  });
+
+  factory MobileScreenSecurityConfig.fromJson(Map<String, dynamic> json) {
+    final android = json['android'] is Map<String, dynamic>
+        ? json['android'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final ios = json['ios'] is Map<String, dynamic>
+        ? json['ios'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final web = json['web'] is Map<String, dynamic>
+        ? json['web'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    return MobileScreenSecurityConfig(
+      androidFlagSecure: android['flag_secure'] != false,
+      androidProtectRecentAppPreview:
+          android['protect_recent_app_preview'] != false,
+      iosScreenshotPolicy:
+          ios['screenshot_policy']?.toString() ?? 'lock_and_blank',
+      iosScreenCaptureOverlay: ios['screen_capture_overlay'] != false,
+      iosExitApp: ios['exit_app'] == true,
+      webSensitiveScreenMode:
+          web['sensitive_screen_mode']?.toString() ?? 'limited',
+      webWatermarkEnabled: web['watermark_enabled'] == true,
+      sensitiveRoutes: _stringList(json['sensitive_routes']),
+    );
+  }
+
+  final bool androidFlagSecure;
+  final bool androidProtectRecentAppPreview;
+  final String iosScreenshotPolicy;
+  final bool iosScreenCaptureOverlay;
+  final bool iosExitApp;
+  final String webSensitiveScreenMode;
+  final bool webWatermarkEnabled;
+  final List<String> sensitiveRoutes;
+
+  bool get nativeProtectionEnabled =>
+      androidFlagSecure || iosScreenCaptureOverlay;
+
+  bool isSensitiveRoute(String route) {
+    final path = route.trim();
+    if (path.isEmpty) return false;
+    return sensitiveRoutes.any(
+      (sensitive) => path == sensitive || path.startsWith('$sensitive/'),
+    );
+  }
+}
+
+class MobileFeatureFlags {
+  const MobileFeatureFlags(this.values);
+
+  factory MobileFeatureFlags.fromJson(Map<String, dynamic> json) {
+    return MobileFeatureFlags(
+      json.map(
+        (key, value) => MapEntry(key, value == true || value == 'true'),
+      ),
+    );
+  }
+
+  final Map<String, bool> values;
+
+  bool enabled(String key, {bool fallback = false}) {
+    return values[key] ?? fallback;
+  }
+}
+
+class MaintenanceConfig {
+  const MaintenanceConfig({
+    required this.active,
+    required this.message,
+    required this.expectedEndAt,
+    required this.retryAfterSeconds,
+  });
+
+  factory MaintenanceConfig.fromJson(Map<String, dynamic> json) {
+    return MaintenanceConfig(
+      active: json['active'] == true,
+      message: json['message']?.toString() ?? '',
+      expectedEndAt: json['expected_end_at'],
+      retryAfterSeconds: int.tryParse(
+        json['retry_after_seconds']?.toString() ?? '',
+      ),
+    );
+  }
+
+  final bool active;
+  final String message;
+  final Object? expectedEndAt;
+  final int? retryAfterSeconds;
+}
+
+Map<String, List<String>> _platformMap(Object? value) {
+  if (value is! Map) return const {};
+  return value.map((key, raw) {
+    return MapEntry(
+      key.toString().trim().toLowerCase(),
+      _stringList(raw),
+    );
+  });
+}
+
+List<String> _stringList(Object? value) {
+  if (value is! List) return const [];
+  return value
+      .map((item) => item.toString().trim())
+      .where((item) => item.isNotEmpty)
+      .toList(growable: false);
+}
+
+const _supportedSocialProviders = {'line', 'google', 'apple'};
+
+String _normalizeSocialProvider(String value) {
+  return switch (value.trim().toLowerCase()) {
+    'gmail' || 'google_login' || 'google_oauth' => 'google',
+    'apple_id' || 'sign_in_with_apple' => 'apple',
+    'line_login' || 'line_oa' => 'line',
+    final provider => provider,
+  };
+}
+
+String _defaultSocialProviderLabel(String provider) {
+  return switch (provider) {
+    'google' => 'Google',
+    'apple' => 'Apple ID',
+    'line' => 'LINE',
+    _ => provider,
+  };
+}

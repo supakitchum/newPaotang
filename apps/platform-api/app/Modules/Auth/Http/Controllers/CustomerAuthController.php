@@ -137,7 +137,9 @@ class CustomerAuthController extends Controller
         }
 
         if ($this->profileUpdateRequiresPin($payload)) {
-            $pinErrors = $this->pinErrors($payload);
+            $pinErrors = trim((string) ($payload['pin_assertion_token'] ?? '')) !== ''
+                ? []
+                : $this->pinErrors($payload);
 
             if ($pinErrors !== []) {
                 return ApiErrorResponse::validationFailed($request, $pinErrors);
@@ -185,13 +187,16 @@ class CustomerAuthController extends Controller
             return ApiErrorResponse::authenticationRequired($request);
         }
 
-        $errors = $this->pinErrors($request->all());
+        $payload = $request->all();
+        $errors = trim((string) ($payload['pin_assertion_token'] ?? '')) !== ''
+            ? []
+            : $this->pinErrors($payload);
 
         if ($errors !== []) {
             return ApiErrorResponse::validationFailed($request, $errors);
         }
 
-        return $this->writeResult($request, $this->customerAuth->verifyPin($context, $request->all()));
+        return $this->writeResult($request, $this->customerAuth->verifyPinOrAssertionForContext($context, $payload, true));
     }
 
     public function changePin(Request $request): JsonResponse
@@ -368,6 +373,7 @@ class CustomerAuthController extends Controller
             'pin_locked' => ApiErrorResponse::customerPinLocked($request, $result['retry_after_seconds'] ?? null),
             'customer_suspended' => ApiErrorResponse::customerSuspended($request, $result['suspension'] ?? []),
             'pin_invalid' => ApiErrorResponse::make($request, 422, 'pin_invalid', 'The customer PIN is incorrect.'),
+            'pin_assertion_invalid' => ApiErrorResponse::make($request, 403, 'pin_assertion_invalid', 'The biometric PIN assertion is invalid or expired.'),
             'password_invalid' => ApiErrorResponse::make($request, 422, 'password_invalid', 'The account password is incorrect.'),
             'otp_required' => ApiErrorResponse::validationFailed($request, $result['errors'] ?? ['otp_verification_token' => ['OTP verification is required.']]),
             'pin_reset_not_verified' => ApiErrorResponse::make($request, 403, 'pin_reset_not_verified', 'Please verify the account password before resetting PIN.'),

@@ -18,6 +18,7 @@ use App\Models\TenantActivityLuckyConfig;
 use App\Models\Ticket;
 use App\Models\WinningTicket;
 use App\Modules\Auth\Services\CustomerAuthService;
+use App\Modules\Activities\Events\ActivityClaimUpdated;
 use App\Modules\Commerce\Services\CommerceService;
 use App\Modules\LineNotifications\Services\TenantLineNotificationService;
 use App\Modules\Rbac\Events\AdminMenuBadgesUpdated;
@@ -575,7 +576,7 @@ class TenantActivityService
      */
     public function createCustomerClaim(string $tenantId, CustomerSessionContext $customer, array $payload, Request $request): array
     {
-        $pinResult = $this->customerAuth->verifyPin($customer, ['pin' => trim((string) ($payload['pin'] ?? ''))]);
+        $pinResult = $this->customerAuth->verifyPinOrAssertionForContext($customer, $payload);
 
         if (($pinResult['error'] ?? null) !== null) {
             return [
@@ -659,6 +660,7 @@ class TenantActivityService
             ]);
             TenantActivityAward::query()->whereKey((string) $award->id)->update(['status' => 'claimed', 'updated_at' => $now]);
             $this->queueTenantMenuBadgeBroadcast($tenantId, 'activity_claims');
+            $this->queueActivityClaimUpdatedBroadcast($tenantId, $claimId);
 
             return [
                 'resource' => $this->claimResource(ActivityClaim::query()->with(['award', 'activity'])->whereKey($claimId)->first()),
@@ -843,6 +845,7 @@ class TenantActivityService
             $this->lineNotifications->enqueue($tenantId, (string) ($resource['customer']['id'] ?? $claim->customer_id), 'activity_claim.status_updated', 'activity_claim', $claimId, $this->lineActivityClaimVariables($tenantId, $resource ?: [], 'จ่ายเงินกิจกรรมแล้ว'));
             $this->telegramNotifications->enqueue($tenantId, 'activity_claim.status_updated', 'activity_claim', $claimId, $this->telegramActivityClaimVariables($tenantId, $resource ?: [], 'จ่ายเงินกิจกรรมแล้ว', $actor->adminUser));
             $this->queueTenantMenuBadgeBroadcast($tenantId, 'activity_claims');
+            $this->queueActivityClaimUpdatedBroadcast($tenantId, $claimId);
 
             return ['resource' => $resource];
         });
@@ -879,6 +882,7 @@ class TenantActivityService
             $this->lineNotifications->enqueue($tenantId, (string) ($resource['customer']['id'] ?? $claim->customer_id), 'activity_claim.status_updated', 'activity_claim', $claimId, $this->lineActivityClaimVariables($tenantId, $resource ?: [], 'ไม่อนุมัติ'));
             $this->telegramNotifications->enqueue($tenantId, 'activity_claim.status_updated', 'activity_claim', $claimId, $this->telegramActivityClaimVariables($tenantId, $resource ?: [], 'ไม่อนุมัติ', $actor->adminUser));
             $this->queueTenantMenuBadgeBroadcast($tenantId, 'activity_claims');
+            $this->queueActivityClaimUpdatedBroadcast($tenantId, $claimId);
 
             return ['resource' => $resource];
         });
@@ -1230,8 +1234,33 @@ class TenantActivityService
                 'updated_at' => $now,
             ]);
             $this->queueTenantMenuBadgeBroadcast((string) $award->tenant_id, 'activity_claims');
+            $this->queueActivityClaimUpdatedBroadcast((string) $award->tenant_id, $claimId);
 
             return $claimId;
+        });
+    }
+
+    private function queueActivityClaimUpdatedBroadcast(string $tenantId, string $claimId): void
+    {
+        DB::afterCommit(function () use ($tenantId, $claimId): void {
+            $claim = ActivityClaim::query()
+                ->forTenant($tenantId)
+                ->with(['award', 'activity', 'customer'])
+                ->where('id', $claimId)
+                ->first();
+
+            if ($claim === null) {
+                return;
+            }
+
+            ActivityClaimUpdated::dispatch([
+                'event_type' => 'activity.claim.updated',
+                'tenant_id' => $tenantId,
+                'customer_id' => (string) $claim->customer_id,
+                'claim_id' => $claimId,
+                'claim' => $this->claimResource($claim),
+                'updated_at' => now()->toISOString(),
+            ]);
         });
     }
 

@@ -154,6 +154,7 @@ export default {
         payouts: 'Payouts',
         announcements: 'Announcements',
         line_notifications: 'LINE Notifications',
+        social_login: 'Social Login',
         sms_otp: 'SMS OTP',
         password_reset_requests: 'Password Reset Requests',
         activities: 'Activities',

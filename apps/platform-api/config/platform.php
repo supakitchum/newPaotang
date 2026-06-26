@@ -44,6 +44,8 @@ return [
         'admin_secret' => env('REVERB_APP_SECRET', env('APP_KEY') ?: 'newpaotang-admin-secret'),
         'customer_key' => env('REVERB_APP_KEY', 'newpaotang-customer'),
         'customer_secret' => env('REVERB_APP_SECRET', env('APP_KEY') ?: 'newpaotang-customer-secret'),
+        'customer_public_url' => env('CUSTOMER_REALTIME_URL', env('PUBLIC_REALTIME_URL')),
+        'customer_public_key' => env('CUSTOMER_REALTIME_KEY', env('PUBLIC_REALTIME_KEY', env('REVERB_APP_KEY', 'newpaotang-customer'))),
         'host' => env('REVERB_HOST', 'localhost'),
         'port' => env('REVERB_PORT', 8080),
         'scheme' => env('REVERB_SCHEME', 'http'),

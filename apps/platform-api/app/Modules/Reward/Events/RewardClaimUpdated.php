@@ -27,10 +27,19 @@ class RewardClaimUpdated implements ShouldBroadcastNow
     public function broadcastOn(): array
     {
         $tenantId = trim((string) ($this->payload['tenant_id'] ?? ''));
+        $customerId = trim((string) ($this->payload['customer_id'] ?? ''));
 
-        return $tenantId === ''
-            ? []
-            : [new PrivateChannel('admin.tenant.'.$tenantId.'.reward-claims')];
+        if ($tenantId === '') {
+            return [];
+        }
+
+        $channels = [new PrivateChannel('admin.tenant.'.$tenantId.'.reward-claims')];
+
+        if ($customerId !== '') {
+            $channels[] = new PrivateChannel('customer.tenant.'.$tenantId.'.customer.'.$customerId.'.reward-claims');
+        }
+
+        return $channels;
     }
 
     public function broadcastAs(): string

@@ -2130,7 +2130,6 @@ class RewardService
      */
     public function createCustomerClaim(string $tenantId, CustomerSessionContext $customer, array $payload, Request $request): array
     {
-        $pin = trim((string) ($payload['pin'] ?? ''));
         $normalized = [
             'ticket_id' => trim((string) ($payload['ticket_id'] ?? '')),
             'payout_method' => trim((string) ($payload['payout_method'] ?? '')),
@@ -2138,7 +2137,7 @@ class RewardService
             'note' => trim((string) ($payload['note'] ?? '')),
         ];
 
-        $pinResult = $this->customerAuth->verifyPin($customer, ['pin' => $pin]);
+        $pinResult = $this->customerAuth->verifyPinOrAssertionForContext($customer, $payload);
 
         if (($pinResult['error'] ?? null) !== null) {
             return [
@@ -3903,6 +3902,7 @@ class RewardService
             RewardClaimUpdated::dispatch([
                 'event_type' => 'reward.claim.updated',
                 'tenant_id' => $tenantId,
+                'customer_id' => (string) $claim->customer_id,
                 'claim_id' => $claimId,
                 'claim' => $this->claimResource($claim),
                 'pending_count' => $this->pendingRewardClaimCount($tenantId),

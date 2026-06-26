@@ -4,6 +4,7 @@ namespace App\Modules\Auth\Services;
 
 use App\Models\Customer;
 use App\Models\CustomerAuthSession;
+use App\Models\CustomerPinAssertion;
 use App\Models\PartnerTenant;
 use App\Models\Wallet;
 use App\Modules\SmsOtp\Services\SmsOtpService;
@@ -309,7 +310,7 @@ class CustomerAuthService
     public function updateProfile(CustomerSessionContext $context, array $payload, Request $request): array
     {
         if (array_key_exists('reward_payout_bank_account', $payload) || array_key_exists('bank_account', $payload)) {
-            $pinResult = $this->verifyPinForContext($context, trim((string) ($payload['pin'] ?? '')), false);
+            $pinResult = $this->verifyPinOrAssertionForContext($context, $payload, false);
 
             if (($pinResult['error'] ?? null) !== null) {
                 return $pinResult;
@@ -453,6 +454,21 @@ class CustomerAuthService
         $pin = trim((string) ($payload['pin'] ?? ''));
 
         return $this->verifyPinForContext($context, $pin, true);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{resource?: array<string, mixed>, error?: string, retry_after_seconds?: int|null}
+     */
+    public function verifyPinOrAssertionForContext(CustomerSessionContext $context, array $payload, bool $markSessionVerified = false): array
+    {
+        $assertionToken = trim((string) ($payload['pin_assertion_token'] ?? ''));
+
+        if ($assertionToken !== '') {
+            return $this->consumePinAssertionForContext($context, $assertionToken, $markSessionVerified);
+        }
+
+        return $this->verifyPinForContext($context, trim((string) ($payload['pin'] ?? '')), $markSessionVerified);
     }
 
     /**
@@ -814,6 +830,50 @@ class CustomerAuthService
             'pin_verified_at' => $verifiedAt,
             'updated_at' => now(),
         ]);
+    }
+
+    public function markSessionPinVerifiedForAssertion(string $sessionId): void
+    {
+        $this->markSessionPinVerified($sessionId, now());
+    }
+
+    /**
+     * @return array{resource?: array<string, mixed>, error?: string}
+     */
+    private function consumePinAssertionForContext(CustomerSessionContext $context, string $token, bool $markSessionVerified): array
+    {
+        return DB::transaction(function () use ($context, $token, $markSessionVerified): array {
+            $assertion = CustomerPinAssertion::query()
+                ->where('tenant_id', $context->tenantId())
+                ->where('customer_id', $context->customerId())
+                ->where('token_hash', hash('sha256', $token))
+                ->where('status', 'active')
+                ->whereNull('consumed_at')
+                ->where('expires_at', '>', now())
+                ->lockForUpdate()
+                ->first();
+
+            if (! $assertion instanceof CustomerPinAssertion) {
+                return ['error' => 'pin_assertion_invalid'];
+            }
+
+            CustomerPinAssertion::query()->where('id', $assertion->id)->update([
+                'status' => 'consumed',
+                'consumed_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            if ($markSessionVerified) {
+                $this->markSessionPinVerified((string) $context->session['id'], now());
+            }
+
+            return [
+                'resource' => [
+                    'pin_verified' => true,
+                    'pin_assertion_consumed' => true,
+                ],
+            ];
+        });
     }
 
     /**

@@ -2,6 +2,7 @@
 
 use App\Modules\Auth\Http\Controllers\AdminAccountSecurityController;
 use App\Modules\Auth\Http\Controllers\AdminAuthController;
+use App\Modules\Auth\Http\Controllers\CustomerBiometricAuthController;
 use App\Modules\Auth\Http\Controllers\CustomerRealtimeController;
 use App\Modules\Activities\Http\Controllers\CustomerActivityController;
 use App\Modules\Activities\Http\Controllers\PublicActivityController;
@@ -26,6 +27,8 @@ use App\Modules\CentralStock\Http\Controllers\CentralStockController;
 use App\Modules\Auth\Http\Controllers\CustomerAuthController;
 use App\Modules\Auth\Http\Controllers\CustomerLineAuthController;
 use App\Modules\Auth\Http\Controllers\CustomerPasswordResetController;
+use App\Modules\Auth\Http\Controllers\CustomerSocialAuthController;
+use App\Modules\Auth\Http\Controllers\TenantSocialAuthController;
 use App\Modules\Commerce\Http\Controllers\CustomerCommerceController;
 use App\Modules\Growth\Http\Controllers\CustomerAffiliateController;
 use App\Modules\PartnerStore\Http\Controllers\CustomerReservationController;
@@ -76,6 +79,7 @@ Route::post('/internal/reward-ingest/thairath', [InternalRewardIngestController:
 
 Route::get('/public/admin-site-config', [PublicSiteConfigController::class, 'admin']);
 Route::get('/public/site-config', [PublicSiteConfigController::class, 'show']);
+Route::get('/public/mobile/bootstrap', [PublicSiteConfigController::class, 'mobile']);
 Route::get('/public/translations', [PublicTranslationController::class, 'bundle']);
 Route::get('/public/seo/page', [PublicContentController::class, 'seoPage']);
 Route::get('/public/news', [PublicContentController::class, 'news']);
@@ -105,6 +109,9 @@ Route::post('/customer/auth/password/reset/otp', [CustomerSmsOtpController::clas
 Route::post('/customer/auth/line/login', [CustomerLineAuthController::class, 'login']);
 Route::get('/customer/auth/line/callback', [CustomerLineAuthController::class, 'callback']);
 Route::post('/customer/auth/line/link-phone', [CustomerLineAuthController::class, 'linkPhone']);
+Route::post('/customer/auth/social/{provider}/login', [CustomerSocialAuthController::class, 'login']);
+Route::match(['get', 'post'], '/customer/auth/social/{provider}/callback', [CustomerSocialAuthController::class, 'callback']);
+Route::post('/customer/auth/social/{provider}/link-phone', [CustomerSocialAuthController::class, 'linkPhone']);
 Route::post('/customer/auth/refresh', [CustomerAuthController::class, 'refresh']);
 Route::post('/customer/auth/logout', [CustomerAuthController::class, 'logout'])->middleware('customer.auth');
 Route::get('/customer/auth/me', [CustomerAuthController::class, 'me'])->middleware('customer.auth');
@@ -117,6 +124,12 @@ Route::post('/customer/auth/pin/reset', [CustomerAuthController::class, 'resetPi
 Route::post('/customer/auth/pin/reset/request-otp', [CustomerSmsOtpController::class, 'requestPinReset'])->middleware('customer.auth');
 Route::post('/customer/auth/pin/reset/verify-otp', [CustomerSmsOtpController::class, 'verifyPinReset'])->middleware('customer.auth');
 Route::post('/customer/auth/pin/reset/confirm-otp', [CustomerSmsOtpController::class, 'confirmPinReset'])->middleware('customer.auth');
+Route::get('/customer/auth/biometric/devices', [CustomerBiometricAuthController::class, 'devices'])->middleware('customer.auth');
+Route::post('/customer/auth/biometric/devices', [CustomerBiometricAuthController::class, 'storeDevice'])->middleware('customer.auth');
+Route::delete('/customer/auth/biometric/devices/{device_id}', [CustomerBiometricAuthController::class, 'revokeDevice'])->middleware('customer.auth');
+Route::post('/customer/auth/biometric/challenge', [CustomerBiometricAuthController::class, 'challenge'])->middleware('customer.auth');
+Route::post('/customer/auth/biometric/verify', [CustomerBiometricAuthController::class, 'verify'])->middleware('customer.auth');
+Route::post('/customer/auth/security-events', [CustomerBiometricAuthController::class, 'securityEvent'])->middleware('customer.auth');
 Route::get('/customer/profile', [CustomerAuthController::class, 'profile'])->middleware('customer.auth');
 Route::patch('/customer/profile', [CustomerAuthController::class, 'updateProfile'])->middleware('customer.auth');
 Route::get('/customer/line-notifications', [CustomerLineNotificationController::class, 'show'])->middleware('customer.auth');
@@ -691,6 +704,12 @@ Route::get('/admin/tenant/line-notifications/customers', [TenantLineNotification
 Route::get('/admin/tenant/line-notifications/deliveries', [TenantLineNotificationController::class, 'deliveries'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::post('/admin/tenant/line-notifications/test-send', [TenantLineNotificationController::class, 'testSend'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::get('/admin/tenant/social-login', [TenantSocialAuthController::class, 'show'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::put('/admin/tenant/social-login/{provider}', [TenantSocialAuthController::class, 'update'])
+    ->middleware(['admin.auth', 'admin.scope:tenant']);
+Route::delete('/admin/tenant/social-login/{provider}', [TenantSocialAuthController::class, 'disconnect'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);
 Route::get('/admin/tenant/sms-otp', [TenantSmsOtpController::class, 'show'])
     ->middleware(['admin.auth', 'admin.scope:tenant']);

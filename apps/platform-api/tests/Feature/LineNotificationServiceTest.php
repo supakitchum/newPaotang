@@ -234,6 +234,35 @@ class LineNotificationServiceTest extends TestCase
         $this->assertSame('https://line-store.example.com/line/callback', $loginQuery['redirect_uri'] ?? null);
     }
 
+    public function test_line_login_on_api_host_uses_tenant_host_callback_url(): void
+    {
+        $this->seedTenant();
+        DB::table('partner_tenant_domains')
+            ->where('id', 'ptd_line')
+            ->update(['host' => 'line-store.example.com']);
+        $this->seedLineChannel();
+
+        $controller = app(CustomerLineAuthController::class);
+        $loginRequest = Request::create('/api/v1/customer/auth/line/login', 'POST', ['store_id' => null], [], [], [
+            'HTTP_HOST' => 'api.newpaotang.example.com',
+            'HTTP_X_TENANT_HOST' => 'line-store.example.com',
+        ]);
+        $loginResult = $controller->login($loginRequest);
+
+        $this->assertSame(200, $loginResult->getStatusCode(), (string) $loginResult->getContent());
+
+        $loginResponse = json_decode((string) $loginResult->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        parse_str((string) parse_url((string) ($loginResponse['url'] ?? ''), PHP_URL_QUERY), $loginQuery);
+
+        $this->assertSame('https://line-store.example.com/line/callback', $loginQuery['redirect_uri'] ?? null);
+        $this->assertDatabaseHas('customer_external_auth_states', [
+            'tenant_id' => 'ten_line',
+            'provider' => 'line',
+            'redirect_uri' => 'https://line-store.example.com/line/callback',
+            'status' => 'pending',
+        ]);
+    }
+
     public function test_connection_disconnect_removes_channel_without_wiping_templates_or_customer_links(): void
     {
         $this->seedTenant();

@@ -154,6 +154,7 @@ export default {
         payouts: 'การจ่ายเงิน',
         announcements: 'ประกาศข่าว',
         line_notifications: 'แจ้งเตือน LINE',
+        social_login: 'เข้าสู่ระบบ Social',
         sms_otp: 'SMS OTP',
         password_reset_requests: 'คำขอลืมรหัสผ่าน',
         activities: 'กิจกรรม',

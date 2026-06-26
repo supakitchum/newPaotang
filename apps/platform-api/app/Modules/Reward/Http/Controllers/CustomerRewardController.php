@@ -120,6 +120,7 @@ class CustomerRewardController extends Controller
             'pin_required' => ApiErrorResponse::customerPinRequired($request),
             'pin_locked' => ApiErrorResponse::customerPinLocked($request, $result['retry_after_seconds'] ?? null),
             'pin_invalid' => ApiErrorResponse::make($request, 422, 'pin_invalid', 'The customer PIN is incorrect.'),
+            'pin_assertion_invalid' => ApiErrorResponse::make($request, 403, 'pin_assertion_invalid', 'The biometric PIN assertion is invalid or expired.'),
             'validation_failed' => ApiErrorResponse::validationFailed($request, ['payload' => ['The request payload is invalid.']]),
             default => response()->json($result['resource'] ?? [], $result['status'] ?? $defaultStatus),
         };
