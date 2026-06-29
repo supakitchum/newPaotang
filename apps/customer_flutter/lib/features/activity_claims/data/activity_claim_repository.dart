@@ -55,9 +55,10 @@ class ActivityClaimRepository {
       data: {
         'award_id': awardId,
         'payout_method': payoutMethod.apiValue,
-        if (pin != null && pin.isNotEmpty) 'pin': pin,
         if (pinAssertionToken != null && pinAssertionToken.isNotEmpty)
-          'pin_assertion_token': pinAssertionToken,
+          'pin_assertion_token': pinAssertionToken
+        else if (pin != null && pin.isNotEmpty)
+          'pin': pin,
         if (payoutMethod == ActivityClaimPayoutMethod.bankTransfer &&
             bankAccount != null &&
             bankAccount.isComplete)

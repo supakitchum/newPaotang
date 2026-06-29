@@ -135,6 +135,7 @@ class PublicSiteConfigController extends Controller
                     '/affiliate',
                     '/profile',
                     '/profile/auto-reward',
+                    '/profile/account-deletion',
                     '/profile/biometrics',
                     '/profile/line-notifications',
                     '/profile/reward-bank',

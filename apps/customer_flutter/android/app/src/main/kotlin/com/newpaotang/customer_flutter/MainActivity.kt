@@ -1,9 +1,11 @@
 package com.newpaotang.customer_flutter
 
 import android.os.Build
+import android.os.Bundle
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -13,7 +15,6 @@ import java.security.PrivateKey
 import java.security.Signature
 import java.security.spec.ECGenParameterSpec
 import java.util.UUID
-import android.view.WindowManager
 
 class MainActivity : FlutterActivity() {
     private val screenSecurityChannel = "customer_flutter/screen_security"
@@ -23,6 +24,14 @@ class MainActivity : FlutterActivity() {
     private val prefsName: String
         get() = "${packageName}.secure_device"
     private val deviceIdKey = "biometric_device_id"
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_SECURE,
+            WindowManager.LayoutParams.FLAG_SECURE
+        )
+        super.onCreate(savedInstanceState)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

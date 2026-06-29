@@ -10,7 +10,11 @@ void main() {
   test('mobile realtime config requires an explicit public URL', () {
     final disabled = MobileRealtimeConfig.fromJson({
       'enabled': true,
-      'key': 'newpaotang-customer',
+      'key': 'tenant-key',
+    });
+    final missingKey = MobileRealtimeConfig.fromJson({
+      'enabled': true,
+      'url': 'https://realtime.example.com',
     });
     final enabled = MobileRealtimeConfig.fromJson({
       'enabled': true,
@@ -19,8 +23,10 @@ void main() {
     });
 
     expect(disabled.configured, isFalse);
+    expect(missingKey.configured, isFalse);
     expect(enabled.configured, isTrue);
     expect(enabled.authEndpoint, '/customer/realtime/auth');
+    expect(enabled.client, 'customer-flutter');
   });
 
   test('buildRealtimeSocketUri mirrors Pusher protocol URL rules', () {
@@ -29,7 +35,7 @@ void main() {
         baseUrl: 'https://realtime.example.com',
         key: 'tenant key',
       ).toString(),
-      'wss://realtime.example.com/app/tenant%20key?protocol=7&client=newpaotang-customer&version=1.0&flash=false',
+      'wss://realtime.example.com/app/tenant%20key?protocol=7&client=customer-flutter&version=1.0&flash=false',
     );
     expect(
       buildRealtimeSocketUri(
@@ -37,6 +43,16 @@ void main() {
         key: 'ignored',
       ).toString(),
       'ws://localhost:8080/app/existing?protocol=7',
+    );
+  });
+
+  test('buildRealtimeSocketUri rejects missing runtime app key', () {
+    expect(
+      () => buildRealtimeSocketUri(
+        baseUrl: 'https://realtime.example.com',
+        key: '',
+      ),
+      throwsA(isA<ArgumentError>()),
     );
   });
 

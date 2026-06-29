@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +10,7 @@ import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/tenant/mobile_runtime_policy.dart';
 import '../../../core/utils/api_errors.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 
 class PinScreen extends ConsumerStatefulWidget {
   const PinScreen({super.key});
@@ -42,55 +42,145 @@ class _PinScreenState extends ConsumerState<PinScreen> {
           orElse: () => false,
         );
 
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight:
-                      (constraints.maxHeight - 48).clamp(0, double.infinity),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      _title(l10n, setupRequired),
-                      style: Theme.of(context).textTheme.headlineMedium,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _description(l10n, setupRequired),
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey.shade700,
-                            fontWeight: FontWeight.w700,
+      backgroundColor: colorScheme.primary,
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              colorScheme.primary,
+              Color.lerp(colorScheme.primary, colorScheme.secondary, 0.68) ??
+                  colorScheme.primary,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight:
+                        (constraints.maxHeight - 48).clamp(0, double.infinity),
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 430),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 76,
+                            height: 76,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.18),
+                              ),
+                            ),
+                            child: Icon(
+                              setupRequired
+                                  ? Icons.lock_outline
+                                  : Icons.lock_open_outlined,
+                              color: Colors.white,
+                              size: 34,
+                            ),
                           ),
+                          const SizedBox(height: 18),
+                          Text(
+                            _title(l10n, setupRequired),
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineSmall
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _description(l10n, setupRequired),
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.84),
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.42,
+                                ),
+                          ),
+                          const SizedBox(height: 20),
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(28),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.12),
+                                  blurRadius: 28,
+                                  offset: const Offset(0, 16),
+                                ),
+                              ],
+                            ),
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                              child: Column(
+                                children: [
+                                  _PinIndicator(length: _pin.length),
+                                  if (_verifying) ...[
+                                    const SizedBox(height: 14),
+                                    const LinearProgressIndicator(),
+                                  ],
+                                  const SizedBox(height: 18),
+                                  if (!setupRequired && biometricEnabled)
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: OutlinedButton.icon(
+                                        onPressed: _verifying
+                                            ? null
+                                            : _unlockWithBiometric,
+                                        icon: const Icon(
+                                          Icons.face_retouching_natural,
+                                        ),
+                                        label: Text(l10n.pinUseBiometric),
+                                      ),
+                                    ),
+                                  if (!setupRequired) ...[
+                                    const SizedBox(height: 4),
+                                    TextButton(
+                                      onPressed: _verifying
+                                          ? null
+                                          : _showResetPinSheet,
+                                      child: Text(l10n.pinForgot),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 10),
+                                  _Keypad(
+                                    onDigit: _digit,
+                                    onBackspace: _backspace,
+                                    enabled: !_verifying,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    Text('${'●' * _pin.length}${'○' * (6 - _pin.length)}'),
-                    const SizedBox(height: 24),
-                    if (!setupRequired && biometricEnabled)
-                      OutlinedButton.icon(
-                        onPressed: _verifying ? null : _unlockWithBiometric,
-                        icon: const Icon(Icons.face_retouching_natural),
-                        label: Text(l10n.pinUseBiometric),
-                      ),
-                    if (!setupRequired)
-                      TextButton(
-                        onPressed: _showResetPinSheet,
-                        child: Text(l10n.pinForgot),
-                      ),
-                    const SizedBox(height: 24),
-                    _Keypad(onDigit: _digit, onBackspace: _backspace),
-                  ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -107,7 +197,14 @@ class _PinScreenState extends ConsumerState<PinScreen> {
         _setupPin = '';
         _confirmingSetupPin = false;
       });
-    } catch (_) {
+    } catch (error) {
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
       // Keep the session-provided state when status refresh is unavailable.
     }
   }
@@ -159,9 +256,17 @@ class _PinScreenState extends ConsumerState<PinScreen> {
               );
       if (!mounted || unlocked) return;
       _showSnack(context.l10n.pinBiometricUnavailable);
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      _showSnack(context.l10n.pinBiometricFailed);
+      final failedMessage = context.l10n.pinBiometricFailed;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
+      _showSnack(failedMessage);
     } finally {
       if (mounted) setState(() => _verifying = false);
     }
@@ -199,12 +304,20 @@ class _PinScreenState extends ConsumerState<PinScreen> {
           );
     } catch (error) {
       if (!mounted) return;
+      final message = _errorMessage(error, context.l10n.pinSetupFailed);
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
       setState(() {
         _pin = '';
         _setupPin = '';
         _confirmingSetupPin = false;
       });
-      _showSnack(_errorMessage(error, context.l10n.pinSetupFailed));
+      _showSnack(message);
     } finally {
       if (mounted) setState(() => _verifying = false);
     }
@@ -216,8 +329,16 @@ class _PinScreenState extends ConsumerState<PinScreen> {
       await ref.read(authControllerProvider).verifyPin(_pin);
     } catch (error) {
       if (!mounted) return;
+      final message = _errorMessage(error, context.l10n.pinInvalid);
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
       setState(() => _pin = '');
-      _showSnack(_errorMessage(error, context.l10n.pinInvalid));
+      _showSnack(message);
     } finally {
       if (mounted) setState(() => _verifying = false);
     }
@@ -225,22 +346,10 @@ class _PinScreenState extends ConsumerState<PinScreen> {
 
   String _errorMessage(Object error, String fallback) {
     final info = ApiErrorInfo.fromObject(error);
-    if (info.message.trim().isNotEmpty) return info.message;
     if (info.isSmsOtpProviderNotConfigured) {
       return context.l10n.pinResetOtpProviderUnavailable;
     }
-    if (error is DioException) {
-      final data = error.response?.data;
-      if (data is Map && data['error'] is Map) {
-        final message = (data['error'] as Map)['message'];
-        if (message != null && message.toString().trim().isNotEmpty) {
-          return message.toString();
-        }
-      }
-      if (data is Map && data['message'] != null) {
-        return data['message'].toString();
-      }
-    }
+    if (info.message.trim().isNotEmpty) return info.message;
     return fallback;
   }
 
@@ -266,6 +375,7 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
   final _pinConfirmation = TextEditingController();
 
   _PinResetStep _step = _PinResetStep.request;
+  bool _confirmingResetPin = false;
   bool _submitting = false;
   String _maskedPhone = '';
   String _otpToken = '';
@@ -360,7 +470,7 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
                 if (_step == _PinResetStep.pin) _pinFields(),
                 if (_step == _PinResetStep.done) _doneCard(context),
                 const SizedBox(height: 20),
-                if (_step != _PinResetStep.done)
+                if (_step != _PinResetStep.done && _step != _PinResetStep.pin)
                   FilledButton(
                     onPressed: _submitting ? null : _submit,
                     child: _submitting
@@ -449,42 +559,53 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
   }
 
   Widget _pinFields() {
-    return Column(
-      children: [
-        TextFormField(
-          controller: _pin,
-          obscureText: true,
-          keyboardType: TextInputType.number,
-          inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(6),
+    final digits = _activeResetPinDigits;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+        child: Column(
+          children: [
+            Text(
+              _confirmingResetPin
+                  ? context.l10n.pinResetConfirmPinLabel
+                  : context.l10n.pinResetNewPinLabel,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _pinDots(digits.length),
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    letterSpacing: 4,
+                    fontWeight: FontWeight.w900,
+                  ),
+              semanticsLabel: context.l10n.pinResetPinRequired,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _confirmingResetPin
+                  ? context.l10n.pinResetDescriptionConfirmPin
+                  : context.l10n.pinResetDescriptionPin,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 14),
+            _Keypad(onDigit: _resetPinDigit, onBackspace: _resetPinBackspace),
+            if (_submitting) ...[
+              const SizedBox(height: 8),
+              const SizedBox.square(
+                dimension: 24,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+            ],
           ],
-          decoration:
-              InputDecoration(labelText: context.l10n.pinResetNewPinLabel),
-          validator: _pinValidator,
         ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: _pinConfirmation,
-          obscureText: true,
-          keyboardType: TextInputType.number,
-          inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(6),
-          ],
-          decoration: InputDecoration(
-            labelText: context.l10n.pinResetConfirmPinLabel,
-          ),
-          validator: (value) {
-            final pin = value ?? '';
-            if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
-              return context.l10n.pinResetPinRequired;
-            }
-            if (pin != _pin.text) return context.l10n.pinResetPinMismatch;
-            return null;
-          },
-        ),
-      ],
+      ),
     );
   }
 
@@ -517,18 +638,25 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
             .verifyPinResetOtp(otp: _otp.text);
         setState(() {
           _otpToken = verified.verificationToken;
+          _pin.clear();
+          _pinConfirmation.clear();
+          _confirmingResetPin = false;
           _step = _PinResetStep.pin;
         });
       } else if (_step == _PinResetStep.pin) {
-        await ref.read(authControllerProvider).confirmPinResetWithOtp(
-              otpVerificationToken: _otpToken,
-              pin: _pin.text,
-              pinConfirmation: _pinConfirmation.text,
-            );
-        setState(() => _step = _PinResetStep.done);
+        await _submitConfirmedResetPin();
       }
     } catch (error) {
-      _showSnack(_errorMessage(error, resetFailed));
+      if (!mounted) return;
+      final message = _errorMessage(error, resetFailed);
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
+      _showSnack(message);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -544,11 +672,23 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
       setState(() {
         _maskedPhone = result.phoneMasked;
         _resendAfter = result.resendAfterSeconds;
+        _pin.clear();
+        _pinConfirmation.clear();
+        _confirmingResetPin = false;
         _step = _PinResetStep.otp;
       });
       _startTimer();
     } catch (error) {
-      _showSnack(_errorMessage(error, context.l10n.pinResetSendFailed));
+      if (!mounted) return;
+      final message = _errorMessage(error, context.l10n.pinResetSendFailed);
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
+      _showSnack(message);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -570,7 +710,9 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
   String _title(CustomerLocalizations l10n) {
     return switch (_step) {
       _PinResetStep.otp => l10n.pinResetTitleOtp,
-      _PinResetStep.pin => l10n.pinResetTitlePin,
+      _PinResetStep.pin => _confirmingResetPin
+          ? l10n.pinResetConfirmPinLabel
+          : l10n.pinResetTitlePin,
       _PinResetStep.done => l10n.pinResetTitleDone,
       _ => l10n.pinResetTitleRequest,
     };
@@ -579,7 +721,9 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
   String _description(CustomerLocalizations l10n) {
     return switch (_step) {
       _PinResetStep.otp => l10n.pinResetDescriptionOtp,
-      _PinResetStep.pin => l10n.pinResetDescriptionPin,
+      _PinResetStep.pin => _confirmingResetPin
+          ? l10n.pinResetDescriptionConfirmPin
+          : l10n.pinResetDescriptionPin,
       _PinResetStep.done => l10n.pinResetDescriptionDone,
       _ => l10n.pinResetDescriptionRequest,
     };
@@ -601,27 +745,101 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
     return null;
   }
 
-  String? _pinValidator(String? value) {
-    if (_step != _PinResetStep.pin) return null;
-    if (!RegExp(r'^\d{6}$').hasMatch(value ?? '')) {
-      return context.l10n.pinResetPinRequired;
+  String get _activeResetPinDigits =>
+      _confirmingResetPin ? _pinConfirmation.text : _pin.text;
+
+  void _setActiveResetPinDigits(String value) {
+    if (_confirmingResetPin) {
+      _pinConfirmation.text = value;
+    } else {
+      _pin.text = value;
     }
-    return null;
+  }
+
+  void _resetPinDigit(String digit) {
+    if (_submitting || _step != _PinResetStep.pin) return;
+    final current = _activeResetPinDigits;
+    if (current.length >= 6) return;
+    final next = '$current$digit';
+    setState(() => _setActiveResetPinDigits(next));
+    if (next.length == 6) _handleResetPinComplete();
+  }
+
+  void _resetPinBackspace() {
+    if (_submitting || _step != _PinResetStep.pin) return;
+    final current = _activeResetPinDigits;
+    if (current.isEmpty) return;
+    setState(() {
+      _setActiveResetPinDigits(current.substring(0, current.length - 1));
+    });
+  }
+
+  void _handleResetPinComplete() {
+    if (!_confirmingResetPin) {
+      setState(() {
+        _confirmingResetPin = true;
+        _pinConfirmation.clear();
+      });
+      return;
+    }
+
+    if (_pin.text != _pinConfirmation.text) {
+      setState(() {
+        _pin.clear();
+        _pinConfirmation.clear();
+        _confirmingResetPin = false;
+      });
+      _showSnack(context.l10n.pinResetPinMismatch);
+      return;
+    }
+
+    unawaited(_submitConfirmedResetPin());
+  }
+
+  Future<void> _submitConfirmedResetPin() async {
+    if (_submitting ||
+        !RegExp(r'^\d{6}$').hasMatch(_pin.text) ||
+        _pinConfirmation.text != _pin.text) {
+      _showSnack(context.l10n.pinResetPinRequired);
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      await ref.read(authControllerProvider).confirmPinResetWithOtp(
+            otpVerificationToken: _otpToken,
+            pin: _pin.text,
+            pinConfirmation: _pinConfirmation.text,
+          );
+      if (!mounted) return;
+      setState(() => _step = _PinResetStep.done);
+    } catch (error) {
+      if (!mounted) return;
+      final message = _errorMessage(error, context.l10n.pinResetFailed);
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
+      setState(() {
+        _pin.clear();
+        _pinConfirmation.clear();
+        _confirmingResetPin = false;
+      });
+      _showSnack(message);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   String _errorMessage(Object error, String fallback) {
-    if (error is DioException) {
-      final data = error.response?.data;
-      if (data is Map && data['error'] is Map) {
-        final message = (data['error'] as Map)['message'];
-        if (message != null && message.toString().trim().isNotEmpty) {
-          return message.toString();
-        }
-      }
-      if (data is Map && data['message'] != null) {
-        return data['message'].toString();
-      }
+    final info = ApiErrorInfo.fromObject(error);
+    if (info.isSmsOtpProviderNotConfigured) {
+      return context.l10n.pinResetOtpProviderUnavailable;
     }
+    if (info.message.trim().isNotEmpty) return info.message;
     return fallback;
   }
 
@@ -632,32 +850,104 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
   }
 }
 
-class _Keypad extends StatelessWidget {
-  const _Keypad({required this.onDigit, required this.onBackspace});
+String _pinDots(int length) => '${'●' * length}${'○' * (6 - length)}';
 
-  final ValueChanged<String> onDigit;
-  final VoidCallback onBackspace;
+class _PinIndicator extends StatelessWidget {
+  const _PinIndicator({required this.length});
+
+  final int length;
 
   @override
   Widget build(BuildContext context) {
-    final keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back'];
-    return GridView.count(
-      shrinkWrap: true,
-      crossAxisCount: 3,
-      childAspectRatio: 1.8,
-      physics: const NeverScrollableScrollPhysics(),
-      children: [
-        for (final key in keys)
-          if (key.isEmpty)
-            const SizedBox.shrink()
-          else
-            TextButton(
-              onPressed: key == 'back' ? onBackspace : () => onDigit(key),
-              child: key == 'back'
-                  ? const Icon(Icons.backspace_outlined)
-                  : Text(key),
+    final colorScheme = Theme.of(context).colorScheme;
+    return Semantics(
+      label: _pinDots(length),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (var index = 0; index < 6; index++)
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 140),
+              curve: Curves.easeOutCubic,
+              width: index < length ? 16 : 12,
+              height: index < length ? 16 : 12,
+              margin: const EdgeInsets.symmetric(horizontal: 6),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: index < length
+                    ? colorScheme.primary
+                    : colorScheme.surfaceContainerHighest,
+                border: Border.all(
+                  color: index < length
+                      ? colorScheme.primary
+                      : colorScheme.outlineVariant,
+                ),
+              ),
             ),
-      ],
+        ],
+      ),
+    );
+  }
+}
+
+class _Keypad extends StatelessWidget {
+  const _Keypad({
+    required this.onDigit,
+    required this.onBackspace,
+    this.enabled = true,
+  });
+
+  final ValueChanged<String> onDigit;
+  final VoidCallback onBackspace;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back'];
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 330),
+      child: GridView.count(
+        shrinkWrap: true,
+        crossAxisCount: 3,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 1.36,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          for (final key in keys)
+            if (key.isEmpty)
+              const SizedBox.shrink()
+            else
+              Semantics(
+                button: true,
+                label: key == 'back' ? context.l10n.commonBack : key,
+                child: FilledButton.tonal(
+                  onPressed: !enabled
+                      ? null
+                      : key == 'back'
+                          ? onBackspace
+                          : () => onDigit(key),
+                  style: FilledButton.styleFrom(
+                    shape: const CircleBorder(),
+                    backgroundColor:
+                        colorScheme.primaryContainer.withValues(alpha: 0.56),
+                    foregroundColor: colorScheme.primary,
+                    disabledBackgroundColor:
+                        colorScheme.surfaceContainerHighest,
+                    disabledForegroundColor: colorScheme.outline,
+                    textStyle:
+                        Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w900,
+                            ),
+                  ),
+                  child: key == 'back'
+                      ? const Icon(Icons.backspace_outlined)
+                      : Text(key),
+                ),
+              ),
+        ],
+      ),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../network/api_client.dart';
+import '../utils/api_payload.dart';
 
 final mobileBootstrapRepositoryProvider = Provider<MobileBootstrapRepository>((
   ref,
@@ -19,6 +20,6 @@ class MobileBootstrapRepository {
       auth: false,
     );
 
-    return Map<String, dynamic>.from(response.data?['data'] ?? {});
+    return unwrapPayload(response.data);
   }
 }

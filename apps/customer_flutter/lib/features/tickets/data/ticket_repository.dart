@@ -12,10 +12,7 @@ final ticketRepositoryProvider = Provider<TicketRepository>((ref) {
 final currentTicketsProvider = FutureProvider<List<CustomerTicket>>((
   ref,
 ) async {
-  return ref
-      .watch(ticketRepositoryProvider)
-      .current()
-      .then((page) => page.items);
+  return ref.watch(ticketRepositoryProvider).currentAll();
 });
 
 final ticketDetailProvider =
@@ -28,6 +25,9 @@ class TicketRepository {
 
   final ApiClient _api;
 
+  static const int defaultPageLimit = 50;
+  static const int maxAutoPages = 20;
+
   Future<TicketPage> current({int limit = 20, String? cursor}) async {
     final response = await _api.get<Map<String, dynamic>>(
       '/customer/tickets',
@@ -37,6 +37,27 @@ class TicketRepository {
       },
     );
     return TicketPage.fromJson(asMap(response.data));
+  }
+
+  Future<List<CustomerTicket>> currentAll({
+    int limit = defaultPageLimit,
+    int maxPages = maxAutoPages,
+  }) async {
+    final items = <CustomerTicket>[];
+    String? cursor;
+
+    for (var pageNumber = 0; pageNumber < maxPages; pageNumber++) {
+      final page = await current(limit: limit, cursor: cursor);
+      items.addAll(page.items);
+
+      final nextCursor = page.nextCursor?.trim() ?? '';
+      if (!page.hasMore || nextCursor.isEmpty || nextCursor == cursor) {
+        break;
+      }
+      cursor = nextCursor;
+    }
+
+    return items;
   }
 
   Future<TicketPage> history({
@@ -82,9 +103,10 @@ class TicketRepository {
       data: {
         'ticket_id': ticketId,
         'payout_method': payoutMethod,
-        if (pin.isNotEmpty) 'pin': pin,
         if (pinAssertionToken.isNotEmpty)
-          'pin_assertion_token': pinAssertionToken,
+          'pin_assertion_token': pinAssertionToken
+        else if (pin.isNotEmpty)
+          'pin': pin,
         if (bankAccount != null) 'bank_account': bankAccount,
       },
     );

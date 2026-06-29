@@ -202,7 +202,7 @@ class AuthRepository {
     required String provider,
     required Map<String, dynamic> query,
   }) async {
-    final normalizedProvider = _normalizeProvider(provider);
+    final normalizedProvider = normalizeSocialAuthProvider(provider);
     final response = await _api.post<Map<String, dynamic>>(
       '/customer/auth/social/$normalizedProvider/callback',
       data: query,
@@ -222,7 +222,7 @@ class AuthRepository {
     required String password,
     required String passwordConfirmation,
   }) async {
-    final normalizedProvider = _normalizeProvider(provider);
+    final normalizedProvider = normalizeSocialAuthProvider(provider);
     final response = await _api.post<Map<String, dynamic>>(
       '/customer/auth/social/$normalizedProvider/link-phone',
       auth: false,
@@ -282,7 +282,7 @@ class AuthRepository {
     String provider, {
     String purpose = 'login',
   }) async {
-    final normalizedProvider = _normalizeProvider(provider);
+    final normalizedProvider = normalizeSocialAuthProvider(provider);
     final response = await _api.post<Map<String, dynamic>>(
       '/customer/auth/social/$normalizedProvider/login',
       auth: false,
@@ -295,8 +295,15 @@ class AuthRepository {
 
     return unwrapPayload(response.data)['url']?.toString() ?? '';
   }
+}
 
-  String _normalizeProvider(String provider) => provider.trim().toLowerCase();
+String normalizeSocialAuthProvider(String provider) {
+  return switch (provider.trim().toLowerCase()) {
+    'gmail' || 'google_login' || 'google_oauth' || 'google_oauth2' => 'google',
+    'apple_id' || 'apple_login' || 'sign_in_with_apple' => 'apple',
+    'line_login' || 'line_oa' || 'line_oauth' => 'line',
+    final value => value,
+  };
 }
 
 class CustomerSession {
@@ -390,7 +397,9 @@ class SocialCallbackResult {
     final profile = asMap(json['line_profile'] ?? json['profile']);
     final token = (json['token'] ?? json['access_token'])?.toString() ?? '';
     return SocialCallbackResult(
-      provider: json['provider']?.toString() ?? fallbackProvider,
+      provider: normalizeSocialAuthProvider(
+        json['provider']?.toString() ?? fallbackProvider,
+      ),
       code: int.tryParse((json['code'] ?? 0).toString()) ?? 0,
       session: token.isEmpty ? null : CustomerSession.fromJson(json),
       lineLinkRequired: json['line_link_required'] == true ||

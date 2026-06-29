@@ -7,7 +7,12 @@ use App\Models\TenantSmsProvider;
 interface SmsOtpProviderInterface
 {
     /**
-     * @return array{ok: bool, status?: int|null, provider_message_id?: string|null, message?: string|null, response?: array<string, mixed>|null, latency_ms?: int|null}
+     * @return array{ok: bool, status?: int|null, provider_message_id?: string|null, provider_token?: string|null, provider_refno?: string|null, message?: string|null, response?: array<string, mixed>|null, latency_ms?: int|null}
      */
-    public function send(TenantSmsProvider $provider, string $phone, string $message): array;
+    public function requestOtp(TenantSmsProvider $provider, string $phone): array;
+
+    /**
+     * @return array{ok: bool, status?: int|null, message?: string|null, response?: array<string, mixed>|null, latency_ms?: int|null}
+     */
+    public function verifyOtp(TenantSmsProvider $provider, string $providerToken, string $pin): array;
 }

@@ -64,3 +64,22 @@ bool mobileNativeScreenSecurityFallbackForPlatform(String platform) {
   final platformKey = platform.trim().toLowerCase();
   return platformKey == 'android' || platformKey == 'ios';
 }
+
+bool mobileWebPrivacyGuardAllowedForPlatform(
+  MobileBootstrap bootstrap,
+  String platform,
+) {
+  final platformKey = platform.trim().toLowerCase();
+  if (platformKey != 'web') return false;
+
+  final mode =
+      bootstrap.screenSecurity.webSensitiveScreenMode.trim().toLowerCase();
+  if ({'none', 'off', 'disabled'}.contains(mode)) return false;
+
+  return bootstrap.screenSecurity.webWatermarkEnabled ||
+      {'limited', 'strict', 'watermark'}.contains(mode);
+}
+
+bool mobileWebPrivacyGuardFallbackForPlatform(String platform) {
+  return platform.trim().toLowerCase() == 'web';
+}

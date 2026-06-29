@@ -193,6 +193,12 @@ const customerFeatureRoutes = <CustomerFeatureRoute>[
     sensitive: true,
   ),
   CustomerFeatureRoute(
+    path: '/profile/account-deletion',
+    key: 'profile_account_deletion',
+    group: CustomerFeatureGroup.account,
+    sensitive: true,
+  ),
+  CustomerFeatureRoute(
     path: '/purchase-history',
     key: 'purchase_history',
     group: CustomerFeatureGroup.account,
@@ -231,6 +237,12 @@ const customerFeatureRoutes = <CustomerFeatureRoute>[
   CustomerFeatureRoute(
     path: '/terms',
     key: 'terms',
+    group: CustomerFeatureGroup.content,
+    public: true,
+  ),
+  CustomerFeatureRoute(
+    path: '/privacy',
+    key: 'privacy',
     group: CustomerFeatureGroup.content,
     public: true,
   ),
@@ -301,6 +313,12 @@ const customerFeatureRoutes = <CustomerFeatureRoute>[
     sensitive: true,
   ),
   CustomerFeatureRoute(
+    path: '/security-lock',
+    key: 'security_lock',
+    group: CustomerFeatureGroup.system,
+    sensitive: true,
+  ),
+  CustomerFeatureRoute(
     path: '/maintenance',
     key: 'maintenance',
     group: CustomerFeatureGroup.system,
@@ -331,9 +349,55 @@ final publicCustomerPaths = customerFeatureRoutes
     .map((route) => route.path)
     .toSet();
 
+bool isPublicCustomerPath(String path) {
+  return customerFeatureRoutes.any(
+    (route) => route.public && isCustomerRoutePatternMatch(route.path, path),
+  );
+}
+
+bool isSensitiveCustomerPath(
+  String path, {
+  Iterable<String> extraSensitiveRoutes = const [],
+}) {
+  final normalizedPath = path.trim();
+  if (normalizedPath.isEmpty) return false;
+
+  final routeSensitive = customerFeatureRoutes.any(
+    (route) =>
+        route.sensitive &&
+        isCustomerRoutePatternMatch(route.path, normalizedPath),
+  );
+  if (routeSensitive) return true;
+
+  return extraSensitiveRoutes.any(
+    (route) => _isSensitivePathPrefixMatch(route, normalizedPath),
+  );
+}
+
 CustomerFeatureRoute? customerFeatureByPath(String path) {
   for (final route in customerFeatureRoutes) {
-    if (route.path == path) return route;
+    if (isCustomerRoutePatternMatch(route.path, path)) return route;
   }
   return null;
+}
+
+bool isCustomerRoutePatternMatch(String pattern, String path) {
+  if (pattern == path) return true;
+  final patternParts =
+      pattern.split('/').where((part) => part.isNotEmpty).toList();
+  final pathParts = path.split('/').where((part) => part.isNotEmpty).toList();
+  if (patternParts.length != pathParts.length) return false;
+  for (var index = 0; index < patternParts.length; index++) {
+    final patternPart = patternParts[index];
+    if (patternPart.startsWith(':')) continue;
+    if (patternPart != pathParts[index]) return false;
+  }
+  return true;
+}
+
+bool _isSensitivePathPrefixMatch(String pattern, String path) {
+  final sensitive = pattern.trim();
+  if (sensitive.isEmpty) return false;
+  if (isCustomerRoutePatternMatch(sensitive, path)) return true;
+  return path == sensitive || path.startsWith('$sensitive/');
 }

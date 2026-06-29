@@ -31,6 +31,19 @@ void main() {
     expect(uri.queryParameters.containsKey('d1'), isFalse);
   });
 
+  test('isExactLotterySearch detects exact search inputs', () {
+    expect(isExactLotterySearch(number: '123456'), isTrue);
+    expect(isExactLotterySearch(number: '12345'), isFalse);
+    expect(
+      isExactLotterySearch(digits: const ['1', '2', '3', '4', '5', '6']),
+      isTrue,
+    );
+    expect(
+      isExactLotterySearch(digits: const ['1', '', '3', '4', '5', '6']),
+      isFalse,
+    );
+  });
+
   test('lotteryMorePath carries safe back path for search restore', () {
     final back = lotterySearchPath(
       digits: const ['2', '', '3'],
@@ -48,6 +61,24 @@ void main() {
     expect(uri.queryParameters['number'], '273707');
     expect(uri.queryParameters['store_id'], 'store_1');
     expect(uri.queryParameters['back'], back);
+  });
+
+  test('shouldPopLotteryMoreBack only restores stacked search routes', () {
+    expect(
+      shouldPopLotteryMoreBack(
+        canPop: true,
+        explicitBackPath: '/buy/search?d1=2',
+      ),
+      isTrue,
+    );
+    expect(
+      shouldPopLotteryMoreBack(canPop: false, explicitBackPath: '/buy/search'),
+      isFalse,
+    );
+    expect(
+      shouldPopLotteryMoreBack(canPop: true, explicitBackPath: ''),
+      isFalse,
+    );
   });
 
   test('safeLotteryBackPath rejects external and non-lottery destinations', () {

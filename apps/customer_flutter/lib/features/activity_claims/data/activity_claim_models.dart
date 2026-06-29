@@ -179,7 +179,7 @@ class ActivityClaimPage {
   });
 
   factory ActivityClaimPage.fromJson(Map<String, dynamic> json) {
-    final meta = asMap(json['meta']);
+    final meta = unwrapMeta(json);
     return ActivityClaimPage(
       items: unwrapDataList(json)
           .map(ActivityClaimItem.fromJson)

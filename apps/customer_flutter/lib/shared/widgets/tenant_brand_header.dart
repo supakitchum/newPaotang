@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../core/utils/asset_url.dart';
 import 'flexible_image.dart';
 
 class TenantBrandHeader extends ConsumerWidget {
@@ -10,11 +11,13 @@ class TenantBrandHeader extends ConsumerWidget {
     this.icon = Icons.confirmation_number_outlined,
     this.showName = true,
     this.size = 72,
+    this.textColor,
   });
 
   final IconData icon;
   final bool showName;
   final double size;
+  final Color? textColor;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -23,7 +26,10 @@ class TenantBrandHeader extends ConsumerWidget {
 
     return bootstrap.maybeWhen(
       data: (data) {
-        final logoUrl = data.brand.logoUrl.trim();
+        final rawLogoUrl = data.brand.logoUrl.trim();
+        final logoUrl = rawLogoUrl.isEmpty
+            ? ''
+            : ref.watch(assetUrlResolverProvider)(rawLogoUrl);
         final siteName = data.siteName.trim();
 
         return Column(
@@ -55,6 +61,7 @@ class TenantBrandHeader extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w900,
+                      color: textColor,
                     ),
               ),
             ],

@@ -316,3 +316,27 @@ class AffiliatePayout {
   final double amount;
   final Object? createdAt;
 }
+
+class AffiliatePage<T> {
+  const AffiliatePage({
+    required this.items,
+    required this.nextCursor,
+    required this.hasMore,
+  });
+
+  factory AffiliatePage.fromJson(
+    Map<String, dynamic> json,
+    T Function(Map<String, dynamic>) itemFactory,
+  ) {
+    final meta = asMap(json['meta']);
+    return AffiliatePage<T>(
+      items: asMapList(json['data']).map(itemFactory).toList(growable: false),
+      nextCursor: meta['next_cursor']?.toString() ?? '',
+      hasMore: meta['has_more'] == true,
+    );
+  }
+
+  final List<T> items;
+  final String nextCursor;
+  final bool hasMore;
+}

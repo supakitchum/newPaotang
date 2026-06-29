@@ -140,7 +140,7 @@ class RewardResultGame {
     return status == 'published' || status == '2';
   }
 
-  bool get isUnofficial => id.isNotEmpty && !isPublished;
+  bool get isUnofficial => id.isNotEmpty && hasResolvedResult && !isPublished;
 
   RewardValue? reward(String slug) {
     for (final reward in rewards) {

@@ -241,11 +241,19 @@ class TenantConfigurationService
             $errors['waiting_result_youtube_url'][] = 'The waiting_result_youtube_url field must be a valid YouTube URL.';
         }
 
-        if (array_key_exists('terms_content', $updates) && $updates['terms_content'] !== null && ! is_string($updates['terms_content'])) {
-            $errors['terms_content'][] = 'The terms_content field must be text.';
+        foreach (['terms_content', 'privacy_content'] as $field) {
+            if (array_key_exists($field, $updates) && $updates[$field] !== null && ! is_string($updates[$field])) {
+                $errors[$field][] = 'The '.$field.' field must be text.';
+            }
         }
 
-        foreach (['site_name_i18n', 'display_name_i18n', 'maintenance_message_i18n', 'terms_content_i18n'] as $field) {
+        foreach (['privacy_policy_url', 'account_deletion_url'] as $field) {
+            if (array_key_exists($field, $updates) && ! $this->isAllowedLegalUrlOrEmpty($updates[$field])) {
+                $errors[$field][] = 'The '.$field.' field must be a valid http or https URL.';
+            }
+        }
+
+        foreach (['site_name_i18n', 'display_name_i18n', 'maintenance_message_i18n', 'terms_content_i18n', 'privacy_content_i18n'] as $field) {
             if (array_key_exists($field, $updates) && ! is_array($updates[$field])) {
                 $errors[$field][] = 'The '.$field.' field must be an object keyed by locale.';
             }
@@ -552,6 +560,10 @@ class TenantConfigurationService
             'waiting_result_youtube_url' => null,
             'terms_content' => null,
             'terms_content_i18n' => null,
+            'privacy_content' => null,
+            'privacy_content_i18n' => null,
+            'privacy_policy_url' => null,
+            'account_deletion_url' => null,
             'config_version' => 1,
             'created_at' => $now,
             'updated_at' => $now,
@@ -632,6 +644,10 @@ class TenantConfigurationService
             'waiting_result_youtube_url' => null,
             'terms_content' => null,
             'terms_content_i18n' => null,
+            'privacy_content' => null,
+            'privacy_content_i18n' => null,
+            'privacy_policy_url' => null,
+            'account_deletion_url' => null,
             'config_version' => 1,
             'created_at' => $now,
             'updated_at' => $now,
@@ -768,6 +784,24 @@ class TenantConfigurationService
             $updates['terms_content_i18n'] = $legal['terms_content_i18n'] ?? $payload['terms_content_i18n'];
         }
 
+        if (array_key_exists('privacy_content', $legal)) {
+            $updates['privacy_content'] = $legal['privacy_content'] === null ? null : trim((string) $legal['privacy_content']);
+        } elseif (array_key_exists('privacy_content', $payload)) {
+            $updates['privacy_content'] = $payload['privacy_content'] === null ? null : trim((string) $payload['privacy_content']);
+        }
+
+        if (array_key_exists('privacy_content_i18n', $legal) || array_key_exists('privacy_content_i18n', $payload)) {
+            $updates['privacy_content_i18n'] = $legal['privacy_content_i18n'] ?? $payload['privacy_content_i18n'];
+        }
+
+        foreach (['privacy_policy_url', 'account_deletion_url'] as $field) {
+            if (array_key_exists($field, $legal)) {
+                $updates[$field] = $legal[$field] === null ? null : trim((string) $legal[$field]);
+            } elseif (array_key_exists($field, $payload)) {
+                $updates[$field] = $payload[$field] === null ? null : trim((string) $payload[$field]);
+            }
+        }
+
         return $updates;
     }
 
@@ -812,7 +846,7 @@ class TenantConfigurationService
             }
         }
 
-        foreach (['site_name_i18n', 'display_name_i18n', 'maintenance_message_i18n', 'terms_content_i18n'] as $jsonField) {
+        foreach (['site_name_i18n', 'display_name_i18n', 'maintenance_message_i18n', 'terms_content_i18n', 'privacy_content_i18n'] as $jsonField) {
             if (array_key_exists($jsonField, $updates)) {
                 $updates[$jsonField] = json_encode($this->normalizedLocalizedText($updates[$jsonField]), JSON_THROW_ON_ERROR);
             }
@@ -921,6 +955,10 @@ class TenantConfigurationService
         return [
             'terms_content' => $this->termsContent($settings),
             'terms_content_i18n' => $this->decodedLocalizedText($settings->terms_content_i18n ?? null),
+            'privacy_content' => $this->privacyContent($settings),
+            'privacy_content_i18n' => $this->decodedLocalizedText($settings->privacy_content_i18n ?? null),
+            'privacy_policy_url' => trim((string) ($settings->privacy_policy_url ?? '')),
+            'account_deletion_url' => trim((string) ($settings->account_deletion_url ?? '')),
         ];
     }
 
@@ -960,6 +998,13 @@ class TenantConfigurationService
         return $custom !== '' ? $custom : $this->defaultTermsContent($this->siteDisplayName($settings));
     }
 
+    private function privacyContent(object $settings): string
+    {
+        $custom = trim((string) $this->localizedText($settings->privacy_content_i18n ?? null, $settings->privacy_content ?? ''));
+
+        return $custom !== '' ? $custom : $this->defaultPrivacyContent($this->siteDisplayName($settings));
+    }
+
     private function siteDisplayName(object $settings): string
     {
         $displayName = trim((string) $this->localizedText($settings->display_name_i18n ?? null, $settings->display_name ?? ''));
@@ -981,6 +1026,37 @@ class TenantConfigurationService
             '7. บริษัทขอสงวนสิทธิ์ ขึ้นเงินรางวัลให้ลูกค้าที่ซื้อกับระบบ ในกรณีลูกค้าถูกรางวัล โดยไม่มีค่าใช้จ่ายใดๆ ทั้งสิ้น',
             '8. ลูกค้าสามารถยกเลิกการสั่งซื้อสลากได้ภายใน 15 นาทีทุกกรณี หากเกินระยะเวลาที่กำหนด บริษัทขอสงวนสิทธิ์ไม่คืนเงินค่าสลากทุกกรณี',
         ]);
+    }
+
+    private function defaultPrivacyContent(string $siteName): string
+    {
+        return implode("\n", [
+            'นโยบายความเป็นส่วนตัว',
+            '1. '.$siteName.' ใช้ข้อมูลส่วนบุคคลเพื่อให้บริการซื้อสลาก เติมเงิน รับเงินรางวัล และแจ้งเตือนรายการ',
+            '2. ระบบเก็บข้อมูลเท่าที่จำเป็นตามกฎหมายและมาตรฐานความปลอดภัย',
+            '3. ลูกค้าสามารถติดต่อร้านค้าเพื่อขอแก้ไข ส่งออก หรือลบข้อมูลบัญชีได้',
+            '4. การลบบัญชีอาจยังต้องเก็บข้อมูลธุรกรรมที่กฎหมายกำหนดไว้',
+        ]);
+    }
+
+    private function isAllowedLegalUrlOrEmpty(mixed $value): bool
+    {
+        if ($value === null) {
+            return true;
+        }
+
+        $url = trim((string) $value);
+        if ($url === '') {
+            return true;
+        }
+
+        if (filter_var($url, FILTER_VALIDATE_URL) === false) {
+            return false;
+        }
+
+        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+
+        return in_array($scheme, ['http', 'https'], true);
     }
 
     /**

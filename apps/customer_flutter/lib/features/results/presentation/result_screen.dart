@@ -22,55 +22,56 @@ class ResultScreen extends ConsumerWidget {
         onRefresh: () async => ref.invalidate(currentResultProvider),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
           children: [
-            AsyncStateView(
-              value: result,
-              loadingText: l10n.resultLoading,
-              data: (bundle) {
-                final selected = bundle.selectedResult;
-                if (selected == null) return const _NoResultCard();
+            ResultPageBody(
+              child: AsyncStateView(
+                value: result,
+                loadingText: l10n.resultLoading,
+                data: (bundle) {
+                  final selected = bundle.selectedResult;
+                  if (selected == null) return const _NoResultCard();
 
-                final history = bundle.history
-                    .where((item) => item.hasResolvedResult)
-                    .toList(growable: false);
+                  final history = bundle.history
+                      .where((item) => item.hasResolvedResult)
+                      .toList(growable: false);
 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    ResultSummaryCard(
-                      result: selected,
-                      featured: true,
-                      link: selected.id.isEmpty
-                          ? '/result/full'
-                          : '/result/full?game_id=${selected.id}',
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      l10n.resultHistoryTitle,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w900),
-                    ),
-                    const SizedBox(height: 10),
-                    if (history.isEmpty)
-                      const _EmptyHistoryCard()
-                    else
-                      for (final item in history)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: ResultSummaryCard(
-                            result: item,
-                            link: '/result/full?game_id=${item.id}',
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ResultSummaryCard(
+                        result: selected,
+                        featured: true,
+                        link: selected.id.isEmpty
+                            ? '/result/full'
+                            : '/result/full?game_id=${selected.id}',
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        l10n.resultHistoryTitle,
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                ),
+                      ),
+                      const SizedBox(height: 10),
+                      if (history.isEmpty)
+                        const _EmptyHistoryCard()
+                      else
+                        for (final item in history)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: ResultSummaryCard(
+                              result: item,
+                              link: '/result/full?game_id=${item.id}',
+                            ),
                           ),
-                        ),
-                    const SizedBox(height: 12),
-                    const _PayoutHintCard(),
-                  ],
-                );
-              },
-              empty: const _NoResultCard(),
+                      const SizedBox(height: 14),
+                      const _PayoutHintCard(),
+                    ],
+                  );
+                },
+                empty: const _NoResultCard(),
+              ),
             ),
           ],
         ),
@@ -84,17 +85,9 @@ class _NoResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          children: [
-            const Icon(Icons.hourglass_empty, size: 42),
-            const SizedBox(height: 12),
-            Text(context.l10n.resultNoLatest),
-          ],
-        ),
-      ),
+    return ResultInfoCard(
+      icon: Icons.hourglass_empty,
+      title: context.l10n.resultNoLatest,
     );
   }
 }
@@ -104,11 +97,9 @@ class _EmptyHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: const CircleAvatar(child: Icon(Icons.history)),
-        title: Text(context.l10n.resultNoHistory),
-      ),
+    return ResultInfoCard(
+      icon: Icons.history,
+      title: context.l10n.resultNoHistory,
     );
   }
 }
@@ -118,14 +109,9 @@ class _PayoutHintCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Text(
-          context.l10n.resultPayoutHint,
-          textAlign: TextAlign.center,
-        ),
-      ),
+    return ResultInfoCard(
+      icon: Icons.payments_outlined,
+      title: context.l10n.resultPayoutHint,
     );
   }
 }

@@ -9,7 +9,11 @@ import 'mobile_bootstrap_repository.dart';
 final mobileBootstrapProvider = FutureProvider<MobileBootstrap>((ref) async {
   final config = ref.watch(appConfigProvider);
   final data = await ref.watch(mobileBootstrapRepositoryProvider).load();
-  return MobileBootstrap.fromJson(data, defaultLocale: config.defaultLocale);
+  return MobileBootstrap.fromJson(
+    data,
+    defaultLocale: config.defaultLocale,
+    defaultSiteName: config.runtimeDisplayName,
+  );
 });
 
 class MobileBootstrap {
@@ -23,16 +27,21 @@ class MobileBootstrap {
     required this.authProviders,
     required this.line,
     required this.realtime,
+    required this.live,
     required this.biometric,
     required this.screenSecurity,
     required this.featureFlags,
     required this.termsContent,
+    required this.privacyContent,
+    required this.privacyPolicyUrl,
+    required this.accountDeletionUrl,
     required this.maintenance,
   });
 
   factory MobileBootstrap.fromJson(
     Map<String, dynamic> json, {
     String defaultLocale = 'th-TH',
+    String defaultSiteName = 'Customer',
   }) {
     final mobile = json['mobile'] is Map<String, dynamic>
         ? json['mobile'] as Map<String, dynamic>
@@ -80,11 +89,16 @@ class MobileBootstrap {
     final realtime = mobile['realtime'] is Map<String, dynamic>
         ? mobile['realtime'] as Map<String, dynamic>
         : <String, dynamic>{};
+    final live = mobile['live'] is Map<String, dynamic>
+        ? mobile['live'] as Map<String, dynamic>
+        : json['live'] is Map<String, dynamic>
+            ? json['live'] as Map<String, dynamic>
+            : <String, dynamic>{};
 
     return MobileBootstrap(
       siteName: site['display_name']?.toString() ??
           site['site_name']?.toString() ??
-          'Customer App',
+          defaultSiteName,
       tenantId: json['tenant_id']?.toString() ?? '',
       locale: parseCustomerLocale(
         site['locale']?.toString() ?? mobile['locale']?.toString(),
@@ -96,10 +110,14 @@ class MobileBootstrap {
       authProviders: providers,
       line: MobileLineConfig.fromJson(line),
       realtime: MobileRealtimeConfig.fromJson(realtime),
+      live: MobileLiveConfig.fromJson(live),
       biometric: MobileBiometricConfig.fromJson(biometric),
       screenSecurity: MobileScreenSecurityConfig.fromJson(screenSecurity),
       featureFlags: MobileFeatureFlags.fromJson(featureFlags),
       termsContent: legal['terms_content']?.toString() ?? '',
+      privacyContent: legal['privacy_content']?.toString() ?? '',
+      privacyPolicyUrl: legal['privacy_policy_url']?.toString().trim() ?? '',
+      accountDeletionUrl: legal['account_deletion_url']?.toString().trim() ?? '',
       maintenance: MaintenanceConfig.fromJson(maintenance),
     );
   }
@@ -113,11 +131,52 @@ class MobileBootstrap {
   final List<SocialAuthProvider> authProviders;
   final MobileLineConfig line;
   final MobileRealtimeConfig realtime;
+  final MobileLiveConfig live;
   final MobileBiometricConfig biometric;
   final MobileScreenSecurityConfig screenSecurity;
   final MobileFeatureFlags featureFlags;
   final String termsContent;
+  final String privacyContent;
+  final String privacyPolicyUrl;
+  final String accountDeletionUrl;
   final MaintenanceConfig maintenance;
+}
+
+class MobileLiveConfig {
+  const MobileLiveConfig({
+    required this.waitingResultYoutubeUrl,
+    required this.waitingResultYoutubeEmbedUrl,
+    required this.source,
+  });
+
+  factory MobileLiveConfig.fromJson(Map<String, dynamic> json) {
+    return MobileLiveConfig(
+      waitingResultYoutubeUrl:
+          json['waiting_result_youtube_url']?.toString().trim() ?? '',
+      waitingResultYoutubeEmbedUrl:
+          json['waiting_result_youtube_embed_url']?.toString().trim() ?? '',
+      source: json['source']?.toString().trim() ?? 'not_configured',
+    );
+  }
+
+  final String waitingResultYoutubeUrl;
+  final String waitingResultYoutubeEmbedUrl;
+  final String source;
+
+  bool get configured =>
+      waitingResultYoutubeEmbedUrl.isNotEmpty ||
+      waitingResultYoutubeUrl.isNotEmpty;
+
+  Uri? get launchUri {
+    final raw = waitingResultYoutubeEmbedUrl.isNotEmpty
+        ? waitingResultYoutubeEmbedUrl
+        : waitingResultYoutubeUrl;
+    if (raw.isEmpty) return null;
+
+    final uri = Uri.tryParse(raw);
+    if (uri == null || !uri.hasScheme) return null;
+    return uri;
+  }
 }
 
 class MobileRealtimeConfig {
@@ -135,14 +194,14 @@ class MobileRealtimeConfig {
     final key = json['key']?.toString().trim() ?? '';
     final client = json['client']?.toString().trim() ?? '';
     return MobileRealtimeConfig(
-      enabled: json['enabled'] == true && url.isNotEmpty,
+      enabled: json['enabled'] == true && url.isNotEmpty && key.isNotEmpty,
       url: url,
-      key: key.isEmpty ? 'newpaotang-customer' : key,
+      key: key,
       authEndpoint: json['auth_endpoint']?.toString().trim().isNotEmpty == true
           ? json['auth_endpoint'].toString().trim()
           : '/customer/realtime/auth',
       protocol: int.tryParse(json['protocol']?.toString() ?? '') ?? 7,
-      client: client.isEmpty ? 'newpaotang-customer' : client,
+      client: client.isEmpty ? 'customer-flutter' : client,
     );
   }
 

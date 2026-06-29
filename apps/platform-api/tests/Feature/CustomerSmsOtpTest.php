@@ -6,7 +6,6 @@ use App\Modules\SmsOtp\Services\SmsOtpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Tests\Support\PartnerStoreFixtures;
 use Tests\TestCase;
@@ -20,7 +19,9 @@ class CustomerSmsOtpTest extends TestCase
     {
         $this->insertActivePartnerTenantWithDomain('par_sms_register', 'ten_sms_register', 'sms-register.m5.test');
         $this->insertSmsProvider('ten_sms_register');
-        Http::fake(['api-v2.thaibulksms.com/*' => Http::response(['message_id' => 'sms-register-1'], 200)]);
+        $this->fakeThaiBulkOtp([
+            ['token' => 'register-provider-token', 'refno' => 'REG01'],
+        ]);
 
         $this->postJson('http://sms-register.m5.test/api/v1/customer/auth/register', [
             'name' => 'SMS Register',
@@ -38,9 +39,8 @@ class CustomerSmsOtpTest extends TestCase
             'phone' => '0801112222',
             'purpose' => 'register',
         ])->assertAccepted()
-            ->assertJsonPath('status', 'sent');
-
-        $this->forceLatestOtp('ten_sms_register', '0801112222', 'register', '123456');
+            ->assertJsonPath('status', 'sent')
+            ->assertJsonPath('refno', 'REG01');
 
         $verified = $this->postJson('http://sms-register.m5.test/api/v1/customer/auth/otp/verify', [
             'phone' => '0801112222',
@@ -65,20 +65,45 @@ class CustomerSmsOtpTest extends TestCase
             'tenant_id' => 'ten_sms_register',
             'purpose' => 'register',
             'status' => 'sent',
+            'provider_message_id' => 'REG01',
         ]);
+        $deliveryResponse = (string) DB::table('sms_delivery_logs')
+            ->where('tenant_id', 'ten_sms_register')
+            ->where('purpose', 'register')
+            ->value('response_json');
+        $this->assertStringNotContainsString('register-provider-token', $deliveryResponse);
+        $this->assertSame('redacted', json_decode($deliveryResponse, true)['token'] ?? null);
+        $otpMetadata = json_decode((string) DB::table('otp_verifications')
+            ->where('tenant_id', 'ten_sms_register')
+            ->where('purpose', 'register')
+            ->value('metadata_json'), true);
+        $this->assertSame('REG01', $otpMetadata['provider_refno'] ?? null);
+        $this->assertSame('register-provider-token', Crypt::decryptString((string) ($otpMetadata['provider_token_encrypted'] ?? '')));
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://otp.thaibulksms.com/v2/otp/request'
+            && $request['key'] === 'test-api-key'
+            && $request['secret'] === 'test-api-secret'
+            && $request['msisdn'] === '66801112222');
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://otp.thaibulksms.com/v2/otp/verify'
+            && $request['key'] === 'test-api-key'
+            && $request['secret'] === 'test-api-secret'
+            && $request['token'] === 'register-provider-token'
+            && $request['pin'] === '123456');
     }
 
     public function test_CustomerSmsOtp_resets_password_and_pin_with_verified_otp(): void
     {
         $this->insertActivePartnerTenantWithDomain('par_sms_reset', 'ten_sms_reset', 'sms-reset.m5.test');
         $this->insertSmsProvider('ten_sms_reset');
-        Http::fake(['api-v2.thaibulksms.com/*' => Http::response(['message_id' => 'sms-reset-1'], 200)]);
+        $this->fakeThaiBulkOtp([
+            ['token' => 'reset-register-provider-token', 'refno' => 'RST01'],
+            ['token' => 'password-reset-provider-token', 'refno' => 'RST02'],
+            ['token' => 'pin-reset-provider-token', 'refno' => 'RST03'],
+        ]);
 
         $this->postJson('http://sms-reset.m5.test/api/v1/customer/auth/otp/request', [
             'phone' => '0803334444',
             'purpose' => 'register',
         ])->assertAccepted();
-        $this->forceLatestOtp('ten_sms_reset', '0803334444', 'register', '111111');
         $registerToken = $this->postJson('http://sms-reset.m5.test/api/v1/customer/auth/otp/verify', [
             'phone' => '0803334444',
             'purpose' => 'register',
@@ -99,7 +124,6 @@ class CustomerSmsOtpTest extends TestCase
             'phone' => '0803334444',
             'purpose' => 'password_reset',
         ])->assertAccepted();
-        $this->forceLatestOtp('ten_sms_reset', '0803334444', 'password_reset', '222222');
         $passwordToken = $this->postJson('http://sms-reset.m5.test/api/v1/customer/auth/otp/verify', [
             'phone' => '0803334444',
             'purpose' => 'password_reset',
@@ -128,7 +152,6 @@ class CustomerSmsOtpTest extends TestCase
         $this->withToken($login['token'])
             ->postJson('http://sms-reset.m5.test/api/v1/customer/auth/pin/reset/request-otp')
             ->assertAccepted();
-        $this->forceLatestOtp('ten_sms_reset', '0803334444', 'pin_reset', '333333');
         $pinToken = $this->withToken($login['token'])
             ->postJson('http://sms-reset.m5.test/api/v1/customer/auth/pin/reset/verify-otp', [
                 'otp' => '333333',
@@ -155,7 +178,9 @@ class CustomerSmsOtpTest extends TestCase
     {
         $this->insertActivePartnerTenantWithDomain('par_sms_test', 'ten_sms_test', 'sms-test.m5.test');
         $this->insertSmsProvider('ten_sms_test', 'inactive');
-        Http::fake(['api-v2.thaibulksms.com/*' => Http::response(['message_id' => 'sms-test-1'], 200)]);
+        $this->fakeThaiBulkOtp([
+            ['token' => 'test-send-provider-token', 'refno' => 'TST01'],
+        ]);
 
         $result = app(SmsOtpService::class)->testSend('ten_sms_test', [
             'phone' => '0805556666',
@@ -166,7 +191,7 @@ class CustomerSmsOtpTest extends TestCase
             'tenant_id' => 'ten_sms_test',
             'purpose' => 'register',
             'status' => 'sent',
-            'provider_message_id' => 'sms-test-1',
+            'provider_message_id' => 'TST01',
         ]);
         $this->assertDatabaseHas('tenant_sms_providers', [
             'tenant_id' => 'ten_sms_test',
@@ -180,7 +205,7 @@ class CustomerSmsOtpTest extends TestCase
         $this->insertActivePartnerTenantWithDomain('par_sms_error', 'ten_sms_error', 'sms-error.m5.test');
         $this->insertSmsProvider('ten_sms_error');
         Http::fake([
-            'api-v2.thaibulksms.com/*' => Http::response([
+            '*otp.thaibulksms.com/v2/otp/request' => Http::response([
                 'error' => [
                     'code' => 110,
                     'name' => 'ERROR_SENDER',
@@ -234,7 +259,7 @@ class CustomerSmsOtpTest extends TestCase
     {
         $this->insertActivePartnerTenantWithDomain('par_sms_legacy_sender', 'ten_sms_legacy_sender', 'sms-legacy-sender.m5.test');
         $this->insertSmsProvider('ten_sms_legacy_sender', 'active', 'พบโชค');
-        Http::fake(['api-v2.thaibulksms.com/*' => Http::response(['message_id' => 'should-not-send'], 200)]);
+        Http::fake(['*otp.thaibulksms.com/*' => Http::response(['refno' => 'should-not-send'], 200)]);
 
         $result = app(SmsOtpService::class)->testSend('ten_sms_legacy_sender', [
             'phone' => '0809990000',
@@ -324,23 +349,26 @@ class CustomerSmsOtpTest extends TestCase
         ]);
     }
 
-    private function forceLatestOtp(string $tenantId, string $phone, string $purpose, string $otp): void
+    /**
+     * @param array<int, array{token: string, refno: string}> $requests
+     */
+    private function fakeThaiBulkOtp(array $requests): void
     {
-        $id = DB::table('otp_verifications')
-            ->where('tenant_id', $tenantId)
-            ->where('phone_normalized', $phone)
-            ->where('purpose', $purpose)
-            ->orderByDesc('created_at')
-            ->value('id');
+        $requestSequence = Http::sequence();
+        foreach ($requests as $request) {
+            $requestSequence->push([
+                'status' => 'success',
+                'token' => $request['token'],
+                'refno' => $request['refno'],
+            ], 201);
+        }
 
-        DB::table('otp_verifications')
-            ->where('id', $id)
-            ->update([
-                'otp_hash' => Hash::make($otp),
-                'attempts' => 0,
-                'status' => 'pending',
-                'expires_at' => now()->addMinutes(5),
-                'updated_at' => now(),
-            ]);
+        Http::fake([
+            '*otp.thaibulksms.com/v2/otp/request' => $requestSequence,
+            '*otp.thaibulksms.com/v2/otp/verify' => Http::response([
+                'status' => 'success',
+                'message' => 'Code is correct.',
+            ], 200),
+        ]);
     }
 }

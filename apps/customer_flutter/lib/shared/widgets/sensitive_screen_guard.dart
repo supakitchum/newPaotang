@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/auth_controller.dart';
+import '../../core/i18n/customer_localizations.dart';
 import '../../core/security/screen_security_service.dart';
 
 class SensitiveScreenGuard extends ConsumerStatefulWidget {
@@ -65,7 +66,12 @@ class _SensitiveScreenGuardState extends ConsumerState<SensitiveScreenGuard> {
     }
 
     _subscription ??= _screenSecurity.events.listen(_handleSecurityEvent);
-    _screenSecurity.enable(route: widget.route);
+    final l10n = context.l10n;
+    _screenSecurity.enable(
+      route: widget.route,
+      overlayTitle: l10n.securityCaptureTitle,
+      overlayDescription: l10n.securityCaptureDescription,
+    );
   }
 
   void _handleSecurityEvent(ScreenSecurityEvent event) {

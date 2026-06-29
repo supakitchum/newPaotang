@@ -629,6 +629,15 @@ class PartnerProvisioningTest extends TestCase
                 '7. บริษัทขอสงวนสิทธิ์ ขึ้นเงินรางวัลให้ลูกค้าที่ซื้อกับระบบ ในกรณีลูกค้าถูกรางวัล โดยไม่มีค่าใช้จ่ายใดๆ ทั้งสิ้น',
                 '8. ลูกค้าสามารถยกเลิกการสั่งซื้อสลากได้ภายใน 15 นาทีทุกกรณี หากเกินระยะเวลาที่กำหนด บริษัทขอสงวนสิทธิ์ไม่คืนเงินค่าสลากทุกกรณี',
             ]))
+            ->assertJsonPath('data.legal.privacy_content', implode("\n", [
+                'นโยบายความเป็นส่วนตัว',
+                '1. Site Lucky ใช้ข้อมูลส่วนบุคคลเพื่อให้บริการซื้อสลาก เติมเงิน รับเงินรางวัล และแจ้งเตือนรายการ',
+                '2. ระบบเก็บข้อมูลเท่าที่จำเป็นตามกฎหมายและมาตรฐานความปลอดภัย',
+                '3. ลูกค้าสามารถติดต่อร้านค้าเพื่อขอแก้ไข ส่งออก หรือลบข้อมูลบัญชีได้',
+                '4. การลบบัญชีอาจยังต้องเก็บข้อมูลธุรกรรมที่กฎหมายกำหนดไว้',
+            ]))
+            ->assertJsonPath('data.legal.privacy_policy_url', '')
+            ->assertJsonPath('data.legal.account_deletion_url', '')
             ->assertJsonPath('data.domain.host', 'site.example.test')
             ->assertJsonPath('data.theme.primary_color', '#123456')
             ->assertJsonPath('data.features.affiliate', true)
@@ -762,6 +771,12 @@ class PartnerProvisioningTest extends TestCase
                 ],
                 'legal' => [
                     'terms_content' => 'Custom terms for Settings One',
+                    'privacy_content' => 'Custom privacy for Settings One',
+                    'privacy_content_i18n' => [
+                        'en-US' => 'Custom privacy in English',
+                    ],
+                    'privacy_policy_url' => 'https://settings-one.example.test/privacy',
+                    'account_deletion_url' => 'https://settings-one.example.test/account/delete',
                 ],
             ], [
                 'X-Admin-Scope' => 'tenant',
@@ -774,11 +789,30 @@ class PartnerProvisioningTest extends TestCase
             ->assertJsonPath('seo.default_keywords', ['lottery', 'lucky'])
             ->assertJsonPath('maintenance.active', true)
             ->assertJsonPath('api.base_url', 'https://api.settings-one.test/api/v1')
-            ->assertJsonPath('legal.terms_content', 'Custom terms for Settings One');
+            ->assertJsonPath('legal.terms_content', 'Custom terms for Settings One')
+            ->assertJsonPath('legal.privacy_content', 'Custom privacy in English')
+            ->assertJsonPath('legal.privacy_content_i18n.en-US', 'Custom privacy in English')
+            ->assertJsonPath('legal.privacy_policy_url', 'https://settings-one.example.test/privacy')
+            ->assertJsonPath('legal.account_deletion_url', 'https://settings-one.example.test/account/delete');
 
         $this->getJson('http://settings-one.example.test/api/v1/public/site-config')
             ->assertOk()
-            ->assertJsonPath('data.legal.terms_content', 'Custom terms for Settings One');
+            ->assertJsonPath('data.legal.terms_content', 'Custom terms for Settings One')
+            ->assertJsonPath('data.legal.privacy_content', 'Custom privacy in English')
+            ->assertJsonPath('data.legal.privacy_policy_url', 'https://settings-one.example.test/privacy')
+            ->assertJsonPath('data.legal.account_deletion_url', 'https://settings-one.example.test/account/delete');
+
+        $mobileBootstrap = $this->getJson('http://settings-one.example.test/api/v1/public/mobile/bootstrap')
+            ->assertOk()
+            ->assertJsonPath('data.legal.privacy_content', 'Custom privacy in English')
+            ->assertJsonPath('data.legal.privacy_policy_url', 'https://settings-one.example.test/privacy')
+            ->assertJsonPath('data.legal.account_deletion_url', 'https://settings-one.example.test/account/delete')
+            ->json();
+
+        $this->assertContains(
+            '/profile/account-deletion',
+            data_get($mobileBootstrap, 'data.mobile.screen_security.sensitive_routes', []),
+        );
 
         $this->assertDatabaseHas('partner_tenant_settings', [
             'tenant_id' => $otherTenantId,

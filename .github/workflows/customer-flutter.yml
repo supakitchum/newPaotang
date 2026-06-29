@@ -30,7 +30,7 @@ jobs:
         run: flutter pub get
 
       - name: Check formatting
-        run: dart format --set-exit-if-changed lib test tool
+        run: dart format --set-exit-if-changed lib test tool integration_test
 
       - name: Analyze
         run: flutter analyze
@@ -38,15 +38,18 @@ jobs:
       - name: Test
         run: flutter test
 
+      - name: Web smoke test
+        run: flutter test -d chrome test/customer_app_smoke_test.dart --reporter compact
+
       - name: Generate deep link association files
         run: |
           set -euo pipefail
           dart run tool/generate_link_files.dart \
             --output-dir build/link-association-ci \
-            --android-package com.newpaotang.customer_flutter \
+            --android-package com.partner.customer \
             --sha256-fingerprint AA:BB:CC:DD:EE:FF \
             --ios-team-id ABCDE12345 \
-            --ios-bundle-id com.newpaotang.customerFlutter
+            --ios-bundle-id com.partner.customer
           python3 -m json.tool build/link-association-ci/.well-known/assetlinks.json >/dev/null
           python3 -m json.tool build/link-association-ci/.well-known/apple-app-site-association >/dev/null
 
@@ -57,16 +60,16 @@ jobs:
             --target all \
             --api-base-url https://partner.example.com/api/v1 \
             --app-display-name "Partner Lottery" \
-            --android-package com.newpaotang.customer_flutter \
-            --android-callback-scheme newpaotang \
+            --android-package com.partner.customer \
+            --android-callback-scheme partnerlottery \
             --android-callback-host partner.example.com \
             --android-store-file /secure/release.jks \
             --android-store-password "***" \
             --android-key-alias release \
             --android-key-password "***" \
             --ios-team-id ABCDE12345 \
-            --ios-bundle-id com.newpaotang.customerFlutter \
-            --ios-url-scheme newpaotang \
+            --ios-bundle-id com.partner.customer \
+            --ios-url-scheme partnerlottery \
             --ios-associated-domain applinks:partner.example.com \
             --social-provider line \
             --social-provider google \
@@ -81,12 +84,12 @@ jobs:
             --skip-android-signing \
             --api-base-url https://partner.example.com/api/v1 \
             --app-display-name "Partner Lottery" \
-            --android-package com.newpaotang.customer_flutter \
-            --android-callback-scheme newpaotang \
+            --android-package com.partner.customer \
+            --android-callback-scheme partnerlottery \
             --android-callback-host partner.example.com \
             --ios-team-id ABCDE12345 \
-            --ios-bundle-id com.newpaotang.customerFlutter \
-            --ios-url-scheme newpaotang \
+            --ios-bundle-id com.partner.customer \
+            --ios-url-scheme partnerlottery \
             --ios-associated-domain applinks:partner.example.com \
             --social-provider line \
             --social-provider google \
@@ -115,6 +118,29 @@ jobs:
 
       - name: Build Android debug APK
         run: flutter build apk --debug --dart-define=API_BASE_URL=/api/v1
+
+      - name: Build Android release smoke APK
+        run: |
+          set -euo pipefail
+          mkdir -p build/ci-release-smoke
+          keytool -genkeypair -v \
+            -keystore build/ci-release-smoke/customer-flutter-ci-release.jks \
+            -storepass changeit \
+            -keypass changeit \
+            -alias ci-release \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 1 \
+            -dname "CN=Customer Flutter CI,O=NewPaotang,L=Bangkok,C=TH"
+          CUSTOMER_FLUTTER_APPLICATION_ID=com.partner.customer \
+          CUSTOMER_FLUTTER_APP_LABEL="Partner Lottery" \
+          CUSTOMER_FLUTTER_AUTH_CALLBACK_SCHEME=partnerlottery \
+          CUSTOMER_FLUTTER_AUTH_CALLBACK_HOST=partner.example.com \
+          CUSTOMER_FLUTTER_STORE_FILE="$PWD/build/ci-release-smoke/customer-flutter-ci-release.jks" \
+          CUSTOMER_FLUTTER_STORE_PASSWORD=changeit \
+          CUSTOMER_FLUTTER_KEY_ALIAS=ci-release \
+          CUSTOMER_FLUTTER_KEY_PASSWORD=changeit \
+          flutter build apk --release --dart-define=API_BASE_URL=/api/v1
 
   build-ios:
     name: Build iOS simulator

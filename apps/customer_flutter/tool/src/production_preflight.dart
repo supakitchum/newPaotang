@@ -80,14 +80,85 @@ List<ProductionPreflightIssue> runCustomerFlutterProductionPreflight(
   _checkApiBaseUrl(input, issues);
   _checkNativeTenantHost(input, issues);
   _checkDisplayName(input, issues);
+  _checkSocialProviderValues(input, issues);
   _checkSocialLoginStoreCompliance(input, issues);
   if (input.production && input.checkFiles) {
+    _checkStoreAccountReadiness(input, issues);
     _checkForbiddenProductionSourceReferences(input, issues);
+    _checkExternalLinkLaunchPolicy(input, issues);
+    if (input.target.includesWeb) _checkWebRuntimeMetadata(input, issues);
+  }
+  if (input.checkFiles &&
+      (input.target.includesAndroid || input.target.includesIos)) {
+    _checkFlutterScreenSecurityBinding(input, issues);
   }
   if (input.target.includesAndroid) _checkAndroid(input, issues);
   if (input.target.includesIos) _checkIos(input, issues);
 
   return issues;
+}
+
+void _checkFlutterScreenSecurityBinding(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final service = File(
+    _join(input.projectRoot, 'lib/core/security/screen_security_service.dart'),
+  );
+  if (!service.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'flutter_screen_security_service_missing',
+        message: 'Flutter ScreenSecurityService was not found.',
+      ),
+    );
+  } else {
+    final source = service.readAsStringSync();
+    _requireAllSnippets(
+      source,
+      const [
+        "MethodChannel('customer_flutter/screen_security')",
+        'setMethodCallHandler',
+        'securityEvent',
+        'StreamController<ScreenSecurityEvent>.broadcast',
+      ],
+      const ProductionPreflightIssue(
+        code: 'flutter_screen_security_event_binding_missing',
+        message:
+            'Flutter must listen to native screen security events from the screen security channel.',
+      ),
+      issues,
+    );
+  }
+
+  final guard = File(
+    _join(input.projectRoot, 'lib/shared/widgets/sensitive_screen_guard.dart'),
+  );
+  if (!guard.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'flutter_sensitive_screen_guard_missing',
+        message: 'Flutter SensitiveScreenGuard was not found.',
+      ),
+    );
+    return;
+  }
+
+  final source = guard.readAsStringSync();
+  _requireAllSnippets(
+    source,
+    const [
+      '.events.listen',
+      'screen_capture_ended',
+      'lockForScreenSecurity',
+    ],
+    const ProductionPreflightIssue(
+      code: 'flutter_screen_security_lock_binding_missing',
+      message:
+          'SensitiveScreenGuard must lock the app when native screenshot or recording events are received.',
+    ),
+    issues,
+  );
 }
 
 void _checkNativeTenantHost(
@@ -128,6 +199,31 @@ void _checkNativeTenantHost(
   }
 }
 
+void _checkSocialProviderValues(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  if (!input.production) return;
+
+  const supportedProviders = {'line', 'google', 'apple'};
+  final invalidProviders = input.socialAuthProviders
+      .map((provider) => provider.trim().toLowerCase())
+      .where((provider) => provider.isNotEmpty)
+      .where((provider) => !supportedProviders.contains(provider))
+      .toSet()
+      .toList()
+    ..sort();
+  if (invalidProviders.isEmpty) return;
+
+  issues.add(
+    ProductionPreflightIssue(
+      code: 'social_provider_invalid',
+      message:
+          'Unsupported social provider(s): ${invalidProviders.join(', ')}. Supported providers are line, google, and apple.',
+    ),
+  );
+}
+
 void _checkSocialLoginStoreCompliance(
   ProductionPreflightInput input,
   List<ProductionPreflightIssue> issues,
@@ -151,6 +247,60 @@ void _checkSocialLoginStoreCompliance(
       ),
     );
   }
+}
+
+void _checkStoreAccountReadiness(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final providers = input.socialAuthProviders
+      .map((provider) => provider.trim().toLowerCase())
+      .where((provider) => provider.isNotEmpty)
+      .toSet();
+  if (providers.isEmpty) return;
+
+  final requiredFiles = <String, List<String>>{
+    'lib/app/customer_routes.dart': const [
+      "path: '/privacy'",
+      "path: '/profile/account-deletion'",
+    ],
+    'lib/app/router.dart': const [
+      "path: '/privacy'",
+      'PrivacyPolicyScreen',
+      "path: '/profile/account-deletion'",
+      'AccountDeletionScreen',
+    ],
+    'lib/features/profile/presentation/profile_screen.dart': const [
+      "path: '/privacy'",
+      "path: '/profile/account-deletion'",
+    ],
+  };
+
+  final missing = <String>[];
+  for (final entry in requiredFiles.entries) {
+    final file = File(_join(input.projectRoot, entry.key));
+    if (!file.existsSync()) {
+      missing.add(entry.key);
+      continue;
+    }
+
+    final source = file.readAsStringSync();
+    for (final snippet in entry.value) {
+      if (!source.contains(snippet)) {
+        missing.add('${entry.key} missing $snippet');
+      }
+    }
+  }
+
+  if (missing.isEmpty) return;
+
+  issues.add(
+    ProductionPreflightIssue(
+      code: 'store_account_readiness_missing',
+      message:
+          'Production builds with social login must expose Privacy Policy and Account Deletion entry points. Missing: ${missing.join(', ')}',
+    ),
+  );
 }
 
 void _checkApiBaseUrl(
@@ -218,6 +368,14 @@ void _checkAndroid(
             'CUSTOMER_FLUTTER_APPLICATION_ID is not a valid package: $package',
       ),
     );
+  } else if (input.production && _isDefaultAndroidApplicationId(package)) {
+    issues.add(
+      ProductionPreflightIssue(
+        code: 'android_package_not_partner_specific',
+        message:
+            'CUSTOMER_FLUTTER_APPLICATION_ID must be partner-specific for production builds: $package',
+      ),
+    );
   }
 
   final scheme = input.androidCallbackScheme?.trim() ?? '';
@@ -227,6 +385,14 @@ void _checkAndroid(
         code: 'android_callback_scheme_invalid',
         message:
             'CUSTOMER_FLUTTER_AUTH_CALLBACK_SCHEME must be a custom URL scheme.',
+      ),
+    );
+  } else if (input.production && _isDefaultCallbackScheme(scheme)) {
+    issues.add(
+      ProductionPreflightIssue(
+        code: 'android_callback_scheme_not_partner_specific',
+        message:
+            'CUSTOMER_FLUTTER_AUTH_CALLBACK_SCHEME must be partner-specific for production builds: $scheme',
       ),
     );
   }
@@ -303,6 +469,14 @@ void _checkIos(
         message: 'CUSTOMER_FLUTTER_IOS_BUNDLE_ID is not valid: $bundleId',
       ),
     );
+  } else if (input.production && _isDefaultIosBundleId(bundleId)) {
+    issues.add(
+      ProductionPreflightIssue(
+        code: 'ios_bundle_id_not_partner_specific',
+        message:
+            'CUSTOMER_FLUTTER_IOS_BUNDLE_ID must be partner-specific for production builds: $bundleId',
+      ),
+    );
   }
 
   final scheme = input.iosUrlScheme?.trim() ?? '';
@@ -311,6 +485,14 @@ void _checkIos(
       const ProductionPreflightIssue(
         code: 'ios_url_scheme_invalid',
         message: 'CUSTOMER_FLUTTER_IOS_URL_SCHEME must be a custom URL scheme.',
+      ),
+    );
+  } else if (input.production && _isDefaultCallbackScheme(scheme)) {
+    issues.add(
+      ProductionPreflightIssue(
+        code: 'ios_url_scheme_not_partner_specific',
+        message:
+            'CUSTOMER_FLUTTER_IOS_URL_SCHEME must be partner-specific for production builds: $scheme',
       ),
     );
   }
@@ -359,6 +541,16 @@ void _checkAndroidNativeSecurity(
     const ProductionPreflightIssue(
       code: 'android_flag_secure_missing',
       message: 'Android MainActivity must enable FLAG_SECURE.',
+    ),
+    issues,
+  );
+  _requireAllSnippets(
+    source,
+    const ['override fun onCreate', 'window.setFlags'],
+    const ProductionPreflightIssue(
+      code: 'android_startup_flag_secure_missing',
+      message:
+          'Android MainActivity must enable FLAG_SECURE during onCreate before the first Flutter frame.',
     ),
     issues,
   );
@@ -558,6 +750,7 @@ void _checkIosNativeSecurity(
   _checkIosEntitlements(input, issues);
   _checkIosXcconfig(input, issues);
   _checkIosProjectConfig(input, issues);
+  _checkIosReleaseConfigGuard(input, issues);
 
   final appDelegate =
       File(_join(input.projectRoot, 'ios/Runner/AppDelegate.swift'));
@@ -594,6 +787,22 @@ void _checkIosNativeSecurity(
       code: 'ios_screen_capture_detection_missing',
       message:
           'iOS AppDelegate must detect screenshots, recording/mirroring, show the privacy overlay, and notify Flutter.',
+    ),
+    issues,
+  );
+  _requireAllSnippets(
+    source,
+    const [
+      'UIApplication.willResignActiveNotification',
+      'UIApplication.didBecomeActiveNotification',
+      'applicationWillHideSensitiveSnapshot',
+      'applicationDidReturnFromSensitiveSnapshot',
+      'showPrivacyOverlay',
+    ],
+    const ProductionPreflightIssue(
+      code: 'ios_sensitive_snapshot_overlay_missing',
+      message:
+          'iOS AppDelegate must hide sensitive content before app switcher snapshots and restore safely after returning active.',
     ),
     issues,
   );
@@ -736,6 +945,58 @@ void _checkIosProjectConfig(
     ),
     issues,
   );
+  _requireAllSnippets(
+    source,
+    const [
+      'Validate Release Config',
+      'scripts/validate_release_config.sh',
+      r'PRODUCT_BUNDLE_IDENTIFIER = "$(CUSTOMER_FLUTTER_IOS_BUNDLE_ID)"',
+      r'DEVELOPMENT_TEAM = "$(CUSTOMER_FLUTTER_IOS_TEAM_ID)"',
+    ],
+    const ProductionPreflightIssue(
+      code: 'ios_release_project_guard_missing',
+      message:
+          'iOS Runner release config must use partner-specific Team ID / bundle ID and run Validate Release Config.',
+    ),
+    issues,
+  );
+}
+
+void _checkIosReleaseConfigGuard(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final file = File(
+    _join(input.projectRoot, 'ios/scripts/validate_release_config.sh'),
+  );
+  if (!file.existsSync()) {
+    issues.add(
+      const ProductionPreflightIssue(
+        code: 'ios_release_config_guard_missing',
+        message: 'iOS release config guard script was not found.',
+      ),
+    );
+    return;
+  }
+
+  final source = file.readAsStringSync();
+  _requireAllSnippets(
+    source,
+    const [
+      'APP_DISPLAY_NAME',
+      'CUSTOMER_FLUTTER_URL_SCHEME',
+      'CUSTOMER_FLUTTER_ASSOCIATED_DOMAIN',
+      'PRODUCT_BUNDLE_IDENTIFIER',
+      'DEVELOPMENT_TEAM',
+      'com.newpaotang.customerFlutter',
+    ],
+    const ProductionPreflightIssue(
+      code: 'ios_release_config_guard_incomplete',
+      message:
+          'iOS release config guard must fail Release builds with missing or default partner settings.',
+    ),
+    issues,
+  );
 }
 
 void _checkForbiddenProductionSourceReferences(
@@ -820,6 +1081,106 @@ void _checkForbiddenProductionSourceReferences(
   }
 }
 
+void _checkExternalLinkLaunchPolicy(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final lib = Directory(_join(input.projectRoot, 'lib'));
+  if (!lib.existsSync()) return;
+
+  const launcherPath = 'lib/core/navigation/customer_link_launcher.dart';
+  final forbiddenPatterns = <String, RegExp>{
+    'url_launcher_import': RegExp(
+      "import\\s+['\"]package:url_launcher/url_launcher\\.dart['\"]",
+    ),
+    'launchUrl_call': RegExp(r'\blaunchUrl\s*\('),
+  };
+
+  for (final entity in lib.listSync(recursive: true, followLinks: false)) {
+    if (entity is! File || _extensionOf(entity.path) != '.dart') continue;
+
+    final path = _relativePath(input.projectRoot, entity.path);
+    if (path == launcherPath) continue;
+
+    String source;
+    try {
+      source = entity.readAsStringSync();
+    } on FileSystemException {
+      continue;
+    } on FormatException {
+      continue;
+    }
+
+    for (final entry in forbiddenPatterns.entries) {
+      final match = entry.value.firstMatch(source);
+      if (match == null) continue;
+
+      final line = _lineNumberForOffset(source, match.start);
+      issues.add(
+        ProductionPreflightIssue(
+          code: 'external_link_policy_bypass',
+          message:
+              'External link launch policy is bypassed by ${entry.key} in $path:$line. Use CustomerLinkLauncher instead.',
+        ),
+      );
+    }
+  }
+}
+
+void _checkWebRuntimeMetadata(
+  ProductionPreflightInput input,
+  List<ProductionPreflightIssue> issues,
+) {
+  final indexFile = File(_join(input.projectRoot, 'web/index.html'));
+  final manifestFile = File(_join(input.projectRoot, 'web/manifest.json'));
+  final sources = <String, String>{};
+
+  if (indexFile.existsSync()) {
+    sources['web/index.html'] = indexFile.readAsStringSync();
+  }
+  if (manifestFile.existsSync()) {
+    sources['web/manifest.json'] = manifestFile.readAsStringSync();
+  }
+
+  if (sources.isEmpty) return;
+
+  const scaffoldValues = [
+    'customer_flutter',
+    'A new Flutter project.',
+  ];
+  for (final entry in sources.entries) {
+    for (final value in scaffoldValues) {
+      if (!entry.value.contains(value)) continue;
+      issues.add(
+        ProductionPreflightIssue(
+          code: 'web_default_scaffold_metadata',
+          message:
+              '${entry.key} still contains Flutter scaffold metadata "$value". Use neutral defaults and runtime metadata config.',
+        ),
+      );
+      break;
+    }
+  }
+
+  final indexSource = sources['web/index.html'] ?? '';
+  _requireAllSnippets(
+    indexSource,
+    const [
+      'customerFlutterWebConfig',
+      'document.title',
+      'meta[name="description"]',
+      'meta[name="apple-mobile-web-app-title"]',
+      'application/manifest+json',
+    ],
+    const ProductionPreflightIssue(
+      code: 'web_runtime_metadata_config_missing',
+      message:
+          'web/index.html must support runtime partner metadata for title, description, PWA title, and manifest values.',
+    ),
+    issues,
+  );
+}
+
 File? _findFirstFile(Directory root, String fileName) {
   if (!root.existsSync()) return null;
   for (final entity in root.listSync(recursive: true, followLinks: false)) {
@@ -888,6 +1249,20 @@ bool _looksLikeApplicationId(String value) {
 bool _looksLikeScheme(String value) {
   if (value == 'http' || value == 'https') return false;
   return RegExp(r'^[a-z][a-z0-9+\-.]*$').hasMatch(value);
+}
+
+bool _isDefaultAndroidApplicationId(String value) {
+  return value.trim().toLowerCase() == 'com.newpaotang.customer_flutter';
+}
+
+bool _isDefaultIosBundleId(String value) {
+  final normalized = value.trim().toLowerCase();
+  return normalized == 'com.newpaotang.customerflutter' ||
+      normalized == 'com.newpaotang.customer_flutter';
+}
+
+bool _isDefaultCallbackScheme(String value) {
+  return value.trim().toLowerCase() == 'newpaotang';
 }
 
 bool _looksLikeProductionHost(String value, bool production) {

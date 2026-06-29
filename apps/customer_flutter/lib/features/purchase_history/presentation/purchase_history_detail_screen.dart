@@ -5,6 +5,8 @@ import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/async/async_state_view.dart';
+import '../../../shared/widgets/customer_page_body.dart';
+import '../../../shared/widgets/tenant_brand_header.dart';
 import '../data/purchase_history_models.dart';
 import '../data/purchase_history_repository.dart';
 import 'purchase_history_localization.dart';
@@ -24,12 +26,13 @@ class PurchaseHistoryDetailScreen extends ConsumerWidget {
       currentPath: '/profile',
       sensitive: true,
       child: ListView(
-        padding: const EdgeInsets.all(16),
         children: [
-          AsyncStateView(
-            value: order,
-            data: (item) => _PurchaseReceipt(order: item),
-            empty: const _PurchaseReceiptEmpty(),
+          CustomerPageBody(
+            child: AsyncStateView(
+              value: order,
+              data: (item) => _PurchaseReceipt(order: item),
+              empty: const _PurchaseReceiptEmpty(),
+            ),
           ),
         ],
       ),
@@ -46,8 +49,10 @@ class _PurchaseReceipt extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Card(
+          margin: EdgeInsets.zero,
           child: Padding(
             padding: const EdgeInsets.all(18),
             child: Column(
@@ -128,31 +133,9 @@ class _ReceiptBrand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          'GLO',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
-                fontWeight: FontWeight.w900,
-              ),
-        ),
-        Container(
-          height: 38,
-          width: 1,
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          color: Colors.grey.shade300,
-        ),
-        Text(
-          'L6',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
-                fontStyle: FontStyle.italic,
-                fontWeight: FontWeight.w900,
-              ),
-        ),
-      ],
+    return const TenantBrandHeader(
+      size: 58,
+      icon: Icons.receipt_long_outlined,
     );
   }
 }
@@ -281,6 +264,7 @@ class _TicketList extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -319,6 +303,7 @@ class _PurchaseReceiptEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Text(

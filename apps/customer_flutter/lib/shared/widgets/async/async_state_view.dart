@@ -34,7 +34,12 @@ class AsyncStateView<T> extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
               const SizedBox(width: 12),
-              Text(loadingText ?? l10n.commonLoadingData),
+              Expanded(
+                child: Text(
+                  loadingText ?? l10n.commonLoadingData,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
             ],
           ),
         ),

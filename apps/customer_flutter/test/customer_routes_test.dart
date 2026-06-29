@@ -66,6 +66,7 @@ void main() {
         '/news/:slug',
         '/profile',
         '/profile/biometrics',
+        '/profile/account-deletion',
         '/purchase-history',
         '/purchase-history/:orderId',
         '/login',
@@ -113,6 +114,7 @@ void main() {
       '/pin',
       '/profile',
       '/profile/auto-reward',
+      '/profile/account-deletion',
       '/profile/line-notifications',
       '/profile/reward-bank',
       '/purchase-history',
@@ -130,6 +132,7 @@ void main() {
       '/success',
       '/term-reward',
       '/terms',
+      '/privacy',
       '/tickets',
       '/tickets/claim/:ticketId',
       '/tickets/history',
@@ -173,6 +176,19 @@ void main() {
     expect(routerPaths, containsAll(registeredPaths));
   });
 
+  test('customer route registry includes every declared router path', () {
+    final routerSource = File('lib/app/router.dart').readAsStringSync();
+    final routerPaths = RegExp(r"GoRoute\(\s*path:\s*'([^']+)'")
+        .allMatches(routerSource)
+        .map((match) => match.group(1))
+        .whereType<String>()
+        .toSet();
+    final registeredPaths =
+        customerFeatureRoutes.map((route) => route.path).toSet();
+
+    expect(registeredPaths, containsAll(routerPaths));
+  });
+
   test('profile screen links to the same core menu flows as Nuxt profile', () {
     final profileSource =
         File('lib/features/profile/presentation/profile_screen.dart')
@@ -190,6 +206,8 @@ void main() {
       "path: '/profile/line-notifications'",
       "path: '/news'",
       "path: '/terms'",
+      "path: '/privacy'",
+      "path: '/profile/account-deletion'",
       "path: '/lottery-knowledge'",
     };
 
@@ -266,11 +284,27 @@ void main() {
         '/profile/biometrics',
         '/profile/line-notifications',
         '/profile/reward-bank',
+        '/security-lock',
         '/purchase-history',
         '/purchase-history/:orderId',
         '/pin',
         '/success',
       }),
+    );
+  });
+
+  test('customer route sensitivity matcher handles dynamic and tenant routes',
+      () {
+    expect(isSensitiveCustomerPath('/'), isFalse);
+    expect(isSensitiveCustomerPath('/news/announcement'), isFalse);
+    expect(isSensitiveCustomerPath('/my-wallet'), isTrue);
+    expect(isSensitiveCustomerPath('/tickets/claim/ticket_123'), isTrue);
+    expect(
+      isSensitiveCustomerPath(
+        '/custom-sensitive/profile',
+        extraSensitiveRoutes: const ['/custom-sensitive'],
+      ),
+      isTrue,
     );
   });
 }

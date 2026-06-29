@@ -11,13 +11,8 @@ class LotteryStockPage {
   });
 
   factory LotteryStockPage.fromJson(Object? json) {
-    final payload = asMap(json);
-    final dataPayload = asMap(payload['data']);
-    final meta = asMap(
-      payload['meta'].runtimeType == Null
-          ? dataPayload['meta']
-          : payload['meta'],
-    );
+    final payload = unwrapPayload(json);
+    final meta = unwrapMeta(json);
     final seller = asMap(payload['seller']);
     return LotteryStockPage(
       items: unwrapDataList(payload).map(LotteryStockItem.fromJson).toList(

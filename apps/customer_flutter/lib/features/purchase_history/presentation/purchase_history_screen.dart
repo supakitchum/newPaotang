@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_page_body.dart';
 import '../data/purchase_history_models.dart';
 import '../data/purchase_history_repository.dart';
 import 'purchase_history_localization.dart';
@@ -43,56 +44,67 @@ class _PurchaseHistoryScreenState extends ConsumerState<PurchaseHistoryScreen> {
         onRefresh: _loadInitial,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
           children: [
-            _PurchaseHistoryHeader(onBuy: () => context.go('/buy')),
-            const SizedBox(height: 12),
-            if (_loadingInitial)
-              const _PurchaseHistoryLoading()
-            else if (_error.isNotEmpty)
-              _PurchaseHistoryError(message: _error, onRetry: _loadInitial)
-            else if (_orders.isEmpty)
-              _PurchaseHistoryEmpty(onBuy: () => context.go('/buy'))
-            else ...[
-              for (final group in groups) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(2, 12, 2, 8),
-                  child: Text(
-                    group.year,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w900),
-                  ),
-                ),
-                for (final order in group.orders)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _PurchaseHistoryTile(
-                      order: order,
-                      onTap: () => context.go('/purchase-history/${order.id}'),
-                    ),
-                  ),
-              ],
-              if (_currentPage < _lastPage)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: OutlinedButton.icon(
-                    onPressed: _loadingMore ? null : _loadMore,
-                    icon: _loadingMore
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.expand_more),
-                    label: Text(
-                      _loadingMore
-                          ? l10n.commonLoadingMore
-                          : l10n.commonLoadMore,
-                    ),
-                  ),
-                ),
-            ],
+            CustomerPageBody(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _PurchaseHistoryHeader(onBuy: () => context.go('/buy')),
+                  const SizedBox(height: 12),
+                  if (_loadingInitial)
+                    const _PurchaseHistoryLoading()
+                  else if (_error.isNotEmpty)
+                    _PurchaseHistoryError(
+                      message: _error,
+                      onRetry: _loadInitial,
+                    )
+                  else if (_orders.isEmpty)
+                    _PurchaseHistoryEmpty(onBuy: () => context.go('/buy'))
+                  else ...[
+                    for (final group in groups) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(2, 12, 2, 8),
+                        child: Text(
+                          group.year,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                      ),
+                      for (final order in group.orders)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _PurchaseHistoryTile(
+                            order: order,
+                            onTap: () =>
+                                context.go('/purchase-history/${order.id}'),
+                          ),
+                        ),
+                    ],
+                    if (_currentPage < _lastPage)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: OutlinedButton.icon(
+                          onPressed: _loadingMore ? null : _loadMore,
+                          icon: _loadingMore
+                              ? const SizedBox.square(
+                                  dimension: 16,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.expand_more),
+                          label: Text(
+                            _loadingMore
+                                ? l10n.commonLoadingMore
+                                : l10n.commonLoadMore,
+                          ),
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -175,6 +187,7 @@ class _PurchaseHistoryHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Card(
+      margin: EdgeInsets.zero,
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: Theme.of(context).colorScheme.primaryContainer,
@@ -204,6 +217,7 @@ class _PurchaseHistoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      margin: EdgeInsets.zero,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: onTap,
@@ -284,6 +298,7 @@ class _PurchaseHistoryEmpty extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -327,6 +342,7 @@ class _PurchaseHistoryLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: EdgeInsets.all(24),
         child: Center(child: CircularProgressIndicator()),
@@ -345,6 +361,7 @@ class _PurchaseHistoryError extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(

@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,12 +6,15 @@ import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/security/biometric_auth_service.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/tenant/mobile_runtime_policy.dart';
+import '../../../core/utils/api_errors.dart';
 import '../../../core/utils/asset_url.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../features/profile/data/profile_settings_models.dart';
 import '../../../features/profile/data/profile_settings_repository.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/async/async_state_view.dart';
+import '../../../shared/widgets/customer_page_body.dart';
 import '../data/ticket_models.dart';
 import '../data/ticket_repository.dart';
 import 'ticket_localization.dart';
@@ -36,26 +38,12 @@ class TicketsScreen extends ConsumerWidget {
           icon: const Icon(Icons.history),
         ),
       ],
-      child: ListView(
-        padding: const EdgeInsets.all(16),
+      child: _TicketPageList(
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.ticketsCurrentDrawTitle,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(l10n.ticketsCurrentDrawSubtitle),
-                ],
-              ),
-            ),
+          _TicketHeaderCard(
+            icon: Icons.confirmation_number_outlined,
+            title: l10n.ticketsCurrentDrawTitle,
+            subtitle: l10n.ticketsCurrentDrawSubtitle,
           ),
           const SizedBox(height: 12),
           AsyncStateView(
@@ -66,7 +54,7 @@ class TicketsScreen extends ConsumerWidget {
                 children: [
                   for (final ticket in items)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.only(bottom: 10),
                       child: _TicketTile(ticket: ticket),
                     ),
                 ],
@@ -75,12 +63,113 @@ class TicketsScreen extends ConsumerWidget {
             empty: const _EmptyTicketsCard(),
           ),
           const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: () => context.go('/buy'),
-            icon: const Icon(Icons.search),
-            label: Text(l10n.ticketsSearchNumbers),
+          SizedBox(
+            height: 52,
+            child: FilledButton.icon(
+              onPressed: () => context.go('/buy'),
+              icon: const Icon(Icons.search),
+              label: Text(l10n.ticketsSearchNumbers),
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TicketPageList extends StatelessWidget {
+  const _TicketPageList({
+    required this.children,
+    this.maxWidth = 760,
+    this.top = 16,
+    this.controller,
+    this.physics,
+  });
+
+  final List<Widget> children;
+  final double maxWidth;
+  final double top;
+  final ScrollController? controller;
+  final ScrollPhysics? physics;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      controller: controller,
+      physics: physics,
+      children: [
+        CustomerPageBody(
+          maxWidth: maxWidth,
+          top: top,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TicketHeaderCard extends StatelessWidget {
+  const _TicketHeaderCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 26,
+              backgroundColor: colorScheme.primaryContainer,
+              foregroundColor: colorScheme.primary,
+              child: Icon(icon),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -114,35 +203,150 @@ class _TicketTile extends StatelessWidget {
     final statusColor = _ticketStatusColor(context, ticket);
     final l10n = context.l10n;
     final drawDate = ticketDrawDateText(l10n, ticket);
+    final number = ticket.number.isEmpty
+        ? context.l10n.ticketsNumberFallback
+        : ticket.number;
     return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: statusColor.withValues(alpha: 0.12),
-          child: Icon(Icons.confirmation_number_outlined, color: statusColor),
-        ),
-        title: Text(
-          ticket.number.isEmpty
-              ? context.l10n.ticketsNumberFallback
-              : ticket.number,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w900,
-                letterSpacing: 2,
-              ),
-        ),
-        subtitle: Text(
-          [
-            ticketStatusLabel(l10n, ticket),
-            if (drawDate != '-') drawDate,
-            l10n.ticketsCount(ticket.count),
-          ].join(' • '),
-        ),
-        trailing: const Icon(Icons.chevron_right),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
         onTap: ticket.id.isEmpty
             ? null
             : () => context.go(
                   '/tickets/view?id=${ticket.id}'
                   '${fromHistory ? '&from=history' : ''}',
                 ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest
+                                  .withValues(alpha: 0.72),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              child: FittedBox(
+                                alignment: Alignment.centerLeft,
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  number,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleLarge
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 3,
+                                      ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        _TicketStatusPill(
+                          label: ticketStatusLabel(l10n, ticket),
+                          color: statusColor,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (ticket.gameName.trim().isNotEmpty)
+                          _TicketMetaChip(
+                            icon: Icons.event_outlined,
+                            label: ticket.gameName.trim(),
+                          ),
+                        if (drawDate != '-')
+                          _TicketMetaChip(
+                            icon: Icons.schedule_outlined,
+                            label: drawDate,
+                          ),
+                        _TicketMetaChip(
+                          icon: Icons.confirmation_number_outlined,
+                          label: l10n.ticketsCount(ticket.count),
+                        ),
+                      ],
+                    ),
+                    if (ticket.prizeAmount > 0) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        formatBaht(ticket.prizeAmount),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: statusColor,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Icon(
+                Icons.chevron_right,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TicketMetaChip extends StatelessWidget {
+  const _TicketMetaChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.48),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: colorScheme.onSurfaceVariant),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -157,6 +361,7 @@ class TicketHistoryScreen extends ConsumerStatefulWidget {
 }
 
 class _TicketHistoryScreenState extends ConsumerState<TicketHistoryScreen> {
+  final _scrollController = ScrollController();
   final _tickets = <CustomerTicket>[];
   String? _cursor;
   bool _hasMore = false;
@@ -167,7 +372,16 @@ class _TicketHistoryScreenState extends ConsumerState<TicketHistoryScreen> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_maybeLoadMoreFromScroll);
     Future.microtask(_loadInitial);
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_maybeLoadMoreFromScroll)
+      ..dispose();
+    super.dispose();
   }
 
   @override
@@ -187,52 +401,54 @@ class _TicketHistoryScreenState extends ConsumerState<TicketHistoryScreen> {
       ],
       child: RefreshIndicator(
         onRefresh: _loadInitial,
-        child: ListView(
+        child: _TicketPageList(
+          controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
           children: [
-            Card(
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor:
-                      Theme.of(context).colorScheme.primaryContainer,
-                  child: const Icon(Icons.history),
-                ),
-                title: Text(
-                  l10n.ticketHistoryHeaderTitle,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
-                ),
-                subtitle: Text(l10n.ticketHistoryHeaderSubtitle),
-              ),
+            _TicketHeaderCard(
+              icon: Icons.history,
+              title: l10n.ticketHistoryHeaderTitle,
+              subtitle: l10n.ticketHistoryHeaderSubtitle,
             ),
             const SizedBox(height: 12),
             if (_loadingInitial)
               const _TicketLoadingList()
             else if (_error.isNotEmpty)
-              _TicketErrorCard(message: _error, onRetry: _loadInitial)
+              _TicketErrorCard(
+                message: _error,
+                onRetry: _loadInitial,
+              )
             else if (_tickets.isEmpty)
               const _TicketEmptyHistoryCard()
             else ...[
               for (final ticket in _tickets)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _TicketTile(ticket: ticket, fromHistory: true),
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _TicketTile(
+                    ticket: ticket,
+                    fromHistory: true,
+                  ),
                 ),
               if (_hasMore)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: OutlinedButton.icon(
-                    onPressed: _loadingMore ? null : _loadMore,
-                    icon: _loadingMore
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.expand_more),
-                    label: Text(
-                      _loadingMore
-                          ? l10n.commonLoadingMore
-                          : l10n.commonLoadMore,
+                  child: SizedBox(
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      onPressed: _loadingMore ? null : _loadMore,
+                      icon: _loadingMore
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.expand_more),
+                      label: Text(
+                        _loadingMore
+                            ? l10n.commonLoadingMore
+                            : l10n.commonLoadMore,
+                      ),
                     ),
                   ),
                 ),
@@ -287,6 +503,17 @@ class _TicketHistoryScreenState extends ConsumerState<TicketHistoryScreen> {
       );
     } finally {
       if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
+  void _maybeLoadMoreFromScroll() {
+    if (_loadingInitial || _loadingMore || !_hasMore) return;
+    if (!_scrollController.hasClients) return;
+
+    final position = _scrollController.position;
+    if (!position.hasPixels || !position.hasContentDimensions) return;
+    if (position.extentAfter <= 360) {
+      _loadMore();
     }
   }
 }
@@ -344,8 +571,7 @@ class _TicketDetailContent extends ConsumerWidget {
     final statusColor = _ticketStatusColor(context, ticket);
     final l10n = context.l10n;
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return _TicketPageList(
       children: [
         _TicketImageCard(ticket: ticket, resolver: resolver),
         const SizedBox(height: 12),
@@ -522,8 +748,7 @@ class _TicketClaimScreenState extends ConsumerState<TicketClaimScreen> {
   Widget _buildBody(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error.isNotEmpty) {
-      return ListView(
-        padding: const EdgeInsets.all(16),
+      return _TicketPageList(
         children: [_TicketErrorCard(message: _error, onRetry: _load)],
       );
     }
@@ -533,8 +758,7 @@ class _TicketClaimScreenState extends ConsumerState<TicketClaimScreen> {
       return Center(child: Text(context.l10n.ticketsNotFound));
     }
     if (ticket.hasExistingClaim && !ticket.canCreateClaim) {
-      return ListView(
-        padding: const EdgeInsets.all(16),
+      return _TicketPageList(
         children: [
           Card(
             child: ListTile(
@@ -723,13 +947,24 @@ class _TicketClaimScreenState extends ConsumerState<TicketClaimScreen> {
       });
     } catch (error) {
       if (!mounted) return;
+      final pinError = _claimErrorText(error);
+      final failedMessage = context.l10n.ticketClaimSubmitFailed;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+        handlePinRedirect: false,
+      )) {
+        return;
+      }
+      if (!mounted) return;
       setState(() {
         _pin = '';
-        _pinError = _claimErrorText(error);
+        _pinError = pinError;
       });
       if (_pinError.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.ticketClaimSubmitFailed)),
+          SnackBar(content: Text(failedMessage)),
         );
       }
     } finally {
@@ -757,8 +992,16 @@ class _TicketClaimScreenState extends ConsumerState<TicketClaimScreen> {
         return;
       }
       await _submitClaim(pinAssertionToken: token);
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+        handlePinRedirect: false,
+      )) {
+        return;
+      }
       setState(() => _pinError = context.l10n.ticketClaimBiometricFailed);
     }
   }
@@ -785,13 +1028,7 @@ class _TicketClaimScreenState extends ConsumerState<TicketClaimScreen> {
   }
 
   String _errorCode(Object error) {
-    final data = error is DioException ? error.response?.data : null;
-    if (data is Map) {
-      final err = data['error'];
-      if (err is Map && err['code'] != null) return err['code'].toString();
-      if (data['code'] != null) return data['code'].toString();
-    }
-    return '';
+    return ApiErrorInfo.fromObject(error).code;
   }
 }
 
@@ -814,8 +1051,7 @@ class _ClaimSelectStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final bank = profile?.bankAccount;
     final l10n = context.l10n;
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return _TicketPageList(
       children: [
         _ClaimTicketSummary(ticket: ticket),
         const SizedBox(height: 12),
@@ -896,8 +1132,7 @@ class _ClaimConfirmStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return _TicketPageList(
       children: [
         _ClaimTicketSummary(ticket: ticket),
         const SizedBox(height: 12),
@@ -979,8 +1214,9 @@ class _ClaimPinStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back'];
-    return ListView(
-      padding: const EdgeInsets.all(24),
+    return _TicketPageList(
+      maxWidth: 420,
+      top: 24,
       children: [
         const SizedBox(height: 24),
         Icon(
@@ -1075,8 +1311,7 @@ class _ClaimProcessingStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return _TicketPageList(
       children: [
         Card(
           child: Padding(

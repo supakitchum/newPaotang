@@ -5,3 +5,5 @@ void navigateSameWindow(String url) {}
 String get currentWebHost => '';
 
 String get currentWebReferrer => '';
+
+String get currentWebHref => '';

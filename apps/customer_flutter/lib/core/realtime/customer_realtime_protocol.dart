@@ -19,16 +19,18 @@ Uri buildRealtimeSocketUri({
   required String baseUrl,
   required String key,
   int protocol = 7,
-  String client = 'newpaotang-customer',
+  String client = 'customer-flutter',
 }) {
   final trimmed = baseUrl.trim();
   if (trimmed.isEmpty) {
     throw ArgumentError.value(baseUrl, 'baseUrl', 'Realtime URL is required.');
   }
+  final trimmedKey = key.trim();
+  if (trimmedKey.isEmpty) {
+    throw ArgumentError.value(key, 'key', 'Realtime app key is required.');
+  }
 
-  final encodedKey = Uri.encodeComponent(
-    key.trim().isEmpty ? 'newpaotang-customer' : key.trim(),
-  );
+  final encodedKey = Uri.encodeComponent(trimmedKey);
   final normalizedBase = trimmed
       .replaceFirst(RegExp('^http:', caseSensitive: false), 'ws:')
       .replaceFirst(RegExp('^https:', caseSensitive: false), 'wss:')

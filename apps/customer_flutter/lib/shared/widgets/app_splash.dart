@@ -116,32 +116,10 @@ class _AppSplashOverlay extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const TenantBrandHeader(
-                          showName: false,
+                          showName: true,
                           size: 74,
                           icon: Icons.confirmation_number_outlined,
-                        ),
-                        const SizedBox(height: 18),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.16),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.24),
-                            ),
-                          ),
-                          child: const Text(
-                            'L6',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 26,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0,
-                            ),
-                          ),
+                          textColor: Colors.white,
                         ),
                         const SizedBox(height: 22),
                         SizedBox(

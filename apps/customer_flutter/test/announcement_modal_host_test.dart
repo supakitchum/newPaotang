@@ -206,4 +206,17 @@ class _FakeNewsRepository extends NewsRepository {
     modalCalls++;
     return item;
   }
+
+  @override
+  Future<List<NewsItem>> list({int limit = NewsRepository.defaultPageLimit}) {
+    return Future.value(const []);
+  }
+
+  @override
+  Future<List<NewsItem>> listAll({
+    int limit = NewsRepository.defaultPageLimit,
+    int maxPages = NewsRepository.maxAutoPages,
+  }) {
+    return Future.value(const []);
+  }
 }

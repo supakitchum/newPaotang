@@ -17,7 +17,15 @@ final activityRepositoryProvider = Provider<ActivityRepository>((ref) {
 
 final activityListProvider = FutureProvider<List<ActivityItem>>((ref) async {
   final auth = ref.watch(authControllerProvider);
-  return ref.watch(activityRepositoryProvider).list(
+  return ref.watch(activityRepositoryProvider).listAll(
+        authenticated: auth.isAuthenticated && !auth.pinRequired,
+      );
+});
+
+final activityListPageProvider =
+    FutureProvider.autoDispose<ActivityListPage>((ref) async {
+  final auth = ref.watch(authControllerProvider);
+  return ref.watch(activityRepositoryProvider).listPage(
         authenticated: auth.isAuthenticated && !auth.pinRequired,
       );
 });
@@ -31,9 +39,9 @@ final activityDetailProvider =
 });
 
 final activityHistoryProvider = FutureProvider.autoDispose
-    .family<List<ActivityItem>, String>((ref, gameId) async {
+    .family<ActivityListPage, String>((ref, gameId) async {
   final auth = ref.watch(authControllerProvider);
-  return ref.watch(activityRepositoryProvider).list(
+  return ref.watch(activityRepositoryProvider).listPage(
         authenticated: auth.isAuthenticated && !auth.pinRequired,
         history: true,
         gameId: gameId,
@@ -45,8 +53,8 @@ final activityAwardListProvider =
   (ref, activityId) async {
     final auth = ref.watch(authControllerProvider);
     if (!auth.isAuthenticated || auth.pinRequired) return const [];
-    final page = await ref.watch(activityRepositoryProvider).awards(limit: 100);
-    return page.items
+    final awards = await ref.watch(activityRepositoryProvider).awardsAll();
+    return awards
         .where((award) => award.activityId == activityId)
         .toList(growable: false);
   },
@@ -75,11 +83,62 @@ class ActivityDetailRequest {
 class ActivityRepository {
   const ActivityRepository(this._api, this._resolveAssetUrl);
 
+  static const int defaultPageLimit = 30;
+  static const int maxAutoPages = 10;
+  static const int defaultAwardPageLimit = 100;
+  static const int maxAwardAutoPages = 10;
+
   final ApiClient _api;
   final String Function(String value) _resolveAssetUrl;
 
   Future<List<ActivityItem>> list({
-    int limit = 30,
+    int limit = defaultPageLimit,
+    bool authenticated = false,
+    bool history = false,
+    String gameId = '',
+  }) async {
+    final page = await listPage(
+      limit: limit,
+      authenticated: authenticated,
+      history: history,
+      gameId: gameId,
+    );
+    return page.items;
+  }
+
+  Future<List<ActivityItem>> listAll({
+    int limit = defaultPageLimit,
+    int maxPages = maxAutoPages,
+    bool authenticated = false,
+    bool history = false,
+    String gameId = '',
+  }) async {
+    final items = <ActivityItem>[];
+    var cursor = '';
+
+    for (var pageIndex = 0; pageIndex < maxPages; pageIndex++) {
+      final page = await listPage(
+        limit: limit,
+        cursor: cursor,
+        authenticated: authenticated,
+        history: history,
+        gameId: gameId,
+      );
+      items.addAll(page.items);
+
+      final nextCursor = page.meta.nextCursor?.trim() ?? '';
+      if (!page.meta.hasMore || nextCursor.isEmpty || nextCursor == cursor) {
+        break;
+      }
+      cursor = nextCursor;
+    }
+
+    return items;
+  }
+
+  Future<ActivityListPage> listPage({
+    int limit = defaultPageLimit,
+    String cursor = '',
     bool authenticated = false,
     bool history = false,
     String gameId = '',
@@ -89,20 +148,15 @@ class ActivityRepository {
       auth: authenticated,
       query: {
         'limit': limit,
+        if (cursor.trim().isNotEmpty) 'cursor': cursor.trim(),
         if (history) 'history': 1,
         if (gameId.isNotEmpty) 'game_id': gameId,
       },
     );
-    return unwrapDataList(
-      response.data,
-    )
-        .map(
-          (row) =>
-              ActivityItem.fromJson(row, resolveAssetUrl: _resolveAssetUrl),
-        )
-        .toList(
-          growable: false,
-        );
+    return ActivityListPage.fromJson(
+      asMap(response.data),
+      resolveAssetUrl: _resolveAssetUrl,
+    );
   }
 
   Future<ActivityItem> detail(String slug, {bool authenticated = false}) async {
@@ -145,14 +199,45 @@ class ActivityRepository {
     return ActivityEntry.fromJson(unwrapPayload(response.data));
   }
 
-  Future<ActivityAwardPage> awards({int limit = 100, String? status}) async {
+  Future<ActivityAwardPage> awards({
+    int limit = defaultAwardPageLimit,
+    String cursor = '',
+    String? status,
+  }) async {
     final response = await _api.get<Map<String, dynamic>>(
       '/customer/activity-awards',
       query: {
         'limit': limit,
+        if (cursor.trim().isNotEmpty) 'cursor': cursor.trim(),
         if (status != null && status.isNotEmpty) 'status': status,
       },
     );
     return ActivityAwardPage.fromJson(asMap(response.data));
+  }
+
+  Future<List<ActivityAwardItem>> awardsAll({
+    int limit = defaultAwardPageLimit,
+    int maxPages = maxAwardAutoPages,
+    String? status,
+  }) async {
+    final items = <ActivityAwardItem>[];
+    var cursor = '';
+
+    for (var pageIndex = 0; pageIndex < maxPages; pageIndex++) {
+      final page = await awards(
+        limit: limit,
+        cursor: cursor,
+        status: status,
+      );
+      items.addAll(page.items);
+
+      final nextCursor = page.nextCursor?.trim() ?? '';
+      if (!page.hasMore || nextCursor.isEmpty || nextCursor == cursor) {
+        break;
+      }
+      cursor = nextCursor;
+    }
+
+    return items;
   }
 }

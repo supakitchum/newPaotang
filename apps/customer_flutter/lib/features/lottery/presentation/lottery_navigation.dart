@@ -41,6 +41,29 @@ String lotteryMorePath({
   return Uri(path: '/buy/more', queryParameters: query).toString();
 }
 
+bool isExactLotterySearch({
+  String number = '',
+  List<String> digits = const [],
+}) {
+  final normalizedNumber = _digitsOnly(number, maxLength: 6);
+  if (normalizedNumber.length == 6) return true;
+  if (normalizedNumber.isNotEmpty) return false;
+
+  final normalizedDigits = List.generate(6, (index) {
+    if (index >= digits.length) return '';
+    return _digitsOnly(digits[index], maxLength: 1);
+  });
+  return normalizedDigits.every((digit) => digit.isNotEmpty);
+}
+
+bool shouldPopLotteryMoreBack({
+  required bool canPop,
+  required String explicitBackPath,
+}) {
+  if (!canPop) return false;
+  return explicitBackPath.trim().isNotEmpty;
+}
+
 String safeLotteryBackPath(String value, {String fallback = '/buy'}) {
   final trimmed = value.trim();
   if (trimmed.isEmpty) return fallback;

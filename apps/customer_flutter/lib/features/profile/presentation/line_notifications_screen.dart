@@ -5,6 +5,7 @@ import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_page_body.dart';
 import '../data/line_notification_models.dart';
 import '../data/line_notification_repository.dart';
 
@@ -31,58 +32,70 @@ class _LineNotificationsScreenState
       sensitive: true,
       child: settings.when(
         data: (data) => ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            _HeaderCard(settings: data),
-            const SizedBox(height: 12),
-            if (data.identity != null)
-              _NotificationToggleCard(
-                identity: data.identity!,
-                saving: _saving,
-                onChanged: (value) => _saveToggle(value),
-              ),
-            const SizedBox(height: 12),
-            const _LineEventsCard(),
-            if (!data.lineAvailable) ...[
-              const SizedBox(height: 12),
-              _WarningCard(
-                title: l10n.profileLineStoreUnavailableTitle,
-                message: l10n.profileLineStoreUnavailableMessage,
-              ),
-            ],
-            const SizedBox(height: 18),
-            FilledButton.icon(
-              onPressed: _connecting || !data.lineAvailable
-                  ? null
-                  : () => _connectLine(),
-              icon: _connecting
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+            CustomerPageBody(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _HeaderCard(settings: data),
+                  const SizedBox(height: 12),
+                  if (data.identity != null)
+                    _NotificationToggleCard(
+                      identity: data.identity!,
+                      saving: _saving,
+                      onChanged: (value) => _saveToggle(value),
                     )
-                  : const Icon(Icons.chat_bubble_outline),
-              label: Text(
-                data.isConnected
-                    ? l10n.profileLineReconnect
-                    : l10n.profileLineConnect,
+                  else
+                    _WarningCard(
+                      title: l10n.profileLineNotConnectedTitle,
+                      message: l10n.profileLineConnectOnce,
+                    ),
+                  const SizedBox(height: 12),
+                  const _LineEventsCard(),
+                  if (!data.lineAvailable) ...[
+                    const SizedBox(height: 12),
+                    _WarningCard(
+                      title: l10n.profileLineStoreUnavailableTitle,
+                      message: l10n.profileLineStoreUnavailableMessage,
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  FilledButton.icon(
+                    onPressed: _connecting || !data.lineAvailable
+                        ? null
+                        : () => _connectLine(),
+                    icon: _connecting
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.chat_bubble_outline),
+                    label: Text(
+                      data.isConnected
+                          ? l10n.profileLineReconnect
+                          : l10n.profileLineConnect,
+                    ),
+                  ),
+                  if (data.addFriendUrl.isNotEmpty &&
+                      data.identity?.friendFlag != true) ...[
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: () => _openUrl(data.addFriendUrl),
+                      icon: const Icon(Icons.person_add_alt_1_outlined),
+                      label: Text(l10n.profileLineAddFriend),
+                    ),
+                  ],
+                  if (data.isConnected) ...[
+                    const SizedBox(height: 10),
+                    TextButton(
+                      onPressed: _saving ? null : _disconnect,
+                      child: Text(l10n.profileLineDisconnect),
+                    ),
+                  ],
+                ],
               ),
             ),
-            if (data.addFriendUrl.isNotEmpty &&
-                data.identity?.friendFlag != true) ...[
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: () => _openUrl(data.addFriendUrl),
-                icon: const Icon(Icons.person_add_alt_1_outlined),
-                label: Text(l10n.profileLineAddFriend),
-              ),
-            ],
-            if (data.isConnected) ...[
-              const SizedBox(height: 10),
-              TextButton(
-                onPressed: _saving ? null : _disconnect,
-                child: Text(l10n.profileLineDisconnect),
-              ),
-            ],
           ],
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -138,12 +151,12 @@ class _LineNotificationsScreenState
 
   Future<void> _openUrl(String value) async {
     final uri = Uri.tryParse(value);
-    if (uri == null) {
+    if (!isSafeExternalLinkUri(uri)) {
       _showSnack(context.l10n.profileLineMissingUrl);
       return;
     }
     await ref.read(customerLinkLauncherProvider).openExternal(
-          uri,
+          uri!,
           preferSameWindowInLine: true,
         );
   }

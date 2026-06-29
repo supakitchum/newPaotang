@@ -183,7 +183,7 @@ class TicketPage {
   });
 
   factory TicketPage.fromJson(Map<String, dynamic> json) {
-    final meta = asMap(json['meta']);
+    final meta = unwrapMeta(json);
     return TicketPage(
       items: unwrapDataList(json)
           .map(CustomerTicket.fromJson)

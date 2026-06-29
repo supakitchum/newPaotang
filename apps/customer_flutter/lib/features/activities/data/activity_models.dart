@@ -1,4 +1,94 @@
+import '../../../core/utils/api_payload.dart';
 import '../../../core/utils/formatters.dart';
+
+class ActivityListPage {
+  const ActivityListPage({
+    required this.items,
+    required this.meta,
+  });
+
+  factory ActivityListPage.fromJson(
+    Map<String, dynamic> json, {
+    String Function(String value) resolveAssetUrl = _identity,
+  }) {
+    final rows = unwrapDataList(json);
+    return ActivityListPage(
+      items: rows
+          .map(
+            (row) =>
+                ActivityItem.fromJson(row, resolveAssetUrl: resolveAssetUrl),
+          )
+          .toList(growable: false),
+      meta: ActivityListMeta.fromJson(unwrapMeta(json)),
+    );
+  }
+
+  final List<ActivityItem> items;
+  final ActivityListMeta meta;
+}
+
+class ActivityListMeta {
+  const ActivityListMeta({
+    required this.hasHistory,
+    required this.hasMore,
+    required this.nextCursor,
+    required this.selectedGameId,
+    required this.games,
+  });
+
+  factory ActivityListMeta.fromJson(Object? value) {
+    final json = _asMap(value);
+    return ActivityListMeta(
+      hasHistory: json['has_history'] == true,
+      hasMore: json['has_more'] == true && json['next_cursor'] != null,
+      nextCursor: json['next_cursor']?.toString(),
+      selectedGameId: json['selected_game_id']?.toString() ?? '',
+      games: _asMapList(json['games'])
+          .map(ActivityGameOption.fromJson)
+          .toList(growable: false),
+    );
+  }
+
+  static const empty = ActivityListMeta(
+    hasHistory: false,
+    hasMore: false,
+    nextCursor: null,
+    selectedGameId: '',
+    games: [],
+  );
+
+  final bool hasHistory;
+  final bool hasMore;
+  final String? nextCursor;
+  final String selectedGameId;
+  final List<ActivityGameOption> games;
+}
+
+class ActivityGameOption {
+  const ActivityGameOption({
+    required this.id,
+    required this.label,
+  });
+
+  factory ActivityGameOption.fromJson(Map<String, dynamic> json) {
+    final id = json['id']?.toString() ?? '';
+    final rawLabel = (json['label'] ??
+            json['name'] ??
+            json['code'] ??
+            json['draw_label'] ??
+            json['draw_date'] ??
+            id)
+        ?.toString()
+        .trim();
+    return ActivityGameOption(
+      id: id,
+      label: rawLabel == null || rawLabel.isEmpty ? id : rawLabel,
+    );
+  }
+
+  final String id;
+  final String label;
+}
 
 class ActivityItem {
   const ActivityItem({
@@ -362,9 +452,9 @@ class ActivityAwardPage {
   });
 
   factory ActivityAwardPage.fromJson(Map<String, dynamic> json) {
-    final meta = _asMap(json['meta']);
+    final meta = unwrapMeta(json);
     return ActivityAwardPage(
-      items: _asMapList(json['data'])
+      items: unwrapDataList(json)
           .map(ActivityAwardItem.fromJson)
           .toList(growable: false),
       nextCursor: meta['next_cursor']?.toString(),

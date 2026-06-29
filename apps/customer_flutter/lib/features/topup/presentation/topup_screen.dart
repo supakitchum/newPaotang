@@ -5,10 +5,13 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/async/async_state_view.dart';
+import '../../../shared/widgets/customer_page_body.dart';
 import '../../../shared/widgets/flexible_image.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../data/topup_models.dart';
 import '../data/topup_repository.dart';
 import 'topup_realtime_monitor.dart';
@@ -47,67 +50,79 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
       currentPath: '/my-wallet',
       sensitive: true,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          _HeaderCard(onHistory: () => context.go('/topup/history')),
-          const SizedBox(height: 12),
-          AsyncStateView(
-            value: overview,
-            data: (data) {
-              final selectedChannel = data.isChannelEnabled(_selectedChannel)
-                  ? _selectedChannel
-                  : data.firstEnabledChannel ?? _selectedChannel;
+          CustomerPageBody(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _HeaderCard(onHistory: () => context.go('/topup/history')),
+                const SizedBox(height: 12),
+                AsyncStateView(
+                  value: overview,
+                  data: (data) {
+                    final selectedChannel = data.isChannelEnabled(
+                      _selectedChannel,
+                    )
+                        ? _selectedChannel
+                        : data.firstEnabledChannel ?? _selectedChannel;
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (data.waiting != null) ...[
-                    _WaitingTopupCard(
-                      topup: data.waiting!,
-                      uploadingSlip: _uploadingSlip,
-                      onUploadSlip: _uploadingSlip
-                          ? null
-                          : () => _pickAndUploadSlip(data.waiting!.id),
-                      onCancel: _submitting
-                          ? null
-                          : () => _cancelWaitingTopup(data.waiting!.id),
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (data.waiting != null) ...[
+                          _WaitingTopupCard(
+                            topup: data.waiting!,
+                            uploadingSlip: _uploadingSlip,
+                            onUploadSlip: _uploadingSlip
+                                ? null
+                                : () => _pickAndUploadSlip(data.waiting!.id),
+                            onOpenPayment: data.waiting!.redirectUri == null
+                                ? null
+                                : () => _openPayment(data.waiting!),
+                            onCancel: _submitting
+                                ? null
+                                : () => _cancelWaitingTopup(data.waiting!.id),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        _TopupFormCard(
+                          overview: data,
+                          amount: _amount,
+                          selectedChannel: selectedChannel,
+                          submitting: _submitting,
+                          onChannelChanged: (channel) =>
+                              setState(() => _selectedChannel = channel),
+                          onSubmit: data.waiting?.status.isTerminal == false
+                              ? null
+                              : () => _submitTopup(selectedChannel),
+                        ),
+                      ],
+                    );
+                  },
+                  empty: _TopupFormCard(
+                    overview: TopupOverview(
+                      bank: const TopupBankAccount(
+                        bankName: '',
+                        accountName: '',
+                        accountNumber: '',
+                      ),
+                      paymentMethods: const [],
+                      enabledPaymentMethods: const {},
+                      waiting: null,
+                      histories: const [],
+                      currentPage: 1,
+                      lastPage: 1,
                     ),
-                    const SizedBox(height: 12),
-                  ],
-                  _TopupFormCard(
-                    overview: data,
                     amount: _amount,
-                    selectedChannel: selectedChannel,
+                    selectedChannel: _selectedChannel,
                     submitting: _submitting,
                     onChannelChanged: (channel) =>
                         setState(() => _selectedChannel = channel),
-                    onSubmit: data.waiting?.status.isTerminal == false
-                        ? null
-                        : () => _submitTopup(selectedChannel),
+                    onSubmit: _submitTopup,
                   ),
-                ],
-              );
-            },
-            empty: _TopupFormCard(
-              overview: TopupOverview(
-                bank: const TopupBankAccount(
-                  bankName: '',
-                  accountName: '',
-                  accountNumber: '',
                 ),
-                paymentMethods: const [],
-                enabledPaymentMethods: const {},
-                waiting: null,
-                histories: const [],
-                currentPage: 1,
-                lastPage: 1,
-              ),
-              amount: _amount,
-              selectedChannel: _selectedChannel,
-              submitting: _submitting,
-              onChannelChanged: (channel) =>
-                  setState(() => _selectedChannel = channel),
-              onSubmit: _submitTopup,
+              ],
             ),
           ),
         ],
@@ -143,8 +158,17 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
       }
       ref.invalidate(topupOverviewProvider);
       _showSnack(l10n.topupCreated);
-    } catch (_) {
-      _showSnack(l10n.topupCreateFailed);
+    } catch (error) {
+      if (!mounted) return;
+      final message = customerErrorMessage(error, l10n.topupCreateFailed);
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
+      _showSnack(message);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -157,11 +181,28 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
       await ref.read(topupRepositoryProvider).cancel(id);
       ref.invalidate(topupOverviewProvider);
       _showSnack(l10n.topupCancelled);
-    } catch (_) {
-      _showSnack(l10n.topupCancelFailed);
+    } catch (error) {
+      if (!mounted) return;
+      final message = customerErrorMessage(error, l10n.topupCancelFailed);
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
+      _showSnack(message);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  Future<void> _openPayment(TopupRequestItem topup) async {
+    final uri = topup.redirectUri;
+    if (uri == null) return;
+    final failedMessage = context.l10n.topupOpenPaymentFailed;
+    final ok = await ref.read(customerLinkLauncherProvider).openExternal(uri);
+    if (mounted && !ok) _showSnack(failedMessage);
   }
 
   Future<void> _pickAndUploadSlip(String id) async {
@@ -191,8 +232,17 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
           );
       ref.invalidate(topupOverviewProvider);
       _showSnack(l10n.topupSlipUploaded);
-    } catch (_) {
-      _showSnack(l10n.topupSlipUploadFailed);
+    } catch (error) {
+      if (!mounted) return;
+      final message = customerErrorMessage(error, l10n.topupSlipUploadFailed);
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
+      _showSnack(message);
     } finally {
       if (mounted) setState(() => _uploadingSlip = false);
     }
@@ -213,37 +263,90 @@ class _HeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              child: const Icon(Icons.account_balance_wallet_outlined),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.topupHeaderTitle,
-                    style: const TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(l10n.topupHeaderSubtitle),
-                ],
-              ),
-            ),
-            IconButton(
-              onPressed: onHistory,
-              icon: const Icon(Icons.history),
-              tooltip: l10n.topupHistoryTooltip,
-            ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colorScheme.primary,
+            Color.lerp(colorScheme.primary, colorScheme.secondary, 0.55) ??
+                colorScheme.primary,
           ],
         ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.primary.withValues(alpha: 0.18),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -28,
+            bottom: -42,
+            child: Container(
+              width: 132,
+              height: 132,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFFFD629).withValues(alpha: 0.22),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: Colors.white.withValues(alpha: 0.18),
+                  child: const Icon(
+                    Icons.account_balance_wallet_outlined,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.topupHeaderTitle,
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        l10n.topupHeaderSubtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.84),
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton.filled(
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(alpha: 0.18),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: onHistory,
+                  icon: const Icon(Icons.history),
+                  tooltip: l10n.topupHistoryTooltip,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -254,20 +357,25 @@ class _WaitingTopupCard extends StatelessWidget {
     required this.topup,
     required this.uploadingSlip,
     required this.onUploadSlip,
+    required this.onOpenPayment,
     required this.onCancel,
   });
 
   final TopupRequestItem topup;
   final bool uploadingSlip;
   final VoidCallback? onUploadSlip;
+  final VoidCallback? onOpenPayment;
   final VoidCallback? onCancel;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
 
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Card(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      margin: EdgeInsets.zero,
+      color: colorScheme.surfaceContainerHighest,
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -283,17 +391,15 @@ class _WaitingTopupCard extends StatelessWidget {
                         ),
                   ),
                 ),
-                Chip(label: Text(_statusLabel(l10n))),
+                _TopupStatusBadge(label: _statusLabel(l10n)),
               ],
             ),
             const SizedBox(height: 8),
             Text(l10n.topupReference(topup.id)),
             const SizedBox(height: 8),
-            Text(
-              formatBaht(topup.amount),
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
+            _WaitingAmountPanel(
+              amount: formatBaht(topup.amount),
+              label: _channelLabel(l10n),
             ),
             const SizedBox(height: 8),
             Text(
@@ -317,34 +423,51 @@ class _WaitingTopupCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(l10n.topupQrSlipInstruction),
             ],
+            if (topup.redirectUri != null) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: onOpenPayment,
+                  icon: const Icon(Icons.open_in_new),
+                  label: Text(l10n.topupOpenPayment),
+                ),
+              ),
+            ],
             if (topup.needsSlip && topup.qrCode.isEmpty) ...[
               const SizedBox(height: 8),
               Text(l10n.topupNeedsSlip),
             ],
             if (!topup.status.isTerminal && topup.needsSlip) ...[
               const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: onUploadSlip,
-                icon: uploadingSlip
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.upload_file),
-                label: Text(
-                  topup.slipUrl.isNotEmpty
-                      ? l10n.topupUploadNewSlip
-                      : l10n.topupUploadSlip,
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: onUploadSlip,
+                  icon: uploadingSlip
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.upload_file),
+                  label: Text(
+                    topup.slipUrl.isNotEmpty
+                        ? l10n.topupUploadNewSlip
+                        : l10n.topupUploadSlip,
+                  ),
                 ),
               ),
             ],
             if (!topup.status.isTerminal) ...[
               const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: onCancel,
-                icon: const Icon(Icons.cancel_outlined),
-                label: Text(l10n.topupCancelWaiting),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: onCancel,
+                  icon: const Icon(Icons.cancel_outlined),
+                  label: Text(l10n.topupCancelWaiting),
+                ),
               ),
             ],
           ],
@@ -374,6 +497,78 @@ class _WaitingTopupCard extends StatelessWidget {
   }
 }
 
+class _TopupStatusBadge extends StatelessWidget {
+  const _TopupStatusBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w900,
+              ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WaitingAmountPanel extends StatelessWidget {
+  const _WaitingAmountPanel({
+    required this.amount,
+    required this.label,
+  });
+
+  final String amount;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: Colors.white,
+        border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              amount,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _TopupFormCard extends StatelessWidget {
   const _TopupFormCard({
     required this.overview,
@@ -400,6 +595,7 @@ class _TopupFormCard extends StatelessWidget {
     final submitEnabled = onSubmit != null && selectedEnabled;
 
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -487,21 +683,21 @@ class _ChannelTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(18),
       onTap: enabled ? onTap : null,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: selected && enabled
-                ? Theme.of(context).colorScheme.primary
-                : Theme.of(context).dividerColor,
+                ? colorScheme.primary
+                : Colors.black.withValues(alpha: 0.07),
+            width: selected && enabled ? 1.6 : 1,
           ),
-          color: enabled
-              ? null
-              : Theme.of(context).colorScheme.surfaceContainerHighest,
+          color: enabled ? Colors.white : colorScheme.surfaceContainerHighest,
         ),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -509,7 +705,9 @@ class _ChannelTile extends StatelessWidget {
             children: [
               Icon(
                 _icon,
-                color: enabled ? null : Theme.of(context).disabledColor,
+                color: enabled
+                    ? colorScheme.primary
+                    : Theme.of(context).disabledColor,
               ),
               const SizedBox(width: 12),
               Expanded(

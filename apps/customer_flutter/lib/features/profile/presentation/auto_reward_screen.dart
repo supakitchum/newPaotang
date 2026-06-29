@@ -3,7 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/security/biometric_auth_service.dart';
+import '../../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../../core/tenant/mobile_runtime_policy.dart';
+import '../../../core/utils/api_errors.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_page_body.dart';
+import '../../../shared/widgets/pin_confirmation_step.dart';
 import '../data/profile_settings_models.dart';
 import '../data/profile_settings_repository.dart';
 
@@ -17,13 +24,40 @@ class AutoRewardScreen extends ConsumerStatefulWidget {
 class _AutoRewardScreenState extends ConsumerState<AutoRewardScreen> {
   bool _showIntro = true;
   String _payoutType = 'wallet';
+  String _pin = '';
+  String _pinError = '';
   String _hydratedProfileId = '';
   bool _saving = false;
+  bool _pinStep = false;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final profile = ref.watch(customerProfileSettingsProvider);
+    final platformKey = ref.watch(customerPlatformKeyProvider);
+    final biometricEnabled = ref.watch(mobileBootstrapProvider).maybeWhen(
+          data: (data) => mobileBiometricAllowedForPlatform(data, platformKey),
+          orElse: () => false,
+        );
+    if (_pinStep) {
+      return PinConfirmationStep(
+        title: l10n.profileAutoRewardPinTitle,
+        subtitle: l10n.profileAutoRewardPinSubtitle,
+        pin: _pin,
+        error: _pinError,
+        saving: _saving,
+        biometricEnabled: biometricEnabled,
+        biometricLabel: l10n.pinUseBiometric,
+        onBack: () => setState(() {
+          _pinStep = false;
+          _pin = '';
+          _pinError = '';
+        }),
+        onDigit: _appendPinDigit,
+        onBackspace: _removePinDigit,
+        onBiometric: _submitWithBiometric,
+      );
+    }
     return profile.when(
       data: (data) {
         _hydrate(data);
@@ -37,7 +71,7 @@ class _AutoRewardScreenState extends ConsumerState<AutoRewardScreen> {
                 saving: _saving,
                 onInfo: () => setState(() => _showIntro = true),
                 onChanged: _selectPayoutType,
-                onSave: () => _save(data),
+                onSave: () => _startSave(data),
               );
       },
       loading: () => AppShell(
@@ -51,28 +85,31 @@ class _AutoRewardScreenState extends ConsumerState<AutoRewardScreen> {
         currentPath: '/profile',
         sensitive: true,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    Text(
-                      l10n.profileAutoRewardLoadFailed,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                        fontWeight: FontWeight.w800,
+            CustomerPageBody(
+              child: Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      Text(
+                        l10n.profileAutoRewardLoadFailed,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: () =>
-                          ref.invalidate(customerProfileSettingsProvider),
-                      icon: const Icon(Icons.refresh),
-                      label: Text(l10n.commonRetry),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            ref.invalidate(customerProfileSettingsProvider),
+                        icon: const Icon(Icons.refresh),
+                        label: Text(l10n.commonRetry),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -101,7 +138,7 @@ class _AutoRewardScreenState extends ConsumerState<AutoRewardScreen> {
     }
   }
 
-  Future<void> _save(CustomerProfileSettings profile) async {
+  void _startSave(CustomerProfileSettings profile) {
     final l10n = context.l10n;
     if (_payoutType == 'bank_transfer' && !profile.bankAccount.isComplete) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -111,6 +148,34 @@ class _AutoRewardScreenState extends ConsumerState<AutoRewardScreen> {
       return;
     }
 
+    setState(() {
+      _pinStep = true;
+      _pin = '';
+      _pinError = '';
+    });
+  }
+
+  Future<void> _appendPinDigit(String digit) async {
+    if (_saving || _pin.length >= 6 || !RegExp(r'^\d$').hasMatch(digit)) {
+      return;
+    }
+    setState(() {
+      _pinError = '';
+      _pin += digit;
+    });
+    if (_pin.length == 6) await _save();
+  }
+
+  void _removePinDigit() {
+    if (_saving || _pin.isEmpty) return;
+    setState(() {
+      _pinError = '';
+      _pin = _pin.substring(0, _pin.length - 1);
+    });
+  }
+
+  Future<void> _save({String pinAssertionToken = ''}) async {
+    final l10n = context.l10n;
     final savedMessage = l10n.profileAutoRewardSaved;
     final failedMessage = l10n.profileAutoRewardSaveFailed;
     setState(() => _saving = true);
@@ -118,6 +183,8 @@ class _AutoRewardScreenState extends ConsumerState<AutoRewardScreen> {
       await ref.read(profileSettingsRepositoryProvider).saveAutoReward(
             enabled: true,
             payoutMethod: _payoutType,
+            pin: pinAssertionToken.isEmpty ? _pin : '',
+            pinAssertionToken: pinAssertionToken,
           );
       ref.invalidate(customerProfileSettingsProvider);
       if (!mounted) return;
@@ -125,8 +192,29 @@ class _AutoRewardScreenState extends ConsumerState<AutoRewardScreen> {
         SnackBar(content: Text(savedMessage)),
       );
       context.go('/profile');
-    } catch (_) {
-      if (mounted) {
+    } catch (error) {
+      final code = _errorCode(error);
+      if (!mounted) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+        handlePinRedirect: false,
+      )) {
+        return;
+      }
+      if (!mounted) return;
+      setState(() => _pin = '');
+      if (code == 'pin_invalid') {
+        setState(() => _pinError = l10n.profileRewardBankPinInvalid);
+      } else if (code == 'pin_locked') {
+        setState(() => _pinError = l10n.profileRewardBankPinLocked);
+      } else if (code == 'pin_setup_required' || code == 'pin_required') {
+        setState(() => _pinError = l10n.profileRewardBankPinRequired);
+      } else if (code == 'pin_assertion_invalid') {
+        setState(() => _pinError = l10n.pinBiometricFailed);
+      } else {
+        setState(() => _pinStep = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(failedMessage)),
         );
@@ -134,6 +222,42 @@ class _AutoRewardScreenState extends ConsumerState<AutoRewardScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _submitWithBiometric() async {
+    if (_saving) return;
+    setState(() {
+      _pin = '';
+      _pinError = '';
+    });
+    try {
+      final token =
+          await ref.read(biometricAuthServiceProvider).requestPinAssertion(
+                purpose: 'profile_update',
+                localizedReason: context.l10n.pinBiometricReason,
+              );
+      if (!mounted) return;
+      if (token == null || token.isEmpty) {
+        setState(() => _pinError = context.l10n.pinBiometricUnavailable);
+        return;
+      }
+      await _save(pinAssertionToken: token);
+    } catch (error) {
+      if (!mounted) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+        handlePinRedirect: false,
+      )) {
+        return;
+      }
+      setState(() => _pinError = context.l10n.pinBiometricFailed);
+    }
+  }
+
+  String _errorCode(Object error) {
+    return ApiErrorInfo.fromObject(error).code;
   }
 }
 
@@ -155,76 +279,88 @@ class _AutoRewardIntro extends StatelessWidget {
       currentPath: '/profile',
       sensitive: true,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(22),
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 42,
-                    backgroundColor:
-                        Theme.of(context).colorScheme.primaryContainer,
-                    child: Icon(
-                      Icons.account_balance_wallet_outlined,
-                      size: 40,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    l10n.profileAutoReward,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w900,
+          CustomerPageBody(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Card(
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                    padding: const EdgeInsets.all(22),
+                    child: Column(
+                      children: [
+                        CircleAvatar(
+                          radius: 42,
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primaryContainer,
+                          child: Icon(
+                            Icons.account_balance_wallet_outlined,
+                            size: 40,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                         ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    l10n.profileAutoRewardIntroSubtitle,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 20),
-                  for (final item in benefits) _BenefitRow(text: item),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.profileAutoRewardConditionsTitle,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
+                        const SizedBox(height: 16),
+                        Text(
+                          l10n.profileAutoReward,
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.w900,
+                              ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          l10n.profileAutoRewardIntroSubtitle,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 20),
+                        for (final item in benefits) _BenefitRow(text: item),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  _BulletText(
-                    l10n.profileAutoRewardConditionAutoClaim,
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.profileAutoRewardConditionsTitle,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _BulletText(
+                          l10n.profileAutoRewardConditionAutoClaim,
+                        ),
+                        _BulletText(
+                          l10n.profileAutoRewardConditionChangeBefore,
+                        ),
+                        _BulletText(
+                          l10n.profileAutoRewardConditionNoRetroactive,
+                        ),
+                      ],
+                    ),
                   ),
-                  _BulletText(
-                    l10n.profileAutoRewardConditionChangeBefore,
-                  ),
-                  _BulletText(
-                    l10n.profileAutoRewardConditionNoRetroactive,
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: onStart,
+                  icon: const Icon(Icons.settings_outlined),
+                  label: Text(l10n.profileAutoRewardStartButton),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: onStart,
-            icon: const Icon(Icons.settings_outlined),
-            label: Text(l10n.profileAutoRewardStartButton),
           ),
         ],
       ),
@@ -264,53 +400,60 @@ class _AutoRewardSelect extends StatelessWidget {
         ),
       ],
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          Text(
-            l10n.profileAutoRewardSelectTitle,
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            l10n.profileAutoRewardSelectSubtitle,
-            style: TextStyle(color: Colors.grey.shade700, height: 1.4),
-          ),
-          const SizedBox(height: 16),
-          _PayoutOption(
-            selected: payoutType == 'wallet',
-            icon: Icons.account_balance_wallet_outlined,
-            title: l10n.profileAutoRewardWalletTitle,
-            subtitle: maskWalletId(profile.customerNo),
-            helper: l10n.profileAutoRewardWalletSubtitle,
-            onTap: () => onChanged('wallet', profile),
-          ),
-          const SizedBox(height: 10),
-          _PayoutOption(
-            selected: payoutType == 'bank_transfer',
-            icon: Icons.account_balance_outlined,
-            title: _bankTitle(profile.bankAccount, l10n),
-            subtitle: profile.bankAccount.isComplete
-                ? '${profile.bankAccount.accountName} · ${profile.bankAccount.maskedNumber}'
-                : l10n.profileAutoRewardBankMissingSubtitle,
-            helper: profile.bankAccount.isComplete
-                ? ''
-                : l10n.profileAutoRewardBankMissingHelper,
-            onTap: () => onChanged('bank_transfer', profile),
-            warning: !profile.bankAccount.isComplete,
-          ),
-          const SizedBox(height: 18),
-          FilledButton.icon(
-            onPressed: saving ? null : onSave,
-            icon: saving
-                ? const SizedBox.square(
-                    dimension: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.arrow_forward),
-            label: Text(l10n.commonNext),
+          CustomerPageBody(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  l10n.profileAutoRewardSelectTitle,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  l10n.profileAutoRewardSelectSubtitle,
+                  style: TextStyle(color: Colors.grey.shade700, height: 1.4),
+                ),
+                const SizedBox(height: 16),
+                _PayoutOption(
+                  selected: payoutType == 'wallet',
+                  icon: Icons.account_balance_wallet_outlined,
+                  title: l10n.profileAutoRewardWalletTitle,
+                  subtitle: maskWalletId(profile.customerNo),
+                  helper: l10n.profileAutoRewardWalletSubtitle,
+                  onTap: () => onChanged('wallet', profile),
+                ),
+                const SizedBox(height: 10),
+                _PayoutOption(
+                  selected: payoutType == 'bank_transfer',
+                  icon: Icons.account_balance_outlined,
+                  title: _bankTitle(profile.bankAccount, l10n),
+                  subtitle: profile.bankAccount.isComplete
+                      ? '${profile.bankAccount.accountName} · ${profile.bankAccount.maskedNumber}'
+                      : l10n.profileAutoRewardBankMissingSubtitle,
+                  helper: profile.bankAccount.isComplete
+                      ? ''
+                      : l10n.profileAutoRewardBankMissingHelper,
+                  onTap: () => onChanged('bank_transfer', profile),
+                  warning: !profile.bankAccount.isComplete,
+                ),
+                const SizedBox(height: 18),
+                FilledButton.icon(
+                  onPressed: saving ? null : onSave,
+                  icon: saving
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.arrow_forward),
+                  label: Text(l10n.commonNext),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -354,6 +497,7 @@ class _PayoutOption extends StatelessWidget {
             ? Theme.of(context).colorScheme.primary
             : Colors.grey.shade600;
     return Card(
+      margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(

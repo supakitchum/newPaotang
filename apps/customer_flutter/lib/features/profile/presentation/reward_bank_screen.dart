@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,7 +7,11 @@ import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/security/biometric_auth_service.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/tenant/mobile_runtime_policy.dart';
+import '../../../core/utils/api_errors.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_page_body.dart';
+import '../../../shared/widgets/pin_confirmation_step.dart';
 import '../data/profile_settings_models.dart';
 import '../data/profile_settings_repository.dart';
 
@@ -57,11 +60,14 @@ class _RewardBankScreenState extends ConsumerState<RewardBankScreen> {
           orElse: () => false,
         );
     return _pinStep
-        ? _RewardBankPinStep(
+        ? PinConfirmationStep(
+            title: l10n.profileRewardBankPinTitle,
+            subtitle: l10n.profileRewardBankPinSubtitle,
             pin: _pin,
             error: _pinError,
             saving: _saving,
             biometricEnabled: biometricEnabled,
+            biometricLabel: l10n.pinUseBiometric,
             onBack: () => setState(() {
               _pinStep = false;
               _pin = '';
@@ -80,52 +86,61 @@ class _RewardBankScreenState extends ConsumerState<RewardBankScreen> {
                   ref.invalidate(customerProfileSettingsProvider),
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
                 children: [
-                  const _RewardBankHero(),
-                  const SizedBox(height: 12),
-                  profile.when(
-                    data: (data) {
-                      _hydrateFromProfile(data);
-                      return _RewardBankForm(
-                        bankName: _bankName,
-                        accountName: _accountName,
-                        accountNumber: _accountNumber,
-                        saving: _saving,
-                        onBankChanged: (value) =>
-                            setState(() => _bankName = value ?? ''),
-                        onSubmit: _startSave,
-                      );
-                    },
-                    loading: () => const Card(
-                      child: Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Center(child: CircularProgressIndicator()),
-                      ),
-                    ),
-                    error: (_, __) => Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          children: [
-                            Text(
-                              l10n.profileRewardBankLoadFailed,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                                fontWeight: FontWeight.w800,
+                  CustomerPageBody(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const _RewardBankHero(),
+                        const SizedBox(height: 12),
+                        profile.when(
+                          data: (data) {
+                            _hydrateFromProfile(data);
+                            return _RewardBankForm(
+                              bankName: _bankName,
+                              accountName: _accountName,
+                              accountNumber: _accountNumber,
+                              saving: _saving,
+                              onBankChanged: (value) =>
+                                  setState(() => _bankName = value ?? ''),
+                              onSubmit: _startSave,
+                            );
+                          },
+                          loading: () => const Card(
+                            margin: EdgeInsets.zero,
+                            child: Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
+                          ),
+                          error: (_, __) => Card(
+                            margin: EdgeInsets.zero,
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    l10n.profileRewardBankLoadFailed,
+                                    style: TextStyle(
+                                      color:
+                                          Theme.of(context).colorScheme.error,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  OutlinedButton.icon(
+                                    onPressed: () => ref.invalidate(
+                                      customerProfileSettingsProvider,
+                                    ),
+                                    icon: const Icon(Icons.refresh),
+                                    label: Text(l10n.commonRetry),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            OutlinedButton.icon(
-                              onPressed: () => ref.invalidate(
-                                customerProfileSettingsProvider,
-                              ),
-                              icon: const Icon(Icons.refresh),
-                              label: Text(l10n.commonRetry),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ],
@@ -222,6 +237,14 @@ class _RewardBankScreenState extends ConsumerState<RewardBankScreen> {
     } catch (error) {
       final code = _errorCode(error);
       if (!mounted) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+        handlePinRedirect: false,
+      )) {
+        return;
+      }
       setState(() => _pin = '');
       if (code == 'pin_invalid') {
         setState(() => _pinError = pinInvalidMessage);
@@ -258,20 +281,22 @@ class _RewardBankScreenState extends ConsumerState<RewardBankScreen> {
         return;
       }
       await _submitBankAccount(pinAssertionToken: token);
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+        handlePinRedirect: false,
+      )) {
+        return;
+      }
       setState(() => _pinError = context.l10n.pinBiometricFailed);
     }
   }
 
   String _errorCode(Object error) {
-    final data = error is DioException ? error.response?.data : null;
-    if (data is Map) {
-      final err = data['error'];
-      if (err is Map && err['code'] != null) return err['code'].toString();
-      if (data['code'] != null) return data['code'].toString();
-    }
-    return '';
+    return ApiErrorInfo.fromObject(error).code;
   }
 
   void _showSnack(String message) {
@@ -287,6 +312,7 @@ class _RewardBankHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Card(
+      margin: EdgeInsets.zero,
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: Theme.of(context).colorScheme.primaryContainer,
@@ -329,6 +355,7 @@ class _RewardBankForm extends StatelessWidget {
       accountNumber: accountNumber.text,
     );
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -451,124 +478,6 @@ class _RewardBankPreview extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _RewardBankPinStep extends StatelessWidget {
-  const _RewardBankPinStep({
-    required this.pin,
-    required this.error,
-    required this.saving,
-    required this.biometricEnabled,
-    required this.onBack,
-    required this.onDigit,
-    required this.onBackspace,
-    required this.onBiometric,
-  });
-
-  final String pin;
-  final String error;
-  final bool saving;
-  final bool biometricEnabled;
-  final VoidCallback onBack;
-  final ValueChanged<String> onDigit;
-  final VoidCallback onBackspace;
-  final VoidCallback onBiometric;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  onPressed: saving ? null : onBack,
-                  icon: const Icon(Icons.arrow_back_ios_new),
-                ),
-              ),
-              const Spacer(),
-              Text(
-                l10n.profileRewardBankPinTitle,
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.w900),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(l10n.profileRewardBankPinSubtitle),
-              const SizedBox(height: 18),
-              Text(
-                '${'●' * pin.length}${'○' * (6 - pin.length)}',
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              if (error.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Text(
-                  error,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
-                    fontWeight: FontWeight.w800,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-              if (saving) ...[
-                const SizedBox(height: 16),
-                const CircularProgressIndicator(),
-              ],
-              const SizedBox(height: 12),
-              if (biometricEnabled) ...[
-                OutlinedButton.icon(
-                  onPressed: saving ? null : onBiometric,
-                  icon: const Icon(Icons.face_retouching_natural),
-                  label: Text(l10n.pinUseBiometric),
-                ),
-                const SizedBox(height: 24),
-              ] else
-                const SizedBox(height: 24),
-              _PinKeypad(onDigit: onDigit, onBackspace: onBackspace),
-              const Spacer(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PinKeypad extends StatelessWidget {
-  const _PinKeypad({required this.onDigit, required this.onBackspace});
-
-  final ValueChanged<String> onDigit;
-  final VoidCallback onBackspace;
-
-  @override
-  Widget build(BuildContext context) {
-    final keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back'];
-    return GridView.count(
-      shrinkWrap: true,
-      crossAxisCount: 3,
-      childAspectRatio: 1.8,
-      physics: const NeverScrollableScrollPhysics(),
-      children: [
-        for (final key in keys)
-          if (key.isEmpty)
-            const SizedBox.shrink()
-          else
-            TextButton(
-              onPressed: key == 'back' ? onBackspace : () => onDigit(key),
-              child: key == 'back'
-                  ? const Icon(Icons.backspace_outlined)
-                  : Text(key, style: Theme.of(context).textTheme.titleLarge),
-            ),
-      ],
     );
   }
 }

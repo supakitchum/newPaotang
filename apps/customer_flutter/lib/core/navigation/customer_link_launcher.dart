@@ -22,6 +22,8 @@ class CustomerLinkLauncher {
     Uri uri, {
     bool preferSameWindowInLine = false,
   }) async {
+    if (!isSafeExternalLinkUri(uri)) return false;
+
     final strategy = chooseLinkLaunchStrategy(
       preferSameWindowInLine: preferSameWindowInLine,
       isWeb: kIsWeb,
@@ -37,11 +39,23 @@ class CustomerLinkLauncher {
   }
 
   bool _isLineProvider(String provider) {
-    return provider.trim().toLowerCase() == 'line';
+    return isLineSocialProvider(provider);
   }
 }
 
+bool isLineSocialProvider(String provider) {
+  return const {'line', 'line_login', 'line_oa', 'line_oauth'}
+      .contains(provider.trim().toLowerCase());
+}
+
 enum LinkLaunchStrategy { sameWindow, externalApplication }
+
+bool isSafeExternalLinkUri(Uri? uri) {
+  if (uri == null || !uri.hasScheme) return false;
+  final scheme = uri.scheme.trim().toLowerCase();
+  if (scheme.isEmpty) return false;
+  return !const {'javascript', 'data', 'file'}.contains(scheme);
+}
 
 LinkLaunchStrategy chooseLinkLaunchStrategy({
   required bool preferSameWindowInLine,

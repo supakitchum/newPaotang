@@ -42,6 +42,10 @@ class PartnerTenantSetting extends BaseModel
         'waiting_result_youtube_url',
         'terms_content',
         'terms_content_i18n',
+        'privacy_content',
+        'privacy_content_i18n',
+        'privacy_policy_url',
+        'account_deletion_url',
         'config_version',
         'created_at',
         'updated_at',
@@ -60,6 +64,7 @@ class PartnerTenantSetting extends BaseModel
         'display_name_i18n' => 'array',
         'maintenance_message_i18n' => 'array',
         'terms_content_i18n' => 'array',
+        'privacy_content_i18n' => 'array',
         'config_version' => 'integer',
     ];
 }

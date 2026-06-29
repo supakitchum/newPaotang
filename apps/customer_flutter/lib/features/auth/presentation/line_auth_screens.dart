@@ -7,6 +7,8 @@ import '../../../core/auth/auth_controller.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/utils/api_errors.dart';
+import '../../../shared/widgets/tenant_brand_header.dart';
+import '../../affiliate/data/affiliate_referral_repository.dart';
 
 class LineCallbackScreen extends ConsumerStatefulWidget {
   const LineCallbackScreen({
@@ -85,7 +87,8 @@ class _LineCallbackScreenState extends ConsumerState<LineCallbackScreen> {
   }
 
   Future<void> _handleCallback() async {
-    final providerLabel = _ProviderBrand.label(widget.provider);
+    final provider = normalizeSocialAuthProvider(widget.provider);
+    final providerLabel = _ProviderBrand.label(provider);
     if (widget.query['code']?.isEmpty ?? true) {
       setState(() {
         _status = context.l10n.socialCallbackMissingCode(providerLabel);
@@ -106,7 +109,7 @@ class _LineCallbackScreenState extends ConsumerState<LineCallbackScreen> {
             path: '/reset-password',
             queryParameters: {
               'token': result.passwordResetToken,
-              'source': 'line',
+              'source': result.provider,
             },
           ).toString(),
         );
@@ -130,6 +133,8 @@ class _LineCallbackScreenState extends ConsumerState<LineCallbackScreen> {
 
       if (result.session != null) {
         ref.read(authControllerProvider).applySession(result.session!);
+        await ref.read(affiliateReferralServiceProvider).applyStored();
+        if (!mounted) return;
         context.go(result.session!.pinRequired ? '/pin' : '/');
         return;
       }
@@ -193,89 +198,159 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
   Widget build(BuildContext context) {
     final providerLabel = _ProviderBrand.label(widget.provider);
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.socialLinkTitle(providerLabel)),
-        leading: IconButton(
-          onPressed: () => context.go('/login'),
-          icon: const Icon(Icons.arrow_back_ios_new),
+      backgroundColor: colorScheme.primary,
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              colorScheme.primary,
+              Color.lerp(colorScheme.primary, colorScheme.secondary, 0.62) ??
+                  colorScheme.primary,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight:
+                        (constraints.maxHeight - 42).clamp(0, double.infinity),
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 460),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: IconButton.filledTonal(
+                              onPressed:
+                                  _saving ? null : () => context.go('/login'),
+                              icon: const Icon(Icons.arrow_back_ios_new),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const _SocialLinkBrandPanel(),
+                          const SizedBox(height: 18),
+                          _LineProfileCard(
+                            provider: widget.provider,
+                            name: widget.displayName,
+                            pictureUrl: widget.pictureUrl,
+                          ),
+                          const SizedBox(height: 14),
+                          _buildPhoneLinkCard(
+                            context,
+                            title: l10n.socialLinkTitle(providerLabel),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
+    );
+  }
+
+  Widget _buildPhoneLinkCard(BuildContext context, {required String title}) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 28,
+            offset: const Offset(0, 16),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _LineProfileCard(
-              provider: widget.provider,
-              name: widget.displayName,
-              pictureUrl: widget.pictureUrl,
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
             ),
-            const SizedBox(height: 14),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      l10n.socialLinkPhoneTitle,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w900),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(l10n.socialLinkPhoneSubtitle),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _phone,
-                      keyboardType: TextInputType.phone,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(10),
-                      ],
-                      decoration: InputDecoration(
-                        labelText: l10n.registerPhoneLabel,
-                        prefixIcon: const Icon(Icons.phone_android_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _password,
-                      obscureText: !_showPassword,
-                      decoration: InputDecoration(
-                        labelText: l10n.registerPasswordLabel,
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          onPressed: () => setState(
-                            () => _showPassword = !_showPassword,
-                          ),
-                          icon: Icon(
-                            _showPassword
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _confirmPassword,
-                      obscureText: !_showPassword,
-                      decoration: InputDecoration(
-                        labelText: l10n.registerConfirmPasswordLabel,
-                        prefixIcon: const Icon(Icons.shield_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    FilledButton(
-                      onPressed: _saving ? null : _submit,
-                      child: _saving
-                          ? const CircularProgressIndicator()
-                          : Text(l10n.socialLinkSubmit),
-                    ),
-                  ],
+            const SizedBox(height: 8),
+            Text(
+              l10n.socialLinkPhoneSubtitle,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+            ),
+            const SizedBox(height: 22),
+            TextField(
+              controller: _phone,
+              keyboardType: TextInputType.phone,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(10),
+              ],
+              decoration: InputDecoration(
+                labelText: l10n.registerPhoneLabel,
+                prefixIcon: const Icon(Icons.phone_android_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _password,
+              obscureText: !_showPassword,
+              decoration: InputDecoration(
+                labelText: l10n.registerPasswordLabel,
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  onPressed: () => setState(
+                    () => _showPassword = !_showPassword,
+                  ),
+                  icon: Icon(
+                    _showPassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
                 ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _confirmPassword,
+              obscureText: !_showPassword,
+              decoration: InputDecoration(
+                labelText: l10n.registerConfirmPasswordLabel,
+                prefixIcon: const Icon(Icons.shield_outlined),
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 52,
+              child: FilledButton(
+                onPressed: _saving ? null : _submit,
+                child: _saving
+                    ? const SizedBox.square(
+                        dimension: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.4),
+                      )
+                    : Text(l10n.socialLinkSubmit),
               ),
             ),
           ],
@@ -286,7 +361,8 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
 
   Future<void> _submit() async {
     final phone = _phone.text.replaceAll(RegExp(r'\D'), '');
-    final providerLabel = _ProviderBrand.label(widget.provider);
+    final provider = normalizeSocialAuthProvider(widget.provider);
+    final providerLabel = _ProviderBrand.label(provider);
     if (widget.linkToken.isEmpty) {
       _showSnack(context.l10n.socialLinkMissing(providerLabel));
       return;
@@ -304,13 +380,14 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
     setState(() => _saving = true);
     try {
       final session = await ref.read(authRepositoryProvider).socialLinkPhone(
-            provider: widget.provider,
+            provider: provider,
             linkToken: widget.linkToken,
             phone: phone,
             password: _password.text,
             passwordConfirmation: _confirmPassword.text,
           );
       ref.read(authControllerProvider).applySession(session);
+      await ref.read(affiliateReferralServiceProvider).applyStored();
       if (!mounted) return;
       final redirect = _safeRedirect(widget.redirect);
       context.go(session.pinRequired ? '/pin' : redirect);
@@ -356,7 +433,22 @@ class _LineProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final providerLabel = _ProviderBrand.label(provider);
-    return Card(
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: _ProviderBrand.color(provider).withValues(alpha: 0.18),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Row(
@@ -393,7 +485,13 @@ class _LineProfileCard extends StatelessWidget {
                           fontWeight: FontWeight.w900,
                         ),
                   ),
-                  Text(context.l10n.socialProfileReady),
+                  Text(
+                    context.l10n.socialProfileReady,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
                 ],
               ),
             ),
@@ -404,11 +502,30 @@ class _LineProfileCard extends StatelessWidget {
   }
 }
 
+class _SocialLinkBrandPanel extends StatelessWidget {
+  const _SocialLinkBrandPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 18, vertical: 22),
+        child: TenantBrandHeader(),
+      ),
+    );
+  }
+}
+
 class _ProviderBrand {
   const _ProviderBrand._();
 
   static String label(String provider) {
-    return switch (provider.trim().toLowerCase()) {
+    return switch (normalizeSocialAuthProvider(provider)) {
       'google' => 'Google',
       'apple' => 'Apple ID',
       _ => 'LINE',
@@ -416,7 +533,7 @@ class _ProviderBrand {
   }
 
   static IconData icon(String provider) {
-    return switch (provider.trim().toLowerCase()) {
+    return switch (normalizeSocialAuthProvider(provider)) {
       'google' => Icons.mail_outline,
       'apple' => Icons.apple,
       _ => Icons.chat_bubble_outline,
@@ -424,7 +541,7 @@ class _ProviderBrand {
   }
 
   static Color color(String provider) {
-    return switch (provider.trim().toLowerCase()) {
+    return switch (normalizeSocialAuthProvider(provider)) {
       'google' => const Color(0xff4285f4),
       'apple' => Colors.black,
       _ => const Color(0xff06c755),

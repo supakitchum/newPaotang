@@ -1,10 +1,11 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../shared/widgets/tenant_brand_header.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 
 class ResetPasswordScreen extends ConsumerStatefulWidget {
   const ResetPasswordScreen({super.key, required this.token, this.source});
@@ -34,90 +35,159 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   Widget build(BuildContext context) {
     final isLineSource = widget.source == 'line';
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.resetPasswordTitle),
-        leading: IconButton(
-          onPressed: () => context.go('/login'),
-          icon: const Icon(Icons.arrow_back_ios_new),
+      backgroundColor: colorScheme.primary,
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              colorScheme.primary,
+              Color.lerp(colorScheme.primary, colorScheme.secondary, 0.62) ??
+                  colorScheme.primary,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight:
+                        (constraints.maxHeight - 42).clamp(0, double.infinity),
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 440),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: IconButton.filledTonal(
+                              onPressed:
+                                  _saving ? null : () => context.go('/login'),
+                              icon: const Icon(Icons.arrow_back_ios_new),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const _ResetPasswordBrandPanel(),
+                          const SizedBox(height: 18),
+                          _buildResetCard(
+                            context,
+                            description: isLineSource
+                                ? l10n.resetPasswordLineDescription
+                                : l10n.resetPasswordLinkDescription,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
+    );
+  }
+
+  Widget _buildResetCard(
+    BuildContext context, {
+    required String description,
+  }) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 28,
+            offset: const Offset(0, 16),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(22),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Icon(
-                      Icons.key_outlined,
-                      size: 46,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      l10n.resetPasswordHeader,
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w900),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      isLineSource
-                          ? l10n.resetPasswordLineDescription
-                          : l10n.resetPasswordLinkDescription,
-                      textAlign: TextAlign.center,
-                    ),
-                    if (widget.token.isEmpty) ...[
-                      const SizedBox(height: 14),
-                      _WarningBox(
-                        title: l10n.resetPasswordInvalidTitle,
-                        message: l10n.resetPasswordInvalidMessage,
-                      ),
-                    ],
-                    const SizedBox(height: 18),
-                    TextField(
-                      controller: _password,
-                      obscureText: !_showPassword,
-                      decoration: InputDecoration(
-                        labelText: l10n.resetPasswordNewPassword,
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          onPressed: () => setState(
-                            () => _showPassword = !_showPassword,
-                          ),
-                          icon: Icon(
-                            _showPassword
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _confirmPassword,
-                      obscureText: !_showPassword,
-                      decoration: InputDecoration(
-                        labelText: l10n.resetPasswordConfirmNewPassword,
-                        prefixIcon: const Icon(Icons.shield_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    FilledButton(
-                      onPressed:
-                          _saving || widget.token.isEmpty ? null : _submit,
-                      child: _saving
-                          ? const CircularProgressIndicator()
-                          : Text(l10n.resetPasswordSave),
-                    ),
-                  ],
+            CircleAvatar(
+              radius: 30,
+              backgroundColor: colorScheme.primaryContainer,
+              foregroundColor: colorScheme.primary,
+              child: const Icon(Icons.key_outlined, size: 34),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              l10n.resetPasswordHeader,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              description,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+            ),
+            if (widget.token.isEmpty) ...[
+              const SizedBox(height: 14),
+              _WarningBox(
+                title: l10n.resetPasswordInvalidTitle,
+                message: l10n.resetPasswordInvalidMessage,
+              ),
+            ],
+            const SizedBox(height: 20),
+            TextField(
+              controller: _password,
+              obscureText: !_showPassword,
+              decoration: InputDecoration(
+                labelText: l10n.resetPasswordNewPassword,
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  onPressed: () => setState(
+                    () => _showPassword = !_showPassword,
+                  ),
+                  icon: Icon(
+                    _showPassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
                 ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _confirmPassword,
+              obscureText: !_showPassword,
+              decoration: InputDecoration(
+                labelText: l10n.resetPasswordConfirmNewPassword,
+                prefixIcon: const Icon(Icons.shield_outlined),
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 52,
+              child: FilledButton(
+                onPressed: _saving || widget.token.isEmpty ? null : _submit,
+                child: _saving
+                    ? const SizedBox.square(
+                        dimension: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.4),
+                      )
+                    : Text(l10n.resetPasswordSave),
               ),
             ),
           ],
@@ -151,24 +221,35 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       context.go('/login');
     } catch (error) {
       if (!mounted) return;
-      final message = _errorMessage(error) ?? expiredMessage;
+      final message = customerErrorMessage(error, expiredMessage);
       _showSnack(message);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
-  String? _errorMessage(Object error) {
-    final data = error is DioException ? error.response?.data : null;
-    if (data is Map) {
-      return (data['message'] ?? data['error']?['message'])?.toString();
-    }
-    return null;
-  }
-
   void _showSnack(String message) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _ResetPasswordBrandPanel extends StatelessWidget {
+  const _ResetPasswordBrandPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 18, vertical: 22),
+        child: TenantBrandHeader(),
+      ),
+    );
   }
 }
 

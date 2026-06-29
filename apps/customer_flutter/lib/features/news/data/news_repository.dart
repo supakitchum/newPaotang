@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
-import '../../../core/utils/api_payload.dart';
 import '../../../core/utils/asset_url.dart';
+import '../../../core/utils/api_payload.dart';
 import 'news_models.dart';
 
 final newsRepositoryProvider = Provider<NewsRepository>((ref) {
@@ -14,7 +14,7 @@ final newsRepositoryProvider = Provider<NewsRepository>((ref) {
 });
 
 final newsListProvider = FutureProvider<List<NewsItem>>((ref) async {
-  return ref.watch(newsRepositoryProvider).list();
+  return ref.watch(newsRepositoryProvider).listAll();
 });
 
 final newsDetailProvider = FutureProvider.family<NewsItem, String>((
@@ -30,19 +30,47 @@ class NewsRepository {
   final ApiClient _api;
   final String Function(String value) _resolveAssetUrl;
 
-  Future<List<NewsItem>> list({int limit = 10}) async {
+  static const int defaultPageLimit = 20;
+  static const int maxAutoPages = 10;
+
+  Future<List<NewsItem>> list({int limit = defaultPageLimit}) async {
+    return listPage(limit: limit).then((page) => page.items);
+  }
+
+  Future<NewsPage> listPage({
+    int limit = defaultPageLimit,
+    String cursor = '',
+  }) async {
     final response = await _api.get<Map<String, dynamic>>(
       '/public/news',
       auth: false,
-      query: {'limit': limit},
+      query: {
+        'limit': limit,
+        if (cursor.trim().isNotEmpty) 'cursor': cursor.trim(),
+      },
     );
-    return unwrapDataList(
-      response.data,
-    )
-        .map((row) => NewsItem.fromJson(row, resolveAssetUrl: _resolveAssetUrl))
-        .toList(
-          growable: false,
-        );
+    return NewsPage.fromJson(response.data, resolveAssetUrl: _resolveAssetUrl);
+  }
+
+  Future<List<NewsItem>> listAll({
+    int limit = defaultPageLimit,
+    int maxPages = maxAutoPages,
+  }) async {
+    final items = <NewsItem>[];
+    String cursor = '';
+
+    for (var pageNumber = 0; pageNumber < maxPages; pageNumber++) {
+      final page = await listPage(limit: limit, cursor: cursor);
+      items.addAll(page.items);
+
+      final nextCursor = page.nextCursor?.trim() ?? '';
+      if (!page.hasMore || nextCursor.isEmpty || nextCursor == cursor) {
+        break;
+      }
+      cursor = nextCursor;
+    }
+
+    return items;
   }
 
   Future<NewsItem> detail(String slug) async {

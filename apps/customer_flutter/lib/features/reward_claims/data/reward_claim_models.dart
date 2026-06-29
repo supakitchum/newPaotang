@@ -182,7 +182,7 @@ class RewardClaimPage {
   });
 
   factory RewardClaimPage.fromJson(Map<String, dynamic> json) {
-    final meta = asMap(json['meta']);
+    final meta = unwrapMeta(json);
     return RewardClaimPage(
       items: unwrapDataList(json)
           .map(RewardClaimItem.fromJson)

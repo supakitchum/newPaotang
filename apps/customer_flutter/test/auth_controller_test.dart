@@ -50,4 +50,46 @@ void main() {
     expect(customer.pinRequired, isTrue);
     expect(customer.isSecurityLocked, isFalse);
   });
+
+  test('logout clears local auth state even when remote logout fails',
+      () async {
+    final tokenStore = AuthTokenStore();
+    final api = ApiClient(
+      const AppConfig(
+        apiBaseUrl: 'https://partner.example.com/api/v1',
+        defaultLocale: 'th-TH',
+      ),
+      tokenStore,
+      localeTag: 'th-TH',
+    );
+    final controller = AuthController(
+      authRepository:
+          _FailingLogoutRepository(api: api, tokenStore: tokenStore),
+      tokenStore: tokenStore,
+      biometricAuth: BiometricAuthService(api),
+    )
+      ..isAuthenticated = true
+      ..pinRequired = true
+      ..pinSetupRequired = true
+      ..isSecurityLocked = true;
+
+    await controller.logout();
+
+    expect(controller.isAuthenticated, isFalse);
+    expect(controller.pinRequired, isFalse);
+    expect(controller.pinSetupRequired, isFalse);
+    expect(controller.isSecurityLocked, isFalse);
+  });
+}
+
+class _FailingLogoutRepository extends AuthRepository {
+  _FailingLogoutRepository({
+    required super.api,
+    required super.tokenStore,
+  });
+
+  @override
+  Future<void> logout() async {
+    throw StateError('remote logout failed');
+  }
 }

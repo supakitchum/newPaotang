@@ -19,6 +19,7 @@ import '../features/news/presentation/news_detail_screen.dart';
 import '../features/news/presentation/news_screen.dart';
 import '../features/pin/presentation/pin_screen.dart';
 import '../features/profile/presentation/auto_reward_screen.dart';
+import '../features/profile/presentation/account_deletion_screen.dart';
 import '../features/profile/presentation/biometric_devices_screen.dart';
 import '../features/profile/presentation/line_notifications_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
@@ -58,6 +59,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pinRequired: auth.pinRequired,
         isSecurityLocked: auth.isSecurityLocked,
         maintenanceActive: maintenanceActive,
+        guestRedirectPath: state.uri.queryParameters['redirect'],
       );
     },
     routes: [
@@ -201,6 +203,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const BiometricDevicesScreen(),
       ),
       GoRoute(
+        path: '/profile/account-deletion',
+        builder: (context, state) => const AccountDeletionScreen(),
+      ),
+      GoRoute(
         path: '/profile/reward-bank',
         builder: (context, state) => RewardBankScreen(
           redirect: state.uri.queryParameters['redirect'],
@@ -309,6 +315,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/terms', builder: (context, state) => const TermsScreen()),
       GoRoute(
+        path: '/privacy',
+        builder: (context, state) => const PrivacyPolicyScreen(),
+      ),
+      GoRoute(
         path: '/term-reward',
         builder: (context, state) => const TermRewardScreen(),
       ),
@@ -321,9 +331,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 });
 
 bool _isPublicPath(String path) {
-  return customerFeatureRoutes.any(
-    (route) => route.public && _matchesRoute(route.path, path),
-  );
+  return isPublicCustomerPath(path);
 }
 
 String? customerRedirectPath({
@@ -332,6 +340,7 @@ String? customerRedirectPath({
   required bool pinRequired,
   required bool isSecurityLocked,
   bool maintenanceActive = false,
+  String? guestRedirectPath,
 }) {
   if (maintenanceActive) {
     return path == '/maintenance' ? null : '/maintenance';
@@ -344,6 +353,9 @@ String? customerRedirectPath({
   }
   if (!isAuthenticated && !_isPublicPath(path)) {
     return '/login';
+  }
+  if (isAuthenticated && _isGuestOnlyPath(path)) {
+    return pinRequired ? '/pin' : _safeGuestRedirect(guestRedirectPath);
   }
   if (isAuthenticated && pinRequired && !_canBypassPin(path)) {
     return '/pin';
@@ -358,16 +370,25 @@ bool _canBypassPin(String path) {
       path == '/account-suspended';
 }
 
-bool _matchesRoute(String pattern, String path) {
-  if (pattern == path) return true;
-  final patternParts =
-      pattern.split('/').where((part) => part.isNotEmpty).toList();
-  final pathParts = path.split('/').where((part) => part.isNotEmpty).toList();
-  if (patternParts.length != pathParts.length) return false;
-  for (var index = 0; index < patternParts.length; index++) {
-    final patternPart = patternParts[index];
-    if (patternPart.startsWith(':')) continue;
-    if (patternPart != pathParts[index]) return false;
+bool _isGuestOnlyPath(String path) {
+  return path == '/login' ||
+      path == '/register' ||
+      path == '/forgot-password' ||
+      path == '/reset-password';
+}
+
+String _safeGuestRedirect(String? value) {
+  final redirect = value?.trim() ?? '';
+  if (redirect.isEmpty ||
+      !redirect.startsWith('/') ||
+      redirect.startsWith('//')) {
+    return '/';
   }
-  return true;
+
+  final uri = Uri.tryParse(redirect);
+  if (uri == null || uri.hasScheme || uri.host.isNotEmpty) {
+    return '/';
+  }
+
+  return _isGuestOnlyPath(uri.path) ? '/' : redirect;
 }

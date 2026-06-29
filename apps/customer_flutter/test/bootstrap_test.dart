@@ -8,7 +8,9 @@ import 'package:customer_flutter/core/i18n/customer_locale_controller.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
+import 'package:customer_flutter/core/tenant/mobile_bootstrap_repository.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
+import 'package:dio/dio.dart';
 
 void main() {
   test('app config uses safe defaults', () {
@@ -16,6 +18,7 @@ void main() {
 
     expect(config.apiBaseUrl, '/api/v1');
     expect(config.defaultLocale, 'th-TH');
+    expect(config.runtimeDisplayName, 'Customer');
     expect(config.defaultLocaleTag, 'th-TH');
     expect(config.normalizedTenantHost, '');
   });
@@ -28,6 +31,78 @@ void main() {
     );
 
     expect(config.normalizedTenantHost, 'partner.example.com');
+  });
+
+  test('mobile bootstrap falls back to configured app display name', () {
+    final bootstrap = MobileBootstrap.fromJson(
+      const {'site': <String, dynamic>{}},
+      defaultSiteName: 'Partner Lottery',
+    );
+
+    expect(bootstrap.siteName, 'Partner Lottery');
+  });
+
+  test('mobile bootstrap maps waiting result live configuration', () {
+    final bootstrap = MobileBootstrap.fromJson(
+      const {
+        'site': <String, dynamic>{},
+        'live': {
+          'waiting_result_youtube_url': 'https://youtu.be/demo',
+          'waiting_result_youtube_embed_url':
+              'https://www.youtube.com/embed/demo',
+          'source': 'tenant_override',
+        },
+      },
+    );
+
+    expect(bootstrap.live.configured, isTrue);
+    expect(
+      bootstrap.live.launchUri?.toString(),
+      'https://www.youtube.com/embed/demo',
+    );
+    expect(bootstrap.live.source, 'tenant_override');
+  });
+
+  test('mobile bootstrap repository accepts standard data payload', () async {
+    final repository = MobileBootstrapRepository(
+      _BootstrapApiClient({
+        'data': {
+          'site': {'display_name': 'Data Shop'},
+        },
+      }),
+    );
+
+    final payload = await repository.load();
+
+    expect(payload['site'], {'display_name': 'Data Shop'});
+  });
+
+  test('mobile bootstrap repository accepts legacy result payload', () async {
+    final repository = MobileBootstrapRepository(
+      _BootstrapApiClient({
+        'result': {
+          'site': {'display_name': 'Result Shop'},
+        },
+      }),
+    );
+
+    final payload = await repository.load();
+
+    expect(payload['site'], {'display_name': 'Result Shop'});
+  });
+
+  test('mobile bootstrap repository accepts resource payload', () async {
+    final repository = MobileBootstrapRepository(
+      _BootstrapApiClient({
+        'resource': {
+          'site': {'display_name': 'Resource Shop'},
+        },
+      }),
+    );
+
+    final payload = await repository.load();
+
+    expect(payload['site'], {'display_name': 'Resource Shop'});
   });
 
   test('customer locale parser supports tenant locale tags', () {
@@ -96,6 +171,10 @@ void main() {
     );
     expect(thai.socialLinkTitle('LINE'), 'ผูกบัญชีด้วย LINE');
     expect(english.socialLinkTitle('LINE'), 'Link account with LINE');
+    expect(thai.contentPrivacyTitle, 'นโยบายความเป็นส่วนตัว');
+    expect(english.contentPrivacyTitle, 'Privacy policy');
+    expect(thai.profilePrivacyPolicy, 'นโยบายความเป็นส่วนตัว');
+    expect(english.profileAccountDeletion, 'Delete account');
     expect(thai.homeBuyLotteryTitle, 'ซื้อสลากดิจิทัล');
     expect(english.homeBuyLotteryTitle, 'Buy digital lottery');
     expect(thai.resultTitle, 'ผลรางวัลสลากฯ');
@@ -118,6 +197,8 @@ void main() {
     expect(english.countdownDay, 'Days');
     expect(thai.successTitle, 'ทำรายการสำเร็จ');
     expect(english.successTitle, 'Transaction successful');
+    expect(thai.successTransactionAtLabel, 'วันที่ทำรายการ');
+    expect(english.successTransactionAtLabel, 'Transaction date');
     expect(thai.newsTitle, 'ข่าวสาร');
     expect(english.newsTitle, 'News');
     expect(thai.newsEmptyTitle, 'ยังไม่มีข่าวสาร');
@@ -191,8 +272,8 @@ void main() {
     expect(english.profileSectionHistory, 'History');
     expect(thai.profileSectionRewardSettings, 'ตั้งค่ารับเงินรางวัล');
     expect(english.profileSectionRewardSettings, 'Reward payout settings');
-    expect(thai.profileSectionAbout, 'เกี่ยวกับแอปฯ GLO');
-    expect(english.profileSectionAbout, 'About GLO app');
+    expect(thai.profileSectionAbout, 'เกี่ยวกับแอปฯ');
+    expect(english.profileSectionAbout, 'About this app');
     expect(thai.profileBadgeNew, 'ใหม่');
     expect(english.profileBadgeNew, 'New');
     expect(thai.profileBadgeRecommended, 'แนะนำ');
@@ -211,6 +292,8 @@ void main() {
       english.profileAutoRewardSelectTitle,
       'Choose primary reward payout channel',
     );
+    expect(thai.profileAutoRewardPinTitle, 'ใส่รหัส PIN 6 หลัก');
+    expect(english.profileAutoRewardPinTitle, 'Enter 6-digit PIN');
     expect(thai.profileLineConnect, 'เชื่อมต่อ LINE');
     expect(english.profileLineConnect, 'Connect LINE');
     expect(thai.profileLineEventOrder, 'ซื้อสลากและยืนยันคำสั่งซื้อ');
@@ -226,6 +309,8 @@ void main() {
     expect(english.walletBalanceAfter('100.00 THB'), 'Balance 100.00 THB');
     expect(thai.topupTitle, 'เติมเงิน');
     expect(english.topupTitle, 'Top up');
+    expect(thai.topupOpenPayment, 'เปิดหน้าชำระเงิน');
+    expect(english.topupOpenPayment, 'Open payment page');
     expect(thai.topupStatusPendingReview, 'รอตรวจสอบ');
     expect(english.topupStatusPendingReview, 'Pending review');
     expect(thai.rewardClaimsTitle, 'ประวัติขึ้นเงินรางวัล');
@@ -420,6 +505,32 @@ void main() {
     expect(theme.textTheme.bodyMedium?.color, const Color(0xFF111827));
     expect(theme.inputDecorationTheme.fillColor, Colors.white);
   });
+}
+
+class _BootstrapApiClient extends ApiClient {
+  _BootstrapApiClient(this.response)
+      : super(
+          const AppConfig(
+            apiBaseUrl: 'https://partner.example.com/api/v1',
+            defaultLocale: 'th-TH',
+          ),
+          AuthTokenStore(),
+          localeTag: 'th-TH',
+        );
+
+  final Map<String, dynamic> response;
+
+  @override
+  Future<Response<T>> get<T>(
+    String path, {
+    Map<String, dynamic>? query,
+    bool auth = true,
+  }) async {
+    return Response<T>(
+      requestOptions: RequestOptions(path: path),
+      data: response as T,
+    );
+  }
 }
 
 class _LocaleOverrideProbe extends ConsumerStatefulWidget {

@@ -30,8 +30,18 @@ class ScreenSecurityService {
 
   Stream<ScreenSecurityEvent> get events => _events.stream;
 
-  Future<void> enable({required String route}) async {
-    await _invoke('enable', {'route': route});
+  Future<void> enable({
+    required String route,
+    String? overlayTitle,
+    String? overlayDescription,
+  }) async {
+    await _invoke('enable', {
+      'route': route,
+      if (overlayTitle?.trim().isNotEmpty == true)
+        'overlay_title': overlayTitle!.trim(),
+      if (overlayDescription?.trim().isNotEmpty == true)
+        'overlay_description': overlayDescription!.trim(),
+    });
   }
 
   Future<void> disable() async {

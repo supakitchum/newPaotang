@@ -23,59 +23,63 @@ class ResultDetailScreen extends ConsumerWidget {
       title: l10n.resultFullTitle,
       currentPath: '/result',
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          AsyncStateView(
-            value: result,
-            loadingText: l10n.resultLoading,
-            data: (bundle) {
-              final selected = bundle.selectedResult;
-              if (selected == null) return const _NoResultDetail();
-              final drawDate = selected.drawDateText(localeTag(l10n.locale));
+          ResultPageBody(
+            child: AsyncStateView(
+              value: result,
+              loadingText: l10n.resultLoading,
+              data: (bundle) {
+                final selected = bundle.selectedResult;
+                if (selected == null) return const _NoResultDetail();
+                final drawDate = selected.drawDateText(localeTag(l10n.locale));
 
-              final highlightSlugs = {
-                'reward_1',
-                'reward_two_digit',
-                'reward_three_digit_1',
-                'reward_three_digit_2',
-              };
-              final detailGroups = selected.groups
-                  .where((group) => !highlightSlugs.contains(group.slug))
-                  .where(
-                    (group) => group.numbers.any(isDisplayableRewardNumber),
-                  )
-                  .toList(growable: false);
+                final highlightSlugs = {
+                  'reward_1',
+                  'reward_two_digit',
+                  'reward_three_digit_1',
+                  'reward_three_digit_2',
+                };
+                final detailGroups = selected.groups
+                    .where((group) => !highlightSlugs.contains(group.slug))
+                    .where(
+                      (group) => group.numbers.any(isDisplayableRewardNumber),
+                    )
+                    .toList(growable: false);
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    l10n.resultDrawDate(
-                      drawDate.isEmpty ? l10n.resultPendingDrawDate : drawDate,
-                    ),
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w900),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                  ResultSummaryCard(result: selected, featured: true),
-                  const SizedBox(height: 12),
-                  if (detailGroups.isEmpty)
-                    const _NoAdditionalPrizeCard()
-                  else
-                    for (final group in detailGroups)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: ResultDetailGroupCard(group: group),
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      l10n.resultDrawDate(
+                        drawDate.isEmpty
+                            ? l10n.resultPendingDrawDate
+                            : drawDate,
                       ),
-                  const SizedBox(height: 12),
-                  const _PayoutHintCard(),
-                ],
-              );
-            },
-            empty: const _NoResultDetail(),
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w900),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    ResultSummaryCard(result: selected, featured: true),
+                    const SizedBox(height: 12),
+                    if (detailGroups.isEmpty)
+                      const _NoAdditionalPrizeCard()
+                    else
+                      for (final group in detailGroups)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: ResultDetailGroupCard(group: group),
+                        ),
+                    const SizedBox(height: 14),
+                    const _PayoutHintCard(),
+                  ],
+                );
+              },
+              empty: const _NoResultDetail(),
+            ),
           ),
         ],
       ),
@@ -88,11 +92,9 @@ class _NoResultDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: Text(context.l10n.resultNoLatest, textAlign: TextAlign.center),
-      ),
+    return ResultInfoCard(
+      icon: Icons.hourglass_empty,
+      title: context.l10n.resultNoLatest,
     );
   }
 }
@@ -102,11 +104,9 @@ class _NoAdditionalPrizeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: const CircleAvatar(child: Icon(Icons.info_outline)),
-        title: Text(context.l10n.resultNoAdditional),
-      ),
+    return ResultInfoCard(
+      icon: Icons.info_outline,
+      title: context.l10n.resultNoAdditional,
     );
   }
 }
@@ -116,14 +116,9 @@ class _PayoutHintCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Text(
-          context.l10n.resultPayoutHint,
-          textAlign: TextAlign.center,
-        ),
-      ),
+    return ResultInfoCard(
+      icon: Icons.payments_outlined,
+      title: context.l10n.resultPayoutHint,
     );
   }
 }

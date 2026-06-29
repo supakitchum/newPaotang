@@ -24,13 +24,40 @@ Map<String, dynamic> unwrapPayload(Object? value) {
 }
 
 List<Map<String, dynamic>> unwrapDataList(Object? value) {
+  return _unwrapDataListCandidate(value);
+}
+
+Map<String, dynamic> unwrapMeta(Object? value) {
   final payload = asMap(value);
-  if (payload['data'] is List) return asMapList(payload['data']);
-  if (payload['result'] is List) return asMapList(payload['result']);
-  if (payload['data'] is Map) {
-    final data = asMap(payload['data']);
-    if (data['data'] is List) return asMapList(data['data']);
-    if (data['result'] is List) return asMapList(data['result']);
+  final directMeta = asMap(payload['meta']);
+  if (directMeta.isNotEmpty) return directMeta;
+
+  for (final key in const ['data', 'result', 'resource']) {
+    if (!payload.containsKey(key)) continue;
+    final nestedMeta = asMap(asMap(payload[key])['meta']);
+    if (nestedMeta.isNotEmpty) return nestedMeta;
   }
+
+  return const <String, dynamic>{};
+}
+
+List<Map<String, dynamic>> _unwrapDataListCandidate(
+  Object? value, [
+  int depth = 0,
+]) {
+  if (value is List) return asMapList(value);
+  if (depth >= 4) return const [];
+
+  final payload = asMap(value);
+  if (payload.isEmpty) return const [];
+
+  for (final key in const ['data', 'result', 'resource', 'items']) {
+    if (!payload.containsKey(key)) continue;
+    final rows = _unwrapDataListCandidate(payload[key], depth + 1);
+    if (rows.isNotEmpty || payload[key] is List) {
+      return rows;
+    }
+  }
+
   return const [];
 }

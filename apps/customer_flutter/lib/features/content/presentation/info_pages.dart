@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_page_body.dart';
 
 class TermsScreen extends ConsumerWidget {
   const TermsScreen({super.key});
@@ -31,33 +33,135 @@ class TermsScreen extends ConsumerWidget {
       title: l10n.contentTermsTitle,
       currentPath: '/profile',
       child: ListView(
-        padding: const EdgeInsets.all(16),
         children: [
-          _HeroCard(
-            icon: Icons.description_outlined,
-            title: parsed.title,
-            subtitle: siteName,
+          CustomerPageBody(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _HeroCard(
+                  icon: Icons.description_outlined,
+                  title: parsed.title,
+                  subtitle: siteName,
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _SectionPill(label: l10n.contentTermsSectionTitle),
+                        const SizedBox(height: 18),
+                        if (parsed.numbered.isNotEmpty)
+                          for (final term in parsed.numbered)
+                            _NumberedText(number: term.number, text: term.text)
+                        else
+                          Text(parsed.plainText, style: _bodyStyle(context)),
+                        for (final paragraph in parsed.extraParagraphs) ...[
+                          const SizedBox(height: 16),
+                          Text(paragraph, style: _bodyStyle(context)),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SectionPill(label: l10n.contentTermsSectionTitle),
-                  const SizedBox(height: 18),
-                  if (parsed.numbered.isNotEmpty)
-                    for (final term in parsed.numbered)
-                      _NumberedText(number: term.number, text: term.text)
-                  else
-                    Text(parsed.plainText, style: _bodyStyle(context)),
-                  for (final paragraph in parsed.extraParagraphs) ...[
-                    const SizedBox(height: 16),
-                    Text(paragraph, style: _bodyStyle(context)),
-                  ],
-                ],
-              ),
+        ],
+      ),
+    );
+  }
+}
+
+class PrivacyPolicyScreen extends ConsumerWidget {
+  const PrivacyPolicyScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bootstrap = ref.watch(mobileBootstrapProvider);
+    final l10n = context.l10n;
+    final siteName = bootstrap.maybeWhen(
+      data: (data) => data.siteName,
+      orElse: () => l10n.contentTermsSiteFallback,
+    );
+    final content = bootstrap.maybeWhen(
+      data: (data) => data.privacyContent.trim().isNotEmpty
+          ? data.privacyContent
+          : l10n.contentPrivacyDefaultContent(data.siteName),
+      orElse: () => l10n.contentPrivacyDefaultContent(siteName),
+    );
+    final policyUri = bootstrap.maybeWhen(
+      data: (data) => Uri.tryParse(data.privacyPolicyUrl),
+      orElse: () => null,
+    );
+    final parsed = _ParsedTerms.fromContent(
+      content,
+      fallbackTitle: l10n.contentPrivacyTitle,
+    );
+
+    return AppShell(
+      title: l10n.contentPrivacyTitle,
+      currentPath: '/profile',
+      child: ListView(
+        children: [
+          CustomerPageBody(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _HeroCard(
+                  icon: Icons.privacy_tip_outlined,
+                  title: parsed.title,
+                  subtitle: l10n.contentPrivacyHeroSubtitle(siteName),
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _SectionPill(label: l10n.contentPrivacySectionTitle),
+                        const SizedBox(height: 18),
+                        if (parsed.numbered.isNotEmpty)
+                          for (final term in parsed.numbered)
+                            _NumberedText(number: term.number, text: term.text)
+                        else
+                          Text(parsed.plainText, style: _bodyStyle(context)),
+                        for (final paragraph in parsed.extraParagraphs) ...[
+                          const SizedBox(height: 16),
+                          Text(paragraph, style: _bodyStyle(context)),
+                        ],
+                        if (isSafeExternalLinkUri(policyUri)) ...[
+                          const SizedBox(height: 18),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: () async {
+                                final opened = await ref
+                                    .read(customerLinkLauncherProvider)
+                                    .openExternal(policyUri!);
+                                if (!opened && context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content:
+                                          Text(l10n.contentPrivacyOpenFailed),
+                                    ),
+                                  );
+                                }
+                              },
+                              icon: const Icon(Icons.open_in_new),
+                              label: Text(l10n.contentPrivacyOpenPolicy),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -76,29 +180,36 @@ class TermRewardScreen extends StatelessWidget {
       title: l10n.contentRewardTermsTitle,
       currentPath: '/',
       child: ListView(
-        padding: const EdgeInsets.all(16),
         children: [
-          _HeroCard(
-            icon: Icons.emoji_events_outlined,
-            title: l10n.contentRewardTermsHeroTitle,
-            subtitle: l10n.contentRewardTermsHeroSubtitle,
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                children: [
-                  const _RewardHeaderRow(),
-                  const Divider(height: 18),
-                  for (final row in _rewardRows(l10n))
-                    _RewardRow(
-                      title: row.title,
-                      count: row.count,
-                      amount: row.amount,
+          CustomerPageBody(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _HeroCard(
+                  icon: Icons.emoji_events_outlined,
+                  title: l10n.contentRewardTermsHeroTitle,
+                  subtitle: l10n.contentRewardTermsHeroSubtitle,
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      children: [
+                        const _RewardHeaderRow(),
+                        const Divider(height: 18),
+                        for (final row in _rewardRows(l10n))
+                          _RewardRow(
+                            title: row.title,
+                            count: row.count,
+                            amount: row.amount,
+                          ),
+                      ],
                     ),
-                ],
-              ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -117,40 +228,47 @@ class LotteryKnowledgeScreen extends StatelessWidget {
       title: l10n.contentKnowledgeTitle,
       currentPath: '/profile',
       child: ListView(
-        padding: const EdgeInsets.all(16),
         children: [
-          _HeroCard(
-            icon: Icons.school_outlined,
-            title: l10n.contentKnowledgeTitle,
-            subtitle: l10n.contentKnowledgeSubtitle,
-          ),
-          const SizedBox(height: 12),
-          for (final section in _knowledgeSections(l10n))
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _KnowledgeCard(section: section),
-            ),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Text(
-                    l10n.contentKnowledgeMoreInfo,
-                    style: _bodyStyle(context),
-                    textAlign: TextAlign.center,
+          CustomerPageBody(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _HeroCard(
+                  icon: Icons.school_outlined,
+                  title: l10n.contentKnowledgeTitle,
+                  subtitle: l10n.contentKnowledgeSubtitle,
+                ),
+                const SizedBox(height: 12),
+                for (final section in _knowledgeSections(l10n))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _KnowledgeCard(section: section),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    l10n.contentKnowledgeContact,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w900,
+                Card(
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        Text(
+                          l10n.contentKnowledgeMoreInfo,
+                          style: _bodyStyle(context),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          l10n.contentKnowledgeContact,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.w900,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
@@ -173,6 +291,7 @@ class _HeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -353,6 +472,7 @@ class _KnowledgeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(

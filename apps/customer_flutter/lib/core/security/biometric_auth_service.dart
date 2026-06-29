@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../network/api_client.dart';
+import '../utils/api_payload.dart';
 
 final biometricAuthServiceProvider = Provider<BiometricAuthService>((ref) {
   return BiometricAuthService(ref.watch(apiClientProvider));
@@ -71,11 +72,9 @@ class BiometricAuthService {
       '/customer/auth/biometric/challenge',
       data: {'device_id': deviceId, 'purpose': purpose},
     );
-    final challenge =
-        (challengeResponse.data?['data']?['challenge'] ?? '').toString();
-    final challengeId =
-        (challengeResponse.data?['data']?['challenge_id'] ?? '').toString();
-    if (challenge.isEmpty || challengeId.isEmpty) return null;
+    final challengePayload =
+        BiometricChallengePayload.fromResponse(challengeResponse.data);
+    if (!challengePayload.isComplete) return null;
 
     final unlocked = await _localAuth.authenticate(
       localizedReason: localizedReason,
@@ -87,7 +86,7 @@ class BiometricAuthService {
     if (!unlocked) return null;
 
     final signature = await _keyChannel.invokeMethod<String>('signChallenge', {
-      'challenge': challenge,
+      'challenge': challengePayload.challenge,
       'purpose': purpose,
     });
     if (signature == null || signature.isEmpty) return null;
@@ -95,13 +94,36 @@ class BiometricAuthService {
     final verifyResponse = await _api.post<Map<String, dynamic>>(
       '/customer/auth/biometric/verify',
       data: {
-        'challenge_id': challengeId,
-        'signed_payload': challenge,
+        'challenge_id': challengePayload.challengeId,
+        'signed_payload': challengePayload.challenge,
         'signature': signature,
       },
     );
 
-    return (verifyResponse.data?['data']?['pin_assertion_token'] ?? '')
-        .toString();
+    return biometricPinAssertionTokenFromResponse(verifyResponse.data);
   }
+}
+
+class BiometricChallengePayload {
+  const BiometricChallengePayload({
+    required this.challengeId,
+    required this.challenge,
+  });
+
+  factory BiometricChallengePayload.fromResponse(Object? response) {
+    final payload = unwrapPayload(response);
+    return BiometricChallengePayload(
+      challengeId: payload['challenge_id']?.toString() ?? '',
+      challenge: payload['challenge']?.toString() ?? '',
+    );
+  }
+
+  final String challengeId;
+  final String challenge;
+
+  bool get isComplete => challengeId.isNotEmpty && challenge.isNotEmpty;
+}
+
+String biometricPinAssertionTokenFromResponse(Object? response) {
+  return unwrapPayload(response)['pin_assertion_token']?.toString() ?? '';
 }

@@ -26,7 +26,9 @@ void main() {
     );
   });
 
-  test('redirects buy routes to waiting result after sale close time', () {
+  test(
+      'redirects buy routes to waiting result after sale close time without cart',
+      () {
     expect(
       saleClosureRedirectPath(
         path: '/buy',
@@ -47,7 +49,38 @@ void main() {
     );
   });
 
-  test('redirects cart and checkout when game status is already closed', () {
+  test('redirects buy routes to cart after sale close time when cart has items',
+      () {
+    expect(
+      saleClosureRedirectPath(
+        path: '/buy/search',
+        gameStatus: 'open',
+        saleCloseAt: now.toIso8601String(),
+        now: now,
+        hasActiveCart: true,
+      ),
+      '/cart',
+    );
+  });
+
+  test('keeps cart and checkout available after sale close when cart has items',
+      () {
+    for (final path in ['/cart', '/checkout']) {
+      expect(
+        saleClosureRedirectPath(
+          path: path,
+          gameStatus: 'closed',
+          saleCloseAt: null,
+          now: now,
+          hasActiveCart: true,
+        ),
+        isNull,
+        reason: path,
+      );
+    }
+  });
+
+  test('redirects cart and checkout after sale close when cart is empty', () {
     for (final path in ['/cart', '/checkout']) {
       expect(
         saleClosureRedirectPath(

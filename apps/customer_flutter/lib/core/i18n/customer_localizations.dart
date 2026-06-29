@@ -4,12 +4,16 @@ import 'app_locale.dart';
 import '../utils/formatters.dart';
 
 class CustomerLocalizations {
-  const CustomerLocalizations(this.locale);
+  const CustomerLocalizations(
+    this.locale, {
+    this.runtimeValues = const <String, String>{},
+  });
 
   static const delegate = _CustomerLocalizationsDelegate();
   static const fallback = CustomerLocalizations(fallbackCustomerLocale);
 
   final Locale locale;
+  final Map<String, String> runtimeValues;
 
   static CustomerLocalizations of(BuildContext context) {
     return Localizations.of<CustomerLocalizations>(
@@ -222,6 +226,8 @@ class CustomerLocalizations {
       _text('pin.reset.description_request');
   String get pinResetDescriptionOtp => _text('pin.reset.description_otp');
   String get pinResetDescriptionPin => _text('pin.reset.description_pin');
+  String get pinResetDescriptionConfirmPin =>
+      _text('pin.reset.description_confirm_pin');
   String get pinResetDescriptionDone => _text('pin.reset.description_done');
   String get pinResetRequestInfo => _text('pin.reset.request_info');
   String get pinResetOtpLabel => _text('pin.reset.otp_label');
@@ -288,6 +294,9 @@ class CustomerLocalizations {
   String get homeActionHistory => _text('home.action.history');
   String get homeBuyLotteryTitle => _text('home.buy_lottery.title');
   String get homeBuyLotterySubtitle => _text('home.buy_lottery.subtitle');
+  String get homeScanLotteryTitle => _text('home.scan_lottery.title');
+  String get homeGuestTitle => _text('home.guest.title');
+  String get homeGuestSubtitle => _text('home.guest.subtitle');
   String get homeResultsTitle => _text('home.results.title');
   String get homeResultsSubtitle => _text('home.results.subtitle');
   String get homeNewsTitle => _text('home.news_card.title');
@@ -334,6 +343,11 @@ class CustomerLocalizations {
   String get waitingResultMyTickets => _text('waiting_result.my_tickets');
   String get waitingResultCheckResult => _text('waiting_result.check_result');
   String get waitingResultPlaceholder => _text('waiting_result.placeholder');
+  String get waitingResultLiveTitle => _text('waiting_result.live.title');
+  String get waitingResultLiveEmpty => _text('waiting_result.live.empty');
+  String get waitingResultLiveOpen => _text('waiting_result.live.open');
+  String get waitingResultLiveOpenFailed =>
+      _text('waiting_result.live.open_failed');
   String maintenanceTitle(String siteName) {
     return _text('maintenance.title').replaceAll('{site}', siteName);
   }
@@ -381,6 +395,7 @@ class CustomerLocalizations {
   String get successPurchaseSubtitle => _text('success.purchase_subtitle');
   String get successViewTickets => _text('success.view_tickets');
   String get successPaymentLoadFailed => _text('success.payment_load_failed');
+  String get successTransactionAtLabel => _text('success.transaction_at_label');
   String get newsTitle => _text('news.title');
   String get newsDetailTitle => _text('news.detail_title');
   String get newsCategory => _text('news.category');
@@ -398,6 +413,26 @@ class CustomerLocalizations {
       siteName,
     );
   }
+
+  String get contentPrivacyTitle => _text('content.privacy.title');
+  String get contentPrivacySectionTitle =>
+      _text('content.privacy.section_title');
+  String contentPrivacyHeroSubtitle(String siteName) {
+    return _text('content.privacy.hero_subtitle').replaceAll(
+      '{site}',
+      siteName,
+    );
+  }
+
+  String contentPrivacyDefaultContent(String siteName) {
+    return _text('content.privacy.default_content').replaceAll(
+      '{site}',
+      siteName,
+    );
+  }
+
+  String get contentPrivacyOpenPolicy => _text('content.privacy.open_policy');
+  String get contentPrivacyOpenFailed => _text('content.privacy.open_failed');
 
   String get contentRewardTermsTitle => _text('content.reward_terms.title');
   String get contentRewardTermsHeroTitle =>
@@ -491,11 +526,21 @@ class CustomerLocalizations {
     return _text('cart.expires_in').replaceAll('{minutes}', minutes.toString());
   }
 
+  String cartExpiresCountdown(String time) {
+    return _text('cart.expires_countdown').replaceAll('{time}', time);
+  }
+
+  String get cartExpired => _text('cart.expired');
+
   String get checkoutTitle => _text('checkout.title');
   String get checkoutSummaryTitle => _text('checkout.summary_title');
   String get checkoutTicketCount => _text('checkout.ticket_count');
   String get checkoutTotal => _text('checkout.total');
   String get checkoutWalletBalance => _text('checkout.wallet_balance');
+  String checkoutPaymentTimer(String time) {
+    return _text('checkout.payment_timer').replaceAll('{time}', time);
+  }
+
   String get checkoutLoadFailedTitle => _text('checkout.load_failed_title');
   String get checkoutNoPaymentTitle => _text('checkout.no_payment_title');
   String get checkoutNoPaymentMessage => _text('checkout.no_payment_message');
@@ -619,6 +664,10 @@ class CustomerLocalizations {
       _text('profile.auto_reward.bank.missing_subtitle');
   String get profileAutoRewardBankMissingHelper =>
       _text('profile.auto_reward.bank.missing_helper');
+  String get profileAutoRewardPinTitle =>
+      _text('profile.auto_reward.pin.title');
+  String get profileAutoRewardPinSubtitle =>
+      _text('profile.auto_reward.pin.subtitle');
   String get profileLineNotifications =>
       _text('profile.menu.line_notifications');
   String get profileLineStoreUnavailableTitle =>
@@ -746,10 +795,33 @@ class CustomerLocalizations {
   String get profilePurchaseHistory => _text('profile.menu.purchase_history');
   String get profileNewsAll => _text('profile.menu.news_all');
   String get profileTerms => _text('profile.menu.terms');
+  String get profilePrivacyPolicy => _text('profile.menu.privacy_policy');
+  String get profileAccountDeletion => _text('profile.menu.account_deletion');
   String get profileLogout => _text('profile.logout');
+
+  String get accountDeletionTitle => _text('account_deletion.title');
+  String get accountDeletionHeroTitle => _text('account_deletion.hero.title');
+  String get accountDeletionHeroSubtitle =>
+      _text('account_deletion.hero.subtitle');
+  String get accountDeletionBeforeTitle =>
+      _text('account_deletion.before.title');
+  String get accountDeletionBeforeBody => _text('account_deletion.before.body');
+  String get accountDeletionRequestTitle =>
+      _text('account_deletion.request.title');
+  String get accountDeletionRequestBody =>
+      _text('account_deletion.request.body');
+  String get accountDeletionOpenRequest =>
+      _text('account_deletion.open_request');
+  String get accountDeletionContactSupport =>
+      _text('account_deletion.contact_support');
+  String get accountDeletionNoOnlineRequest =>
+      _text('account_deletion.no_online_request');
+  String get accountDeletionLaunchFailed =>
+      _text('account_deletion.launch_failed');
 
   String get walletTitle => _text('wallet.title');
   String get walletRecentLedger => _text('wallet.recent_ledger');
+  String get walletRefreshTooltip => _text('wallet.refresh_tooltip');
   String get walletEmptyLedgerTitle => _text('wallet.empty_ledger.title');
   String get walletEmptyLedgerSubtitle => _text('wallet.empty_ledger.subtitle');
   String walletBalanceAfter(String amount) {
@@ -785,6 +857,8 @@ class CustomerLocalizations {
   }
 
   String get topupQrSlipInstruction => _text('topup.qr_slip_instruction');
+  String get topupOpenPayment => _text('topup.open_payment');
+  String get topupOpenPaymentFailed => _text('topup.open_payment_failed');
   String get topupNeedsSlip => _text('topup.needs_slip');
   String get topupUploadSlip => _text('topup.upload_slip');
   String get topupUploadNewSlip => _text('topup.upload_new_slip');
@@ -831,6 +905,10 @@ class CustomerLocalizations {
         .replaceAll('{reference}', reference)
         .replaceAll('{channel}', channel)
         .replaceAll('{date}', date);
+  }
+
+  String topupHistoryBonus(String amount) {
+    return _text('topup.history.bonus').replaceAll('{amount}', amount);
   }
 
   String get topupHistoryEmptyTitle => _text('topup.history.empty.title');
@@ -1022,7 +1100,12 @@ class CustomerLocalizations {
       _text('activity_claims.reward.fallback');
   String get activitiesHistoryButton => _text('activities.history_button');
   String get activitiesHistoryTitle => _text('activities.history_title');
+  String get activitiesHistoryHint => _text('activities.history_hint');
+  String get activitiesHistorySelectLabel =>
+      _text('activities.history_select_label');
+  String get activitiesHistoryNoGames => _text('activities.history_no_games');
   String get activitiesBackToCurrent => _text('activities.back_to_current');
+  String get activitiesLoadFailed => _text('activities.load_failed');
   String get activitiesEmptyTitle => _text('activities.empty.title');
   String get activitiesEmptyMessage => _text('activities.empty.message');
   String get activitiesHistoryEmptyTitle =>
@@ -1505,7 +1588,8 @@ class CustomerLocalizations {
 
   String _text(String key) {
     final tag = localeTag(locale);
-    return _localizedValues[tag]?[key] ??
+    return runtimeValues[key] ??
+        _localizedValues[tag]?[key] ??
         _localizedValues['th-TH']?[key] ??
         key;
   }
@@ -1549,6 +1633,33 @@ class _CustomerLocalizationsDelegate
 
   @override
   bool shouldReload(_CustomerLocalizationsDelegate old) => false;
+}
+
+class RuntimeCustomerLocalizationsDelegate
+    extends LocalizationsDelegate<CustomerLocalizations> {
+  const RuntimeCustomerLocalizationsDelegate(this.runtimeValues);
+
+  final Map<String, String> runtimeValues;
+
+  @override
+  bool isSupported(Locale locale) {
+    return supportedCustomerLocales.any(
+      (supported) => supported.languageCode == locale.languageCode,
+    );
+  }
+
+  @override
+  Future<CustomerLocalizations> load(Locale locale) async {
+    return CustomerLocalizations(
+      parseCustomerLocale(localeTag(locale)),
+      runtimeValues: runtimeValues,
+    );
+  }
+
+  @override
+  bool shouldReload(RuntimeCustomerLocalizationsDelegate old) {
+    return old.runtimeValues != runtimeValues;
+  }
 }
 
 const _localizedValues = <String, Map<String, String>>{
@@ -1608,6 +1719,7 @@ const _localizedValues = <String, Map<String, String>>{
     'routes.profile_line_notifications.title': 'แจ้งเตือนผ่าน LINE',
     'routes.profile_reward_bank.title': 'บัญชีรับเงินรางวัล',
     'routes.profile_biometrics.title': 'อุปกรณ์ Biometric',
+    'routes.profile_account_deletion.title': 'ลบบัญชีผู้ใช้',
     'routes.purchase_history.title': 'ประวัติการซื้อสลาก',
     'routes.purchase_history_detail.title': 'รายละเอียดการซื้อสลาก',
     'routes.stores.title': 'ร้านค้า',
@@ -1615,6 +1727,7 @@ const _localizedValues = <String, Map<String, String>>{
     'routes.news.title': 'ข่าวสาร',
     'routes.news_detail.title': 'รายละเอียดข่าวสาร',
     'routes.terms.title': 'ข้อตกลงและเงื่อนไข',
+    'routes.privacy.title': 'นโยบายความเป็นส่วนตัว',
     'routes.term_reward.title': 'เงื่อนไขเงินรางวัล',
     'routes.lottery_knowledge.title': 'ข้อควรรู้การซื้อ-ขายสลากฯ',
     'routes.login.title': 'เข้าสู่ระบบ',
@@ -1626,6 +1739,7 @@ const _localizedValues = <String, Map<String, String>>{
     'routes.social_callback.title': 'Social Login Callback',
     'routes.social_link_phone.title': 'ผูกบัญชีโซเชียล',
     'routes.pin.title': 'ยืนยัน PIN',
+    'routes.security_lock.title': 'ล็อกหน้าจอความปลอดภัย',
     'routes.maintenance.title': 'ปิดปรับปรุง',
     'routes.account_suspended.title': 'บัญชีถูกระงับ',
     'routes.countdown.title': 'รอเปิดขาย',
@@ -1757,6 +1871,7 @@ const _localizedValues = <String, Map<String, String>>{
     'pin.reset.description_request': 'ยืนยันด้วย OTP ก่อนตั้ง PIN ใหม่',
     'pin.reset.description_otp': 'กรอกรหัส 6 หลักที่ได้รับทาง SMS',
     'pin.reset.description_pin': 'กำหนด PIN 6 หลักใหม่สำหรับเข้าใช้งาน',
+    'pin.reset.description_confirm_pin': 'กรอก PIN ใหม่อีกครั้งเพื่อยืนยัน',
     'pin.reset.description_done': 'คุณสามารถใช้งานแอปต่อได้ทันที',
     'pin.reset.request_info':
         'ระบบจะส่ง OTP ไปยังเบอร์โทรศัพท์ที่ผูกกับบัญชีนี้ เพื่อยืนยันตัวตนก่อนตั้ง PIN ใหม่',
@@ -1800,6 +1915,9 @@ const _localizedValues = <String, Map<String, String>>{
     'home.action.history': 'ประวัติ',
     'home.buy_lottery.title': 'ซื้อสลากดิจิทัล',
     'home.buy_lottery.subtitle': 'ค้นหาเลข จองสลาก และไปยังตะกร้า',
+    'home.scan_lottery.title': 'สแกนซื้อสลากฯ',
+    'home.guest.title': 'เริ่มซื้อสลากดิจิทัล',
+    'home.guest.subtitle': 'เข้าสู่ระบบหรือสมัครสมาชิกก่อนเลือกสลากและชำระเงิน',
     'home.results.title': 'ผลรางวัลสลากฯ',
     'home.results.subtitle': 'ดูผลสดอย่างไม่เป็นทางการและผลย้อนหลัง',
     'home.news_card.title': 'ข่าวสาร',
@@ -1834,6 +1952,10 @@ const _localizedValues = <String, Map<String, String>>{
     'waiting_result.check_result': 'ตรวจผลรางวัล',
     'waiting_result.placeholder':
         'ระบบจะแสดงผลรางวัลเป็น xxxxxx จนกว่าจะมีผลประกาศ',
+    'waiting_result.live.title': 'ถ่ายทอดสดประกาศผล',
+    'waiting_result.live.empty': 'ระบบจะแสดงถ่ายทอดสดเมื่อพร้อมใช้งาน',
+    'waiting_result.live.open': 'เปิดถ่ายทอดสด',
+    'waiting_result.live.open_failed': 'ไม่สามารถเปิดถ่ายทอดสดได้',
     'maintenance.title': '{site} อยู่ระหว่างปิดปรับปรุง',
     'maintenance.fallback_title': 'ระบบอยู่ระหว่างปิดปรับปรุง',
     'maintenance.default_message':
@@ -1866,6 +1988,7 @@ const _localizedValues = <String, Map<String, String>>{
     'success.purchase_subtitle': 'คุณสามารถดูสลากฯ ได้ที่เมนู สลากฯ ของฉัน',
     'success.view_tickets': 'ดูสลากฯ ของฉัน',
     'success.payment_load_failed': 'โหลดข้อมูลการชำระเงินไม่สำเร็จ',
+    'success.transaction_at_label': 'วันที่ทำรายการ',
     'news.title': 'ข่าวสาร',
     'news.detail_title': 'รายละเอียดข่าวสาร',
     'news.category': 'ข่าวประชาสัมพันธ์',
@@ -1886,6 +2009,16 @@ const _localizedValues = <String, Map<String, String>>{
         '6. หลังจาก ทำรายการ และ กดปุ่ม " ชำระเงิน " ทางบริษัทถือว่า ผู้สั่งซื้อได้รับทราบ ข้อตกลงและเงื่อนไขต่างๆของบริษัทเป็นที่เรียบร้อย\n'
         '7. บริษัทขอสงวนสิทธิ์ ขึ้นเงินรางวัลให้ลูกค้าที่ซื้อกับระบบ ในกรณีลูกค้าถูกรางวัล โดยไม่มีค่าใช้จ่ายใดๆ ทั้งสิ้น\n'
         '8. ลูกค้าสามารถยกเลิกการสั่งซื้อสลากได้ภายใน 15 นาทีทุกกรณี หากเกินระยะเวลาที่กำหนด บริษัทขอสงวนสิทธิ์ไม่คืนเงินค่าสลากทุกกรณี',
+    'content.privacy.title': 'นโยบายความเป็นส่วนตัว',
+    'content.privacy.section_title': 'การคุ้มครองข้อมูล',
+    'content.privacy.hero_subtitle': 'วิธีที่ {site} ดูแลข้อมูลส่วนบุคคลของคุณ',
+    'content.privacy.default_content': 'นโยบายความเป็นส่วนตัว\n'
+        '1. {site} ใช้ข้อมูลส่วนบุคคลเพื่อให้บริการซื้อสลาก เติมเงิน รับเงินรางวัล และแจ้งเตือนรายการ\n'
+        '2. ระบบเก็บข้อมูลเท่าที่จำเป็นตามกฎหมายและมาตรฐานความปลอดภัย\n'
+        '3. ลูกค้าสามารถติดต่อร้านค้าเพื่อขอแก้ไข ส่งออก หรือลบข้อมูลบัญชีได้\n'
+        '4. การลบบัญชีอาจยังต้องเก็บข้อมูลธุรกรรมที่กฎหมายกำหนดไว้',
+    'content.privacy.open_policy': 'เปิดนโยบายฉบับเต็ม',
+    'content.privacy.open_failed': 'เปิดนโยบายไม่สำเร็จ',
     'content.reward_terms.title': 'เงื่อนไขเงินรางวัล',
     'content.reward_terms.hero.title': 'รายละเอียดเงินรางวัล',
     'content.reward_terms.hero.subtitle':
@@ -1982,11 +2115,14 @@ const _localizedValues = <String, Map<String, String>>{
     'cart.generic_retry': 'กรุณาลองใหม่อีกครั้ง',
     'cart.reservation_title': 'รายการจอง {count} ใบ',
     'cart.expires_in': 'หมดเวลาจองใน {minutes} นาที',
+    'cart.expires_countdown': 'กรุณาชำระเงินภายใน {time}',
+    'cart.expired': 'หมดเวลาชำระเงิน',
     'checkout.title': 'ชำระเงิน',
     'checkout.summary_title': 'สรุปรายการ',
     'checkout.ticket_count': 'จำนวนสลาก',
     'checkout.total': 'ยอดชำระ',
     'checkout.wallet_balance': 'ยอดเงินในกระเป๋า',
+    'checkout.payment_timer': 'กรุณาชำระเงินภายใน {time}',
     'checkout.load_failed_title': 'โหลดข้อมูลไม่สำเร็จ',
     'checkout.no_payment_title': 'ไม่มีรายการชำระเงิน',
     'checkout.no_payment_message': 'ตะกร้าว่างหรือรายการจองหมดอายุแล้ว',
@@ -2011,7 +2147,7 @@ const _localizedValues = <String, Map<String, String>>{
         'เปลี่ยนภาษาแล้ว แต่ยังบันทึกลงบัญชีไม่สำเร็จ',
     'profile.section.history': 'ประวัติ',
     'profile.section.reward_settings': 'ตั้งค่ารับเงินรางวัล',
-    'profile.section.about': 'เกี่ยวกับแอปฯ GLO',
+    'profile.section.about': 'เกี่ยวกับแอปฯ',
     'profile.badge.new': 'ใหม่',
     'profile.badge.recommended': 'แนะนำ',
     'profile.menu.reward_bank': 'บัญชีรับเงินรางวัล',
@@ -2076,6 +2212,9 @@ const _localizedValues = <String, Map<String, String>>{
     'profile.auto_reward.bank.missing_subtitle':
         'กรุณาเพิ่มบัญชีรับเงินก่อนเลือกช่องทางนี้',
     'profile.auto_reward.bank.missing_helper': 'ยังไม่มีบัญชีรับเงิน',
+    'profile.auto_reward.pin.title': 'ใส่รหัส PIN 6 หลัก',
+    'profile.auto_reward.pin.subtitle':
+        'เพื่อยืนยันการตั้งค่าขึ้นเงินรางวัลอัตโนมัติ',
     'profile.menu.line_notifications': 'แจ้งเตือนผ่าน LINE',
     'profile.line_notifications.store_unavailable.title':
         'ร้านค้านี้ยังไม่ได้เปิดใช้งาน LINE OA',
@@ -2157,9 +2296,26 @@ const _localizedValues = <String, Map<String, String>>{
     'profile.menu.purchase_history': 'ประวัติการซื้อสลาก',
     'profile.menu.news_all': 'ข่าวสารทั้งหมด',
     'profile.menu.terms': 'ข้อตกลงและเงื่อนไข',
+    'profile.menu.privacy_policy': 'นโยบายความเป็นส่วนตัว',
+    'profile.menu.account_deletion': 'ลบบัญชีผู้ใช้',
     'profile.logout': 'ออกจากระบบ',
+    'account_deletion.title': 'ลบบัญชีผู้ใช้',
+    'account_deletion.hero.title': 'คำขอลบบัญชี',
+    'account_deletion.hero.subtitle': 'ส่งคำขอลบบัญชีและข้อมูลส่วนบุคคลของคุณ',
+    'account_deletion.before.title': 'ก่อนส่งคำขอ',
+    'account_deletion.before.body':
+        'เมื่อคำขอได้รับการตรวจสอบ บัญชีจะไม่สามารถเข้าสู่ระบบได้อีก และข้อมูลธุรกรรมบางส่วนอาจต้องถูกเก็บไว้ตามกฎหมาย',
+    'account_deletion.request.title': 'ช่องทางส่งคำขอ',
+    'account_deletion.request.body':
+        'คุณสามารถเริ่มคำขอลบบัญชีผ่านช่องทางที่ร้านค้ากำหนด ระบบจะใช้ข้อมูลบัญชีปัจจุบันเพื่อยืนยันตัวตนก่อนดำเนินการ',
+    'account_deletion.open_request': 'ส่งคำขอลบบัญชี',
+    'account_deletion.contact_support': 'ติดต่อร้านค้า',
+    'account_deletion.no_online_request':
+        'ร้านค้านี้ยังไม่ได้ตั้งค่าลิงก์คำขอลบบัญชี กรุณาติดต่อร้านค้าเพื่อดำเนินการ',
+    'account_deletion.launch_failed': 'เปิดลิงก์คำขอไม่สำเร็จ',
     'wallet.title': 'กระเป๋าเงิน',
     'wallet.recent_ledger': 'ประวัติรายการเดินเงินล่าสุด',
+    'wallet.refresh_tooltip': 'โหลดรายการใหม่',
     'wallet.empty_ledger.title': 'ยังไม่มีรายการเดินเงิน',
     'wallet.empty_ledger.subtitle':
         'รายการเติมเงิน ชำระเงิน และรับเงินรางวัลจะแสดงที่นี่',
@@ -2183,6 +2339,8 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.reference': 'รายการ #{reference}',
     'topup.qr_slip_instruction':
         'หลังชำระเงินแล้วแนบสลิปเพื่อให้ร้านค้าตรวจสอบ',
+    'topup.open_payment': 'เปิดหน้าชำระเงิน',
+    'topup.open_payment_failed': 'เปิดหน้าชำระเงินไม่สำเร็จ',
     'topup.needs_slip': 'รายการนี้รอสลิปหรือรอทีมงานตรวจสอบ',
     'topup.upload_slip': 'แนบสลิปชำระเงิน',
     'topup.upload_new_slip': 'อัพโหลดสลิปใหม่',
@@ -2223,6 +2381,7 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.history.header.subtitle': 'ตรวจสอบสถานะรายการเติมเงินเข้า G-Wallet',
     'topup.history.item_title': 'เติมเงินเข้า G-Wallet',
     'topup.history.reference': 'รายการ #{reference}\n{channel} • {date}',
+    'topup.history.bonus': 'โบนัส {amount}',
     'topup.history.empty.title': 'ยังไม่มีประวัติเติมเงิน',
     'topup.history.empty.subtitle':
         'เมื่อเติมเงินสำเร็จ รายการจะแสดงที่หน้านี้',
@@ -2337,7 +2496,11 @@ const _localizedValues = <String, Map<String, String>>{
     'activity_claims.reward.fallback': 'รางวัลกิจกรรม',
     'activities.history_button': 'ดูกิจกรรมงวดย้อนหลัง',
     'activities.history_title': 'กิจกรรมงวดย้อนหลัง',
+    'activities.history_hint': 'ดูรายการกิจกรรมของงวดก่อนหน้า',
+    'activities.history_select_label': 'เลือกงวดย้อนหลัง',
+    'activities.history_no_games': 'ไม่มีกิจกรรมย้อนหลัง',
     'activities.back_to_current': 'กลับไปกิจกรรมงวดปัจจุบัน',
+    'activities.load_failed': 'โหลดกิจกรรมไม่สำเร็จ',
     'activities.empty.title': 'ยังไม่มีกิจกรรมในงวดนี้',
     'activities.empty.message':
         'เมื่อร้านค้าจัดกิจกรรมสำหรับงวดปัจจุบัน คุณจะเห็นรายละเอียดได้ที่หน้านี้',
@@ -2686,6 +2849,7 @@ const _localizedValues = <String, Map<String, String>>{
     'routes.profile_line_notifications.title': 'LINE Notifications',
     'routes.profile_reward_bank.title': 'Reward Bank Account',
     'routes.profile_biometrics.title': 'Biometric Devices',
+    'routes.profile_account_deletion.title': 'Delete Account',
     'routes.purchase_history.title': 'Purchase History',
     'routes.purchase_history_detail.title': 'Purchase Detail',
     'routes.stores.title': 'Stores',
@@ -2693,6 +2857,7 @@ const _localizedValues = <String, Map<String, String>>{
     'routes.news.title': 'News',
     'routes.news_detail.title': 'News Detail',
     'routes.terms.title': 'Terms and Conditions',
+    'routes.privacy.title': 'Privacy Policy',
     'routes.term_reward.title': 'Reward Terms',
     'routes.lottery_knowledge.title': 'Lottery Buying Knowledge',
     'routes.login.title': 'Sign In',
@@ -2704,6 +2869,7 @@ const _localizedValues = <String, Map<String, String>>{
     'routes.social_callback.title': 'Social Login Callback',
     'routes.social_link_phone.title': 'Link Social Account',
     'routes.pin.title': 'Verify PIN',
+    'routes.security_lock.title': 'Security Lock',
     'routes.maintenance.title': 'Maintenance',
     'routes.account_suspended.title': 'Account Suspended',
     'routes.countdown.title': 'Waiting for Sale',
@@ -2839,6 +3005,7 @@ const _localizedValues = <String, Map<String, String>>{
     'pin.reset.description_request': 'Verify by OTP before setting a new PIN.',
     'pin.reset.description_otp': 'Enter the 6-digit code sent by SMS.',
     'pin.reset.description_pin': 'Set a new 6-digit PIN for this account.',
+    'pin.reset.description_confirm_pin': 'Enter the new PIN again to confirm.',
     'pin.reset.description_done': 'You can continue using the app now.',
     'pin.reset.request_info':
         'We will send an OTP to the phone number linked to this account before resetting your PIN.',
@@ -2883,6 +3050,10 @@ const _localizedValues = <String, Map<String, String>>{
     'home.buy_lottery.title': 'Buy digital lottery',
     'home.buy_lottery.subtitle':
         'Search numbers, reserve tickets, and checkout',
+    'home.scan_lottery.title': 'Scan lottery tickets',
+    'home.guest.title': 'Start buying digital lottery',
+    'home.guest.subtitle':
+        'Sign in or create an account before choosing and paying for tickets',
     'home.results.title': 'Lottery results',
     'home.results.subtitle': 'View unofficial live results and past results',
     'home.news_card.title': 'News',
@@ -2917,6 +3088,10 @@ const _localizedValues = <String, Map<String, String>>{
     'waiting_result.check_result': 'Check results',
     'waiting_result.placeholder':
         'Prize numbers will display as xxxxxx until results are announced.',
+    'waiting_result.live.title': 'Live result broadcast',
+    'waiting_result.live.empty': 'The live broadcast will appear when ready.',
+    'waiting_result.live.open': 'Open live broadcast',
+    'waiting_result.live.open_failed': 'Unable to open live broadcast',
     'maintenance.title': '{site} is under maintenance',
     'maintenance.fallback_title': 'System is under maintenance',
     'maintenance.default_message':
@@ -2949,6 +3124,7 @@ const _localizedValues = <String, Map<String, String>>{
     'success.purchase_subtitle': 'You can view tickets from My Tickets.',
     'success.view_tickets': 'View my tickets',
     'success.payment_load_failed': 'Could not load payment information.',
+    'success.transaction_at_label': 'Transaction date',
     'news.title': 'News',
     'news.detail_title': 'News details',
     'news.category': 'Announcement',
@@ -2969,6 +3145,17 @@ const _localizedValues = <String, Map<String, String>>{
         '6. After placing an order and pressing "Pay", the company considers that the buyer has acknowledged all company terms and conditions.\n'
         '7. The company reserves the right to claim rewards for customers who bought tickets through the system without any extra charge.\n'
         '8. Customers may cancel lottery orders within 15 minutes in all cases. After that period, the company reserves the right not to refund ticket payments.',
+    'content.privacy.title': 'Privacy policy',
+    'content.privacy.section_title': 'Data protection',
+    'content.privacy.hero_subtitle':
+        'How {site} protects your personal information',
+    'content.privacy.default_content': 'Privacy policy\n'
+        '1. {site} uses personal information to provide lottery purchases, wallet topups, reward payouts, and transaction notifications.\n'
+        '2. The system stores only information required by law and security standards.\n'
+        '3. Customers can contact the store to request account correction, export, or deletion.\n'
+        '4. Account deletion may still require retaining transaction records required by law.',
+    'content.privacy.open_policy': 'Open full policy',
+    'content.privacy.open_failed': 'Could not open the policy.',
     'content.reward_terms.title': 'Reward payout terms',
     'content.reward_terms.hero.title': 'Reward payout details',
     'content.reward_terms.hero.subtitle':
@@ -3068,11 +3255,14 @@ const _localizedValues = <String, Map<String, String>>{
     'cart.generic_retry': 'Please try again.',
     'cart.reservation_title': '{count} reserved ticket(s)',
     'cart.expires_in': 'Reservation expires in {minutes} min',
+    'cart.expires_countdown': 'Please pay within {time}',
+    'cart.expired': 'Payment time expired',
     'checkout.title': 'Checkout',
     'checkout.summary_title': 'Order summary',
     'checkout.ticket_count': 'Ticket quantity',
     'checkout.total': 'Amount due',
     'checkout.wallet_balance': 'Wallet balance',
+    'checkout.payment_timer': 'Please pay within {time}',
     'checkout.load_failed_title': 'Could not load checkout',
     'checkout.no_payment_title': 'No checkout item',
     'checkout.no_payment_message':
@@ -3099,7 +3289,7 @@ const _localizedValues = <String, Map<String, String>>{
         'Language changed, but could not be saved to your account.',
     'profile.section.history': 'History',
     'profile.section.reward_settings': 'Reward payout settings',
-    'profile.section.about': 'About GLO app',
+    'profile.section.about': 'About this app',
     'profile.badge.new': 'New',
     'profile.badge.recommended': 'Recommended',
     'profile.menu.reward_bank': 'Reward payout account',
@@ -3166,6 +3356,9 @@ const _localizedValues = <String, Map<String, String>>{
     'profile.auto_reward.bank.missing_subtitle':
         'Add a payout account before choosing this channel.',
     'profile.auto_reward.bank.missing_helper': 'No payout account yet',
+    'profile.auto_reward.pin.title': 'Enter 6-digit PIN',
+    'profile.auto_reward.pin.subtitle':
+        'To confirm automatic reward claim settings',
     'profile.menu.line_notifications': 'LINE notifications',
     'profile.line_notifications.store_unavailable.title':
         'This store has not enabled LINE OA yet',
@@ -3251,9 +3444,27 @@ const _localizedValues = <String, Map<String, String>>{
     'profile.menu.purchase_history': 'Purchase history',
     'profile.menu.news_all': 'All news',
     'profile.menu.terms': 'Terms and conditions',
+    'profile.menu.privacy_policy': 'Privacy policy',
+    'profile.menu.account_deletion': 'Delete account',
     'profile.logout': 'Sign out',
+    'account_deletion.title': 'Delete account',
+    'account_deletion.hero.title': 'Account deletion request',
+    'account_deletion.hero.subtitle':
+        'Request deletion of your account and personal information.',
+    'account_deletion.before.title': 'Before you request deletion',
+    'account_deletion.before.body':
+        'After the request is reviewed, this account will no longer be able to sign in. Some transaction records may still need to be retained as required by law.',
+    'account_deletion.request.title': 'Request channel',
+    'account_deletion.request.body':
+        'You can start an account deletion request through the channel configured by this store. The system will use your current account information for identity verification before processing.',
+    'account_deletion.open_request': 'Request account deletion',
+    'account_deletion.contact_support': 'Contact store',
+    'account_deletion.no_online_request':
+        'This store has not configured an online account deletion link yet. Please contact the store to request deletion.',
+    'account_deletion.launch_failed': 'Could not open the request link.',
     'wallet.title': 'Wallet',
     'wallet.recent_ledger': 'Recent transactions',
+    'wallet.refresh_tooltip': 'Refresh transactions',
     'wallet.empty_ledger.title': 'No wallet transactions yet',
     'wallet.empty_ledger.subtitle':
         'Topups, payments, and reward credits will appear here.',
@@ -3277,6 +3488,8 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.reference': 'Request #{reference}',
     'topup.qr_slip_instruction':
         'After payment, attach a slip so the store can verify it.',
+    'topup.open_payment': 'Open payment page',
+    'topup.open_payment_failed': 'Could not open payment page.',
     'topup.needs_slip': 'This request is waiting for a slip or review.',
     'topup.upload_slip': 'Attach payment slip',
     'topup.upload_new_slip': 'Upload a new slip',
@@ -3319,6 +3532,7 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.history.header.subtitle': 'Track G-Wallet topup request status.',
     'topup.history.item_title': 'G-Wallet topup',
     'topup.history.reference': 'Request #{reference}\n{channel} • {date}',
+    'topup.history.bonus': 'Bonus {amount}',
     'topup.history.empty.title': 'No topup history yet',
     'topup.history.empty.subtitle':
         'Successful topups will appear on this page.',
@@ -3435,7 +3649,11 @@ const _localizedValues = <String, Map<String, String>>{
     'activity_claims.reward.fallback': 'Activity reward',
     'activities.history_button': 'View past draw activities',
     'activities.history_title': 'Past draw activities',
+    'activities.history_hint': 'View activities from previous draws',
+    'activities.history_select_label': 'Select past draw',
+    'activities.history_no_games': 'No past activities',
     'activities.back_to_current': 'Back to current draw activities',
+    'activities.load_failed': 'Could not load activities.',
     'activities.empty.title': 'No activities in this draw yet',
     'activities.empty.message':
         'When this store creates activities for the current draw, details will appear here.',

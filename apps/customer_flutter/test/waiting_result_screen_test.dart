@@ -1,0 +1,124 @@
+import 'package:customer_flutter/core/i18n/app_locale.dart';
+import 'package:customer_flutter/core/i18n/customer_localizations.dart';
+import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
+import 'package:customer_flutter/core/theme/app_theme.dart';
+import 'package:customer_flutter/features/results/data/result_models.dart';
+import 'package:customer_flutter/features/results/data/result_repository.dart';
+import 'package:customer_flutter/features/results/presentation/waiting_result_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  testWidgets('waiting result shows placeholder numbers and live section', (
+    tester,
+  ) async {
+    final currentGame = CurrentGame(
+      id: 'game_1',
+      name: 'งวดวันที่ 1 ก.ค. 2569',
+      status: 'closed',
+      drawAt: '2026-07-01T16:00:00+07:00',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentResultProvider.overrideWith((_) async {
+            return RewardResultBundle(
+              currentGame: currentGame,
+              selectedResult: currentGame.toPendingRewardGame(),
+              history: const [],
+            );
+          }),
+          mobileBootstrapProvider.overrideWith((_) async {
+            return MobileBootstrap.fromJson(
+              const {
+                'site': {'display_name': 'Alpha Lucky Shop'},
+                'live': {
+                  'waiting_result_youtube_embed_url':
+                      'https://www.youtube.com/embed/demo',
+                  'source': 'tenant_override',
+                },
+              },
+            );
+          }),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          home: const WaitingResultScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('หมดเวลาจำหน่ายสลากแล้ว'), findsOneWidget);
+    expect(find.text('รอประกาศผลรางวัล'), findsOneWidget);
+    expect(find.text('xxxxxx'), findsOneWidget);
+    expect(find.text('xx'), findsOneWidget);
+    expect(
+      find.text('ผลรางวัลนี้เป็นผลแสดงสดอย่างไม่เป็นทางการ'),
+      findsNothing,
+    );
+
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ถ่ายทอดสดประกาศผล'), findsOneWidget);
+    expect(find.text('เปิดถ่ายทอดสด'), findsOneWidget);
+  });
+
+  testWidgets('waiting result shows live empty state when not configured', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentResultProvider.overrideWith((_) async {
+            return const RewardResultBundle(
+              currentGame: null,
+              selectedResult: null,
+              history: [],
+            );
+          }),
+          mobileBootstrapProvider.overrideWith((_) async {
+            return MobileBootstrap.fromJson(
+              const {'site': <String, dynamic>{}},
+            );
+          }),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          home: const WaitingResultScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('xxxxxx'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ระบบจะแสดงถ่ายทอดสดเมื่อพร้อมใช้งาน'), findsOneWidget);
+    expect(find.text('เปิดถ่ายทอดสด'), findsNothing);
+  });
+}

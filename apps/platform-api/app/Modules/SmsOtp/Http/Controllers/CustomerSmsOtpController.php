@@ -162,6 +162,7 @@ class CustomerSmsOtpController extends Controller
             'otp_cooldown' => ApiErrorResponse::make($request, 429, 'otp_cooldown', $result['message'] ?? 'Please wait before requesting another OTP.', $result['details'] ?? []),
             'otp_rate_limited' => ApiErrorResponse::make($request, 429, 'otp_rate_limited', $result['message'] ?? 'Too many OTP requests. Please try again later.', $result['details'] ?? []),
             'sms_send_failed' => ApiErrorResponse::make($request, 503, 'sms_send_failed', $result['message'] ?? 'SMS OTP could not be sent.'),
+            'sms_verify_failed' => ApiErrorResponse::make($request, 503, 'sms_verify_failed', $result['message'] ?? 'SMS OTP could not be verified.'),
             'otp_invalid' => ApiErrorResponse::make($request, $result['status'] ?? 422, 'otp_invalid', $result['message'] ?? 'OTP is invalid or expired.'),
             'otp_attempts_exceeded' => ApiErrorResponse::make($request, 429, 'otp_attempts_exceeded', $result['message'] ?? 'OTP verification attempts exceeded.'),
             'authentication_required' => ApiErrorResponse::authenticationRequired($request),

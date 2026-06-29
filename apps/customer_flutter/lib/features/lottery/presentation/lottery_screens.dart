@@ -1,4 +1,5 @@
-import 'package:dio/dio.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,11 +7,16 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../features/affiliate/data/affiliate_referral_repository.dart';
 import '../../../features/results/data/result_repository.dart';
 import '../../../features/wallet/data/wallet_repository.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_page_body.dart';
+import '../../../shared/widgets/customer_section_header.dart';
 import '../data/lottery_models.dart';
 import '../data/lottery_repository.dart';
+import 'lottery_digit_input_row.dart';
 import 'lottery_navigation.dart';
 import 'lottery_stock_realtime_monitor.dart';
 
@@ -45,8 +51,7 @@ class _BuyScreenState extends ConsumerState<BuyScreen> {
           icon: const Icon(Icons.shopping_cart_outlined),
         ),
       ],
-      child: ListView(
-        padding: const EdgeInsets.all(16),
+      child: _LotteryPageList(
         children: [
           Card(
             child: Padding(
@@ -63,57 +68,15 @@ class _BuyScreenState extends ConsumerState<BuyScreen> {
                   const SizedBox(height: 8),
                   Text(l10n.lotterySearchHeroSubtitle),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      for (var index = 0; index < _digits.length; index++) ...[
-                        Expanded(
-                          child: TextField(
-                            controller: _digits[index],
-                            textAlign: TextAlign.center,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(1),
-                            ],
-                            decoration: InputDecoration(
-                              hintText: '${index + 1}',
-                              contentPadding:
-                                  const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                            onChanged: (_) {
-                              if (_digits[index].text.isNotEmpty &&
-                                  index < _digits.length - 1) {
-                                FocusScope.of(context).nextFocus();
-                              }
-                            },
-                          ),
-                        ),
-                        if (index < _digits.length - 1)
-                          const SizedBox(width: 6),
-                      ],
-                    ],
-                  ),
+                  LotteryDigitInputRow(controllers: _digits),
                   const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: _goSearch,
-                          icon: const Icon(Icons.search),
-                          label: Text(l10n.lotterySearchButton),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          for (final controller in _digits) {
-                            controller.clear();
-                          }
-                        },
-                        icon: const Icon(Icons.refresh),
-                        label: Text(l10n.lotteryClearButton),
-                      ),
-                    ],
+                  _LotterySearchActions(
+                    onSearch: _goSearch,
+                    onClear: () {
+                      for (final controller in _digits) {
+                        controller.clear();
+                      }
+                    },
                   ),
                 ],
               ),
@@ -166,6 +129,10 @@ class _BuySearchScreenState extends State<BuySearchScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final digits = List.generate(6, (index) => widget.query['d${index + 1}']);
+    final exactSearch = isExactLotterySearch(
+      number: widget.query['number'] ?? '',
+      digits: digits.map((value) => value ?? '').toList(),
+    );
     final returnPath = lotterySearchPath(
       number: widget.query['number'] ?? '',
       digits: digits.map((value) => value ?? '').toList(),
@@ -181,8 +148,7 @@ class _BuySearchScreenState extends State<BuySearchScreen> {
           icon: const Icon(Icons.shopping_cart_outlined),
         ),
       ],
-      child: ListView(
-        padding: const EdgeInsets.all(16),
+      child: _LotteryPageList(
         children: [
           Card(
             child: Padding(
@@ -226,6 +192,7 @@ class _BuySearchScreenState extends State<BuySearchScreen> {
             digits: digits.map((value) => value ?? '').toList(),
             storeId: widget.query['store_id'] ?? '',
             returnPath: returnPath,
+            showMoreLink: !exactSearch,
           ),
         ],
       ),
@@ -264,8 +231,7 @@ class BuyMoreScreen extends StatelessWidget {
           icon: const Icon(Icons.shopping_cart_outlined),
         ),
       ],
-      child: ListView(
-        padding: const EdgeInsets.all(16),
+      child: _LotteryPageList(
         children: [
           Card(
             child: ListTile(
@@ -285,7 +251,16 @@ class BuyMoreScreen extends StatelessWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: OutlinedButton.icon(
-                onPressed: () => context.go(backPath),
+                onPressed: () {
+                  if (shouldPopLotteryMoreBack(
+                    canPop: context.canPop(),
+                    explicitBackPath: query['back'] ?? '',
+                  )) {
+                    context.pop();
+                    return;
+                  }
+                  context.go(backPath);
+                },
                 icon: const Icon(Icons.arrow_back),
                 label: Text(l10n.commonBack),
               ),
@@ -297,6 +272,7 @@ class BuyMoreScreen extends StatelessWidget {
             number: number,
             storeId: query['store_id'] ?? '',
             returnPath: backPath,
+            showMoreLink: false,
           ),
         ],
       ),
@@ -341,9 +317,8 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       sensitive: true,
       child: RefreshIndicator(
         onRefresh: _load,
-        child: ListView(
+        child: _LotteryPageList(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
           children: [
             Card(
               child: ListTile(
@@ -467,6 +442,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     });
 
     final enoughBalance = _walletBalance >= _cart.total;
+    final paymentDeadline = earliestActiveReservation(_cart.reservations);
     final l10n = context.l10n;
     return AppShell(
       title: l10n.checkoutTitle,
@@ -474,9 +450,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       sensitive: true,
       child: RefreshIndicator(
         onRefresh: _load,
-        child: ListView(
+        child: _LotteryPageList(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
           children: [
             Card(
               child: Padding(
@@ -503,6 +478,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       label: l10n.checkoutWalletBalance,
                       value: formatBaht(_walletBalance),
                     ),
+                    if (paymentDeadline != null) ...[
+                      const Divider(height: 24),
+                      _CheckoutCountdownRow(reservation: paymentDeadline),
+                    ],
                   ],
                 ),
               ),
@@ -537,29 +516,26 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               ),
               const SizedBox(height: 12),
               if (!enoughBalance)
-                Card(
-                  color: Theme.of(context).colorScheme.errorContainer,
-                  child: ListTile(
-                    leading: const Icon(Icons.account_balance_wallet_outlined),
-                    title: Text(l10n.checkoutInsufficientTitle),
-                    subtitle: Text(l10n.checkoutInsufficientSubtitle),
-                    trailing: TextButton(
-                      onPressed: () => context.go('/topup?back=/checkout'),
-                      child: Text(l10n.homeActionTopup),
-                    ),
-                  ),
+                _InsufficientBalanceCard(
+                  onTopup: () => context.go('/topup?back=/checkout'),
                 ),
-              FilledButton.icon(
-                onPressed:
-                    _submitting || !enoughBalance ? null : _submitCheckout,
-                icon: _submitting
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.check_circle_outline),
-                label: Text(
-                  _submitting ? l10n.checkoutSubmitting : l10n.checkoutConfirm,
+              if (!enoughBalance) const SizedBox(height: 12),
+              SizedBox(
+                height: 52,
+                child: FilledButton.icon(
+                  onPressed:
+                      _submitting || !enoughBalance ? null : _submitCheckout,
+                  icon: _submitting
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check_circle_outline),
+                  label: Text(
+                    _submitting
+                        ? l10n.checkoutSubmitting
+                        : l10n.checkoutConfirm,
+                  ),
                 ),
               ),
             ],
@@ -596,6 +572,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (_cart.reservationIds.isEmpty || _submitting) return;
     setState(() => _submitting = true);
     try {
+      await ref.read(affiliateReferralServiceProvider).applyStored();
       final order = await ref
           .read(lotteryRepositoryProvider)
           .checkout(_cart.reservationIds);
@@ -627,6 +604,7 @@ class _LotteryStockList extends ConsumerStatefulWidget {
     this.digits = const [],
     this.storeId = '',
     this.returnPath = '/buy',
+    this.showMoreLink = true,
   });
 
   final String title;
@@ -635,6 +613,7 @@ class _LotteryStockList extends ConsumerStatefulWidget {
   final List<String> digits;
   final String storeId;
   final String returnPath;
+  final bool showMoreLink;
 
   @override
   ConsumerState<_LotteryStockList> createState() => _LotteryStockListState();
@@ -684,68 +663,85 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                  ),
-                  if (widget.subtitle.isNotEmpty)
-                    Text(
-                      widget.subtitle,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                ],
-              ),
-            ),
-            TextButton.icon(
-              onPressed: _loading ? null : () => _load(reset: true),
-              icon: const Icon(Icons.refresh),
-              label: Text(l10n.lotteryShowNew),
-            ),
-          ],
+        _LotterySectionHeading(
+          title: widget.title,
+          subtitle: widget.subtitle,
+          action: TextButton.icon(
+            onPressed: _loading ? null : () => _load(reset: true),
+            icon: const Icon(Icons.refresh, size: 18),
+            label: Text(l10n.lotteryShowNew),
+          ),
         ),
-        const SizedBox(height: 10),
-        if (_loading)
-          const Center(child: CircularProgressIndicator())
-        else if (_error.isNotEmpty)
-          _MessageCard(
-            icon: Icons.error_outline,
-            title: l10n.lotteryLoadFailed,
-            message: _error,
-            actionLabel: l10n.commonRetry,
-            onAction: () => _load(reset: true),
-          )
-        else if (_items.isEmpty)
-          _MessageCard(
-            icon: Icons.confirmation_number_outlined,
-            title: l10n.lotteryNotFoundTitle,
-            message: l10n.lotteryNotFoundMessage,
-          )
-        else ...[
-          for (final item in _items)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _LotteryStockCard(
-                item: item,
-                reserved: _reservedByStockId.containsKey(item.localStockItemId),
-                busy: _busyStockId == item.localStockItemId,
-                morePath: lotteryMorePath(
-                  number: item.number,
-                  storeId: widget.storeId,
-                  backPath: widget.returnPath,
-                ),
-                onReserve: () => _toggleReservation(item),
-              ),
+        const SizedBox(height: 12),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: Theme.of(context)
+                  .colorScheme
+                  .outlineVariant
+                  .withValues(alpha: 0.55),
             ),
-          if (_hasMore)
-            OutlinedButton.icon(
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: _buildListContent(context, l10n),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildListContent(BuildContext context, CustomerLocalizations l10n) {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 28),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_error.isNotEmpty) {
+      return _MessageCard(
+        icon: Icons.error_outline,
+        title: l10n.lotteryLoadFailed,
+        message: _error,
+        actionLabel: l10n.commonRetry,
+        onAction: () => _load(reset: true),
+      );
+    }
+    if (_items.isEmpty) {
+      return _MessageCard(
+        icon: Icons.confirmation_number_outlined,
+        title: l10n.lotteryNotFoundTitle,
+        message: l10n.lotteryNotFoundMessage,
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var index = 0; index < _items.length; index++) ...[
+          _LotteryStockCard(
+            item: _items[index],
+            reserved: _reservedByStockId.containsKey(
+              _items[index].localStockItemId,
+            ),
+            busy: _busyStockId == _items[index].localStockItemId,
+            morePath: widget.showMoreLink
+                ? lotteryMorePath(
+                    number: _items[index].number,
+                    storeId: widget.storeId,
+                    backPath: widget.returnPath,
+                  )
+                : '',
+            onReserve: () => _toggleReservation(_items[index]),
+          ),
+          if (index < _items.length - 1) const SizedBox(height: 10),
+        ],
+        if (_hasMore) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 48,
+            child: OutlinedButton.icon(
               onPressed: _loadingMore ? null : () => _load(reset: false),
               icon: _loadingMore
                   ? const SizedBox.square(
@@ -757,6 +753,7 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
                 _loadingMore ? l10n.commonLoadingMore : l10n.commonLoadMore,
               ),
             ),
+          ),
         ],
       ],
     );
@@ -888,6 +885,55 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
   }
 }
 
+class _LotterySearchActions extends StatelessWidget {
+  const _LotterySearchActions({
+    required this.onSearch,
+    required this.onClear,
+  });
+
+  final VoidCallback onSearch;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 380;
+        final searchButton = FilledButton.icon(
+          onPressed: onSearch,
+          icon: const Icon(Icons.search),
+          label: Text(l10n.lotterySearchButton),
+        );
+        final clearButton = OutlinedButton.icon(
+          onPressed: onClear,
+          icon: const Icon(Icons.refresh),
+          label: Text(l10n.lotteryClearButton),
+        );
+
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(height: 50, child: searchButton),
+              const SizedBox(height: 10),
+              SizedBox(height: 48, child: clearButton),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: SizedBox(height: 50, child: searchButton)),
+            const SizedBox(width: 10),
+            SizedBox(height: 50, child: clearButton),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _LotteryStockCard extends StatelessWidget {
   const _LotteryStockCard({
     required this.item,
@@ -906,57 +952,249 @@ class _LotteryStockCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Card(
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: reserved
+            ? colorScheme.primaryContainer.withValues(alpha: 0.32)
+            : colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: reserved
+              ? colorScheme.primary.withValues(alpha: 0.28)
+              : colorScheme.outlineVariant.withValues(alpha: 0.55),
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.sellerName.trim().isEmpty
-                        ? l10n.ticketLabelGovernmentLottery
-                        : item.sellerName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelMedium,
-                  ),
-                  const SizedBox(height: 10),
-                  _LotteryNumber(number: item.number),
-                  const SizedBox(height: 10),
-                  TextButton(
-                    onPressed: () => context.push(morePath),
-                    child: Text(l10n.lotteryViewMore),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 420;
+            final details = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.verified_outlined,
+                      size: 16,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        item.sellerName.trim().isEmpty
+                            ? l10n.ticketLabelGovernmentLottery
+                            : item.sellerName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _LotteryNumber(number: item.number),
+                if (morePath.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () => context.push(morePath),
+                      icon: const Icon(Icons.open_in_new, size: 16),
+                      label: Text(l10n.lotteryViewMore),
+                    ),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Column(
+              ],
+            );
+            final actions = Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                FilledButton.tonal(
-                  onPressed: item.isAvailable || reserved ? onReserve : null,
-                  child: busy
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(
-                          reserved ? l10n.lotteryRemove : l10n.lotterySelect,
-                        ),
+                SizedBox(
+                  height: 42,
+                  child: FilledButton.tonalIcon(
+                    onPressed: item.isAvailable || reserved ? onReserve : null,
+                    icon: busy
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(
+                            reserved
+                                ? Icons.remove_shopping_cart_outlined
+                                : Icons.add_shopping_cart_outlined,
+                            size: 18,
+                          ),
+                    label: Text(
+                      reserved ? l10n.lotteryRemove : l10n.lotterySelect,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   formatBaht(item.price),
-                  style: const TextStyle(fontWeight: FontWeight.w900),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
                 ),
               ],
-            ),
-          ],
+            );
+
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  details,
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Spacer(),
+                      actions,
+                    ],
+                  ),
+                ],
+              );
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: details),
+                const SizedBox(width: 12),
+                actions,
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _LotterySectionHeading extends StatelessWidget {
+  const _LotterySectionHeading({
+    required this.title,
+    required this.action,
+    this.subtitle = '',
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget action;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomerSectionHeader(
+      title: title,
+      subtitle: subtitle,
+      action: action,
+    );
+  }
+}
+
+class _LotteryPageList extends StatelessWidget {
+  const _LotteryPageList({
+    required this.children,
+    this.physics,
+  });
+
+  final List<Widget> children;
+  final ScrollPhysics? physics;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: physics,
+      children: [
+        CustomerPageBody(
+          maxWidth: 760,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InsufficientBalanceCard extends StatelessWidget {
+  const _InsufficientBalanceCard({required this.onTopup});
+
+  final VoidCallback onTopup;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      color: colorScheme.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 420;
+            final icon = Icon(
+              Icons.account_balance_wallet_outlined,
+              color: colorScheme.onErrorContainer,
+            );
+            final copy = Column(
+              crossAxisAlignment: compact
+                  ? CrossAxisAlignment.stretch
+                  : CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.checkoutInsufficientTitle,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: colorScheme.onErrorContainer,
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  l10n.checkoutInsufficientSubtitle,
+                  style: TextStyle(color: colorScheme.onErrorContainer),
+                ),
+              ],
+            );
+            final action = TextButton(
+              onPressed: onTopup,
+              child: Text(l10n.homeActionTopup),
+            );
+
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      icon,
+                      const SizedBox(width: 10),
+                      Expanded(child: copy),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Align(alignment: Alignment.centerRight, child: action),
+                ],
+              );
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                icon,
+                const SizedBox(width: 12),
+                Expanded(child: copy),
+                const SizedBox(width: 12),
+                action,
+              ],
+            );
+          },
         ),
       ),
     );
@@ -978,31 +1216,51 @@ class _ReservationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    l10n.cartReservationTitle(reservation.items.length),
-                    style: const TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                ),
-                TextButton.icon(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 380;
+                final title = Text(
+                  l10n.cartReservationTitle(reservation.items.length),
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                );
+                final releaseButton = TextButton.icon(
                   onPressed: busy ? null : onRelease,
                   icon: const Icon(Icons.close),
                   label: Text(l10n.lotteryRemove),
-                ),
-              ],
+                );
+                if (compact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      title,
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: releaseButton,
+                      ),
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: title),
+                    releaseButton,
+                  ],
+                );
+              },
             ),
-            if (reservation.expiresInSeconds > 0)
-              Text(l10n.cartExpiresIn(reservation.expiresInSeconds ~/ 60)),
+            _ReservationCountdownText(reservation: reservation),
             const SizedBox(height: 8),
             for (final item in reservation.items)
-              _CompactLotteryTile(item: item),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: _CompactLotteryTile(item: item),
+              ),
             const Divider(),
             Align(
               alignment: Alignment.centerRight,
@@ -1027,20 +1285,53 @@ class _CompactLotteryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      title: _LotteryNumber(number: item.number, compact: true),
-      subtitle: Text(
-        item.storeName.trim().isEmpty
-            ? context.l10n.storesFallbackStoreName
-            : item.storeName,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+    final storeName = item.storeName.trim().isEmpty
+        ? context.l10n.storesFallbackStoreName
+        : item.storeName;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withValues(alpha: 0.32),
+        borderRadius: BorderRadius.circular(14),
       ),
-      trailing: Text(
-        formatBaht(item.price),
-        style: const TextStyle(fontWeight: FontWeight.w900),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _LotteryNumber(number: item.number, compact: true),
+                  const SizedBox(height: 4),
+                  Text(
+                    storeName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Text(
+                  formatBaht(item.price),
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1094,14 +1385,235 @@ class _AmountRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          Expanded(child: Text(label)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w900)),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 340) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(label),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: Text(label)),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  value,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
+}
+
+typedef ReservationCountdownLabelBuilder = String Function(
+  CustomerLocalizations l10n,
+  String time,
+);
+
+Duration reservationServerTimeOffset(Object? serverTime, {DateTime? localNow}) {
+  final serverNow = parseDateTime(serverTime);
+  if (serverNow == null) return Duration.zero;
+  return serverNow.difference(localNow ?? DateTime.now());
+}
+
+Duration reservationRemainingDuration(
+  LotteryReservation reservation, {
+  required DateTime now,
+  DateTime? fallbackExpiresAt,
+}) {
+  final expiresAt = parseDateTime(reservation.expiresAt);
+  if (expiresAt != null) {
+    return nonNegativeDuration(expiresAt.difference(now));
+  }
+  if (fallbackExpiresAt != null) {
+    return nonNegativeDuration(fallbackExpiresAt.difference(now));
+  }
+  if (reservation.expiresInSeconds > 0) {
+    return Duration(seconds: reservation.expiresInSeconds);
+  }
+  return Duration.zero;
+}
+
+Duration nonNegativeDuration(Duration value) {
+  return value.isNegative ? Duration.zero : value;
+}
+
+String formatReservationCountdown(Duration value) {
+  final totalSeconds = value.inSeconds <= 0 ? 0 : value.inSeconds;
+  final minutes = totalSeconds ~/ 60;
+  final seconds = totalSeconds % 60;
+  return '${minutes.toString().padLeft(2, '0')}:'
+      '${seconds.toString().padLeft(2, '0')}';
+}
+
+LotteryReservation? earliestActiveReservation(
+  List<LotteryReservation> reservations,
+) {
+  final active = reservations
+      .where((reservation) => reservation.status == 'active')
+      .toList(growable: false);
+  if (active.isEmpty) return null;
+  final sorted = [...active]..sort(_compareReservationDeadline);
+  return sorted.first;
+}
+
+int _compareReservationDeadline(
+  LotteryReservation a,
+  LotteryReservation b,
+) {
+  final aExpiresAt = parseDateTime(a.expiresAt);
+  final bExpiresAt = parseDateTime(b.expiresAt);
+  if (aExpiresAt != null && bExpiresAt != null) {
+    return aExpiresAt.compareTo(bExpiresAt);
+  }
+  if (aExpiresAt != null) return -1;
+  if (bExpiresAt != null) return 1;
+  return a.expiresInSeconds.compareTo(b.expiresInSeconds);
+}
+
+bool _hasReservationDeadline(LotteryReservation reservation) {
+  return parseDateTime(reservation.expiresAt) != null ||
+      reservation.expiresInSeconds > 0;
+}
+
+class _CheckoutCountdownRow extends StatelessWidget {
+  const _CheckoutCountdownRow({required this.reservation});
+
+  final LotteryReservation reservation;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          Icons.timer_outlined,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _ReservationCountdownText(
+            reservation: reservation,
+            countdownLabelBuilder: (l10n, time) =>
+                l10n.checkoutPaymentTimer(time),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReservationCountdownText extends StatefulWidget {
+  const _ReservationCountdownText({
+    required this.reservation,
+    this.countdownLabelBuilder,
+  });
+
+  final LotteryReservation reservation;
+  final ReservationCountdownLabelBuilder? countdownLabelBuilder;
+
+  @override
+  State<_ReservationCountdownText> createState() =>
+      _ReservationCountdownTextState();
+}
+
+class _ReservationCountdownTextState extends State<_ReservationCountdownText> {
+  Timer? _timer;
+  Duration _serverOffset = Duration.zero;
+  DateTime? _fallbackExpiresAt;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncServerOffset();
+    _startTimerIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ReservationCountdownText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.reservation.id != widget.reservation.id ||
+        oldWidget.reservation.expiresAt != widget.reservation.expiresAt ||
+        oldWidget.reservation.expiresInSeconds !=
+            widget.reservation.expiresInSeconds ||
+        oldWidget.reservation.serverTime != widget.reservation.serverTime) {
+      _syncServerOffset();
+      _startTimerIfNeeded();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    if (!_hasReservationDeadline(widget.reservation)) {
+      return const SizedBox.shrink();
+    }
+    final now = DateTime.now().add(_serverOffset);
+    final remaining = reservationRemainingDuration(
+      widget.reservation,
+      now: now,
+      fallbackExpiresAt: _fallbackExpiresAt,
+    );
+    final text = remaining.inSeconds <= 0
+        ? l10n.cartExpired
+        : (widget.countdownLabelBuilder ?? _defaultCountdownLabel)(
+            l10n,
+            formatReservationCountdown(remaining),
+          );
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: remaining.inSeconds <= 0
+                ? Theme.of(context).colorScheme.error
+                : Theme.of(context).colorScheme.primary,
+            fontWeight: FontWeight.w800,
+          ),
+    );
+  }
+
+  void _syncServerOffset() {
+    _serverOffset = reservationServerTimeOffset(widget.reservation.serverTime);
+    if (parseDateTime(widget.reservation.expiresAt) == null &&
+        widget.reservation.expiresInSeconds > 0) {
+      _fallbackExpiresAt = DateTime.now()
+          .add(_serverOffset)
+          .add(Duration(seconds: widget.reservation.expiresInSeconds));
+    } else {
+      _fallbackExpiresAt = null;
+    }
+  }
+
+  void _startTimerIfNeeded() {
+    _timer?.cancel();
+    if (!_hasReservationDeadline(widget.reservation)) return;
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+}
+
+String _defaultCountdownLabel(CustomerLocalizations l10n, String time) {
+  return l10n.cartExpiresCountdown(time);
 }
 
 class _MessageCard extends StatelessWidget {
@@ -1143,17 +1655,5 @@ class _MessageCard extends StatelessWidget {
 }
 
 String _errorMessage(Object error, String fallback) {
-  if (error is DioException) {
-    final data = error.response?.data;
-    if (data is Map && data['error'] is Map) {
-      final message = (data['error'] as Map)['message'];
-      if (message != null && message.toString().trim().isNotEmpty) {
-        return message.toString();
-      }
-    }
-    if (data is Map && data['message'] != null) {
-      return data['message'].toString();
-    }
-  }
-  return fallback;
+  return customerErrorMessage(error, fallback);
 }

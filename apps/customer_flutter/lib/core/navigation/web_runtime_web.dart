@@ -14,3 +14,5 @@ void navigateSameWindow(String url) {
 String get currentWebHost => web.window.location.host;
 
 String get currentWebReferrer => web.document.referrer;
+
+String get currentWebHref => web.window.location.href;

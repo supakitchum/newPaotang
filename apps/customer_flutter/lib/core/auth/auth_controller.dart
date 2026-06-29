@@ -76,12 +76,18 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    await _authRepository.logout();
-    isAuthenticated = false;
-    pinRequired = false;
-    pinSetupRequired = false;
-    isSecurityLocked = false;
-    notifyListeners();
+    try {
+      await _authRepository.logout();
+    } catch (_) {
+      // Local logout must still succeed when the server rejects an expired
+      // token or the network is unavailable.
+    } finally {
+      isAuthenticated = false;
+      pinRequired = false;
+      pinSetupRequired = false;
+      isSecurityLocked = false;
+      notifyListeners();
+    }
   }
 
   Future<void> verifyPin(String pin) async {

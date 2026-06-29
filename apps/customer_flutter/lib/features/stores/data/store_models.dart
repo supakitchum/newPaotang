@@ -29,8 +29,7 @@ class StorePage {
   });
 
   factory StorePage.fromJson(Map<String, dynamic> json) {
-    final payload = unwrapPayload(json);
-    final meta = asMap(payload['meta'] ?? json['meta']);
+    final meta = unwrapMeta(json);
     return StorePage(
       items: unwrapDataList(json).map(StoreItem.fromJson).toList(
             growable: false,
@@ -49,28 +48,44 @@ class StoreLotteryTicket {
   const StoreLotteryTicket({
     required this.id,
     required this.token,
+    required this.localStockItemId,
+    required this.stockRef,
     required this.number,
     required this.sellerName,
+    required this.storeName,
     required this.price,
     required this.remainingCount,
     required this.status,
+    required this.reservationId,
   });
 
   factory StoreLotteryTicket.fromJson(Map<String, dynamic> json) {
+    final id =
+        (json['id'] ?? json['stock_item_id'] ?? json['token'])?.toString() ??
+            '';
+    final localStockItemId =
+        (json['local_stock_item_id'] ?? json['id'] ?? json['token'])
+                ?.toString() ??
+            '';
     final number = (json['number'] ??
             json['full_number'] ??
             json['lottery_number'] ??
             json['fullNumber'])
         ?.toString()
         .replaceAll(RegExp(r'\D'), '');
+    final sellerName =
+        (json['seller'] ?? json['seller_name'] ?? json['store_name'] ?? '')
+            .toString();
     return StoreLotteryTicket(
-      id: (json['id'] ?? json['stock_item_id'] ?? json['token'])?.toString() ??
-          '',
-      token: json['token']?.toString() ?? '',
+      id: id,
+      token: json['token']?.toString() ?? id,
+      localStockItemId: localStockItemId,
+      stockRef:
+          (json['stock_ref'] ?? json['virtual_stock_ref'] ?? id)?.toString() ??
+              '',
       number: (number ?? '').padLeft(6, '0').substring(0, 6),
-      sellerName:
-          (json['seller'] ?? json['seller_name'] ?? json['store_name'] ?? '')
-              .toString(),
+      sellerName: sellerName,
+      storeName: (json['store_name'] ?? sellerName).toString(),
       price: moneyToDisplayNumber(json['price'], fallback: 80),
       remainingCount: int.tryParse(json['remaining_count']?.toString() ?? '') ??
           int.tryParse(json['available_count']?.toString() ?? '') ??
@@ -78,18 +93,27 @@ class StoreLotteryTicket {
       status: json['availability_status']?.toString() ??
           json['status']?.toString() ??
           'available',
+      reservationId: json['reservation_id']?.toString() ?? '',
     );
   }
 
   final String id;
   final String token;
+  final String localStockItemId;
+  final String stockRef;
   final String number;
   final String sellerName;
+  final String storeName;
   final double price;
   final int remainingCount;
   final String status;
+  final String reservationId;
 
-  bool get isAvailable => remainingCount > 0 && status != 'sold_out';
+  bool get isAvailable =>
+      remainingCount > 0 &&
+      status != 'sold_out' &&
+      status != 'reserved' &&
+      status != 'sold';
 }
 
 class StoreLotteryPage {
@@ -102,8 +126,9 @@ class StoreLotteryPage {
   });
 
   factory StoreLotteryPage.fromJson(Map<String, dynamic> json) {
-    final meta = asMap(json['meta']);
-    final seller = asMap(json['seller']);
+    final payload = unwrapPayload(json);
+    final meta = unwrapMeta(json);
+    final seller = asMap(payload['seller'] ?? json['seller']);
     return StoreLotteryPage(
       items: unwrapDataList(json).map(StoreLotteryTicket.fromJson).toList(
             growable: false,

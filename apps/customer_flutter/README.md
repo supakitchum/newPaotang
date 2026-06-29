@@ -42,6 +42,14 @@ Current migrated surfaces include:
 - Login, register, forgot/reset password, LINE callback/link-phone, PIN,
   maintenance, countdown, suspended account
 
+## UX/UI Parity
+
+The visual migration plan lives in
+[`docs/customer-flutter-ux-ui-parity-plan.md`](../../docs/customer-flutter-ux-ui-parity-plan.md).
+Use it as the screen-by-screen gate for matching the current Nuxt customer UI,
+keeping partner theming runtime-driven, and deciding when to promote repeated
+screen patterns into shared Flutter components.
+
 ## Native Security
 
 Android uses `FLAG_SECURE` in `MainActivity` for sensitive screens, which blocks
@@ -169,9 +177,11 @@ values for display name / URL scheme / Associated Domain. Release iOS xcconfig
 must read these values from partner-specific CI/Xcode settings, not checked-in
 brand defaults. Pass every enabled customer social login provider with
 `--social-provider` or set
-`CUSTOMER_FLUTTER_SOCIAL_PROVIDERS=line,google,apple`; iOS production preflight
-fails when LINE or Google login is enabled without Apple ID login. Use
-`--target web` when checking a same-origin web build that keeps
+`CUSTOMER_FLUTTER_SOCIAL_PROVIDERS=line,google,apple`; supported values are
+`line`, `google`, and `apple` only. The production preflight fails unknown
+provider names so typoed settings cannot bypass store-compliance checks. iOS
+production preflight fails when LINE or Google login is enabled without Apple ID
+login. Use `--target web` when checking a same-origin web build that keeps
 `API_BASE_URL=/api/v1`.
 
 ## Verification
@@ -179,7 +189,7 @@ fails when LINE or Google login is enabled without Apple ID login. Use
 Run from `apps/customer_flutter`:
 
 ```bash
-dart format --set-exit-if-changed lib test tool
+dart format --set-exit-if-changed lib test tool integration_test
 flutter analyze
 flutter test
 dart run tool/generate_link_files.dart --help
@@ -189,6 +199,63 @@ flutter build apk --debug --dart-define=API_BASE_URL=/api/v1
 flutter build ios --simulator --dart-define=API_BASE_URL=/api/v1
 ```
 
+CI also builds an Android release smoke APK with a throwaway keystore and
+partner-specific runtime identifiers. This exercises the real release Gradle
+path without using production signing material. Production app store artifacts
+must use the partner's real signing keystore instead of the CI smoke keystore.
+
+### Release Smoke Tests
+
+`test/customer_app_smoke_test.dart` boots the real `CustomerApp` shell with
+runtime partner config overrides, confirms public and sensitive routes render,
+and verifies the Web privacy guard turns on only for sensitive routes. Run it
+before shipping a partner build:
+
+```bash
+flutter test test/customer_app_smoke_test.dart --reporter compact
+flutter test -d chrome test/customer_app_smoke_test.dart --reporter compact
+```
+
+`integration_test/customer_app_smoke_test.dart` runs the same shell smoke on an
+actual device or simulator without calling the runtime API. Use it for native
+release readiness after a simulator/device is connected:
+
+Both smoke entrypoints share `test/support/customer_app_smoke_harness.dart`, so
+runtime bootstrap, auth provider, realtime, and security fixture changes should
+be made there once and verified through both widget and device smoke commands.
+
+```bash
+flutter devices
+flutter test -d <ios-simulator-or-device-id> \
+  integration_test/customer_app_smoke_test.dart --reporter compact
+flutter test -d <android-device-id> \
+  integration_test/customer_app_smoke_test.dart --reporter compact
+```
+
+If Android fails during install with `adb: device ... not found`, treat it as a
+device/USB/ADB stability issue and rerun after `adb devices` shows the device as
+`device` continuously. Do not count Android smoke as passed until the integration
+test reaches `All tests passed!`.
+
+If `flutter emulators --launch <id>` exits and the emulator verbose log says
+`No initial system image for this configuration!`, the local Android SDK has a
+partial/corrupt system-image install. Reinstall the image used by the AVD before
+rerunning Android smoke:
+
+```bash
+dart run tool/android_smoke_doctor.dart --avd Pixel_4_API_33
+sdkmanager --sdk_root="$HOME/Library/Android/sdk" \
+  "system-images;android-33;google_apis;arm64-v8a"
+flutter emulators --launch Pixel_4_API_33
+flutter test -d Pixel_4_API_33 \
+  integration_test/customer_app_smoke_test.dart --reporter compact
+```
+
+Run `dart run tool/android_smoke_doctor.dart --avd <id>` before native Android
+smoke whenever the emulator was recreated, SDK packages were upgraded, or the
+previous Android smoke stopped before installation. The doctor fails fast when
+the AVD config points to a partial system-image payload.
+
 Known warning: `flutter_secure_storage` currently warns that it does not support
 Swift Package Manager for iOS. The build still passes with CocoaPods; watch this
 before upgrading Flutter to a version that turns the warning into an error.
@@ -196,21 +263,35 @@ before upgrading Flutter to a version that turns the warning into an error.
 ## Release Checklist
 
 - Set final bundle ids/application ids per production app strategy.
+  `production_preflight.dart` rejects the checked-in development identifiers
+  such as `com.newpaotang.customer_flutter`, `com.newpaotang.customerFlutter`,
+  and the `newpaotang` URL scheme for production inputs.
 - Android release builds can be configured with Gradle properties or env vars:
   `CUSTOMER_FLUTTER_APPLICATION_ID`, `CUSTOMER_FLUTTER_APP_LABEL`,
   `CUSTOMER_FLUTTER_AUTH_CALLBACK_SCHEME`,
   `CUSTOMER_FLUTTER_AUTH_CALLBACK_HOST`,
   `CUSTOMER_FLUTTER_STORE_FILE`, `CUSTOMER_FLUTTER_STORE_PASSWORD`,
   `CUSTOMER_FLUTTER_KEY_ALIAS`, `CUSTOMER_FLUTTER_KEY_PASSWORD`.
+  Release builds fail when partner runtime config or signing inputs are
+  missing. For local smoke builds only, set
+  `CUSTOMER_FLUTTER_ALLOW_DEBUG_RELEASE_SIGNING=true`; never use that flag for
+  CI, Play Store, or production artifacts because it also permits the checked-in
+  development Android defaults.
+- The GitHub workflow performs an Android release smoke build by generating a
+  short-lived CI keystore and setting all partner runtime identifiers. This is
+  only a compile/signing-path check; do not distribute that artifact.
 - Native builds that call a shared API host must set `TENANT_HOST` to the
   partner storefront host. Same-origin web builds and native builds that use the
   partner host as `API_BASE_URL` can leave it empty.
 - Override iOS `CUSTOMER_FLUTTER_APP_DISPLAY_NAME`,
+  `CUSTOMER_FLUTTER_IOS_TEAM_ID`, `CUSTOMER_FLUTTER_IOS_BUNDLE_ID`,
   `CUSTOMER_FLUTTER_IOS_URL_SCHEME`, and
   `CUSTOMER_FLUTTER_IOS_ASSOCIATED_DOMAIN` in Xcode/CI for the production app
-  name, callback scheme, and final customer callback domain, for example
-  `applinks:partner.example.com`. The checked-in `Release.xcconfig` reads from
-  these values so release builds cannot accidentally ship the dev defaults.
+  name, signing team, bundle id, callback scheme, and final customer callback
+  domain, for example `applinks:partner.example.com`. The checked-in
+  `Release.xcconfig` and Runner release build settings read from these values.
+  The Xcode `Validate Release Config` phase fails Release builds that are
+  missing these values or still use checked-in development defaults.
 - Set `CUSTOMER_FLUTTER_SOCIAL_PROVIDERS` in CI/release jobs to the exact
   enabled providers for the partner app. If LINE or Google is enabled for an iOS
   app, Apple ID must be enabled too.

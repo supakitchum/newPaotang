@@ -112,7 +112,7 @@ class StoreRepository {
       auth: false,
       query: {
         'game_id': gameId,
-        'mode': 'browse',
+        'mode': 'random',
         'limit': limit,
         if (storeId.isNotEmpty) 'store_id': storeId,
         if (cursor.isNotEmpty) 'cursor': cursor,

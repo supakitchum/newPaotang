@@ -38,6 +38,8 @@ class AffiliateRepository {
   Future<AffiliatePayout> createPayout({
     required double amount,
     required String payoutMethod,
+    String pin = '',
+    String pinAssertionToken = '',
     Map<String, dynamic>? bankAccount,
   }) async {
     final response = await _api.postWithHeaders<Map<String, dynamic>>(
@@ -49,9 +51,47 @@ class AffiliateRepository {
           'currency': 'THB',
         },
         'payout_method': payoutMethod,
+        if (pinAssertionToken.isNotEmpty)
+          'pin_assertion_token': pinAssertionToken
+        else if (pin.isNotEmpty)
+          'pin': pin,
         if (bankAccount != null) 'bank_account': bankAccount,
       },
     );
     return AffiliatePayout.fromJson(unwrapPayload(response.data));
+  }
+
+  Future<AffiliatePage<AffiliateCommission>> commissions({
+    String cursor = '',
+    int limit = 10,
+  }) async {
+    final response = await _api.get<Map<String, dynamic>>(
+      '/customer/affiliate/commissions',
+      query: {
+        'limit': limit,
+        if (cursor.trim().isNotEmpty) 'cursor': cursor.trim(),
+      },
+    );
+    return AffiliatePage.fromJson(
+      asMap(response.data),
+      AffiliateCommission.fromJson,
+    );
+  }
+
+  Future<AffiliatePage<AffiliatePayout>> payouts({
+    String cursor = '',
+    int limit = 10,
+  }) async {
+    final response = await _api.get<Map<String, dynamic>>(
+      '/customer/affiliate/payouts',
+      query: {
+        'limit': limit,
+        if (cursor.trim().isNotEmpty) 'cursor': cursor.trim(),
+      },
+    );
+    return AffiliatePage.fromJson(
+      asMap(response.data),
+      AffiliatePayout.fromJson,
+    );
   }
 }

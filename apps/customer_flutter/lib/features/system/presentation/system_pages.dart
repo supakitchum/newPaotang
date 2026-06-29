@@ -6,13 +6,16 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/app_locale.dart';
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../features/purchase_history/data/purchase_history_models.dart';
 import '../../../features/purchase_history/data/purchase_history_repository.dart';
 import '../../../features/purchase_history/presentation/purchase_history_localization.dart';
+import '../../../features/results/data/result_models.dart';
 import '../../../features/results/data/result_repository.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_page_body.dart';
 
 class MaintenanceScreen extends ConsumerWidget {
   const MaintenanceScreen({super.key});
@@ -26,6 +29,7 @@ class MaintenanceScreen extends ConsumerWidget {
         final message = data.maintenance.message.isNotEmpty
             ? data.maintenance.message
             : l10n.maintenanceDefaultMessage;
+        final supportUri = maintenanceSupportPhoneUri(data.supportPhone);
         return _FullPageState(
           icon: Icons.construction_outlined,
           title: l10n.maintenanceTitle(data.siteName),
@@ -44,7 +48,13 @@ class MaintenanceScreen extends ConsumerWidget {
               ),
             if (data.supportPhone.isNotEmpty)
               OutlinedButton.icon(
-                onPressed: () {},
+                onPressed: supportUri == null
+                    ? null
+                    : () async {
+                        await ref
+                            .read(customerLinkLauncherProvider)
+                            .openExternal(supportUri);
+                      },
                 icon: const Icon(Icons.support_agent_outlined),
                 label: Text(l10n.maintenanceSupport(data.supportPhone)),
               ),
@@ -64,6 +74,16 @@ class MaintenanceScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+Uri? maintenanceSupportPhoneUri(String phone) {
+  final sanitized = phone.trim().replaceAll(RegExp(r'[^\d+]'), '');
+  if (sanitized.isEmpty) return null;
+  final normalized = sanitized.startsWith('+')
+      ? '+${sanitized.substring(1).replaceAll('+', '')}'
+      : sanitized.replaceAll('+', '');
+  if (normalized.replaceAll('+', '').isEmpty) return null;
+  return Uri(scheme: 'tel', path: normalized);
 }
 
 class AccountSuspendedScreen extends StatelessWidget {
@@ -120,6 +140,7 @@ class CountdownScreen extends ConsumerStatefulWidget {
 class _CountdownScreenState extends ConsumerState<CountdownScreen> {
   Timer? _timer;
   DateTime _now = DateTime.now();
+  bool _checkingStatus = false;
 
   @override
   void initState() {
@@ -149,8 +170,10 @@ class _CountdownScreenState extends ConsumerState<CountdownScreen> {
           final remaining = saleStartAt == null
               ? Duration.zero
               : saleStartAt.difference(_now);
-          return ListView(
-            padding: const EdgeInsets.all(20),
+          if (saleStartAt != null && remaining.inMicroseconds <= 0) {
+            _scheduleCountdownStatusRefresh();
+          }
+          return _SystemPageList(
             children: [
               Card(
                 child: Padding(
@@ -209,6 +232,61 @@ class _CountdownScreenState extends ConsumerState<CountdownScreen> {
       ),
     );
   }
+
+  void _scheduleCountdownStatusRefresh() {
+    if (_checkingStatus) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _checkingStatus) return;
+      unawaited(_refreshAfterCountdown());
+    });
+  }
+
+  Future<void> _refreshAfterCountdown() async {
+    setState(() => _checkingStatus = true);
+    try {
+      ref.invalidate(currentResultProvider);
+      final refreshed = await ref.read(currentResultProvider.future);
+      if (!mounted) return;
+      final current = refreshed.currentGame;
+      if (countdownShouldStayOnPage(current, DateTime.now())) return;
+      context.go(countdownTargetPathForGame(current));
+    } finally {
+      if (mounted) setState(() => _checkingStatus = false);
+    }
+  }
+}
+
+bool countdownShouldStayOnPage(CurrentGame? game, DateTime now) {
+  final saleStartAt = parseDateTime(game?.saleStartAt);
+  if (saleStartAt == null) return false;
+  return _isOpenGameStatus(game?.status) && saleStartAt.isAfter(now);
+}
+
+String countdownTargetPathForGame(CurrentGame? game) {
+  final status = _normalizedGameStatus(game?.status);
+  if (_isOpenGameStatus(status)) return '/buy';
+  if (_isResultGameStatus(status)) return '/result';
+  return '/waiting-result';
+}
+
+bool _isOpenGameStatus(Object? status) {
+  return _normalizedGameStatus(status) == 'open' ||
+      _normalizedGameStatus(status) == 'sale' ||
+      _normalizedGameStatus(status) == 'selling' ||
+      _normalizedGameStatus(status) == '1';
+}
+
+bool _isResultGameStatus(Object? status) {
+  final normalized = _normalizedGameStatus(status);
+  return normalized == '2' ||
+      normalized == 'published' ||
+      normalized == 'resulted' ||
+      normalized == 'completed' ||
+      normalized == 'rewarded';
+}
+
+String _normalizedGameStatus(Object? status) {
+  return (status ?? '').toString().trim().toLowerCase();
 }
 
 class SuccessScreen extends ConsumerWidget {
@@ -229,8 +307,7 @@ class SuccessScreen extends ConsumerWidget {
       currentPath: '/tickets',
       sensitive: true,
       child: order.when(
-        data: (item) => ListView(
-          padding: const EdgeInsets.all(18),
+        data: (item) => _SystemPageList(
           children: [
             Card(
               child: Padding(
@@ -272,12 +349,20 @@ class SuccessScreen extends ConsumerWidget {
                         value: localizedPurchaseDrawDate(context, item),
                       ),
                       _ReceiptRow(
+                        label: context.l10n.purchaseHistoryPayeeLabel,
+                        value: localizedPurchaseStoreName(context, item),
+                      ),
+                      _ReceiptRow(
                         label: context.l10n.purchaseHistoryPaymentChannelLabel,
-                        value: localizedPurchasePaymentChannel(item),
+                        value: _successPaymentChannelText(context, item),
                       ),
                       _ReceiptRow(
                         label: context.l10n.purchaseHistoryTotalLabel,
                         value: formatBaht(item.total),
+                      ),
+                      _ReceiptRow(
+                        label: context.l10n.successTransactionAtLabel,
+                        value: localizedPurchaseTransactionDate(context, item),
                       ),
                       _ReceiptRow(
                         label: context.l10n.purchaseHistoryReferenceLabel,
@@ -297,11 +382,46 @@ class SuccessScreen extends ConsumerWidget {
           ],
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => _ErrorCard(
-          message: context.l10n.successPaymentLoadFailed,
-          onRetry: () => ref.invalidate(purchaseHistoryDetailProvider(id)),
+        error: (_, __) => _SystemPageList(
+          children: [
+            _ErrorCard(
+              message: context.l10n.successPaymentLoadFailed,
+              onRetry: () => ref.invalidate(purchaseHistoryDetailProvider(id)),
+            ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+String _successPaymentChannelText(
+  BuildContext context,
+  PurchaseHistoryOrder item,
+) {
+  final channel = localizedPurchasePaymentChannel(item);
+  final reference = item.maskedPaymentReference;
+  if (reference.isEmpty) return channel;
+  return '$channel\n$reference';
+}
+
+class _SystemPageList extends StatelessWidget {
+  const _SystemPageList({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      children: [
+        CustomerPageBody(
+          maxWidth: 760,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -474,6 +594,7 @@ class _ReceiptRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(child: Text(label)),
           const SizedBox(width: 12),

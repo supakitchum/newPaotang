@@ -192,8 +192,10 @@ class SmsOtpService
             return ['error' => 'provider_not_configured', 'status' => 409, 'message' => 'SMS OTP provider is not configured for this tenant.'];
         }
 
-        $message = 'ทดสอบ SMS OTP จากร้านค้า รหัส 123456';
-        $result = $this->sendWithProvider($provider, self::PURPOSE_REGISTER, $phone, $message, ['test' => true]);
+        $result = $this->requestWithProvider($provider, self::PURPOSE_REGISTER, $phone, [
+            'test' => true,
+            'provider_operation' => 'otp.request',
+        ]);
 
         TenantSmsProvider::query()
             ->where('id', $provider->id)
@@ -272,10 +274,9 @@ class SmsOtpService
             return $rateLimit;
         }
 
-        $otp = (string) random_int(100000, 999999);
         $now = now();
         $verificationId = 'otp_'.Str::ulid()->toBase32();
-        $message = $this->otpMessage($otp, $purpose);
+        $metadata = ['user_agent_hash' => hash('sha256', (string) $request->userAgent())];
 
         OtpVerification::query()->insert([
             'id' => $verificationId,
@@ -285,7 +286,7 @@ class SmsOtpService
             'purpose' => $purpose,
             'phone' => $phone,
             'phone_normalized' => $phone,
-            'otp_hash' => Hash::make($otp),
+            'otp_hash' => Hash::make('provider-managed:'.$verificationId),
             'verification_token_hash' => null,
             'status' => 'pending',
             'attempts' => 0,
@@ -296,12 +297,15 @@ class SmsOtpService
             'consumed_at' => null,
             'requested_ip' => $request->ip(),
             'requested_user_agent' => $request->userAgent(),
-            'metadata_json' => json_encode(['user_agent_hash' => hash('sha256', (string) $request->userAgent())], JSON_THROW_ON_ERROR),
+            'metadata_json' => json_encode($metadata, JSON_THROW_ON_ERROR),
             'created_at' => $now,
             'updated_at' => $now,
         ]);
 
-        $result = $this->sendWithProvider($provider, $purpose, $phone, $message, ['otp_verification_id' => $verificationId]);
+        $result = $this->requestWithProvider($provider, $purpose, $phone, [
+            'otp_verification_id' => $verificationId,
+            'provider_operation' => 'otp.request',
+        ]);
 
         if (($result['ok'] ?? false) !== true) {
             OtpVerification::query()->where('id', $verificationId)->update([
@@ -316,12 +320,19 @@ class SmsOtpService
             ];
         }
 
+        $providerMetadata = $this->providerRequestMetadata($metadata, $result);
+        OtpVerification::query()->where('id', $verificationId)->update([
+            'metadata_json' => json_encode($providerMetadata, JSON_THROW_ON_ERROR),
+            'updated_at' => now(),
+        ]);
+
         return [
             'resource' => [
                 'otp_id' => $verificationId,
                 'status' => 'sent',
                 'purpose' => $purpose,
                 'phone_masked' => $this->maskPhone($phone),
+                'refno' => $result['provider_refno'] ?? null,
                 'expires_in_seconds' => self::OTP_TTL_SECONDS,
                 'resend_after_seconds' => self::OTP_COOLDOWN_SECONDS,
             ],
@@ -378,15 +389,31 @@ class SmsOtpService
                 return ['error' => 'otp_attempts_exceeded', 'status' => 429, 'message' => 'OTP verification attempts exceeded.'];
             }
 
-            if (! Hash::check($code, (string) $verification->otp_hash)) {
-                $attempts = ((int) $verification->attempts) + 1;
-                OtpVerification::query()->where('id', $verification->id)->update([
-                    'attempts' => $attempts,
-                    'status' => $attempts >= (int) $verification->max_attempts ? 'locked' : 'pending',
-                    'updated_at' => now(),
-                ]);
+            $provider = $this->providerForVerification($verification);
+            if (! $provider instanceof TenantSmsProvider) {
+                return [
+                    'error' => 'provider_not_configured',
+                    'status' => 409,
+                    'message' => 'SMS OTP provider is not configured for this tenant.',
+                ];
+            }
 
-                return ['error' => 'otp_invalid', 'status' => 422, 'message' => 'OTP is incorrect.'];
+            $providerToken = $this->providerTokenForVerification($verification);
+            if ($providerToken === '') {
+                return ['error' => 'otp_invalid', 'status' => 422, 'message' => 'OTP is invalid or expired.'];
+            }
+
+            $result = $this->providerForName((string) $verification->provider)->verifyOtp($provider, $providerToken, $code);
+            if (($result['ok'] ?? false) !== true) {
+                if ($this->isProviderUnavailable($result)) {
+                    return [
+                        'error' => 'sms_verify_failed',
+                        'status' => 503,
+                        'message' => (string) ($result['message'] ?? 'SMS OTP could not be verified.'),
+                    ];
+                }
+
+                return $this->recordFailedVerificationAttempt($verification, (string) ($result['message'] ?? 'OTP is incorrect.'));
             }
 
             $token = 'otpv_'.bin2hex(random_bytes(32));
@@ -516,9 +543,9 @@ class SmsOtpService
      * @param array<string, mixed> $metadata
      * @return array<string, mixed>
      */
-    private function sendWithProvider(TenantSmsProvider $provider, string $purpose, string $phone, string $message, array $metadata): array
+    private function requestWithProvider(TenantSmsProvider $provider, string $purpose, string $phone, array $metadata): array
     {
-        $result = $this->providerForName((string) $provider->provider)->send($provider, $phone, $message);
+        $result = $this->providerForName((string) $provider->provider)->requestOtp($provider, $phone);
 
         SmsDeliveryLog::query()->insert([
             'id' => 'sdl_'.Str::ulid()->toBase32(),
@@ -584,15 +611,80 @@ class SmsOtpService
         return null;
     }
 
-    private function otpMessage(string $otp, string $purpose): string
+    private function providerForVerification(OtpVerification $verification): ?TenantSmsProvider
     {
-        $label = match ($purpose) {
-            self::PURPOSE_PASSWORD_RESET => 'รีเซ็ตรหัสผ่าน',
-            self::PURPOSE_PIN_RESET => 'รีเซ็ต PIN',
-            default => 'สมัครสมาชิก',
-        };
+        $providerId = trim((string) $verification->provider_id);
+        $query = TenantSmsProvider::query()
+            ->where('tenant_id', (string) $verification->tenant_id)
+            ->where('provider', (string) $verification->provider);
 
-        return "รหัส OTP สำหรับ{$label} คือ {$otp} ใช้ได้ภายใน 5 นาที ห้ามบอกรหัสนี้แก่ผู้อื่น";
+        if ($providerId !== '') {
+            $query->where('id', $providerId);
+        }
+
+        return $query->first();
+    }
+
+    private function providerTokenForVerification(OtpVerification $verification): string
+    {
+        $metadata = is_array($verification->metadata_json) ? $verification->metadata_json : [];
+        $encrypted = trim((string) ($metadata['provider_token_encrypted'] ?? ''));
+
+        if ($encrypted === '') {
+            return '';
+        }
+
+        try {
+            return trim(Crypt::decryptString($encrypted));
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $metadata
+     * @param array<string, mixed> $result
+     * @return array<string, mixed>
+     */
+    private function providerRequestMetadata(array $metadata, array $result): array
+    {
+        $providerToken = trim((string) ($result['provider_token'] ?? ''));
+
+        if ($providerToken !== '') {
+            $metadata['provider_token_encrypted'] = Crypt::encryptString($providerToken);
+        }
+
+        $providerRefno = trim((string) ($result['provider_refno'] ?? ''));
+        if ($providerRefno !== '') {
+            $metadata['provider_refno'] = $providerRefno;
+        }
+
+        return $metadata;
+    }
+
+    /**
+     * @param array<string, mixed> $result
+     */
+    private function isProviderUnavailable(array $result): bool
+    {
+        $status = $result['status'] ?? null;
+
+        return $status === null || in_array((int) $status, [401, 403], true) || (int) $status >= 500;
+    }
+
+    /**
+     * @return array{error: string, status: int, message: string}
+     */
+    private function recordFailedVerificationAttempt(OtpVerification $verification, string $message): array
+    {
+        $attempts = ((int) $verification->attempts) + 1;
+        OtpVerification::query()->where('id', $verification->id)->update([
+            'attempts' => $attempts,
+            'status' => $attempts >= (int) $verification->max_attempts ? 'locked' : 'pending',
+            'updated_at' => now(),
+        ]);
+
+        return ['error' => 'otp_invalid', 'status' => 422, 'message' => $message !== '' ? $message : 'OTP is incorrect.'];
     }
 
     private function maskPhone(string $phone): string

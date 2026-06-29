@@ -5,6 +5,8 @@ import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/async/async_state_view.dart';
+import '../../../shared/widgets/customer_page_body.dart';
+import '../../../shared/widgets/tenant_brand_header.dart';
 import '../data/reward_claim_models.dart';
 import '../data/reward_claim_repository.dart';
 import 'claim_realtime_monitor.dart';
@@ -29,12 +31,14 @@ class RewardClaimDetailScreen extends ConsumerWidget {
       currentPath: '/my-wallet',
       sensitive: true,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          AsyncStateView(
-            value: claim,
-            data: (item) => _RewardClaimReceipt(claim: item),
-            empty: const _RewardClaimEmptyDetail(),
+          CustomerPageBody(
+            child: AsyncStateView(
+              value: claim,
+              data: (item) => _RewardClaimReceipt(claim: item),
+              empty: const _RewardClaimEmptyDetail(),
+            ),
           ),
         ],
       ),
@@ -51,6 +55,8 @@ class _RewardClaimReceipt extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusColor = _statusColor(claim);
     return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -58,7 +64,11 @@ class _RewardClaimReceipt extends StatelessWidget {
           children: [
             Row(
               children: [
-                const CircleAvatar(child: Text('GLO')),
+                const TenantBrandHeader(
+                  showName: false,
+                  size: 42,
+                  icon: Icons.emoji_events_outlined,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -78,6 +88,12 @@ class _RewardClaimReceipt extends StatelessWidget {
             const SizedBox(height: 16),
             _NoticeBox(
               text: rewardClaimTransferNote(context.l10n, claim),
+              color: statusColor,
+            ),
+            const SizedBox(height: 14),
+            _ClaimAmountHero(
+              amount: formatBaht(claim.prizeAmount),
+              label: context.l10n.ticketLabelNetAmount,
               color: statusColor,
             ),
             const SizedBox(height: 16),
@@ -163,30 +179,92 @@ class _ReceiptRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 4,
-          child: Text(
-            label,
-            style: TextStyle(color: Colors.grey.shade700),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          flex: 5,
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              color: highlighted ? Theme.of(context).colorScheme.primary : null,
-              fontWeight: FontWeight.w900,
-              height: 1.35,
+    final valueStyle = TextStyle(
+      color: highlighted ? Theme.of(context).colorScheme.primary : null,
+      fontWeight: FontWeight.w900,
+      height: 1.35,
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 360) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(color: Colors.grey.shade700)),
+              const SizedBox(height: 4),
+              Text(value, style: valueStyle),
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 4,
+              child: Text(
+                label,
+                style: TextStyle(color: Colors.grey.shade700),
+              ),
             ),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 5,
+              child: Text(
+                value,
+                textAlign: TextAlign.right,
+                style: valueStyle,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ClaimAmountHero extends StatelessWidget {
+  const _ClaimAmountHero({
+    required this.amount,
+    required this.label,
+    required this.color,
+  });
+
+  final String amount;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: color.withValues(alpha: 0.10),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              amount,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -358,6 +436,7 @@ class _RewardClaimEmptyDetail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(22),
         child: Text(context.l10n.rewardClaimEmptyDetail),

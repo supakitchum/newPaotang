@@ -1,3 +1,33 @@
+import '../../../core/utils/api_payload.dart';
+
+class NewsPage {
+  const NewsPage({
+    required this.items,
+    required this.nextCursor,
+    required this.hasMore,
+  });
+
+  factory NewsPage.fromJson(
+    Object? json, {
+    String Function(String value) resolveAssetUrl = _identity,
+  }) {
+    final meta = unwrapMeta(json);
+    return NewsPage(
+      items: unwrapDataList(json)
+          .map(
+            (row) => NewsItem.fromJson(row, resolveAssetUrl: resolveAssetUrl),
+          )
+          .toList(growable: false),
+      nextCursor: meta['next_cursor']?.toString(),
+      hasMore: meta['has_more'] == true && meta['next_cursor'] != null,
+    );
+  }
+
+  final List<NewsItem> items;
+  final String? nextCursor;
+  final bool hasMore;
+}
+
 class NewsItem {
   const NewsItem({
     required this.id,

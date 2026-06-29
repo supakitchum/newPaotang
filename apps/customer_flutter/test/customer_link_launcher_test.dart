@@ -41,4 +41,28 @@ void main() {
 
     expect(strategy, LinkLaunchStrategy.externalApplication);
   });
+
+  test('external URI guard rejects empty and unsafe schemes', () {
+    expect(isSafeExternalLinkUri(Uri.tryParse('')), isFalse);
+    expect(isSafeExternalLinkUri(Uri.tryParse('/login')), isFalse);
+    expect(isSafeExternalLinkUri(Uri.tryParse('javascript:alert(1)')), isFalse);
+    expect(
+      isSafeExternalLinkUri(Uri.tryParse('data:text/plain,hello')),
+      isFalse,
+    );
+    expect(isSafeExternalLinkUri(Uri.tryParse('file:///tmp/token')), isFalse);
+    expect(
+      isSafeExternalLinkUri(Uri.parse('https://access.line.me/oauth2/v2.1')),
+      isTrue,
+    );
+    expect(isSafeExternalLinkUri(Uri.parse('line://app/123')), isTrue);
+  });
+
+  test('LINE social provider aliases use LINE launch behavior', () {
+    expect(isLineSocialProvider('line'), isTrue);
+    expect(isLineSocialProvider('line_login'), isTrue);
+    expect(isLineSocialProvider('line_oa'), isTrue);
+    expect(isLineSocialProvider('google'), isFalse);
+    expect(isLineSocialProvider('apple_id'), isFalse);
+  });
 }

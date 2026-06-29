@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,9 +8,12 @@ import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/security/biometric_auth_service.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/tenant/mobile_runtime_policy.dart';
+import '../../../core/utils/api_errors.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/async/async_state_view.dart';
+import '../../../shared/widgets/customer_page_body.dart';
 import '../../activity_claims/data/activity_claim_models.dart';
 import '../../activity_claims/data/activity_claim_repository.dart';
 import '../../profile/data/profile_settings_models.dart';
@@ -74,7 +76,8 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final awards = activity.id.isEmpty
+    final resultAnnounced = activity.resultSummary?.isAnnounced == true;
+    final awards = !resultAnnounced || activity.id.isEmpty
         ? const AsyncValue<List<ActivityAwardItem>>.data([])
         : ref.watch(activityAwardListProvider(activity.id));
 
@@ -82,73 +85,83 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
       onRefresh: _refresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
         children: [
-          if (activity.imageUrl.isNotEmpty)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Image.network(activity.imageUrl, fit: BoxFit.cover),
-              ),
+          CustomerPageBody(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (activity.imageUrl.isNotEmpty) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child:
+                          Image.network(activity.imageUrl, fit: BoxFit.cover),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    Chip(label: Text(l10n.activityTypeLabel(activity.type))),
+                    if (activity.hasRight)
+                      Chip(
+                        label: Text(l10n.activityDetailHasRight),
+                        backgroundColor:
+                            Theme.of(context).colorScheme.primaryContainer,
+                      ),
+                    if (activity.rights.entryClosed)
+                      Chip(
+                        label: Text(l10n.activityDetailEntryClosed),
+                        backgroundColor:
+                            Theme.of(context).colorScheme.errorContainer,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  activityDisplayName(l10n, activity),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                if (activity.resultSummary?.isAnnounced == true) ...[
+                  _ActivityResultCard(summary: activity.resultSummary!),
+                  const SizedBox(height: 12),
+                ],
+                _ActivityStatusCard(activity: activity),
+                const SizedBox(height: 12),
+                if (resultAnnounced)
+                  awards.when(
+                    data: (items) => _ActivityAwardsSection(
+                      awards: items,
+                      onClaim: _startClaim,
+                    ),
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                  ),
+                _ConditionCard(activity: activity),
+                if (activity.isLuckyBoard) ...[
+                  const SizedBox(height: 12),
+                  if (widget.authenticated) ...[
+                    _RightsCard(activity: activity),
+                    const SizedBox(height: 12),
+                    _SelectedNumbersPanel(entries: activity.entries),
+                    const SizedBox(height: 12),
+                    _NumberBoardCard(
+                      activity: activity,
+                      submitting: _submittingEntry,
+                      onSelect: _confirmNumber,
+                    ),
+                  ] else
+                    _LoginToJoinCard(slug: widget.request.slug),
+                ],
+              ],
             ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              Chip(label: Text(l10n.activityTypeLabel(activity.type))),
-              if (activity.hasRight)
-                Chip(
-                  label: Text(l10n.activityDetailHasRight),
-                  backgroundColor:
-                      Theme.of(context).colorScheme.primaryContainer,
-                ),
-              if (activity.rights.entryClosed)
-                Chip(
-                  label: Text(l10n.activityDetailEntryClosed),
-                  backgroundColor: Theme.of(context).colorScheme.errorContainer,
-                ),
-            ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            activityDisplayName(l10n, activity),
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
-          ),
-          const SizedBox(height: 12),
-          if (activity.resultSummary?.isAnnounced == true) ...[
-            _ActivityResultCard(summary: activity.resultSummary!),
-            const SizedBox(height: 12),
-          ],
-          _ActivityStatusCard(activity: activity),
-          const SizedBox(height: 12),
-          awards.when(
-            data: (items) => _ActivityAwardsSection(
-              awards: items,
-              onClaim: _startClaim,
-            ),
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-          ),
-          _ConditionCard(activity: activity),
-          if (activity.isLuckyBoard) ...[
-            const SizedBox(height: 12),
-            if (widget.authenticated) ...[
-              _RightsCard(activity: activity),
-              const SizedBox(height: 12),
-              _SelectedNumbersPanel(entries: activity.entries),
-              const SizedBox(height: 12),
-              _NumberBoardCard(
-                activity: activity,
-                submitting: _submittingEntry,
-                onSelect: _confirmNumber,
-              ),
-            ] else
-              _LoginToJoinCard(slug: widget.request.slug),
-          ],
         ],
       ),
     );
@@ -207,11 +220,18 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
     } catch (error) {
       if (!mounted) return;
       final code = _errorCode(error);
-      _showSnack(
-        code == 'activity_entry_closed'
-            ? context.l10n.activitySubmitEntryClosed
-            : context.l10n.activitySubmitEntryFailed,
-      );
+      final message = code == 'activity_entry_closed'
+          ? context.l10n.activitySubmitEntryClosed
+          : context.l10n.activitySubmitEntryFailed;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+      )) {
+        return;
+      }
+      if (!mounted) return;
+      _showSnack(message);
     } finally {
       if (mounted) setState(() => _submittingEntry = false);
     }
@@ -235,13 +255,7 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
   }
 
   String _errorCode(Object error) {
-    final data = error is DioException ? error.response?.data : null;
-    if (data is Map) {
-      final err = data['error'];
-      if (err is Map && err['code'] != null) return err['code'].toString();
-      if (data['code'] != null) return data['code'].toString();
-    }
-    return '';
+    return ApiErrorInfo.fromObject(error).code;
   }
 
   void _showSnack(String message) {
@@ -274,6 +288,7 @@ class _ActivityStatusCard extends StatelessWidget {
             : l10n.activityStatusBoardAvailable;
 
     return Card(
+      margin: EdgeInsets.zero,
       color: colorScheme.primaryContainer,
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -315,6 +330,7 @@ class _ActivityResultCard extends StatelessWidget {
     final won = summary.customerWon;
     final lost = summary.customerLost;
     return Card(
+      margin: EdgeInsets.zero,
       color: won
           ? const Color(0xFFE8F8EF)
           : lost
@@ -382,49 +398,55 @@ class _ActivityAwardsSection extends StatelessWidget {
         children: [
           for (final award in awards)
             Card(
+              margin: EdgeInsets.zero,
               child: Padding(
                 padding: const EdgeInsets.all(18),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor:
-                          Theme.of(context).colorScheme.primaryContainer,
-                      child: const Icon(Icons.card_giftcard),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final narrow = constraints.maxWidth < 420;
+                    final copy = Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CircleAvatar(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primaryContainer,
+                          child: const Icon(Icons.card_giftcard),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: _AwardCopy(
+                            award: award,
+                            status: _awardStatusText(context, award),
+                          ),
+                        ),
+                      ],
+                    );
+                    if (!award.isClaimable) return copy;
+
+                    final action = FilledButton(
+                      onPressed: () => onClaim(award),
+                      child: Text(l10n.activityAwardClaimButton),
+                    );
+                    if (narrow) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text(
-                            activityAwardTitle(l10n, award),
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w900),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            formatBaht(award.amount),
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineSmall
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w900,
-                                  color: const Color(0xFF087443),
-                                ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(_awardStatusText(context, award)),
+                          copy,
+                          const SizedBox(height: 14),
+                          action,
                         ],
-                      ),
-                    ),
-                    if (award.isClaimable)
-                      FilledButton(
-                        onPressed: () => onClaim(award),
-                        child: Text(l10n.activityAwardClaimButton),
-                      ),
-                  ],
+                      );
+                    }
+
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(child: copy),
+                        const SizedBox(width: 12),
+                        action,
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -441,6 +463,40 @@ class _ActivityAwardsSection extends StatelessWidget {
   }
 }
 
+class _AwardCopy extends StatelessWidget {
+  const _AwardCopy({required this.award, required this.status});
+
+  final ActivityAwardItem award;
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          activityAwardTitle(l10n, award),
+          style: Theme.of(context)
+              .textTheme
+              .titleMedium
+              ?.copyWith(fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          formatBaht(award.amount),
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w900,
+                color: const Color(0xFF087443),
+              ),
+        ),
+        const SizedBox(height: 4),
+        Text(status),
+      ],
+    );
+  }
+}
+
 class _ConditionCard extends StatelessWidget {
   const _ConditionCard({required this.activity});
 
@@ -450,6 +506,7 @@ class _ConditionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -485,6 +542,7 @@ class _RightsCard extends StatelessWidget {
     final l10n = context.l10n;
     final rights = activity.rights;
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -579,6 +637,7 @@ class _SelectedNumbersPanel extends StatelessWidget {
     if (entries.isEmpty) return const SizedBox.shrink();
     final l10n = context.l10n;
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -635,9 +694,9 @@ class _NumberBoardCard extends StatelessWidget {
     final canSelect = !submitting &&
         !activity.rights.entryClosed &&
         activity.rights.remainingCount > 0;
-    final crossAxisCount = board.digits == 3 ? 5 : 6;
 
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -660,35 +719,67 @@ class _NumberBoardCard extends StatelessWidget {
                       : l10n.activityNumberBoardNoRights,
             ),
             const SizedBox(height: 14),
-            SizedBox(
-              height: board.digits == 3 ? 430 : 360,
-              child: GridView.builder(
-                itemCount: board.totalCount,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossAxisCount,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: board.digits == 3 ? 1.55 : 1.65,
-                ),
-                itemBuilder: (context, index) {
-                  final number = board.numberAt(index);
-                  final isMine = selected.contains(number);
-                  final isReserved = board.isReserved(number) && !isMine;
-                  return _NumberTile(
-                    number: number,
-                    selected: isMine,
-                    reserved: isReserved,
-                    enabled: canSelect && !isReserved && !isMine,
-                    onTap: () => onSelect(number),
-                  );
-                },
-              ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                final crossAxisCount = _numberBoardColumns(
+                  width: width,
+                  digits: board.digits,
+                );
+                final rows = (board.totalCount / crossAxisCount).ceil();
+                final visibleRows = board.digits == 3 ? 8 : 10;
+                final tileHeight = board.digits == 3 ? 34.0 : 38.0;
+                final maxHeight =
+                    (tileHeight * visibleRows) + (8 * (visibleRows - 1));
+                final contentHeight = (tileHeight * rows) + (8 * (rows - 1));
+                final height = contentHeight < maxHeight
+                    ? contentHeight.clamp(tileHeight, maxHeight)
+                    : maxHeight;
+
+                return SizedBox(
+                  height: height,
+                  child: GridView.builder(
+                    itemCount: board.totalCount,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      mainAxisExtent: tileHeight,
+                    ),
+                    itemBuilder: (context, index) {
+                      final number = board.numberAt(index);
+                      final isMine = selected.contains(number);
+                      final isReserved = board.isReserved(number) && !isMine;
+                      return _NumberTile(
+                        number: number,
+                        selected: isMine,
+                        reserved: isReserved,
+                        enabled: canSelect && !isReserved && !isMine,
+                        onTap: () => onSelect(number),
+                      );
+                    },
+                  ),
+                );
+              },
             ),
           ],
         ),
       ),
     );
   }
+}
+
+int _numberBoardColumns({required double width, required int digits}) {
+  if (digits == 3) {
+    if (width >= 760) return 10;
+    if (width >= 560) return 8;
+    if (width >= 420) return 6;
+    return 5;
+  }
+  if (width >= 760) return 12;
+  if (width >= 560) return 10;
+  if (width >= 420) return 8;
+  return 6;
 }
 
 class _NumberTile extends StatelessWidget {
@@ -749,6 +840,7 @@ class _LoginToJoinCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -900,13 +992,25 @@ class _ActivityClaimSheetState extends ConsumerState<_ActivityClaimSheet> {
     } catch (error) {
       if (!mounted) return;
       final code = _errorCode(error);
+      final pinInvalidMessage = context.l10n.activityClaimPinInvalid;
+      final pinLockedMessage = context.l10n.activityClaimPinLocked;
+      final failedMessage = context.l10n.activityClaimSubmitFailed;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+        handlePinRedirect: false,
+      )) {
+        return;
+      }
+      if (!mounted) return;
       setState(() {
         _pin = '';
         _error = code == 'pin_invalid'
-            ? context.l10n.activityClaimPinInvalid
+            ? pinInvalidMessage
             : code == 'pin_locked'
-                ? context.l10n.activityClaimPinLocked
-                : context.l10n.activityClaimSubmitFailed;
+                ? pinLockedMessage
+                : failedMessage;
       });
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -931,20 +1035,24 @@ class _ActivityClaimSheetState extends ConsumerState<_ActivityClaimSheet> {
         return;
       }
       await _submit(bankAccount, pinAssertionToken: token);
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      setState(() => _error = context.l10n.activityClaimBiometricFailed);
+      final failedMessage = context.l10n.activityClaimBiometricFailed;
+      if (await handleCustomerOperationalError(
+        ref: ref,
+        context: context,
+        error: error,
+        handlePinRedirect: false,
+      )) {
+        return;
+      }
+      if (!mounted) return;
+      setState(() => _error = failedMessage);
     }
   }
 
   String _errorCode(Object error) {
-    final data = error is DioException ? error.response?.data : null;
-    if (data is Map) {
-      final err = data['error'];
-      if (err is Map && err['code'] != null) return err['code'].toString();
-      if (data['code'] != null) return data['code'].toString();
-    }
-    return '';
+    return ApiErrorInfo.fromObject(error).code;
   }
 }
 

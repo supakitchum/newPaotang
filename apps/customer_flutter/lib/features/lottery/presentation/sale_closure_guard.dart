@@ -9,6 +9,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_alert.dart';
 import '../../results/data/result_models.dart';
 import '../../results/data/result_repository.dart';
+import '../data/lottery_repository.dart';
 
 const saleClosedNoticeQuery = 'sale_closed';
 const waitingResultPath = '/waiting-result';
@@ -30,6 +31,7 @@ class SaleClosureGuard extends ConsumerStatefulWidget {
 class _SaleClosureGuardState extends ConsumerState<SaleClosureGuard> {
   Timer? _timer;
   CurrentGame? _currentGame;
+  bool? _hasActiveCart;
   bool _loading = false;
   bool _saleClosedAlertShown = false;
 
@@ -96,11 +98,22 @@ class _SaleClosureGuardState extends ConsumerState<SaleClosureGuard> {
       if (!mounted) return;
     }
 
+    final saleClosed = saleClosureIsClosed(
+      gameStatus: _currentGame?.status ?? '',
+      saleCloseAt: _currentGame?.saleCloseAt,
+      now: DateTime.now(),
+    );
+    if (saleClosed && _hasActiveCart == null) {
+      _hasActiveCart = await _loadHasActiveCart();
+      if (!mounted) return;
+    }
+
     final redirect = saleClosureRedirectPath(
       path: path,
       gameStatus: _currentGame?.status ?? '',
       saleCloseAt: _currentGame?.saleCloseAt,
       now: DateTime.now(),
+      hasActiveCart: _hasActiveCart ?? false,
     );
     if (redirect == null) {
       _saleClosedAlertShown = false;
@@ -117,6 +130,15 @@ class _SaleClosureGuardState extends ConsumerState<SaleClosureGuard> {
     if (location == redirect) return;
     widget.router.go(redirect);
   }
+
+  Future<bool> _loadHasActiveCart() async {
+    try {
+      final cart = await ref.read(lotteryRepositoryProvider).cart();
+      return !cart.isEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
 }
 
 bool saleClosureShouldWatchPath(String path) {
@@ -131,10 +153,37 @@ String? saleClosureRedirectPath({
   required String gameStatus,
   required Object? saleCloseAt,
   required DateTime now,
+  bool hasActiveCart = false,
 }) {
   if (!saleClosureShouldWatchPath(path)) return null;
   if (path == waitingResultPath) return null;
 
+  if (!saleClosureIsClosed(
+    gameStatus: gameStatus,
+    saleCloseAt: saleCloseAt,
+    now: now,
+  )) {
+    return null;
+  }
+
+  if (path == '/cart' || path == '/checkout') {
+    return hasActiveCart ? null : '$waitingResultPath?$saleClosedNoticeQuery=1';
+  }
+
+  if (path == '/buy' || path.startsWith('/buy/')) {
+    return hasActiveCart
+        ? '/cart'
+        : '$waitingResultPath?$saleClosedNoticeQuery=1';
+  }
+
+  return '$waitingResultPath?$saleClosedNoticeQuery=1';
+}
+
+bool saleClosureIsClosed({
+  required String gameStatus,
+  required Object? saleCloseAt,
+  required DateTime now,
+}) {
   final status = gameStatus.trim().toLowerCase();
   final saleClose = parseDateTime(saleCloseAt);
   final saleClosedByTime = saleClose != null && !now.isBefore(saleClose);
@@ -147,6 +196,5 @@ String? saleClosureRedirectPath({
     'published',
   }.contains(status);
 
-  if (!saleClosedByTime && !saleClosedByStatus) return null;
-  return '$waitingResultPath?$saleClosedNoticeQuery=1';
+  return saleClosedByTime || saleClosedByStatus;
 }

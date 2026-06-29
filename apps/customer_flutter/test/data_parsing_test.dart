@@ -26,6 +26,7 @@ import 'package:customer_flutter/features/tickets/data/ticket_models.dart';
 import 'package:customer_flutter/features/tickets/presentation/ticket_localization.dart';
 import 'package:customer_flutter/features/topup/data/topup_models.dart';
 import 'package:customer_flutter/features/wallet/data/wallet_models.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -60,6 +61,32 @@ void main() {
     expect(rows.single['id'], 'a');
   });
 
+  test('unwrapDataList reads resource list shapes', () {
+    final directResource = unwrapDataList({
+      'resource': [
+        {'id': 'res_1'},
+      ],
+    });
+    final nestedResource = unwrapDataList({
+      'resource': {
+        'data': [
+          {'id': 'res_nested'},
+        ],
+      },
+    });
+    final nestedItems = unwrapDataList({
+      'data': {
+        'items': [
+          {'id': 'item_nested'},
+        ],
+      },
+    });
+
+    expect(directResource.single['id'], 'res_1');
+    expect(nestedResource.single['id'], 'res_nested');
+    expect(nestedItems.single['id'], 'item_nested');
+  });
+
   test('unwrapPayload reads result and resource object shapes', () {
     expect(
       unwrapPayload({
@@ -72,6 +99,33 @@ void main() {
         'resource': {'id': 10},
       })['id'],
       10,
+    );
+  });
+
+  test('unwrapMeta reads direct and nested pagination metadata', () {
+    expect(
+      unwrapMeta({
+        'meta': {'next_cursor': 'direct'},
+      })['next_cursor'],
+      'direct',
+    );
+    expect(
+      unwrapMeta({
+        'resource': {
+          'data': const <Object>[],
+          'meta': {'next_cursor': 'resource'},
+        },
+      })['next_cursor'],
+      'resource',
+    );
+    expect(
+      unwrapMeta({
+        'result': {
+          'items': const <Object>[],
+          'meta': {'current_page': 2, 'last_page': 5},
+        },
+      })['last_page'],
+      5,
     );
   });
 
@@ -95,6 +149,61 @@ void main() {
     expect(optional.isOptionalSmsOtpProviderMissing, isTrue);
     expect(required.providerRequired, isTrue);
     expect(required.isOptionalSmsOtpProviderMissing, isFalse);
+  });
+
+  test('api error parser supports top-level and validation shapes', () {
+    final topLevel = ApiErrorInfo.fromObject({
+      'code': 'maintenance_active',
+      'message': 'Maintenance is active.',
+      'details': {'reason': 'deploy'},
+    });
+    final validation = ApiErrorInfo.fromObject({
+      'errors': {
+        'phone': ['Phone is invalid.'],
+      },
+    });
+    final stringError = ApiErrorInfo.fromObject({
+      'error': 'Provider not configured.',
+    });
+
+    expect(topLevel.code, 'maintenance_active');
+    expect(topLevel.message, 'Maintenance is active.');
+    expect(topLevel.details['reason'], 'deploy');
+    expect(validation.message, 'Phone is invalid.');
+    expect(validation.details['phone'], ['Phone is invalid.']);
+    expect(stringError.message, 'Provider not configured.');
+  });
+
+  test('api error parser detects expired sessions without hiding bad login',
+      () {
+    final expiredRequest = RequestOptions(path: '/customer/auth/pin/status');
+    final expired = ApiErrorInfo.fromObject(
+      DioException(
+        requestOptions: expiredRequest,
+        response: Response<Map<String, dynamic>>(
+          requestOptions: expiredRequest,
+          statusCode: 401,
+          data: {'message': 'Unauthenticated.'},
+        ),
+      ),
+    );
+    final invalidLoginRequest = RequestOptions(path: '/customer/auth/login');
+    final invalidLogin = ApiErrorInfo.fromObject(
+      DioException(
+        requestOptions: invalidLoginRequest,
+        response: Response<Map<String, dynamic>>(
+          requestOptions: invalidLoginRequest,
+          statusCode: 401,
+          data: {'message': 'Invalid credentials.'},
+        ),
+      ),
+    );
+
+    expect(expired.isAuthenticationExpired, isTrue);
+    expect(expired.operationalRedirectPath, '/login');
+    expect(invalidLogin.isAuthenticationExpired, isFalse);
+    expect(invalidLogin.operationalRedirectPath, isNull);
+    expect(invalidLogin.message, 'Invalid credentials.');
   });
 
   test('api error parser builds operational redirect paths', () {
@@ -213,10 +322,33 @@ void main() {
     expect(linkRequired.pictureUrl, 'https://example.com/google.jpg');
   });
 
+  test('social provider aliases normalize before routing to auth APIs', () {
+    expect(normalizeSocialAuthProvider('line_login'), 'line');
+    expect(normalizeSocialAuthProvider('line_oa'), 'line');
+    expect(normalizeSocialAuthProvider('gmail'), 'google');
+    expect(normalizeSocialAuthProvider('google_oauth2'), 'google');
+    expect(normalizeSocialAuthProvider('apple_id'), 'apple');
+    expect(normalizeSocialAuthProvider('sign_in_with_apple'), 'apple');
+
+    final callback = SocialCallbackResult.fromJson({
+      'provider': 'apple_id',
+      'social_link_required': true,
+      'social_link_token': 'apple-link-token',
+    });
+
+    expect(callback.provider, 'apple');
+    expect(callback.linkToken, 'apple-link-token');
+  });
+
   test('mobile bootstrap maps maintenance fields', () {
     final bootstrap = MobileBootstrap.fromJson({
       'site': {'display_name': 'พบโชค', 'support_phone': '020000000'},
-      'legal': {'terms_content': 'terms'},
+      'legal': {
+        'terms_content': 'terms',
+        'privacy_content': 'privacy',
+        'privacy_policy_url': 'https://partner.example.com/privacy',
+        'account_deletion_url': 'https://partner.example.com/delete-account',
+      },
       'mobile': {
         'line': {
           'liff_id': '1234567890-AbCdEf',
@@ -270,6 +402,12 @@ void main() {
 
     expect(bootstrap.siteName, 'พบโชค');
     expect(bootstrap.supportPhone, '020000000');
+    expect(bootstrap.privacyContent, 'privacy');
+    expect(bootstrap.privacyPolicyUrl, 'https://partner.example.com/privacy');
+    expect(
+      bootstrap.accountDeletionUrl,
+      'https://partner.example.com/delete-account',
+    );
     expect(bootstrap.maintenance.active, isTrue);
     expect(bootstrap.maintenance.retryAfterSeconds, 120);
     expect(bootstrap.line.configured, isTrue);
@@ -421,6 +559,14 @@ void main() {
       isFalse,
     );
     expect(
+      mobileWebPrivacyGuardAllowedForPlatform(bootstrap, 'web'),
+      isTrue,
+    );
+    expect(
+      mobileWebPrivacyGuardAllowedForPlatform(bootstrap, 'android'),
+      isFalse,
+    );
+    expect(
       mobileNativeScreenSecurityAllowedForPlatform(bootstrap, 'macos'),
       isFalse,
     );
@@ -435,6 +581,8 @@ void main() {
     expect(mobileNativeScreenSecurityFallbackForPlatform('android'), isTrue);
     expect(mobileNativeScreenSecurityFallbackForPlatform('ios'), isTrue);
     expect(mobileNativeScreenSecurityFallbackForPlatform('web'), isFalse);
+    expect(mobileWebPrivacyGuardFallbackForPlatform('web'), isTrue);
+    expect(mobileWebPrivacyGuardFallbackForPlatform('ios'), isFalse);
   });
 
   test('moneyToDisplayNumber converts minor unit object to baht', () {
@@ -493,6 +641,59 @@ void main() {
 
     expect(activity.type, 'lucky_board');
     expect(activity.remainingNumbers, 93);
+  });
+
+  test('activity list page maps history metadata and game options', () {
+    final page = ActivityListPage.fromJson({
+      'data': [
+        {
+          'id': 'act_1',
+          'name': 'งวดเก่า',
+          'slug': 'old-draw',
+          'type': 'cashback',
+        },
+      ],
+      'meta': {
+        'has_history': true,
+        'has_more': true,
+        'next_cursor': 'activity_cursor_2',
+        'selected_game_id': 'game_2',
+        'games': [
+          {'id': 'game_2', 'label': 'งวด 16 มิ.ย. 2569'},
+          {'id': 'game_1', 'name': 'งวด 1 มิ.ย. 2569'},
+        ],
+      },
+    });
+
+    expect(page.items.single.slug, 'old-draw');
+    expect(page.meta.hasHistory, isTrue);
+    expect(page.meta.hasMore, isTrue);
+    expect(page.meta.nextCursor, 'activity_cursor_2');
+    expect(page.meta.selectedGameId, 'game_2');
+    expect(page.meta.games.map((game) => game.label), [
+      'งวด 16 มิ.ย. 2569',
+      'งวด 1 มิ.ย. 2569',
+    ]);
+  });
+
+  test('activity list page maps nested data and meta payload shape', () {
+    final page = ActivityListPage.fromJson({
+      'data': {
+        'data': [
+          {'id': 'act_1', 'slug': 'nested', 'type': 'lucky_board'},
+        ],
+        'meta': {
+          'selected_game_id': 'game_nested',
+          'games': [
+            {'id': 'game_nested', 'code': 'G-001'},
+          ],
+        },
+      },
+    });
+
+    expect(page.items.single.slug, 'nested');
+    expect(page.meta.selectedGameId, 'game_nested');
+    expect(page.meta.games.single.label, 'G-001');
   });
 
   test('activity model maps rights entries reserved numbers and result', () {
@@ -587,11 +788,15 @@ void main() {
     final tickets = StoreLotteryPage.fromJson({
       'data': [
         {
+          'id': 'vstock:game_1:273707:1',
           'token': 'stock-token',
+          'local_stock_item_id': 'local-stock-1',
+          'virtual_stock_ref': 'vstock-ref-1',
           'full_number': '273707',
           'store_name': 'ร้านพบโชค',
           'price': 80,
           'remaining_count': 5,
+          'reservation_id': 'reservation_1',
         },
       ],
       'meta': {'game_id': 'game_1', 'has_more': false},
@@ -601,6 +806,10 @@ void main() {
     expect(stores.nextCursor, 'aff_1');
     expect(stores.hasMore, isTrue);
     expect(tickets.items.single.number, '273707');
+    expect(tickets.items.single.id, 'vstock:game_1:273707:1');
+    expect(tickets.items.single.localStockItemId, 'local-stock-1');
+    expect(tickets.items.single.stockRef, 'vstock-ref-1');
+    expect(tickets.items.single.reservationId, 'reservation_1');
     expect(tickets.items.single.isAvailable, isTrue);
   });
 
@@ -629,6 +838,96 @@ void main() {
     expect(page.items.single.localStockItemId, 'vstock:game:273707:1');
     expect(page.items.single.number, '273707');
     expect(page.items.single.price, 80);
+  });
+
+  test('page parsers keep metadata from production wrapper shapes', () {
+    final stock = LotteryStockPage.fromJson({
+      'resource': {
+        'data': [
+          {'id': 'stock_1', 'full_number': '111111'},
+        ],
+        'meta': {
+          'game_id': 'game_resource',
+          'next_cursor': 'stock_cursor',
+          'has_more': true,
+          'seller_name': 'ร้าน resource',
+        },
+      },
+    });
+    final storeTickets = StoreLotteryPage.fromJson({
+      'result': {
+        'data': [
+          {'id': 'store_stock_1', 'full_number': '222222'},
+        ],
+        'meta': {
+          'game_id': 'game_result',
+          'next_cursor': 'store_cursor',
+          'has_more': true,
+          'seller_name': 'ร้าน result',
+        },
+      },
+    });
+    final tickets = TicketPage.fromJson({
+      'data': {
+        'data': [
+          {'id': 'ticket_1', 'number': '333333'},
+        ],
+        'meta': {'next_cursor': 'ticket_cursor', 'has_more': true, 'total': 9},
+      },
+    });
+    final rewardClaims = RewardClaimPage.fromJson({
+      'resource': {
+        'items': [
+          {'id': 'claim_1', 'status': 'submitted'},
+        ],
+        'meta': {'next_cursor': 'claim_cursor', 'has_more': true},
+      },
+    });
+    final activityClaims = ActivityClaimPage.fromJson({
+      'result': {
+        'items': [
+          {'id': 'activity_claim_1', 'status': 'approved'},
+        ],
+        'meta': {'next_cursor': 'activity_claim_cursor', 'has_more': true},
+      },
+    });
+    final history = PurchaseHistoryPage.fromJson({
+      'result': {
+        'items': [
+          {'id': 'order_1', 'total': 80},
+        ],
+        'meta': {'current_page': 2, 'last_page': 4},
+      },
+    });
+    final awards = ActivityAwardPage.fromJson({
+      'resource': {
+        'data': [
+          {'id': 'award_1', 'amount': 100, 'status': 'claimable'},
+        ],
+        'meta': {'next_cursor': 'award_cursor', 'has_more': true},
+      },
+    });
+
+    expect(stock.gameId, 'game_resource');
+    expect(stock.nextCursor, 'stock_cursor');
+    expect(stock.hasMore, isTrue);
+    expect(stock.sellerName, 'ร้าน resource');
+    expect(storeTickets.gameId, 'game_result');
+    expect(storeTickets.nextCursor, 'store_cursor');
+    expect(storeTickets.hasMore, isTrue);
+    expect(storeTickets.sellerName, 'ร้าน result');
+    expect(tickets.nextCursor, 'ticket_cursor');
+    expect(tickets.hasMore, isTrue);
+    expect(tickets.total, 9);
+    expect(rewardClaims.nextCursor, 'claim_cursor');
+    expect(rewardClaims.hasMore, isTrue);
+    expect(activityClaims.nextCursor, 'activity_claim_cursor');
+    expect(activityClaims.hasMore, isTrue);
+    expect(history.currentPage, 2);
+    expect(history.lastPage, 4);
+    expect(history.hasMore, isTrue);
+    expect(awards.nextCursor, 'award_cursor');
+    expect(awards.hasMore, isTrue);
   });
 
   test('lottery cart parser flattens reservations and totals', () {
@@ -839,6 +1138,26 @@ void main() {
     expect(legacy.isChannelEnabled(TopupChannel.qr), isTrue);
     expect(legacy.isChannelEnabled(TopupChannel.creditCard), isTrue);
     expect(legacy.isChannelEnabled(TopupChannel.bankTransfer), isTrue);
+  });
+
+  test('topup redirect URL maps to safe external payment URI', () {
+    final item = TopupRequestItem.fromJson({
+      'id': 'top_1',
+      'amount': {'amount': 50000, 'currency': 'THB'},
+      'status': 'processing',
+      'channel': 'credit_card',
+      'payment': {'redirect_url': 'https://pay.example.test/session/123'},
+    });
+    final unsafe = TopupRequestItem.fromJson({
+      'id': 'top_2',
+      'amount': {'amount': 50000, 'currency': 'THB'},
+      'status': 'processing',
+      'channel': 'credit_card',
+      'payment': {'redirect_url': 'javascript:alert(1)'},
+    });
+
+    expect(item.redirectUri, Uri.parse('https://pay.example.test/session/123'));
+    expect(unsafe.redirectUri, isNull);
   });
 
   test('reward claim maps money, prizes, payout, and paid bank status', () {

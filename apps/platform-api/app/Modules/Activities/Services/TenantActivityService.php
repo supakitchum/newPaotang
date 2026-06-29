@@ -301,20 +301,11 @@ class TenantActivityService
     {
         $limit = $this->limit($queryParams['limit'] ?? null);
         $gameContext = $this->activityGameContext($tenantId, $queryParams, historyMode: $this->truthy($queryParams['history'] ?? null));
-        $rows = $this->activeQuery($tenantId)
-            ->when(
-                $gameContext['selected_game_id'] !== null,
-                fn ($query) => $query->where('game_id', $gameContext['selected_game_id']),
-            )
-            ->orderByDesc('sort_order')
-            ->orderByDesc('updated_at')
-            ->limit($limit)
-            ->get()
-            ->all();
+        [$rows, $hasMore, $nextCursor] = $this->activeActivityPage($tenantId, $queryParams, $gameContext, $limit);
 
         return [
             'data' => array_map(fn (object $row): array => $this->publicResource($row), $rows),
-            'meta' => $this->activityListMeta($gameContext),
+            'meta' => $this->activityListMeta($gameContext, $nextCursor, $hasMore),
             'content_source_status' => $rows === [] ? 'empty' : 'configured',
         ];
     }
@@ -338,16 +329,7 @@ class TenantActivityService
     {
         $limit = $this->limit($queryParams['limit'] ?? null);
         $gameContext = $this->activityGameContext($tenantId, $queryParams, historyMode: $this->truthy($queryParams['history'] ?? null));
-        $rows = $this->activeQuery($tenantId)
-            ->when(
-                $gameContext['selected_game_id'] !== null,
-                fn ($query) => $query->where('game_id', $gameContext['selected_game_id']),
-            )
-            ->orderByDesc('sort_order')
-            ->orderByDesc('updated_at')
-            ->limit($limit)
-            ->get()
-            ->all();
+        [$rows, $hasMore, $nextCursor] = $this->activeActivityPage($tenantId, $queryParams, $gameContext, $limit);
 
         return [
             'data' => array_map(function (object $row) use ($tenantId, $customer): array {
@@ -361,7 +343,7 @@ class TenantActivityService
 
                 return $resource;
             }, $rows),
-            'meta' => $this->activityListMeta($gameContext),
+            'meta' => $this->activityListMeta($gameContext, $nextCursor, $hasMore),
         ];
     }
 
@@ -1335,14 +1317,121 @@ class TenantActivityService
     }
 
     /**
-     * @param array{selected_game_id: string|null, current_game_id: string|null, games: array<int, array<string, mixed>>, all_games?: array<int, array<string, mixed>>, mode?: string} $context
-     * @return array<string, mixed>
+     * @param array<string, mixed> $queryParams
+     * @param array{selected_game_id: string|null, current_game_id: string|null, games: array<int, array<string, mixed>>, all_games?: array<int, array<string, mixed>>, mode?: string} $gameContext
+     * @return array{0: array<int, object>, 1: bool, 2: string|null}
      */
-    private function activityListMeta(array $context): array
+    private function activeActivityPage(string $tenantId, array $queryParams, array $gameContext, int $limit): array
+    {
+        $query = $this->activeQuery($tenantId)
+            ->when(
+                $gameContext['selected_game_id'] !== null,
+                fn ($query) => $query->where('game_id', $gameContext['selected_game_id']),
+            );
+
+        $cursor = $this->decodeActivityCursor($queryParams['cursor'] ?? null);
+
+        if ($cursor !== null) {
+            $query->where(function ($builder) use ($cursor): void {
+                $builder
+                    ->where('sort_order', '<', $cursor['sort_order'])
+                    ->orWhere(function ($builder) use ($cursor): void {
+                        $builder
+                            ->where('sort_order', $cursor['sort_order'])
+                            ->where('updated_at', '<', $cursor['updated_at']);
+                    })
+                    ->orWhere(function ($builder) use ($cursor): void {
+                        $builder
+                            ->where('sort_order', $cursor['sort_order'])
+                            ->where('updated_at', $cursor['updated_at'])
+                            ->where('id', '<', $cursor['id']);
+                    });
+            });
+        }
+
+        $rows = $query
+            ->orderByDesc('sort_order')
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->limit($limit + 1)
+            ->get()
+            ->all();
+
+        $hasMore = count($rows) > $limit;
+        $rows = array_slice($rows, 0, $limit);
+
+        return [
+            $rows,
+            $hasMore,
+            $hasMore && $rows !== [] ? $this->encodeActivityCursor(end($rows)) : null,
+        ];
+    }
+
+    /**
+     * @return array{sort_order: int, updated_at: Carbon, id: string}|null
+     */
+    private function decodeActivityCursor(mixed $value): ?array
+    {
+        $cursor = trim((string) $value);
+
+        if ($cursor === '') {
+            return null;
+        }
+
+        $decoded = $this->base64UrlDecode($cursor);
+
+        if ($decoded === null) {
+            return null;
+        }
+
+        try {
+            $payload = json_decode($decoded, true, flags: JSON_THROW_ON_ERROR);
+
+            if (! is_array($payload) || trim((string) ($payload['id'] ?? '')) === '') {
+                return null;
+            }
+
+            return [
+                'sort_order' => (int) ($payload['sort_order'] ?? 0),
+                'updated_at' => Carbon::parse((string) ($payload['updated_at'] ?? '')),
+                'id' => trim((string) $payload['id']),
+            ];
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function encodeActivityCursor(object $row): string
+    {
+        $updatedAt = $row->updated_at instanceof Carbon
+            ? $row->updated_at->toJSON()
+            : Carbon::parse((string) $row->updated_at)->toJSON();
+
+        return $this->base64UrlEncode(json_encode([
+            'sort_order' => (int) ($row->sort_order ?? 0),
+            'updated_at' => $updatedAt,
+            'id' => (string) $row->id,
+        ], JSON_THROW_ON_ERROR));
+    }
+
+    private function base64UrlEncode(string $value): string
+    {
+        return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+    }
+
+    private function base64UrlDecode(string $value): ?string
+    {
+        $padded = $value.str_repeat('=', (4 - strlen($value) % 4) % 4);
+        $decoded = base64_decode(strtr($padded, '-_', '+/'), true);
+
+        return $decoded === false ? null : $decoded;
+    }
+
+    private function activityListMeta(array $context, ?string $nextCursor = null, bool $hasMore = false): array
     {
         return [
-            'has_more' => false,
-            'next_cursor' => null,
+            'has_more' => $hasMore,
+            'next_cursor' => $nextCursor,
             'selected_game_id' => $context['selected_game_id'],
             'current_game_id' => $context['current_game_id'],
             'games' => $context['games'],

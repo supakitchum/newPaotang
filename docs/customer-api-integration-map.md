@@ -58,7 +58,7 @@ docs/api-conventions.md
 | search lotteries | `POST /lotteries/search` | `GET /public/stock/search?number=...` | Adapter converts `n1..n6/full_number` to `number` |
 | search next page | `POST /offline/lotteries/search` | `GET /public/stock/search?cursor=...` | Adapter maps current seed/page state to API cursor |
 | store list | `POST /stock-store` | `GET /public/stores?q=...` | Adapter maps pagination to current store state |
-| store lotteries | `POST /lotteries/search` with `store_id` | `GET /public/stock/search?store_id=...&mode=browse` | Store name can come from store response or search meta |
+| store lotteries | `POST /lotteries/search` with `store_id` | `GET /public/stock/search?store_id=...&mode=random` | Customer-facing stock must always request randomized ordering; store name can come from store response or search meta |
 | reserve lottery | `POST /lotteries/booking` | `POST /customer/reservations` | Adapter maps `token` to `local_stock_item_ids` |
 | cancel booking | `POST /lotteries/cancel_booking` | `POST /customer/reservations/{reservation_id}/release` | Adapter must retain reservation id/token mapping |
 | cart page | local cart state + init | `GET /customer/cart` | Server remains source of truth |
@@ -78,8 +78,12 @@ docs/api-conventions.md
 | register | `POST /register` | `POST /customer/auth/register` | Adapter preserves current register page and maps token/user |
 | auth me/refresh/logout | existing auth state helpers | `GET /customer/auth/me`, `POST /customer/auth/refresh`, `POST /customer/auth/logout` | Adapter keeps existing auth cookie/session behavior |
 | profile | profile page calls | `GET /customer/profile`, `PATCH /customer/profile` | Adapter preserves current profile UI flow |
-| LINE login URL | `POST /line/login` | `POST /customer/auth/line/login` | Adapter maps redirect URL |
-| LINE callback | `GET /line/callback` | `GET /customer/auth/line/callback` | Adapter maps token/user/order continuation |
+| social login URL | `POST /line/login` plus mobile social buttons | `POST /customer/auth/social/{provider}/login` | Flutter uses generic `line`, `google`, and `apple` provider flow from mobile bootstrap |
+| social callback | `GET /line/callback` plus universal/deep links | `GET/POST /customer/auth/social/{provider}/callback` | Adapter maps token/user/order continuation and routes unlinked identities to phone linking |
+| social phone linking | first-time LINE/Google/Apple user phone link | `POST /customer/auth/social/{provider}/link-phone` | Preserves tenant isolation and then returns the normal customer session |
+| biometric device list/register/revoke | profile biometric device management | `GET/POST/DELETE /customer/auth/biometric/devices` | Native app only; requires PIN before enabling and keeps PIN as fallback |
+| biometric challenge/verify | actions that can use Face ID/Biometric instead of PIN | `POST /customer/auth/biometric/challenge`, `POST /customer/auth/biometric/verify` | Returns short-lived `pin_assertion_token` for PIN-protected actions |
+| mobile bootstrap | Flutter app startup | `GET /public/mobile/bootstrap` | Extends site config with mobile security policy, enabled social providers, realtime config, and legal/store-readiness content |
 
 ## Response Mapping Rules
 

@@ -9,18 +9,18 @@ use Illuminate\Support\Facades\Http;
 
 class ThaiBulkSmsOtpProvider implements SmsOtpProviderInterface
 {
-    public function send(TenantSmsProvider $provider, string $phone, string $message): array
+    public function requestOtp(TenantSmsProvider $provider, string $phone): array
     {
-        $apiKey = $this->decrypted($provider->api_key_encrypted);
-        $apiSecret = $this->decrypted($provider->api_secret_encrypted);
+        $credentials = $this->credentials($provider);
 
-        if ($apiKey === '' || $apiSecret === '') {
+        if ($credentials === null) {
             return ['ok' => false, 'message' => 'ThaiBulkSMS credentials are missing.'];
         }
 
         $payload = [
+            'key' => $credentials['key'],
+            'secret' => $credentials['secret'],
             'msisdn' => $this->formatPhoneForProvider($phone),
-            'message' => $message,
         ];
 
         $sender = trim((string) ($provider->sender_name ?? ''));
@@ -46,23 +46,27 @@ class ThaiBulkSmsOtpProvider implements SmsOtpProviderInterface
         $started = microtime(true);
 
         try {
-            $endpoint = (string) config('services.thaibulksms.sms_endpoint', 'https://api-v2.thaibulksms.com/sms');
+            $endpoint = (string) config('services.thaibulksms.otp_request_endpoint', 'https://otp.thaibulksms.com/v2/otp/request');
+            $timeout = (int) config('services.thaibulksms.timeout', 15);
             $response = Http::asForm()
-                ->withBasicAuth($apiKey, $apiSecret)
-                ->timeout(15)
+                ->timeout($timeout)
                 ->post($endpoint, $payload);
 
             $latency = (int) round((microtime(true) - $started) * 1000);
             $body = $response->json();
             $data = is_array($body) ? $body : ['body' => $response->body()];
-            $ok = $response->successful();
+            $token = $this->scalarString($data['token'] ?? null);
+            $refno = $this->scalarString($data['refno'] ?? null);
+            $ok = $response->successful() && $this->isSuccessStatus($data) && $token !== '';
 
             return [
                 'ok' => $ok,
                 'status' => $response->status(),
-                'provider_message_id' => $this->providerMessageId($data),
+                'provider_message_id' => $refno,
+                'provider_token' => $ok ? $token : null,
+                'provider_refno' => $refno,
                 'message' => $ok ? null : $this->errorMessage($data),
-                'response' => $data,
+                'response' => $this->sanitizedResponse($data),
                 'latency_ms' => $latency,
             ];
         } catch (\Throwable $e) {
@@ -74,6 +78,72 @@ class ThaiBulkSmsOtpProvider implements SmsOtpProviderInterface
                 'latency_ms' => (int) round((microtime(true) - $started) * 1000),
             ];
         }
+    }
+
+    public function verifyOtp(TenantSmsProvider $provider, string $providerToken, string $pin): array
+    {
+        $credentials = $this->credentials($provider);
+
+        if ($credentials === null) {
+            return ['ok' => false, 'status' => null, 'message' => 'ThaiBulkSMS credentials are missing.'];
+        }
+
+        $payload = [
+            'key' => $credentials['key'],
+            'secret' => $credentials['secret'],
+            'token' => trim($providerToken),
+            'pin' => preg_replace('/\D+/', '', $pin) ?: '',
+        ];
+
+        if ($payload['token'] === '' || $payload['pin'] === '') {
+            return ['ok' => false, 'status' => 422, 'message' => 'ThaiBulkSMS OTP token or PIN is missing.'];
+        }
+
+        $started = microtime(true);
+
+        try {
+            $endpoint = (string) config('services.thaibulksms.otp_verify_endpoint', 'https://otp.thaibulksms.com/v2/otp/verify');
+            $timeout = (int) config('services.thaibulksms.timeout', 15);
+            $response = Http::asForm()
+                ->timeout($timeout)
+                ->post($endpoint, $payload);
+
+            $latency = (int) round((microtime(true) - $started) * 1000);
+            $body = $response->json();
+            $data = is_array($body) ? $body : ['body' => $response->body()];
+            $ok = $response->successful() && $this->isSuccessStatus($data);
+
+            return [
+                'ok' => $ok,
+                'status' => $response->status(),
+                'message' => $ok ? null : $this->errorMessage($data),
+                'response' => $this->sanitizedResponse($data),
+                'latency_ms' => $latency,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'ok' => false,
+                'status' => null,
+                'message' => $e->getMessage(),
+                'response' => null,
+                'latency_ms' => (int) round((microtime(true) - $started) * 1000),
+            ];
+        }
+    }
+
+    /**
+     * @return array{key: string, secret: string}|null
+     */
+    private function credentials(TenantSmsProvider $provider): ?array
+    {
+        $apiKey = $this->decrypted($provider->api_key_encrypted);
+        $apiSecret = $this->decrypted($provider->api_secret_encrypted);
+
+        if ($apiKey === '' || $apiSecret === '') {
+            return null;
+        }
+
+        return ['key' => $apiKey, 'secret' => $apiSecret];
     }
 
     private function decrypted(mixed $value): string
@@ -117,15 +187,17 @@ class ThaiBulkSmsOtpProvider implements SmsOtpProviderInterface
     /**
      * @param array<string, mixed> $data
      */
-    private function providerMessageId(array $data): ?string
+    private function isSuccessStatus(array $data): bool
     {
-        foreach (['message_id', 'messageId', 'id', 'credit_used'] as $key) {
-            if (isset($data[$key]) && is_scalar($data[$key])) {
-                return (string) $data[$key];
-            }
+        $status = strtolower(trim((string) ($data['status'] ?? '')));
+
+        if ($status === 'success') {
+            return true;
         }
 
-        return null;
+        $code = $data['code'] ?? $data['status_code'] ?? null;
+
+        return is_numeric($code) && (int) $code === 0;
     }
 
     /**
@@ -157,5 +229,29 @@ class ThaiBulkSmsOtpProvider implements SmsOtpProviderInterface
         }
 
         return 'ThaiBulkSMS request failed.';
+    }
+
+    private function scalarString(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $text = trim((string) $value);
+
+        return $text === '' ? null : $text;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private function sanitizedResponse(array $data): array
+    {
+        if (array_key_exists('token', $data)) {
+            $data['token'] = 'redacted';
+        }
+
+        return $data;
     }
 }

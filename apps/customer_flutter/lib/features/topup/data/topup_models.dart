@@ -171,6 +171,16 @@ class TopupRequestItem {
   final String redirectUrl;
   final String message;
 
+  Uri? get redirectUri {
+    final uri = Uri.tryParse(redirectUrl.trim());
+    if (uri == null || !uri.hasScheme) return null;
+    final scheme = uri.scheme.toLowerCase();
+    if (scheme == 'javascript' || scheme == 'data' || scheme == 'file') {
+      return null;
+    }
+    return uri;
+  }
+
   bool get needsSlip =>
       !status.isTerminal &&
       (channel == TopupChannel.bankTransfer || qrCode.isNotEmpty);
@@ -188,7 +198,7 @@ class TopupOverview {
   });
 
   factory TopupOverview.fromJson(Map<String, dynamic> json) {
-    final meta = asMap(json['meta']);
+    final meta = unwrapMeta(json);
     final enabled = json['enabled_payment_methods'] is List
         ? (json['enabled_payment_methods'] as List)
             .map((value) => value.toString())

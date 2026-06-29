@@ -190,6 +190,17 @@ class CustomerTopupTest extends TestCase
         $world = $this->prepareReservedCart('par_cust_provider_miss', 'ten_cust_provider_miss', 'customer-topup-provider-missing.m5.test', 'gam_cust_provider_miss', '0804005002', 730102);
 
         $this->withToken($world['auth']['token'])
+            ->getJson('http://'.$world['host'].'/api/v1/customer/topups')
+            ->assertOk()
+            ->assertJsonPath('payment_methods.0.key', 'qr')
+            ->assertJsonPath('payment_methods.0.enabled', false)
+            ->assertJsonPath('payment_methods.1.key', 'credit_card')
+            ->assertJsonPath('payment_methods.1.enabled', false)
+            ->assertJsonPath('payment_methods.2.key', 'bank_transfer')
+            ->assertJsonPath('payment_methods.2.enabled', true)
+            ->assertJsonPath('enabled_payment_methods.0', 'bank_transfer');
+
+        $this->withToken($world['auth']['token'])
             ->postJson('http://'.$world['host'].'/api/v1/customer/topups', [
                 'channel' => 'qr',
                 'amount' => 20000,

@@ -132,7 +132,7 @@ class PurchaseHistoryPage {
   });
 
   factory PurchaseHistoryPage.fromJson(Map<String, dynamic> json) {
-    final meta = asMap(json['meta']);
+    final meta = unwrapMeta(json);
     return PurchaseHistoryPage(
       items: unwrapDataList(json)
           .map(PurchaseHistoryOrder.fromJson)

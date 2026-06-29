@@ -250,6 +250,40 @@ class TenantActivityTest extends TestCase
         $this->assertSame('gam_act_draw_current', $customerCurrent['meta']['selected_game_id']);
     }
 
+    public function test_public_and_customer_activity_lists_support_cursor_pagination(): void
+    {
+        $service = app(TenantActivityService::class);
+        $this->insertActivePartnerTenantWithDomain('par_act_pages', 'ten_act_pages', 'act-pages.test');
+        $this->insertGame('gam_act_pages', 'open');
+        $this->insertCashbackActivity('ten_act_pages', 'gam_act_pages', 'act_page_3', 'fixed', 0, 1000, 1, 10000, 3);
+        $this->insertCashbackActivity('ten_act_pages', 'gam_act_pages', 'act_page_2', 'fixed', 0, 1000, 1, 10000, 2);
+        $this->insertCashbackActivity('ten_act_pages', 'gam_act_pages', 'act_page_1', 'fixed', 0, 1000, 1, 10000, 1);
+        $this->issueCustomerToken('ten_act_pages', 'cus_act_pages');
+
+        $firstPage = $service->publicList('ten_act_pages', ['limit' => 2]);
+
+        $this->assertSame(['act_page_3', 'act_page_2'], array_column($firstPage['data'], 'id'));
+        $this->assertTrue($firstPage['meta']['has_more']);
+        $this->assertNotEmpty($firstPage['meta']['next_cursor']);
+
+        $secondPage = $service->publicList('ten_act_pages', [
+            'limit' => 2,
+            'cursor' => $firstPage['meta']['next_cursor'],
+        ]);
+
+        $this->assertSame(['act_page_1'], array_column($secondPage['data'], 'id'));
+        $this->assertFalse($secondPage['meta']['has_more']);
+        $this->assertNull($secondPage['meta']['next_cursor']);
+
+        $customerPage = $service->customerActivities('ten_act_pages', $this->customerContext('ten_act_pages', 'cus_act_pages'), [
+            'limit' => 2,
+            'cursor' => $firstPage['meta']['next_cursor'],
+        ]);
+
+        $this->assertSame(['act_page_1'], array_column($customerPage['data'], 'id'));
+        $this->assertFalse($customerPage['meta']['has_more']);
+    }
+
     public function test_lucky_board_customer_detail_exposes_announced_result_and_customer_status(): void
     {
         $service = app(TenantActivityService::class);

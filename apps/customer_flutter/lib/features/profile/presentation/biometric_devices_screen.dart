@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/app_locale.dart';
@@ -8,6 +9,7 @@ import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/tenant/mobile_runtime_policy.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_page_body.dart';
 import '../data/biometric_device_models.dart';
 import '../data/biometric_device_repository.dart';
 
@@ -41,45 +43,53 @@ class _BiometricDevicesScreenState
       child: RefreshIndicator(
         onRefresh: () async => ref.refresh(biometricDevicesProvider.future),
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
           children: [
-            const _BiometricIntroCard(),
-            const SizedBox(height: 12),
-            if (!policyEnabled)
-              _EnableBiometricCard(
-                canUseBiometric: false,
-                loadingCapability: false,
-                saving: _saving,
-                onEnable: null,
-              )
-            else
-              FutureBuilder<bool>(
-                future:
-                    ref.read(biometricAuthServiceProvider).canUseBiometric(),
-                builder: (context, snapshot) {
-                  final canUse = snapshot.data == true;
-                  return _EnableBiometricCard(
-                    canUseBiometric: canUse,
-                    loadingCapability:
-                        snapshot.connectionState == ConnectionState.waiting,
-                    saving: _saving,
-                    onEnable: canUse && !_saving ? _enableBiometric : null,
-                  );
-                },
-              ),
-            const SizedBox(height: 12),
-            devices.when(
-              data: (items) => _DeviceList(
-                devices: items,
-                saving: _saving,
-                onRevoke: _revokeDevice,
-              ),
-              loading: () => const Padding(
-                padding: EdgeInsets.symmetric(vertical: 32),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (_, __) => _ErrorCard(
-                onRetry: () => ref.invalidate(biometricDevicesProvider),
+            CustomerPageBody(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const _BiometricIntroCard(),
+                  const SizedBox(height: 12),
+                  if (!policyEnabled)
+                    _EnableBiometricCard(
+                      canUseBiometric: false,
+                      loadingCapability: false,
+                      saving: _saving,
+                      onEnable: null,
+                    )
+                  else
+                    FutureBuilder<bool>(
+                      future: ref
+                          .read(biometricAuthServiceProvider)
+                          .canUseBiometric(),
+                      builder: (context, snapshot) {
+                        final canUse = snapshot.data == true;
+                        return _EnableBiometricCard(
+                          canUseBiometric: canUse,
+                          loadingCapability: snapshot.connectionState ==
+                              ConnectionState.waiting,
+                          saving: _saving,
+                          onEnable:
+                              canUse && !_saving ? _enableBiometric : null,
+                        );
+                      },
+                    ),
+                  const SizedBox(height: 12),
+                  devices.when(
+                    data: (items) => _DeviceList(
+                      devices: items,
+                      saving: _saving,
+                      onRevoke: _revokeDevice,
+                    ),
+                    loading: () => const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                    error: (_, __) => _ErrorCard(
+                      onRetry: () => ref.invalidate(biometricDevicesProvider),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -162,6 +172,10 @@ class _BiometricDevicesScreenState
           obscureText: true,
           keyboardType: TextInputType.number,
           maxLength: 6,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(6),
+          ],
           decoration: const InputDecoration(
             labelText: 'PIN',
             counterText: '',

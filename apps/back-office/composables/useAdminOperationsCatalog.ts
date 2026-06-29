@@ -1845,7 +1845,7 @@ const tenant: OperationResource[] = [
       defaultQuery: { customer_id: '{member_id}' },
       columns: [
         { key: 'order_id', label: 'Order', fallbackKeys: ['id'] },
-        { key: 'total.amount', label: 'Total', type: 'money' },
+        { key: 'total.amount', label: 'Total', type: 'number' },
         { key: 'status', label: 'Status', type: 'status' },
         { key: 'payment_status', label: 'Payment' },
         { key: 'created_at', label: 'Created', type: 'datetime' },

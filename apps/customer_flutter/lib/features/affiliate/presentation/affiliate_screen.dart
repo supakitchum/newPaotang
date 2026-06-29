@@ -10,6 +10,7 @@ import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/tenant/mobile_runtime_policy.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../../shared/widgets/customer_page_body.dart';
 import '../data/affiliate_models.dart';
 import '../data/affiliate_repository.dart';
 
@@ -29,7 +30,19 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
   bool _verifyingPin = false;
   bool _loading = false;
   bool _submitting = false;
+  bool _commissionsLoaded = false;
+  bool _commissionsLoading = false;
+  bool _commissionsHasMore = false;
+  bool _payoutsLoaded = false;
+  bool _payoutsLoading = false;
+  bool _payoutsHasMore = false;
   String _loadError = '';
+  String _commissionsCursor = '';
+  String _commissionsError = '';
+  String _payoutsCursor = '';
+  String _payoutsError = '';
+  List<AffiliateCommission> _commissions = const [];
+  List<AffiliatePayout> _payouts = const [];
 
   final _storeNameController = TextEditingController();
   final _payoutAmountController = TextEditingController();
@@ -91,51 +104,67 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
         onRefresh: _refresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
           children: [
-            _AffiliateHero(overview: _overview),
-            const SizedBox(height: 12),
-            if (_loading)
-              const _AffiliateLoadingCard()
-            else if (_loadError.isNotEmpty)
-              _AffiliateErrorCard(message: _loadError, onRetry: _refresh)
-            else if (!_overview.isAffiliate)
-              _AffiliateRegisterCard(
-                controller: _storeNameController,
-                submitting: _submitting,
-                onSubmit: _register,
-              )
-            else ...[
-              _AffiliateStatsGrid(stats: _overview.stats),
-              const SizedBox(height: 12),
-              _AffiliateTabBar(
-                activeTab: _tab,
-                onChanged: (tab) => setState(() => _tab = tab),
-              ),
-              const SizedBox(height: 12),
-              switch (_tab) {
-                AffiliateTab.overview => _AffiliateOverviewTab(
-                    overview: _overview,
-                    onCopy: _copyReferralLink,
-                  ),
-                AffiliateTab.withdraw => _AffiliateWithdrawTab(
-                    overview: _overview,
-                    amountController: _payoutAmountController,
-                    payoutMethod: _payoutMethod,
-                    submitting: _submitting,
-                    onMethodChanged: (value) {
-                      setState(() => _payoutMethod = value);
+            CustomerPageBody(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _AffiliateHero(overview: _overview),
+                  const SizedBox(height: 12),
+                  if (_loading)
+                    const _AffiliateLoadingCard()
+                  else if (_loadError.isNotEmpty)
+                    _AffiliateErrorCard(message: _loadError, onRetry: _refresh)
+                  else if (!_overview.isAffiliate)
+                    _AffiliateRegisterCard(
+                      controller: _storeNameController,
+                      submitting: _submitting,
+                      onSubmit: _register,
+                    )
+                  else ...[
+                    _AffiliateStatsGrid(stats: _overview.stats),
+                    const SizedBox(height: 12),
+                    _AffiliateTabBar(
+                      activeTab: _tab,
+                      onChanged: _changeTab,
+                    ),
+                    const SizedBox(height: 12),
+                    switch (_tab) {
+                      AffiliateTab.overview => _AffiliateOverviewTab(
+                          overview: _overview,
+                          onCopy: _copyReferralLink,
+                        ),
+                      AffiliateTab.withdraw => _AffiliateWithdrawTab(
+                          overview: _overview,
+                          amountController: _payoutAmountController,
+                          payoutMethod: _payoutMethod,
+                          submitting: _submitting,
+                          onMethodChanged: (value) {
+                            setState(() => _payoutMethod = value);
+                          },
+                          onSubmit: _createPayout,
+                        ),
+                      AffiliateTab.commissions => _AffiliateCommissionsTab(
+                          commissions: _commissions,
+                          loading: _commissionsLoading,
+                          error: _commissionsError,
+                          hasMore: _commissionsHasMore,
+                          onRetry: () => _loadCommissions(reset: true),
+                          onLoadMore: () => _loadCommissions(),
+                        ),
+                      AffiliateTab.payouts => _AffiliatePayoutsTab(
+                          payouts: _payouts,
+                          loading: _payoutsLoading,
+                          error: _payoutsError,
+                          hasMore: _payoutsHasMore,
+                          onRetry: () => _loadPayouts(reset: true),
+                          onLoadMore: () => _loadPayouts(),
+                        ),
                     },
-                    onSubmit: _createPayout,
-                  ),
-                AffiliateTab.commissions => _AffiliateCommissionsTab(
-                    commissions: _overview.commissions,
-                  ),
-                AffiliateTab.payouts => _AffiliatePayoutsTab(
-                    payouts: _overview.payouts,
-                  ),
-              },
-            ],
+                  ],
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -218,15 +247,96 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
     try {
       final overview = await ref.read(affiliateRepositoryProvider).overview();
       if (!mounted) return;
-      setState(() {
-        _overview = overview;
-        _hydratePayoutDefaults(overview);
-      });
+      setState(() => _applyOverview(overview));
+      if (_tab == AffiliateTab.commissions) {
+        await _loadCommissions(reset: true);
+      } else if (_tab == AffiliateTab.payouts) {
+        await _loadPayouts(reset: true);
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() => _loadError = context.l10n.affiliateLoadFailed);
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _changeTab(AffiliateTab tab) {
+    setState(() => _tab = tab);
+    if (tab == AffiliateTab.commissions && !_commissionsLoaded) {
+      _loadCommissions(reset: true);
+    } else if (tab == AffiliateTab.payouts && !_payoutsLoaded) {
+      _loadPayouts(reset: true);
+    }
+  }
+
+  Future<void> _loadCommissions({bool reset = false}) async {
+    if (_commissionsLoading) return;
+    if (!reset && !_commissionsHasMore) return;
+
+    setState(() {
+      _commissionsLoading = true;
+      _commissionsError = '';
+      if (reset) {
+        _commissionsCursor = '';
+        _commissionsHasMore = false;
+      }
+    });
+
+    try {
+      final page = await ref.read(affiliateRepositoryProvider).commissions(
+            cursor: reset ? '' : _commissionsCursor,
+          );
+      if (!mounted) return;
+      setState(() {
+        _commissions = reset ? page.items : [..._commissions, ...page.items];
+        _commissionsCursor = page.nextCursor;
+        _commissionsHasMore = page.hasMore;
+        _commissionsLoaded = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _commissionsLoaded = true;
+        _commissionsError = context.l10n.affiliateLoadFailed;
+      });
+    } finally {
+      if (mounted) setState(() => _commissionsLoading = false);
+    }
+  }
+
+  Future<void> _loadPayouts({bool reset = false}) async {
+    if (_payoutsLoading) return;
+    if (!reset && !_payoutsHasMore) return;
+
+    setState(() {
+      _payoutsLoading = true;
+      _payoutsError = '';
+      if (reset) {
+        _payoutsCursor = '';
+        _payoutsHasMore = false;
+      }
+    });
+
+    try {
+      final page = await ref.read(affiliateRepositoryProvider).payouts(
+            cursor: reset ? '' : _payoutsCursor,
+          );
+      if (!mounted) return;
+      setState(() {
+        _payouts = reset ? page.items : [..._payouts, ...page.items];
+        _payoutsCursor = page.nextCursor;
+        _payoutsHasMore = page.hasMore;
+        _payoutsLoaded = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _payoutsLoaded = true;
+        _payoutsError = context.l10n.affiliateLoadFailed;
+      });
+    } finally {
+      if (mounted) setState(() => _payoutsLoading = false);
     }
   }
 
@@ -243,10 +353,7 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
       final overview =
           await ref.read(affiliateRepositoryProvider).register(name: name);
       if (!mounted) return;
-      setState(() {
-        _overview = overview;
-        _hydratePayoutDefaults(overview);
-      });
+      setState(() => _applyOverview(overview));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.affiliateRegisterSuccess)),
       );
@@ -298,6 +405,8 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
       await _refresh();
       if (!mounted) return;
       setState(() => _tab = AffiliateTab.payouts);
+      await _loadPayouts(reset: true);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.affiliatePayoutSuccess)),
       );
@@ -323,6 +432,21 @@ class _AffiliateScreenState extends ConsumerState<AffiliateScreen> {
 
   void _hydratePayoutDefaults(AffiliateOverview overview) {
     if (overview.bankAccount.isComplete) _payoutMethod = 'bank_transfer';
+  }
+
+  void _applyOverview(AffiliateOverview overview) {
+    _overview = overview;
+    _hydratePayoutDefaults(overview);
+    _commissions = overview.commissions;
+    _commissionsCursor = '';
+    _commissionsHasMore = false;
+    _commissionsLoaded = false;
+    _commissionsError = '';
+    _payouts = overview.payouts;
+    _payoutsCursor = '';
+    _payoutsHasMore = false;
+    _payoutsLoaded = false;
+    _payoutsError = '';
   }
 
   String _pinErrorText(Object error) {
@@ -365,81 +489,87 @@ class _AffiliatePinGate extends StatelessWidget {
     final l10n = context.l10n;
     final keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back'];
     return ListView(
-      padding: const EdgeInsets.all(24),
       children: [
-        const SizedBox(height: 32),
-        Icon(
-          Icons.share,
-          size: 56,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-        const SizedBox(height: 14),
-        Text(
-          l10n.affiliatePinTitle,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w900,
+        CustomerPageBody(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 16),
+              Icon(
+                Icons.share,
+                size: 56,
+                color: Theme.of(context).colorScheme.primary,
               ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          l10n.affiliatePinSubtitle,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 16),
-        Text(
-          '${'●' * pin.length}${'○' * (6 - pin.length)}',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        if (error.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          Text(
-            error,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.error,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-        if (verifying) ...[
-          const SizedBox(height: 12),
-          const Center(child: CircularProgressIndicator()),
-        ],
-        if (biometricEnabled) ...[
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: verifying ? null : onBiometric,
-            icon: const Icon(Icons.face_retouching_natural),
-            label: Text(l10n.pinUseBiometric),
-          ),
-        ],
-        const SizedBox(height: 24),
-        GridView.count(
-          shrinkWrap: true,
-          crossAxisCount: 3,
-          childAspectRatio: 1.55,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            for (final key in keys)
-              if (key.isEmpty)
-                const SizedBox.shrink()
-              else
-                Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: FilledButton.tonal(
-                    onPressed: verifying
-                        ? null
-                        : key == 'back'
-                            ? onBackspace
-                            : () => onDigit(key),
-                    child: key == 'back'
-                        ? const Icon(Icons.backspace_outlined)
-                        : Text(key),
+              const SizedBox(height: 14),
+              Text(
+                l10n.affiliatePinTitle,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                l10n.affiliatePinSubtitle,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '${'●' * pin.length}${'○' * (6 - pin.length)}',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              if (error.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  error,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-          ],
+              ],
+              if (verifying) ...[
+                const SizedBox(height: 12),
+                const Center(child: CircularProgressIndicator()),
+              ],
+              if (biometricEnabled) ...[
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: verifying ? null : onBiometric,
+                  icon: const Icon(Icons.face_retouching_natural),
+                  label: Text(l10n.pinUseBiometric),
+                ),
+              ],
+              const SizedBox(height: 24),
+              GridView.count(
+                shrinkWrap: true,
+                crossAxisCount: 3,
+                childAspectRatio: 1.55,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  for (final key in keys)
+                    if (key.isEmpty)
+                      const SizedBox.shrink()
+                    else
+                      Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: FilledButton.tonal(
+                          onPressed: verifying
+                              ? null
+                              : key == 'back'
+                                  ? onBackspace
+                                  : () => onDigit(key),
+                          child: key == 'back'
+                              ? const Icon(Icons.backspace_outlined)
+                              : Text(key),
+                        ),
+                      ),
+                ],
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -458,6 +588,7 @@ class _AffiliateHero extends StatelessWidget {
         ? overview.storeName
         : l10n.affiliateHeroFallbackTitle;
     return Card(
+      margin: EdgeInsets.zero,
       color: Theme.of(context).colorScheme.primaryContainer,
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -507,6 +638,7 @@ class _AffiliateRegisterCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -825,13 +957,31 @@ class _AffiliateWithdrawTab extends StatelessWidget {
 }
 
 class _AffiliateCommissionsTab extends StatelessWidget {
-  const _AffiliateCommissionsTab({required this.commissions});
+  const _AffiliateCommissionsTab({
+    required this.commissions,
+    required this.loading,
+    required this.error,
+    required this.hasMore,
+    required this.onRetry,
+    required this.onLoadMore,
+  });
 
   final List<AffiliateCommission> commissions;
+  final bool loading;
+  final String error;
+  final bool hasMore;
+  final VoidCallback onRetry;
+  final VoidCallback onLoadMore;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    if (commissions.isEmpty && loading) {
+      return const _AffiliateLoadingCard();
+    }
+    if (commissions.isEmpty && error.isNotEmpty) {
+      return _AffiliateErrorCard(message: error, onRetry: onRetry);
+    }
     if (commissions.isEmpty) {
       return _AffiliateEmptyCard(message: l10n.affiliateCommissionsEmpty);
     }
@@ -851,19 +1001,57 @@ class _AffiliateCommissionsTab extends StatelessWidget {
               ),
             ),
           ),
+        if (error.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: _AffiliateInlineError(message: error, onRetry: onRetry),
+          ),
+        if (hasMore || loading) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: loading ? null : onLoadMore,
+            icon: loading
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.expand_more),
+            label: Text(
+              loading ? l10n.commonLoadingMore : l10n.commonLoadMore,
+            ),
+          ),
+        ],
       ],
     );
   }
 }
 
 class _AffiliatePayoutsTab extends StatelessWidget {
-  const _AffiliatePayoutsTab({required this.payouts});
+  const _AffiliatePayoutsTab({
+    required this.payouts,
+    required this.loading,
+    required this.error,
+    required this.hasMore,
+    required this.onRetry,
+    required this.onLoadMore,
+  });
 
   final List<AffiliatePayout> payouts;
+  final bool loading;
+  final String error;
+  final bool hasMore;
+  final VoidCallback onRetry;
+  final VoidCallback onLoadMore;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    if (payouts.isEmpty && loading) {
+      return const _AffiliateLoadingCard();
+    }
+    if (payouts.isEmpty && error.isNotEmpty) {
+      return _AffiliateErrorCard(message: error, onRetry: onRetry);
+    }
     if (payouts.isEmpty) {
       return _AffiliateEmptyCard(message: l10n.affiliatePayoutsEmpty);
     }
@@ -883,7 +1071,65 @@ class _AffiliatePayoutsTab extends StatelessWidget {
               ),
             ),
           ),
+        if (error.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: _AffiliateInlineError(message: error, onRetry: onRetry),
+          ),
+        if (hasMore || loading) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: loading ? null : onLoadMore,
+            icon: loading
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.expand_more),
+            label: Text(
+              loading ? l10n.commonLoadingMore : l10n.commonLoadMore,
+            ),
+          ),
+        ],
       ],
+    );
+  }
+}
+
+class _AffiliateInlineError extends StatelessWidget {
+  const _AffiliateInlineError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: Theme.of(context).colorScheme.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(
+              Icons.error_outline,
+              color: Theme.of(context).colorScheme.onErrorContainer,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onErrorContainer,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: onRetry,
+              child: Text(context.l10n.commonRetry),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

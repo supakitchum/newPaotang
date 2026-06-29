@@ -3121,14 +3121,39 @@ class CommerceService
             ];
         }
 
-        return TenantPaymentMethods::customerPayload(is_array($settings?->config_json) ? $settings->config_json : null);
+        $payload = TenantPaymentMethods::customerPayload(is_array($settings?->config_json) ? $settings->config_json : null);
+        $enabledMethods = [];
+
+        foreach ($payload['methods'] as $index => $method) {
+            $key = TenantPaymentMethods::normalizeTopupChannel((string) ($method['key'] ?? ''));
+
+            if ($this->topupChannelUsesProvider($key) && $this->topupProviderForChannel($tenantId, $key) === null) {
+                $payload['methods'][$index]['enabled'] = false;
+            }
+
+            if (($payload['methods'][$index]['enabled'] ?? false) === true) {
+                $enabledMethods[] = $key;
+            }
+        }
+
+        $payload['enabled_methods'] = array_values(array_unique($enabledMethods));
+
+        return $payload;
     }
 
     private function tenantTopupPaymentMethodEnabled(string $tenantId, string $channel): bool
     {
-        $methods = $this->tenantTopupPaymentMethods($tenantId);
+        $settings = TenantPaymentSetting::query()->forTenant($tenantId)->first();
 
-        return in_array(TenantPaymentMethods::normalizeTopupChannel($channel), $methods['enabled_methods'], true);
+        if ($settings !== null && (string) $settings->status !== 'active') {
+            return false;
+        }
+
+        return in_array(
+            TenantPaymentMethods::normalizeTopupChannel($channel),
+            TenantPaymentMethods::enabledKeys(is_array($settings?->config_json) ? $settings->config_json : null),
+            true,
+        );
     }
 
     private function topupChannelUsesProvider(string $channel): bool

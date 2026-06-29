@@ -9,6 +9,8 @@ import UIKit
   private var screenSecurityChannel: FlutterMethodChannel?
   private var sensitiveRoute: String?
   private var privacyOverlay: UIView?
+  private var privacyOverlayTitle = "Screen capture is not allowed"
+  private var privacyOverlayDescription = "Sensitive information is hidden. Please unlock again to continue."
 
   private var biometricKeyTag: String {
     let bundleId = Bundle.main.bundleIdentifier?
@@ -29,6 +31,7 @@ import UIKit
     configureScreenSecurityChannel(engineBridge)
     configureBiometricKeysChannel(engineBridge)
     registerScreenCaptureObservers()
+    registerAppPrivacyObservers()
   }
 
   private func configureScreenSecurityChannel(_ engineBridge: FlutterImplicitEngineBridge) {
@@ -48,6 +51,7 @@ import UIKit
       case "enable":
         let args = call.arguments as? [String: Any]
         self.sensitiveRoute = args?["route"] as? String
+        self.updatePrivacyOverlayCopy(args)
         if UIScreen.main.isCaptured {
           self.showPrivacyOverlay(reason: "screen_capture_active")
           self.sendSecurityEvent(event: "screen_capture_active", reason: "screen_capture")
@@ -62,6 +66,7 @@ import UIKit
         let event = args?["event"] as? String ?? "screen_capture"
         let route = args?["route"] as? String ?? self.sensitiveRoute ?? ""
         let reason = args?["reason"] as? String
+        self.updatePrivacyOverlayCopy(args)
         self.sensitiveRoute = route.isEmpty ? self.sensitiveRoute : route
         self.showPrivacyOverlay(reason: reason ?? event)
         self.sendSecurityEvent(event: event, route: route, reason: reason)
@@ -69,6 +74,17 @@ import UIKit
       default:
         result(FlutterMethodNotImplemented)
       }
+    }
+  }
+
+  private func updatePrivacyOverlayCopy(_ args: [String: Any]?) {
+    if let title = args?["overlay_title"] as? String,
+       !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      privacyOverlayTitle = title
+    }
+    if let description = args?["overlay_description"] as? String,
+       !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      privacyOverlayDescription = description
     }
   }
 
@@ -96,6 +112,48 @@ import UIKit
       name: UIScreen.capturedDidChangeNotification,
       object: nil
     )
+  }
+
+  private func registerAppPrivacyObservers() {
+    NotificationCenter.default.removeObserver(
+      self,
+      name: UIApplication.willResignActiveNotification,
+      object: nil
+    )
+    NotificationCenter.default.removeObserver(
+      self,
+      name: UIApplication.didBecomeActiveNotification,
+      object: nil
+    )
+
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(applicationWillHideSensitiveSnapshot),
+      name: UIApplication.willResignActiveNotification,
+      object: nil
+    )
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(applicationDidReturnFromSensitiveSnapshot),
+      name: UIApplication.didBecomeActiveNotification,
+      object: nil
+    )
+  }
+
+  @objc private func applicationWillHideSensitiveSnapshot() {
+    guard sensitiveRoute != nil else { return }
+    showPrivacyOverlay(reason: "app_inactive")
+  }
+
+  @objc private func applicationDidReturnFromSensitiveSnapshot() {
+    guard sensitiveRoute != nil else { return }
+    if UIScreen.main.isCaptured {
+      showPrivacyOverlay(reason: "screen_capture_active")
+      sendSecurityEvent(event: "screen_capture_active", reason: "screen_capture")
+      return
+    }
+
+    hidePrivacyOverlay()
   }
 
   @objc private func userDidTakeScreenshot() {
@@ -156,13 +214,13 @@ import UIKit
       icon.contentMode = .scaleAspectFit
 
       let title = UILabel()
-      title.text = "ห้ามบันทึกภาพหน้าจอ"
+      title.text = self.privacyOverlayTitle
       title.font = UIFont.preferredFont(forTextStyle: .title2)
       title.textColor = UIColor.label
       title.textAlignment = .center
 
       let subtitle = UILabel()
-      subtitle.text = "ระบบซ่อนข้อมูลสำคัญและจะให้ยืนยันตัวตนใหม่"
+      subtitle.text = self.privacyOverlayDescription
       subtitle.font = UIFont.preferredFont(forTextStyle: .body)
       subtitle.textColor = UIColor.secondaryLabel
       subtitle.textAlignment = .center

@@ -47,6 +47,8 @@ class ProfileSettingsRepository {
   Future<CustomerProfileSettings> saveAutoReward({
     required bool enabled,
     required String payoutMethod,
+    String pin = '',
+    String pinAssertionToken = '',
   }) async {
     final response = await _api.patchWithHeaders<Map<String, dynamic>>(
       '/customer/profile',
@@ -59,6 +61,10 @@ class ProfileSettingsRepository {
               ? 'bank_transfer'
               : 'wallet_credit',
         },
+        if (pinAssertionToken.isNotEmpty)
+          'pin_assertion_token': pinAssertionToken
+        else if (pin.isNotEmpty)
+          'pin': pin,
       },
     );
     return CustomerProfileSettings.fromJson(unwrapPayload(response.data));

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:customer_flutter/app/customer_app.dart';
 import 'package:customer_flutter/app/router.dart';
 import 'package:customer_flutter/core/auth/auth_controller.dart';
@@ -7,6 +9,7 @@ import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
 import 'package:customer_flutter/core/security/biometric_auth_service.dart';
+import 'package:customer_flutter/core/security/screen_security_service.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/core/tenant/mobile_runtime_policy.dart';
 import 'package:customer_flutter/features/monitoring/presentation/public_visit_monitor.dart';
@@ -15,13 +18,52 @@ import 'package:customer_flutter/features/news/data/news_repository.dart';
 import 'package:customer_flutter/features/pin/presentation/pin_screen.dart';
 import 'package:customer_flutter/shared/widgets/app_shell.dart';
 import 'package:customer_flutter/shared/widgets/sensitive_screen_guard.dart';
+import 'package:customer_flutter/shared/widgets/web_privacy_guard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('ScreenSecurityService sends localized overlay copy to native',
+      (tester) async {
+    final calls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('customer_flutter/screen_security'),
+      (call) async {
+        calls.add(call);
+        return null;
+      },
+    );
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel('customer_flutter/screen_security'),
+        null,
+      );
+    });
+
+    final service = ScreenSecurityService();
+    await service.enable(
+      route: '/tickets',
+      overlayTitle: 'Screen capture is not allowed',
+      overlayDescription: 'Sensitive information is hidden.',
+    );
+
+    expect(calls, hasLength(1));
+    expect(calls.single.method, 'enable');
+    expect(calls.single.arguments, {
+      'route': '/tickets',
+      'overlay_title': 'Screen capture is not allowed',
+      'overlay_description': 'Sensitive information is hidden.',
+    });
+  });
+
   testWidgets('CustomerApp enables root screen security for every route',
       (tester) async {
     await tester.pumpWidget(
@@ -74,7 +116,53 @@ void main() {
     expect(find.text('Root route'), findsOneWidget);
   });
 
-  testWidgets('CustomerApp disables native screen security on web platform',
+  testWidgets('SensitiveScreenGuard locks session on native capture events',
+      (tester) async {
+    final authController = _testAuthController()..pinRequired = false;
+    final screenSecurity = _FakeScreenSecurityService();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith((_) => authController),
+          screenSecurityServiceProvider.overrideWithValue(screenSecurity),
+        ],
+        child: const MaterialApp(
+          locale: Locale('en', 'US'),
+          supportedLocales: [Locale('th', 'TH'), Locale('en', 'US')],
+          localizationsDelegates: [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          home: SensitiveScreenGuard(
+            route: '/tickets',
+            child: Text('Ticket detail'),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(screenSecurity.enabledRoute, '/tickets');
+    expect(authController.pinRequired, isFalse);
+
+    screenSecurity.emit(
+      const ScreenSecurityEvent(
+        event: 'screenshot_detected',
+        route: '/tickets',
+        reason: 'screenshot',
+      ),
+    );
+    await tester.pump();
+
+    expect(authController.pinRequired, isTrue);
+    expect(authController.isSecurityLocked, isTrue);
+  });
+
+  testWidgets(
+      'CustomerApp disables native screen security and leaves public web routes uncovered',
       (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -127,6 +215,126 @@ void main() {
       find.byType(SensitiveScreenGuard),
     );
     expect(guard.enabled, isFalse);
+    final webGuard = tester.widget<WebPrivacyGuard>(
+      find.byType(WebPrivacyGuard),
+    );
+    expect(webGuard.enabled, isFalse);
+    expect(find.text('Root route'), findsOneWidget);
+  });
+
+  testWidgets('CustomerApp enables web privacy guard on sensitive web routes',
+      (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(
+            const AppConfig(
+              apiBaseUrl: 'https://partner.example.com/api/v1',
+              defaultLocale: 'th-TH',
+            ),
+          ),
+          authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
+          newsRepositoryProvider.overrideWithValue(_NoopNewsRepository()),
+          publicVisitMonitorEnabledProvider.overrideWithValue(false),
+          customerPlatformKeyProvider.overrideWithValue('web'),
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson(
+              {
+                'site': {
+                  'display_name': 'Test Shop',
+                  'locale': 'th-TH',
+                },
+                'mobile': {
+                  'screen_security': {
+                    'web': {'watermark_enabled': true},
+                  },
+                },
+              },
+            ),
+          ),
+          appRouterProvider.overrideWithValue(
+            GoRouter(
+              initialLocation: '/my-wallet',
+              routes: [
+                GoRoute(
+                  path: '/my-wallet',
+                  builder: (context, state) => const Text('Wallet route'),
+                ),
+              ],
+            ),
+          ),
+        ],
+        child: const CustomerApp(),
+      ),
+    );
+
+    await tester.pump();
+
+    final guard = tester.widget<SensitiveScreenGuard>(
+      find.byType(SensitiveScreenGuard),
+    );
+    expect(guard.enabled, isFalse);
+    final webGuard = tester.widget<WebPrivacyGuard>(
+      find.byType(WebPrivacyGuard),
+    );
+    expect(webGuard.enabled, isTrue);
+    expect(find.text('Wallet route'), findsOneWidget);
+  });
+
+  testWidgets('CustomerApp can disable web privacy guard by tenant policy',
+      (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(
+            const AppConfig(
+              apiBaseUrl: 'https://partner.example.com/api/v1',
+              defaultLocale: 'th-TH',
+            ),
+          ),
+          authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
+          newsRepositoryProvider.overrideWithValue(_NoopNewsRepository()),
+          publicVisitMonitorEnabledProvider.overrideWithValue(false),
+          customerPlatformKeyProvider.overrideWithValue('web'),
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson(
+              {
+                'site': {
+                  'display_name': 'Test Shop',
+                  'locale': 'th-TH',
+                },
+                'mobile': {
+                  'screen_security': {
+                    'web': {
+                      'sensitive_screen_mode': 'off',
+                      'watermark_enabled': false,
+                    },
+                  },
+                },
+              },
+            ),
+          ),
+          appRouterProvider.overrideWithValue(
+            GoRouter(
+              routes: [
+                GoRoute(
+                  path: '/',
+                  builder: (context, state) => const Text('Root route'),
+                ),
+              ],
+            ),
+          ),
+        ],
+        child: const CustomerApp(),
+      ),
+    );
+
+    await tester.pump();
+
+    final webGuard = tester.widget<WebPrivacyGuard>(
+      find.byType(WebPrivacyGuard),
+    );
+    expect(webGuard.enabled, isFalse);
     expect(find.text('Root route'), findsOneWidget);
   });
 
@@ -357,6 +565,19 @@ class _NoopNewsRepository extends NewsRepository {
 
   @override
   Future<NewsItem?> modal() async => null;
+
+  @override
+  Future<List<NewsItem>> list({int limit = NewsRepository.defaultPageLimit}) {
+    return Future.value(const []);
+  }
+
+  @override
+  Future<List<NewsItem>> listAll({
+    int limit = NewsRepository.defaultPageLimit,
+    int maxPages = NewsRepository.maxAutoPages,
+  }) {
+    return Future.value(const []);
+  }
 }
 
 AuthController _testAuthController({bool pinSetupRequired = false}) {
@@ -377,4 +598,31 @@ AuthController _testAuthController({bool pinSetupRequired = false}) {
   )
     ..pinRequired = true
     ..pinSetupRequired = pinSetupRequired;
+}
+
+class _FakeScreenSecurityService extends ScreenSecurityService {
+  final StreamController<ScreenSecurityEvent> _controller =
+      StreamController<ScreenSecurityEvent>.broadcast();
+  String enabledRoute = '';
+  bool disabled = false;
+
+  @override
+  Stream<ScreenSecurityEvent> get events => _controller.stream;
+
+  @override
+  Future<void> enable({
+    required String route,
+    String? overlayTitle,
+    String? overlayDescription,
+  }) async {
+    enabledRoute = route;
+    disabled = false;
+  }
+
+  @override
+  Future<void> disable() async {
+    disabled = true;
+  }
+
+  void emit(ScreenSecurityEvent event) => _controller.add(event);
 }
