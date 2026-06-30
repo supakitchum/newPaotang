@@ -51,8 +51,10 @@ void main() {
       containsAll({
         '/',
         '/buy',
+        '/search',
         '/cart',
         '/checkout',
+        '/checkout/pending',
         '/tickets',
         '/tickets/history',
         '/my-wallet',
@@ -97,6 +99,7 @@ void main() {
       '/buy',
       '/buy/more',
       '/buy/search',
+      '/search',
       '/cart',
       '/checkout',
       '/countdown',

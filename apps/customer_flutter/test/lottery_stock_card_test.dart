@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:customer_flutter/core/auth/auth_token_store.dart';
 import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/app_locale.dart';
@@ -7,8 +9,10 @@ import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/features/lottery/data/lottery_models.dart';
 import 'package:customer_flutter/features/lottery/data/lottery_repository.dart';
 import 'package:customer_flutter/features/lottery/presentation/lottery_screens.dart';
+import 'package:customer_flutter/features/lottery/presentation/lottery_stock_realtime_monitor.dart';
 import 'package:customer_flutter/features/results/data/result_models.dart';
 import 'package:customer_flutter/features/results/data/result_repository.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,55 +20,115 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
-  testWidgets('stock card toggles select and remove from the live cart state', (
+  testWidgets('search page restores digit filters into six Nuxt-style boxes', (
     tester,
   ) async {
     final lottery = _FakeLotteryRepository();
-    final router = GoRouter(
-      initialLocation: '/buy/search?number=273707',
-      routes: [
-        GoRoute(
-          path: '/buy/search',
-          builder: (context, state) => BuySearchScreen(
-            query: state.uri.queryParameters,
-          ),
-        ),
-        GoRoute(
-          path: '/buy',
-          builder: (context, state) => const SizedBox.shrink(),
-        ),
-        GoRoute(
-          path: '/cart',
-          builder: (context, state) => const SizedBox.shrink(),
-        ),
-      ],
+    final router = _lotteryRouter(
+      initialLocation: '/buy/search?d1=2&d3=3&d5=7&store_id=store_1',
     );
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
-          lotteryRepositoryProvider.overrideWithValue(lottery),
-        ],
-        child: MaterialApp.router(
-          locale: fallbackCustomerLocale,
-          supportedLocales: supportedCustomerLocales,
-          localizationsDelegates: const [
-            CustomerLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          theme: AppTheme.light(),
-          routerConfig: router,
-        ),
-      ),
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    expect(find.text('ซื้อสลากดิจิทัล'), findsOneWidget);
+    expect(find.text('ค้นหาเลขสลากฯในร้านค้า'), findsOneWidget);
+    expect(find.textContaining('งวดวันที่'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'ล้างค่า'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'ล้างค่า'), findsNothing);
+    expect(find.widgetWithText(FilledButton, 'ค้นหาเลข'), findsOneWidget);
+    expect(find.text('ผลการค้นหาเลข'), findsOneWidget);
+    expect(
+      find.text('กดดูเลขนี้เพิ่มเติมเพื่อค้นหาเลขเดียวกันอีกครั้ง'),
+      findsNothing,
     );
+    expect(find.byType(TextField), findsNWidgets(6));
+    expect(
+      tester.widget<TextField>(find.byType(TextField).at(0)).controller?.text,
+      '2',
+    );
+    expect(
+      tester.widget<TextField>(find.byType(TextField).at(1)).controller?.text,
+      '',
+    );
+    expect(
+      tester.widget<TextField>(find.byType(TextField).at(2)).controller?.text,
+      '3',
+    );
+    expect(
+      tester.widget<TextField>(find.byType(TextField).at(4)).controller?.text,
+      '7',
+    );
+    expect(lottery.lastDigits, ['2', '', '3', '', '7', '']);
+    expect(lottery.lastStoreId, 'store_1');
+    expect(find.text('ทั้งหมด'), findsOneWidget);
+    expect(find.text('ลดราคา'), findsOneWidget);
+    expect(find.text('ร้านค้าผู้พิการ'), findsOneWidget);
+    expect(find.text('ร้านค้าหน่วยงาน'), findsOneWidget);
+  });
+
+  testWidgets('search clear resets filters and hides results like Nuxt', (
+    tester,
+  ) async {
+    final lottery = _FakeLotteryRepository();
+    final router = _lotteryRouter(
+      initialLocation: '/buy/search?d1=2&d3=3&store_id=store_1',
+    );
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    expect(lottery.searchCount, 1);
+    expect(find.text('เลือก'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(TextButton, 'ล้างค่า'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TextField), findsNWidgets(6));
+    for (var index = 0; index < 6; index++) {
+      expect(
+        tester
+            .widget<TextField>(find.byType(TextField).at(index))
+            .controller
+            ?.text,
+        '',
+      );
+    }
+    expect(find.text('เลือก'), findsNothing);
+    expect(lottery.searchCount, 1);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'ค้นหาเลข'));
+    await tester.pumpAndSettle();
+
+    expect(lottery.searchCount, 2);
+    expect(lottery.lastDigits, ['', '', '', '', '', '']);
+    expect(lottery.lastStoreId, 'store_1');
+    expect(find.text('เลือก'), findsOneWidget);
+  });
+
+  testWidgets('stock card toggles select and remove from the live cart state', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final lottery = _FakeLotteryRepository();
+    final router = _lotteryRouter(
+      initialLocation: '/buy/search?number=273707',
+    );
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
 
     await tester.pumpAndSettle();
 
     expect(lottery.searchCount, 1);
-    expect(find.text('273707'), findsOneWidget);
+    expect(find.text('ค้นหาเลขเด็ด'), findsOneWidget);
+    expect(find.textContaining('งวดวันที่'), findsOneWidget);
+    expect(find.text('ผลการค้นหาเลข'), findsOneWidget);
+    expect(
+      find.text('กดดูเลขนี้เพิ่มเติมเพื่อค้นหาเลขเดียวกันอีกครั้ง'),
+      findsNothing,
+    );
     expect(find.text('เลือก'), findsOneWidget);
     expect(find.text('เอาออก'), findsNothing);
 
@@ -76,12 +140,517 @@ void main() {
     expect(find.text('เลือก'), findsNothing);
     expect(find.text('เอาออก'), findsOneWidget);
 
-    await tester.tap(find.text('เอาออก'));
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+
+    final removeButton = find.widgetWithText(FilledButton, 'เอาออก');
+    await tester.ensureVisible(removeButton);
+    await tester.tap(removeButton);
     await tester.pumpAndSettle();
 
     expect(lottery.releaseCount, 1);
     expect(find.text('เลือก'), findsOneWidget);
     expect(find.text('เอาออก'), findsNothing);
+  });
+
+  testWidgets('stock list shows selected-cart dock after reservation', (
+    tester,
+  ) async {
+    final lottery = _FakeLotteryRepository();
+    final router = _lotteryRouter(
+      initialLocation: '/buy/search?number=273707',
+    );
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    expect(find.text('จำนวนที่เลือก'), findsNothing);
+
+    await tester.tap(find.text('เลือก'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('คุณมีสลากฯ ที่เลือกไว้'), findsNothing);
+    expect(find.text('จำนวนที่เลือก'), findsOneWidget);
+    expect(find.text('1 ใบ'), findsOneWidget);
+    expect(find.textContaining('กรุณาชำระเงินภายใน'), findsOneWidget);
+
+    final reviewButton = find.widgetWithText(FilledButton, 'ตรวจสอบสลากฯ');
+    await tester.ensureVisible(reviewButton);
+    await tester.pumpAndSettle();
+    await tester.tap(reviewButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cart route'), findsOneWidget);
+  });
+
+  testWidgets('stock list disables new reservations when sales are closed', (
+    tester,
+  ) async {
+    final lottery = _ClosedLotteryRepository();
+    final router = _lotteryRouter(
+      initialLocation: '/buy/search?number=273707',
+    );
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    expect(find.text('ขณะนี้ไม่สามารถซื้อสลากได้'), findsOneWidget);
+    expect(find.text('ปิดรับซื้อ'), findsOneWidget);
+
+    final closedButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'ปิดรับซื้อ'),
+    );
+    expect(closedButton.onPressed, isNull);
+    expect(lottery.reserveCount, 0);
+    expect(find.text('เลือก'), findsNothing);
+  });
+
+  testWidgets('stock list handles unavailable reservation races like Nuxt', (
+    tester,
+  ) async {
+    final lottery = _UnavailableReservationLotteryRepository();
+    final router = _lotteryRouter(
+      initialLocation: '/buy/search?number=273707',
+    );
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    expect(find.text('เลือก'), findsOneWidget);
+
+    await tester.tap(find.text('เลือก'));
+    await tester.pumpAndSettle();
+
+    expect(lottery.reserveCount, 1);
+    expect(lottery.cartCount, 2);
+    expect(find.text('สลากใบนี้ถูกซื้อแล้ว'), findsOneWidget);
+    expect(
+      find.text('ขออภัย สลากที่ท่านเลือกมีคนซื้อแล้ว กรุณาเลือกสลากใบอื่น'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'รับทราบ'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('เลือก'), findsNothing);
+    expect(find.text('ไม่พบเลขสลาก'), findsOneWidget);
+  });
+
+  testWidgets('search page refreshes stock on realtime tick', (
+    tester,
+  ) async {
+    final lottery = _FakeLotteryRepository();
+    final router = _lotteryRouter(
+      initialLocation: '/buy/search?number=273707',
+    );
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    expect(lottery.searchCount, 1);
+    expect(find.text('เลือก'), findsOneWidget);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(BuySearchScreen)),
+      listen: false,
+    );
+    container.read(lotteryStockRealtimeTickProvider.notifier).state++;
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(lottery.searchCount, 2);
+    expect(lottery.lastCursor, isEmpty);
+    expect(find.text('เลือก'), findsOneWidget);
+  });
+
+  testWidgets('stock list loads the next page when it is near the bottom', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final lottery = _PaginatedLotteryRepository();
+    final router = _lotteryRouter(initialLocation: '/buy/search?d1=2');
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    expect(lottery.searchCount, 1);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -1200));
+    await tester.pumpAndSettle();
+
+    expect(lottery.searchCount, 2);
+    expect(lottery.lastCursor, 'cursor_1');
+    expect(lottery.randomSeeds, hasLength(2));
+    expect(lottery.randomSeeds.first, isNotEmpty);
+    expect(lottery.randomSeeds.last, lottery.randomSeeds.first);
+    expect(find.text('เลือก'), findsNWidgets(2));
+  });
+
+  testWidgets('stock list renders Nuxt-style skeletons while initially loading',
+      (
+    tester,
+  ) async {
+    final lottery = _DelayedInitialLotteryRepository();
+    final router = _lotteryRouter(initialLocation: '/buy/search?number=273707');
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pump();
+    await tester.pump();
+
+    final loadingSearchButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'กำลังค้นหา'),
+    );
+    expect(loadingSearchButton.onPressed, isNull);
+    final loadingClearButton = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, 'ล้างค่า'),
+    );
+    expect(loadingClearButton.onPressed, isNull);
+    expect(find.widgetWithText(TextButton, 'แสดงเลขใหม่'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'กำลังโหลด'), findsNothing);
+    expect(_lotteryStockSkeletons(), findsNWidgets(5));
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    lottery.completeSearch();
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(FilledButton, 'ค้นหาเลข'), findsOneWidget);
+    expect(_lotteryStockSkeletons(), findsNothing);
+    expect(find.text('เลือก'), findsOneWidget);
+  });
+
+  testWidgets('stock list appends Nuxt-style skeletons while loading more', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final lottery = _DelayedNextPageLotteryRepository();
+    final router = _lotteryRouter(initialLocation: '/buy/search?d1=2');
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    expect(lottery.searchCount, 1);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -1200));
+    await tester.pump();
+    await tester.pump();
+
+    expect(lottery.searchCount, 2);
+    expect(lottery.lastCursor, 'cursor_1');
+    expect(find.text('เลือก'), findsOneWidget);
+    expect(_lotteryStockSkeletons(), findsNWidgets(5));
+
+    lottery.completeNextPage();
+    await tester.pumpAndSettle();
+
+    expect(_lotteryStockSkeletons(), findsNothing);
+    expect(find.text('เลือก'), findsNWidgets(2));
+  });
+
+  testWidgets('buy browse list deduplicates repeated random numbers like Nuxt',
+      (
+    tester,
+  ) async {
+    final lottery = _DuplicateBrowseLotteryRepository();
+    final router = GoRouter(
+      initialLocation: '/buy',
+      routes: [
+        GoRoute(
+          path: '/buy',
+          builder: (context, state) => const BuyScreen(),
+        ),
+        GoRoute(
+          path: '/cart',
+          builder: (context, state) =>
+              const Scaffold(body: Center(child: Text('Cart route'))),
+        ),
+      ],
+    );
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    expect(lottery.searchCount, 1);
+    expect(find.text('ทั้งหมด'), findsOneWidget);
+    expect(find.text('ลดราคา'), findsOneWidget);
+    expect(find.text('ร้านค้าผู้พิการ'), findsOneWidget);
+    expect(find.text('ร้านค้าหน่วยงาน'), findsOneWidget);
+    expect(find.text('เลือก'), findsNWidgets(2));
+  });
+
+  testWidgets('buy browse refresh enters Nuxt-style cooldown', (
+    tester,
+  ) async {
+    final lottery = _FakeLotteryRepository();
+    final router = GoRouter(
+      initialLocation: '/buy',
+      routes: [
+        GoRoute(
+          path: '/buy',
+          builder: (context, state) => const BuyScreen(),
+        ),
+        GoRoute(
+          path: '/cart',
+          builder: (context, state) =>
+              const Scaffold(body: Center(child: Text('Cart route'))),
+        ),
+      ],
+    );
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    expect(lottery.searchCount, 1);
+    final initialSeed = lottery.lastRandomSeed;
+    expect(initialSeed, isNotEmpty);
+
+    final refreshButton = find.widgetWithText(TextButton, 'แสดงเลขใหม่');
+    await tester.tap(refreshButton);
+    await tester.pump();
+    await tester.pump();
+
+    expect(lottery.searchCount, 2);
+    expect(lottery.lastRandomSeed, isNot(initialSeed));
+    expect(find.widgetWithText(TextButton, 'รอ 10 วิ'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextButton>(find.widgetWithText(TextButton, 'รอ 10 วิ'))
+          .onPressed,
+      isNull,
+    );
+
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.widgetWithText(TextButton, 'รอ 9 วิ'), findsOneWidget);
+    expect(lottery.searchCount, 2);
+
+    await tester.pump(const Duration(seconds: 9));
+    expect(find.widgetWithText(TextButton, 'แสดงเลขใหม่'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextButton>(find.widgetWithText(TextButton, 'แสดงเลขใหม่'))
+          .onPressed,
+      isNotNull,
+    );
+  });
+
+  testWidgets('exact search still preserves duplicate full-number rows', (
+    tester,
+  ) async {
+    final lottery = _DuplicateBrowseLotteryRepository();
+    final router = _lotteryRouter(initialLocation: '/buy/search?number=123123');
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    expect(lottery.searchCount, 1);
+    expect(find.text('เลือก'), findsNWidgets(3));
+
+    await tester.tap(find.widgetWithText(TextButton, 'แสดงเลขใหม่'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(lottery.searchCount, 2);
+    expect(find.textContaining('รอ '), findsNothing);
+    expect(find.widgetWithText(TextButton, 'แสดงเลขใหม่'), findsOneWidget);
+  });
+
+  testWidgets('more page close action restores the stacked search page', (
+    tester,
+  ) async {
+    final lottery = _FakeLotteryRepository();
+    final router = _lotteryRouter(
+      initialLocation: '/buy/search?d1=2&d3=3&store_id=store_1',
+    );
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    router.push(
+      Uri(
+        path: '/buy/more',
+        queryParameters: const {
+          'number': '273707',
+          'store_id': 'store_1',
+          'back': '/buy/search?d1=2&d3=3&store_id=store_1',
+        },
+      ).toString(),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BuyMoreScreen), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'ย้อนกลับ'), findsNothing);
+    expect(find.text('ทั้งหมด'), findsNothing);
+    expect(find.text('ลดราคา'), findsNothing);
+    expect(find.text('ร้านค้าผู้พิการ'), findsNothing);
+    expect(find.text('ร้านค้าหน่วยงาน'), findsNothing);
+    expect(lottery.lastRandomSeed, isEmpty);
+
+    await tester.tap(find.byTooltip('ย้อนกลับ'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BuySearchScreen), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).at(0)).controller?.text,
+      '2',
+    );
+    expect(
+      tester.widget<TextField>(find.byType(TextField).at(2)).controller?.text,
+      '3',
+    );
+    expect(lottery.lastStoreId, 'store_1');
+  });
+
+  testWidgets('more page matches Nuxt compact number-list layout on mobile', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final lottery = _FakeLotteryRepository();
+    final router = _lotteryRouter(
+      initialLocation:
+          '/buy/more?number=273707&store_id=store_1&back=/buy/search?d1=2',
+    );
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BuyMoreScreen), findsOneWidget);
+    expect(find.text('รายการสลากฯ'), findsOneWidget);
+    expect(find.text('สลากฯ เลข'), findsOneWidget);
+    expect(find.text('2 7 3 7 0 7'), findsOneWidget);
+    expect(find.text('เลขนี้เพิ่มเติม'), findsOneWidget);
+    expect(find.text('แสดงเลขใหม่'), findsNothing);
+    expect(find.byIcon(Icons.refresh), findsNothing);
+    expect(find.text('ทั้งหมด'), findsNothing);
+    expect(find.text('ลดราคา'), findsNothing);
+    expect(find.text('ร้านค้าผู้พิการ'), findsNothing);
+    expect(find.text('ร้านค้าหน่วยงาน'), findsNothing);
+    expect(find.widgetWithText(TextButton, 'ดูเลขนี้เพิ่มเติม'), findsNothing);
+    expect(lottery.searchCount, 1);
+    expect(lottery.lastStoreId, 'store_1');
+    expect(lottery.lastRandomSeed, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('more page auto-loads same-number pages without random seed', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final lottery = _PaginatedLotteryRepository();
+    final router = _lotteryRouter(
+      initialLocation:
+          '/buy/more?number=273707&store_id=store_1&back=/buy/search?d1=2',
+    );
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    expect(lottery.searchCount, 1);
+    expect(lottery.lastCursor, isEmpty);
+    expect(lottery.lastStoreId, 'store_1');
+    expect(lottery.lastRandomSeed, isEmpty);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -1200));
+    await tester.pumpAndSettle();
+
+    expect(lottery.searchCount, 2);
+    expect(lottery.lastCursor, 'cursor_1');
+    expect(lottery.lastStoreId, 'store_1');
+    expect(lottery.randomSeeds, ['', '']);
+    expect(find.text('เลือก'), findsNWidgets(2));
+    expect(find.text('แสดงเลขใหม่'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('more page close action falls back from unsafe back path', (
+    tester,
+  ) async {
+    final lottery = _FakeLotteryRepository();
+    final unsafeBack = Uri.encodeComponent('https://evil.test/buy');
+    final router = _lotteryRouter(
+      initialLocation: '/buy/more?number=273707&back=$unsafeBack',
+    );
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BuyMoreScreen), findsOneWidget);
+
+    await tester.tap(find.byTooltip('ย้อนกลับ'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Buy route'), findsOneWidget);
+  });
+}
+
+GoRouter _lotteryRouter({required String initialLocation}) {
+  return GoRouter(
+    initialLocation: initialLocation,
+    routes: [
+      GoRoute(
+        path: '/buy/search',
+        builder: (context, state) => BuySearchScreen(
+          query: state.uri.queryParameters,
+        ),
+      ),
+      GoRoute(
+        path: '/buy/more',
+        builder: (context, state) => BuyMoreScreen(
+          query: state.uri.queryParameters,
+        ),
+      ),
+      GoRoute(
+        path: '/buy',
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Buy route'))),
+      ),
+      GoRoute(
+        path: '/cart',
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Cart route'))),
+      ),
+    ],
+  );
+}
+
+Future<void> _pumpLotteryApp(
+  WidgetTester tester, {
+  required GoRouter router,
+  required LotteryRepository lottery,
+}) {
+  return tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
+        lotteryRepositoryProvider.overrideWithValue(lottery),
+      ],
+      child: MaterialApp.router(
+        locale: fallbackCustomerLocale,
+        supportedLocales: supportedCustomerLocales,
+        localizationsDelegates: const [
+          CustomerLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        theme: AppTheme.light(),
+        routerConfig: router,
+      ),
+    ),
+  );
+}
+
+Finder _lotteryStockSkeletons() {
+  return find.byWidgetPredicate((widget) {
+    final key = widget.key;
+    return key is ValueKey<String> &&
+        key.value.startsWith('lottery-stock-skeleton-');
   });
 }
 
@@ -104,8 +673,14 @@ class _FakeLotteryRepository extends LotteryRepository {
 
   bool _reserved = false;
   int searchCount = 0;
+  int cartCount = 0;
   int reserveCount = 0;
   int releaseCount = 0;
+  List<String> lastDigits = const [];
+  List<String> randomSeeds = const [];
+  String lastStoreId = '';
+  String lastCursor = '';
+  String lastRandomSeed = '';
 
   @override
   Future<LotteryStockPage> search({
@@ -114,9 +689,15 @@ class _FakeLotteryRepository extends LotteryRepository {
     String number = '',
     String storeId = '',
     String cursor = '',
+    String randomSeed = '',
     int limit = 20,
   }) async {
     searchCount++;
+    lastDigits = List<String>.from(digits);
+    lastStoreId = storeId;
+    lastCursor = cursor;
+    lastRandomSeed = randomSeed;
+    randomSeeds = [...randomSeeds, randomSeed];
     return LotteryStockPage(
       gameId: gameId,
       items: [_stockItem()],
@@ -147,6 +728,7 @@ class _FakeLotteryRepository extends LotteryRepository {
 
   @override
   Future<LotteryCart> cart() async {
+    cartCount++;
     return _reserved ? _reservedCart() : LotteryCart.empty();
   }
 
@@ -178,13 +760,17 @@ class _FakeLotteryRepository extends LotteryRepository {
     );
   }
 
-  LotteryStockItem _stockItem({String reservationId = ''}) {
+  LotteryStockItem _stockItem({
+    String reservationId = '',
+    String number = '273707',
+    String localStockItemId = 'local-stock-1',
+  }) {
     return LotteryStockItem(
-      id: 'vstock:game_1:273707:1',
-      token: 'stock-token',
-      localStockItemId: 'local-stock-1',
+      id: 'vstock:game_1:$number:1',
+      token: 'stock-token-$number',
+      localStockItemId: localStockItemId,
       stockRef: 'vstock-ref-1',
-      number: '273707',
+      number: number,
       sellerName: 'ร้านทดสอบ',
       storeName: 'ร้านทดสอบ',
       price: 80,
@@ -196,6 +782,214 @@ class _FakeLotteryRepository extends LotteryRepository {
       imageUrl: '',
       thumbUrl: '',
       raw: const {},
+    );
+  }
+}
+
+class _UnavailableReservationLotteryRepository extends _FakeLotteryRepository {
+  @override
+  Future<LotteryReservation> reserve({
+    required String gameId,
+    required LotteryStockItem item,
+  }) async {
+    reserveCount++;
+    throw DioException(
+      requestOptions: RequestOptions(path: '/customer/reservations'),
+      response: Response(
+        requestOptions: RequestOptions(path: '/customer/reservations'),
+        statusCode: 409,
+        data: const {
+          'error': {
+            'code': 'reservation_unavailable',
+            'message': 'The requested stock is no longer available.',
+          },
+        },
+      ),
+    );
+  }
+}
+
+class _PaginatedLotteryRepository extends _FakeLotteryRepository {
+  @override
+  Future<LotteryStockPage> search({
+    required String gameId,
+    List<String> digits = const [],
+    String number = '',
+    String storeId = '',
+    String cursor = '',
+    String randomSeed = '',
+    int limit = 20,
+  }) async {
+    searchCount++;
+    lastDigits = List<String>.from(digits);
+    lastStoreId = storeId;
+    lastCursor = cursor;
+    lastRandomSeed = randomSeed;
+    randomSeeds = [...randomSeeds, randomSeed];
+    if (cursor.isEmpty) {
+      return LotteryStockPage(
+        gameId: gameId,
+        items: [_stockItem()],
+        nextCursor: 'cursor_1',
+        hasMore: true,
+        sellerName: 'ร้านทดสอบ',
+      );
+    }
+    return LotteryStockPage(
+      gameId: gameId,
+      items: [
+        _stockItem(number: '999999', localStockItemId: 'local-stock-2'),
+      ],
+      nextCursor: '',
+      hasMore: false,
+      sellerName: 'ร้านทดสอบ',
+    );
+  }
+}
+
+class _DelayedInitialLotteryRepository extends _FakeLotteryRepository {
+  final _searchCompleter = Completer<LotteryStockPage>();
+
+  void completeSearch() {
+    if (_searchCompleter.isCompleted) return;
+    _searchCompleter.complete(
+      LotteryStockPage(
+        gameId: 'game_1',
+        items: [_stockItem()],
+        nextCursor: '',
+        hasMore: false,
+        sellerName: 'ร้านทดสอบ',
+      ),
+    );
+  }
+
+  @override
+  Future<LotteryStockPage> search({
+    required String gameId,
+    List<String> digits = const [],
+    String number = '',
+    String storeId = '',
+    String cursor = '',
+    String randomSeed = '',
+    int limit = 20,
+  }) {
+    searchCount++;
+    lastDigits = List<String>.from(digits);
+    lastStoreId = storeId;
+    lastCursor = cursor;
+    lastRandomSeed = randomSeed;
+    randomSeeds = [...randomSeeds, randomSeed];
+    return _searchCompleter.future;
+  }
+}
+
+class _DelayedNextPageLotteryRepository extends _FakeLotteryRepository {
+  final _nextPageCompleter = Completer<LotteryStockPage>();
+
+  void completeNextPage() {
+    if (_nextPageCompleter.isCompleted) return;
+    _nextPageCompleter.complete(
+      LotteryStockPage(
+        gameId: 'game_1',
+        items: [
+          _stockItem(number: '999999', localStockItemId: 'local-stock-2'),
+        ],
+        nextCursor: '',
+        hasMore: false,
+        sellerName: 'ร้านทดสอบ',
+      ),
+    );
+  }
+
+  @override
+  Future<LotteryStockPage> search({
+    required String gameId,
+    List<String> digits = const [],
+    String number = '',
+    String storeId = '',
+    String cursor = '',
+    String randomSeed = '',
+    int limit = 20,
+  }) {
+    searchCount++;
+    lastDigits = List<String>.from(digits);
+    lastStoreId = storeId;
+    lastCursor = cursor;
+    lastRandomSeed = randomSeed;
+    randomSeeds = [...randomSeeds, randomSeed];
+    if (cursor.isEmpty) {
+      return Future.value(
+        LotteryStockPage(
+          gameId: gameId,
+          items: [_stockItem()],
+          nextCursor: 'cursor_1',
+          hasMore: true,
+          sellerName: 'ร้านทดสอบ',
+        ),
+      );
+    }
+    return _nextPageCompleter.future;
+  }
+}
+
+class _DuplicateBrowseLotteryRepository extends _FakeLotteryRepository {
+  @override
+  Future<LotteryStockPage> search({
+    required String gameId,
+    List<String> digits = const [],
+    String number = '',
+    String storeId = '',
+    String cursor = '',
+    String randomSeed = '',
+    int limit = 20,
+  }) async {
+    searchCount++;
+    lastDigits = List<String>.from(digits);
+    lastStoreId = storeId;
+    lastCursor = cursor;
+    lastRandomSeed = randomSeed;
+    randomSeeds = [...randomSeeds, randomSeed];
+    return LotteryStockPage(
+      gameId: gameId,
+      items: [
+        _stockItem(number: '123123', localStockItemId: 'local-stock-1'),
+        _stockItem(number: '123123', localStockItemId: 'local-stock-2'),
+        _stockItem(number: '456456', localStockItemId: 'local-stock-3'),
+      ],
+      nextCursor: '',
+      hasMore: false,
+      sellerName: 'ร้านทดสอบ',
+    );
+  }
+}
+
+class _ClosedLotteryRepository extends _FakeLotteryRepository {
+  @override
+  Future<LotteryStockPage> search({
+    required String gameId,
+    List<String> digits = const [],
+    String number = '',
+    String storeId = '',
+    String cursor = '',
+    String randomSeed = '',
+    int limit = 20,
+  }) async {
+    final page = await super.search(
+      gameId: gameId,
+      digits: digits,
+      number: number,
+      storeId: storeId,
+      cursor: cursor,
+      randomSeed: randomSeed,
+      limit: limit,
+    );
+    return LotteryStockPage(
+      gameId: page.gameId,
+      items: page.items,
+      nextCursor: page.nextCursor,
+      hasMore: page.hasMore,
+      sellerName: page.sellerName,
+      canReserve: false,
     );
   }
 }

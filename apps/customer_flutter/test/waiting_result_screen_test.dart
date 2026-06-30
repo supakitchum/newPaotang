@@ -5,10 +5,12 @@ import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/features/results/data/result_models.dart';
 import 'package:customer_flutter/features/results/data/result_repository.dart';
 import 'package:customer_flutter/features/results/presentation/waiting_result_screen.dart';
+import 'package:customer_flutter/shared/widgets/app_alert.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 void main() {
   testWidgets('waiting result shows placeholder numbers and live section', (
@@ -35,6 +37,7 @@ void main() {
             return MobileBootstrap.fromJson(
               const {
                 'site': {'display_name': 'Alpha Lucky Shop'},
+                'mobile': {'lottery_product_label': 'L6'},
                 'live': {
                   'waiting_result_youtube_embed_url':
                       'https://www.youtube.com/embed/demo',
@@ -62,6 +65,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('หมดเวลาจำหน่ายสลากแล้ว'), findsOneWidget);
+    expect(find.text('L6'), findsOneWidget);
     expect(find.text('รอประกาศผลรางวัล'), findsOneWidget);
     expect(find.text('xxxxxx'), findsOneWidget);
     expect(find.text('xx'), findsOneWidget);
@@ -120,5 +124,72 @@ void main() {
 
     expect(find.text('ระบบจะแสดงถ่ายทอดสดเมื่อพร้อมใช้งาน'), findsOneWidget);
     expect(find.text('เปิดถ่ายทอดสด'), findsNothing);
+  });
+
+  testWidgets('waiting result consumes sale closed query like Nuxt', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/waiting-result?sale_closed=1',
+      routes: [
+        GoRoute(
+          path: '/waiting-result',
+          builder: (context, state) => WaitingResultScreen(
+            showSaleClosedNotice:
+                state.uri.queryParameters['sale_closed'] == '1',
+          ),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentResultProvider.overrideWith((_) async {
+            return const RewardResultBundle(
+              currentGame: null,
+              selectedResult: null,
+              history: [],
+            );
+          }),
+          mobileBootstrapProvider.overrideWith((_) async {
+            return MobileBootstrap.fromJson(
+              const {'site': <String, dynamic>{}},
+            );
+          }),
+        ],
+        child: MaterialApp.router(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          routerConfig: router,
+          builder: (context, child) {
+            return AppAlertHost(child: child ?? const SizedBox.shrink());
+          },
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routeInformationProvider.value.uri.toString(),
+      '/waiting-result',
+    );
+    expect(find.text('หมดเวลาจำหน่ายสลากแล้ว'), findsNWidgets(2));
+    expect(
+      find.text('ระบบพาไปหน้ารอออกผลแล้ว กรุณาตรวจผลรางวัลหลังประกาศผล'),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('app-alert-close-button')),
+      findsOneWidget,
+    );
   });
 }

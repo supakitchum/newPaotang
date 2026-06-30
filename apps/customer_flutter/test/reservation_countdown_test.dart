@@ -76,6 +76,22 @@ void main() {
     expect(offset, const Duration(seconds: 15));
   });
 
+  test('reservationDeadlineExpired honors backend server time', () {
+    final reservation = _reservation(
+      id: 'res_1',
+      expiresAt: '2026-06-26T12:03:45+07:00',
+      serverTime: '2026-06-26T12:03:46+07:00',
+    );
+
+    expect(
+      reservationDeadlineExpired(
+        reservation,
+        localNow: DateTime.parse('2026-06-26T10:00:00+07:00'),
+      ),
+      isTrue,
+    );
+  });
+
   test('earliestActiveReservation ignores inactive rows and picks soonest', () {
     final selected = earliestActiveReservation([
       _reservation(

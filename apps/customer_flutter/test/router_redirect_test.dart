@@ -1,5 +1,6 @@
 import 'package:customer_flutter/app/customer_routes.dart';
 import 'package:customer_flutter/app/router.dart';
+import 'package:customer_flutter/core/navigation/customer_redirect.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -39,7 +40,11 @@ void main() {
       } else if (route.public) {
         expect(redirect, isNull, reason: '$path should be public');
       } else {
-        expect(redirect, '/login', reason: '$path should require login');
+        expect(
+          redirect,
+          customerLoginRouteForRedirect(path),
+          reason: '$path should require login',
+        );
       }
     }
   });
@@ -59,7 +64,11 @@ void main() {
       } else if (route.path == '/maintenance') {
         expect(redirect, '/', reason: '$path exits inactive maintenance mode');
       } else {
-        expect(redirect, '/pin', reason: '$path should require PIN');
+        expect(
+          redirect,
+          customerPinRouteForRedirect(path),
+          reason: '$path should require PIN',
+        );
       }
     }
   });
@@ -72,7 +81,7 @@ void main() {
         pinRequired: false,
         isSecurityLocked: false,
       ),
-      '/login',
+      '/login?redirect=%2Ftickets',
     );
   });
 
@@ -86,7 +95,7 @@ void main() {
           pinRequired: true,
           isSecurityLocked: false,
         ),
-        '/pin',
+        customerPinRouteForRedirect(path),
         reason: '$path should require PIN after login',
       );
     }
@@ -224,7 +233,31 @@ void main() {
         isSecurityLocked: false,
         guestRedirectPath: '/tickets',
       ),
-      '/pin',
+      '/pin?redirect=%2Ftickets',
+    );
+  });
+
+  test('auth and PIN redirects preserve safe query targets', () {
+    expect(
+      customerRedirectPath(
+        path: '/checkout',
+        requestedLocation: '/checkout?from=cart',
+        isAuthenticated: false,
+        pinRequired: false,
+        isSecurityLocked: false,
+      ),
+      '/login?redirect=%2Fcheckout%3Ffrom%3Dcart',
+    );
+
+    expect(
+      customerRedirectPath(
+        path: '/checkout',
+        requestedLocation: '/checkout?from=cart',
+        isAuthenticated: true,
+        pinRequired: true,
+        isSecurityLocked: false,
+      ),
+      '/pin?redirect=%2Fcheckout%3Ffrom%3Dcart',
     );
   });
 }

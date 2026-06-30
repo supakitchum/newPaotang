@@ -5,17 +5,46 @@ import 'package:go_router/go_router.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../../shared/widgets/app_alert.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/async/async_state_view.dart';
 import '../data/result_models.dart';
 import '../data/result_repository.dart';
 import 'result_widgets.dart';
 
-class WaitingResultScreen extends ConsumerWidget {
-  const WaitingResultScreen({super.key});
+class WaitingResultScreen extends ConsumerStatefulWidget {
+  const WaitingResultScreen({
+    super.key,
+    this.showSaleClosedNotice = false,
+  });
+
+  final bool showSaleClosedNotice;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WaitingResultScreen> createState() =>
+      _WaitingResultScreenState();
+}
+
+class _WaitingResultScreenState extends ConsumerState<WaitingResultScreen> {
+  bool _saleClosedNoticeConsumed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleSaleClosedNotice();
+  }
+
+  @override
+  void didUpdateWidget(covariant WaitingResultScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.showSaleClosedNotice && widget.showSaleClosedNotice) {
+      _saleClosedNoticeConsumed = false;
+      _scheduleSaleClosedNotice();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final result = ref.watch(currentResultProvider);
     final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
     final l10n = context.l10n;
@@ -33,7 +62,10 @@ class WaitingResultScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _WaitingResultStatusCard(result: result),
+                  _WaitingResultStatusCard(
+                    result: result,
+                    productLabel: bootstrap?.lotteryProductLabel ?? '',
+                  ),
                   const SizedBox(height: 12),
                   AsyncStateView(
                     value: result,
@@ -66,12 +98,30 @@ class WaitingResultScreen extends ConsumerWidget {
       ),
     );
   }
+
+  void _scheduleSaleClosedNotice() {
+    if (!widget.showSaleClosedNotice || _saleClosedNoticeConsumed) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _saleClosedNoticeConsumed) return;
+      _saleClosedNoticeConsumed = true;
+      ref.read(appAlertControllerProvider.notifier).show(
+            title: context.l10n.waitingResultSaleClosed,
+            message: context.l10n.saleClosureAlertMessage,
+            variant: AppAlertVariant.warning,
+          );
+      context.go('/waiting-result');
+    });
+  }
 }
 
 class _WaitingResultStatusCard extends StatelessWidget {
-  const _WaitingResultStatusCard({required this.result});
+  const _WaitingResultStatusCard({
+    required this.result,
+    required this.productLabel,
+  });
 
   final AsyncValue<RewardResultBundle> result;
+  final String productLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -86,12 +136,41 @@ class _WaitingResultStatusCard extends StatelessWidget {
         padding: const EdgeInsets.all(22),
         child: Column(
           children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: colorScheme.primaryContainer,
+                  child: Icon(
+                    Icons.storefront_outlined,
+                    color: colorScheme.onPrimaryContainer,
+                  ),
+                ),
+                if (productLabel.trim().isNotEmpty) ...[
+                  Container(
+                    width: 1,
+                    height: 34,
+                    margin: const EdgeInsets.symmetric(horizontal: 14),
+                    color: colorScheme.outlineVariant,
+                  ),
+                  Text(
+                    productLabel.trim(),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 18),
             CircleAvatar(
               radius: 34,
-              backgroundColor: colorScheme.primaryContainer,
+              backgroundColor: colorScheme.secondaryContainer,
               child: Icon(
                 Icons.hourglass_bottom,
-                color: colorScheme.onPrimaryContainer,
+                color: colorScheme.onSecondaryContainer,
                 size: 34,
               ),
             ),

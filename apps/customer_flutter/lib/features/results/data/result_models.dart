@@ -33,6 +33,7 @@ class CurrentGame {
     required this.drawAt,
     this.saleStartAt,
     this.saleCloseAt,
+    this.serverTime,
   });
 
   factory CurrentGame.fromJson(Map<String, dynamic> json) {
@@ -44,8 +45,11 @@ class CurrentGame {
       saleStartAt: json['sale_start_at'] ?? json['sales_start_at'],
       saleCloseAt: json['sale_close_at'] ??
           json['sales_close_at'] ??
+          json['close_at'] ??
+          json['end_at'] ??
           json['sale_end_at'] ??
           json['sales_end_at'],
+      serverTime: json['server_time'],
     );
   }
 
@@ -55,6 +59,7 @@ class CurrentGame {
   final Object? drawAt;
   final Object? saleStartAt;
   final Object? saleCloseAt;
+  final Object? serverTime;
 
   RewardResultGame toPendingRewardGame() {
     return RewardResultGame(

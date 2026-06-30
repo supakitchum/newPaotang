@@ -27,11 +27,15 @@ class LotteryDigitInputRow extends StatelessWidget {
     super.key,
     this.style = const LotteryDigitInputStyle(),
     this.onSubmitted,
+    this.onTap,
+    this.readOnly = false,
   }) : assert(controllers.length == 6, 'Lottery number requires 6 digits');
 
   final List<TextEditingController> controllers;
   final LotteryDigitInputStyle style;
   final VoidCallback? onSubmitted;
+  final VoidCallback? onTap;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +53,9 @@ class LotteryDigitInputRow extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controllers[index],
+              readOnly: readOnly,
+              showCursor: !readOnly,
+              enableInteractiveSelection: !readOnly,
               textAlign: TextAlign.center,
               keyboardType: TextInputType.number,
               textInputAction: index == controllers.length - 1
@@ -80,12 +87,15 @@ class LotteryDigitInputRow extends StatelessWidget {
                 ),
               ),
               onChanged: (_) {
+                if (readOnly) return;
                 if (controllers[index].text.isNotEmpty &&
                     index < controllers.length - 1) {
                   FocusScope.of(context).nextFocus();
                 }
               },
+              onTap: onTap,
               onSubmitted: (_) {
+                if (readOnly) return;
                 if (index == controllers.length - 1) onSubmitted?.call();
               },
             ),

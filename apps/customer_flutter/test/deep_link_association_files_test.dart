@@ -35,6 +35,7 @@ void main() {
     expect(detail['paths'], contains('/line/callback'));
     expect(detail['paths'], contains('/social/*'));
     expect(detail['paths'], contains('/reset-password'));
+    expect(detail['paths'], contains('/checkout/pending'));
   });
 
   test('prettyJson emits parseable JSON with trailing newline', () {

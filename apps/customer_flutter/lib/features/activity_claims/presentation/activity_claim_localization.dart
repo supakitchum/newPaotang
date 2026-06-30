@@ -87,9 +87,10 @@ String localizedActivityClaimPayoutSummary(
   ActivityClaimItem claim,
 ) {
   if (claim.payoutMethod == ActivityClaimPayoutMethod.bankTransfer.apiValue) {
-    final bank = claim.bankName.trim().isEmpty
+    final normalizedBank = _normalizedBankName(context.l10n, claim.bankName);
+    final bank = normalizedBank.isEmpty
         ? context.l10n.activityClaimBankFallback
-        : claim.bankName.trim();
+        : normalizedBank;
     return context.l10n.activityClaimBankSummary(bank);
   }
   return context.l10n.activityClaimWalletSummary(claim.walletName);
@@ -126,4 +127,10 @@ String localizedActivityClaimReviewedOrPaidAt(
     claim.paidAt ?? claim.reviewedAt,
     context.l10n.locale.toLanguageTag(),
   );
+}
+
+String _normalizedBankName(CustomerLocalizations l10n, String value) {
+  final prefix = l10n.activityClaimBankPrefix;
+  if (prefix.isEmpty) return value.trim();
+  return value.replaceFirst(RegExp('^${RegExp.escape(prefix)}'), '').trim();
 }

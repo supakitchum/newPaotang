@@ -39,7 +39,10 @@ enum TopupStatus {
   unknown;
 
   static TopupStatus fromApi(Object? value) {
-    return switch (value?.toString()) {
+    return switch (value?.toString().trim().toLowerCase()) {
+      '1' => TopupStatus.approved,
+      '2' => TopupStatus.pendingReview,
+      '0' => TopupStatus.rejected,
       'pending_payment' || 'processing' => TopupStatus.pendingPayment,
       'pending_review' || 'pending' => TopupStatus.pendingReview,
       'approved' ||
@@ -137,6 +140,12 @@ class TopupRequestItem {
 
   factory TopupRequestItem.fromJson(Map<String, dynamic> json) {
     final payment = asMap(json['payment']);
+    final slip = json['slip'];
+    final slipMap = asMap(slip);
+    final slipUrl = json['slip_url'] ??
+        slipMap['url'] ??
+        slipMap['full_url'] ??
+        (slip is String ? slip : null);
     return TopupRequestItem(
       id: json['id']?.toString() ?? '',
       amount: moneyToDisplayNumber(json['amount']),
@@ -148,8 +157,9 @@ class TopupRequestItem {
       provider: json['provider']?.toString() ?? '',
       transferAt: json['transfer_at'],
       createdAt: json['created_at'],
-      slipUrl: json['slip_url']?.toString() ?? '',
-      slipThumbUrl: json['slip_thumb_url']?.toString() ?? '',
+      slipUrl: slipUrl?.toString() ?? '',
+      slipThumbUrl:
+          (json['slip_thumb_url'] ?? slipMap['thumb_url'])?.toString() ?? '',
       qrCode: (json['qr_code'] ?? payment['qr_code'])?.toString() ?? '',
       redirectUrl:
           (json['redirect_url'] ?? payment['redirect_url'])?.toString() ?? '',

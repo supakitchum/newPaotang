@@ -37,6 +37,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
     return AppShell(
       title: l10n.homeActivities,
       currentPath: '/activities',
+      backPath: '/',
       child: ListView(
         children: [
           CustomerPageBody(
@@ -44,7 +45,7 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (_loading)
-                  const _ActivityLoadingCard()
+                  _ActivityLoadingCard(message: l10n.activitiesLoading)
                 else if (_error.isNotEmpty && _items.isEmpty)
                   _ActivityErrorCard(message: _error, onRetry: _refresh)
                 else ...[
@@ -99,18 +100,23 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
 
     try {
       final auth = ref.read(authControllerProvider);
+      final authenticated = auth.isAuthenticated && !auth.pinRequired;
       final page = await ref.read(activityRepositoryProvider).listPage(
-            authenticated: auth.isAuthenticated && !auth.pinRequired,
+            authenticated: authenticated,
             cursor: reset ? '' : (_meta.nextCursor ?? ''),
           );
       if (!mounted) return;
       setState(() {
+        final pageItems = _sortActivitiesByRights(
+          page.items,
+          authenticated: authenticated,
+        );
         if (reset) {
           _items
             ..clear()
-            ..addAll(page.items);
+            ..addAll(pageItems);
         } else {
-          _items.addAll(page.items);
+          _items.addAll(pageItems);
         }
         _meta = page.meta;
       });
@@ -216,6 +222,7 @@ class _ActivitiesHistoryScreenState
     return AppShell(
       title: l10n.activitiesHistoryTitle,
       currentPath: '/activities',
+      backPath: '/activities',
       child: ListView(
         children: [
           CustomerPageBody(
@@ -229,7 +236,7 @@ class _ActivitiesHistoryScreenState
                 ),
                 const SizedBox(height: 12),
                 if (_loading)
-                  const _ActivityLoadingCard()
+                  _ActivityLoadingCard(message: l10n.activitiesHistoryLoading)
                 else if (_error.isNotEmpty && _items.isEmpty)
                   _ActivityErrorCard(message: _error, onRetry: _refresh)
                 else ...[
@@ -302,20 +309,25 @@ class _ActivitiesHistoryScreenState
 
     try {
       final auth = ref.read(authControllerProvider);
+      final authenticated = auth.isAuthenticated && !auth.pinRequired;
       final page = await ref.read(activityRepositoryProvider).listPage(
-            authenticated: auth.isAuthenticated && !auth.pinRequired,
+            authenticated: authenticated,
             history: true,
             gameId: gameId,
             cursor: reset ? '' : (_meta.nextCursor ?? ''),
           );
       if (!mounted) return;
       setState(() {
+        final pageItems = _sortActivitiesByRights(
+          page.items,
+          authenticated: authenticated,
+        );
         if (reset) {
           _items
             ..clear()
-            ..addAll(page.items);
+            ..addAll(pageItems);
         } else {
-          _items.addAll(page.items);
+          _items.addAll(pageItems);
         }
         _meta = page.meta;
       });
@@ -331,6 +343,31 @@ class _ActivitiesHistoryScreenState
       }
     }
   }
+}
+
+List<ActivityItem> _sortActivitiesByRights(
+  List<ActivityItem> items, {
+  required bool authenticated,
+}) {
+  if (!authenticated) return items;
+
+  final indexed = [
+    for (var index = 0; index < items.length; index++)
+      MapEntry(index, items[index]),
+  ];
+  indexed.sort((first, second) {
+    final firstHasRight = _hasCurrentActivityRight(first.value);
+    final secondHasRight = _hasCurrentActivityRight(second.value);
+    final rightCompare = (secondHasRight ? 1 : 0) - (firstHasRight ? 1 : 0);
+    return rightCompare == 0 ? first.key.compareTo(second.key) : rightCompare;
+  });
+  return indexed.map((entry) => entry.value).toList(growable: false);
+}
+
+bool _hasCurrentActivityRight(ActivityItem activity) {
+  if (activity.isCashback) return activity.hasRight;
+  if (!activity.isLuckyBoard) return activity.hasRight;
+  return !activity.rights.entryClosed && activity.rights.remainingCount > 0;
 }
 
 String _selectedHistoryGameId({
@@ -430,7 +467,9 @@ extension _FirstOrNull<T> on Iterable<T> {
 }
 
 class _ActivityLoadingCard extends StatelessWidget {
-  const _ActivityLoadingCard();
+  const _ActivityLoadingCard({required this.message});
+
+  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -452,7 +491,7 @@ class _ActivityLoadingCard extends StatelessWidget {
             const SizedBox(width: 14),
             Expanded(
               child: Text(
-                context.l10n.commonLoadingData,
+                message,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w700,

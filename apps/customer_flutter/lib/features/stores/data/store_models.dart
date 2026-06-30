@@ -123,11 +123,15 @@ class StoreLotteryPage {
     required this.hasMore,
     required this.gameId,
     required this.sellerName,
+    this.canReserve = true,
   });
 
   factory StoreLotteryPage.fromJson(Map<String, dynamic> json) {
     final payload = unwrapPayload(json);
-    final meta = unwrapMeta(json);
+    final meta = {
+      ...asMap(payload['pagination']),
+      ...unwrapMeta(json),
+    };
     final seller = asMap(payload['seller'] ?? json['seller']);
     return StoreLotteryPage(
       items: unwrapDataList(json).map(StoreLotteryTicket.fromJson).toList(
@@ -140,6 +144,14 @@ class StoreLotteryPage {
       hasMore: meta['has_more'] == true,
       gameId: meta['game_id']?.toString() ?? '',
       sellerName: (seller['name'] ?? meta['seller_name'])?.toString() ?? '',
+      canReserve: _storeLotteryPageCanReserve(
+        payload['can_reserve'] ??
+            payload['can_buy'] ??
+            payload['bet_status'] ??
+            meta['can_reserve'] ??
+            meta['can_buy'] ??
+            meta['bet_status'],
+      ),
     );
   }
 
@@ -148,4 +160,21 @@ class StoreLotteryPage {
   final bool hasMore;
   final String gameId;
   final String sellerName;
+  final bool canReserve;
+}
+
+bool _storeLotteryPageCanReserve(Object? value) {
+  if (value == null) return true;
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  final normalized = value.toString().trim().toLowerCase();
+  if (normalized.isEmpty) return true;
+  return !{
+    '0',
+    'false',
+    'closed',
+    'disabled',
+    'no',
+    'not_allowed',
+  }.contains(normalized);
 }

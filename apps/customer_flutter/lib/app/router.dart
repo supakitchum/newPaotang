@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/auth/auth_controller.dart';
+import '../core/navigation/customer_redirect.dart';
 import '../features/activity_claims/presentation/activity_claim_detail_screen.dart';
 import '../features/activity_claims/presentation/activity_claims_screen.dart';
 import '../features/activities/presentation/activity_detail_screen.dart';
@@ -55,6 +56,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       return customerRedirectPath(
         path: state.uri.path,
+        requestedLocation: state.uri.toString(),
         isAuthenticated: auth.isAuthenticated,
         pinRequired: auth.pinRequired,
         isSecurityLocked: auth.isSecurityLocked,
@@ -134,6 +136,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/buy', builder: (context, state) => const BuyScreen()),
       GoRoute(
+        path: '/search',
+        builder: (context, state) => BuySearchScreen(
+          query: state.uri.queryParameters,
+        ),
+      ),
+      GoRoute(
         path: '/buy/search',
         builder: (context, state) => BuySearchScreen(
           query: state.uri.queryParameters,
@@ -149,6 +157,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/checkout',
         builder: (context, state) => const CheckoutScreen(),
+      ),
+      GoRoute(
+        path: '/checkout/pending',
+        builder: (context, state) => CheckoutPendingPaymentScreen(
+          orderId: state.uri.queryParameters['order_id'] ??
+              state.uri.queryParameters['id'] ??
+              '',
+        ),
       ),
       GoRoute(
         path: '/success',
@@ -175,6 +191,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ticketId: state.uri.queryParameters['id'] ??
               state.uri.queryParameters['ticket_id'] ??
               '',
+          ticketNumber: state.uri.queryParameters['number'] ?? '',
+          orderId: state.uri.queryParameters['order_id'] ?? '',
+          gameId: state.uri.queryParameters['game_id'] ?? '',
           fromHistory: state.uri.queryParameters['from'] == 'history',
         ),
       ),
@@ -189,7 +208,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/my-wallet',
         builder: (context, state) => const WalletScreen(),
       ),
-      GoRoute(path: '/topup', builder: (context, state) => const TopupScreen()),
+      GoRoute(
+        path: '/topup',
+        builder: (context, state) => TopupScreen(
+          backPath: safeTopupBackPath(state.uri.queryParameters['back']),
+        ),
+      ),
       GoRoute(
         path: '/topup/history',
         builder: (context, state) => const TopupHistoryScreen(),
@@ -274,7 +298,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/waiting-result',
-        builder: (context, state) => const WaitingResultScreen(),
+        builder: (context, state) => WaitingResultScreen(
+          showSaleClosedNotice: state.uri.queryParameters['sale_closed'] == '1',
+        ),
       ),
       GoRoute(
         path: '/activities',
@@ -288,6 +314,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/activities/:slug',
         builder: (context, state) => ActivityDetailScreen(
           slug: state.pathParameters['slug'] ?? '',
+          backPath: activityDetailBackPath(
+            from: state.uri.queryParameters['from'] ?? '',
+            gameId: state.uri.queryParameters['game_id'] ?? '',
+          ),
         ),
       ),
       GoRoute(
@@ -336,6 +366,7 @@ bool _isPublicPath(String path) {
 
 String? customerRedirectPath({
   required String path,
+  String? requestedLocation,
   required bool isAuthenticated,
   required bool pinRequired,
   required bool isSecurityLocked,
@@ -352,13 +383,15 @@ String? customerRedirectPath({
     return '/security-lock';
   }
   if (!isAuthenticated && !_isPublicPath(path)) {
-    return '/login';
+    return customerLoginRouteForRedirect(requestedLocation ?? path);
   }
   if (isAuthenticated && _isGuestOnlyPath(path)) {
-    return pinRequired ? '/pin' : _safeGuestRedirect(guestRedirectPath);
+    return pinRequired
+        ? customerPinRouteForRedirect(guestRedirectPath)
+        : safeCustomerRedirect(guestRedirectPath);
   }
   if (isAuthenticated && pinRequired && !_canBypassPin(path)) {
-    return '/pin';
+    return customerPinRouteForRedirect(requestedLocation ?? path);
   }
   return null;
 }
@@ -375,20 +408,4 @@ bool _isGuestOnlyPath(String path) {
       path == '/register' ||
       path == '/forgot-password' ||
       path == '/reset-password';
-}
-
-String _safeGuestRedirect(String? value) {
-  final redirect = value?.trim() ?? '';
-  if (redirect.isEmpty ||
-      !redirect.startsWith('/') ||
-      redirect.startsWith('//')) {
-    return '/';
-  }
-
-  final uri = Uri.tryParse(redirect);
-  if (uri == null || uri.hasScheme || uri.host.isNotEmpty) {
-    return '/';
-  }
-
-  return _isGuestOnlyPath(uri.path) ? '/' : redirect;
 }

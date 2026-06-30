@@ -7,6 +7,7 @@ import 'package:customer_flutter/core/i18n/app_locale.dart';
 import 'package:customer_flutter/core/i18n/customer_locale_controller.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
+import 'package:customer_flutter/core/payment/checkout_payment_config.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_repository.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
@@ -321,14 +322,18 @@ void main() {
     expect(english.ticketsCount(2), '2 ticket(s)');
     expect(thai.ticketClaimStart, 'ขึ้นเงินรางวัล');
     expect(english.ticketClaimStart, 'Claim reward');
+    expect(thai.ticketClaimLoading, 'กำลังโหลดข้อมูลรางวัล...');
+    expect(english.ticketClaimLoading, 'Loading reward information...');
     expect(thai.ticketClaimPayoutMethodTitle, 'ช่องทางขึ้นเงินรางวัล');
     expect(english.ticketClaimPayoutMethodTitle, 'Reward payout channel');
     expect(thai.ticketImagePreparing, 'รูปสลากกำลังเตรียมพร้อม');
     expect(english.ticketImagePreparing, 'Ticket image is being prepared');
-    expect(thai.lotteryBuyTitle, 'ซื้อสลาก');
-    expect(english.lotteryBuyTitle, 'Buy lottery');
+    expect(thai.lotteryBuyTitle, 'ซื้อสลากดิจิทัล');
+    expect(english.lotteryBuyTitle, 'Buy digital lottery');
     expect(thai.lotteryAddedToCart, 'เพิ่มสลากลงตะกร้าแล้ว');
     expect(english.lotteryAddedToCart, 'Ticket added to cart.');
+    expect(thai.cartHeaderCount(2), 'สลากฯ 2 ใบ');
+    expect(english.cartHeaderCount(2), '2 lottery ticket(s)');
     expect(thai.cartSummary(2, '160.00 บาท'), '2 ใบ • 160.00 บาท');
     expect(english.cartSummary(2, '160.00 THB'), '2 ticket(s) • 160.00 THB');
     expect(thai.checkoutConfirm, 'ยืนยันชำระเงิน');
@@ -349,10 +354,22 @@ void main() {
     expect(english.rewardClaimStatusPaid, 'Paid successfully');
     expect(thai.activityClaimsTitle, 'ประวัติขึ้นเงินรางวัลกิจกรรม');
     expect(english.activityClaimsTitle, 'Activity reward claim history');
+    expect(
+      thai.activityClaimsLoading,
+      'กำลังโหลดประวัติขึ้นเงินกิจกรรม...',
+    );
+    expect(
+      english.activityClaimsLoading,
+      'Loading activity reward claim history...',
+    );
     expect(thai.activityClaimRewardCashback, 'เงินคืนกิจกรรม');
     expect(english.activityClaimRewardCashback, 'Activity cashback');
     expect(thai.activityClaimStatusSubmitted, 'รอดำเนินการโอนเงิน');
     expect(english.activityClaimStatusSubmitted, 'Transfer pending');
+    expect(thai.activitiesLoading, 'กำลังโหลดกิจกรรม');
+    expect(english.activitiesLoading, 'Loading activities');
+    expect(thai.activitiesHistoryLoading, 'กำลังโหลดกิจกรรมย้อนหลัง');
+    expect(english.activitiesHistoryLoading, 'Loading past activities');
     expect(thai.purchaseHistoryTitle, 'ประวัติการซื้อสลากฯ');
     expect(english.purchaseHistoryTitle, 'Purchase history');
     expect(thai.purchaseHistoryTicketCount(3), '3 ใบ');
@@ -388,6 +405,65 @@ void main() {
     );
 
     expect(localeTag(bootstrap.locale), 'en-US');
+  });
+
+  test('mobile bootstrap maps checkout payment config with safe fallback', () {
+    final bootstrap = MobileBootstrap.fromJson({
+      'mobile': {
+        'payment': {
+          'checkout_payment_methods': [
+            checkoutPaymentMethodWallet,
+            checkoutPaymentMethodExternalPayment,
+          ],
+          'checkout_payment_method': checkoutPaymentMethodExternalPayment,
+        },
+      },
+    });
+
+    expect(
+      bootstrap.payment.checkoutPaymentMethods,
+      [
+        checkoutPaymentMethodWallet,
+        checkoutPaymentMethodExternalPayment,
+      ],
+    );
+    expect(
+      bootstrap.payment.checkoutPaymentMethod,
+      checkoutPaymentMethodExternalPayment,
+    );
+
+    final defaultOnly = MobileBootstrap.fromJson({
+      'mobile': {
+        'payment': {
+          'checkout_payment_method': checkoutPaymentMethodExternalPayment,
+        },
+      },
+    });
+
+    expect(
+      defaultOnly.payment.checkoutPaymentMethods,
+      [
+        checkoutPaymentMethodExternalPayment,
+        checkoutPaymentMethodWallet,
+      ],
+    );
+    expect(
+      defaultOnly.payment.checkoutPaymentMethod,
+      checkoutPaymentMethodExternalPayment,
+    );
+
+    final invalid = MobileBootstrap.fromJson({
+      'payment': {
+        'checkout_payment_methods': ['cash'],
+        'checkout_payment_method': 'cash',
+      },
+    });
+
+    expect(
+      invalid.payment.checkoutPaymentMethods,
+      [checkoutPaymentMethodWallet],
+    );
+    expect(invalid.payment.checkoutPaymentMethod, checkoutPaymentMethodWallet);
   });
 
   test('api client follows active runtime customer locale', () {
@@ -460,6 +536,10 @@ void main() {
         'display_name': 'Partner Demo',
         'locale': 'th-TH',
       },
+      'mobile': {
+        'lottery_product_label': 'L6',
+        'ticket_image_watermark': 'GLO',
+      },
       'brand': {
         'logo_url': 'https://partner.example/logo.webp',
         'favicon_url': 'https://partner.example/favicon.ico',
@@ -476,6 +556,8 @@ void main() {
     });
 
     expect(bootstrap.brand.logoUrl, 'https://partner.example/logo.webp');
+    expect(bootstrap.lotteryProductLabel, 'L6');
+    expect(bootstrap.ticketImageWatermark, 'GLO');
     expect(bootstrap.brand.faviconUrl, 'https://partner.example/favicon.ico');
     expect(bootstrap.brand.ogImageUrl, 'https://partner.example/og.webp');
     expect(bootstrap.theme.primaryColor, const Color(0xFF123456));

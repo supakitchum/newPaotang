@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_shell.dart';
-import '../../../shared/widgets/async/async_state_view.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../data/activity_claim_models.dart';
 import '../data/activity_claim_repository.dart';
@@ -27,16 +26,26 @@ class ActivityClaimDetailScreen extends ConsumerWidget {
 
     return AppShell(
       title: l10n.activityClaimDetailTitle,
-      currentPath: '/profile',
+      currentPath: '/activity-claims',
+      backPath: '/activity-claims',
       sensitive: true,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           CustomerPageBody(
-            child: AsyncStateView(
-              value: claim,
+            maxWidth: 640,
+            top: 12,
+            mobileHorizontal: 10,
+            wideHorizontal: 10,
+            child: claim.when(
               data: (item) => _ActivityClaimReceipt(claim: item),
-              empty: const _ActivityClaimEmptyDetail(),
+              loading: () => _ActivityClaimDetailState(
+                message: l10n.activityClaimDetailLoading,
+              ),
+              error: (_, __) => _ActivityClaimDetailState(
+                message: l10n.activityClaimDetailLoadFailed,
+                error: true,
+              ),
             ),
           ),
         ],
@@ -54,49 +63,59 @@ class _ActivityClaimReceipt extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusColor = _statusColor(claim);
     final l10n = context.l10n;
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.surface,
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: EdgeInsets.zero,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  backgroundColor:
-                      Theme.of(context).colorScheme.primaryContainer,
-                  child: const Icon(Icons.redeem_outlined),
+                Container(
+                  width: 42,
+                  height: 42,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFDBEAFE)),
+                  ),
+                  child: Icon(
+                    Icons.redeem_outlined,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    l10n.activityClaimRewardTitle,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w900),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.activityClaimRewardTitle,
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: const Color(0xFF111827),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        localizedActivityClaimActivityName(context, claim),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: const Color(0xFF64748B),
+                              fontWeight: FontWeight.w800,
+                              height: 1.35,
+                            ),
+                      ),
+                    ],
                   ),
-                ),
-                _StatusBadge(
-                  label: localizedActivityClaimStatusLabel(context, claim),
-                  color: statusColor,
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            _NoticeBox(
-              text: localizedActivityClaimTransferNote(context, claim),
-              color: statusColor,
-            ),
-            const SizedBox(height: 14),
-            _ClaimAmountHero(
-              amount: formatBaht(claim.amount),
-              label: l10n.activityClaimNetAmountLabel,
-              color: statusColor,
-            ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 13),
             _ReceiptSection(
               rows: [
                 _ReceiptRow(
@@ -112,12 +131,19 @@ class _ActivityClaimReceipt extends StatelessWidget {
                 _ReceiptRow(
                   l10n.activityClaimPayoutMethodLabel,
                   localizedActivityClaimPayoutMethod(context, claim),
+                  highlighted: true,
                 ),
                 _ReceiptRow(
                   l10n.activityClaimStatusLabel,
                   localizedActivityClaimStatusLabel(context, claim),
+                  valueColor: statusColor,
                 ),
               ],
+            ),
+            const SizedBox(height: 13),
+            _NoticeBox(
+              text: localizedActivityClaimTransferNote(context, claim),
+              color: statusColor,
             ),
             const SizedBox(height: 14),
             _ReceiptSection(
@@ -193,16 +219,23 @@ class _ReceiptSection extends StatelessWidget {
 }
 
 class _ReceiptRow extends StatelessWidget {
-  const _ReceiptRow(this.label, this.value, {this.highlighted = false});
+  const _ReceiptRow(
+    this.label,
+    this.value, {
+    this.highlighted = false,
+    this.valueColor,
+  });
 
   final String label;
   final String value;
   final bool highlighted;
+  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
     final valueStyle = TextStyle(
-      color: highlighted ? Theme.of(context).colorScheme.primary : null,
+      color: valueColor ??
+          (highlighted ? Theme.of(context).colorScheme.primary : null),
       fontWeight: FontWeight.w900,
       height: 1.35,
     );
@@ -241,52 +274,6 @@ class _ReceiptRow extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _ClaimAmountHero extends StatelessWidget {
-  const _ClaimAmountHero({
-    required this.amount,
-    required this.label,
-    required this.color,
-  });
-
-  final String amount;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: color.withValues(alpha: 0.10),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w800,
-                  ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              amount,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w900,
-                  ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -361,42 +348,14 @@ class _NoticeBox extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Text(
           text,
+          textAlign: TextAlign.center,
           style: TextStyle(color: color, fontWeight: FontWeight.w800),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: color,
-            fontSize: 12,
-            fontWeight: FontWeight.w900,
-          ),
         ),
       ),
     );
@@ -440,18 +399,26 @@ class _PlainNote extends StatelessWidget {
   }
 }
 
-class _ActivityClaimEmptyDetail extends StatelessWidget {
-  const _ActivityClaimEmptyDetail();
+class _ActivityClaimDetailState extends StatelessWidget {
+  const _ActivityClaimDetailState({required this.message, this.error = false});
+
+  final String message;
+  final bool error;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 54, 14, 24),
+      child: Center(
         child: Text(
-          context.l10n.activityClaimEmptyDetail,
+          message,
           textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: error
+                    ? Theme.of(context).colorScheme.error
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
         ),
       ),
     );
@@ -459,7 +426,7 @@ class _ActivityClaimEmptyDetail extends StatelessWidget {
 }
 
 Color _statusColor(ActivityClaimItem claim) {
-  if (claim.isPaid) return Colors.green.shade700;
-  if (claim.isRejected) return Colors.red.shade700;
-  return Colors.orange.shade800;
+  if (claim.isPaid) return const Color(0xFF28A81E);
+  if (claim.isRejected) return const Color(0xFFED2C25);
+  return const Color(0xFFE29300);
 }

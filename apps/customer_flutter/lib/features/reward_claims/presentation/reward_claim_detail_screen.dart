@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_shell.dart';
-import '../../../shared/widgets/async/async_state_view.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../../../shared/widgets/tenant_brand_header.dart';
 import '../data/reward_claim_models.dart';
 import '../data/reward_claim_repository.dart';
 import 'claim_realtime_monitor.dart';
+import 'reward_claim_error_message.dart';
 import 'reward_claim_localization.dart';
 
 class RewardClaimDetailScreen extends ConsumerWidget {
@@ -28,16 +29,29 @@ class RewardClaimDetailScreen extends ConsumerWidget {
 
     return AppShell(
       title: l10n.rewardClaimDetailTitle,
-      currentPath: '/my-wallet',
+      currentPath: '/reward-claims',
+      backPath: '/reward-claims',
       sensitive: true,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           CustomerPageBody(
-            child: AsyncStateView(
-              value: claim,
+            maxWidth: 640,
+            top: 12,
+            mobileHorizontal: 10,
+            wideHorizontal: 10,
+            child: claim.when(
               data: (item) => _RewardClaimReceipt(claim: item),
-              empty: const _RewardClaimEmptyDetail(),
+              loading: () => _RewardClaimDetailState(
+                message: l10n.rewardClaimDetailLoading,
+              ),
+              error: (error, __) => _RewardClaimDetailState(
+                message: rewardClaimErrorMessage(
+                  error,
+                  l10n.rewardClaimDetailLoadFailed,
+                ),
+                error: true,
+              ),
             ),
           ),
         ],
@@ -46,57 +60,50 @@ class RewardClaimDetailScreen extends ConsumerWidget {
   }
 }
 
-class _RewardClaimReceipt extends StatelessWidget {
+class _RewardClaimReceipt extends ConsumerWidget {
   const _RewardClaimReceipt({required this.claim});
 
   final RewardClaimItem claim;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final statusColor = _statusColor(claim);
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
+    final receiptMark = ref.watch(mobileBootstrapProvider).maybeWhen(
+          data: (data) => data.ticketImageWatermark.trim(),
+          orElse: () => '',
+        );
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.surface,
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: EdgeInsets.zero,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
-                const TenantBrandHeader(
-                  showName: false,
-                  size: 42,
-                  icon: Icons.emoji_events_outlined,
-                ),
+                if (receiptMark.isEmpty)
+                  const TenantBrandHeader(
+                    showName: false,
+                    size: 42,
+                    icon: Icons.emoji_events_outlined,
+                  )
+                else
+                  _ReceiptBrandMark(label: receiptMark),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     context.l10n.ticketLabelGovernmentLottery,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w900),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: const Color(0xFF111827),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
                   ),
-                ),
-                _StatusBadge(
-                  label: rewardClaimStatusLabel(context.l10n, claim),
-                  color: statusColor,
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            _NoticeBox(
-              text: rewardClaimTransferNote(context.l10n, claim),
-              color: statusColor,
-            ),
-            const SizedBox(height: 14),
-            _ClaimAmountHero(
-              amount: formatBaht(claim.prizeAmount),
-              label: context.l10n.ticketLabelNetAmount,
-              color: statusColor,
-            ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 13),
             _ReceiptSection(
               rows: [
                 _ReceiptRow(
@@ -105,19 +112,26 @@ class _RewardClaimReceipt extends StatelessWidget {
                   highlighted: true,
                 ),
                 _ReceiptRow(
-                  context.l10n.ticketLabelPayoutChannel,
+                  context.l10n.rewardClaimPayoutChannelLabel,
                   rewardClaimPayoutChannelText(context.l10n, claim),
                   highlighted: true,
                 ),
                 _ReceiptRow(
                   context.l10n.rewardClaimMethodLabel,
                   context.l10n.rewardClaimManualMethod,
+                  highlighted: true,
                 ),
                 _ReceiptRow(
                   context.l10n.rewardClaimStatusLabel,
                   rewardClaimStatusLabel(context.l10n, claim),
+                  valueColor: statusColor,
                 ),
               ],
+            ),
+            const SizedBox(height: 13),
+            _NoticeBox(
+              text: rewardClaimTransferNote(context.l10n, claim),
+              color: statusColor,
             ),
             const SizedBox(height: 14),
             _ReceiptSection(
@@ -149,6 +163,37 @@ class _RewardClaimReceipt extends StatelessWidget {
   }
 }
 
+class _ReceiptBrandMark extends StatelessWidget {
+  const _ReceiptBrandMark({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minWidth: 42),
+      height: 42,
+      padding: const EdgeInsets.symmetric(horizontal: 9),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: colorScheme.primary,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: colorScheme.onPrimary,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0,
+            ),
+      ),
+    );
+  }
+}
+
 class _ReceiptSection extends StatelessWidget {
   const _ReceiptSection({required this.rows});
 
@@ -171,16 +216,23 @@ class _ReceiptSection extends StatelessWidget {
 }
 
 class _ReceiptRow extends StatelessWidget {
-  const _ReceiptRow(this.label, this.value, {this.highlighted = false});
+  const _ReceiptRow(
+    this.label,
+    this.value, {
+    this.highlighted = false,
+    this.valueColor,
+  });
 
   final String label;
   final String value;
   final bool highlighted;
+  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
     final valueStyle = TextStyle(
-      color: highlighted ? Theme.of(context).colorScheme.primary : null,
+      color: valueColor ??
+          (highlighted ? Theme.of(context).colorScheme.primary : null),
       fontWeight: FontWeight.w900,
       height: 1.35,
     );
@@ -219,52 +271,6 @@ class _ReceiptRow extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _ClaimAmountHero extends StatelessWidget {
-  const _ClaimAmountHero({
-    required this.amount,
-    required this.label,
-    required this.color,
-  });
-
-  final String amount;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: color.withValues(alpha: 0.10),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w800,
-                  ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              amount,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w900,
-                  ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -375,34 +381,12 @@ class _NoticeBox extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         color: color.withValues(alpha: 0.12),
       ),
       child: Text(
         text,
         textAlign: TextAlign.center,
-        style: TextStyle(color: color, fontWeight: FontWeight.w900),
-      ),
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: color.withValues(alpha: 0.12),
-      ),
-      child: Text(
-        label,
         style: TextStyle(color: color, fontWeight: FontWeight.w900),
       ),
     );
@@ -430,23 +414,34 @@ class _AdminNote extends StatelessWidget {
   }
 }
 
-class _RewardClaimEmptyDetail extends StatelessWidget {
-  const _RewardClaimEmptyDetail();
+class _RewardClaimDetailState extends StatelessWidget {
+  const _RewardClaimDetailState({required this.message, this.error = false});
+
+  final String message;
+  final bool error;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: Text(context.l10n.rewardClaimEmptyDetail),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 54, 14, 24),
+      child: Center(
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: error
+                    ? Theme.of(context).colorScheme.error
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
       ),
     );
   }
 }
 
 Color _statusColor(RewardClaimItem claim) {
-  if (claim.isPaid) return Colors.green.shade700;
-  if (claim.isRejected) return Colors.red.shade700;
-  return Colors.orange.shade800;
+  if (claim.isPaid) return const Color(0xFF28A81E);
+  if (claim.isRejected) return const Color(0xFFED2C25);
+  return const Color(0xFFE29300);
 }

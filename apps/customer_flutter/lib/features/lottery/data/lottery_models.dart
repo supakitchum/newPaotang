@@ -8,14 +8,22 @@ class LotteryStockPage {
     required this.hasMore,
     required this.gameId,
     required this.sellerName,
+    this.canReserve = true,
   });
 
   factory LotteryStockPage.fromJson(Object? json) {
     final payload = unwrapPayload(json);
-    final meta = unwrapMeta(json);
+    final meta = {
+      ...asMap(payload['pagination']),
+      ...unwrapMeta(json),
+    };
     final seller = asMap(payload['seller']);
+    final rows = unwrapDataList(json);
+    final items = rows.isNotEmpty
+        ? rows
+        : asMapList(payload['lotteries'] ?? payload['items']);
     return LotteryStockPage(
-      items: unwrapDataList(payload).map(LotteryStockItem.fromJson).toList(
+      items: items.map(LotteryStockItem.fromJson).toList(
             growable: false,
           ),
       nextCursor:
@@ -24,6 +32,14 @@ class LotteryStockPage {
       hasMore: meta['has_more'] == true,
       gameId: meta['game_id']?.toString() ?? '',
       sellerName: (seller['name'] ?? meta['seller_name'])?.toString() ?? '',
+      canReserve: _stockPageCanReserve(
+        payload['can_reserve'] ??
+            payload['can_buy'] ??
+            payload['bet_status'] ??
+            meta['can_reserve'] ??
+            meta['can_buy'] ??
+            meta['bet_status'],
+      ),
     );
   }
 
@@ -32,6 +48,7 @@ class LotteryStockPage {
   final bool hasMore;
   final String gameId;
   final String sellerName;
+  final bool canReserve;
 }
 
 class LotteryStockItem {
@@ -237,6 +254,15 @@ class LotteryCart {
   bool get isEmpty => items.isEmpty;
 }
 
+Map<String, dynamic> checkoutOrderPayload(Object? json) {
+  final payload = unwrapPayload(json);
+  final nestedOrder = asMap(payload['order']);
+  if (nestedOrder.isNotEmpty) return nestedOrder;
+  final nestedCheckoutOrder = asMap(payload['checkout_order']);
+  if (nestedCheckoutOrder.isNotEmpty) return nestedCheckoutOrder;
+  return payload;
+}
+
 class LotteryCheckoutOrder {
   const LotteryCheckoutOrder({
     required this.id,
@@ -251,7 +277,8 @@ class LotteryCheckoutOrder {
   });
 
   factory LotteryCheckoutOrder.fromJson(Object? json) {
-    final payload = unwrapPayload(json);
+    final payload = checkoutOrderPayload(json);
+    final payment = asMap(payload['payment']);
     return LotteryCheckoutOrder(
       id: payload['id']?.toString() ?? '',
       reference: payload['reference']?.toString() ?? '',
@@ -261,7 +288,9 @@ class LotteryCheckoutOrder {
       total: moneyToDisplayNumber(payload['total']),
       ticketCount: int.tryParse(payload['ticket_count']?.toString() ?? '') ??
           asMapList(payload['tickets']).length,
-      redirectUrl: payload['redirect_url']?.toString() ?? '',
+      redirectUrl:
+          (payload['redirect_url'] ?? payment['redirect_url'])?.toString() ??
+              '',
       paidAt: payload['paid_at'],
     );
   }
@@ -275,6 +304,16 @@ class LotteryCheckoutOrder {
   final int ticketCount;
   final String redirectUrl;
   final Object? paidAt;
+
+  Uri? get redirectUri {
+    final uri = Uri.tryParse(redirectUrl.trim());
+    if (uri == null || !uri.hasScheme) return null;
+    final scheme = uri.scheme.toLowerCase();
+    if (scheme == 'javascript' || scheme == 'data' || scheme == 'file') {
+      return null;
+    }
+    return uri;
+  }
 }
 
 String _normalizeLotteryNumber(Object? value) {
@@ -283,4 +322,20 @@ String _normalizeLotteryNumber(Object? value) {
     return digits.substring(digits.length - 6);
   }
   return digits.padLeft(6, '0');
+}
+
+bool _stockPageCanReserve(Object? value) {
+  if (value == null) return true;
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  final normalized = value.toString().trim().toLowerCase();
+  if (normalized.isEmpty) return true;
+  return !{
+    '0',
+    'false',
+    'closed',
+    'disabled',
+    'no',
+    'not_allowed',
+  }.contains(normalized);
 }

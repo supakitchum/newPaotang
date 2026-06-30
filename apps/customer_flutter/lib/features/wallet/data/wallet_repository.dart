@@ -36,11 +36,18 @@ class WalletRepository {
 
   Future<WalletSummary> summary() async {
     final walletList = await wallets();
-    final ledgerEntries = await ledger();
+    var ledgerLoadFailed = false;
+    var ledgerEntries = <WalletLedgerEntry>[];
+    try {
+      ledgerEntries = await ledger();
+    } catch (_) {
+      ledgerLoadFailed = true;
+    }
 
     return WalletSummary(
       wallets: walletList,
       ledger: ledgerEntries,
+      ledgerLoadFailed: ledgerLoadFailed,
     );
   }
 }

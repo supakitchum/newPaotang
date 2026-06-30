@@ -1,8 +1,11 @@
 import 'package:customer_flutter/core/auth/auth_token_store.dart';
+import 'package:customer_flutter/core/auth/auth_controller.dart';
+import 'package:customer_flutter/core/auth/auth_repository.dart';
 import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/app_locale.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
+import 'package:customer_flutter/core/security/biometric_auth_service.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/features/activities/data/activity_models.dart';
 import 'package:customer_flutter/features/activities/data/activity_repository.dart';
@@ -46,6 +49,27 @@ void main() {
     expect(cardRect.right, lessThanOrEqualTo(1060));
   });
 
+  testWidgets('ActivitiesScreen exposes Nuxt-style header back to home', (
+    tester,
+  ) async {
+    await _pumpActivities(tester, _FakeActivityRepository());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('ย้อนกลับ'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Home'), findsOneWidget);
+  });
+
+  testWidgets('ActivitiesScreen uses Nuxt current loading copy', (
+    tester,
+  ) async {
+    await _pumpActivities(tester, _FakeActivityRepository());
+    await tester.pump();
+
+    expect(find.text('กำลังโหลดกิจกรรม'), findsOneWidget);
+  });
+
   testWidgets('ActivitiesScreen keeps compact cards usable on small phones', (
     tester,
   ) async {
@@ -80,14 +104,63 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('ActivitiesHistoryScreen exposes Nuxt-style header back', (
+    tester,
+  ) async {
+    final repository = _FakeActivityRepository();
+
+    await _pumpActivities(
+      tester,
+      repository,
+      initialLocation: '/activities/history',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('กลับไปกิจกรรมงวดปัจจุบัน'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('ย้อนกลับ'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('กิจกรรมทายเลข 2 ตัว'), findsOneWidget);
+    expect(
+      repository.calls.map((call) => call.history),
+      containsAllInOrder([true, false]),
+    );
+  });
+
+  testWidgets('ActivitiesScreen sorts authenticated activity rights first', (
+    tester,
+  ) async {
+    final repository = _FakeActivityRepository(
+      items: [_cashbackWithoutRightFixture, _activityFixtures.first],
+    );
+
+    await _pumpActivities(
+      tester,
+      repository,
+      authController: _authenticatedController(),
+    );
+    await tester.pumpAndSettle();
+
+    expect(repository.calls.single.authenticated, isTrue);
+
+    final luckyTop = tester.getTopLeft(find.text('กิจกรรมทายเลข 2 ตัว')).dy;
+    final cashbackTop = tester.getTopLeft(find.text('คืนเงิน 5%')).dy;
+
+    expect(luckyTop, lessThan(cashbackTop));
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<void> _pumpActivities(
   WidgetTester tester,
-  ActivityRepository repository,
-) {
+  ActivityRepository repository, {
+  AuthController? authController,
+  String initialLocation = '/activities',
+}) {
   final router = GoRouter(
-    initialLocation: '/activities',
+    initialLocation: initialLocation,
     routes: [
       GoRoute(
         path: '/activities',
@@ -135,6 +208,8 @@ Future<void> _pumpActivities(
         ),
         authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
         activityRepositoryProvider.overrideWithValue(repository),
+        if (authController != null)
+          authControllerProvider.overrideWith((_) => authController),
       ],
       child: MaterialApp.router(
         locale: fallbackCustomerLocale,
@@ -153,9 +228,12 @@ Future<void> _pumpActivities(
 }
 
 class _FakeActivityRepository extends ActivityRepository {
-  _FakeActivityRepository() : super(_testApiClient(), (value) => value);
+  _FakeActivityRepository({List<ActivityItem>? items})
+      : _items = items ?? _activityFixtures,
+        super(_testApiClient(), (value) => value);
 
   final calls = <_ActivityCall>[];
+  final List<ActivityItem> _items;
 
   @override
   Future<ActivityListPage> listPage({
@@ -173,7 +251,7 @@ class _FakeActivityRepository extends ActivityRepository {
       ),
     );
     return ActivityListPage(
-      items: _activityFixtures,
+      items: _items,
       meta: const ActivityListMeta(
         hasHistory: true,
         hasMore: false,
@@ -186,6 +264,18 @@ class _FakeActivityRepository extends ActivityRepository {
       ),
     );
   }
+}
+
+AuthController _authenticatedController() {
+  final tokenStore = AuthTokenStore();
+  final api = _testApiClient(tokenStore);
+  return AuthController(
+    authRepository: AuthRepository(api: api, tokenStore: tokenStore),
+    tokenStore: tokenStore,
+    biometricAuth: BiometricAuthService(api),
+  )
+    ..isAuthenticated = true
+    ..pinRequired = false;
 }
 
 class _ActivityCall {
@@ -256,13 +346,35 @@ final _activityFixtures = [
   ),
 ];
 
-ApiClient _testApiClient() {
+const _cashbackWithoutRightFixture = ActivityItem(
+  id: 'act_cashback_no_right',
+  name: 'คืนเงิน 5%',
+  slug: 'cashback-5',
+  type: 'cashback',
+  imageUrl: '',
+  conditionText: 'ซื้อครบ 50 ใบ รับเงินคืน 5%',
+  remainingNumbers: 0,
+  hasRight: false,
+  estimatedCashbackAmount: 0,
+  cashbackProgress: ActivityCashbackProgress(
+    ticketCount: 12,
+    purchaseAmount: 960,
+    minimumType: 'tickets',
+    minTicketCount: 50,
+    minPurchaseAmount: 0,
+    isEligible: false,
+    estimatedAmount: 0,
+    potentialAmount: 0,
+  ),
+);
+
+ApiClient _testApiClient([AuthTokenStore? tokenStore]) {
   return ApiClient(
     const AppConfig(
       apiBaseUrl: 'https://partner.example.test/api/v1',
       defaultLocale: 'th-TH',
     ),
-    AuthTokenStore(),
+    tokenStore ?? AuthTokenStore(),
     localeTag: 'th-TH',
   );
 }

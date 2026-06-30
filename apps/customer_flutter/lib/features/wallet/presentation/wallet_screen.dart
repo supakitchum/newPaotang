@@ -27,6 +27,7 @@ class WalletScreen extends ConsumerWidget {
     return AppShell(
       title: l10n.walletTitle,
       currentPath: '/my-wallet',
+      backPath: '/profile',
       sensitive: true,
       child: RefreshIndicator(
         onRefresh: refreshWallet,
@@ -61,20 +62,61 @@ class WalletScreen extends ConsumerWidget {
                   AsyncStateView(
                     value: summary,
                     data: (data) {
+                      if (data.ledgerLoadFailed) {
+                        return _WalletLedgerLoadFailed(onRetry: refreshWallet);
+                      }
                       if (data.ledger.isEmpty) {
                         return const _WalletEmptyLedger();
                       }
-                      return Column(
-                        children: [
-                          for (final entry in data.ledger)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: _WalletLedgerTile(entry: entry),
-                            ),
-                        ],
-                      );
+                      return _WalletLedgerList(entries: data.ledger);
                     },
                     empty: const _WalletEmptyLedger(),
+                    loadingText: l10n.walletLedgerLoading,
+                    errorText: l10n.walletLedgerLoadFailed,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WalletLedgerLoadFailed extends StatelessWidget {
+  const _WalletLedgerLoadFailed({required this.onRetry});
+
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.error_outline, color: colorScheme.error),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.walletLedgerLoadFailed,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: colorScheme.error,
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => onRetry(),
+                    icon: const Icon(Icons.refresh),
+                    label: Text(l10n.commonRetry),
                   ),
                 ],
               ),
@@ -99,17 +141,33 @@ class _WalletLedgerHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: Text(
-            l10n.walletRecentLedger,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.walletRecentLedger,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: const Color(0xFF17335F),
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                l10n.walletRecentLedgerSubtitle,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                      height: 1.3,
+                    ),
+              ),
+            ],
           ),
         ),
-        IconButton(
+        const SizedBox(width: 12),
+        IconButton.filledTonal(
           tooltip: l10n.walletRefreshTooltip,
           onPressed: loading ? null : () => onRefresh(),
           icon: const Icon(Icons.refresh),
@@ -125,10 +183,77 @@ class _WalletEmptyLedger extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: ListTile(
-        leading: const CircleAvatar(child: Icon(Icons.receipt_long_outlined)),
-        title: Text(context.l10n.walletEmptyLedgerTitle),
-        subtitle: Text(context.l10n.walletEmptyLedgerSubtitle),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 260),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  Icons.receipt_long_outlined,
+                  size: 32,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                context.l10n.walletEmptyLedgerTitle,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: const Color(0xFF17335F),
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                context.l10n.walletEmptyLedgerSubtitle,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      height: 1.45,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WalletLedgerList extends StatelessWidget {
+  const _WalletLedgerList({required this.entries});
+
+  final List<WalletLedgerEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      margin: EdgeInsets.zero,
+      child: Column(
+        children: [
+          for (var index = 0; index < entries.length; index++) ...[
+            _WalletLedgerTile(entry: entries[index]),
+            if (index < entries.length - 1)
+              Divider(
+                height: 1,
+                indent: 64,
+                color: Theme.of(context)
+                    .colorScheme
+                    .outlineVariant
+                    .withValues(alpha: 0.72),
+              ),
+          ],
+        ],
       ),
     );
   }
@@ -173,84 +298,123 @@ class _WalletLedgerTile extends StatelessWidget {
             ? Colors.red.shade700
             : Theme.of(context).colorScheme.onSurfaceVariant;
 
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              backgroundColor: color.withValues(alpha: 0.12),
-              child: Icon(
-                entry.isCredit ? Icons.arrow_downward : Icons.arrow_upward,
-                color: color,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 360;
+        final amount = _WalletLedgerAmount(entry: entry, color: color);
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 19,
+                backgroundColor: color.withValues(alpha: 0.12),
+                child: Icon(_entryIcon(entry), color: color, size: 20),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    walletLedgerTitle(context.l10n, entry),
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    walletLedgerSubtitle(context.l10n, entry),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    walletLedgerDate(context.l10n, entry),
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      formatSignedBaht(entry.amount),
-                      style: TextStyle(
-                        color: color,
-                        fontWeight: FontWeight.w900,
-                      ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      walletLedgerTitle(context.l10n, entry),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: const Color(0xFF17335F),
+                            fontWeight: FontWeight.w900,
+                          ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    context.l10n.walletBalanceAfter(
-                      formatBaht(entry.balanceAfter),
+                    const SizedBox(height: 4),
+                    Text(
+                      walletLedgerSubtitle(context.l10n, entry),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                          ),
                     ),
-                    textAlign: TextAlign.right,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      walletLedgerDate(context.l10n, entry),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Theme.of(context).colorScheme.outline,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    if (compact) ...[
+                      const SizedBox(height: 6),
+                      amount,
+                    ],
+                  ],
+                ),
               ),
+              if (!compact) ...[
+                const SizedBox(width: 10),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 132),
+                  child: amount,
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  IconData _entryIcon(WalletLedgerEntry entry) {
+    if (entry.isCredit) return Icons.arrow_downward;
+    if (entry.isDebit) return Icons.arrow_upward;
+    return Icons.account_balance_wallet_outlined;
+  }
+}
+
+class _WalletLedgerAmount extends StatelessWidget {
+  const _WalletLedgerAmount({
+    required this.entry,
+    required this.color,
+  });
+
+  final WalletLedgerEntry entry;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerRight,
+          child: Text(
+            formatSignedBaht(entry.amount),
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w900,
             ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(height: 4),
+        Text(
+          context.l10n.walletBalanceAfter(
+            formatBaht(entry.balanceAfter),
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.right,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+      ],
     );
   }
 }

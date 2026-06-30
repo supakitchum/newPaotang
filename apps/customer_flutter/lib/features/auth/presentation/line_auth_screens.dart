@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/auth/auth_controller.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_redirect.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../../shared/widgets/tenant_brand_header.dart';
 import '../../affiliate/data/affiliate_referral_repository.dart';
@@ -117,6 +118,7 @@ class _LineCallbackScreenState extends ConsumerState<LineCallbackScreen> {
       }
 
       if (result.lineLinkRequired && result.linkToken.isNotEmpty) {
+        final redirect = safeCustomerRedirect(widget.query['redirect']);
         context.go(
           Uri(
             path: '/social/${result.provider}/link-phone',
@@ -124,7 +126,7 @@ class _LineCallbackScreenState extends ConsumerState<LineCallbackScreen> {
               'token': result.linkToken,
               'name': result.displayName,
               'picture_url': result.pictureUrl,
-              'redirect': '/',
+              'redirect': redirect,
             },
           ).toString(),
         );
@@ -135,7 +137,12 @@ class _LineCallbackScreenState extends ConsumerState<LineCallbackScreen> {
         ref.read(authControllerProvider).applySession(result.session!);
         await ref.read(affiliateReferralServiceProvider).applyStored();
         if (!mounted) return;
-        context.go(result.session!.pinRequired ? '/pin' : '/');
+        final redirect = safeCustomerRedirect(widget.query['redirect']);
+        context.go(
+          result.session!.pinRequired
+              ? customerPinRouteForRedirect(redirect)
+              : redirect,
+        );
         return;
       }
 
@@ -232,8 +239,13 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
                           Align(
                             alignment: Alignment.centerLeft,
                             child: IconButton.filledTonal(
-                              onPressed:
-                                  _saving ? null : () => context.go('/login'),
+                              onPressed: _saving
+                                  ? null
+                                  : () => context.go(
+                                        customerLoginRouteForRedirect(
+                                          widget.redirect,
+                                        ),
+                                      ),
                               icon: const Icon(Icons.arrow_back_ios_new),
                             ),
                           ),
@@ -389,8 +401,10 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
       ref.read(authControllerProvider).applySession(session);
       await ref.read(affiliateReferralServiceProvider).applyStored();
       if (!mounted) return;
-      final redirect = _safeRedirect(widget.redirect);
-      context.go(session.pinRequired ? '/pin' : redirect);
+      final redirect = safeCustomerRedirect(widget.redirect);
+      context.go(
+        session.pinRequired ? customerPinRouteForRedirect(redirect) : redirect,
+      );
     } catch (error) {
       if (!mounted) return;
       final redirect = ApiErrorInfo.fromObject(error).operationalRedirectPath;
@@ -402,10 +416,6 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
-  }
-
-  String _safeRedirect(String value) {
-    return value.startsWith('/') && !value.startsWith('//') ? value : '/';
   }
 
   String? _errorMessage(Object error) {

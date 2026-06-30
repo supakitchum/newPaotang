@@ -391,9 +391,19 @@ class CustomerLocalizations {
   String get countdownMinute => _text('countdown.unit.minute');
   String get countdownSecond => _text('countdown.unit.second');
   String get successTitle => _text('success.title');
+  String get successLotteryProductLabel =>
+      _text('success.lottery_product_label');
   String get successPurchaseTitle => _text('success.purchase_title');
   String get successPurchaseSubtitle => _text('success.purchase_subtitle');
   String get successViewTickets => _text('success.view_tickets');
+  String get successSaveReceipt => _text('success.save_receipt');
+  String get successReceiptSaved => _text('success.receipt_saved');
+  String get successShareReceipt => _text('success.share_receipt');
+  String get successReceiptShareStarted =>
+      _text('success.receipt_share_started');
+  String get successReceiptShareFailedCopied =>
+      _text('success.receipt_share_failed_copied');
+  String get successPaymentLoading => _text('success.payment_loading');
   String get successPaymentLoadFailed => _text('success.payment_load_failed');
   String get successTransactionAtLabel => _text('success.transaction_at_label');
   String get newsTitle => _text('news.title');
@@ -470,25 +480,45 @@ class CustomerLocalizations {
   }
 
   String get lotteryBuyTitle => _text('lottery.buy.title');
+  String get lotteryAllTab => _text('lottery.tabs.all');
+  String get lotteryStoresTab => _text('lottery.tabs.stores');
   String get lotteryCartTooltip => _text('lottery.cart.tooltip');
   String get lotterySearchHeroTitle => _text('lottery.search.hero_title');
   String get lotterySearchHeroSubtitle => _text('lottery.search.hero_subtitle');
   String get lotterySearchButton => _text('lottery.search.button');
+  String get lotterySearchLoading => _text('lottery.search.loading');
   String get lotteryClearButton => _text('lottery.search.clear');
   String get lotteryStockTitle => _text('lottery.stock.title');
   String get lotteryStockSubtitle => _text('lottery.stock.subtitle');
+  String get lotteryFilterAll => _text('lottery.filter.all');
+  String get lotteryFilterDiscount => _text('lottery.filter.discount');
+  String get lotteryFilterAccessibleStore =>
+      _text('lottery.filter.accessible_store');
+  String get lotteryFilterAgencyStore => _text('lottery.filter.agency_store');
   String get lotterySearchPageTitle => _text('lottery.search.page_title');
   String get lotterySearchCardTitle => _text('lottery.search.card_title');
+  String get lotterySearchStoreCardTitle =>
+      _text('lottery.search.store_card_title');
   String get lotteryNumberLabel => _text('lottery.search.number_label');
   String get lotterySearchAgain => _text('lottery.search.again');
   String get lotterySearchResultsTitle => _text('lottery.search.results_title');
   String get lotterySearchResultsSubtitle =>
       _text('lottery.search.results_subtitle');
   String get lotteryMoreTitle => _text('lottery.more.title');
+  String get lotteryMoreSheetTitle => _text('lottery.more.sheet_title');
+  String get lotteryMoreNumberPrefix => _text('lottery.more.number_prefix');
   String get lotteryMoreFallback => _text('lottery.more.fallback');
   String get lotteryMoreSubtitle => _text('lottery.more.subtitle');
   String get lotteryMoreListTitle => _text('lottery.more.list_title');
   String get lotteryShowNew => _text('lottery.stock.show_new');
+  String get lotteryLoadingNew => _text('lottery.stock.loading_new');
+  String lotteryRefreshCooldown(int seconds) {
+    return _text('lottery.stock.refresh_cooldown').replaceAll(
+      '{seconds}',
+      seconds.toString(),
+    );
+  }
+
   String get lotteryLoadFailed => _text('lottery.stock.load_failed');
   String get lotteryNotFoundTitle => _text('lottery.stock.not_found.title');
   String get lotteryNotFoundMessage => _text('lottery.stock.not_found.message');
@@ -496,25 +526,69 @@ class CustomerLocalizations {
   String get lotteryRemovedFromCart => _text('lottery.stock.removed_from_cart');
   String get lotteryCartAction => _text('lottery.stock.cart_action');
   String get lotteryActionFailed => _text('lottery.stock.action_failed');
+  String get lotteryReservationUnavailableTitle =>
+      _text('lottery.stock.reservation_unavailable.title');
+  String get lotteryReservationUnavailableMessage =>
+      _text('lottery.stock.reservation_unavailable.message');
+  String get lotteryReservationUnavailableAction =>
+      _text('lottery.stock.reservation_unavailable.action');
   String get lotteryViewMore => _text('lottery.stock.view_more');
   String get lotterySelect => _text('lottery.stock.select');
+  String get lotterySaleClosedTitle => _text('lottery.stock.sale_closed.title');
+  String get lotterySaleClosedMessage =>
+      _text('lottery.stock.sale_closed.message');
+  String get lotterySaleClosedAction =>
+      _text('lottery.stock.sale_closed.action');
   String get lotteryRemove => _text('lottery.stock.remove');
 
   String get cartTitle => _text('cart.title');
   String get cartReservedTitle => _text('cart.reserved_title');
   String get cartEmptySubtitle => _text('cart.empty_subtitle');
+  String cartHeaderCount(int count) {
+    return _text('cart.header_count').replaceAll('{count}', count.toString());
+  }
+
   String cartSummary(int count, String total) {
     return _text('cart.summary')
         .replaceAll('{count}', count.toString())
         .replaceAll('{total}', total);
   }
 
+  String cartDrawDate(String date) {
+    return _text('cart.draw_date').replaceAll('{date}', date);
+  }
+
   String get cartLoadFailedTitle => _text('cart.load_failed_title');
+  String get cartLoading => _text('cart.loading');
   String get cartEmptyTitle => _text('cart.empty_title');
   String get cartEmptyMessage => _text('cart.empty_message');
   String get cartFindTickets => _text('cart.find_tickets');
+  String get cartSelectionTitle => _text('cart.selection.title');
+  String get cartSelectionCountLabel => _text('cart.selection.count_label');
+  String get cartSelectionReview => _text('cart.selection.review');
+  String get cartPurchaseLimitMessage => _text('cart.purchase_limit_message');
+  String get cartAddMoreTickets => _text('cart.add_more_tickets');
   String get cartCheckout => _text('cart.checkout');
   String get cartGenericRetry => _text('cart.generic_retry');
+  String cartRemoveGroupTitle(String number, int count) {
+    final key = count > 1
+        ? 'cart.remove_group_title.multiple'
+        : 'cart.remove_group_title.single';
+    return _text(key)
+        .replaceAll('{number}', number)
+        .replaceAll('{count}', count.toString());
+  }
+
+  String cartRemoveGroupMessage(int count) {
+    return _text(
+      count > 1
+          ? 'cart.remove_group_message.multiple'
+          : 'cart.remove_group_message.single',
+    );
+  }
+
+  String get cartRemoveGroupConfirm => _text('cart.remove_group_confirm');
+  String get cartRemoveGroupRemoving => _text('cart.remove_group_removing');
   String cartReservationTitle(int count) {
     return _text('cart.reservation_title').replaceAll(
       '{count}',
@@ -531,17 +605,64 @@ class CustomerLocalizations {
   }
 
   String get cartExpired => _text('cart.expired');
+  String get cartExpiredReleaseMessage => _text('cart.expired_release_message');
 
   String get checkoutTitle => _text('checkout.title');
   String get checkoutSummaryTitle => _text('checkout.summary_title');
   String get checkoutTicketCount => _text('checkout.ticket_count');
+  String get checkoutSummaryTotal => _text('checkout.summary_total');
   String get checkoutTotal => _text('checkout.total');
   String get checkoutWalletBalance => _text('checkout.wallet_balance');
+  String get checkoutPaymentMethodTitle =>
+      _text('checkout.payment_method_title');
+  String get checkoutWalletFallbackName =>
+      _text('checkout.wallet_fallback_name');
+  String get checkoutWalletPaymentNote => _text('checkout.wallet_payment_note');
+  String get checkoutWalletLoading => _text('checkout.wallet_loading');
+  String get checkoutWalletLoadFailed => _text('checkout.wallet_load_failed');
+  String get checkoutExternalPaymentName =>
+      _text('checkout.external_payment.name');
+  String get checkoutExternalPaymentSubtitle =>
+      _text('checkout.external_payment.subtitle');
+  String get checkoutExternalPaymentNote =>
+      _text('checkout.external_payment.note');
+  String get checkoutOpenPaymentFailed => _text('checkout.open_payment_failed');
+  String get checkoutPendingTitle => _text('checkout.pending.title');
+  String get checkoutPendingLoading => _text('checkout.pending.loading');
+  String get checkoutPendingMessage => _text('checkout.pending.message');
+  String get checkoutPendingPaidTitle => _text('checkout.pending.paid_title');
+  String get checkoutPendingPaidMessage =>
+      _text('checkout.pending.paid_message');
+  String get checkoutPendingNoOrderTitle =>
+      _text('checkout.pending.no_order_title');
+  String get checkoutPendingNoOrderMessage =>
+      _text('checkout.pending.no_order_message');
+  String get checkoutPendingReferenceLabel =>
+      _text('checkout.pending.reference_label');
+  String get checkoutPendingStatusLabel =>
+      _text('checkout.pending.status_label');
+  String get checkoutPendingAmountLabel =>
+      _text('checkout.pending.amount_label');
+  String get checkoutPendingOpenPayment =>
+      _text('checkout.pending.open_payment');
+  String get checkoutPendingRefresh => _text('checkout.pending.refresh');
+  String get checkoutPendingViewReceipt =>
+      _text('checkout.pending.view_receipt');
+  String get checkoutPendingStatusPending =>
+      _text('checkout.pending.status.pending');
+  String get checkoutPendingStatusPaid => _text('checkout.pending.status.paid');
+  String get checkoutPendingStatusFailed =>
+      _text('checkout.pending.status.failed');
+  String get checkoutPendingStatusExpired =>
+      _text('checkout.pending.status.expired');
+  String get checkoutPendingStatusUnknown =>
+      _text('checkout.pending.status.unknown');
   String checkoutPaymentTimer(String time) {
     return _text('checkout.payment_timer').replaceAll('{time}', time);
   }
 
   String get checkoutLoadFailedTitle => _text('checkout.load_failed_title');
+  String get checkoutPreparing => _text('checkout.preparing');
   String get checkoutNoPaymentTitle => _text('checkout.no_payment_title');
   String get checkoutNoPaymentMessage => _text('checkout.no_payment_message');
   String get checkoutBackToBuy => _text('checkout.back_to_buy');
@@ -821,7 +942,11 @@ class CustomerLocalizations {
 
   String get walletTitle => _text('wallet.title');
   String get walletRecentLedger => _text('wallet.recent_ledger');
+  String get walletRecentLedgerSubtitle =>
+      _text('wallet.recent_ledger.subtitle');
   String get walletRefreshTooltip => _text('wallet.refresh_tooltip');
+  String get walletLedgerLoading => _text('wallet.ledger.loading');
+  String get walletLedgerLoadFailed => _text('wallet.ledger.load_failed');
   String get walletEmptyLedgerTitle => _text('wallet.empty_ledger.title');
   String get walletEmptyLedgerSubtitle => _text('wallet.empty_ledger.subtitle');
   String walletBalanceAfter(String amount) {
@@ -852,6 +977,15 @@ class CustomerLocalizations {
   String get topupHeaderSubtitle => _text('topup.header.subtitle');
   String get topupHistoryTooltip => _text('topup.history_tooltip');
   String get topupWaitingTitle => _text('topup.waiting.title');
+  String get topupWaitingAmountLabel => _text('topup.waiting.amount_label');
+  String get topupWaitingQrTitle => _text('topup.waiting.qr_title');
+  String get topupWaitingSlipTitle => _text('topup.waiting.slip_title');
+  String get topupWaitingSlipPending => _text('topup.waiting.slip_pending');
+  String get topupWaitingSlipSent => _text('topup.waiting.slip_sent');
+  String get topupWaitingSlipPendingDescription =>
+      _text('topup.waiting.slip_pending_description');
+  String get topupWaitingSlipSentDescription =>
+      _text('topup.waiting.slip_sent_description');
   String topupReference(String reference) {
     return _text('topup.reference').replaceAll('{reference}', reference);
   }
@@ -863,12 +997,41 @@ class CustomerLocalizations {
   String get topupUploadSlip => _text('topup.upload_slip');
   String get topupUploadNewSlip => _text('topup.upload_new_slip');
   String get topupCancelWaiting => _text('topup.cancel_waiting');
+  String get topupCancelConfirmTitle => _text('topup.cancel_confirm.title');
+  String topupCancelConfirmMessage(String reference) {
+    return _text('topup.cancel_confirm.message').replaceAll(
+      '{reference}',
+      reference,
+    );
+  }
+
+  String get topupCancelConfirmAmountLabel =>
+      _text('topup.cancel_confirm.amount_label');
+  String get topupCancelConfirmKeep => _text('topup.cancel_confirm.keep');
+  String get topupCancelConfirmConfirm => _text('topup.cancel_confirm.confirm');
   String get topupChooseChannel => _text('topup.choose_channel');
+  String get topupBlockingWaitingTitle => _text('topup.blocking_waiting.title');
+  String get topupBlockingWaitingMessage =>
+      _text('topup.blocking_waiting.message');
   String get topupAmountLabel => _text('topup.amount_label');
   String get topupBahtSuffix => _text('topup.baht_suffix');
   String get topupCreateQr => _text('topup.submit.qr');
   String get topupCreateCreditQr => _text('topup.submit.credit_qr');
   String get topupCreateBankTransfer => _text('topup.submit.bank_transfer');
+  String get topupBankSlipTitle => _text('topup.bank_slip.title');
+  String get topupBankSlipDescription => _text('topup.bank_slip.description');
+  String get topupBankSlipAttach => _text('topup.bank_slip.attach');
+  String get topupBankSlipChange => _text('topup.bank_slip.change');
+  String get topupBankSlipRemove => _text('topup.bank_slip.remove');
+  String get topupBankSlipFileLabel => _text('topup.bank_slip.file_label');
+  String get topupBankSlipTransferAt => _text('topup.bank_slip.transfer_at');
+  String get topupBankSlipTransferAtUnset =>
+      _text('topup.bank_slip.transfer_at_unset');
+  String get topupBankSlipRequired => _text('topup.bank_slip.required');
+  String get topupBankTransferSubmitted =>
+      _text('topup.bank_transfer_submitted');
+  String get topupDeferredSlipQr => _text('topup.deferred_slip.qr');
+  String get topupDeferredSlipCredit => _text('topup.deferred_slip.credit');
   String get topupChannelQrLabel => _text('topup.channel.qr.label');
   String get topupChannelQrDescription => _text('topup.channel.qr.description');
   String get topupChannelCreditLabel => _text('topup.channel.credit.label');
@@ -896,6 +1059,8 @@ class CustomerLocalizations {
   String get topupSlipUploaded => _text('topup.slip_uploaded');
   String get topupSlipUploadFailed => _text('topup.slip_upload_failed');
   String get topupHistoryTitle => _text('topup.history.title');
+  String get topupHistoryLoading => _text('topup.history.loading');
+  String get topupHistoryLoadFailed => _text('topup.history.load_failed');
   String get topupHistoryHeaderTitle => _text('topup.history.header.title');
   String get topupHistoryHeaderSubtitle =>
       _text('topup.history.header.subtitle');
@@ -921,6 +1086,7 @@ class CustomerLocalizations {
   String get rewardClaimsTicketsTooltip =>
       _text('reward_claims.tickets_tooltip');
   String get rewardClaimsPrizeTitle => _text('reward_claims.prize_title');
+  String get rewardClaimsLoading => _text('reward_claims.loading');
   String get rewardClaimsLoadFailed => _text('reward_claims.load_failed');
   String get rewardClaimsLoadMoreFailed =>
       _text('reward_claims.load_more_failed');
@@ -931,9 +1097,14 @@ class CustomerLocalizations {
   String get rewardClaimsViewWinningTickets =>
       _text('reward_claims.view_winning_tickets');
   String get rewardClaimDetailTitle => _text('reward_claims.detail.title');
+  String get rewardClaimDetailLoading => _text('reward_claims.detail.loading');
+  String get rewardClaimDetailLoadFailed =>
+      _text('reward_claims.detail.load_failed');
   String get rewardClaimMethodLabel => _text('reward_claims.detail.method');
   String get rewardClaimManualMethod =>
       _text('reward_claims.detail.manual_method');
+  String get rewardClaimPayoutChannelLabel =>
+      _text('reward_claims.detail.payout_channel');
   String get rewardClaimStatusLabel => _text('reward_claims.detail.status');
   String get rewardClaimDrawDateLabel =>
       _text('reward_claims.detail.draw_date');
@@ -1009,6 +1180,7 @@ class CustomerLocalizations {
   String get activityClaimsActivitiesTooltip =>
       _text('activity_claims.activities_tooltip');
   String get activityClaimsPrizeTitle => _text('activity_claims.prize_title');
+  String get activityClaimsLoading => _text('activity_claims.loading');
   String get activityClaimsLoadFailed => _text('activity_claims.load_failed');
   String get activityClaimsLoadMoreFailed =>
       _text('activity_claims.load_more_failed');
@@ -1018,6 +1190,10 @@ class CustomerLocalizations {
   String get activityClaimsViewActivities =>
       _text('activity_claims.view_activities');
   String get activityClaimDetailTitle => _text('activity_claims.detail.title');
+  String get activityClaimDetailLoading =>
+      _text('activity_claims.detail.loading');
+  String get activityClaimDetailLoadFailed =>
+      _text('activity_claims.detail.load_failed');
   String get activityClaimRewardTitle =>
       _text('activity_claims.detail.reward_title');
   String get activityClaimActivityFallback =>
@@ -1053,6 +1229,8 @@ class CustomerLocalizations {
       _text('activity_claims.payout.wallet_credit');
   String get activityClaimBankFallback =>
       _text('activity_claims.payout.bank_fallback');
+  String get activityClaimBankPrefix =>
+      _text('activity_claims.payout.bank_prefix');
   String activityClaimBankSummary(String bankName) {
     return _text('activity_claims.payout.bank_summary').replaceAll(
       '{bank}',
@@ -1105,6 +1283,8 @@ class CustomerLocalizations {
       _text('activities.history_select_label');
   String get activitiesHistoryNoGames => _text('activities.history_no_games');
   String get activitiesBackToCurrent => _text('activities.back_to_current');
+  String get activitiesLoading => _text('activities.loading');
+  String get activitiesHistoryLoading => _text('activities.history_loading');
   String get activitiesLoadFailed => _text('activities.load_failed');
   String get activitiesEmptyTitle => _text('activities.empty.title');
   String get activitiesEmptyMessage => _text('activities.empty.message');
@@ -1175,8 +1355,12 @@ class CustomerLocalizations {
   }
 
   String get activityDetailTitle => _text('activity_detail.title');
+  String get activityDetailLoading => _text('activity_detail.loading');
+  String get activityDetailLoadFailed => _text('activity_detail.load_failed');
   String get activityDetailHasRight => _text('activity_detail.has_right');
   String get activityDetailEntryClosed => _text('activity_detail.entry_closed');
+  String get activityConfirmNumberEyebrow =>
+      _text('activity_detail.confirm_number.eyebrow');
   String get activityConfirmNumberTitle =>
       _text('activity_detail.confirm_number.title');
   String activityConfirmNumberMessage(String number, String prediction) {
@@ -1185,6 +1369,8 @@ class CustomerLocalizations {
         .replaceAll('{prediction}', prediction);
   }
 
+  String get activityConfirmNumberSubmit =>
+      _text('activity_detail.confirm_number.submit');
   String get activitySubmitEntrySuccess =>
       _text('activity_detail.entry.submit_success');
   String get activitySubmitEntryClosed => _text('activity_detail.entry.closed');
@@ -1264,17 +1450,36 @@ class CustomerLocalizations {
     );
   }
 
+  String activityNumberBoardSummary(
+    String range,
+    String remaining,
+    String total,
+  ) {
+    return _text('activity_detail.board.summary')
+        .replaceAll('{range}', range)
+        .replaceAll('{remaining}', remaining)
+        .replaceAll('{total}', total);
+  }
+
   String get activityNumberBoardCanSelect =>
       _text('activity_detail.board.can_select');
   String get activityNumberBoardClosed => _text('activity_detail.board.closed');
   String get activityNumberBoardNoRights =>
       _text('activity_detail.board.no_rights');
+  String get activityNumberBoardReservedHint =>
+      _text('activity_detail.board.reserved_hint');
+  String get activityNumberBoardEntryClosedHint =>
+      _text('activity_detail.board.entry_closed_hint');
   String get activityLoginToJoinTitle =>
       _text('activity_detail.login_to_join.title');
   String get activityLoginToJoinButton =>
       _text('activity_detail.login_to_join.button');
   String get activityClaimSheetTitle =>
       _text('activity_detail.claim_sheet.title');
+  String get activityClaimSheetEyebrow =>
+      _text('activity_detail.claim_sheet.eyebrow');
+  String get activityClaimAvailableAmount =>
+      _text('activity_detail.claim_sheet.available_amount');
   String get activityClaimWalletTitle =>
       _text('activity_detail.claim_sheet.wallet.title');
   String get activityClaimWalletSubtitle =>
@@ -1287,6 +1492,17 @@ class CustomerLocalizations {
       _text('activity_detail.claim_sheet.setup_bank');
   String get activityClaimConfirmPin =>
       _text('activity_detail.claim_sheet.confirm_pin');
+  String get activityClaimPinTitle =>
+      _text('activity_detail.claim_sheet.pin.title');
+  String get activityClaimPinSubtitle =>
+      _text('activity_detail.claim_sheet.pin.subtitle');
+  String activityClaimPinProgress(int count) {
+    return _text('activity_detail.claim_sheet.pin.progress').replaceAll(
+      '{count}',
+      count.toString(),
+    );
+  }
+
   String get activityClaimProfileLoadFailed =>
       _text('activity_detail.claim_sheet.profile_load_failed');
   String get activityClaimBankRequired =>
@@ -1304,6 +1520,10 @@ class CustomerLocalizations {
   String get activityClaimBiometricButton =>
       _text('activity_detail.claim_sheet.biometric_button');
   String get activityMissing => _text('activity_detail.missing');
+  String get activityMissingTitle => _text('activity_detail.missing.title');
+  String get activityMissingMessage => _text('activity_detail.missing.message');
+  String get activityMissingBackToActivities =>
+      _text('activity_detail.missing.back_to_activities');
 
   String get purchaseHistoryTitle => _text('purchase_history.title');
   String get purchaseHistoryHeaderTitle =>
@@ -1377,6 +1597,7 @@ class CustomerLocalizations {
 
   String get storesTitle => _text('stores.title');
   String get storesSearchLabel => _text('stores.search_label');
+  String get storesRecommendedTitle => _text('stores.recommended.title');
   String get storesEmptyTitle => _text('stores.empty.title');
   String get storesEmptyMessage => _text('stores.empty.message');
   String get storesFallbackStoreName => _text('stores.fallback_store_name');
@@ -1480,8 +1701,34 @@ class CustomerLocalizations {
   String get ticketsCurrentDrawSubtitle =>
       _text('tickets.current_draw.subtitle');
   String get ticketsSearchNumbers => _text('tickets.search_numbers');
+  String get ticketsSearchPlaceholder => _text('tickets.search.placeholder');
+  String get ticketsSearchSubmit => _text('tickets.search.submit');
+  String get ticketsSearchClear => _text('tickets.search.clear');
+  String ticketsSearchResult(String query) {
+    return _text('tickets.search.result').replaceAll('{query}', query);
+  }
+
+  String get ticketsSearchEmptyTitle => _text('tickets.search.empty.title');
+  String get ticketsSearchEmptySubtitle =>
+      _text('tickets.search.empty.subtitle');
+  String get ticketsDrawDateLabel => _text('tickets.draw_date_label');
+  String ticketsTotalCount(int count) {
+    return _text('tickets.total_count').replaceAll('{count}', count.toString());
+  }
+
+  String get ticketsWinningBannerTitle => _text('tickets.winning_banner.title');
+  String ticketsWinningBannerMessage(int count) {
+    return _text('tickets.winning_banner.message').replaceAll(
+      '{count}',
+      count.toString(),
+    );
+  }
+
+  String get ticketsTabCurrent => _text('tickets.tab.current');
+  String get ticketsTabHistory => _text('tickets.tab.history');
   String get ticketsEmptyTitle => _text('tickets.empty.title');
   String get ticketsEmptySubtitle => _text('tickets.empty.subtitle');
+  String get ticketsFooterNote => _text('tickets.footer_note');
   String get ticketsNumberFallback => _text('tickets.number_fallback');
   String ticketsCount(int count) {
     return _text('tickets.count').replaceAll('{count}', count.toString());
@@ -1522,12 +1769,19 @@ class CustomerLocalizations {
   String get ticketHistoryHeaderTitle => _text('tickets.history.header.title');
   String get ticketHistoryHeaderSubtitle =>
       _text('tickets.history.header.subtitle');
+  String get ticketHistoryListTitle => _text('tickets.history.list_title');
+  String get ticketHistoryShowWinning => _text('tickets.history.show_winning');
+  String get ticketHistoryShowAll => _text('tickets.history.show_all');
   String get ticketHistoryLoadFailed => _text('tickets.history.load_failed');
   String get ticketHistoryLoadMoreFailed =>
       _text('tickets.history.load_more_failed');
   String get ticketHistoryEmptyTitle => _text('tickets.history.empty.title');
   String get ticketHistoryEmptySubtitle =>
       _text('tickets.history.empty.subtitle');
+  String get ticketHistoryWinningEmptyTitle =>
+      _text('tickets.history.winning_empty.title');
+  String get ticketHistoryWinningEmptySubtitle =>
+      _text('tickets.history.winning_empty.subtitle');
   String get commonLoadingMore => _text('common.loading_more');
   String get commonLoadMore => _text('common.load_more');
   String get ticketDetailTitle => _text('tickets.detail.title');
@@ -1536,6 +1790,10 @@ class CustomerLocalizations {
   String get ticketLabelLotteryNumber => _text('tickets.label.lottery_number');
   String get ticketLabelDraw => _text('tickets.label.draw');
   String get ticketLabelDrawDate => _text('tickets.label.draw_date');
+  String get ticketLabelLotteryDrawDate =>
+      _text('tickets.label.lottery_draw_date');
+  String get ticketLabelDrawNumber => _text('tickets.label.draw_number');
+  String get ticketLabelSetNumber => _text('tickets.label.set_number');
   String get ticketLabelCount => _text('tickets.label.count');
   String get ticketLabelPrizeAmount => _text('tickets.label.prize_amount');
   String get ticketLabelRecipient => _text('tickets.label.recipient');
@@ -1553,6 +1811,7 @@ class CustomerLocalizations {
       _text('tickets.claim.already_claimed.title');
   String get ticketClaimAlreadySubtitle =>
       _text('tickets.claim.already_claimed.subtitle');
+  String get ticketClaimLoading => _text('tickets.claim.loading');
   String get ticketClaimLoadFailed => _text('tickets.claim.load_failed');
   String get ticketClaimSubmitFailed => _text('tickets.claim.submit_failed');
   String get ticketClaimBiometricUnavailable =>
@@ -1577,6 +1836,14 @@ class CustomerLocalizations {
   String get ticketClaimBankSubtitleMissing =>
       _text('tickets.claim.bank.subtitle_missing');
   String get ticketClaimAddBank => _text('tickets.claim.add_bank');
+  String get ticketClaimUnavailablePendingResult =>
+      _text('tickets.claim.unavailable.pending_result');
+  String get ticketClaimUnavailableNonWinning =>
+      _text('tickets.claim.unavailable.non_winning');
+  String get ticketClaimUnavailableWinningNotOpen =>
+      _text('tickets.claim.unavailable.winning_not_open');
+  String get ticketClaimUnavailableDefault =>
+      _text('tickets.claim.unavailable.default');
   String get ticketClaimEnterPin => _text('tickets.claim.enter_pin');
   String get ticketClaimProcessingTitle =>
       _text('tickets.claim.processing.title');
@@ -1585,6 +1852,28 @@ class CustomerLocalizations {
   String get ticketClaimViewMyTickets => _text('tickets.claim.view_my_tickets');
   String get ticketImageUnavailable => _text('tickets.image.unavailable');
   String get ticketImagePreparing => _text('tickets.image.preparing');
+  String get ticketImageOpenPreview => _text('tickets.image.open_preview');
+  String get ticketImageClosePreview => _text('tickets.image.close_preview');
+  String ticketImageAlt(String number) {
+    return _text('tickets.image.alt').replaceAll('{number}', number);
+  }
+
+  String get ticketImageGovernmentLotteryEnglish =>
+      _text('tickets.image.government_lottery_english');
+  String get ticketImageDigitalWatermark =>
+      _text('tickets.image.digital_watermark');
+  String get ticketImageDigitalNumberLabel =>
+      _text('tickets.image.digital_number_label');
+  String get ticketImageCurrentDraw => _text('tickets.image.current_draw');
+  String get ticketImageDigitalType => _text('tickets.image.digital_type');
+  String get ticketImageSold => _text('tickets.image.sold');
+  String get ticketImageTenantFallback =>
+      _text('tickets.image.tenant_fallback');
+  String ticketImageModalNote(String siteName, String productName) {
+    return _text('tickets.image.modal_note')
+        .replaceAll('{site}', siteName)
+        .replaceAll('{product}', productName);
+  }
 
   String _text(String key) {
     final tag = localeTag(locale);
@@ -1684,10 +1973,12 @@ const _localizedValues = <String, Map<String, String>>{
     'routes.buy.description': 'ค้นหา เลือก และจองสลากดิจิทัล',
     'routes.buy_search.title': 'ค้นหาเลขสลาก',
     'routes.buy_search.description': 'ค้นหาเลข 6 หลัก พร้อมจำสถานะการค้นหาเดิม',
+    'routes.search.title': 'ค้นหาเลขสลาก',
     'routes.buy_more.title': 'ดูเลขนี้เพิ่มเติม',
     'routes.buy_more.description': 'แสดงสลากหมายเลขใกล้เคียงจากผลค้นหาเดิม',
     'routes.cart.title': 'ตะกร้าสลาก',
     'routes.checkout.title': 'ชำระเงิน',
+    'routes.checkout_pending.title': 'รอชำระเงิน',
     'routes.tickets.title': 'สลากฯ ของฉัน',
     'routes.tickets.description': 'สลากปัจจุบัน สลากย้อนหลัง และสถานะขึ้นเงิน',
     'routes.tickets_history.title': 'ประวัติสลาก',
@@ -1984,9 +2275,17 @@ const _localizedValues = <String, Map<String, String>>{
     'countdown.unit.minute': 'นาที',
     'countdown.unit.second': 'วินาที',
     'success.title': 'ทำรายการสำเร็จ',
+    'success.lottery_product_label': '',
     'success.purchase_title': 'ซื้อสลากหกหลักแบบดิจิทัลสำเร็จ',
     'success.purchase_subtitle': 'คุณสามารถดูสลากฯ ได้ที่เมนู สลากฯ ของฉัน',
     'success.view_tickets': 'ดูสลากฯ ของฉัน',
+    'success.save_receipt': 'บันทึก',
+    'success.receipt_saved': 'บันทึกข้อมูลการชำระเงินแล้ว',
+    'success.share_receipt': 'แชร์',
+    'success.receipt_share_started': 'เปิดตัวเลือกการแชร์แล้ว',
+    'success.receipt_share_failed_copied':
+        'แชร์ใบเสร็จไม่สำเร็จ จึงคัดลอกข้อมูลให้แล้ว',
+    'success.payment_loading': 'กำลังโหลดข้อมูลการชำระเงิน...',
     'success.payment_load_failed': 'โหลดข้อมูลการชำระเงินไม่สำเร็จ',
     'success.transaction_at_label': 'วันที่ทำรายการ',
     'news.title': 'ข่าวสาร',
@@ -2073,26 +2372,36 @@ const _localizedValues = <String, Map<String, String>>{
     'content.knowledge.section.sellers.item_2': 'ห้ามขายสลากฯ ในสถานศึกษา',
     'content.knowledge.section.sellers.item_3':
         'ห้ามขายสลากฯ ให้แก่บุคคลที่มีอายุต่ำกว่า 20 ปีบริบูรณ์',
-    'lottery.buy.title': 'ซื้อสลาก',
+    'lottery.buy.title': 'ซื้อสลากดิจิทัล',
     'lottery.cart.tooltip': 'ตะกร้าสลาก',
     'lottery.search.hero_title': 'ค้นหาเลขเด็ด',
     'lottery.search.hero_subtitle': 'กรอกบางหลักหรือครบ 6 หลักเพื่อค้นหาสลาก',
-    'lottery.search.button': 'ค้นหา',
-    'lottery.search.clear': 'ล้าง',
+    'lottery.search.button': 'ค้นหาเลข',
+    'lottery.search.loading': 'กำลังค้นหา',
+    'lottery.search.clear': 'ล้างค่า',
     'lottery.stock.title': 'เลขสลากดิจิทัล',
     'lottery.stock.subtitle': 'ระบบสุ่มสลับรายการทุกครั้งที่โหลดใหม่',
-    'lottery.search.page_title': 'ค้นหาเลขสลาก',
-    'lottery.search.card_title': 'ค้นหาเลข',
+    'lottery.filter.all': 'ทั้งหมด',
+    'lottery.filter.discount': 'ลดราคา',
+    'lottery.filter.accessible_store': 'ร้านค้าผู้พิการ',
+    'lottery.filter.agency_store': 'ร้านค้าหน่วยงาน',
+    'lottery.search.page_title': 'ซื้อสลากดิจิทัล',
+    'lottery.search.card_title': 'ค้นหาเลขเด็ด',
+    'lottery.search.store_card_title': 'ค้นหาเลขสลากฯในร้านค้า',
     'lottery.search.number_label': 'เลขที่ต้องการ',
     'lottery.search.again': 'ค้นหาใหม่',
-    'lottery.search.results_title': 'ผลค้นหา',
+    'lottery.search.results_title': 'ผลการค้นหาเลข',
     'lottery.search.results_subtitle':
         'กดดูเลขนี้เพิ่มเติมเพื่อค้นหาเลขเดียวกันอีกครั้ง',
     'lottery.more.title': 'ดูเลขนี้เพิ่มเติม',
+    'lottery.more.sheet_title': 'รายการสลากฯ',
+    'lottery.more.number_prefix': 'สลากฯ เลข',
     'lottery.more.fallback': 'เลขสลากเพิ่มเติม',
     'lottery.more.subtitle': 'รายการถูกสุ่มสลับเพื่อไม่ให้เลขเรียงกัน',
     'lottery.more.list_title': 'เลขนี้เพิ่มเติม',
     'lottery.stock.show_new': 'แสดงเลขใหม่',
+    'lottery.stock.loading_new': 'กำลังโหลด',
+    'lottery.stock.refresh_cooldown': 'รอ {seconds} วิ',
     'lottery.stock.load_failed': 'โหลดเลขสลากไม่สำเร็จ',
     'lottery.stock.not_found.title': 'ไม่พบเลขสลาก',
     'lottery.stock.not_found.message': 'ลองค้นหาเลขอื่น หรือกลับมาใหม่อีกครั้ง',
@@ -2100,30 +2409,92 @@ const _localizedValues = <String, Map<String, String>>{
     'lottery.stock.removed_from_cart': 'นำสลากออกจากตะกร้าแล้ว',
     'lottery.stock.cart_action': 'ตะกร้า',
     'lottery.stock.action_failed': 'ทำรายการไม่สำเร็จ',
+    'lottery.stock.reservation_unavailable.title': 'สลากใบนี้ถูกซื้อแล้ว',
+    'lottery.stock.reservation_unavailable.message':
+        'ขออภัย สลากที่ท่านเลือกมีคนซื้อแล้ว กรุณาเลือกสลากใบอื่น',
+    'lottery.stock.reservation_unavailable.action': 'รับทราบ',
     'lottery.stock.view_more': 'ดูเลขนี้เพิ่มเติม',
     'lottery.stock.select': 'เลือก',
+    'lottery.stock.sale_closed.title': 'ขณะนี้ไม่สามารถซื้อสลากได้',
+    'lottery.stock.sale_closed.message':
+        'ระบบปิดรับการจองสลากสำหรับงวดนี้แล้ว คุณยังสามารถดูรายการหรือไปยังตะกร้าที่จองไว้ได้',
+    'lottery.stock.sale_closed.action': 'ปิดรับซื้อ',
     'lottery.stock.remove': 'เอาออก',
-    'cart.title': 'ตะกร้าสลาก',
+    'cart.title': 'ตรวจสอบรายการสลากฯ',
     'cart.reserved_title': 'รายการที่จองไว้',
     'cart.empty_subtitle': 'ยังไม่มีสลากในตะกร้า',
+    'cart.header_count': 'สลากฯ {count} ใบ',
     'cart.summary': '{count} ใบ • {total}',
+    'cart.draw_date': 'งวดวันที่ {date}',
     'cart.load_failed_title': 'โหลดตะกร้าไม่สำเร็จ',
+    'cart.loading': 'กำลังโหลดรายการสลากในตะกร้า...',
     'cart.empty_title': 'ตะกร้าว่าง',
     'cart.empty_message': 'เลือกสลากที่ต้องการก่อนชำระเงิน',
     'cart.find_tickets': 'ค้นหาเลขสลาก',
-    'cart.checkout': 'ไปชำระเงิน',
+    'cart.selection.title': 'คุณมีสลากฯ ที่เลือกไว้',
+    'cart.selection.count_label': 'จำนวนที่เลือก',
+    'cart.selection.review': 'ตรวจสอบสลากฯ',
+    'cart.purchase_limit_message':
+        'คุณสามารถเลือกซื้อสลากฯ ได้สูงสุด 20 ใบ\nต่อการทำรายการซื้อ 1 ครั้ง',
+    'cart.add_more_tickets': 'เลือกสลากฯ เพิ่ม',
+    'cart.checkout': 'ชำระเงิน',
     'cart.generic_retry': 'กรุณาลองใหม่อีกครั้ง',
+    'cart.remove_group_title.single': 'คุณต้องการลบสลากฯ\n{number} หรือไม่',
+    'cart.remove_group_title.multiple':
+        'คุณต้องการลบสลากฯ\n{number} จำนวน {count} ใบ หรือไม่',
+    'cart.remove_group_message.single':
+        'เมื่อยืนยัน สลากฯ ใบนี้\nจะถูกลบออกจากรายการซื้อ',
+    'cart.remove_group_message.multiple':
+        'เมื่อยืนยัน สลากฯ ชุดนี้\nจะถูกลบออกจากรายการซื้อ',
+    'cart.remove_group_confirm': 'ลบ',
+    'cart.remove_group_removing': 'กำลังลบ',
     'cart.reservation_title': 'รายการจอง {count} ใบ',
     'cart.expires_in': 'หมดเวลาจองใน {minutes} นาที',
     'cart.expires_countdown': 'กรุณาชำระเงินภายใน {time}',
     'cart.expired': 'หมดเวลาชำระเงิน',
-    'checkout.title': 'ชำระเงิน',
+    'cart.expired_release_message': 'ระบบยกเลิกการจองสลากในตะกร้านี้แล้ว',
+    'checkout.title': 'ยืนยันการชำระเงิน',
     'checkout.summary_title': 'สรุปรายการ',
-    'checkout.ticket_count': 'จำนวนสลาก',
+    'checkout.ticket_count': 'จำนวนสลากฯ',
+    'checkout.summary_total': 'ยอดชำระทั้งหมด',
     'checkout.total': 'ยอดชำระ',
     'checkout.wallet_balance': 'ยอดเงินในกระเป๋า',
+    'checkout.payment_method_title': 'ช่องทางชำระเงิน',
+    'checkout.wallet_fallback_name': 'G Wallet',
+    'checkout.wallet_payment_note':
+        'คุณสามารถยืนยันชำระเงินเพื่อใช้บัญชีที่ผูกไว้ชำระเงินค่าสลากได้อัตโนมัติ',
+    'checkout.wallet_loading': 'กำลังโหลดกระเป๋าเงิน...',
+    'checkout.wallet_load_failed': 'โหลดกระเป๋าเงินไม่สำเร็จ',
+    'checkout.external_payment.name': 'ชำระผ่านผู้ให้บริการภายนอก',
+    'checkout.external_payment.subtitle':
+        'เปิดหน้าชำระเงินของผู้ให้บริการที่ร้านค้ากำหนด',
+    'checkout.external_payment.note':
+        'ระบบจะสร้างรายการรอชำระและเปิดหน้าชำระเงินภายนอกเมื่อยืนยัน',
+    'checkout.open_payment_failed': 'เปิดหน้าชำระเงินไม่สำเร็จ',
+    'checkout.pending.title': 'รอชำระเงิน',
+    'checkout.pending.loading': 'กำลังตรวจสอบสถานะการชำระเงิน...',
+    'checkout.pending.message':
+        'ระบบสร้างรายการชำระเงินแล้ว กรุณาชำระเงินผ่านหน้าผู้ให้บริการภายนอก เมื่อชำระสำเร็จแล้วจึงกลับมาตรวจสอบสถานะอีกครั้ง',
+    'checkout.pending.paid_title': 'ชำระเงินสำเร็จแล้ว',
+    'checkout.pending.paid_message':
+        'ระบบได้รับสถานะชำระเงินของรายการนี้แล้ว คุณสามารถดูใบเสร็จได้ทันที',
+    'checkout.pending.no_order_title': 'ไม่พบรายการรอชำระ',
+    'checkout.pending.no_order_message':
+        'กรุณากลับไปหน้าชำระเงินหรือเลือกสลากใหม่อีกครั้ง',
+    'checkout.pending.reference_label': 'เลขที่รายการ',
+    'checkout.pending.status_label': 'สถานะ',
+    'checkout.pending.amount_label': 'ยอดชำระ',
+    'checkout.pending.open_payment': 'เปิดหน้าชำระเงิน',
+    'checkout.pending.refresh': 'ตรวจสอบสถานะอีกครั้ง',
+    'checkout.pending.view_receipt': 'ดูใบเสร็จ',
+    'checkout.pending.status.pending': 'รอชำระ',
+    'checkout.pending.status.paid': 'ชำระแล้ว',
+    'checkout.pending.status.failed': 'ชำระไม่สำเร็จ',
+    'checkout.pending.status.expired': 'หมดอายุ',
+    'checkout.pending.status.unknown': 'กำลังตรวจสอบ',
     'checkout.payment_timer': 'กรุณาชำระเงินภายใน {time}',
     'checkout.load_failed_title': 'โหลดข้อมูลไม่สำเร็จ',
+    'checkout.preparing': 'กำลังเตรียมรายการชำระเงิน...',
     'checkout.no_payment_title': 'ไม่มีรายการชำระเงิน',
     'checkout.no_payment_message': 'ตะกร้าว่างหรือรายการจองหมดอายุแล้ว',
     'checkout.back_to_buy': 'กลับไปเลือกสลาก',
@@ -2315,7 +2686,10 @@ const _localizedValues = <String, Map<String, String>>{
     'account_deletion.launch_failed': 'เปิดลิงก์คำขอไม่สำเร็จ',
     'wallet.title': 'กระเป๋าเงิน',
     'wallet.recent_ledger': 'ประวัติรายการเดินเงินล่าสุด',
+    'wallet.recent_ledger.subtitle': 'รายการเติมเงิน ชำระเงิน และรับเงินรางวัล',
     'wallet.refresh_tooltip': 'โหลดรายการใหม่',
+    'wallet.ledger.loading': 'กำลังโหลดรายการ...',
+    'wallet.ledger.load_failed': 'โหลดประวัติไม่สำเร็จ',
     'wallet.empty_ledger.title': 'ยังไม่มีรายการเดินเงิน',
     'wallet.empty_ledger.subtitle':
         'รายการเติมเงิน ชำระเงิน และรับเงินรางวัลจะแสดงที่นี่',
@@ -2336,6 +2710,15 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.header.subtitle': 'เลือกช่องทางและสร้างรายการเติมเงิน',
     'topup.history_tooltip': 'ประวัติเติมเงิน',
     'topup.waiting.title': 'รายการเติมเงินที่ยังไม่เสร็จ',
+    'topup.waiting.amount_label': 'ยอดเติมเงิน',
+    'topup.waiting.qr_title': 'สแกน QR Code เพื่อชำระเงิน',
+    'topup.waiting.slip_title': 'สลิปชำระเงิน',
+    'topup.waiting.slip_pending': 'รอสลิป',
+    'topup.waiting.slip_sent': 'ส่งแล้ว',
+    'topup.waiting.slip_pending_description':
+        'อัพโหลดสลิปหลังจากชำระเงินรายการนี้',
+    'topup.waiting.slip_sent_description':
+        'ได้รับสลิปแล้ว สามารถอัพโหลดใหม่ได้หากต้องแก้ไข',
     'topup.reference': 'รายการ #{reference}',
     'topup.qr_slip_instruction':
         'หลังชำระเงินแล้วแนบสลิปเพื่อให้ร้านค้าตรวจสอบ',
@@ -2345,12 +2728,37 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.upload_slip': 'แนบสลิปชำระเงิน',
     'topup.upload_new_slip': 'อัพโหลดสลิปใหม่',
     'topup.cancel_waiting': 'ยกเลิกรายการเติมเงินนี้',
+    'topup.cancel_confirm.title': 'ยกเลิกรายการเติมเงินนี้?',
+    'topup.cancel_confirm.message':
+        'รายการ #{reference} จะถูกยกเลิก และคุณสามารถสร้างรายการเติมเงินใหม่ได้ทันที',
+    'topup.cancel_confirm.amount_label': 'ยอดเติมเงิน',
+    'topup.cancel_confirm.keep': 'ไม่ยกเลิก',
+    'topup.cancel_confirm.confirm': 'ยืนยันยกเลิก',
     'topup.choose_channel': 'เลือกช่องทางเติมเงิน',
-    'topup.amount_label': 'จำนวนเงิน',
+    'topup.blocking_waiting.title': 'มีรายการเติมเงินค้างอยู่',
+    'topup.blocking_waiting.message':
+        'กรุณาชำระหรือยกเลิกรายการเดิมก่อนสร้างรายการใหม่',
+    'topup.amount_label': 'จำนวนเงินที่ต้องการเติม',
     'topup.baht_suffix': 'บาท',
     'topup.submit.qr': 'สร้าง QR Code',
-    'topup.submit.credit_qr': 'สร้าง Credit QR Code',
-    'topup.submit.bank_transfer': 'สร้างรายการโอนธนาคาร',
+    'topup.submit.credit_qr': 'สร้าง QR Code',
+    'topup.submit.bank_transfer': 'ยืนยันการชำระเงิน',
+    'topup.bank_slip.title': 'สลิปโอนเงิน',
+    'topup.bank_slip.description':
+        'แนบรูปสลิปและส่งให้แอดมินตรวจสอบพร้อมรายการเติมเงิน',
+    'topup.bank_slip.attach': 'แนบสลิป',
+    'topup.bank_slip.change': 'เปลี่ยนสลิป',
+    'topup.bank_slip.remove': 'ลบสลิป',
+    'topup.bank_slip.file_label': 'ไฟล์สลิป',
+    'topup.bank_slip.transfer_at': 'วันเวลาที่โอน',
+    'topup.bank_slip.transfer_at_unset': 'เลือกวันเวลาที่โอน',
+    'topup.bank_slip.required': 'กรุณาแนบรูปสลิปก่อนส่งให้แอดมินตรวจสอบ',
+    'topup.bank_transfer_submitted':
+        'ส่งสลิปสำเร็จ กรุณารอแอดมินตรวจสอบสักครู่',
+    'topup.deferred_slip.qr':
+        'สร้าง QR Code แล้วแนบสลิปหลังชำระเงินเพื่อให้ร้านค้าตรวจสอบ',
+    'topup.deferred_slip.credit':
+        'ช่องทางนี้จะแสดงเป็น QR Code และแนบสลิปหลังชำระเงินได้',
     'topup.channel.qr.label': 'QR Code',
     'topup.channel.qr.description': 'สร้าง QR Code แล้วแนบสลิปหลังชำระเงิน',
     'topup.channel.credit.label': 'Credit QR Code',
@@ -2377,6 +2785,8 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.slip_uploaded': 'อัพโหลดสลิปสำเร็จ',
     'topup.slip_upload_failed': 'อัพโหลดสลิปไม่สำเร็จ กรุณาลองใหม่',
     'topup.history.title': 'ประวัติเติมเงิน',
+    'topup.history.loading': 'กำลังโหลดข้อมูล...',
+    'topup.history.load_failed': 'โหลดประวัติไม่สำเร็จ',
     'topup.history.header.title': 'รายการเติมเงินล่าสุด',
     'topup.history.header.subtitle': 'ตรวจสอบสถานะรายการเติมเงินเข้า G-Wallet',
     'topup.history.item_title': 'เติมเงินเข้า G-Wallet',
@@ -2390,6 +2800,7 @@ const _localizedValues = <String, Map<String, String>>{
     'reward_claims.header.subtitle': 'ตรวจสอบสถานะรายการขึ้นเงินรางวัล',
     'reward_claims.tickets_tooltip': 'ดูสลากฯ',
     'reward_claims.prize_title': 'เงินรางวัลสลากฯ',
+    'reward_claims.loading': 'กำลังโหลดประวัติขึ้นเงิน...',
     'reward_claims.load_failed': 'โหลดประวัติขึ้นเงินไม่สำเร็จ',
     'reward_claims.load_more_failed': 'โหลดรายการเพิ่มเติมไม่สำเร็จ',
     'reward_claims.loading_more': 'กำลังโหลด...',
@@ -2399,8 +2810,11 @@ const _localizedValues = <String, Map<String, String>>{
         'เมื่อส่งรายการขึ้นเงินรางวัลแล้ว รายการจะแสดงที่หน้านี้',
     'reward_claims.view_winning_tickets': 'ดูสลากฯ ที่ถูกรางวัล',
     'reward_claims.detail.title': 'รายละเอียดการขึ้นเงิน',
+    'reward_claims.detail.loading': 'กำลังโหลดรายการขึ้นเงิน...',
+    'reward_claims.detail.load_failed': 'โหลดรายการขึ้นเงินไม่สำเร็จ',
     'reward_claims.detail.method': 'วิธีขึ้นเงินรางวัล',
     'reward_claims.detail.manual_method': 'ขึ้นเงินรางวัลด้วยตนเอง',
+    'reward_claims.detail.payout_channel': 'ช่องทางขึ้นเงินรางวัล',
     'reward_claims.detail.status': 'สถานะ',
     'reward_claims.detail.draw_date': 'สลากฯ งวดวันที่',
     'reward_claims.detail.tax': 'ค่าภาษีถอนเงิน (0.5%)',
@@ -2443,13 +2857,16 @@ const _localizedValues = <String, Map<String, String>>{
     'activity_claims.header.subtitle': 'ตรวจสอบสถานะเงินคืนและรางวัลกิจกรรม',
     'activity_claims.activities_tooltip': 'ดูกิจกรรม',
     'activity_claims.prize_title': 'เงินรางวัลกิจกรรม',
+    'activity_claims.loading': 'กำลังโหลดประวัติขึ้นเงินกิจกรรม...',
     'activity_claims.load_failed': 'โหลดประวัติขึ้นเงินกิจกรรมไม่สำเร็จ',
     'activity_claims.load_more_failed': 'โหลดรายการเพิ่มเติมไม่สำเร็จ',
     'activity_claims.empty.title': 'ยังไม่มีประวัติขึ้นเงินกิจกรรม',
     'activity_claims.empty.subtitle':
         'เมื่อรับเงินรางวัลหรือเงินคืนจากกิจกรรม รายการจะแสดงที่หน้านี้',
     'activity_claims.view_activities': 'ดูกิจกรรม',
-    'activity_claims.detail.title': 'รายละเอียดขึ้นเงินกิจกรรม',
+    'activity_claims.detail.title': 'รายละเอียดขึ้นเงินรางวัลกิจกรรม',
+    'activity_claims.detail.loading': 'กำลังโหลดรายการขึ้นเงินกิจกรรม...',
+    'activity_claims.detail.load_failed': 'โหลดรายการขึ้นเงินกิจกรรมไม่สำเร็จ',
     'activity_claims.detail.reward_title': 'รางวัลกิจกรรม',
     'activity_claims.activity_fallback': 'กิจกรรม',
     'activity_claims.customer_fallback': 'ผู้ใช้งาน',
@@ -2468,6 +2885,7 @@ const _localizedValues = <String, Map<String, String>>{
     'activity_claims.payout.bank_transfer': 'โอนเข้าบัญชีธนาคาร',
     'activity_claims.payout.wallet_credit': 'รับเข้า G-Wallet',
     'activity_claims.payout.bank_fallback': 'บัญชีธนาคาร',
+    'activity_claims.payout.bank_prefix': 'ธนาคาร',
     'activity_claims.payout.bank_summary': 'รับผ่านบัญชี{bank}',
     'activity_claims.payout.wallet_summary': 'รับเข้า {wallet}',
     'activity_claims.detail.amount': 'ยอดรางวัลกิจกรรม',
@@ -2500,6 +2918,8 @@ const _localizedValues = <String, Map<String, String>>{
     'activities.history_select_label': 'เลือกงวดย้อนหลัง',
     'activities.history_no_games': 'ไม่มีกิจกรรมย้อนหลัง',
     'activities.back_to_current': 'กลับไปกิจกรรมงวดปัจจุบัน',
+    'activities.loading': 'กำลังโหลดกิจกรรม',
+    'activities.history_loading': 'กำลังโหลดกิจกรรมย้อนหลัง',
     'activities.load_failed': 'โหลดกิจกรรมไม่สำเร็จ',
     'activities.empty.title': 'ยังไม่มีกิจกรรมในงวดนี้',
     'activities.empty.message':
@@ -2524,11 +2944,15 @@ const _localizedValues = <String, Map<String, String>>{
     'activities.meta.rights': 'มีสิทธิ์ {count} สิทธิ์',
     'activities.meta.remaining_numbers': 'เหลือ {count} เลขให้เลือก',
     'activity_detail.title': 'รายละเอียดกิจกรรม',
+    'activity_detail.loading': 'กำลังโหลดรายละเอียดกิจกรรม...',
+    'activity_detail.load_failed': 'โหลดรายละเอียดกิจกรรมไม่สำเร็จ',
     'activity_detail.has_right': 'มีสิทธิ์เข้าร่วม',
     'activity_detail.entry_closed': 'หมดเวลาเข้าร่วม',
-    'activity_detail.confirm_number.title': 'ยืนยันการเลือกเลข',
+    'activity_detail.confirm_number.eyebrow': 'ยืนยันเลขนำโชค',
+    'activity_detail.confirm_number.title': 'ต้องการเลือกเลขนี้ใช่ไหม?',
     'activity_detail.confirm_number.message':
-        'ต้องการใช้ 1 สิทธิ์เลือกเลข {number} สำหรับ{prediction}หรือไม่',
+        'ระบบจะใช้ 1 สิทธิ์ของคุณสำหรับ {prediction} และไม่สามารถเลือกเลขนี้ซ้ำได้',
+    'activity_detail.confirm_number.submit': 'ยืนยันเลือกเลข',
     'activity_detail.entry.submit_success': 'ส่งเลขสำเร็จ',
     'activity_detail.entry.closed': 'กิจกรรมนี้หมดเวลาเข้าร่วมแล้ว',
     'activity_detail.entry.submit_failed':
@@ -2561,14 +2985,20 @@ const _localizedValues = <String, Map<String, String>>{
     'activity_detail.rights.deadline': 'หมดเวลาเข้าร่วม {date}',
     'activity_detail.selected_numbers.title': 'เลขที่เลือกแล้ว',
     'activity_detail.board.title': 'แผงเลข {prediction}',
+    'activity_detail.board.summary':
+        '{range} · เหลือ {remaining} จาก {total} เลข',
     'activity_detail.board.can_select':
         'แตะเลขเพื่อยืนยันการเลือก ใช้ 1 สิทธิ์ต่อ 1 เลข',
     'activity_detail.board.closed': 'กิจกรรมนี้หมดเวลาเข้าร่วมแล้ว',
     'activity_detail.board.no_rights': 'ยังไม่มีสิทธิ์คงเหลือสำหรับเลือกเลข',
+    'activity_detail.board.reserved_hint': 'เลขสีแดงถูกเลือกแล้ว',
+    'activity_detail.board.entry_closed_hint': 'หมดเวลาเข้าร่วม',
     'activity_detail.login_to_join.title':
         'เข้าสู่ระบบเพื่อดูสิทธิ์และเลือกเลข',
     'activity_detail.login_to_join.button': 'เข้าสู่ระบบ',
     'activity_detail.claim_sheet.title': 'รับเงินรางวัลกิจกรรม',
+    'activity_detail.claim_sheet.eyebrow': 'รับเงินกิจกรรม',
+    'activity_detail.claim_sheet.available_amount': 'ยอดที่รับได้',
     'activity_detail.claim_sheet.wallet.title': 'รับเข้า G-Wallet',
     'activity_detail.claim_sheet.wallet.subtitle':
         'เงินเข้ากระเป๋าในระบบหลัง Partner อนุมัติ',
@@ -2576,6 +3006,9 @@ const _localizedValues = <String, Map<String, String>>{
     'activity_detail.claim_sheet.bank.missing': 'ยังไม่ได้ตั้งค่าบัญชีรับเงิน',
     'activity_detail.claim_sheet.setup_bank': 'ตั้งค่าบัญชีรับเงิน',
     'activity_detail.claim_sheet.confirm_pin': 'ยืนยันด้วย PIN',
+    'activity_detail.claim_sheet.pin.title': 'ใส่รหัส PIN 6 หลัก',
+    'activity_detail.claim_sheet.pin.subtitle': 'เพื่อรับเงินรางวัลกิจกรรม',
+    'activity_detail.claim_sheet.pin.progress': 'กรอกแล้ว {count}/6 หลัก',
     'activity_detail.claim_sheet.profile_load_failed':
         'โหลดข้อมูลรับเงินไม่สำเร็จ กรุณาลองใหม่',
     'activity_detail.claim_sheet.bank_required': 'กรุณาตั้งค่าบัญชีรับเงินก่อน',
@@ -2590,6 +3023,10 @@ const _localizedValues = <String, Map<String, String>>{
         'ยืนยันด้วยชีวมิติไม่สำเร็จ กรุณาใช้ PIN',
     'activity_detail.claim_sheet.biometric_button': 'ใช้ Face ID / Biometric',
     'activity_detail.missing': 'ไม่พบกิจกรรมนี้',
+    'activity_detail.missing.title': 'ไม่พบกิจกรรม',
+    'activity_detail.missing.message':
+        'กิจกรรมนี้อาจถูกปิดใช้งานหรือหมดช่วงแสดงผลแล้ว',
+    'activity_detail.missing.back_to_activities': 'กลับหน้ากิจกรรม',
     'purchase_history.title': 'ประวัติการซื้อสลากฯ',
     'purchase_history.header.title': 'รายการซื้อสลากหกหลักแบบดิจิทัล',
     'purchase_history.header.subtitle': 'ดูรายการซื้อย้อนหลังและใบเสร็จ',
@@ -2620,8 +3057,11 @@ const _localizedValues = <String, Map<String, String>>{
     'purchase_history.detail.ticket_list': 'เลขสลากในรายการ',
     'purchase_history.detail.empty': 'ไม่พบรายการซื้อสลากฯ นี้',
     'purchase_history.store_fallback': 'ร้านค้าสลากฯ',
+    'lottery.tabs.all': 'สลากฯ ทั้งหมด',
+    'lottery.tabs.stores': 'ร้านค้า',
     'stores.title': 'ร้านค้า',
     'stores.search_label': 'ค้นหาร้านค้า',
+    'stores.recommended.title': 'ร้านสลากฯ แนะนำ',
     'stores.empty.title': 'ไม่พบร้านค้า',
     'stores.empty.message': 'ลองเปลี่ยนคำค้นหา หรือกลับมาใหม่อีกครั้ง',
     'stores.fallback_store_name': 'ร้านสลากฯ',
@@ -2708,8 +3148,23 @@ const _localizedValues = <String, Map<String, String>>{
     'tickets.current_draw.subtitle':
         'สลากที่ซื้อแล้วและรายการที่รอขึ้นเงินจะแสดงแยกตามสถานะ',
     'tickets.search_numbers': 'ค้นหาเลขสลาก',
+    'tickets.search.placeholder': 'ค้นหาเลขสลากฯ ในคลังของฉัน',
+    'tickets.search.submit': 'ค้นหา',
+    'tickets.search.clear': 'ล้างคำค้นหา',
+    'tickets.search.result': 'ผลการค้นหา "{query}"',
+    'tickets.search.empty.title': 'ไม่พบเลขสลากฯ ที่ค้นหา',
+    'tickets.search.empty.subtitle':
+        'ลองค้นหาด้วยเลขอื่น หรือกลับไปดูสลากทั้งหมดในงวดนี้',
+    'tickets.draw_date_label': 'สลากฯ งวดวันที่',
+    'tickets.total_count': 'ทั้งหมด {count} ใบ',
+    'tickets.winning_banner.title': 'ยินดีด้วย!',
+    'tickets.winning_banner.message': 'คุณถูกรางวัล {count} ใบ',
+    'tickets.tab.current': 'งวดปัจจุบัน',
+    'tickets.tab.history': 'งวดย้อนหลัง',
     'tickets.empty.title': 'ยังไม่มีสลากในงวดนี้',
     'tickets.empty.subtitle': 'เมื่อซื้อสลากสำเร็จ รายการจะถูกแสดงบนหน้านี้',
+    'tickets.footer_note':
+        'เมนู ‘สลากฯ ของฉัน’ เป็นการบันทึกเลขสลากฯ หากถูกรางวัล ระบบจะแจ้งผลรางวัลในหน้านี้',
     'tickets.number_fallback': 'เลขสลาก',
     'tickets.count': '{count} ใบ',
     'tickets.status.winning': 'ถูกรางวัล',
@@ -2734,11 +3189,17 @@ const _localizedValues = <String, Map<String, String>>{
     'tickets.history.header.title': 'สลากงวดย้อนหลัง',
     'tickets.history.header.subtitle':
         'แสดงเฉพาะงวดที่ออกผลแล้วและมีงวดใหม่กว่าแล้ว',
+    'tickets.history.list_title': 'รายการสลากฯ',
+    'tickets.history.show_winning': 'ดูสลากฯ ที่ถูกรางวัล',
+    'tickets.history.show_all': 'ดูสลากฯ ทั้งหมด',
     'tickets.history.load_failed': 'โหลดประวัติสลากไม่สำเร็จ',
     'tickets.history.load_more_failed': 'โหลดรายการเพิ่มเติมไม่สำเร็จ',
     'tickets.history.empty.title': 'ยังไม่มีสลากย้อนหลัง',
     'tickets.history.empty.subtitle':
         'เมื่อมีงวดใหม่และงวดเดิมออกผลแล้ว รายการจะแสดงที่นี่',
+    'tickets.history.winning_empty.title': 'ไม่พบสลากฯ ที่ถูกรางวัลในงวดนี้',
+    'tickets.history.winning_empty.subtitle':
+        'กลับไปดูสลากทั้งหมด หรือลองตรวจงวดย้อนหลังอีกครั้ง',
     'common.loading_more': 'กำลังโหลด...',
     'common.load_more': 'โหลดเพิ่มเติม',
     'tickets.detail.title': 'รายละเอียดสลาก',
@@ -2747,6 +3208,9 @@ const _localizedValues = <String, Map<String, String>>{
     'tickets.label.lottery_number': 'เลขสลาก',
     'tickets.label.draw': 'งวด',
     'tickets.label.draw_date': 'วันที่ออกผล',
+    'tickets.label.lottery_draw_date': 'สลากฯ งวดวันที่',
+    'tickets.label.draw_number': 'งวดที่',
+    'tickets.label.set_number': 'ชุดที่',
     'tickets.label.count': 'จำนวน',
     'tickets.label.prize_amount': 'เงินรางวัล',
     'tickets.label.recipient': 'ผู้รับเงิน',
@@ -2762,6 +3226,7 @@ const _localizedValues = <String, Map<String, String>>{
     'tickets.claim.already_claimed.title': 'มีรายการขึ้นเงินแล้ว',
     'tickets.claim.already_claimed.subtitle':
         'ติดตามสถานะรายการนี้ได้จากหน้ารายละเอียด',
+    'tickets.claim.loading': 'กำลังโหลดข้อมูลรางวัล...',
     'tickets.claim.load_failed': 'โหลดข้อมูลขึ้นเงินไม่สำเร็จ',
     'tickets.claim.submit_failed': 'ส่งรายการไม่สำเร็จ กรุณาลองใหม่',
     'tickets.claim.biometric_unavailable': 'ไม่สามารถยืนยันด้วยชีวมิติได้',
@@ -2781,6 +3246,11 @@ const _localizedValues = <String, Map<String, String>>{
     'tickets.claim.bank.subtitle_missing':
         'เพิ่มบัญชีรับเงินรางวัลก่อนเลือกช่องทางนี้',
     'tickets.claim.add_bank': 'เพิ่มบัญชีรับเงินรางวัล',
+    'tickets.claim.unavailable.pending_result': 'สลากใบนี้ยังรอออกผล',
+    'tickets.claim.unavailable.non_winning': 'สลากใบนี้ไม่ถูกรางวัลในงวดนี้',
+    'tickets.claim.unavailable.winning_not_open':
+        'พบรายการถูกรางวัลแล้ว แต่ยังรอเปิดให้ขึ้นเงินอย่างเป็นทางการ',
+    'tickets.claim.unavailable.default': 'รายการนี้ยังไม่สามารถขึ้นเงินได้',
     'tickets.claim.enter_pin': 'ใส่รหัส PIN 6 หลัก',
     'tickets.claim.processing.title': 'กำลังดำเนินการโอนเงินรางวัล',
     'tickets.claim.processing.subtitle':
@@ -2788,6 +3258,18 @@ const _localizedValues = <String, Map<String, String>>{
     'tickets.claim.view_my_tickets': 'ดูสลากฯ ของฉัน',
     'tickets.image.unavailable': 'ไม่สามารถแสดงรูปสลากได้',
     'tickets.image.preparing': 'รูปสลากกำลังเตรียมพร้อม',
+    'tickets.image.open_preview': 'ดูรูปสลากฯ',
+    'tickets.image.close_preview': 'ปิดรูปสลากฯ',
+    'tickets.image.alt': 'รูปสลากฯ เลข {number}',
+    'tickets.image.government_lottery_english': 'THAI GOVERNMENT LOTTERY',
+    'tickets.image.digital_watermark': 'DIGITAL',
+    'tickets.image.digital_number_label': 'เลขสลากฯ ดิจิทัล',
+    'tickets.image.current_draw': 'งวดปัจจุบัน',
+    'tickets.image.digital_type': 'แบบดิจิทัล',
+    'tickets.image.sold': 'ขายแล้ว',
+    'tickets.image.tenant_fallback': 'แอป',
+    'tickets.image.modal_note':
+        'สลากดิจิทัลนี้จัดเก็บใน {site} สำหรับ {product}',
   },
   'en-US': {
     'bottom_nav.home': 'Home',
@@ -2811,11 +3293,13 @@ const _localizedValues = <String, Map<String, String>>{
     'routes.buy_search.title': 'Search Lottery Numbers',
     'routes.buy_search.description':
         'Search 6-digit numbers and keep your previous search state',
+    'routes.search.title': 'Search Lottery Numbers',
     'routes.buy_more.title': 'More Like This Number',
     'routes.buy_more.description':
         'Show nearby ticket numbers from the previous search',
     'routes.cart.title': 'Lottery Cart',
     'routes.checkout.title': 'Checkout',
+    'routes.checkout_pending.title': 'Pending Payment',
     'routes.tickets.title': 'My Tickets',
     'routes.tickets.description':
         'Current tickets, ticket history, and claim status',
@@ -3120,9 +3604,17 @@ const _localizedValues = <String, Map<String, String>>{
     'countdown.unit.minute': 'Minutes',
     'countdown.unit.second': 'Seconds',
     'success.title': 'Transaction successful',
+    'success.lottery_product_label': '',
     'success.purchase_title': 'Digital six-digit lottery purchase complete',
     'success.purchase_subtitle': 'You can view tickets from My Tickets.',
     'success.view_tickets': 'View my tickets',
+    'success.save_receipt': 'Save',
+    'success.receipt_saved': 'Payment receipt saved.',
+    'success.share_receipt': 'Share',
+    'success.receipt_share_started': 'Share options opened.',
+    'success.receipt_share_failed_copied':
+        'Could not share the receipt, so the details were copied.',
+    'success.payment_loading': 'Loading payment information...',
     'success.payment_load_failed': 'Could not load payment information.',
     'success.transaction_at_label': 'Transaction date',
     'news.title': 'News',
@@ -3211,27 +3703,37 @@ const _localizedValues = <String, Map<String, String>>{
         'Do not sell lottery tickets in educational institutions.',
     'content.knowledge.section.sellers.item_3':
         'Do not sell lottery tickets to people under 20 years old.',
-    'lottery.buy.title': 'Buy lottery',
+    'lottery.buy.title': 'Buy digital lottery',
     'lottery.cart.tooltip': 'Lottery cart',
     'lottery.search.hero_title': 'Search lucky numbers',
     'lottery.search.hero_subtitle':
         'Enter some digits or all 6 digits to search tickets.',
-    'lottery.search.button': 'Search',
+    'lottery.search.button': 'Search numbers',
+    'lottery.search.loading': 'Searching',
     'lottery.search.clear': 'Clear',
     'lottery.stock.title': 'Digital lottery numbers',
     'lottery.stock.subtitle': 'Results are shuffled every time they reload.',
-    'lottery.search.page_title': 'Search lottery numbers',
-    'lottery.search.card_title': 'Search number',
+    'lottery.filter.all': 'All',
+    'lottery.filter.discount': 'Discounts',
+    'lottery.filter.accessible_store': 'Accessible stores',
+    'lottery.filter.agency_store': 'Agency stores',
+    'lottery.search.page_title': 'Buy digital lottery',
+    'lottery.search.card_title': 'Search lucky numbers',
+    'lottery.search.store_card_title': 'Search store tickets',
     'lottery.search.number_label': 'Desired number',
     'lottery.search.again': 'Search again',
     'lottery.search.results_title': 'Search results',
     'lottery.search.results_subtitle':
         'Tap view more to search this number again.',
     'lottery.more.title': 'View more like this',
+    'lottery.more.sheet_title': 'Lottery list',
+    'lottery.more.number_prefix': 'Lottery number',
     'lottery.more.fallback': 'More lottery numbers',
     'lottery.more.subtitle': 'Items are shuffled to avoid ordered results.',
     'lottery.more.list_title': 'More numbers like this',
     'lottery.stock.show_new': 'Show new numbers',
+    'lottery.stock.loading_new': 'Loading',
+    'lottery.stock.refresh_cooldown': 'Wait {seconds}s',
     'lottery.stock.load_failed': 'Could not load lottery numbers.',
     'lottery.stock.not_found.title': 'No lottery numbers found',
     'lottery.stock.not_found.message':
@@ -3240,30 +3742,94 @@ const _localizedValues = <String, Map<String, String>>{
     'lottery.stock.removed_from_cart': 'Ticket removed from cart.',
     'lottery.stock.cart_action': 'Cart',
     'lottery.stock.action_failed': 'Could not complete this action.',
+    'lottery.stock.reservation_unavailable.title':
+        'This ticket has been purchased',
+    'lottery.stock.reservation_unavailable.message':
+        'Sorry, the selected ticket has already been purchased. Please choose another ticket.',
+    'lottery.stock.reservation_unavailable.action': 'OK',
     'lottery.stock.view_more': 'View more like this',
     'lottery.stock.select': 'Select',
+    'lottery.stock.sale_closed.title': 'Lottery purchases are unavailable',
+    'lottery.stock.sale_closed.message':
+        'Reservations for this draw are closed. You can still review tickets or continue with reserved cart items.',
+    'lottery.stock.sale_closed.action': 'Closed',
     'lottery.stock.remove': 'Remove',
     'cart.title': 'Lottery cart',
     'cart.reserved_title': 'Reserved items',
     'cart.empty_subtitle': 'No tickets in cart yet',
+    'cart.header_count': '{count} lottery ticket(s)',
     'cart.summary': '{count} ticket(s) • {total}',
+    'cart.draw_date': 'Draw date {date}',
     'cart.load_failed_title': 'Could not load cart',
+    'cart.loading': 'Loading reserved tickets...',
     'cart.empty_title': 'Cart is empty',
     'cart.empty_message': 'Choose lottery tickets before checkout.',
     'cart.find_tickets': 'Find lottery numbers',
+    'cart.selection.title': 'You have selected tickets',
+    'cart.selection.count_label': 'Selected quantity',
+    'cart.selection.review': 'Review tickets',
+    'cart.purchase_limit_message':
+        'You can select up to 20 lottery tickets\nper checkout.',
+    'cart.add_more_tickets': 'Add more tickets',
     'cart.checkout': 'Checkout',
     'cart.generic_retry': 'Please try again.',
+    'cart.remove_group_title.single': 'Remove lottery ticket\n{number}?',
+    'cart.remove_group_title.multiple':
+        'Remove lottery tickets\n{number}, {count} tickets?',
+    'cart.remove_group_message.single':
+        'After confirmation, this ticket will be removed from checkout.',
+    'cart.remove_group_message.multiple':
+        'After confirmation, this ticket set will be removed from checkout.',
+    'cart.remove_group_confirm': 'Remove',
+    'cart.remove_group_removing': 'Removing...',
     'cart.reservation_title': '{count} reserved ticket(s)',
     'cart.expires_in': 'Reservation expires in {minutes} min',
     'cart.expires_countdown': 'Please pay within {time}',
     'cart.expired': 'Payment time expired',
+    'cart.expired_release_message':
+        'The reserved tickets in this cart have been released.',
     'checkout.title': 'Checkout',
     'checkout.summary_title': 'Order summary',
     'checkout.ticket_count': 'Ticket quantity',
+    'checkout.summary_total': 'Total payment',
     'checkout.total': 'Amount due',
     'checkout.wallet_balance': 'Wallet balance',
+    'checkout.payment_method_title': 'Payment method',
+    'checkout.wallet_fallback_name': 'G Wallet',
+    'checkout.wallet_payment_note':
+        'Confirm payment to pay for lottery tickets automatically with the linked wallet account.',
+    'checkout.wallet_loading': 'Loading wallet...',
+    'checkout.wallet_load_failed': 'Could not load wallet.',
+    'checkout.external_payment.name': 'External payment provider',
+    'checkout.external_payment.subtitle':
+        'Open the payment page configured by this store.',
+    'checkout.external_payment.note':
+        'Confirming creates a pending order and opens the external payment page.',
+    'checkout.open_payment_failed': 'Could not open the payment page.',
+    'checkout.pending.title': 'Pending payment',
+    'checkout.pending.loading': 'Checking payment status...',
+    'checkout.pending.message':
+        'A payment order has been created. Complete payment on the external provider page, then return here to check the status again.',
+    'checkout.pending.paid_title': 'Payment completed',
+    'checkout.pending.paid_message':
+        'We have received payment for this order. You can view the receipt now.',
+    'checkout.pending.no_order_title': 'No pending payment found',
+    'checkout.pending.no_order_message':
+        'Return to checkout or choose lottery tickets again.',
+    'checkout.pending.reference_label': 'Reference',
+    'checkout.pending.status_label': 'Status',
+    'checkout.pending.amount_label': 'Amount due',
+    'checkout.pending.open_payment': 'Open payment page',
+    'checkout.pending.refresh': 'Check status again',
+    'checkout.pending.view_receipt': 'View receipt',
+    'checkout.pending.status.pending': 'Pending payment',
+    'checkout.pending.status.paid': 'Paid',
+    'checkout.pending.status.failed': 'Payment failed',
+    'checkout.pending.status.expired': 'Expired',
+    'checkout.pending.status.unknown': 'Checking status',
     'checkout.payment_timer': 'Please pay within {time}',
     'checkout.load_failed_title': 'Could not load checkout',
+    'checkout.preparing': 'Preparing payment item...',
     'checkout.no_payment_title': 'No checkout item',
     'checkout.no_payment_message':
         'Your cart is empty or the reservation has expired.',
@@ -3464,7 +4030,10 @@ const _localizedValues = <String, Map<String, String>>{
     'account_deletion.launch_failed': 'Could not open the request link.',
     'wallet.title': 'Wallet',
     'wallet.recent_ledger': 'Recent transactions',
+    'wallet.recent_ledger.subtitle': 'Topups, payments, and reward credits',
     'wallet.refresh_tooltip': 'Refresh transactions',
+    'wallet.ledger.loading': 'Loading transactions...',
+    'wallet.ledger.load_failed': 'Could not load transaction history',
     'wallet.empty_ledger.title': 'No wallet transactions yet',
     'wallet.empty_ledger.subtitle':
         'Topups, payments, and reward credits will appear here.',
@@ -3485,6 +4054,15 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.header.subtitle': 'Choose a payment channel and create a topup',
     'topup.history_tooltip': 'Topup history',
     'topup.waiting.title': 'Unfinished topup',
+    'topup.waiting.amount_label': 'Topup amount',
+    'topup.waiting.qr_title': 'Scan QR Code to pay',
+    'topup.waiting.slip_title': 'Payment slip',
+    'topup.waiting.slip_pending': 'Waiting slip',
+    'topup.waiting.slip_sent': 'Sent',
+    'topup.waiting.slip_pending_description':
+        'Upload the slip after paying this request.',
+    'topup.waiting.slip_sent_description':
+        'Slip received. You can upload a new one if it needs correction.',
     'topup.reference': 'Request #{reference}',
     'topup.qr_slip_instruction':
         'After payment, attach a slip so the store can verify it.',
@@ -3494,12 +4072,38 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.upload_slip': 'Attach payment slip',
     'topup.upload_new_slip': 'Upload a new slip',
     'topup.cancel_waiting': 'Cancel this topup request',
+    'topup.cancel_confirm.title': 'Cancel this topup request?',
+    'topup.cancel_confirm.message':
+        'Request #{reference} will be cancelled, and you can create a new topup request immediately.',
+    'topup.cancel_confirm.amount_label': 'Topup amount',
+    'topup.cancel_confirm.keep': 'Keep request',
+    'topup.cancel_confirm.confirm': 'Confirm cancel',
     'topup.choose_channel': 'Choose topup channel',
-    'topup.amount_label': 'Amount',
+    'topup.blocking_waiting.title': 'Unfinished topup request',
+    'topup.blocking_waiting.message':
+        'Please pay or cancel the current request before creating a new one.',
+    'topup.amount_label': 'Topup amount',
     'topup.baht_suffix': 'THB',
     'topup.submit.qr': 'Create QR Code',
-    'topup.submit.credit_qr': 'Create Credit QR Code',
-    'topup.submit.bank_transfer': 'Create bank transfer request',
+    'topup.submit.credit_qr': 'Create QR Code',
+    'topup.submit.bank_transfer': 'Confirm payment',
+    'topup.bank_slip.title': 'Transfer slip',
+    'topup.bank_slip.description':
+        'Attach the payment slip and send it with this topup request for admin review.',
+    'topup.bank_slip.attach': 'Attach slip',
+    'topup.bank_slip.change': 'Change slip',
+    'topup.bank_slip.remove': 'Remove slip',
+    'topup.bank_slip.file_label': 'Slip file',
+    'topup.bank_slip.transfer_at': 'Transfer time',
+    'topup.bank_slip.transfer_at_unset': 'Choose transfer time',
+    'topup.bank_slip.required':
+        'Please attach a payment slip before sending this request for review.',
+    'topup.bank_transfer_submitted':
+        'Slip sent successfully. Please wait for admin review.',
+    'topup.deferred_slip.qr':
+        'Create a QR Code, then attach a slip after payment so the store can verify it.',
+    'topup.deferred_slip.credit':
+        'This channel shows a QR Code and lets you attach a slip after payment.',
     'topup.channel.qr.label': 'QR Code',
     'topup.channel.qr.description':
         'Create a QR Code and attach a slip after payment.',
@@ -3528,6 +4132,8 @@ const _localizedValues = <String, Map<String, String>>{
     'topup.slip_uploaded': 'Slip uploaded successfully.',
     'topup.slip_upload_failed': 'Could not upload slip. Please try again.',
     'topup.history.title': 'Topup history',
+    'topup.history.loading': 'Loading data...',
+    'topup.history.load_failed': 'Could not load topup history.',
     'topup.history.header.title': 'Recent topups',
     'topup.history.header.subtitle': 'Track G-Wallet topup request status.',
     'topup.history.item_title': 'G-Wallet topup',
@@ -3541,6 +4147,7 @@ const _localizedValues = <String, Map<String, String>>{
     'reward_claims.header.subtitle': 'Track reward claim status',
     'reward_claims.tickets_tooltip': 'View tickets',
     'reward_claims.prize_title': 'Lottery reward',
+    'reward_claims.loading': 'Loading reward claim history...',
     'reward_claims.load_failed': 'Could not load reward claim history.',
     'reward_claims.load_more_failed': 'Could not load more items.',
     'reward_claims.loading_more': 'Loading...',
@@ -3549,8 +4156,11 @@ const _localizedValues = <String, Map<String, String>>{
     'reward_claims.empty.subtitle': 'Submitted reward claims will appear here.',
     'reward_claims.view_winning_tickets': 'View winning tickets',
     'reward_claims.detail.title': 'Reward claim details',
+    'reward_claims.detail.loading': 'Loading reward claim details...',
+    'reward_claims.detail.load_failed': 'Could not load reward claim details.',
     'reward_claims.detail.method': 'Claim method',
     'reward_claims.detail.manual_method': 'Manual reward claim',
+    'reward_claims.detail.payout_channel': 'Reward claim payout channel',
     'reward_claims.detail.status': 'Status',
     'reward_claims.detail.draw_date': 'Lottery draw date',
     'reward_claims.detail.tax': 'Withholding tax (0.5%)',
@@ -3594,6 +4204,7 @@ const _localizedValues = <String, Map<String, String>>{
         'Track cashback and activity reward payout status.',
     'activity_claims.activities_tooltip': 'View activities',
     'activity_claims.prize_title': 'Activity reward',
+    'activity_claims.loading': 'Loading activity reward claim history...',
     'activity_claims.load_failed':
         'Could not load activity reward claim history.',
     'activity_claims.load_more_failed': 'Could not load more items.',
@@ -3602,6 +4213,9 @@ const _localizedValues = <String, Map<String, String>>{
         'Cashback and activity reward claims will appear here.',
     'activity_claims.view_activities': 'View activities',
     'activity_claims.detail.title': 'Activity claim details',
+    'activity_claims.detail.loading': 'Loading activity claim details...',
+    'activity_claims.detail.load_failed':
+        'Could not load activity claim details.',
     'activity_claims.detail.reward_title': 'Activity reward',
     'activity_claims.activity_fallback': 'Activity',
     'activity_claims.customer_fallback': 'Customer',
@@ -3620,6 +4234,7 @@ const _localizedValues = <String, Map<String, String>>{
     'activity_claims.payout.bank_transfer': 'Bank transfer',
     'activity_claims.payout.wallet_credit': 'G-Wallet credit',
     'activity_claims.payout.bank_fallback': 'Bank account',
+    'activity_claims.payout.bank_prefix': 'ธนาคาร',
     'activity_claims.payout.bank_summary': 'Receive via {bank}',
     'activity_claims.payout.wallet_summary': 'Receive in {wallet}',
     'activity_claims.detail.amount': 'Activity reward amount',
@@ -3653,6 +4268,8 @@ const _localizedValues = <String, Map<String, String>>{
     'activities.history_select_label': 'Select past draw',
     'activities.history_no_games': 'No past activities',
     'activities.back_to_current': 'Back to current draw activities',
+    'activities.loading': 'Loading activities',
+    'activities.history_loading': 'Loading past activities',
     'activities.load_failed': 'Could not load activities.',
     'activities.empty.title': 'No activities in this draw yet',
     'activities.empty.message':
@@ -3677,11 +4294,15 @@ const _localizedValues = <String, Map<String, String>>{
     'activities.meta.rights': '{count} right(s) available',
     'activities.meta.remaining_numbers': '{count} number(s) left',
     'activity_detail.title': 'Activity details',
+    'activity_detail.loading': 'Loading activity details...',
+    'activity_detail.load_failed': 'Could not load activity details.',
     'activity_detail.has_right': 'Eligible to join',
     'activity_detail.entry_closed': 'Entry closed',
-    'activity_detail.confirm_number.title': 'Confirm number selection',
+    'activity_detail.confirm_number.eyebrow': 'Confirm lucky number',
+    'activity_detail.confirm_number.title': 'Choose this number?',
     'activity_detail.confirm_number.message':
-        'Use 1 right to choose number {number} for {prediction}?',
+        'This uses 1 right for {prediction}, and this number cannot be selected again.',
+    'activity_detail.confirm_number.submit': 'Confirm number',
     'activity_detail.entry.submit_success': 'Number submitted.',
     'activity_detail.entry.closed': 'This activity is closed for entries.',
     'activity_detail.entry.submit_failed':
@@ -3715,14 +4336,20 @@ const _localizedValues = <String, Map<String, String>>{
     'activity_detail.rights.deadline': 'Entry closes {date}',
     'activity_detail.selected_numbers.title': 'Selected numbers',
     'activity_detail.board.title': '{prediction} board',
+    'activity_detail.board.summary':
+        '{range} · {remaining} of {total} numbers left',
     'activity_detail.board.can_select':
         'Tap a number to confirm. Each number uses 1 right.',
     'activity_detail.board.closed': 'This activity is closed for entries.',
     'activity_detail.board.no_rights': 'No remaining rights to choose numbers.',
+    'activity_detail.board.reserved_hint': 'Red numbers are already selected',
+    'activity_detail.board.entry_closed_hint': 'Entry period ended',
     'activity_detail.login_to_join.title':
         'Sign in to view rights and choose numbers',
     'activity_detail.login_to_join.button': 'Sign in',
     'activity_detail.claim_sheet.title': 'Claim activity reward',
+    'activity_detail.claim_sheet.eyebrow': 'Activity payout',
+    'activity_detail.claim_sheet.available_amount': 'Available amount',
     'activity_detail.claim_sheet.wallet.title': 'Receive to G-Wallet',
     'activity_detail.claim_sheet.wallet.subtitle':
         'Funds will be credited after Partner approval.',
@@ -3730,6 +4357,9 @@ const _localizedValues = <String, Map<String, String>>{
     'activity_detail.claim_sheet.bank.missing': 'No payout account set',
     'activity_detail.claim_sheet.setup_bank': 'Set payout account',
     'activity_detail.claim_sheet.confirm_pin': 'Confirm with PIN',
+    'activity_detail.claim_sheet.pin.title': 'Enter 6-digit PIN',
+    'activity_detail.claim_sheet.pin.subtitle': 'To claim activity reward',
+    'activity_detail.claim_sheet.pin.progress': '{count}/6 digits entered',
     'activity_detail.claim_sheet.profile_load_failed':
         'Could not load payout information. Please try again.',
     'activity_detail.claim_sheet.bank_required':
@@ -3746,6 +4376,10 @@ const _localizedValues = <String, Map<String, String>>{
         'Biometric verification failed. Please use PIN.',
     'activity_detail.claim_sheet.biometric_button': 'Use Face ID / Biometric',
     'activity_detail.missing': 'Activity was not found',
+    'activity_detail.missing.title': 'Activity not found',
+    'activity_detail.missing.message':
+        'This activity may be disabled or no longer visible.',
+    'activity_detail.missing.back_to_activities': 'Back to activities',
     'purchase_history.title': 'Purchase history',
     'purchase_history.header.title': 'Digital six-digit lottery purchases',
     'purchase_history.header.subtitle': 'View past purchases and receipts.',
@@ -3777,8 +4411,11 @@ const _localizedValues = <String, Map<String, String>>{
     'purchase_history.detail.ticket_list': 'Lottery numbers in this order',
     'purchase_history.detail.empty': 'Purchase order was not found',
     'purchase_history.store_fallback': 'Lottery store',
+    'lottery.tabs.all': 'All tickets',
+    'lottery.tabs.stores': 'Stores',
     'stores.title': 'Stores',
     'stores.search_label': 'Search stores',
+    'stores.recommended.title': 'Recommended lottery stores',
     'stores.empty.title': 'No stores found',
     'stores.empty.message': 'Try another keyword or check back later.',
     'stores.fallback_store_name': 'Lottery store',
@@ -3869,8 +4506,23 @@ const _localizedValues = <String, Map<String, String>>{
     'tickets.current_draw.subtitle':
         'Purchased tickets and pending reward claims are grouped by status.',
     'tickets.search_numbers': 'Search lottery numbers',
+    'tickets.search.placeholder': 'Search numbers in My Tickets',
+    'tickets.search.submit': 'Search',
+    'tickets.search.clear': 'Clear search',
+    'tickets.search.result': 'Search result "{query}"',
+    'tickets.search.empty.title': 'No matching ticket number',
+    'tickets.search.empty.subtitle':
+        'Try another number or return to all tickets in this draw.',
+    'tickets.draw_date_label': 'Lottery draw date',
+    'tickets.total_count': '{count} ticket(s) total',
+    'tickets.winning_banner.title': 'Congratulations!',
+    'tickets.winning_banner.message': 'You have {count} winning ticket(s).',
+    'tickets.tab.current': 'Current draw',
+    'tickets.tab.history': 'Past draws',
     'tickets.empty.title': 'No tickets in this draw yet',
     'tickets.empty.subtitle': 'Purchased tickets will appear here.',
+    'tickets.footer_note':
+        'My Tickets stores your lottery numbers and shows prize notifications here when a ticket wins.',
     'tickets.number_fallback': 'Lottery number',
     'tickets.count': '{count} ticket(s)',
     'tickets.status.winning': 'Winning ticket',
@@ -3895,11 +4547,18 @@ const _localizedValues = <String, Map<String, String>>{
     'tickets.history.header.title': 'Past draw tickets',
     'tickets.history.header.subtitle':
         'Only completed draws with a newer draw are shown here.',
+    'tickets.history.list_title': 'Lottery tickets',
+    'tickets.history.show_winning': 'View winning tickets',
+    'tickets.history.show_all': 'View all tickets',
     'tickets.history.load_failed': 'Could not load ticket history.',
     'tickets.history.load_more_failed': 'Could not load more items.',
     'tickets.history.empty.title': 'No past tickets yet',
     'tickets.history.empty.subtitle':
         'Past tickets will appear here after a newer draw exists.',
+    'tickets.history.winning_empty.title':
+        'No winning tickets found in this draw',
+    'tickets.history.winning_empty.subtitle':
+        'Return to all tickets or check another past draw.',
     'common.loading_more': 'Loading...',
     'common.load_more': 'Load more',
     'tickets.detail.title': 'Ticket details',
@@ -3908,6 +4567,9 @@ const _localizedValues = <String, Map<String, String>>{
     'tickets.label.lottery_number': 'Lottery number',
     'tickets.label.draw': 'Draw',
     'tickets.label.draw_date': 'Draw date',
+    'tickets.label.lottery_draw_date': 'Lottery draw date',
+    'tickets.label.draw_number': 'Draw number',
+    'tickets.label.set_number': 'Set number',
     'tickets.label.count': 'Quantity',
     'tickets.label.prize_amount': 'Prize amount',
     'tickets.label.recipient': 'Recipient',
@@ -3923,6 +4585,7 @@ const _localizedValues = <String, Map<String, String>>{
     'tickets.claim.already_claimed.title': 'Claim already submitted',
     'tickets.claim.already_claimed.subtitle':
         'Track this claim from the claim detail page.',
+    'tickets.claim.loading': 'Loading reward information...',
     'tickets.claim.load_failed': 'Could not load reward claim information.',
     'tickets.claim.submit_failed': 'Could not submit claim. Please try again.',
     'tickets.claim.biometric_unavailable':
@@ -3948,6 +4611,13 @@ const _localizedValues = <String, Map<String, String>>{
     'tickets.claim.bank.subtitle_missing':
         'Add a reward payout account before choosing this channel.',
     'tickets.claim.add_bank': 'Add reward payout account',
+    'tickets.claim.unavailable.pending_result':
+        'This ticket is still waiting for results.',
+    'tickets.claim.unavailable.non_winning':
+        'This ticket did not win in this draw.',
+    'tickets.claim.unavailable.winning_not_open':
+        'A winning result was found, but reward claims are not open yet.',
+    'tickets.claim.unavailable.default': 'This item cannot be claimed yet.',
     'tickets.claim.enter_pin': 'Enter 6-digit PIN',
     'tickets.claim.processing.title': 'Reward payout is processing',
     'tickets.claim.processing.subtitle':
@@ -3955,5 +4625,17 @@ const _localizedValues = <String, Map<String, String>>{
     'tickets.claim.view_my_tickets': 'View My Tickets',
     'tickets.image.unavailable': 'Ticket image cannot be displayed',
     'tickets.image.preparing': 'Ticket image is being prepared',
+    'tickets.image.open_preview': 'View ticket image',
+    'tickets.image.close_preview': 'Close ticket image',
+    'tickets.image.alt': 'Ticket image for number {number}',
+    'tickets.image.government_lottery_english': 'THAI GOVERNMENT LOTTERY',
+    'tickets.image.digital_watermark': 'DIGITAL',
+    'tickets.image.digital_number_label': 'Digital lottery number',
+    'tickets.image.current_draw': 'Current draw',
+    'tickets.image.digital_type': 'Digital ticket',
+    'tickets.image.sold': 'Sold',
+    'tickets.image.tenant_fallback': 'App',
+    'tickets.image.modal_note':
+        'This digital ticket is stored in {site} for {product}.',
   },
 };

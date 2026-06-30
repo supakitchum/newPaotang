@@ -7,6 +7,8 @@ class CustomerTicket {
     required this.gameId,
     required this.gameName,
     required this.drawAt,
+    required this.drawNumber,
+    required this.setNumber,
     required this.number,
     required this.status,
     required this.rewardStatus,
@@ -20,6 +22,7 @@ class CustomerTicket {
     required this.previewImageUrl,
     required this.imageStatus,
     required this.imageError,
+    this.orderId = '',
   });
 
   factory CustomerTicket.fromJson(Map<String, dynamic> json) {
@@ -38,9 +41,24 @@ class CustomerTicket {
 
     return CustomerTicket(
       id: json['id']?.toString() ?? '',
+      orderId: json['order_id']?.toString() ?? '',
       gameId: (json['game_id'] ?? game['id'] ?? '').toString(),
       gameName: (game['name'] ?? '').toString(),
       drawAt: game['draw_at'] ?? json['draw_at'],
+      drawNumber: (json['draw_no'] ??
+              json['draw'] ??
+              json['game_no'] ??
+              game['draw_no'] ??
+              game['draw'] ??
+              game['game_no'] ??
+              '')
+          .toString(),
+      setNumber: (json['set'] ??
+              json['set_no'] ??
+              json['sort_order'] ??
+              json['series'] ??
+              '')
+          .toString(),
       number: (json['full_number'] ?? json['number'] ?? json['lottery_number'])
               ?.toString() ??
           '',
@@ -66,9 +84,12 @@ class CustomerTicket {
   }
 
   final String id;
+  final String orderId;
   final String gameId;
   final String gameName;
   final Object? drawAt;
+  final String drawNumber;
+  final String setNumber;
   final String number;
   final String status;
   final TicketRewardStatus rewardStatus;
@@ -98,6 +119,18 @@ class CustomerTicket {
   bool get hasImage => primaryImageUrl.trim().isNotEmpty;
 
   bool get hasExistingClaim => rewardClaimId.trim().isNotEmpty;
+
+  String get displayDrawNumber {
+    final value = drawNumber.trim();
+    if (value.isNotEmpty) return value;
+    return gameId.trim();
+  }
+
+  String get displaySetNumber {
+    final value = setNumber.trim();
+    if (value.isNotEmpty) return value;
+    return count > 0 ? count.toString() : '';
+  }
 
   bool get canCreateClaim {
     if (!claimable) return false;

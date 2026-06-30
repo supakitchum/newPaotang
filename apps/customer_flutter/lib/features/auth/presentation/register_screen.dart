@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/auth/auth_controller.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_redirect.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../../shared/widgets/tenant_brand_header.dart';
 import '../../affiliate/data/affiliate_referral_repository.dart';
@@ -215,7 +216,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             ),
             const SizedBox(height: 10),
             TextButton(
-              onPressed: _submitting ? null : () => context.go('/login'),
+              onPressed: _submitting
+                  ? null
+                  : () => context.go(
+                        customerLoginRouteForRedirect(_currentRedirect()),
+                      ),
               child: Text(l10n.registerLoginLink),
             ),
           ],
@@ -277,14 +282,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           color: colorScheme.outlineVariant.withValues(alpha: 0.72),
         ),
       ),
-      child: CheckboxListTile(
-        contentPadding: const EdgeInsetsDirectional.only(start: 8, end: 10),
-        value: _acceptedTerms,
-        onChanged: _submitting
-            ? null
-            : (value) => setState(() => _acceptedTerms = value ?? false),
-        title: Text(context.l10n.registerTerms),
-        controlAffinity: ListTileControlAffinity.leading,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(18),
+        child: CheckboxListTile(
+          contentPadding: const EdgeInsetsDirectional.only(start: 8, end: 10),
+          value: _acceptedTerms,
+          onChanged: _submitting
+              ? null
+              : (value) => setState(() => _acceptedTerms = value ?? false),
+          title: Text(context.l10n.registerTerms),
+          controlAffinity: ListTileControlAffinity.leading,
+        ),
       ),
     );
   }
@@ -385,7 +394,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           await ref
               .read(affiliateReferralServiceProvider)
               .applyStored(registered: true);
-          if (mounted) context.go('/');
+          if (mounted) _goAfterRegistration();
         }
         return;
       }
@@ -402,7 +411,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       await ref
           .read(affiliateReferralServiceProvider)
           .applyStored(registered: true);
-      if (mounted) context.go('/');
+      if (mounted) _goAfterRegistration();
     } catch (_) {
       _showSnack(failedMessage);
     } finally {
@@ -472,6 +481,24 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _canRegisterWithoutOtp(Object error) {
     final info = ApiErrorInfo.fromObject(error);
     return info.isOptionalSmsOtpProviderMissing;
+  }
+
+  void _goAfterRegistration() {
+    final auth = ref.read(authControllerProvider);
+    final redirect = _currentRedirect();
+    context.go(
+      auth.pinRequired ? customerPinRouteForRedirect(redirect) : redirect,
+    );
+  }
+
+  String _currentRedirect() {
+    try {
+      return safeCustomerRedirect(
+        GoRouterState.of(context).uri.queryParameters['redirect'],
+      );
+    } catch (_) {
+      return '/';
+    }
   }
 
   void _showSnack(String message) {

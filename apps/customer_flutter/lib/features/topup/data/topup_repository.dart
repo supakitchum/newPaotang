@@ -40,10 +40,29 @@ class TopupRepository {
     required TopupChannel channel,
     required double amount,
     DateTime? transferAt,
+    TopupSlipUpload? slip,
   }) async {
+    final headers = {'Idempotency-Key': newIdempotencyKey('customer_topup')};
+    if (slip != null) {
+      final response = await _api.postMultipart<Map<String, dynamic>>(
+        '/customer/topups',
+        headers: headers,
+        data: FormData.fromMap({
+          'channel': channel.apiValue,
+          'amount': _amountToMinor(amount),
+          if (transferAt != null) 'transfer_at': transferAt.toIso8601String(),
+          'slip': MultipartFile.fromBytes(
+            slip.bytes,
+            filename: slip.filename,
+          ),
+        }),
+      );
+      return TopupRequestItem.fromJson(unwrapPayload(response.data));
+    }
+
     final response = await _api.postWithHeaders<Map<String, dynamic>>(
       '/customer/topups',
-      headers: {'Idempotency-Key': newIdempotencyKey('customer_topup')},
+      headers: headers,
       data: {
         'channel': channel.apiValue,
         'amount': _amountToMinor(amount),

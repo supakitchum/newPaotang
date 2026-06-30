@@ -9,14 +9,18 @@ class AppShell extends StatelessWidget {
     required this.child,
     super.key,
     this.currentPath,
+    this.backPath,
     this.sensitive = false,
+    this.showBottomNavigation = true,
     this.actions = const [],
   });
 
   final String title;
   final Widget child;
   final String? currentPath;
+  final String? backPath;
   final bool sensitive;
+  final bool showBottomNavigation;
   final List<Widget> actions;
 
   @override
@@ -24,7 +28,7 @@ class AppShell extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      extendBody: true,
+      extendBody: showBottomNavigation,
       appBar: AppBar(
         title: Text(
           title,
@@ -38,13 +42,22 @@ class AppShell extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         toolbarHeight: 64,
+        leading: backPath == null
+            ? null
+            : IconButton(
+                tooltip: context.l10n.commonBack,
+                onPressed: () => context.go(backPath!),
+                icon: const Icon(Icons.arrow_back_ios_new),
+              ),
         flexibleSpace: _CustomerHeroAppBarBackground(
           primary: colorScheme.primary,
           secondary: colorScheme.secondary,
         ),
       ),
       body: SafeArea(child: child),
-      bottomNavigationBar: _CustomerBottomNav(currentPath: currentPath),
+      bottomNavigationBar: showBottomNavigation
+          ? _CustomerBottomNav(currentPath: currentPath)
+          : null,
     );
   }
 }

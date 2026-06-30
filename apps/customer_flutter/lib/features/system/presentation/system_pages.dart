@@ -1,8 +1,14 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/i18n/app_locale.dart';
 import '../../../core/i18n/customer_localizations.dart';
@@ -14,8 +20,130 @@ import '../../../features/purchase_history/data/purchase_history_repository.dart
 import '../../../features/purchase_history/presentation/purchase_history_localization.dart';
 import '../../../features/results/data/result_models.dart';
 import '../../../features/results/data/result_repository.dart';
+import 'success_receipt_state.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
+import '../../../shared/widgets/tenant_brand_header.dart';
+
+final receiptShareServiceProvider = Provider<ReceiptShareService>((ref) {
+  return SharePlusReceiptShareService();
+});
+
+final receiptImageExporterProvider = Provider<ReceiptImageExporter>((ref) {
+  return RepaintBoundaryReceiptImageExporter();
+});
+
+final receiptPdfExporterProvider = Provider<ReceiptPdfExporter>((ref) {
+  return PdfReceiptPdfExporter();
+});
+
+abstract class ReceiptShareService {
+  Future<void> shareReceipt({
+    required String text,
+    required String subject,
+    Uint8List? imageBytes,
+    String? fileName,
+    Uint8List? pdfBytes,
+    String? pdfFileName,
+  });
+}
+
+class SharePlusReceiptShareService implements ReceiptShareService {
+  @override
+  Future<void> shareReceipt({
+    required String text,
+    required String subject,
+    Uint8List? imageBytes,
+    String? fileName,
+    Uint8List? pdfBytes,
+    String? pdfFileName,
+  }) async {
+    final imageFileName = fileName ?? 'receipt.png';
+    final pdfName = pdfFileName ?? 'receipt.pdf';
+    final files = <XFile>[];
+    final fileNameOverrides = <String>[];
+    if (imageBytes != null && imageBytes.isNotEmpty) {
+      files.add(
+        XFile.fromData(
+          imageBytes,
+          mimeType: 'image/png',
+          name: imageFileName,
+        ),
+      );
+      fileNameOverrides.add(imageFileName);
+    }
+    if (pdfBytes != null && pdfBytes.isNotEmpty) {
+      files.add(
+        XFile.fromData(
+          pdfBytes,
+          mimeType: 'application/pdf',
+          name: pdfName,
+        ),
+      );
+      fileNameOverrides.add(pdfName);
+    }
+    await SharePlus.instance.share(
+      ShareParams(
+        text: text,
+        title: subject,
+        subject: subject,
+        files: files.isEmpty ? null : files,
+        fileNameOverrides: fileNameOverrides.isEmpty ? null : fileNameOverrides,
+      ),
+    );
+  }
+}
+
+abstract class ReceiptImageExporter {
+  Future<Uint8List> capturePng(GlobalKey boundaryKey);
+}
+
+class RepaintBoundaryReceiptImageExporter implements ReceiptImageExporter {
+  @override
+  Future<Uint8List> capturePng(GlobalKey boundaryKey) async {
+    await Future<void>.delayed(Duration.zero);
+    final context = boundaryKey.currentContext;
+    final renderObject = context?.findRenderObject();
+    if (renderObject is! RenderRepaintBoundary) {
+      throw StateError('Receipt boundary is not ready.');
+    }
+    final image = await renderObject.toImage(pixelRatio: 3);
+    try {
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (bytes == null) {
+        throw StateError('Could not export receipt image.');
+      }
+      return bytes.buffer.asUint8List();
+    } finally {
+      image.dispose();
+    }
+  }
+}
+
+abstract class ReceiptPdfExporter {
+  Future<Uint8List> buildPdf({required Uint8List imageBytes});
+}
+
+class PdfReceiptPdfExporter implements ReceiptPdfExporter {
+  @override
+  Future<Uint8List> buildPdf({required Uint8List imageBytes}) async {
+    if (imageBytes.isEmpty) {
+      throw StateError('Receipt image is required for PDF export.');
+    }
+    final document = pw.Document();
+    final image = pw.MemoryImage(imageBytes);
+    document.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(24),
+        build: (_) => pw.Center(
+          child: pw.Image(image, fit: pw.BoxFit.contain),
+        ),
+      ),
+    );
+    return document.save();
+  }
+}
 
 class MaintenanceScreen extends ConsumerWidget {
   const MaintenanceScreen({super.key});
@@ -297,102 +425,419 @@ class SuccessScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final id = orderId ?? '';
+    final receiptBoundaryKey = GlobalKey();
+    final productLabel =
+        ref.watch(mobileBootstrapProvider).valueOrNull?.lotteryProductLabel ??
+            '';
+    final fallbackOrder = successReceiptFallbackForOrderId(
+      ref.watch(successReceiptFallbackOrderProvider),
+      id,
+    );
     final order = id.isEmpty
-        ? const AsyncValue<PurchaseHistoryOrder?>.data(null)
+        ? AsyncValue<PurchaseHistoryOrder?>.data(fallbackOrder)
         : ref
             .watch(purchaseHistoryDetailProvider(id))
             .whenData((value) => value);
+    Widget content(PurchaseHistoryOrder? item, {Widget? statusContent}) {
+      return _SystemPageList(
+        children: [
+          RepaintBoundary(
+            key: receiptBoundaryKey,
+            child: _SuccessReceiptCard(
+              item: item,
+              productLabel: productLabel,
+              statusContent: statusContent,
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (item != null) ...[
+            OutlinedButton.icon(
+              onPressed: () async {
+                final l10n = context.l10n;
+                final receiptText = successReceiptClipboardText(
+                  context,
+                  item,
+                );
+                await Clipboard.setData(
+                  ClipboardData(
+                    text: receiptText,
+                  ),
+                );
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(l10n.successReceiptSaved)),
+                );
+              },
+              icon: const Icon(Icons.download_outlined),
+              label: Text(context.l10n.successSaveReceipt),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final l10n = context.l10n;
+                final receiptText = successReceiptClipboardText(
+                  context,
+                  item,
+                );
+                Uint8List? imageBytes;
+                Uint8List? pdfBytes;
+                try {
+                  imageBytes = await ref
+                      .read(receiptImageExporterProvider)
+                      .capturePng(receiptBoundaryKey);
+                } catch (_) {
+                  imageBytes = null;
+                }
+                if (imageBytes != null) {
+                  try {
+                    pdfBytes = await ref
+                        .read(receiptPdfExporterProvider)
+                        .buildPdf(imageBytes: imageBytes);
+                  } catch (_) {
+                    pdfBytes = null;
+                  }
+                }
+                try {
+                  await ref.read(receiptShareServiceProvider).shareReceipt(
+                        text: receiptText,
+                        subject: l10n.successPurchaseTitle,
+                        imageBytes: imageBytes,
+                        fileName: imageBytes == null
+                            ? null
+                            : successReceiptImageFileName(item),
+                        pdfBytes: pdfBytes,
+                        pdfFileName: pdfBytes == null
+                            ? null
+                            : successReceiptPdfFileName(item),
+                      );
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l10n.successReceiptShareStarted)),
+                  );
+                } catch (_) {
+                  await Clipboard.setData(ClipboardData(text: receiptText));
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(l10n.successReceiptShareFailedCopied),
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.ios_share_outlined),
+              label: Text(context.l10n.successShareReceipt),
+            ),
+            const SizedBox(height: 10),
+          ],
+          FilledButton.icon(
+            onPressed: () => context.go('/tickets'),
+            icon: const Icon(Icons.confirmation_number_outlined),
+            label: Text(context.l10n.successViewTickets),
+          ),
+        ],
+      );
+    }
+
     return AppShell(
       title: context.l10n.successTitle,
       currentPath: '/tickets',
       sensitive: true,
       child: order.when(
-        data: (item) => _SystemPageList(
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(22),
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 36,
-                      backgroundColor: Colors.green.shade50,
-                      child: Icon(
-                        Icons.check_rounded,
-                        color: Colors.green.shade700,
-                        size: 42,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      context.l10n.successPurchaseTitle,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w900),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      context.l10n.successPurchaseSubtitle,
-                      textAlign: TextAlign.center,
-                    ),
-                    if (item != null) ...[
-                      const Divider(height: 28),
-                      _ReceiptRow(
-                        label: context.l10n.purchaseHistoryTicketCountLabel,
-                        value: context.l10n
-                            .purchaseHistoryTicketCount(item.ticketCount),
-                      ),
-                      _ReceiptRow(
-                        label: context.l10n.purchaseHistoryDrawDateLabel,
-                        value: localizedPurchaseDrawDate(context, item),
-                      ),
-                      _ReceiptRow(
-                        label: context.l10n.purchaseHistoryPayeeLabel,
-                        value: localizedPurchaseStoreName(context, item),
-                      ),
-                      _ReceiptRow(
-                        label: context.l10n.purchaseHistoryPaymentChannelLabel,
-                        value: _successPaymentChannelText(context, item),
-                      ),
-                      _ReceiptRow(
-                        label: context.l10n.purchaseHistoryTotalLabel,
-                        value: formatBaht(item.total),
-                      ),
-                      _ReceiptRow(
-                        label: context.l10n.successTransactionAtLabel,
-                        value: localizedPurchaseTransactionDate(context, item),
-                      ),
-                      _ReceiptRow(
-                        label: context.l10n.purchaseHistoryReferenceLabel,
-                        value: item.displayReference,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            FilledButton.icon(
-              onPressed: () => context.go('/tickets'),
-              icon: const Icon(Icons.confirmation_number_outlined),
-              label: Text(context.l10n.successViewTickets),
-            ),
-          ],
+        data: (item) => content(item ?? fallbackOrder),
+        loading: () => content(
+          null,
+          statusContent: _SuccessReceiptStatusMessage(
+            message: context.l10n.successPaymentLoading,
+            loading: true,
+          ),
         ),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => _SystemPageList(
-          children: [
-            _ErrorCard(
+        error: (_, __) {
+          if (fallbackOrder != null) return content(fallbackOrder);
+          return content(
+            null,
+            statusContent: _SuccessReceiptStatusMessage(
               message: context.l10n.successPaymentLoadFailed,
-              onRetry: () => ref.invalidate(purchaseHistoryDetailProvider(id)),
+              icon: Icons.error_outline,
+              actionLabel: context.l10n.commonRetry,
+              onAction: () => ref.invalidate(purchaseHistoryDetailProvider(id)),
             ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SuccessReceiptCard extends StatelessWidget {
+  const _SuccessReceiptCard({
+    required this.item,
+    required this.productLabel,
+    this.statusContent,
+  });
+
+  final PurchaseHistoryOrder? item;
+  final String productLabel;
+  final Widget? statusContent;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          children: [
+            _SuccessReceiptHeader(productLabel: productLabel),
+            if (item != null) ...[
+              const Divider(height: 30),
+              _ReceiptRow(
+                label: l10n.purchaseHistoryTicketCountLabel,
+                value: l10n.purchaseHistoryTicketCount(item!.ticketCount),
+              ),
+              _ReceiptRow(
+                label: l10n.purchaseHistoryDrawDateLabel,
+                value: localizedPurchaseDrawDate(context, item!),
+              ),
+              const Divider(height: 24),
+              _ReceiptRow(
+                label: l10n.purchaseHistoryPayeeLabel,
+                value: localizedPurchaseStoreName(context, item!),
+              ),
+              _ReceiptRow(
+                label: l10n.purchaseHistoryPaymentChannelLabel,
+                value: _successPaymentChannelText(context, item!),
+              ),
+              const Divider(height: 24),
+              _SuccessTotalRow(total: item!.total),
+              const SizedBox(height: 8),
+              Text(
+                [
+                  '${l10n.successTransactionAtLabel} '
+                      '${localizedPurchaseTransactionDate(context, item!)}',
+                  '${l10n.purchaseHistoryReferenceLabel} '
+                      '${item!.displayReference}',
+                ].join('\n'),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ] else if (statusContent != null) ...[
+              const Divider(height: 30),
+              statusContent!,
+            ],
           ],
         ),
       ),
     );
   }
+}
+
+class _SuccessReceiptHeader extends StatelessWidget {
+  const _SuccessReceiptHeader({required this.productLabel});
+
+  final String productLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const TenantBrandHeader(
+              icon: Icons.storefront_outlined,
+              showName: false,
+              size: 44,
+            ),
+            if (productLabel.trim().isNotEmpty) ...[
+              Container(
+                width: 1,
+                height: 34,
+                margin: const EdgeInsets.symmetric(horizontal: 14),
+                color: colorScheme.outlineVariant,
+              ),
+              Text(
+                productLabel.trim(),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 16),
+        CircleAvatar(
+          radius: 36,
+          backgroundColor: Colors.green.shade50,
+          child: Icon(
+            Icons.check_rounded,
+            color: Colors.green.shade700,
+            size: 42,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          l10n.successPurchaseTitle,
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
+              ?.copyWith(fontWeight: FontWeight.w900),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          l10n.successPurchaseSubtitle,
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+}
+
+class _SuccessReceiptStatusMessage extends StatelessWidget {
+  const _SuccessReceiptStatusMessage({
+    required this.message,
+    this.loading = false,
+    this.icon,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final String message;
+  final bool loading;
+  final IconData? icon;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        children: [
+          if (loading)
+            const CircularProgressIndicator()
+          else if (icon != null)
+            Icon(icon, color: colorScheme.error, size: 32),
+          const SizedBox(height: 14),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: loading
+                      ? colorScheme.onSurfaceVariant
+                      : colorScheme.error,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 14),
+            OutlinedButton(
+              onPressed: onAction,
+              child: Text(actionLabel!),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SuccessTotalRow extends StatelessWidget {
+  const _SuccessTotalRow({required this.total});
+
+  final double total;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final value = Text(
+          formatBaht(total),
+          textAlign:
+              constraints.maxWidth < 360 ? TextAlign.left : TextAlign.end,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+        );
+        if (constraints.maxWidth < 360) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(l10n.purchaseHistoryTotalLabel),
+              const SizedBox(height: 4),
+              value,
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(child: Text(l10n.purchaseHistoryTotalLabel)),
+            const SizedBox(width: 12),
+            Flexible(child: value),
+          ],
+        );
+      },
+    );
+  }
+}
+
+String successReceiptClipboardText(
+  BuildContext context,
+  PurchaseHistoryOrder item,
+) {
+  final l10n = context.l10n;
+  return [
+    l10n.successPurchaseTitle,
+    '${l10n.purchaseHistoryTicketCountLabel}: '
+        '${l10n.purchaseHistoryTicketCount(item.ticketCount)}',
+    '${l10n.purchaseHistoryDrawDateLabel}: '
+        '${localizedPurchaseDrawDate(context, item)}',
+    '${l10n.purchaseHistoryPayeeLabel}: '
+        '${localizedPurchaseStoreName(context, item)}',
+    '${l10n.purchaseHistoryPaymentChannelLabel}: '
+        '${_successPaymentChannelText(context, item).replaceAll('\n', ' ')}',
+    '${l10n.purchaseHistoryTotalLabel}: ${formatBaht(item.total)}',
+    '${l10n.successTransactionAtLabel}: '
+        '${localizedPurchaseTransactionDate(context, item)}',
+    '${l10n.purchaseHistoryReferenceLabel}: ${item.displayReference}',
+  ].join('\n');
+}
+
+String successReceiptImageFileName(PurchaseHistoryOrder item) {
+  return _successReceiptFileName(item, extension: 'png');
+}
+
+String successReceiptPdfFileName(PurchaseHistoryOrder item) {
+  return _successReceiptFileName(item, extension: 'pdf');
+}
+
+String _successReceiptFileName(
+  PurchaseHistoryOrder item, {
+  required String extension,
+}) {
+  final source = item.displayReference.trim().isEmpty
+      ? item.id
+      : item.displayReference.trim();
+  final slug = source
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9_-]+'), '-')
+      .replaceAll(RegExp(r'-+'), '-')
+      .replaceAll(RegExp(r'^-|-$'), '');
+  final normalizedExtension =
+      extension.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '').trim();
+  return 'receipt-${slug.isEmpty ? 'order' : slug}.'
+      '${normalizedExtension.isEmpty ? 'txt' : normalizedExtension}';
 }
 
 String _successPaymentChannelText(

@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,15 +18,32 @@ import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/async/async_state_view.dart';
 import '../../../shared/widgets/customer_page_body.dart';
+import '../../../shared/widgets/customer_section_header.dart';
+import '../../../shared/widgets/tenant_brand_header.dart';
 import '../data/ticket_models.dart';
 import '../data/ticket_repository.dart';
 import 'ticket_localization.dart';
 
-class TicketsScreen extends ConsumerWidget {
+class TicketsScreen extends ConsumerStatefulWidget {
   const TicketsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TicketsScreen> createState() => _TicketsScreenState();
+}
+
+class _TicketsScreenState extends ConsumerState<TicketsScreen> {
+  final _searchController = TextEditingController();
+  bool _showSearch = false;
+  String _activeSearch = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final tickets = ref.watch(currentTicketsProvider);
     final l10n = context.l10n;
 
@@ -33,6 +53,11 @@ class TicketsScreen extends ConsumerWidget {
       sensitive: true,
       actions: [
         IconButton(
+          tooltip: l10n.ticketsSearchNumbers,
+          onPressed: () => setState(() => _showSearch = !_showSearch),
+          icon: Icon(_showSearch ? Icons.search_off : Icons.search),
+        ),
+        IconButton(
           tooltip: l10n.ticketsHistoryTooltip,
           onPressed: () => context.go('/tickets/history'),
           icon: const Icon(Icons.history),
@@ -40,28 +65,50 @@ class TicketsScreen extends ConsumerWidget {
       ],
       child: _TicketPageList(
         children: [
-          _TicketHeaderCard(
-            icon: Icons.confirmation_number_outlined,
-            title: l10n.ticketsCurrentDrawTitle,
-            subtitle: l10n.ticketsCurrentDrawSubtitle,
-          ),
+          const _TicketRouteTabs(current: _TicketRouteTab.current),
+          if (_showSearch) ...[
+            const SizedBox(height: 12),
+            _TicketSearchForm(
+              controller: _searchController,
+              onSubmit: _applySearch,
+              onClear: _clearSearch,
+            ),
+          ],
           const SizedBox(height: 12),
           AsyncStateView(
             value: tickets,
             data: (items) {
+              final displayTickets = _filterTickets(items);
+              final winningTicketCount = _winningTicketCount(items);
+
               if (items.isEmpty) return const _EmptyTicketsCard();
               return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (final ticket in items)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _TicketTile(ticket: ticket),
-                    ),
+                  _CurrentTicketSummary(
+                    tickets: items,
+                    activeSearch: _activeSearch,
+                  ),
+                  if (winningTicketCount > 0) ...[
+                    const SizedBox(height: 12),
+                    _WinningTicketBanner(count: winningTicketCount),
+                  ],
+                  const SizedBox(height: 12),
+                  if (displayTickets.isEmpty)
+                    const _TicketSearchEmptyCard()
+                  else
+                    for (final ticket in displayTickets)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _TicketTile(ticket: ticket),
+                      ),
                 ],
               );
             },
             empty: const _EmptyTicketsCard(),
           ),
+          const SizedBox(height: 16),
+          const _TicketFooterNote(),
           const SizedBox(height: 16),
           SizedBox(
             height: 52,
@@ -72,6 +119,311 @@ class TicketsScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  List<CustomerTicket> _filterTickets(List<CustomerTicket> tickets) {
+    final query = _activeSearch;
+    if (query.isEmpty) return tickets;
+
+    return tickets.where((ticket) {
+      final number = ticket.number.replaceAll(RegExp(r'\D'), '');
+      return number.contains(query);
+    }).toList(growable: false);
+  }
+
+  int _winningTicketCount(List<CustomerTicket> tickets) {
+    return tickets.fold<int>(0, (total, ticket) {
+      return total + (_isWinningTicket(ticket) ? ticket.count : 0);
+    });
+  }
+
+  bool _isWinningTicket(CustomerTicket ticket) => _ticketIsWinning(ticket);
+
+  void _applySearch() {
+    final query = _sanitizeSearch(_searchController.text);
+    setState(() {
+      _searchController.text = query;
+      _searchController.selection = TextSelection.collapsed(
+        offset: _searchController.text.length,
+      );
+      _activeSearch = query;
+    });
+  }
+
+  void _clearSearch() {
+    setState(() {
+      _searchController.clear();
+      _activeSearch = '';
+    });
+  }
+
+  String _sanitizeSearch(String value) {
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    return digits.length <= 6 ? digits : digits.substring(0, 6);
+  }
+}
+
+class _TicketSearchForm extends StatelessWidget {
+  const _TicketSearchForm({
+    required this.controller,
+    required this.onSubmit,
+    required this.onClear,
+  });
+
+  final TextEditingController controller;
+  final VoidCallback onSubmit;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          children: [
+            Icon(
+              Icons.search,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                key: const ValueKey('ticket-search-input'),
+                controller: controller,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  counterText: '',
+                  hintText: l10n.ticketsSearchPlaceholder,
+                ),
+                onSubmitted: (_) => onSubmit(),
+              ),
+            ),
+            IconButton(
+              key: const ValueKey('ticket-search-clear'),
+              tooltip: l10n.ticketsSearchClear,
+              onPressed: onClear,
+              icon: const Icon(Icons.close),
+            ),
+            FilledButton(
+              key: const ValueKey('ticket-search-submit'),
+              onPressed: onSubmit,
+              child: Text(l10n.ticketsSearchSubmit),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CurrentTicketSummary extends StatelessWidget {
+  const _CurrentTicketSummary({
+    required this.tickets,
+    required this.activeSearch,
+  });
+
+  final List<CustomerTicket> tickets;
+  final String activeSearch;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final drawDate = _drawDate(l10n);
+    final totalTicketCount = tickets.fold<int>(
+      0,
+      (total, ticket) => total + ticket.count,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.ticketsDrawDateLabel,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          drawDate,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          l10n.ticketsTotalCount(totalTicketCount),
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        if (activeSearch.isNotEmpty) ...[
+          const SizedBox(height: 3),
+          Text(
+            l10n.ticketsSearchResult(activeSearch),
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _drawDate(CustomerLocalizations l10n) {
+    for (final ticket in tickets) {
+      final drawDate = ticketDrawDateText(l10n, ticket);
+      if (drawDate != '-') return drawDate;
+    }
+    return '-';
+  }
+}
+
+class _WinningTicketBanner extends StatelessWidget {
+  const _WinningTicketBanner({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.tertiaryContainer.withValues(alpha: 0.92),
+            colorScheme.secondaryContainer.withValues(alpha: 0.8),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.ticketsWinningBannerTitle,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: colorScheme.onTertiaryContainer,
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    l10n.ticketsWinningBannerMessage(count),
+                    style: TextStyle(
+                      color: colorScheme.onTertiaryContainer,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            CircleAvatar(
+              backgroundColor: Colors.white.withValues(alpha: 0.6),
+              foregroundColor: colorScheme.tertiary,
+              child: const Icon(Icons.monetization_on_outlined),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TicketSearchEmptyCard extends StatelessWidget {
+  const _TicketSearchEmptyCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        leading: const CircleAvatar(child: Icon(Icons.search_off)),
+        title: Text(context.l10n.ticketsSearchEmptyTitle),
+        subtitle: Text(context.l10n.ticketsSearchEmptySubtitle),
+      ),
+    );
+  }
+}
+
+enum _TicketRouteTab { current, history }
+
+class _TicketRouteTabs extends StatelessWidget {
+  const _TicketRouteTabs({required this.current});
+
+  final _TicketRouteTab current;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return SegmentedButton<_TicketRouteTab>(
+      segments: [
+        ButtonSegment(
+          value: _TicketRouteTab.current,
+          icon: const Icon(Icons.confirmation_number_outlined),
+          label: Text(l10n.ticketsTabCurrent),
+        ),
+        ButtonSegment(
+          value: _TicketRouteTab.history,
+          icon: const Icon(Icons.history),
+          label: Text(l10n.ticketsTabHistory),
+        ),
+      ],
+      selected: {current},
+      onSelectionChanged: (selection) {
+        if (selection.isEmpty) return;
+        final value = selection.first;
+        if (value == current) return;
+        context.go(
+          value == _TicketRouteTab.history ? '/tickets/history' : '/tickets',
+        );
+      },
+    );
+  }
+}
+
+class _TicketHistoryFilterHeader extends StatelessWidget {
+  const _TicketHistoryFilterHeader({
+    required this.showOnlyWinning,
+    required this.onToggle,
+  });
+
+  final bool showOnlyWinning;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return CustomerSectionHeader(
+      title: l10n.ticketHistoryListTitle,
+      action: TextButton.icon(
+        onPressed: onToggle,
+        icon: Icon(showOnlyWinning ? Icons.list_alt : Icons.playlist_add_check),
+        label: Text(
+          showOnlyWinning
+              ? l10n.ticketHistoryShowAll
+              : l10n.ticketHistoryShowWinning,
+        ),
       ),
     );
   }
@@ -111,70 +463,6 @@ class _TicketPageList extends StatelessWidget {
   }
 }
 
-class _TicketHeaderCard extends StatelessWidget {
-  const _TicketHeaderCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 26,
-              backgroundColor: colorScheme.primaryContainer,
-              foregroundColor: colorScheme.primary,
-              child: Icon(icon),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _EmptyTicketsCard extends StatelessWidget {
   const _EmptyTicketsCard();
 
@@ -187,6 +475,25 @@ class _EmptyTicketsCard extends StatelessWidget {
         ),
         title: Text(context.l10n.ticketsEmptyTitle),
         subtitle: Text(context.l10n.ticketsEmptySubtitle),
+      ),
+    );
+  }
+}
+
+class _TicketFooterNote extends StatelessWidget {
+  const _TicketFooterNote();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Text(
+        context.l10n.ticketsFooterNote,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
       ),
     );
   }
@@ -367,6 +674,7 @@ class _TicketHistoryScreenState extends ConsumerState<TicketHistoryScreen> {
   bool _hasMore = false;
   bool _loadingInitial = true;
   bool _loadingMore = false;
+  bool _showOnlyWinning = false;
   String _error = '';
 
   @override
@@ -387,6 +695,10 @@ class _TicketHistoryScreenState extends ConsumerState<TicketHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final visibleTickets = _showOnlyWinning
+        ? _tickets.where(_ticketIsWinning).toList(growable: false)
+        : List<CustomerTicket>.unmodifiable(_tickets);
+    final winningTicketCount = _winningTicketCount(_tickets);
 
     return AppShell(
       title: l10n.ticketHistoryTitle,
@@ -405,11 +717,7 @@ class _TicketHistoryScreenState extends ConsumerState<TicketHistoryScreen> {
           controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            _TicketHeaderCard(
-              icon: Icons.history,
-              title: l10n.ticketHistoryHeaderTitle,
-              subtitle: l10n.ticketHistoryHeaderSubtitle,
-            ),
+            const _TicketRouteTabs(current: _TicketRouteTab.history),
             const SizedBox(height: 12),
             if (_loadingInitial)
               const _TicketLoadingList()
@@ -421,14 +729,28 @@ class _TicketHistoryScreenState extends ConsumerState<TicketHistoryScreen> {
             else if (_tickets.isEmpty)
               const _TicketEmptyHistoryCard()
             else ...[
-              for (final ticket in _tickets)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _TicketTile(
-                    ticket: ticket,
-                    fromHistory: true,
-                  ),
+              _TicketHistoryFilterHeader(
+                showOnlyWinning: _showOnlyWinning,
+                onToggle: () => setState(
+                  () => _showOnlyWinning = !_showOnlyWinning,
                 ),
+              ),
+              if (winningTicketCount > 0) ...[
+                const SizedBox(height: 12),
+                _WinningTicketBanner(count: winningTicketCount),
+              ],
+              const SizedBox(height: 12),
+              if (visibleTickets.isEmpty)
+                const _TicketHistoryWinningEmptyCard()
+              else
+                for (final ticket in visibleTickets)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _TicketTile(
+                      ticket: ticket,
+                      fromHistory: true,
+                    ),
+                  ),
               if (_hasMore)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
@@ -473,6 +795,7 @@ class _TicketHistoryScreenState extends ConsumerState<TicketHistoryScreen> {
           ..addAll(page.items);
         _cursor = page.nextCursor;
         _hasMore = page.hasMore;
+        _showOnlyWinning = false;
       });
     } catch (_) {
       if (!mounted) return;
@@ -518,19 +841,172 @@ class _TicketHistoryScreenState extends ConsumerState<TicketHistoryScreen> {
   }
 }
 
+int _winningTicketCount(List<CustomerTicket> tickets) {
+  return tickets.fold<int>(0, (total, ticket) {
+    return total + (_ticketIsWinning(ticket) ? ticket.count : 0);
+  });
+}
+
+bool _ticketIsWinning(CustomerTicket ticket) {
+  final status = ticket.rewardStatus.status;
+  final claimStatus = ticket.rewardStatus.claimStatus;
+  return ticket.prizeAmount > 0 ||
+      ticket.claimable ||
+      ticket.hasExistingClaim ||
+      const {
+        'winning',
+        'approved',
+        'claim_approved',
+        'submitted',
+        'claim_submitted',
+        'under_review',
+        'paid',
+        'paid_out',
+        'rejected',
+        'cancelled',
+      }.contains(status) ||
+      const {
+        'approved',
+        'claim_approved',
+        'submitted',
+        'claim_submitted',
+        'under_review',
+        'paid',
+        'paid_out',
+        'rejected',
+        'cancelled',
+      }.contains(claimStatus);
+}
+
+final _ticketViewLookupProvider =
+    FutureProvider.autoDispose.family<CustomerTicket?, _TicketViewLookup>((
+  ref,
+  lookup,
+) async {
+  final repository = ref.watch(ticketRepositoryProvider);
+  if (lookup.ticketId.isNotEmpty) {
+    return repository.detail(lookup.ticketId);
+  }
+
+  final tickets = <CustomerTicket>[];
+  if (lookup.fromHistory) {
+    String? cursor;
+    for (var pageNumber = 0;
+        pageNumber < TicketRepository.maxAutoPages;
+        pageNumber++) {
+      final page = await repository.history(
+        limit: TicketRepository.defaultPageLimit,
+        cursor: cursor,
+        gameId: lookup.gameId,
+      );
+      tickets.addAll(page.items);
+
+      final nextCursor = page.nextCursor?.trim() ?? '';
+      if (!page.hasMore || nextCursor.isEmpty || nextCursor == cursor) {
+        break;
+      }
+      cursor = nextCursor;
+    }
+  } else {
+    tickets.addAll(await repository.currentAll());
+  }
+
+  return _findTicketForLookup(tickets, lookup);
+});
+
+class _TicketViewLookup {
+  const _TicketViewLookup({
+    required this.ticketId,
+    required this.ticketNumber,
+    required this.orderId,
+    required this.gameId,
+    required this.fromHistory,
+  });
+
+  final String ticketId;
+  final String ticketNumber;
+  final String orderId;
+  final String gameId;
+  final bool fromHistory;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _TicketViewLookup &&
+        other.ticketId == ticketId &&
+        other.ticketNumber == ticketNumber &&
+        other.orderId == orderId &&
+        other.gameId == gameId &&
+        other.fromHistory == fromHistory;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        ticketId,
+        ticketNumber,
+        orderId,
+        gameId,
+        fromHistory,
+      );
+}
+
+CustomerTicket? _findTicketForLookup(
+  List<CustomerTicket> tickets,
+  _TicketViewLookup lookup,
+) {
+  if (tickets.isEmpty) return null;
+
+  final requestedNumber = lookup.ticketNumber.trim();
+  final requestedOrderId = lookup.orderId.trim();
+  final requestedGameId = lookup.gameId.trim();
+
+  if (requestedNumber.isEmpty &&
+      requestedOrderId.isEmpty &&
+      requestedGameId.isEmpty) {
+    return tickets.first;
+  }
+
+  for (final ticket in tickets) {
+    final sameNumber =
+        requestedNumber.isEmpty || ticket.number == requestedNumber;
+    final sameOrder =
+        requestedOrderId.isEmpty || ticket.orderId == requestedOrderId;
+    final sameGame =
+        requestedGameId.isEmpty || ticket.gameId == requestedGameId;
+    if (sameNumber && sameOrder && sameGame) return ticket;
+  }
+
+  return null;
+}
+
 class TicketViewScreen extends ConsumerWidget {
   const TicketViewScreen({
     required this.ticketId,
+    required this.ticketNumber,
+    required this.orderId,
+    required this.gameId,
     required this.fromHistory,
     super.key,
   });
 
   final String ticketId;
+  final String ticketNumber;
+  final String orderId;
+  final String gameId;
   final bool fromHistory;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ticket = ref.watch(ticketDetailProvider(ticketId));
+    final ticket = ref.watch(
+      _ticketViewLookupProvider(
+        _TicketViewLookup(
+          ticketId: ticketId,
+          ticketNumber: ticketNumber,
+          orderId: orderId,
+          gameId: gameId,
+          fromHistory: fromHistory,
+        ),
+      ),
+    );
     final backPath = fromHistory ? '/tickets/history' : '/tickets';
 
     return AppShell(
@@ -546,10 +1022,15 @@ class TicketViewScreen extends ConsumerWidget {
       ],
       child: AsyncStateView(
         value: ticket,
-        data: (item) => _TicketDetailContent(
-          ticket: item,
-          fromHistory: fromHistory,
-        ),
+        data: (item) {
+          if (item == null) {
+            return _TicketErrorCard(message: context.l10n.ticketsNotFound);
+          }
+          return _TicketDetailContent(
+            ticket: item,
+            fromHistory: fromHistory,
+          );
+        },
         empty: _TicketErrorCard(message: context.l10n.ticketsNotFound),
       ),
     );
@@ -567,13 +1048,12 @@ class _TicketDetailContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final resolver = ref.watch(assetUrlResolverProvider);
     final statusColor = _ticketStatusColor(context, ticket);
     final l10n = context.l10n;
 
     return _TicketPageList(
       children: [
-        _TicketImageCard(ticket: ticket, resolver: resolver),
+        _TicketImageCard(ticket: ticket),
         const SizedBox(height: 12),
         Card(
           child: Padding(
@@ -746,7 +1226,11 @@ class _TicketClaimScreenState extends ConsumerState<TicketClaimScreen> {
   }
 
   Widget _buildBody(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) {
+      return const _TicketPageList(
+        children: [_TicketClaimLoadingState()],
+      );
+    }
     if (_error.isNotEmpty) {
       return _TicketPageList(
         children: [_TicketErrorCard(message: _error, onRetry: _load)],
@@ -864,6 +1348,8 @@ class _TicketClaimScreenState extends ConsumerState<TicketClaimScreen> {
                   'name': ticket.gameName,
                   'draw_at': ticket.drawAt,
                 },
+                'draw_no': ticket.drawNumber,
+                'set': ticket.setNumber,
                 'full_number': ticket.number,
                 'status': ticket.status,
                 'reward_status': {
@@ -1032,6 +1518,25 @@ class _TicketClaimScreenState extends ConsumerState<TicketClaimScreen> {
   }
 }
 
+class _TicketClaimLoadingState extends StatelessWidget {
+  const _TicketClaimLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 16),
+      child: Text(
+        context.l10n.ticketClaimLoading,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
+      ),
+    );
+  }
+}
+
 class _ClaimSelectStep extends StatelessWidget {
   const _ClaimSelectStep({
     required this.ticket,
@@ -1067,9 +1572,16 @@ class _ClaimSelectStep extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                       ),
                 ),
+                if (!ticket.canCreateClaim) ...[
+                  const SizedBox(height: 12),
+                  _ClaimUnavailableAlert(
+                    message: _ticketClaimUnavailableMessage(l10n, ticket),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 _PayoutOption(
                   selected: payoutMethod == 'wallet_credit',
+                  enabled: ticket.canCreateClaim,
                   icon: Icons.account_balance_wallet_outlined,
                   title: l10n.ticketClaimWalletTitle,
                   subtitle: l10n.ticketClaimWalletSubtitle,
@@ -1078,7 +1590,7 @@ class _ClaimSelectStep extends StatelessWidget {
                 const SizedBox(height: 8),
                 _PayoutOption(
                   selected: payoutMethod == 'bank_transfer',
-                  enabled: bank?.isComplete ?? false,
+                  enabled: ticket.canCreateClaim && (bank?.isComplete ?? false),
                   icon: Icons.account_balance_outlined,
                   title: bank?.isComplete ?? false
                       ? '${bank!.bankName} ${bank.maskedNumber}'
@@ -1112,6 +1624,82 @@ class _ClaimSelectStep extends StatelessWidget {
   }
 }
 
+String _ticketClaimUnavailableMessage(
+  CustomerLocalizations l10n,
+  CustomerTicket ticket,
+) {
+  final rewardStatus = ticket.rewardStatus.status.trim().toLowerCase();
+  if (rewardStatus == 'pending_result') {
+    return l10n.ticketClaimUnavailablePendingResult;
+  }
+  if (rewardStatus == 'non_winning') {
+    return l10n.ticketClaimUnavailableNonWinning;
+  }
+  if (rewardStatus == 'winning') {
+    return l10n.ticketClaimUnavailableWinningNotOpen;
+  }
+  return l10n.ticketClaimUnavailableDefault;
+}
+
+String _ticketPrizeLinesWithAmounts(
+  CustomerLocalizations l10n,
+  CustomerTicket ticket,
+) {
+  if (ticket.prizes.isNotEmpty) {
+    return ticket.prizes
+        .map(
+          (prize) => '${ticketPrizeTypeLabel(l10n, prize.prizeType)} '
+              '${formatBaht(prize.amount)}',
+        )
+        .join('\n');
+  }
+
+  final summary = ticketPrizeSummary(l10n, ticket);
+  if (ticket.prizeAmount > 0) {
+    return '$summary ${formatBaht(ticket.prizeAmount)}';
+  }
+  return summary;
+}
+
+class _ClaimUnavailableAlert extends StatelessWidget {
+  const _ClaimUnavailableAlert({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.secondaryContainer.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: colorScheme.secondary.withValues(alpha: 0.22),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: colorScheme.secondary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSecondaryContainer,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ClaimConfirmStep extends StatelessWidget {
   const _ClaimConfirmStep({
     required this.ticket,
@@ -1132,6 +1720,8 @@ class _ClaimConfirmStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final taxAmount = ticket.prizeAmount * 0.005;
+    final feeAmount = ticket.prizeAmount * 0.01;
     return _TicketPageList(
       children: [
         _ClaimTicketSummary(ticket: ticket),
@@ -1157,6 +1747,18 @@ class _ClaimConfirmStep extends StatelessWidget {
                   label: l10n.ticketLabelPrizeAmount,
                   value: formatBaht(ticket.prizeAmount),
                   emphasize: true,
+                ),
+                _TicketInfoRow(
+                  label: l10n.rewardClaimTaxLabel,
+                  value: l10n.rewardClaimZeroBaht,
+                  helper: l10n.rewardClaimWaived(formatBaht(taxAmount)),
+                  positive: true,
+                ),
+                _TicketInfoRow(
+                  label: l10n.rewardClaimFeeLabel,
+                  value: l10n.rewardClaimZeroBaht,
+                  helper: l10n.rewardClaimWaived(formatBaht(feeAmount)),
+                  positive: true,
                 ),
                 const Divider(height: 28),
                 _TicketInfoRow(
@@ -1295,7 +1897,7 @@ class _ClaimPinStep extends StatelessWidget {
   }
 }
 
-class _ClaimProcessingStep extends StatelessWidget {
+class _ClaimProcessingStep extends ConsumerWidget {
   const _ClaimProcessingStep({
     required this.ticket,
     required this.profile,
@@ -1309,8 +1911,14 @@ class _ClaimProcessingStep extends StatelessWidget {
   final RewardClaimSubmission? submittedClaim;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
+    final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
+    final productMarker = bootstrap?.lotteryProductLabel.trim() ?? '';
+    final taxAmount = ticket.prizeAmount * 0.005;
+    final feeAmount = ticket.prizeAmount * 0.01;
+    final drawNumber = ticket.displayDrawNumber;
+    final setNumber = ticket.displaySetNumber;
     return _TicketPageList(
       children: [
         Card(
@@ -1318,6 +1926,8 @@ class _ClaimProcessingStep extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
+                _ClaimProcessingBrandHeader(productMarker: productMarker),
+                const SizedBox(height: 16),
                 Icon(
                   Icons.schedule,
                   size: 56,
@@ -1346,11 +1956,52 @@ class _ClaimProcessingStep extends StatelessWidget {
                   value: _payoutLabel(l10n, profile, payoutMethod),
                 ),
                 _TicketInfoRow(
+                  label: l10n.rewardClaimMethodLabel,
+                  value: l10n.rewardClaimManualMethod,
+                  emphasize: true,
+                ),
+                _TicketInfoRow(
+                  label: l10n.ticketLabelLotteryDrawDate,
+                  value: ticketDrawDateText(l10n, ticket),
+                ),
+                _TicketInfoRow(
                   label: l10n.ticketLabelLotteryNumber,
                   value: ticket.number,
                 ),
+                if (drawNumber.isNotEmpty)
+                  _TicketInfoRow(
+                    label: l10n.ticketLabelDrawNumber,
+                    value: drawNumber,
+                  ),
+                if (setNumber.isNotEmpty)
+                  _TicketInfoRow(
+                    label: l10n.ticketLabelSetNumber,
+                    value: setNumber,
+                  ),
+                _TicketInfoRow(
+                  label: l10n.ticketLabelPrize,
+                  value: _ticketPrizeLinesWithAmounts(l10n, ticket),
+                ),
                 _TicketInfoRow(
                   label: l10n.ticketLabelPrizeAmount,
+                  value: formatBaht(ticket.prizeAmount),
+                  emphasize: true,
+                ),
+                _TicketInfoRow(
+                  label: l10n.rewardClaimTaxLabel,
+                  value: l10n.rewardClaimZeroBaht,
+                  helper: l10n.rewardClaimWaived(formatBaht(taxAmount)),
+                  positive: true,
+                ),
+                _TicketInfoRow(
+                  label: l10n.rewardClaimFeeLabel,
+                  value: l10n.rewardClaimZeroBaht,
+                  helper: l10n.rewardClaimWaived(formatBaht(feeAmount)),
+                  positive: true,
+                ),
+                const Divider(height: 28),
+                _TicketInfoRow(
+                  label: l10n.ticketLabelNetAmount,
                   value: formatBaht(ticket.prizeAmount),
                   emphasize: true,
                 ),
@@ -1369,6 +2020,59 @@ class _ClaimProcessingStep extends StatelessWidget {
           child: Text(l10n.ticketClaimViewMyTickets),
         ),
       ],
+    );
+  }
+}
+
+class _ClaimProcessingBrandHeader extends StatelessWidget {
+  const _ClaimProcessingBrandHeader({required this.productMarker});
+
+  final String productMarker;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+          ),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Row(
+          children: [
+            const TenantBrandHeader(
+              showName: false,
+              size: 46,
+              icon: Icons.emoji_events_outlined,
+            ),
+            if (productMarker.isNotEmpty) ...[
+              const SizedBox(width: 12),
+              Text(
+                productMarker,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+            ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                context.l10n.ticketLabelGovernmentLottery,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1477,66 +2181,614 @@ class _PayoutOption extends StatelessWidget {
   }
 }
 
-class _TicketImageCard extends StatelessWidget {
-  const _TicketImageCard({required this.ticket, required this.resolver});
+class _TicketImageCard extends ConsumerWidget {
+  const _TicketImageCard({required this.ticket});
 
   final CustomerTicket ticket;
-  final AssetUrlResolver resolver;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final resolver = ref.watch(assetUrlResolverProvider);
+    final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
+    final productMarker = bootstrap?.lotteryProductLabel.trim() ?? '';
+    final ticketImageWatermark =
+        bootstrap?.ticketImageWatermark.trim() ?? productMarker;
     final url = resolver(ticket.primaryImageUrl);
+    final showRemoteImage = _canShowTicketRemoteImage(ticket, url);
+    final l10n = context.l10n;
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: AspectRatio(
-        aspectRatio: 16 / 10,
-        child: url.isEmpty
-            ? _ImagePlaceholder(ticket: ticket)
-            : Image.network(
-                url,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) =>
-                    _ImagePlaceholder(ticket: ticket),
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return const Center(child: CircularProgressIndicator());
-                },
+      child: Tooltip(
+        message: l10n.ticketImageOpenPreview,
+        child: InkWell(
+          onTap: () => showDialog<void>(
+            context: context,
+            builder: (dialogContext) => _TicketImageDialog(ticket: ticket),
+          ),
+          child: Semantics(
+            button: true,
+            label: l10n.ticketImageAlt(_ticketDisplayNumber(ticket)),
+            child: AspectRatio(
+              aspectRatio: 5 / 2.8,
+              child: _TicketImageFrame(
+                ticket: ticket,
+                imageUrl: url,
+                showRemoteImage: showRemoteImage,
+                productMarker: productMarker,
+                ticketImageWatermark: ticketImageWatermark,
               ),
+            ),
+          ),
+        ),
       ),
     );
   }
 }
 
-class _ImagePlaceholder extends StatelessWidget {
-  const _ImagePlaceholder({required this.ticket});
+class _TicketImageDialog extends ConsumerWidget {
+  const _TicketImageDialog({required this.ticket});
 
   final CustomerTicket ticket;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      alignment: Alignment.center,
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.image_not_supported_outlined, size: 44),
-          const SizedBox(height: 8),
-          Text(
-            ticket.imageStatus == 'ready'
-                ? context.l10n.ticketImageUnavailable
-                : context.l10n.ticketImagePreparing,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontWeight: FontWeight.w900),
-          ),
-          if (ticket.imageError.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(ticket.imageError, textAlign: TextAlign.center),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final resolver = ref.watch(assetUrlResolverProvider);
+    final bootstrap = ref.watch(mobileBootstrapProvider).valueOrNull;
+    final productMarker = bootstrap?.lotteryProductLabel.trim() ?? '';
+    final ticketImageWatermark =
+        bootstrap?.ticketImageWatermark.trim() ?? productMarker;
+    final siteName = bootstrap?.siteName.trim() ?? '';
+    final url = resolver(ticket.primaryImageUrl);
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 18, 10, 8),
+              child: Row(
+                children: [
+                  const Expanded(child: SizedBox.shrink()),
+                  const TenantBrandHeader(
+                    showName: false,
+                    size: 46,
+                    icon: Icons.confirmation_number_outlined,
+                  ),
+                  if (productMarker.isNotEmpty) ...[
+                    const SizedBox(width: 12),
+                    Text(
+                      productMarker,
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.w900,
+                              ),
+                    ),
+                  ],
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: IconButton(
+                        tooltip: l10n.ticketImageClosePreview,
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 8, 18, 16),
+              child: AspectRatio(
+                aspectRatio: 5 / 2.8,
+                child: _TicketImageFrame(
+                  ticket: ticket,
+                  imageUrl: url,
+                  showRemoteImage: _canShowTicketRemoteImage(ticket, url),
+                  productMarker: productMarker,
+                  ticketImageWatermark: ticketImageWatermark,
+                ),
+              ),
+            ),
+            _TicketImageNote(
+              siteName:
+                  siteName.isEmpty ? l10n.ticketImageTenantFallback : siteName,
+              productName: l10n.ticketLabelGovernmentLottery,
+            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TicketImageFrame extends StatelessWidget {
+  const _TicketImageFrame({
+    required this.ticket,
+    required this.imageUrl,
+    required this.showRemoteImage,
+    required this.productMarker,
+    required this.ticketImageWatermark,
+  });
+
+  final CustomerTicket ticket;
+  final String imageUrl;
+  final bool showRemoteImage;
+  final String productMarker;
+  final String ticketImageWatermark;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant,
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(7),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (showRemoteImage)
+              _TicketRemoteImage(
+                ticket: ticket,
+                imageUrl: imageUrl,
+                productMarker: productMarker,
+                ticketImageWatermark: ticketImageWatermark,
+              )
+            else
+              _GeneratedTicketImage(
+                ticket: ticket,
+                productMarker: productMarker,
+                ticketImageWatermark: ticketImageWatermark,
+              ),
+            _TicketSoldWatermarks(label: context.l10n.ticketImageSold),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TicketRemoteImage extends StatelessWidget {
+  const _TicketRemoteImage({
+    required this.ticket,
+    required this.imageUrl,
+    required this.productMarker,
+    required this.ticketImageWatermark,
+  });
+
+  final CustomerTicket ticket;
+  final String imageUrl;
+  final String productMarker;
+  final String ticketImageWatermark;
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = _dataImageBytes(imageUrl);
+    if (bytes != null) {
+      return Image.memory(bytes, fit: BoxFit.contain);
+    }
+
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) => _GeneratedTicketImage(
+        ticket: ticket,
+        productMarker: productMarker,
+        ticketImageWatermark: ticketImageWatermark,
+      ),
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return const Center(child: CircularProgressIndicator());
+      },
+    );
+  }
+}
+
+class _GeneratedTicketImage extends StatelessWidget {
+  const _GeneratedTicketImage({
+    required this.ticket,
+    required this.productMarker,
+    required this.ticketImageWatermark,
+  });
+
+  final CustomerTicket ticket;
+  final String productMarker;
+  final String ticketImageWatermark;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final digits = _ticketDisplayNumber(ticket).split('');
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFFFFFF),
+            Color(0xFFF4FBFF),
+            Color(0xFFFFF8DC),
+          ],
+        ),
+      ),
+      child: Stack(
+        children: [
+          if (ticketImageWatermark.isNotEmpty)
+            Center(
+              child: Transform.rotate(
+                angle: -0.24,
+                child: Text(
+                  ticketImageWatermark,
+                  maxLines: 1,
+                  overflow: TextOverflow.fade,
+                  softWrap: false,
+                  style: TextStyle(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.08),
+                    fontSize: 72,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.ticketLabelGovernmentLottery,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleSmall
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w900,
+                              ),
+                        ),
+                        Text(
+                          l10n.ticketImageGovernmentLotteryEnglish,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (productMarker.isNotEmpty)
+                    Text(
+                      productMarker,
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w900,
+                              ),
+                    ),
+                ],
+              ),
+              const Spacer(),
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.78),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withValues(alpha: 0.22),
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.confirmation_number_outlined,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          l10n.ticketImageDigitalNumberLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.labelLarge?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                        ),
+                        const SizedBox(height: 6),
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFFF4A8), Color(0xFFFFE46E)],
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFCCA400)),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 6,
+                            ),
+                            child: Row(
+                              children: [
+                                for (final digit in digits)
+                                  Expanded(
+                                    child: Text(
+                                      digit,
+                                      textAlign: TextAlign.center,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleLarge
+                                          ?.copyWith(
+                                            color: Colors.black87,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: [
+                            _TicketImageMetaPill(
+                              label: l10n.ticketImageCurrentDraw,
+                            ),
+                            _TicketImageMetaPill(
+                              label: l10n.ticketImageDigitalType,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (ticket.imageError.isNotEmpty)
+            Align(
+              alignment: Alignment.bottomLeft,
+              child: _TicketImageErrorBadge(message: ticket.imageError),
+            )
+          else if (ticket.imageStatus.isNotEmpty &&
+              !_canShowTicketRemoteImage(ticket, ticket.primaryImageUrl))
+            Align(
+              alignment: Alignment.bottomLeft,
+              child: _TicketImageErrorBadge(
+                message: ticket.imageStatus == 'ready'
+                    ? l10n.ticketImageUnavailable
+                    : l10n.ticketImagePreparing,
+              ),
+            ),
         ],
       ),
     );
+  }
+}
+
+class _TicketImageMetaPill extends StatelessWidget {
+  const _TicketImageMetaPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TicketImageErrorBadge extends StatelessWidget {
+  const _TicketImageErrorBadge({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.86),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        message,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+      ),
+    );
+  }
+}
+
+class _TicketSoldWatermarks extends StatelessWidget {
+  const _TicketSoldWatermarks({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.titleLarge?.copyWith(
+          color: Theme.of(context).colorScheme.error.withValues(alpha: 0.55),
+          fontWeight: FontWeight.w900,
+        );
+    const positions = <({double left, double top, double scale})>[
+      (left: 0.20, top: 0.24, scale: 1),
+      (left: 0.55, top: 0.22, scale: 0.95),
+      (left: 0.84, top: 0.34, scale: 0.88),
+      (left: 0.28, top: 0.53, scale: 0.92),
+      (left: 0.68, top: 0.59, scale: 0.84),
+      (left: 0.46, top: 0.81, scale: 0.98),
+    ];
+
+    return IgnorePointer(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Stack(
+            children: [
+              for (final position in positions)
+                Positioned(
+                  left: constraints.maxWidth * position.left,
+                  top: constraints.maxHeight * position.top,
+                  child: Transform.translate(
+                    offset: const Offset(-36, -10),
+                    child: Transform.rotate(
+                      angle: -0.30,
+                      child: Transform.scale(
+                        scale: position.scale,
+                        child: Text(label, style: style),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _TicketImageNote extends StatelessWidget {
+  const _TicketImageNote({
+    required this.siteName,
+    required this.productName,
+  });
+
+  final String siteName;
+  final String productName;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.primaryContainer.withValues(
+            alpha: 0.42,
+          ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                siteName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onPrimary,
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                l10n.ticketImageModalNote(siteName, productName),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w800,
+                      height: 1.35,
+                    ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+bool _canShowTicketRemoteImage(CustomerTicket ticket, String url) {
+  if (url.trim().isEmpty) return false;
+  return !{'pending_assets', 'missing'}.contains(ticket.imageStatus);
+}
+
+String _ticketDisplayNumber(CustomerTicket ticket) {
+  final digits = ticket.number.replaceAll(RegExp(r'\D'), '');
+  final padded = digits.padLeft(6, '0');
+  return padded.substring(padded.length - 6);
+}
+
+Uint8List? _dataImageBytes(String value) {
+  final trimmed = value.trim();
+  if (!trimmed.startsWith('data:image/')) return null;
+  final commaIndex = trimmed.indexOf(',');
+  if (commaIndex < 0) return null;
+  try {
+    return base64Decode(trimmed.substring(commaIndex + 1));
+  } catch (_) {
+    return null;
   }
 }
 
@@ -1545,14 +2797,23 @@ class _TicketInfoRow extends StatelessWidget {
     required this.label,
     required this.value,
     this.emphasize = false,
+    this.helper = '',
+    this.positive = false,
   });
 
   final String label;
   final String value;
   final bool emphasize;
+  final String helper;
+  final bool positive;
 
   @override
   Widget build(BuildContext context) {
+    final valueColor = emphasize
+        ? Theme.of(context).colorScheme.primary
+        : positive
+            ? Colors.green.shade700
+            : null;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
@@ -1568,13 +2829,31 @@ class _TicketInfoRow extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              value.isEmpty ? '-' : value,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontWeight: emphasize ? FontWeight.w900 : FontWeight.w700,
-                color: emphasize ? Theme.of(context).colorScheme.primary : null,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  value.isEmpty ? '-' : value,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    fontWeight: emphasize ? FontWeight.w900 : FontWeight.w700,
+                    color: valueColor,
+                  ),
+                ),
+                if (helper.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    helper,
+                    textAlign: TextAlign.right,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: positive
+                              ? Colors.green.shade700
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
@@ -1663,6 +2942,22 @@ class _TicketEmptyHistoryCard extends StatelessWidget {
         leading: const CircleAvatar(child: Icon(Icons.history)),
         title: Text(context.l10n.ticketHistoryEmptyTitle),
         subtitle: Text(context.l10n.ticketHistoryEmptySubtitle),
+      ),
+    );
+  }
+}
+
+class _TicketHistoryWinningEmptyCard extends StatelessWidget {
+  const _TicketHistoryWinningEmptyCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Card(
+      child: ListTile(
+        leading: const CircleAvatar(child: Icon(Icons.emoji_events_outlined)),
+        title: Text(l10n.ticketHistoryWinningEmptyTitle),
+        subtitle: Text(l10n.ticketHistoryWinningEmptySubtitle),
       ),
     );
   }

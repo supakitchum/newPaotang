@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/app_config.dart';
 import '../i18n/app_locale.dart';
+import '../payment/checkout_payment_config.dart';
 import '../theme/app_theme.dart';
 import 'mobile_bootstrap_repository.dart';
 
@@ -28,6 +29,9 @@ class MobileBootstrap {
     required this.line,
     required this.realtime,
     required this.live,
+    required this.lotteryProductLabel,
+    required this.ticketImageWatermark,
+    this.payment = const MobilePaymentConfig.defaults(),
     required this.biometric,
     required this.screenSecurity,
     required this.featureFlags,
@@ -94,6 +98,26 @@ class MobileBootstrap {
         : json['live'] is Map<String, dynamic>
             ? json['live'] as Map<String, dynamic>
             : <String, dynamic>{};
+    final payment = mobile['payment'] is Map<String, dynamic>
+        ? mobile['payment'] as Map<String, dynamic>
+        : json['payment'] is Map<String, dynamic>
+            ? json['payment'] as Map<String, dynamic>
+            : <String, dynamic>{};
+
+    final lotteryProductLabel = (mobile['lottery_product_label'] ??
+            mobile['product_marker'] ??
+            json['lottery_product_label'] ??
+            json['product_marker'] ??
+            '')
+        .toString()
+        .trim();
+    final ticketImageWatermark = (mobile['ticket_image_watermark'] ??
+            mobile['lottery_ticket_image_watermark'] ??
+            json['ticket_image_watermark'] ??
+            json['lottery_ticket_image_watermark'] ??
+            lotteryProductLabel)
+        .toString()
+        .trim();
 
     return MobileBootstrap(
       siteName: site['display_name']?.toString() ??
@@ -111,13 +135,17 @@ class MobileBootstrap {
       line: MobileLineConfig.fromJson(line),
       realtime: MobileRealtimeConfig.fromJson(realtime),
       live: MobileLiveConfig.fromJson(live),
+      lotteryProductLabel: lotteryProductLabel,
+      ticketImageWatermark: ticketImageWatermark,
+      payment: MobilePaymentConfig.fromJson(payment),
       biometric: MobileBiometricConfig.fromJson(biometric),
       screenSecurity: MobileScreenSecurityConfig.fromJson(screenSecurity),
       featureFlags: MobileFeatureFlags.fromJson(featureFlags),
       termsContent: legal['terms_content']?.toString() ?? '',
       privacyContent: legal['privacy_content']?.toString() ?? '',
       privacyPolicyUrl: legal['privacy_policy_url']?.toString().trim() ?? '',
-      accountDeletionUrl: legal['account_deletion_url']?.toString().trim() ?? '',
+      accountDeletionUrl:
+          legal['account_deletion_url']?.toString().trim() ?? '',
       maintenance: MaintenanceConfig.fromJson(maintenance),
     );
   }
@@ -132,6 +160,9 @@ class MobileBootstrap {
   final MobileLineConfig line;
   final MobileRealtimeConfig realtime;
   final MobileLiveConfig live;
+  final String lotteryProductLabel;
+  final String ticketImageWatermark;
+  final MobilePaymentConfig payment;
   final MobileBiometricConfig biometric;
   final MobileScreenSecurityConfig screenSecurity;
   final MobileFeatureFlags featureFlags;
@@ -140,6 +171,41 @@ class MobileBootstrap {
   final String privacyPolicyUrl;
   final String accountDeletionUrl;
   final MaintenanceConfig maintenance;
+}
+
+class MobilePaymentConfig {
+  const MobilePaymentConfig({
+    required this.checkoutPaymentMethod,
+    required this.checkoutPaymentMethods,
+  });
+
+  const MobilePaymentConfig.defaults()
+      : checkoutPaymentMethod = checkoutPaymentMethodWallet,
+        checkoutPaymentMethods = const [checkoutPaymentMethodWallet];
+
+  factory MobilePaymentConfig.fromJson(Map<String, dynamic> json) {
+    var methods = normalizeCheckoutPaymentMethods(
+      json['checkout_payment_methods'] ??
+          json['checkout_methods'] ??
+          json['payment_methods'],
+    );
+    final method = normalizeCheckoutPaymentMethod(
+      json['checkout_payment_method'] ??
+          json['default_checkout_payment_method'] ??
+          json['default_checkout_method'] ??
+          (methods.isNotEmpty ? methods.first : null),
+    );
+    if (!methods.contains(method)) {
+      methods = [method, ...methods];
+    }
+    return MobilePaymentConfig(
+      checkoutPaymentMethod: method,
+      checkoutPaymentMethods: methods,
+    );
+  }
+
+  final String checkoutPaymentMethod;
+  final List<String> checkoutPaymentMethods;
 }
 
 class MobileLiveConfig {

@@ -21,6 +21,12 @@ const customerFeatureRoutes = <CustomerFeatureRoute>[
     descriptionKey: 'buy_search',
   ),
   CustomerFeatureRoute(
+    path: '/search',
+    key: 'search',
+    group: CustomerFeatureGroup.lottery,
+    descriptionKey: 'buy_search',
+  ),
+  CustomerFeatureRoute(
     path: '/buy/more',
     key: 'buy_more',
     group: CustomerFeatureGroup.lottery,
@@ -35,6 +41,12 @@ const customerFeatureRoutes = <CustomerFeatureRoute>[
   CustomerFeatureRoute(
     path: '/checkout',
     key: 'checkout',
+    group: CustomerFeatureGroup.lottery,
+    sensitive: true,
+  ),
+  CustomerFeatureRoute(
+    path: '/checkout/pending',
+    key: 'checkout_pending',
     group: CustomerFeatureGroup.lottery,
     sensitive: true,
   ),

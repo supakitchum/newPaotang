@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_controller.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_redirect.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/tenant/mobile_runtime_policy.dart';
 import '../../../core/utils/api_errors.dart';
@@ -254,7 +256,11 @@ class _PinScreenState extends ConsumerState<PinScreen> {
           await ref.read(authControllerProvider).unlockWithBiometric(
                 localizedReason: context.l10n.pinBiometricReason,
               );
-      if (!mounted || unlocked) return;
+      if (!mounted) return;
+      if (unlocked) {
+        _goAfterPinUnlock();
+        return;
+      }
       _showSnack(context.l10n.pinBiometricUnavailable);
     } catch (error) {
       if (!mounted) return;
@@ -302,6 +308,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
             pin: _setupPin,
             pinConfirmation: _pin,
           );
+      if (mounted) _goAfterPinUnlock();
     } catch (error) {
       if (!mounted) return;
       final message = _errorMessage(error, context.l10n.pinSetupFailed);
@@ -327,6 +334,7 @@ class _PinScreenState extends ConsumerState<PinScreen> {
     setState(() => _verifying = true);
     try {
       await ref.read(authControllerProvider).verifyPin(_pin);
+      if (mounted) _goAfterPinUnlock();
     } catch (error) {
       if (!mounted) return;
       final message = _errorMessage(error, context.l10n.pinInvalid);
@@ -356,6 +364,19 @@ class _PinScreenState extends ConsumerState<PinScreen> {
   void _showSnack(String message) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _goAfterPinUnlock() {
+    try {
+      context.go(
+        safeCustomerRedirect(
+          GoRouterState.of(context).uri.queryParameters['redirect'],
+        ),
+      );
+    } catch (_) {
+      // Tests can mount PinScreen without a GoRouter. In the real app this
+      // path is always routed, so navigation resumes the original flow.
+    }
   }
 }
 

@@ -18,6 +18,7 @@ Uri? _normalizeUriPath(Uri uri) {
 
   final host = uri.host.trim().toLowerCase();
   final path = uri.path.startsWith('/') ? uri.path : '/${uri.path}';
+  final appRoutePath = _customSchemeRoutePath(host: host, path: path);
 
   if (host == 'line' && path == '/callback') {
     return Uri(path: '/line/callback', queryParameters: _queryOrNull(uri));
@@ -31,7 +32,17 @@ Uri? _normalizeUriPath(Uri uri) {
     return Uri(path: '/reset-password', queryParameters: _queryOrNull(uri));
   }
 
+  if (appRoutePath != null) {
+    return Uri(path: appRoutePath, queryParameters: _queryOrNull(uri));
+  }
+
   return null;
+}
+
+String? _customSchemeRoutePath({required String host, required String path}) {
+  if (host.isEmpty) return path;
+  if (path == '/') return '/$host';
+  return '/$host$path';
 }
 
 Map<String, String>? _queryOrNull(Uri uri) {

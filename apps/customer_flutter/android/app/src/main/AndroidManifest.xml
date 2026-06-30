@@ -49,6 +49,10 @@
                     android:scheme="https"
                     android:host="${authCallbackHost}"
                     android:pathPrefix="/reset-password"/>
+                <data
+                    android:scheme="https"
+                    android:host="${authCallbackHost}"
+                    android:pathPrefix="/checkout/pending"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

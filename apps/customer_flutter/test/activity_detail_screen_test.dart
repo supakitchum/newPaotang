@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:customer_flutter/core/auth/auth_controller.dart';
 import 'package:customer_flutter/core/auth/auth_repository.dart';
 import 'package:customer_flutter/core/auth/auth_token_store.dart';
@@ -6,10 +8,16 @@ import 'package:customer_flutter/core/i18n/app_locale.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
 import 'package:customer_flutter/core/security/biometric_auth_service.dart';
+import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
+import 'package:customer_flutter/core/tenant/mobile_runtime_policy.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
+import 'package:customer_flutter/features/activity_claims/data/activity_claim_models.dart';
+import 'package:customer_flutter/features/activity_claims/data/activity_claim_repository.dart';
 import 'package:customer_flutter/features/activities/data/activity_models.dart';
 import 'package:customer_flutter/features/activities/data/activity_repository.dart';
 import 'package:customer_flutter/features/activities/presentation/activity_detail_screen.dart';
+import 'package:customer_flutter/features/profile/data/profile_settings_models.dart';
+import 'package:customer_flutter/features/profile/data/profile_settings_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +25,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
+  test('activityDetailBackPath follows Nuxt detail return rules', () {
+    expect(
+      activityDetailBackPath(from: '', gameId: ''),
+      '/activities',
+    );
+    expect(
+      activityDetailBackPath(from: 'history', gameId: ''),
+      '/activities/history',
+    );
+    expect(
+      activityDetailBackPath(from: 'history', gameId: 'game_prev'),
+      '/activities/history?game_id=game_prev',
+    );
+    expect(
+      activityDetailBackPath(from: 'history', gameId: 'game prev/1'),
+      '/activities/history?game_id=game+prev%2F1',
+    );
+  });
+
   testWidgets('ActivityDetailScreen hides awards before result announcement', (
     tester,
   ) async {
@@ -27,6 +54,8 @@ void main() {
 
     expect(repository.awardsAllCount, 0);
     expect(find.text('กิจกรรมทายเลข 2 ตัว'), findsOneWidget);
+    expect(find.text('00-99 · เหลือ 97 จาก 100 เลข'), findsOneWidget);
+    expect(find.text('เลขสีแดงถูกเลือกแล้ว'), findsOneWidget);
     expect(find.text('พร้อมรับเงินรางวัล'), findsNothing);
     expect(find.text('รับเงิน'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -47,19 +76,253 @@ void main() {
     expect(find.text('รับเงิน'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('ActivityDetailScreen confirms lucky number with Nuxt modal', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _FakeActivityRepository(resultAnnounced: false);
+
+    await _pumpDetail(tester, repository);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('04'));
+    await tester.tap(find.text('04'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ยืนยันเลขนำโชค'), findsOneWidget);
+    expect(find.text('ต้องการเลือกเลขนี้ใช่ไหม?'), findsOneWidget);
+    expect(find.text('04'), findsWidgets);
+    expect(
+      find.text(
+        'ระบบจะใช้ 1 สิทธิ์ของคุณสำหรับ เลขท้าย 2 ตัว และไม่สามารถเลือกเลขนี้ซ้ำได้',
+      ),
+      findsOneWidget,
+    );
+    expect(find.widgetWithText(OutlinedButton, 'ยกเลิก'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'ยืนยันเลือกเลข'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'ยืนยันเลือกเลข'));
+    await tester.pumpAndSettle();
+
+    expect(repository.createEntryCount, 1);
+    expect(repository.createdActivityIds, ['act_lucky']);
+    expect(repository.createdPredictionTypes, ['last2']);
+    expect(repository.createdSelectedNumbers, ['04']);
+    expect(find.text('ส่งเลขสำเร็จ'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ActivityDetailScreen back returns to current activities', (
+    tester,
+  ) async {
+    final repository = _FakeActivityRepository(resultAnnounced: false);
+
+    await _pumpDetail(tester, repository);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('ย้อนกลับ'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Activities route'), findsOneWidget);
+  });
+
+  testWidgets('ActivityDetailScreen back preserves history game context', (
+    tester,
+  ) async {
+    final repository = _FakeActivityRepository(resultAnnounced: false);
+
+    await _pumpDetail(
+      tester,
+      repository,
+      initialLocation: '/activities/lucky-board?from=history&game_id=game_prev',
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('ย้อนกลับ'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('History route: game_prev'), findsOneWidget);
+  });
+
+  testWidgets('ActivityDetailScreen uses Nuxt detail loading copy', (
+    tester,
+  ) async {
+    await _pumpDetail(tester, _PendingActivityRepository());
+    await tester.pump();
+
+    expect(find.text('กำลังโหลดรายละเอียดกิจกรรม...'), findsOneWidget);
+    expect(find.text('กำลังโหลดข้อมูล...'), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byType(Card), findsNothing);
+  });
+
+  testWidgets('ActivityDetailScreen uses Nuxt detail error copy', (
+    tester,
+  ) async {
+    await _pumpDetail(tester, _ErrorActivityRepository());
+    await tester.pumpAndSettle();
+
+    expect(find.text('โหลดรายละเอียดกิจกรรมไม่สำเร็จ'), findsOneWidget);
+    expect(find.text('ไม่พบกิจกรรม'), findsNothing);
+    expect(find.byType(Card), findsNothing);
+  });
+
+  testWidgets('ActivityDetailScreen shows Nuxt missing state with CTA', (
+    tester,
+  ) async {
+    await _pumpDetail(tester, _MissingActivityRepository());
+    await tester.pumpAndSettle();
+
+    expect(find.text('ไม่พบกิจกรรม'), findsOneWidget);
+    expect(
+      find.text('กิจกรรมนี้อาจถูกปิดใช้งานหรือหมดช่วงแสดงผลแล้ว'),
+      findsOneWidget,
+    );
+    expect(find.text('กลับหน้ากิจกรรม'), findsOneWidget);
+    expect(find.byType(Card), findsNothing);
+
+    await tester.tap(find.text('กลับหน้ากิจกรรม'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Activities route'), findsOneWidget);
+  });
+
+  testWidgets(
+      'Activity claim bank setup returns to the current activity detail path', (
+    tester,
+  ) async {
+    final repository = _FakeActivityRepository(resultAnnounced: true);
+
+    await _pumpDetail(
+      tester,
+      repository,
+      profileRepository: _MissingRewardBankProfileRepository(),
+    );
+    await tester.pumpAndSettle();
+
+    final claimButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'รับเงิน'),
+    );
+    claimButton.onPressed!();
+    await tester.pumpAndSettle();
+
+    expect(find.text('รับเงินกิจกรรม'), findsOneWidget);
+    expect(find.text('รับเงินรางวัลกิจกรรม'), findsOneWidget);
+    expect(find.text('ยอดที่รับได้'), findsOneWidget);
+    expect(find.text('2,000.00 บาท'), findsWidgets);
+    expect(find.text('โอนเข้าบัญชีธนาคาร'), findsOneWidget);
+    expect(find.text('ยังไม่ได้ตั้งค่าบัญชีรับเงิน'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'ยกเลิก'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'ถัดไป'), findsOneWidget);
+
+    await tester.tap(find.text('ตั้งค่าบัญชีรับเงิน'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        '/profile/reward-bank?redirect=%2Factivities%2Flucky-board',
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Activity claim sheet submits biometric assertion token', (
+    tester,
+  ) async {
+    final repository = _FakeActivityRepository(resultAnnounced: true);
+    final claimRepository = _CaptureActivityClaimRepository();
+    final biometric = _FakeBiometricAuthService('assertion_activity_1');
+
+    await _pumpDetail(
+      tester,
+      repository,
+      profileRepository: _CompleteRewardBankProfileRepository(),
+      activityClaimRepository: claimRepository,
+      biometricAuth: biometric,
+      platformKey: 'ios',
+      biometricEnabled: true,
+    );
+    await tester.pumpAndSettle();
+
+    final claimButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'รับเงิน'),
+    );
+    claimButton.onPressed!();
+    await tester.pumpAndSettle();
+
+    expect(find.text('รับเงินกิจกรรม'), findsOneWidget);
+    expect(find.text('ยอดที่รับได้'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'ถัดไป'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'ถัดไป'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ใส่รหัส PIN 6 หลัก'), findsOneWidget);
+    expect(find.text('เพื่อรับเงินรางวัลกิจกรรม'), findsOneWidget);
+    expect(find.text('กรอกแล้ว 0/6 หลัก'), findsOneWidget);
+    expect(find.text('รับเงินรางวัลกิจกรรม'), findsNothing);
+    expect(find.text('ใช้ Face ID / Biometric'), findsOneWidget);
+
+    await tester.tap(find.text('ใช้ Face ID / Biometric'));
+    await tester.pumpAndSettle();
+
+    expect(biometric.calls, 1);
+    expect(biometric.purposes, ['activity_claim']);
+    expect(claimRepository.createCalls, 1);
+    expect(claimRepository.createdAwardIds, ['award_1']);
+    expect(claimRepository.createdMethods, [
+      ActivityClaimPayoutMethod.walletCredit,
+    ]);
+    expect(claimRepository.createdPins, ['']);
+    expect(claimRepository.createdAssertionTokens, ['assertion_activity_1']);
+    expect(find.text('Activity claim detail route'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<void> _pumpDetail(
   WidgetTester tester,
-  _FakeActivityRepository repository,
-) {
+  ActivityRepository repository, {
+  ProfileSettingsRepository? profileRepository,
+  ActivityClaimRepository? activityClaimRepository,
+  BiometricAuthService? biometricAuth,
+  String? platformKey,
+  bool biometricEnabled = false,
+  String initialLocation = '/activities/lucky-board',
+}) {
   final router = GoRouter(
-    initialLocation: '/activities/lucky-board',
+    initialLocation: initialLocation,
     routes: [
+      GoRoute(
+        path: '/activities',
+        builder: (context, state) => const Scaffold(
+          body: Center(child: Text('Activities route')),
+        ),
+      ),
+      GoRoute(
+        path: '/activities/history',
+        builder: (context, state) => Scaffold(
+          body: Center(
+            child: Text(
+              'History route: ${state.uri.queryParameters['game_id'] ?? ''}',
+            ),
+          ),
+        ),
+      ),
       GoRoute(
         path: '/activities/:slug',
         builder: (context, state) => ActivityDetailScreen(
           slug: state.pathParameters['slug'] ?? '',
+          backPath: activityDetailBackPath(
+            from: state.uri.queryParameters['from'] ?? '',
+            gameId: state.uri.queryParameters['game_id'] ?? '',
+          ),
         ),
       ),
       GoRoute(
@@ -80,6 +343,18 @@ Future<void> _pumpDetail(
           body: Center(child: Text('Profile')),
         ),
       ),
+      GoRoute(
+        path: '/profile/reward-bank',
+        builder: (context, state) => Scaffold(
+          body: Center(child: Text(state.uri.toString())),
+        ),
+      ),
+      GoRoute(
+        path: '/activity-claims/:claimId',
+        builder: (context, state) => const Scaffold(
+          body: Center(child: Text('Activity claim detail route')),
+        ),
+      ),
     ],
   );
 
@@ -95,6 +370,35 @@ Future<void> _pumpDetail(
         authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
         authControllerProvider.overrideWith((_) => _authenticatedController()),
         activityRepositoryProvider.overrideWithValue(repository),
+        mobileBootstrapProvider.overrideWith(
+          (_) async => MobileBootstrap.fromJson({
+            'site': {'display_name': 'Customer', 'locale': 'th-TH'},
+            'mobile': {
+              'lottery_product_label': 'L6',
+              if (biometricEnabled) ...{
+                'biometric': {
+                  'enabled': true,
+                  'platforms': {
+                    'ios': ['face_id'],
+                  },
+                },
+                'feature_flags': {'native_biometric_unlock': true},
+              },
+            },
+          }),
+        ),
+        if (platformKey != null)
+          customerPlatformKeyProvider.overrideWithValue(platformKey),
+        if (activityClaimRepository != null)
+          activityClaimRepositoryProvider.overrideWithValue(
+            activityClaimRepository,
+          ),
+        if (biometricAuth != null)
+          biometricAuthServiceProvider.overrideWithValue(biometricAuth),
+        if (profileRepository != null)
+          profileSettingsRepositoryProvider.overrideWithValue(
+            profileRepository,
+          ),
       ],
       child: MaterialApp.router(
         locale: fallbackCustomerLocale,
@@ -112,12 +416,185 @@ Future<void> _pumpDetail(
   );
 }
 
+class _PendingActivityRepository extends ActivityRepository {
+  _PendingActivityRepository() : super(_testApiClient(), (value) => value);
+
+  final completer = Completer<ActivityItem>();
+
+  @override
+  Future<ActivityItem> detail(String slug, {bool authenticated = false}) {
+    return completer.future;
+  }
+}
+
+class _ErrorActivityRepository extends ActivityRepository {
+  _ErrorActivityRepository() : super(_testApiClient(), (value) => value);
+
+  @override
+  Future<ActivityItem> detail(String slug, {bool authenticated = false}) async {
+    throw Exception('activity detail failed');
+  }
+}
+
+class _MissingActivityRepository extends ActivityRepository {
+  _MissingActivityRepository() : super(_testApiClient(), (value) => value);
+
+  @override
+  Future<ActivityItem> detail(String slug, {bool authenticated = false}) async {
+    return const ActivityItem(
+      id: '',
+      name: '',
+      slug: '',
+      type: '',
+      imageUrl: '',
+      conditionText: '',
+      remainingNumbers: 0,
+      hasRight: false,
+      estimatedCashbackAmount: 0,
+      rights: ActivityRights(
+        earnedCount: 0,
+        usedCount: 0,
+        remainingCount: 0,
+        ticketCount: 0,
+        availableTicketCount: 0,
+        consumedTicketCount: 0,
+        qualifyingOrderCount: 0,
+        eligibilityRule: '',
+        thresholdTickets: 0,
+        entryDeadlineAt: null,
+        entryClosed: false,
+      ),
+      entries: [],
+      numberBoard: ActivityNumberBoard(
+        predictionType: '',
+        digits: 2,
+        totalCount: 0,
+        reservedCount: 0,
+        remainingCount: 0,
+        reservedNumbers: {},
+      ),
+      resultSummary: null,
+    );
+  }
+}
+
+class _MissingRewardBankProfileRepository extends ProfileSettingsRepository {
+  _MissingRewardBankProfileRepository() : super(_testApiClient());
+
+  @override
+  Future<CustomerProfileSettings> load() async {
+    return const CustomerProfileSettings(
+      id: 'customer_1',
+      name: 'Demo Customer',
+      customerNo: 'C-001',
+      phone: '0800000000',
+      bankAccount: RewardBankAccount(
+        bankName: '',
+        accountName: '',
+        accountNumber: '',
+      ),
+      autoReward: AutoRewardSetting(
+        enabled: false,
+        payoutMethod: '',
+        type: '',
+      ),
+    );
+  }
+}
+
+class _CompleteRewardBankProfileRepository extends ProfileSettingsRepository {
+  _CompleteRewardBankProfileRepository() : super(_testApiClient());
+
+  @override
+  Future<CustomerProfileSettings> load() async {
+    return const CustomerProfileSettings(
+      id: 'customer_1',
+      name: 'Demo Customer',
+      customerNo: 'C-001',
+      phone: '0800000000',
+      bankAccount: RewardBankAccount(
+        bankName: 'ธนาคารกสิกรไทย',
+        accountName: 'Demo Customer',
+        accountNumber: '1234567890',
+      ),
+      autoReward: AutoRewardSetting(
+        enabled: false,
+        payoutMethod: '',
+        type: '',
+      ),
+    );
+  }
+}
+
+class _CaptureActivityClaimRepository extends ActivityClaimRepository {
+  _CaptureActivityClaimRepository() : super(_testApiClient());
+
+  int createCalls = 0;
+  final createdAwardIds = <String>[];
+  final createdMethods = <ActivityClaimPayoutMethod>[];
+  final createdPins = <String>[];
+  final createdAssertionTokens = <String>[];
+
+  @override
+  Future<ActivityClaimItem> create({
+    required String awardId,
+    required ActivityClaimPayoutMethod payoutMethod,
+    String? pin,
+    String? pinAssertionToken,
+    RewardBankAccount? bankAccount,
+    String note = '',
+  }) async {
+    createCalls++;
+    createdAwardIds.add(awardId);
+    createdMethods.add(payoutMethod);
+    createdPins.add(pin ?? '');
+    createdAssertionTokens.add(pinAssertionToken ?? '');
+
+    return ActivityClaimItem.fromJson({
+      'id': 'activity_claim_biometric',
+      'reference': 'ACL-BIO-001',
+      'status': 'submitted',
+      'payout_method': payoutMethod.apiValue,
+      'claim_amount': {'amount': 200000, 'currency': 'THB'},
+      'award': {
+        'id': awardId,
+        'activity_name': 'กิจกรรมทายเลข 2 ตัว',
+        'type': 'lucky_board',
+        'prediction_type': 'last2',
+        'amount': {'amount': 200000, 'currency': 'THB'},
+      },
+    });
+  }
+}
+
+class _FakeBiometricAuthService extends BiometricAuthService {
+  _FakeBiometricAuthService(this.assertionToken) : super(_testApiClient());
+
+  final String assertionToken;
+  int calls = 0;
+  final purposes = <String>[];
+
+  @override
+  Future<String?> requestPinAssertion({
+    String purpose = 'pin_unlock',
+    required String localizedReason,
+  }) async {
+    calls++;
+    purposes.add(purpose);
+    return assertionToken;
+  }
+}
+
 class _FakeActivityRepository extends ActivityRepository {
   _FakeActivityRepository({required this.resultAnnounced})
       : super(_testApiClient(), (value) => value);
 
   final bool resultAnnounced;
   int awardsAllCount = 0;
+  int createEntryCount = 0;
+  final createdActivityIds = <String>[];
+  final createdPredictionTypes = <String>[];
+  final createdSelectedNumbers = <String>[];
 
   @override
   Future<ActivityItem> detail(String slug, {bool authenticated = false}) async {
@@ -144,6 +621,25 @@ class _FakeActivityRepository extends ActivityRepository {
         calculatedAt: null,
       ),
     ];
+  }
+
+  @override
+  Future<ActivityEntry> createEntry({
+    required String activityId,
+    required String predictionType,
+    required String selectedNumber,
+  }) async {
+    createEntryCount++;
+    createdActivityIds.add(activityId);
+    createdPredictionTypes.add(predictionType);
+    createdSelectedNumbers.add(selectedNumber);
+    return ActivityEntry(
+      id: 'entry_created_$createEntryCount',
+      predictionType: predictionType,
+      selectedNumber: selectedNumber,
+      status: 'submitted',
+      createdAt: null,
+    );
   }
 }
 

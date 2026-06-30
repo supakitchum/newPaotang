@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/payment/checkout_payment_config.dart';
 import '../../../core/utils/api_payload.dart';
 import '../../../core/utils/idempotency_key.dart';
 import '../../results/data/result_repository.dart';
@@ -26,6 +27,7 @@ class LotteryRepository {
     String number = '',
     String storeId = '',
     String cursor = '',
+    String randomSeed = '',
     int limit = 20,
   }) async {
     if (gameId.trim().isEmpty) {
@@ -35,6 +37,7 @@ class LotteryRepository {
         hasMore: false,
         gameId: '',
         sellerName: '',
+        canReserve: false,
       );
     }
 
@@ -51,6 +54,7 @@ class LotteryRepository {
             'd${index + 1}': normalizedDigits[index],
       if (storeId.trim().isNotEmpty) 'store_id': storeId.trim(),
       if (cursor.trim().isNotEmpty) 'cursor': cursor.trim(),
+      if (randomSeed.trim().isNotEmpty) 'random_seed': randomSeed.trim(),
     };
 
     final response = await _api.get<Map<String, dynamic>>(
@@ -92,17 +96,23 @@ class LotteryRepository {
     return cart();
   }
 
-  Future<LotteryCheckoutOrder> checkout(List<String> reservationIds) async {
+  Future<LotteryCheckoutOrder> checkout(
+    List<String> reservationIds, {
+    String paymentMethod = checkoutPaymentMethodWallet,
+  }) async {
     final ids = reservationIds
         .map((id) => id.trim())
         .where((id) => id.isNotEmpty)
         .toList(growable: false);
+    final normalizedPaymentMethod = normalizeCheckoutPaymentMethod(
+      paymentMethod,
+    );
     final response = await _api.postWithHeaders<Map<String, dynamic>>(
       '/customer/checkout',
       data: {
         'reservation_id': ids.isEmpty ? '' : ids.first,
         'reservation_ids': ids,
-        'payment_method': 'wallet',
+        'payment_method': normalizedPaymentMethod,
       },
       headers: {'Idempotency-Key': newIdempotencyKey('customer-checkout')},
     );

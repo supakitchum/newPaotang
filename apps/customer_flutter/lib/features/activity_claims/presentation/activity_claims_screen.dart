@@ -43,6 +43,7 @@ class _ActivityClaimsScreenState extends ConsumerState<ActivityClaimsScreen> {
     return AppShell(
       title: l10n.activityClaimsTitle,
       currentPath: '/profile',
+      backPath: '/profile',
       sensitive: true,
       child: RefreshIndicator(
         onRefresh: _loadInitial,
@@ -483,10 +484,17 @@ class _ActivityClaimsLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Card(
-      child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Center(child: CircularProgressIndicator()),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 34),
+      child: Center(
+        child: Text(
+          context.l10n.activityClaimsLoading,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
       ),
     );
   }

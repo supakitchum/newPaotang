@@ -6,6 +6,7 @@ import '../../../core/auth/auth_controller.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
+import '../../../core/navigation/customer_redirect.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../affiliate/data/affiliate_referral_repository.dart';
@@ -72,7 +73,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             password: _password,
                             loading: _loading,
                             onLogin: _login,
-                            onRegister: () => context.go('/register'),
+                            onRegister: () => context.go(
+                              customerRegisterRouteForRedirect(
+                                _currentRedirect(),
+                              ),
+                            ),
                             onForgotPassword: () =>
                                 context.go('/forgot-password'),
                           ),
@@ -106,7 +111,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           .read(authControllerProvider)
           .loginWithPassword(_username.text.trim(), _password.text);
       await ref.read(affiliateReferralServiceProvider).applyStored();
-      if (mounted) context.go('/');
+      if (mounted) {
+        final auth = ref.read(authControllerProvider);
+        final redirect = _currentRedirect();
+        context.go(
+          auth.pinRequired ? customerPinRouteForRedirect(redirect) : redirect,
+        );
+      }
     } catch (error) {
       if (mounted) {
         final redirect = ApiErrorInfo.fromObject(error).operationalRedirectPath;
@@ -161,6 +172,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       return message;
     }
     return fallback;
+  }
+
+  String _currentRedirect() {
+    try {
+      return safeCustomerRedirect(
+        GoRouterState.of(context).uri.queryParameters['redirect'],
+      );
+    } catch (_) {
+      return '/';
+    }
   }
 
   void _showSnack(String message) {

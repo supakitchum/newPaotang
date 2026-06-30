@@ -5,10 +5,10 @@ import 'package:go_router/go_router.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_shell.dart';
-import '../../../shared/widgets/customer_page_body.dart';
 import '../data/reward_claim_models.dart';
 import '../data/reward_claim_repository.dart';
 import 'claim_realtime_monitor.dart';
+import 'reward_claim_error_message.dart';
 import 'reward_claim_localization.dart';
 
 class RewardClaimsScreen extends ConsumerStatefulWidget {
@@ -41,60 +41,33 @@ class _RewardClaimsScreenState extends ConsumerState<RewardClaimsScreen> {
     );
 
     return AppShell(
-      title: l10n.rewardClaimsTitle,
+      title: l10n.rewardClaimsHeaderTitle,
       currentPath: '/my-wallet',
+      backPath: '/profile',
       sensitive: true,
       child: RefreshIndicator(
         onRefresh: _loadInitial,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            CustomerPageBody(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _RewardClaimsHeader(
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 640),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 128),
+                  child: _RewardClaimsContent(
+                    claims: List<RewardClaimItem>.unmodifiable(_claims),
+                    hasMore: _hasMore,
+                    loadingInitial: _loadingInitial,
+                    loadingMore: _loadingMore,
+                    error: _error,
+                    onRetry: _loadInitial,
+                    onLoadMore: _loadMore,
                     onTickets: () => context.go('/tickets/history'),
+                    onClaim: (claim) =>
+                        context.go('/reward-claims/${claim.id}'),
                   ),
-                  const SizedBox(height: 12),
-                  if (_loadingInitial)
-                    const _RewardClaimsLoading()
-                  else if (_error.isNotEmpty)
-                    _RewardClaimsError(message: _error, onRetry: _loadInitial)
-                  else if (_claims.isEmpty)
-                    _RewardClaimsEmpty(
-                      onTickets: () => context.go('/tickets/history'),
-                    )
-                  else ...[
-                    for (final claim in _claims)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _RewardClaimTile(
-                          claim: claim,
-                          onTap: () => context.go('/reward-claims/${claim.id}'),
-                        ),
-                      ),
-                    if (_hasMore)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: OutlinedButton.icon(
-                          onPressed: _loadingMore ? null : _loadMore,
-                          icon: _loadingMore
-                              ? const SizedBox.square(
-                                  dimension: 16,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(Icons.expand_more),
-                          label: Text(
-                            _loadingMore
-                                ? l10n.rewardClaimsLoadingMore
-                                : l10n.rewardClaimsLoadMore,
-                          ),
-                        ),
-                      ),
-                  ],
-                ],
+                ),
               ),
             ),
           ],
@@ -127,9 +100,14 @@ class _RewardClaimsScreenState extends ConsumerState<RewardClaimsScreen> {
         _cursor = page.nextCursor;
         _hasMore = page.hasMore;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      setState(() => _error = context.l10n.rewardClaimsLoadFailed);
+      setState(
+        () => _error = rewardClaimErrorMessage(
+          error,
+          context.l10n.rewardClaimsLoadFailed,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _loadingInitial = false);
     }
@@ -149,10 +127,17 @@ class _RewardClaimsScreenState extends ConsumerState<RewardClaimsScreen> {
         _cursor = page.nextCursor;
         _hasMore = page.hasMore;
       });
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.rewardClaimsLoadMoreFailed)),
+          SnackBar(
+            content: Text(
+              rewardClaimErrorMessage(
+                error,
+                context.l10n.rewardClaimsLoadMoreFailed,
+              ),
+            ),
+          ),
         );
       }
     } finally {
@@ -161,108 +146,99 @@ class _RewardClaimsScreenState extends ConsumerState<RewardClaimsScreen> {
   }
 }
 
-class _RewardClaimsHeader extends StatelessWidget {
-  const _RewardClaimsHeader({required this.onTickets});
+class _RewardClaimsContent extends StatelessWidget {
+  const _RewardClaimsContent({
+    required this.claims,
+    required this.hasMore,
+    required this.loadingInitial,
+    required this.loadingMore,
+    required this.error,
+    required this.onRetry,
+    required this.onLoadMore,
+    required this.onTickets,
+    required this.onClaim,
+  });
 
+  final List<RewardClaimItem> claims;
+  final bool hasMore;
+  final bool loadingInitial;
+  final bool loadingMore;
+  final String error;
+  final Future<void> Function() onRetry;
+  final VoidCallback onLoadMore;
   final VoidCallback onTickets;
+  final ValueChanged<RewardClaimItem> onClaim;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final colorScheme = Theme.of(context).colorScheme;
+    if (loadingInitial) {
+      return const _RewardClaimsLoading();
+    }
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colorScheme.primary,
-            Color.lerp(colorScheme.primary, colorScheme.secondary, 0.58) ??
-                colorScheme.primary,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.primary.withValues(alpha: 0.18),
-            blurRadius: 22,
-            offset: const Offset(0, 12),
+    if (error.isNotEmpty) {
+      return _RewardClaimsError(message: error, onRetry: onRetry);
+    }
+
+    if (claims.isEmpty) {
+      return _RewardClaimsEmpty(onTickets: onTickets);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            border: Border(
+              top: BorderSide(color: Theme.of(context).dividerColor),
+              bottom: BorderSide(color: Theme.of(context).dividerColor),
+            ),
           ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -30,
-            bottom: -42,
-            child: Container(
-              width: 128,
-              height: 128,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.12),
+          child: Column(
+            children: [
+              for (var index = 0; index < claims.length; index++)
+                _RewardClaimTile(
+                  claim: claims[index],
+                  showDivider: index < claims.length - 1,
+                  onTap: () => onClaim(claims[index]),
+                ),
+            ],
+          ),
+        ),
+        if (hasMore)
+          Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: Center(
+              child: OutlinedButton.icon(
+                onPressed: loadingMore ? null : onLoadMore,
+                icon: loadingMore
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.expand_more),
+                label: Text(
+                  loadingMore
+                      ? context.l10n.rewardClaimsLoadingMore
+                      : context.l10n.rewardClaimsLoadMore,
+                ),
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(18),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: Colors.white.withValues(alpha: 0.18),
-                  child: const Icon(
-                    Icons.emoji_events_outlined,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.rewardClaimsHeaderTitle,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        l10n.rewardClaimsHeaderSubtitle,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.84),
-                              fontWeight: FontWeight.w700,
-                              height: 1.32,
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton.filled(
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.white.withValues(alpha: 0.18),
-                    foregroundColor: Colors.white,
-                  ),
-                  tooltip: l10n.rewardClaimsTicketsTooltip,
-                  onPressed: onTickets,
-                  icon: const Icon(Icons.confirmation_number_outlined),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
 
 class _RewardClaimTile extends StatelessWidget {
-  const _RewardClaimTile({required this.claim, required this.onTap});
+  const _RewardClaimTile({
+    required this.claim,
+    required this.showDivider,
+    required this.onTap,
+  });
 
   final RewardClaimItem claim;
+  final bool showDivider;
   final VoidCallback onTap;
 
   @override
@@ -270,105 +246,120 @@ class _RewardClaimTile extends StatelessWidget {
     final color = _statusColor(claim);
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final compact = constraints.maxWidth < 370;
-              final amountBlock = Column(
-                crossAxisAlignment:
-                    compact ? CrossAxisAlignment.start : CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    formatBaht(claim.prizeAmount),
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: color,
-                          fontWeight: FontWeight.w900,
-                        ),
-                  ),
-                  const SizedBox(height: 6),
-                  _StatusChip(
-                    label: rewardClaimStatusLabel(l10n, claim),
-                    color: color,
-                  ),
-                ],
-              );
+    final prizeNames = rewardClaimPrizeNames(l10n, claim);
+    final submittedAt = rewardClaimSubmittedText(l10n, claim);
 
-              final detailBlock = Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.rewardClaimsPrizeTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
+    return Semantics(
+      button: true,
+      label: [
+        l10n.rewardClaimsPrizeTitle,
+        claim.ticket?.number ?? '-',
+        claim.displayReference,
+      ].join(' '),
+      child: Material(
+        color: colorScheme.surface,
+        child: InkWell(
+          onTap: onTap,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: showDivider
+                  ? Border(
+                      bottom: BorderSide(
+                        color: colorScheme.outlineVariant.withValues(
+                          alpha: 0.7,
                         ),
+                      ),
+                    )
+                  : null,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 9, 10, 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _RewardClaimRowLine(
+                    leading: Text(
+                      l10n.rewardClaimsPrizeTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: const Color(0xFF202938),
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            height: 1.25,
+                          ),
+                    ),
+                    trailing: Text(
+                      formatBaht(claim.prizeAmount),
+                      textAlign: TextAlign.right,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: const Color(0xFF202938),
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            height: 1.25,
+                          ),
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      for (final name in rewardClaimPrizeNames(l10n, claim))
-                        _RewardTag(label: name),
-                    ],
+                  const SizedBox(height: 3),
+                  _RewardClaimRowLine(
+                    leading: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final name in prizeNames)
+                          Text(
+                            name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: const Color(0xFF4B5563),
+                                  fontSize: 15,
+                                  height: 1.32,
+                                ),
+                          ),
+                      ],
+                    ),
+                    trailing: _StatusChip(
+                      label: rewardClaimStatusLabel(l10n, claim),
+                      color: color,
+                    ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 3),
                   Text(
                     rewardClaimPayoutSummary(l10n, claim),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                          height: 1.35,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: const Color(0xFF4B5563),
+                          fontSize: 15,
+                          height: 1.32,
                         ),
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    '${claim.displayReference} • '
-                    '${rewardClaimSubmittedText(l10n, claim)}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  if (compact) ...[
-                    const SizedBox(height: 12),
-                    amountBlock,
-                  ],
-                ],
-              );
-
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    backgroundColor: color.withValues(alpha: 0.12),
-                    child: Icon(Icons.emoji_events_outlined, color: color),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(child: detailBlock),
-                  if (!compact) ...[
-                    const SizedBox(width: 12),
-                    amountBlock,
-                  ],
-                  const SizedBox(width: 6),
-                  Icon(
-                    Icons.chevron_right,
-                    color: colorScheme.onSurfaceVariant,
+                  const SizedBox(height: 3),
+                  _RewardClaimRowLine(
+                    leading: Text(
+                      submittedAt,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: const Color(0xFF94A3B8),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            height: 1.32,
+                          ),
+                    ),
+                    trailing: Icon(
+                      Icons.chevron_right,
+                      color: colorScheme.primary,
+                      size: 23,
+                    ),
                   ),
                 ],
-              );
-            },
+              ),
+            ),
           ),
         ),
       ),
@@ -376,29 +367,45 @@ class _RewardClaimTile extends StatelessWidget {
   }
 }
 
-class _RewardTag extends StatelessWidget {
-  const _RewardTag({required this.label});
+class _RewardClaimRowLine extends StatelessWidget {
+  const _RewardClaimRowLine({required this.leading, required this.trailing});
 
-  final String label;
+  final Widget leading;
+  final Widget trailing;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w900,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stack = constraints.maxWidth < 330;
+        if (stack) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              leading,
+              const SizedBox(height: 4),
+              Align(alignment: Alignment.centerLeft, child: trailing),
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: leading),
+            const SizedBox(width: 10),
+            Flexible(
+              flex: 0,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: constraints.maxWidth * 0.46,
+                ),
+                child: trailing,
               ),
-        ),
-      ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -412,16 +419,20 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(3),
+        color: color.withValues(alpha: 0.13),
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: color,
+              fontSize: 15,
               fontWeight: FontWeight.w900,
+              height: 1,
             ),
       ),
     );
@@ -433,10 +444,14 @@ class _RewardClaimsLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Card(
-      child: Padding(
-        padding: EdgeInsets.all(22),
-        child: Center(child: CircularProgressIndicator()),
+    return _RewardClaimsStatePanel(
+      child: Text(
+        context.l10n.rewardClaimsLoading,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
       ),
     );
   }
@@ -450,21 +465,24 @@ class _RewardClaimsError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          children: [
-            const Icon(Icons.error_outline, size: 42),
-            const SizedBox(height: 12),
-            Text(message),
-            const SizedBox(height: 12),
-            OutlinedButton(
-              onPressed: onRetry,
-              child: Text(context.l10n.commonRetry),
-            ),
-          ],
-        ),
+    return _RewardClaimsStatePanel(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.error,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            onPressed: onRetry,
+            child: Text(context.l10n.commonRetry),
+          ),
+        ],
       ),
     );
   }
@@ -479,36 +497,69 @@ class _RewardClaimsEmpty extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          children: [
-            const Icon(Icons.emoji_events_outlined, size: 42),
-            const SizedBox(height: 12),
-            Text(
-              l10n.rewardClaimsEmptyTitle,
-              style: const TextStyle(fontWeight: FontWeight.w900),
+    return _RewardClaimsStatePanel(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Theme.of(context).colorScheme.primaryContainer,
             ),
-            const SizedBox(height: 6),
-            Text(
-              l10n.rewardClaimsEmptySubtitle,
-              textAlign: TextAlign.center,
+            child: Icon(
+              Icons.emoji_events_outlined,
+              color: Theme.of(context).colorScheme.primary,
+              size: 30,
             ),
-            const SizedBox(height: 14),
-            FilledButton(
-              onPressed: onTickets,
-              child: Text(l10n.rewardClaimsViewWinningTickets),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            l10n.rewardClaimsEmptyTitle,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: const Color(0xFF111827),
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            l10n.rewardClaimsEmptySubtitle,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF64748B),
+                  fontWeight: FontWeight.w700,
+                  height: 1.45,
+                ),
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: onTickets,
+            child: Text(l10n.rewardClaimsViewWinningTickets),
+          ),
+        ],
       ),
     );
   }
 }
 
+class _RewardClaimsStatePanel extends StatelessWidget {
+  const _RewardClaimsStatePanel({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 54, 14, 24),
+      child: Center(child: child),
+    );
+  }
+}
+
 Color _statusColor(RewardClaimItem claim) {
-  if (claim.isPaid) return Colors.green.shade700;
-  if (claim.isRejected) return Colors.red.shade700;
-  return Colors.orange.shade800;
+  if (claim.isPaid) return const Color(0xFF28A81E);
+  if (claim.isRejected) return const Color(0xFFED2C25);
+  return const Color(0xFFE29300);
 }

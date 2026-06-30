@@ -81,6 +81,7 @@ class RewardClaimItem {
     required this.status,
     required this.statusRaw,
     required this.payoutMethod,
+    required this.payoutLedgerId,
     required this.bankName,
     required this.bankAccountNumber,
     required this.walletName,
@@ -94,8 +95,10 @@ class RewardClaimItem {
   factory RewardClaimItem.fromJson(Map<String, dynamic> json) {
     final customer = asMap(json['customer']);
     final ticketJson = asMap(json['ticket']);
-    final bank = asMap(json['bank_account'] ?? json['payout_bank_account']);
-    final wallet = asMap(json['payout_wallet']);
+    final bank = asMap(
+      json['bank_account'] ?? json['payout_bank_account'] ?? json['bank'],
+    );
+    final wallet = asMap(json['payout_wallet'] ?? json['wallet']);
     final prizes = asMapList(json['prizes'])
         .map(RewardClaimPrize.fromJson)
         .toList(growable: false);
@@ -124,14 +127,26 @@ class RewardClaimItem {
       status: RewardClaimStatus.fromApi(json['status']),
       statusRaw: json['status']?.toString().toLowerCase() ?? '',
       payoutMethod: json['payout_method']?.toString() ?? '',
-      bankName: (bank['bank_name'] ?? bank['bank'] ?? '').toString(),
+      payoutLedgerId: json['payout_ledger_id']?.toString() ?? '',
+      bankName: (bank['bank_name'] ??
+              bank['bank'] ??
+              json['bank_name'] ??
+              json['payout_bank_name'] ??
+              '')
+          .toString(),
       bankAccountNumber: (bank['account_number'] ??
               bank['account_no'] ??
               bank['bank_account_no'] ??
               bank['bank_deposit_number'] ??
+              json['bank_account_number'] ??
+              json['account_number'] ??
+              json['account_no'] ??
+              json['bank_account_no'] ??
+              json['bank_deposit_number'] ??
               '')
           .toString(),
-      walletName: (wallet['name'] ?? 'G-Wallet').toString(),
+      walletName:
+          (wallet['name'] ?? json['wallet_name'] ?? 'G-Wallet').toString(),
       submittedAt: json['submitted_at'],
       reviewedAt: json['reviewed_at'],
       paidAt: json['paid_at'],
@@ -150,6 +165,7 @@ class RewardClaimItem {
   final RewardClaimStatus status;
   final String statusRaw;
   final String payoutMethod;
+  final String payoutLedgerId;
   final String bankName;
   final String bankAccountNumber;
   final String walletName;
@@ -162,7 +178,9 @@ class RewardClaimItem {
   bool get isPaid {
     if (status == RewardClaimStatus.paid) return true;
     return status == RewardClaimStatus.approved &&
-        (paidAt != null || payoutMethod == 'bank_transfer');
+        (paidAt != null ||
+            payoutLedgerId.trim().isNotEmpty ||
+            payoutMethod == 'bank_transfer');
   }
 
   bool get isRejected =>

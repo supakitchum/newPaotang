@@ -33,6 +33,7 @@ final storeLotteryProvider = FutureProvider.autoDispose
   return ref.watch(storeRepositoryProvider).lotteries(
         storeId: query.storeId,
         gameId: gameId,
+        digits: query.digits,
         cursor: query.cursor,
       );
 });
@@ -59,11 +60,13 @@ class StoreLotteryQuery {
   const StoreLotteryQuery({
     required this.storeId,
     this.gameId = '',
+    this.digits = const [],
     this.cursor = '',
   });
 
   final String storeId;
   final String gameId;
+  final List<String> digits;
   final String cursor;
 
   @override
@@ -73,10 +76,12 @@ class StoreLotteryQuery {
           runtimeType == other.runtimeType &&
           storeId == other.storeId &&
           gameId == other.gameId &&
+          _listEquals(digits, other.digits) &&
           cursor == other.cursor;
 
   @override
-  int get hashCode => Object.hash(storeId, gameId, cursor);
+  int get hashCode =>
+      Object.hash(storeId, gameId, Object.hashAll(digits), cursor);
 }
 
 class StoreRepository {
@@ -104,9 +109,11 @@ class StoreRepository {
   Future<StoreLotteryPage> lotteries({
     required String storeId,
     required String gameId,
+    List<String> digits = const [],
     String cursor = '',
     int limit = 20,
   }) async {
+    final normalizedDigits = _normalizeDigits(digits);
     final response = await _api.get<Map<String, dynamic>>(
       '/public/stock/search',
       auth: false,
@@ -115,9 +122,28 @@ class StoreRepository {
         'mode': 'random',
         'limit': limit,
         if (storeId.isNotEmpty) 'store_id': storeId,
+        for (var index = 0; index < normalizedDigits.length; index++)
+          if (normalizedDigits[index].isNotEmpty)
+            'd${index + 1}': normalizedDigits[index],
         if (cursor.isNotEmpty) 'cursor': cursor,
       },
     );
     return StoreLotteryPage.fromJson(asMap(response.data));
   }
+}
+
+List<String> _normalizeDigits(List<String> values) {
+  return List.generate(6, (index) {
+    if (index >= values.length) return '';
+    final digit = values[index].replaceAll(RegExp(r'\D'), '');
+    return digit.isEmpty ? '' : digit.substring(0, 1);
+  });
+}
+
+bool _listEquals(List<String> left, List<String> right) {
+  if (left.length != right.length) return false;
+  for (var index = 0; index < left.length; index++) {
+    if (left[index] != right[index]) return false;
+  }
+  return true;
 }

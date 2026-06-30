@@ -43,6 +43,7 @@ void main() {
       number: '273707',
       storeId: 'store_1',
       cursor: 'cursor_1',
+      randomSeed: 'seed_1',
     );
 
     expect(api.path, '/public/stock/search');
@@ -51,6 +52,7 @@ void main() {
     expect(api.query['number'], '273707');
     expect(api.query['store_id'], 'store_1');
     expect(api.query['cursor'], 'cursor_1');
+    expect(api.query['random_seed'], 'seed_1');
     expect(api.query.containsKey('sort'), isFalse);
     expect(api.query.containsKey('order'), isFalse);
   });
@@ -63,6 +65,7 @@ void main() {
     await repository.lotteries(
       storeId: 'store_1',
       gameId: 'game_1',
+      digits: const ['1', '', '3', '', '', '7'],
       cursor: 'cursor_2',
     );
 
@@ -70,6 +73,9 @@ void main() {
     expect(api.auth, isFalse);
     expect(api.query['mode'], 'random');
     expect(api.query['store_id'], 'store_1');
+    expect(api.query['d1'], '1');
+    expect(api.query['d3'], '3');
+    expect(api.query['d6'], '7');
     expect(api.query['cursor'], 'cursor_2');
     expect(api.query.containsKey('sort'), isFalse);
     expect(api.query.containsKey('order'), isFalse);

@@ -4,6 +4,7 @@ const defaultCustomerDeepLinkPaths = <String>[
   '/line/callback',
   '/social/*',
   '/reset-password',
+  '/checkout/pending',
 ];
 
 Object buildAndroidAssetLinks({

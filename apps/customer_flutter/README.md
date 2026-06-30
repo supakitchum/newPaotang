@@ -91,7 +91,9 @@ Native builds listen for both custom-scheme callbacks and HTTPS app links:
 
 - Custom scheme default: `newpaotang://line/callback`,
   `newpaotang://social/{provider}/callback`, and
-  `newpaotang://reset-password`.
+  `newpaotang://reset-password`. Runtime partner schemes also accept customer
+  route returns such as `partnerlottery:///checkout/pending?order_id=...` for
+  external payment completion.
 - Android app links are configured with Gradle properties or env vars:
   `CUSTOMER_FLUTTER_AUTH_CALLBACK_SCHEME` and
   `CUSTOMER_FLUTTER_AUTH_CALLBACK_HOST`.
@@ -112,8 +114,10 @@ bundle:
   entitlement. Then host Apple App Site Association on that domain.
 
 Partner social provider callback URLs in BO should point to the public customer
-domain using `/line/callback` or `/social/{provider}/callback`. The app maps
-those URLs back into Flutter routes without hardcoding tenant-specific domains.
+domain using `/line/callback` or `/social/{provider}/callback`. External
+payment providers should return to `/checkout/pending?order_id=...`. The app
+maps those URLs back into Flutter routes without hardcoding tenant-specific
+domains.
 
 Generate partner-specific domain files with:
 

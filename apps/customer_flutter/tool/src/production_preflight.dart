@@ -644,11 +644,12 @@ void _checkAndroidManifest(
       'android:pathPrefix="/line/callback"',
       'android:pathPrefix="/social"',
       'android:pathPrefix="/reset-password"',
+      'android:pathPrefix="/checkout/pending"',
     ],
     const ProductionPreflightIssue(
       code: 'android_app_links_missing',
       message:
-          'AndroidManifest.xml must declare verified HTTPS app links for auth and reset callbacks.',
+          'AndroidManifest.xml must declare verified HTTPS app links for auth, reset, and checkout callbacks.',
     ),
     issues,
   );

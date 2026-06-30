@@ -12,7 +12,6 @@ import '../../../core/utils/api_errors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
-import '../../../shared/widgets/async/async_state_view.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../../activity_claims/data/activity_claim_models.dart';
 import '../../activity_claims/data/activity_claim_repository.dart';
@@ -23,9 +22,14 @@ import '../data/activity_repository.dart';
 import 'activity_localization.dart';
 
 class ActivityDetailScreen extends ConsumerWidget {
-  const ActivityDetailScreen({required this.slug, super.key});
+  const ActivityDetailScreen({
+    required this.slug,
+    super.key,
+    this.backPath = '/activities',
+  });
 
   final String slug;
+  final String backPath;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -39,17 +43,36 @@ class ActivityDetailScreen extends ConsumerWidget {
     return AppShell(
       title: context.l10n.activityDetailTitle,
       currentPath: '/activities',
-      child: AsyncStateView(
-        value: activity,
-        data: (item) => _ActivityDetailBody(
-          activity: item,
-          request: request,
-          authenticated: request.authenticated,
-        ),
-        empty: const _ActivityMissingCard(),
+      backPath: backPath,
+      child: activity.when(
+        data: (item) {
+          if (item.id.isEmpty) {
+            return const _ActivityDetailStateView(missing: true);
+          }
+          return _ActivityDetailBody(
+            activity: item,
+            request: request,
+            authenticated: request.authenticated,
+          );
+        },
+        loading: () => const _ActivityDetailStateView(),
+        error: (_, __) => const _ActivityDetailStateView(error: true),
       ),
     );
   }
+}
+
+String activityDetailBackPath({
+  required String from,
+  required String gameId,
+}) {
+  if (from != 'history') return '/activities';
+
+  final trimmedGameId = gameId.trim();
+  return Uri(
+    path: '/activities/history',
+    queryParameters: trimmedGameId.isEmpty ? null : {'game_id': trimmedGameId},
+  ).toString();
 }
 
 class _ActivityDetailBody extends ConsumerStatefulWidget {
@@ -87,6 +110,10 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           CustomerPageBody(
+            maxWidth: 640,
+            top: 12,
+            mobileHorizontal: 10,
+            wideHorizontal: 10,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -179,24 +206,12 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
     final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.activityConfirmNumberTitle),
-        content: Text(
-          l10n.activityConfirmNumberMessage(
-            number,
-            l10n.activityPredictionLabel(activity.numberBoard.predictionType),
-          ),
+      builder: (context) => _NumberConfirmDialog(
+        number: number,
+        message: l10n.activityConfirmNumberMessage(
+          number,
+          l10n.activityPredictionLabel(activity.numberBoard.predictionType),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(l10n.commonCancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(l10n.commonConfirm),
-          ),
-        ],
       ),
     );
 
@@ -238,12 +253,14 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
   }
 
   Future<void> _startClaim(ActivityAwardItem award) async {
+    final returnPath = GoRouterState.of(context).uri.toString();
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       builder: (context) => _ActivityClaimSheet(
         award: award,
+        returnPath: returnPath,
         onClaimed: (claimId) {
           ref.invalidate(activityAwardListProvider(activity.id));
           if (claimId.isNotEmpty) {
@@ -261,6 +278,108 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
   void _showSnack(String message) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _NumberConfirmDialog extends StatelessWidget {
+  const _NumberConfirmDialog({
+    required this.number,
+    required this.message,
+  });
+
+  final String number;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  l10n.activityConfirmNumberEyebrow,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  l10n.activityConfirmNumberTitle,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                const SizedBox(height: 16),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Text(
+                      number,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.45,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: Text(l10n.commonCancel),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: Text(l10n.activityConfirmNumberSubmit),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            right: 8,
+            top: 8,
+            child: IconButton(
+              tooltip: l10n.commonCancel,
+              onPressed: () => Navigator.of(context).pop(false),
+              icon: const Icon(Icons.close),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -710,6 +829,19 @@ class _NumberBoardCard extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
             ),
+            const SizedBox(height: 4),
+            Text(
+              l10n.activityNumberBoardSummary(
+                board.digits == 3 ? '000-999' : '00-99',
+                board.remainingCount.toString(),
+                board.totalCount.toString(),
+              ),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                    height: 1.35,
+                  ),
+            ),
             const SizedBox(height: 6),
             Text(
               canSelect
@@ -717,6 +849,17 @@ class _NumberBoardCard extends StatelessWidget {
                   : activity.rights.entryClosed
                       ? l10n.activityNumberBoardClosed
                       : l10n.activityNumberBoardNoRights,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              activity.rights.entryClosed
+                  ? l10n.activityNumberBoardEntryClosedHint
+                  : l10n.activityNumberBoardReservedHint,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontStyle: FontStyle.italic,
+                    fontWeight: FontWeight.w800,
+                  ),
             ),
             const SizedBox(height: 14),
             LayoutBuilder(
@@ -866,10 +1009,12 @@ class _LoginToJoinCard extends StatelessWidget {
 class _ActivityClaimSheet extends ConsumerStatefulWidget {
   const _ActivityClaimSheet({
     required this.award,
+    required this.returnPath,
     required this.onClaimed,
   });
 
   final ActivityAwardItem award;
+  final String returnPath;
   final ValueChanged<String> onClaimed;
 
   @override
@@ -900,7 +1045,8 @@ class _ActivityClaimSheetState extends ConsumerState<_ActivityClaimSheet> {
       child: profile.when(
         data: (settings) => _pinStep
             ? _PinConfirmPanel(
-                title: l10n.activityClaimSheetTitle,
+                title: l10n.activityClaimPinTitle,
+                subtitle: l10n.activityClaimPinSubtitle,
                 pin: _pin,
                 error: _error,
                 submitting: _submitting,
@@ -918,6 +1064,7 @@ class _ActivityClaimSheetState extends ConsumerState<_ActivityClaimSheet> {
                 award: widget.award,
                 method: _method,
                 bankAccount: settings.bankAccount,
+                returnPath: widget.returnPath,
                 error: _error,
                 submitting: _submitting,
                 onMethodChanged: (method) => setState(() {
@@ -1061,6 +1208,7 @@ class _ClaimSelectPanel extends StatelessWidget {
     required this.award,
     required this.method,
     required this.bankAccount,
+    required this.returnPath,
     required this.error,
     required this.submitting,
     required this.onMethodChanged,
@@ -1070,6 +1218,7 @@ class _ClaimSelectPanel extends StatelessWidget {
   final ActivityAwardItem award;
   final ActivityClaimPayoutMethod method;
   final RewardBankAccount bankAccount;
+  final String returnPath;
   final String error;
   final bool submitting;
   final ValueChanged<ActivityClaimPayoutMethod> onMethodChanged;
@@ -1095,6 +1244,14 @@ class _ClaimSelectPanel extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
+            l10n.activityClaimSheetEyebrow,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          const SizedBox(height: 6),
+          Text(
             l10n.activityClaimSheetTitle,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w900,
@@ -1108,7 +1265,7 @@ class _ClaimSelectPanel extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(activityAwardTitle(l10n, award)),
+                  Text(l10n.activityClaimAvailableAmount),
                   const SizedBox(height: 6),
                   Text(
                     formatBaht(award.amount),
@@ -1139,14 +1296,19 @@ class _ClaimSelectPanel extends StatelessWidget {
                 ? '${bankAccount.bankName} ${bankAccount.maskedNumber}'
                 : l10n.activityClaimBankMissing,
             icon: Icons.account_balance,
+            disabled: !bankAccount.isComplete,
             onTap: onMethodChanged,
           ),
           if (method == ActivityClaimPayoutMethod.bankTransfer &&
-              !bankAccount.isComplete) ...[
+              bankAccount.isComplete) ...[
+            const SizedBox(height: 8),
+            _ClaimBankPreview(bankAccount: bankAccount),
+          ],
+          if (!bankAccount.isComplete) ...[
             const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: () => context.go(
-                '/profile/reward-bank?redirect=/activities',
+                _profileRewardBankRedirectPath(returnPath),
               ),
               icon: const Icon(Icons.edit),
               label: Text(l10n.activityClaimSetupBank),
@@ -1160,17 +1322,39 @@ class _ClaimSelectPanel extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: submitting ? null : onContinue,
-              child: Text(l10n.activityClaimConfirmPin),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed:
+                      submitting ? null : () => Navigator.of(context).pop(),
+                  child: Text(l10n.commonCancel),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton(
+                  onPressed: submitting ? null : onContinue,
+                  child: Text(l10n.commonNext),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+}
+
+String _profileRewardBankRedirectPath(String returnPath) {
+  final trimmed = returnPath.trim();
+  final safeReturn = trimmed.startsWith('/') && !trimmed.startsWith('//')
+      ? trimmed
+      : '/activities';
+  return Uri(
+    path: '/profile/reward-bank',
+    queryParameters: {'redirect': safeReturn},
+  ).toString();
 }
 
 class _PayoutOptionTile extends StatelessWidget {
@@ -1181,6 +1365,7 @@ class _PayoutOptionTile extends StatelessWidget {
     required this.subtitle,
     required this.icon,
     required this.onTap,
+    this.disabled = false,
   });
 
   final ActivityClaimPayoutMethod method;
@@ -1189,17 +1374,143 @@ class _PayoutOptionTile extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final ValueChanged<ActivityClaimPayoutMethod> onTap;
+  final bool disabled;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: selected ? Theme.of(context).colorScheme.secondaryContainer : null,
-      child: ListTile(
-        onTap: () => onTap(method),
-        leading: Icon(icon),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
-        subtitle: Text(subtitle),
-        trailing: selected ? const Icon(Icons.check_circle) : null,
+    final colorScheme = Theme.of(context).colorScheme;
+    final borderColor = selected
+        ? colorScheme.primary
+        : colorScheme.outlineVariant.withValues(alpha: 0.9);
+    final foreground = disabled
+        ? colorScheme.onSurfaceVariant.withValues(alpha: 0.58)
+        : colorScheme.onSurface;
+
+    return Material(
+      color: selected
+          ? colorScheme.primaryContainer.withValues(alpha: 0.42)
+          : colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: borderColor, width: selected ? 1.4 : 1),
+      ),
+      child: InkWell(
+        onTap: disabled ? null : () => onTap(method),
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: selected ? colorScheme.primary : colorScheme.outline,
+                    width: 2,
+                  ),
+                ),
+                child: selected
+                    ? Center(
+                        child: Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: foreground,
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: disabled
+                                ? colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.58)
+                                : colorScheme.onSurfaceVariant,
+                            height: 1.35,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: disabled
+                      ? colorScheme.surfaceContainerHighest
+                      : colorScheme.primaryContainer,
+                ),
+                child: Icon(
+                  icon,
+                  color: disabled
+                      ? colorScheme.onSurfaceVariant
+                      : colorScheme.primary,
+                  size: 21,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ClaimBankPreview extends StatelessWidget {
+  const _ClaimBankPreview({required this.bankAccount});
+
+  final RewardBankAccount bankAccount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.credit_card_outlined),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  bankAccount.bankName,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${bankAccount.accountName} · ${bankAccount.maskedNumber}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1208,6 +1519,7 @@ class _PayoutOptionTile extends StatelessWidget {
 class _PinConfirmPanel extends StatelessWidget {
   const _PinConfirmPanel({
     required this.title,
+    required this.subtitle,
     required this.pin,
     required this.error,
     required this.submitting,
@@ -1219,6 +1531,7 @@ class _PinConfirmPanel extends StatelessWidget {
   });
 
   final String title;
+  final String subtitle;
   final String pin;
   final String error;
   final bool submitting;
@@ -1239,21 +1552,51 @@ class _PinConfirmPanel extends StatelessWidget {
               IconButton(
                 onPressed: submitting ? null : onBack,
                 icon: const Icon(Icons.arrow_back),
+                tooltip: context.l10n.commonBack,
               ),
               Expanded(
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                  textAlign: TextAlign.center,
+                child: Column(
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                          ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 48),
             ],
           ),
-          const SizedBox(height: 18),
-          Text('${'●' * pin.length}${'○' * (6 - pin.length)}'),
+          const SizedBox(height: 20),
+          Text(
+            List.generate(6, (index) => index < pin.length ? '●' : '○')
+                .join(' '),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  letterSpacing: 0,
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            context.l10n.activityClaimPinProgress(pin.length),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
           if (error.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
@@ -1321,21 +1664,78 @@ class _PinKeypad extends StatelessWidget {
   }
 }
 
-class _ActivityMissingCard extends StatelessWidget {
-  const _ActivityMissingCard();
+class _ActivityDetailStateView extends StatelessWidget {
+  const _ActivityDetailStateView({
+    this.error = false,
+    this.missing = false,
+  });
+
+  final bool error;
+  final bool missing;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Card(
+    final l10n = context.l10n;
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        CustomerPageBody(
+          maxWidth: 640,
+          top: 12,
+          mobileHorizontal: 10,
+          wideHorizontal: 10,
           child: Padding(
-            padding: const EdgeInsets.all(22),
-            child: Text(context.l10n.activityMissing),
+            padding: const EdgeInsets.fromLTRB(14, 54, 14, 24),
+            child: Center(
+              child: missing
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          l10n.activityMissingTitle,
+                          textAlign: TextAlign.center,
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          l10n.activityMissingMessage,
+                          textAlign: TextAlign.center,
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                    height: 1.45,
+                                  ),
+                        ),
+                        const SizedBox(height: 18),
+                        FilledButton(
+                          onPressed: () => context.go('/activities'),
+                          child: Text(l10n.activityMissingBackToActivities),
+                        ),
+                      ],
+                    )
+                  : Text(
+                      error
+                          ? l10n.activityDetailLoadFailed
+                          : l10n.activityDetailLoading,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: error
+                                ? Theme.of(context).colorScheme.error
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

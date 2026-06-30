@@ -62,10 +62,15 @@ class WalletLedgerEntry {
 }
 
 class WalletSummary {
-  const WalletSummary({required this.wallets, required this.ledger});
+  const WalletSummary({
+    required this.wallets,
+    required this.ledger,
+    this.ledgerLoadFailed = false,
+  });
 
   final List<CustomerWallet> wallets;
   final List<WalletLedgerEntry> ledger;
+  final bool ledgerLoadFailed;
 
   CustomerWallet? get primaryWallet {
     for (final wallet in wallets) {

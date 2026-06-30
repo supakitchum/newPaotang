@@ -764,18 +764,20 @@ void main() {
     expect(page.items.single.amount, 45);
   });
 
-  test('current game parser keeps sale start for countdown', () {
+  test('current game parser keeps sale window fields for sale guards', () {
     final game = CurrentGame.fromJson({
       'id': 'game_1',
       'name': 'งวดวันที่ 1 ก.ค. 2569',
       'status': 'open',
       'draw_at': '2026-07-01T15:00:00+07:00',
       'sale_start_at': '2026-06-25T09:00:00+07:00',
-      'sale_close_at': '2026-07-01T14:30:00+07:00',
+      'close_at': '2026-07-01T14:30:00+07:00',
+      'server_time': '2026-06-25T09:05:00+07:00',
     });
 
     expect(game.saleStartAt, '2026-06-25T09:00:00+07:00');
     expect(game.saleCloseAt, '2026-07-01T14:30:00+07:00');
+    expect(game.serverTime, '2026-06-25T09:05:00+07:00');
   });
 
   test('store parsers map affiliate stores and stock tickets', () {
@@ -799,7 +801,7 @@ void main() {
           'reservation_id': 'reservation_1',
         },
       ],
-      'meta': {'game_id': 'game_1', 'has_more': false},
+      'meta': {'game_id': 'game_1', 'has_more': false, 'bet_status': 0},
     });
 
     expect(stores.items.single.name, 'ร้านพบโชค');
@@ -811,6 +813,7 @@ void main() {
     expect(tickets.items.single.stockRef, 'vstock-ref-1');
     expect(tickets.items.single.reservationId, 'reservation_1');
     expect(tickets.items.single.isAvailable, isTrue);
+    expect(tickets.canReserve, isFalse);
   });
 
   test('lottery stock parser keeps virtual stock references and random page',
@@ -835,9 +838,36 @@ void main() {
     expect(page.gameId, 'game_1');
     expect(page.nextCursor, 'cursor_1');
     expect(page.hasMore, isTrue);
+    expect(page.canReserve, isTrue);
     expect(page.items.single.localStockItemId, 'vstock:game:273707:1');
     expect(page.items.single.number, '273707');
     expect(page.items.single.price, 80);
+  });
+
+  test('lottery stock parser maps legacy bet status and pagination', () {
+    final page = LotteryStockPage.fromJson({
+      'result': {
+        'lotteries': [
+          {
+            'id': 'vstock:game:123456:1',
+            'full_number': '123456',
+            'store_name': 'พบโชค',
+          },
+        ],
+        'pagination': {
+          'game_id': 'game_legacy',
+          'next_cursor': 'legacy_cursor',
+          'has_more': true,
+        },
+        'bet_status': 0,
+      },
+    });
+
+    expect(page.gameId, 'game_legacy');
+    expect(page.nextCursor, 'legacy_cursor');
+    expect(page.hasMore, isTrue);
+    expect(page.canReserve, isFalse);
+    expect(page.items.single.number, '123456');
   });
 
   test('page parsers keep metadata from production wrapper shapes', () {
@@ -974,12 +1004,74 @@ void main() {
     expect(order.ticketCount, 2);
   });
 
+  test('lottery checkout parser accepts legacy nested order payloads', () {
+    final order = LotteryCheckoutOrder.fromJson({
+      'result': {
+        'order': {
+          'id': 'ord_nested',
+          'reference': 'ORDER-NESTED',
+          'status': 'paid',
+          'payment_status': 'paid',
+          'payment_method': 'wallet',
+          'total': {'amount': 8000, 'currency': 'THB'},
+          'ticket_count': 1,
+          'paid_at': '2026-06-29T12:15:00+07:00',
+        },
+      },
+    });
+
+    expect(
+      checkoutOrderPayload({
+        'result': {
+          'order': {'id': 'ord_nested'},
+        },
+      }),
+      {
+        'id': 'ord_nested',
+      },
+    );
+    expect(order.id, 'ord_nested');
+    expect(order.reference, 'ORDER-NESTED');
+    expect(order.total, 80);
+    expect(order.ticketCount, 1);
+  });
+
+  test('lottery checkout parser maps safe external redirect URLs', () {
+    final order = LotteryCheckoutOrder.fromJson({
+      'result': {
+        'order': {
+          'id': 'ord_external',
+          'status': 'pending_payment',
+          'payment_status': 'pending_payment',
+          'payment_method': 'external_payment',
+          'total': {'amount': 8000, 'currency': 'THB'},
+          'payment': {
+            'redirect_url': 'https://pay.example.test/session/ord_external',
+          },
+        },
+      },
+    });
+    final unsafe = LotteryCheckoutOrder.fromJson({
+      'id': 'ord_unsafe',
+      'payment_method': 'external_payment',
+      'redirect_url': 'javascript:alert(1)',
+    });
+
+    expect(
+      order.redirectUri,
+      Uri.parse('https://pay.example.test/session/ord_external'),
+    );
+    expect(unsafe.redirectUri, isNull);
+  });
+
   test('ticket parser maps reward status, money, and image fields', () {
     final page = TicketPage.fromJson({
       'data': [
         {
           'id': 'ticket_1',
           'game_id': 'game_1',
+          'draw_no': 16,
+          'sort_order': 42,
           'game': {
             'name': 'งวดวันที่ 1 ก.ค. 2569',
             'draw_at': '2026-07-01T15:00:00+07:00',
@@ -1006,6 +1098,10 @@ void main() {
 
     final ticket = page.items.single;
     expect(ticket.number, '287184');
+    expect(ticket.drawNumber, '16');
+    expect(ticket.setNumber, '42');
+    expect(ticket.displayDrawNumber, '16');
+    expect(ticket.displaySetNumber, '42');
     expect(ticket.claimable, isTrue);
     expect(ticket.prizeAmount, 4000);
     expect(ticket.rewardStatus.status, 'winning');
@@ -1160,6 +1256,52 @@ void main() {
     expect(unsafe.redirectUri, isNull);
   });
 
+  test('topup item maps legacy numeric statuses and slip object payloads', () {
+    final approved = TopupRequestItem.fromJson({
+      'id': 'top_approved',
+      'amount': '500',
+      'status': 1,
+      'channel': 'qr_code',
+      'slip': {
+        'full_url': 'https://cdn.example.test/slips/top_approved.jpg',
+        'thumb_url': 'https://cdn.example.test/slips/top_approved-thumb.jpg',
+      },
+    });
+    final pending = TopupRequestItem.fromJson({
+      'id': 'top_pending',
+      'amount': {'amount': 120000, 'currency': 'THB'},
+      'status': '2',
+      'channel': 'bank',
+      'slip': 'https://cdn.example.test/slips/top_pending.jpg',
+    });
+    final rejected = TopupRequestItem.fromJson({
+      'id': 'top_rejected',
+      'amount': 100,
+      'status': 0,
+      'channel': 'credit_qr',
+    });
+
+    expect(approved.status, TopupStatus.approved);
+    expect(approved.channel, TopupChannel.qr);
+    expect(
+      approved.slipUrl,
+      'https://cdn.example.test/slips/top_approved.jpg',
+    );
+    expect(
+      approved.slipThumbUrl,
+      'https://cdn.example.test/slips/top_approved-thumb.jpg',
+    );
+    expect(pending.status, TopupStatus.pendingReview);
+    expect(pending.channel, TopupChannel.bankTransfer);
+    expect(pending.amount, 1200);
+    expect(
+      pending.slipUrl,
+      'https://cdn.example.test/slips/top_pending.jpg',
+    );
+    expect(rejected.status, TopupStatus.rejected);
+    expect(rejected.channel, TopupChannel.creditCard);
+  });
+
   test('reward claim maps money, prizes, payout, and paid bank status', () {
     final claim = RewardClaimItem.fromJson({
       'id': 'rcl_1',
@@ -1211,6 +1353,29 @@ void main() {
     );
   });
 
+  test('reward claim maps legacy payout ledger and bank account variants', () {
+    final claim = RewardClaimItem.fromJson({
+      'id': 'rcl_legacy',
+      'status': 'approved',
+      'payout_ledger_id': 'ledger_1',
+      'payout_method': 'bank_transfer',
+      'prize_amount': 1200,
+      'bank_name': 'ธนาคารกรุงไทย',
+      'bank_account_number': '006-123-4567',
+      'wallet_name': 'Primary wallet',
+    });
+
+    final th = CustomerLocalizations(fallbackCustomerLocale);
+
+    expect(claim.isPaid, isTrue);
+    expect(claim.payoutLedgerId, 'ledger_1');
+    expect(claim.bankName, 'ธนาคารกรุงไทย');
+    expect(claim.bankAccountNumber, '006-123-4567');
+    expect(rewardClaimStatusLabel(th, claim), 'โอนเงินสำเร็จ');
+    expect(rewardClaimPayoutSummary(th, claim), 'รับผ่านบัญชีกรุงไทย');
+    expect(rewardClaimPayoutChannelText(th, claim), 'ธนาคารกรุงไทย\nx xxx4567');
+  });
+
   test('activity claim maps award, payout, status, and baht amount', () {
     final claim = ActivityClaimItem.fromJson({
       'id': 'acl_1',
@@ -1239,6 +1404,56 @@ void main() {
     expect(claim.payoutMethod, 'bank_transfer');
     expect(claim.bankName, 'ธนาคารกสิกรไทย');
     expect(maskActivityBankAccount(claim.bankAccountNumber), 'x xxx7890');
+  });
+
+  testWidgets('activity claim maps payout ledger and bank variants',
+      (tester) async {
+    final claim = ActivityClaimItem.fromJson({
+      'id': 'acl_legacy',
+      'reference': 'ACT-LEGACY',
+      'status': 'approved',
+      'payout_ledger_id': 'ledger_activity_1',
+      'payout_method': 'bank_transfer',
+      'claim_amount': 1500,
+      'bank_name': 'ธนาคารกสิกรไทย',
+      'bank_account_number': '123-456-7890',
+      'wallet_name': 'Primary wallet',
+      'activity_name': 'ลุ้นโชคงวดนี้',
+      'award': {
+        'type': 'cashback',
+        'amount': 1500,
+      },
+    });
+
+    var status = '';
+    var summary = '';
+    var channel = '';
+    await tester.pumpWidget(
+      Localizations(
+        locale: fallbackCustomerLocale,
+        delegates: const [
+          CustomerLocalizations.delegate,
+          DefaultWidgetsLocalizations.delegate,
+        ],
+        child: Builder(
+          builder: (context) {
+            status = localizedActivityClaimStatusLabel(context, claim);
+            summary = localizedActivityClaimPayoutSummary(context, claim);
+            channel = localizedActivityClaimPayoutChannel(context, claim);
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(claim.isPaid, isTrue);
+    expect(claim.payoutLedgerId, 'ledger_activity_1');
+    expect(claim.bankName, 'ธนาคารกสิกรไทย');
+    expect(claim.bankAccountNumber, '123-456-7890');
+    expect(status, 'โอนเงินสำเร็จ');
+    expect(summary, 'รับผ่านบัญชีกสิกรไทย');
+    expect(channel, 'ธนาคารกสิกรไทย\nx xxx7890');
   });
 
   testWidgets('activity claim dates use active customer locale',
@@ -1357,6 +1572,92 @@ void main() {
     expect(order.tickets.single.number, '415206');
   });
 
+  test('purchase history order accepts Nuxt-style lotteries fallback', () {
+    final order = PurchaseHistoryOrder.fromJson({
+      'id': 'ord_lotteries',
+      'reference': 'ORD-LOTTERIES',
+      'payment_method': 'wallet',
+      'total': 240,
+      'game': {'name': 'งวดวันที่ 1 กรกฎาคม 2569'},
+      'wallet': {'name': 'G Wallet'},
+      'lotteries': [
+        {'id': 'ticket_1', 'number': '415206', 'count': 2},
+        {'id': 'ticket_2', 'lottery_number': '273707'},
+      ],
+    });
+
+    expect(order.total, 240);
+    expect(order.ticketCount, 3);
+    expect(order.tickets.map((ticket) => ticket.number), [
+      '415206',
+      '273707',
+    ]);
+    expect(order.displayReference, 'ORD-LOTTERIES');
+  });
+
+  test('purchase history order accepts Nuxt-style receipt composite payload',
+      () {
+    final order = PurchaseHistoryOrder.fromJson({
+      'order': {
+        'id': 'ord_receipt',
+        'status': 'paid',
+        'payment_status': 'paid',
+        'payment_method': 'wallet',
+        'store': {'name': 'ร้านดีทีม'},
+        'game': {'draw_at': '2026-07-01T16:00:00+07:00'},
+        'lotteries': [
+          {
+            'id': 'ticket_1',
+            'number': '415206',
+            'count': 2,
+            'game': {'name': 'งวดจาก ticket ที่ไม่ควรชนะ'},
+          },
+        ],
+        'updated_at': '2026-06-29T12:15:00+07:00',
+      },
+      'game': {'name': 'งวดวันที่ 1 กรกฎาคม 2569'},
+      'wallet': {'name': 'G Wallet'},
+      'count': 2,
+      'total': 160,
+      'reference': 'ORD-RECEIPT',
+      'paid_at': '2026-06-30T13:04:00+07:00',
+    });
+
+    expect(order.id, 'ord_receipt');
+    expect(order.reference, 'ORD-RECEIPT');
+    expect(order.total, 160);
+    expect(order.ticketCount, 2);
+    expect(order.gameName, 'งวดวันที่ 1 กรกฎาคม 2569');
+    expect(order.drawAt, '2026-07-01T16:00:00+07:00');
+    expect(order.walletName, 'G Wallet');
+    expect(order.storeName, 'ร้านดีทีม');
+    expect(order.paidAt, '2026-06-30T13:04:00+07:00');
+    expect(order.tickets.single.number, '415206');
+  });
+
+  test('purchase history order maps safe external payment redirect URI', () {
+    final order = PurchaseHistoryOrder.fromJson({
+      'id': 'ord_pending',
+      'payment_method': 'external_payment',
+      'payment_status': 'pending_payment',
+      'total': {'amount': 8000, 'currency': 'THB'},
+      'payment': {
+        'redirect_url': 'https://pay.example.test/session/ord_pending',
+      },
+    });
+    final unsafe = PurchaseHistoryOrder.fromJson({
+      'id': 'ord_unsafe',
+      'payment_method': 'external_payment',
+      'redirect_url': 'javascript:alert(1)',
+    });
+
+    expect(
+      order.redirectUri,
+      Uri.parse('https://pay.example.test/session/ord_pending'),
+    );
+    expect(unsafe.redirectUri, isNull);
+  });
+
   test('reward result maps prize groups and fills unresolved placeholders', () {
     final result = RewardResultGame.fromPublicSummary({
       'game_id': 'game_1',
@@ -1451,6 +1752,29 @@ void main() {
         Uri.parse('https://shop.example.com/line/callback?code=a&state=b'),
       ),
       '/line/callback?code=a&state=b',
+    );
+  });
+
+  test('customer deep link normalizes checkout payment returns', () {
+    expect(
+      customerDeepLinkPath(
+        Uri.parse(
+          'https://shop.example.com/checkout/pending?order_id=ord_1',
+        ),
+      ),
+      '/checkout/pending?order_id=ord_1',
+    );
+    expect(
+      customerDeepLinkPath(
+        Uri.parse('newpaotang://checkout/pending?order_id=ord_1'),
+      ),
+      '/checkout/pending?order_id=ord_1',
+    );
+    expect(
+      customerDeepLinkPath(
+        Uri.parse('partnerlottery:///checkout/pending?order_id=ord_1'),
+      ),
+      '/checkout/pending?order_id=ord_1',
     );
   });
 

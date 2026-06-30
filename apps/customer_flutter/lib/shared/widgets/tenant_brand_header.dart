@@ -29,7 +29,7 @@ class TenantBrandHeader extends ConsumerWidget {
         final rawLogoUrl = data.brand.logoUrl.trim();
         final logoUrl = rawLogoUrl.isEmpty
             ? ''
-            : ref.watch(assetUrlResolverProvider)(rawLogoUrl);
+            : _resolveTenantLogoUrl(ref, rawLogoUrl);
         final siteName = data.siteName.trim();
 
         return Column(
@@ -79,4 +79,16 @@ class TenantBrandHeader extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _resolveTenantLogoUrl(WidgetRef ref, String value) {
+  final trimmed = value.trim();
+  final uri = Uri.tryParse(trimmed);
+  if (uri != null &&
+      (uri.hasScheme ||
+          trimmed.startsWith('data:') ||
+          trimmed.startsWith('//'))) {
+    return trimmed;
+  }
+  return ref.watch(assetUrlResolverProvider)(trimmed);
 }
