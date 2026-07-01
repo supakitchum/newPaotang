@@ -699,6 +699,7 @@ class _TicketHistoryScreenState extends ConsumerState<TicketHistoryScreen> {
     final visibleTickets = _showOnlyWinning
         ? _tickets.where(_ticketIsWinning).toList(growable: false)
         : List<CustomerTicket>.unmodifiable(_tickets);
+    final visibleTicketGroups = _groupTicketsByDraw(visibleTickets, l10n);
     final winningTicketCount = _winningTicketCount(_tickets);
 
     return AppShell(
@@ -744,30 +745,19 @@ class _TicketHistoryScreenState extends ConsumerState<TicketHistoryScreen> {
               if (visibleTickets.isEmpty)
                 const _TicketHistoryWinningEmptyCard()
               else
-                for (final ticket in visibleTickets)
+                for (final group in visibleTicketGroups)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _TicketTile(
-                      ticket: ticket,
-                      fromHistory: true,
-                    ),
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _TicketHistoryDrawGroup(group: group),
                   ),
               if (_hasMore)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: SizedBox(
                     height: 48,
-                    child: OutlinedButton.icon(
+                    child: OutlinedButton(
                       onPressed: _loadingMore ? null : _loadMore,
-                      icon: _loadingMore
-                          ? const SizedBox.square(
-                              dimension: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Icon(Icons.expand_more),
-                      label: Text(
+                      child: Text(
                         _loadingMore
                             ? l10n.commonLoadingMore
                             : l10n.commonLoadMore,
@@ -851,6 +841,110 @@ class _TicketHistoryScreenState extends ConsumerState<TicketHistoryScreen> {
     if (position.extentAfter <= 360) {
       _loadMore();
     }
+  }
+}
+
+class _TicketHistoryDrawGroupData {
+  const _TicketHistoryDrawGroupData({
+    required this.key,
+    required this.drawDate,
+    required this.tickets,
+  });
+
+  final String key;
+  final String drawDate;
+  final List<CustomerTicket> tickets;
+}
+
+List<_TicketHistoryDrawGroupData> _groupTicketsByDraw(
+  List<CustomerTicket> tickets,
+  CustomerLocalizations l10n,
+) {
+  final groups = <_TicketHistoryDrawGroupData>[];
+  final indexes = <String, int>{};
+
+  for (final ticket in tickets) {
+    final drawDate = ticketDrawDateText(l10n, ticket);
+    final key = ticket.gameId.trim().isNotEmpty
+        ? ticket.gameId.trim()
+        : '${drawDate}_${groups.length}';
+    final index = indexes[key];
+
+    if (index == null) {
+      indexes[key] = groups.length;
+      groups.add(
+        _TicketHistoryDrawGroupData(
+          key: key,
+          drawDate: drawDate,
+          tickets: [ticket],
+        ),
+      );
+      continue;
+    }
+
+    final group = groups[index];
+    groups[index] = _TicketHistoryDrawGroupData(
+      key: group.key,
+      drawDate: group.drawDate,
+      tickets: [...group.tickets, ticket],
+    );
+  }
+
+  return groups;
+}
+
+class _TicketHistoryDrawGroup extends StatelessWidget {
+  const _TicketHistoryDrawGroup({required this.group});
+
+  final _TicketHistoryDrawGroupData group;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
+      key: ValueKey('ticket-history-group-${group.key}'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
+          child: Row(
+            children: [
+              Text(
+                l10n.ticketLabelLotteryDrawDate,
+                style: textTheme.labelLarge?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  group.drawDate,
+                  key: ValueKey('ticket-history-group-date-${group.key}'),
+                  textAlign: TextAlign.end,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        for (final ticket in group.tickets)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _TicketTile(
+              ticket: ticket,
+              fromHistory: true,
+            ),
+          ),
+      ],
+    );
   }
 }
 

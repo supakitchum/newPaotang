@@ -125,7 +125,11 @@ Acceptance evidence for every screen group:
   refresh, plus removal of the Flutter-only intro/header card before the
   current/history ticket content, plus the Nuxt-style history filter that
   toggles between all past tickets and winning tickets without another history
-  API request. It also covers `/tickets/view` Nuxt query lookup by current-ticket
+  API request, Nuxt-style history grouping by draw with localized
+  "สลากฯ งวดวันที่" headers, and text-only outline history load-more pagination
+  without Flutter-only icons/spinners, plus Nuxt-style `game.name` before
+  `draw_at` draw-date fallback for legacy payloads. It also covers
+  `/tickets/view` Nuxt query lookup by current-ticket
   `number`/`order_id`/`game_id` and history `from=history` detail navigation,
   Nuxt-style generated image preview fallback with runtime bootstrap product
   marker, runtime ticket-image watermark, and current-draw/digital-type metadata
@@ -145,9 +149,10 @@ Acceptance evidence for every screen group:
   Nuxt-style direct-entry detail loading/error copy without generic async
   cards, runtime bootstrap receipt watermark branding, plain white detail
   receipt rendering without the extra amount hero, compact detail payout-row
-  readability, waived tax/fee rows, net amount, admin notes, realtime
-  list/detail refresh to paid state, the Nuxt-style history-list back action
-  returning to `/profile`, and the direct-entry detail back action returning to
+  readability, Nuxt-style `game.name` before `draw_at` draw-date fallback,
+  waived tax/fee rows, net amount, admin notes, realtime list/detail refresh to
+  paid state, the Nuxt-style history-list back action returning to `/profile`,
+  and the direct-entry detail back action returning to
   `/reward-claims`.
 - `test/data_parsing_test.dart` covers Reward Claims backend and legacy payout
   variants including `payout_ledger_id`, top-level bank account fields, nested
@@ -155,10 +160,11 @@ Acceptance evidence for every screen group:
   summaries.
 - `test/wallet_screen_test.dart` covers Wallet ledger parity: Nuxt-style
   section subtitle, refresh reload, wallet-specific loading copy, centered
-  empty state, partial ledger failure with balance still visible and retry,
-  API payload error copy with localized fallback, narrow mobile readability,
-  wide page-body alignment, Nuxt-style header back navigation to `/profile`,
-  and realtime monitor invalidation updating the visible ledger.
+  empty state, card-free centered ledger failure with balance still visible,
+  text-only retry, API payload error copy with localized fallback, narrow
+  mobile readability, wide page-body alignment, Nuxt-style header back
+  navigation to `/profile`, and realtime monitor invalidation updating the
+  visible ledger.
 - `test/wallet_repository_test.dart` covers Wallet summary partial-failure
   behavior: `/customer/wallet` balance remains usable when
   `/customer/wallet/ledger` fails, backend ledger error messages are preserved,
@@ -170,10 +176,11 @@ Acceptance evidence for every screen group:
   readability, Nuxt-style sheet amount panel ordering, formatted quick-amount
   buttons, QR/credit deferred-slip notes, credit shared QR submit copy,
   bank-transfer transfer-time picker ordering/dialog handoff, slip-required
-  validation, Nuxt-style pending-request blocking plus confirm-before-cancel
-  behavior for unfinished topup requests, API payload error copy with localized
-  fallback for create/cancel failures, realtime tick refresh of the waiting
-  request card, and `/topup?back=/checkout` allowlisted back navigation.
+  validation, Nuxt-style pending-request blocking plus custom
+  confirm-before-cancel dialog behavior for unfinished topup requests, API
+  payload error copy with localized fallback for create/cancel failures,
+  realtime tick refresh of the waiting request card, and
+  `/topup?back=/checkout` allowlisted back navigation.
 - `test/topup_repository_test.dart` covers Topup create payload parity:
   slipless QR requests stay JSON while bank-transfer slip-at-create requests
   are sent as multipart with amount, channel, transfer time, slip file, and an

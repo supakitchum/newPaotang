@@ -103,44 +103,64 @@ class _WalletLedgerLoadFailed extends StatelessWidget {
     final body = message.trim().isEmpty
         ? l10n.walletLedgerLoadFailedMessage
         : message.trim();
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.error_outline, color: colorScheme.error),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.walletLedgerLoadFailed,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: colorScheme.error,
-                          fontWeight: FontWeight.w900,
-                        ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    body,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                          height: 1.35,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: () => onRetry(),
-                    icon: const Icon(Icons.refresh),
-                    label: Text(l10n.commonRetry),
-                  ),
-                ],
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF162E52).withValues(alpha: 0.09),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 220),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  color: colorScheme.errorContainer.withValues(alpha: 0.74),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  Icons.receipt_long_outlined,
+                  size: 32,
+                  color: colorScheme.error,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 14),
+              Text(
+                l10n.walletLedgerLoadFailed,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: colorScheme.error,
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                body,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                      height: 1.45,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: () => onRetry(),
+                child: Text(l10n.commonRetry),
+              ),
+            ],
+          ),
         ),
       ),
     );

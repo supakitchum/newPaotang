@@ -1110,6 +1110,7 @@ void main() {
     const en = CustomerLocalizations(Locale('en', 'US'));
     expect(ticketStatusLabel(th, ticket), 'ถูกรางวัล');
     expect(ticketPrizeSummary(th, ticket), 'รางวัลเลขท้าย 2 ตัว');
+    expect(ticketDrawDateText(th, ticket), '1 ก.ค. 2569');
     expect(ticketStatusLabel(en, ticket), 'Winning ticket');
     expect(ticketPrizeSummary(en, ticket), 'Last 2 digits');
     expect(ticket.primaryImageUrl, '/storage/tickets/full.webp');
@@ -1316,7 +1317,7 @@ void main() {
       'customer': {'name': 'วิรัตน์ ดวงดี'},
       'ticket': {
         'full_number': '123456',
-        'game': {'draw_at': '2026-05-16T10:00:00+07:00'},
+        'game': {'name': 'งวดวันที่ 16 พฤษภาคม 2569'},
       },
       'prizes': [
         {
@@ -1345,6 +1346,7 @@ void main() {
       rewardClaimPrizeNames(th, claim),
       containsAll(['รางวัลเลขท้าย 2 ตัว', 'รางวัลเลขหน้า 3 ตัว']),
     );
+    expect(rewardClaimDrawDateText(th, claim.ticket), '16 พ.ค. 2569');
     expect(rewardClaimStatusLabel(en, claim), 'Paid successfully');
     expect(rewardClaimPayoutSummary(en, claim), 'Receive via กรุงไทย account');
     expect(

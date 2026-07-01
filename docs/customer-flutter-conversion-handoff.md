@@ -534,6 +534,13 @@ Recent verified work:
   - Ticket history now restores the Nuxt-style "ดูสลากฯ ที่ถูกรางวัล" filter,
     toggles back to "ดูสลากฯ ทั้งหมด", keeps the winning-ticket summary visible,
     and filters client-side without issuing another history request.
+  - Ticket history rows now group by draw like Nuxt, showing localized
+    "สลากฯ งวดวันที่" headers for each game/draw, and the visible load-more
+    control is a text-only outline action without Flutter-only expand/spinner
+    icons.
+  - Ticket draw-date rendering now follows Nuxt `formatDrawDateText` fallback:
+    `game.name` is used before `draw_at`, `งวด`/`งวดวันที่` prefixes are
+    removed, and full Thai month names are shortened for legacy payloads.
   - `/tickets/view` now accepts Nuxt-style query lookups by
     `number`, `order_id`, `game_id`, and `from=history`, resolving the ticket
     from current/history pages when a direct ticket id is not present.
@@ -606,6 +613,9 @@ Recent verified work:
     `/profile`.
   - Reward claim history load-more now matches Nuxt's text-only outline pill
     instead of showing a Flutter-only expand/spinner icon.
+  - Reward claim detail draw-date rows now use the same Nuxt-style
+    `game.name` before `draw_at` fallback as Tickets, so legacy claim payloads
+    that only include a game name still render the draw date instead of `-`.
   - Widget coverage now verifies reward claim history rows, empty-state
     navigation to winning ticket history, API error copy, payout summaries,
     load-more pagination, detail receipt payout channel, waived tax/fee rows,
@@ -619,9 +629,10 @@ Recent verified work:
   - Empty ledger state now uses the Nuxt-style centered receipt icon panel,
     title, and explanatory copy.
   - Ledger load failures now behave closer to Nuxt's split wallet/ledger fetch:
-    the wallet balance remains visible, the ledger area shows a localized
-    retryable failure card, and retry reloads the ledger without collapsing the
-    whole wallet page into a generic async error.
+    the wallet balance remains visible, the ledger area shows a centered
+    Nuxt-style white failure state with localized copy and a text-only retry
+    action, and retry reloads the ledger without collapsing the whole wallet
+    page into a generic async error.
   - Ledger API failures now preserve backend payload messages like Nuxt's
     `showAlert` path while internal Flutter exceptions fall back to localized
     wallet copy.
@@ -656,8 +667,10 @@ Recent verified work:
   - Topup history direct-entry navigation now matches Nuxt's header behavior:
     the Flutter page exposes a back action to `/topup`, while the summary
     header no longer shows the earlier Flutter-only add shortcut.
-  - Waiting topup cancellation now matches Nuxt behavior by requiring a
-    confirmation dialog with request id and amount before calling cancel.
+  - Waiting topup cancellation now matches Nuxt behavior by requiring a custom
+    centered confirmation dialog with request id, amount, outline keep action,
+    and danger confirm action before calling cancel instead of the generic
+    Flutter alert dialog.
   - Unfinished topups now block new topup creation like Nuxt: the form shows a
     localized pending-request notice, keeps provider-disabled badges separate
     from waiting-request blocking, disables channel switching, and keeps the
@@ -694,10 +707,9 @@ Recent verified work:
     compact-mobile waiting readability, channel-driven sheet opening,
     Nuxt-style amount/quick-button/deferred-slip sheet layout,
     bank-transfer transfer-time picker, slip-required validation,
-    pending-request blocking,
-    create/cancel API error copy with internal-error fallback,
-    transfer-time history rows, bonus display, API error copy, multipart
-    create, and confirm-before-cancel behavior.
+    pending-request blocking, create/cancel API error copy with internal-error
+    fallback, transfer-time history rows, bonus display, API error copy,
+    multipart create, and custom confirm-before-cancel dialog behavior.
   - Topup realtime QA advanced: widget coverage now verifies realtime ticks
     refresh the main topup waiting-request card and the current topup history
     page without leaving the active screen.
@@ -842,10 +854,10 @@ Recent verified work:
 | Home | Finish hero parity, wallet alignment, activity/news rails, result card behavior on all breakpoints. | 35% |
 | Buy/Search | Finish exact visual spacing, store-lottery responsive screenshot review, final sale-closed screenshot review, and responsive polish. | 3% |
 | Cart/Checkout | Finish final sale-closed screenshot review, remaining receipt screenshot/device QA, and store-media/device QA. | 1% |
-| Tickets | Final detail image and processing receipt screenshot review plus final current/history responsive polish. | 28% |
-| Wallet | Final responsive screenshot review, remaining realtime monitor/device QA, failed/error polish, and native/web sensitive-screen validation. | 33% |
-| Topup | Final modal/sheet screenshot polish, bank-transfer picker/device QA, QR/credit QR provider review, remaining history responsive screenshot review, and device QA. | 27% |
-| Reward Claims | Final responsive screenshot review, remaining failed/empty/error polish, and native/web sensitive-screen validation. | 45% |
+| Tickets | Final detail image and processing receipt screenshot review plus final current/history responsive polish. | 26% |
+| Wallet | Final responsive screenshot review, remaining realtime monitor/device QA, remaining failed/error polish, and native/web sensitive-screen validation. | 32% |
+| Topup | Final modal/sheet screenshot polish, bank-transfer picker/device QA, QR/credit QR provider review, remaining history responsive screenshot review, and device QA. | 26% |
+| Reward Claims | Final responsive screenshot review, remaining failed/empty/error polish, and native/web sensitive-screen validation. | 44% |
 | Activities | Current draw/detail visual polish, lucky board grid screenshot review, cashback progress polish, awards, final claim modal/PIN screenshot polish, and device/realtime QA. | 44% |
 | Activity Claims | Final claim modal responsive screenshot review, remaining list failed/empty polish, device realtime QA, and native/web sensitive-screen validation. | 49% |
 | News/Announcements | Modal behavior, news list/detail parity, no repeated modal after detail navigation. | 45% |

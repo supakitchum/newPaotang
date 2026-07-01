@@ -53,7 +53,11 @@ String ticketPrizeSummary(CustomerLocalizations l10n, CustomerTicket ticket) {
 }
 
 String ticketDrawDateText(CustomerLocalizations l10n, CustomerTicket ticket) {
-  return formatLocalizedDateTime(ticket.drawAt, l10n.locale.toLanguageTag());
+  return formatLotteryDrawDateText(
+    name: ticket.gameName,
+    drawAt: ticket.drawAt,
+    localeTag: l10n.locale.toLanguageTag(),
+  );
 }
 
 String rewardClaimSubmittedText(

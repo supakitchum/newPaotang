@@ -310,6 +310,28 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('reward claim detail uses Nuxt game-name draw date fallback', (
+    tester,
+  ) async {
+    await _pumpRewardClaimDetail(
+      tester,
+      _claim(
+        id: 'claim_game_name',
+        reference: 'RWD-GAME-NAME',
+        status: 'submitted',
+        payoutMethod: 'wallet_credit',
+        gameName: 'งวดวันที่ 16 พฤษภาคม 2569',
+        drawAt: null,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('สลากฯ งวดวันที่'), findsOneWidget);
+    expect(find.text('16 พ.ค. 2569'), findsOneWidget);
+    expect(find.text('รอดำเนินการโอนเงิน'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('reward claim detail refreshes on realtime tick', (
     tester,
   ) async {
@@ -566,6 +588,8 @@ RewardClaimItem _claim({
   String payoutLedgerId = '',
   String? paidAt,
   String adminNote = '',
+  String gameName = 'งวด 16 พ.ค. 2569',
+  Object? drawAt = '2026-05-16T17:00:00+07:00',
 }) {
   return RewardClaimItem.fromJson({
     'id': id,
@@ -578,8 +602,8 @@ RewardClaimItem _claim({
     'ticket': {
       'full_number': '740000',
       'game': {
-        'name': 'งวด 16 พ.ค. 2569',
-        'draw_at': '2026-05-16T17:00:00+07:00',
+        'name': gameName,
+        'draw_at': drawAt,
       },
     },
     'prizes': [

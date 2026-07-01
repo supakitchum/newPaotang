@@ -241,8 +241,23 @@ void main() {
     expect(find.text('โหลดประวัติไม่สำเร็จ'), findsOneWidget);
     expect(find.text('กรุณาลองใหม่อีกครั้ง'), findsOneWidget);
     expect(find.text('ยังไม่มีรายการเดินเงิน'), findsNothing);
+    expect(
+      find.ancestor(
+        of: find.text('กรุณาลองใหม่อีกครั้ง'),
+        matching: find.byType(Card),
+      ),
+      findsNothing,
+    );
+    final retryButton = find.widgetWithText(OutlinedButton, 'ลองใหม่');
+    expect(retryButton, findsOneWidget);
+    expect(
+      find.descendant(of: retryButton, matching: find.byIcon(Icons.refresh)),
+      findsNothing,
+    );
 
-    await tester.tap(find.text('ลองใหม่'));
+    await tester.ensureVisible(retryButton);
+    await tester.pumpAndSettle();
+    await tester.tap(retryButton);
     await tester.pumpAndSettle();
 
     expect(loads, 2);
@@ -278,6 +293,13 @@ void main() {
     expect(find.text('ระบบประวัติกระเป๋าปิดปรับปรุง'), findsOneWidget);
     expect(find.text('กรุณาลองใหม่อีกครั้ง'), findsNothing);
     expect(find.text('ยังไม่มีรายการเดินเงิน'), findsNothing);
+    expect(
+      find.ancestor(
+        of: find.text('ระบบประวัติกระเป๋าปิดปรับปรุง'),
+        matching: find.byType(Card),
+      ),
+      findsNothing,
+    );
     expect(tester.takeException(), isNull);
   });
 

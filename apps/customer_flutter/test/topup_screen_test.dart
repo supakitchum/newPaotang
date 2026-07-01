@@ -702,6 +702,7 @@ void main() {
     await tapCancelWaiting();
 
     expect(repository.cancelCalls, 0);
+    expect(find.byType(AlertDialog), findsNothing);
     expect(find.text('ยกเลิกรายการเติมเงินนี้?'), findsOneWidget);
     expect(
       find.text(
@@ -711,6 +712,8 @@ void main() {
     );
     expect(find.text('ยอดเติมเงิน'), findsWidgets);
     expect(find.text('800.00 บาท'), findsWidgets);
+    expect(find.widgetWithText(OutlinedButton, 'ไม่ยกเลิก'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'ยืนยันยกเลิก'), findsOneWidget);
 
     await tester.tap(find.text('ไม่ยกเลิก'));
     await tester.pumpAndSettle();

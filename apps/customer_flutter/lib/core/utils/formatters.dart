@@ -92,6 +92,19 @@ String formatLocalizedDateTime(Object? value, String localeTag) {
   return DateFormat('d MMM y HH:mm', _intlLocale(localeTag)).format(date);
 }
 
+String formatLotteryDrawDateText({
+  required Object? name,
+  required Object? drawAt,
+  required String localeTag,
+}) {
+  final nameText = _formatDrawDateName(name);
+  if (nameText != null) return nameText;
+
+  final date = parseDateTime(drawAt);
+  if (date == null) return '-';
+  return formatLocalizedShortDate(date, localeTag);
+}
+
 String formatLocalizedShortDate(DateTime date, String localeTag) {
   return DateFormat('d MMM y', _intlLocale(localeTag)).format(date);
 }
@@ -112,3 +125,36 @@ String _currentMoneyLocaleTag() {
 String _bahtUnitForLocale(String localeTag) {
   return localeTag.toLowerCase().startsWith('en') ? 'THB' : 'บาท';
 }
+
+String? _formatDrawDateName(Object? value) {
+  if (value is! String) return null;
+
+  var normalized = value.trim().replaceAll(RegExp(r'\s+'), ' ');
+  if (normalized.isEmpty) return null;
+
+  final parsed = DateTime.tryParse(normalized);
+  if (parsed != null) {
+    return formatLocalizedShortDate(parsed.toLocal(), 'th-TH');
+  }
+
+  normalized = normalized.replaceFirst(RegExp(r'^งวด(?:วันที่)?\s*'), '');
+  for (final entry in _thaiFullMonthNames.entries) {
+    normalized = normalized.replaceAll(entry.key, entry.value);
+  }
+  return normalized;
+}
+
+const _thaiFullMonthNames = {
+  'มกราคม': 'ม.ค.',
+  'กุมภาพันธ์': 'ก.พ.',
+  'มีนาคม': 'มี.ค.',
+  'เมษายน': 'เม.ย.',
+  'พฤษภาคม': 'พ.ค.',
+  'มิถุนายน': 'มิ.ย.',
+  'กรกฎาคม': 'ก.ค.',
+  'สิงหาคม': 'ส.ค.',
+  'กันยายน': 'ก.ย.',
+  'ตุลาคม': 'ต.ค.',
+  'พฤศจิกายน': 'พ.ย.',
+  'ธันวาคม': 'ธ.ค.',
+};

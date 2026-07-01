@@ -166,6 +166,78 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('ticket history groups rows by draw and uses text-only load more',
+      (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _TicketHistoryStaticRepository(
+      [
+        _ticket(
+          'history_may_1',
+          '740000',
+          gameId: 'game_may',
+          gameName: 'งวด 16 พ.ค. 2569',
+          drawAt: '2026-05-16T17:00:00+07:00',
+        ),
+        _ticket(
+          'history_may_2',
+          '740001',
+          gameId: 'game_may',
+          gameName: 'งวด 16 พ.ค. 2569',
+          drawAt: '2026-05-16T17:00:00+07:00',
+        ),
+        _ticket(
+          'history_june_1',
+          '880000',
+          gameId: 'game_june',
+          gameName: 'งวด 1 มิ.ย. 2569',
+          drawAt: '2026-06-01T17:00:00+07:00',
+        ),
+      ],
+      hasMore: true,
+      nextCursor: 'cursor_2',
+    );
+
+    await _pumpHistory(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(repository.historyCalls, 1);
+    expect(
+      find.byKey(const ValueKey('ticket-history-group-game_may')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('ticket-history-group-game_june')),
+      findsOneWidget,
+    );
+    expect(find.text('สลากฯ งวดวันที่'), findsNWidgets(2));
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('ticket-history-group-date-game_may')),
+          )
+          .data,
+      contains('16 พ.ค.'),
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('ticket-history-group-date-game_june')),
+          )
+          .data,
+      contains('1 มิ.ย.'),
+    );
+    expect(find.text('โหลดเพิ่มเติม'), findsOneWidget);
+    expect(find.byIcon(Icons.expand_more), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('ticket history API error uses server copy like Nuxt', (
     tester,
   ) async {
@@ -1118,6 +1190,44 @@ class _TicketHistoryRepository extends TicketRepository {
   }
 }
 
+class _TicketHistoryStaticRepository extends TicketRepository {
+  _TicketHistoryStaticRepository(
+    this._tickets, {
+    this.hasMore = false,
+    this.nextCursor,
+  }) : super(_testApiClient());
+
+  final List<CustomerTicket> _tickets;
+  final bool hasMore;
+  final String? nextCursor;
+  int historyCalls = 0;
+
+  @override
+  Future<TicketPage> history({
+    int limit = 20,
+    String? cursor,
+    String? gameId,
+  }) async {
+    historyCalls++;
+
+    if (cursor != null && cursor.isNotEmpty) {
+      return const TicketPage(
+        items: [],
+        nextCursor: null,
+        hasMore: false,
+        total: 0,
+      );
+    }
+
+    return TicketPage(
+      items: _tickets,
+      nextCursor: nextCursor,
+      hasMore: hasMore,
+      total: _tickets.length,
+    );
+  }
+}
+
 class _FailingTicketHistoryRepository extends TicketRepository {
   _FailingTicketHistoryRepository(this.error) : super(_testApiClient());
 
@@ -1348,6 +1458,8 @@ CustomerTicket _ticket(
   String imageError = '',
   String drawNumber = '16',
   String setNumber = '42',
+  String gameName = 'งวด 16 พ.ค. 2569',
+  Object? drawAt,
   TicketRewardStatus rewardStatus = const TicketRewardStatus(
     status: 'lost',
     claimStatus: '',
@@ -1365,8 +1477,8 @@ CustomerTicket _ticket(
     id: id,
     orderId: orderId,
     gameId: gameId,
-    gameName: 'งวด 16 พ.ค. 2569',
-    drawAt: '2026-05-16T17:00:00+07:00',
+    gameName: gameName,
+    drawAt: drawAt ?? '2026-05-16T17:00:00+07:00',
     drawNumber: drawNumber,
     setNumber: setNumber,
     number: number,
