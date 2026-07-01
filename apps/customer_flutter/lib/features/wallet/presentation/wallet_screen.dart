@@ -63,7 +63,10 @@ class WalletScreen extends ConsumerWidget {
                     value: summary,
                     data: (data) {
                       if (data.ledgerLoadFailed) {
-                        return _WalletLedgerLoadFailed(onRetry: refreshWallet);
+                        return _WalletLedgerLoadFailed(
+                          message: data.ledgerErrorMessage,
+                          onRetry: refreshWallet,
+                        );
                       }
                       if (data.ledger.isEmpty) {
                         return const _WalletEmptyLedger();
@@ -85,14 +88,21 @@ class WalletScreen extends ConsumerWidget {
 }
 
 class _WalletLedgerLoadFailed extends StatelessWidget {
-  const _WalletLedgerLoadFailed({required this.onRetry});
+  const _WalletLedgerLoadFailed({
+    required this.message,
+    required this.onRetry,
+  });
 
+  final String message;
   final Future<void> Function() onRetry;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
+    final body = message.trim().isEmpty
+        ? l10n.walletLedgerLoadFailedMessage
+        : message.trim();
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -110,6 +120,15 @@ class _WalletLedgerLoadFailed extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           color: colorScheme.error,
                           fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    body,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                          height: 1.35,
                         ),
                   ),
                   const SizedBox(height: 8),

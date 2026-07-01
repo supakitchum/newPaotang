@@ -19,6 +19,7 @@ import '../../profile/data/profile_settings_models.dart';
 import '../../profile/data/profile_settings_repository.dart';
 import '../data/activity_models.dart';
 import '../data/activity_repository.dart';
+import 'activity_error_message.dart';
 import 'activity_localization.dart';
 
 class ActivityDetailScreen extends ConsumerWidget {
@@ -56,7 +57,13 @@ class ActivityDetailScreen extends ConsumerWidget {
           );
         },
         loading: () => const _ActivityDetailStateView(),
-        error: (_, __) => const _ActivityDetailStateView(error: true),
+        error: (error, __) => _ActivityDetailStateView(
+          error: true,
+          message: activityErrorMessage(
+            error,
+            context.l10n.activityDetailLoadFailed,
+          ),
+        ),
       ),
     );
   }
@@ -237,7 +244,10 @@ class _ActivityDetailBodyState extends ConsumerState<_ActivityDetailBody> {
       final code = _errorCode(error);
       final message = code == 'activity_entry_closed'
           ? context.l10n.activitySubmitEntryClosed
-          : context.l10n.activitySubmitEntryFailed;
+          : activityErrorMessage(
+              error,
+              context.l10n.activitySubmitEntryFailed,
+            );
       if (await handleCustomerOperationalError(
         ref: ref,
         context: context,
@@ -1157,7 +1167,7 @@ class _ActivityClaimSheetState extends ConsumerState<_ActivityClaimSheet> {
             ? pinInvalidMessage
             : code == 'pin_locked'
                 ? pinLockedMessage
-                : failedMessage;
+                : activityErrorMessage(error, failedMessage);
       });
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -1668,10 +1678,12 @@ class _ActivityDetailStateView extends StatelessWidget {
   const _ActivityDetailStateView({
     this.error = false,
     this.missing = false,
+    this.message = '',
   });
 
   final bool error;
   final bool missing;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -1720,7 +1732,9 @@ class _ActivityDetailStateView extends StatelessWidget {
                     )
                   : Text(
                       error
-                          ? l10n.activityDetailLoadFailed
+                          ? (message.trim().isEmpty
+                              ? l10n.activityDetailLoadFailed
+                              : message.trim())
                           : l10n.activityDetailLoading,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(

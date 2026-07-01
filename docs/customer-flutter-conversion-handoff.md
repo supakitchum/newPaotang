@@ -476,11 +476,16 @@ Recent verified work:
     the wallet balance remains visible, the ledger area shows a localized
     retryable failure card, and retry reloads the ledger without collapsing the
     whole wallet page into a generic async error.
+  - Ledger API failures now preserve backend payload messages like Nuxt's
+    `showAlert` path while internal Flutter exceptions fall back to localized
+    wallet copy.
   - Ledger rows are grouped in one receipt-like list with dividers, compact row
     density, credit/debit/neutral icons, and narrow-screen amount wrapping.
   - Widget coverage now verifies refresh reload, Nuxt-style header subtitle,
-    loading copy, partial ledger failure retry, narrow viewport readability, and
-    wide page alignment.
+    loading copy, partial ledger failure retry, API error copy fallback, narrow
+    viewport readability, and wide page alignment. Repository coverage verifies
+    `/customer/wallet/ledger` payload error preservation without leaking
+    internal errors.
   - Wallet direct-entry navigation now matches Nuxt's `/my-wallet` header:
     the Flutter Wallet screen exposes a localized back action that returns to
     `/profile`, with widget coverage.
@@ -528,6 +533,9 @@ Recent verified work:
     channel-specific content, QR and credit-QR sheets show the deferred slip
     note before submit, and the credit-QR submit copy matches Nuxt's shared
     "create QR Code" action while keeping the channel label distinct.
+  - Topup create/cancel/slip-upload failures now mirror Nuxt error-copy
+    behavior: backend API payload messages are shown to customers while
+    internal Flutter exceptions fall back to localized Topup copy.
   - Topup page back navigation now matches the Nuxt `topupBackTo` allowlist:
     `/topup?back=/checkout` returns customers to checkout, allowed return
     targets stay limited to `/`, `/checkout`, `/my-wallet`, and `/profile`,
@@ -538,6 +546,7 @@ Recent verified work:
     Nuxt-style amount/quick-button/deferred-slip sheet layout,
     bank-transfer transfer-time picker, slip-required validation,
     pending-request blocking,
+    create/cancel API error copy with internal-error fallback,
     transfer-time history rows, bonus display, API error copy, multipart
     create, and confirm-before-cancel behavior.
   - Topup realtime QA advanced: widget coverage now verifies realtime ticks
@@ -593,6 +602,10 @@ Recent verified work:
     generic spinner/cards, missing activities render the Nuxt title,
     description, and "กลับหน้ากิจกรรม" CTA, and the detail content/state width
     is constrained to the Nuxt-style 640px sheet.
+  - Activities current/history list failures, direct activity detail failures,
+    and lucky-board entry failures now preserve backend API payload messages
+    when available while internal Flutter exceptions fall back to localized
+    activity copy.
   - Activities loading states now use current/history-specific Nuxt loading
     copy instead of the generic async loading label.
   - Authenticated current/history activity lists now match Nuxt's rights-first
@@ -621,7 +634,8 @@ Recent verified work:
   - Widget coverage now verifies authenticated activity lists call the customer
     endpoint and render a backend-sent no-right cashback item after a lucky
     board item with remaining rights, activity detail loading/error/missing
-    states, Nuxt-style lucky-board grid range/legend, Nuxt-style lucky-number
+    states, current/history/detail/entry API error copy with localized
+    fallbacks, Nuxt-style lucky-board grid range/legend, Nuxt-style lucky-number
     confirmation submission, Nuxt-style claim sheet select copy/actions, claim
     PIN copy/progress plus biometric handoff, and bank-account setup navigation
     from the activity claim modal.
@@ -656,10 +670,10 @@ Recent verified work:
 | Buy/Search | Finish exact visual spacing, store-lottery responsive screenshot review, final sale-closed screenshot review, and responsive polish. | 3% |
 | Cart/Checkout | Finish final sale-closed screenshot review, remaining receipt screenshot/device QA, and store-media/device QA. | 1% |
 | Tickets | Final detail image and processing receipt screenshot review plus final current/history responsive polish. | 28% |
-| Wallet | Final responsive screenshot review, remaining realtime monitor/device QA, failed/error polish, and native/web sensitive-screen validation. | 34% |
-| Topup | Final modal/sheet screenshot polish, bank-transfer picker/device QA, QR/credit QR provider review, remaining history responsive screenshot review, and device QA. | 28% |
+| Wallet | Final responsive screenshot review, remaining realtime monitor/device QA, failed/error polish, and native/web sensitive-screen validation. | 33% |
+| Topup | Final modal/sheet screenshot polish, bank-transfer picker/device QA, QR/credit QR provider review, remaining history responsive screenshot review, and device QA. | 27% |
 | Reward Claims | Final responsive screenshot review, remaining failed/empty/error polish, and native/web sensitive-screen validation. | 45% |
-| Activities | Current draw/detail visual polish, lucky board grid screenshot review, cashback progress polish, awards, final claim modal/PIN screenshot polish, and device/realtime QA. | 45% |
+| Activities | Current draw/detail visual polish, lucky board grid screenshot review, cashback progress polish, awards, final claim modal/PIN screenshot polish, and device/realtime QA. | 44% |
 | Activity Claims | Final claim modal responsive screenshot review, remaining list failed/empty polish, device realtime QA, and native/web sensitive-screen validation. | 49% |
 | News/Announcements | Modal behavior, news list/detail parity, no repeated modal after detail navigation. | 45% |
 | Profile | Menu grouping, member code copy, LINE notifications, reward bank, auto reward, biometrics, account deletion. | 50% |

@@ -8,6 +8,7 @@ import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../data/activity_models.dart';
 import '../data/activity_repository.dart';
+import 'activity_error_message.dart';
 import 'activity_localization.dart';
 
 class ActivitiesScreen extends ConsumerStatefulWidget {
@@ -120,9 +121,14 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
         }
         _meta = page.meta;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      setState(() => _error = context.l10n.activitiesLoadFailed);
+      setState(() {
+        _error = activityErrorMessage(
+          error,
+          context.l10n.activitiesLoadFailed,
+        );
+      });
     } finally {
       if (mounted) {
         setState(() {
@@ -331,9 +337,14 @@ class _ActivitiesHistoryScreenState
         }
         _meta = page.meta;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      setState(() => _error = context.l10n.activitiesLoadFailed);
+      setState(() {
+        _error = activityErrorMessage(
+          error,
+          context.l10n.activitiesLoadFailed,
+        );
+      });
     } finally {
       if (mounted) {
         setState(() {

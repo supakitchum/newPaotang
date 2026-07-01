@@ -66,11 +66,13 @@ class WalletSummary {
     required this.wallets,
     required this.ledger,
     this.ledgerLoadFailed = false,
+    this.ledgerErrorMessage = '',
   });
 
   final List<CustomerWallet> wallets;
   final List<WalletLedgerEntry> ledger;
   final bool ledgerLoadFailed;
+  final String ledgerErrorMessage;
 
   CustomerWallet? get primaryWallet {
     for (final wallet in wallets) {

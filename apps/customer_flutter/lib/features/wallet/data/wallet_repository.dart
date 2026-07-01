@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/utils/api_errors.dart';
 import '../../../core/utils/api_payload.dart';
 import 'wallet_models.dart';
 
@@ -37,17 +39,27 @@ class WalletRepository {
   Future<WalletSummary> summary() async {
     final walletList = await wallets();
     var ledgerLoadFailed = false;
+    var ledgerErrorMessage = '';
     var ledgerEntries = <WalletLedgerEntry>[];
     try {
       ledgerEntries = await ledger();
-    } catch (_) {
+    } catch (error) {
       ledgerLoadFailed = true;
+      ledgerErrorMessage = _walletApiErrorMessage(error);
     }
 
     return WalletSummary(
       wallets: walletList,
       ledger: ledgerEntries,
       ledgerLoadFailed: ledgerLoadFailed,
+      ledgerErrorMessage: ledgerErrorMessage,
     );
+  }
+
+  String _walletApiErrorMessage(Object error) {
+    final message = ApiErrorInfo.fromObject(error).message.trim();
+    if (message.isEmpty) return '';
+    if (error is DioException || error is Map) return message;
+    return '';
   }
 }

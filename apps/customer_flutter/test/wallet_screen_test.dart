@@ -239,6 +239,7 @@ void main() {
     expect(loads, 1);
     expect(find.text('ยอดเงินในกระเป๋า'), findsOneWidget);
     expect(find.text('โหลดประวัติไม่สำเร็จ'), findsOneWidget);
+    expect(find.text('กรุณาลองใหม่อีกครั้ง'), findsOneWidget);
     expect(find.text('ยังไม่มีรายการเดินเงิน'), findsNothing);
 
     await tester.tap(find.text('ลองใหม่'));
@@ -247,6 +248,36 @@ void main() {
     expect(loads, 2);
     expect(find.text('เติมเงินเข้า G-Wallet'), findsOneWidget);
     expect(find.text('โหลดประวัติไม่สำเร็จ'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('wallet ledger failure shows API copy like Nuxt', (
+    tester,
+  ) async {
+    await _pumpWallet(
+      tester,
+      const WalletSummary(
+        wallets: [
+          CustomerWallet(
+            id: 'wallet_1',
+            name: 'G Wallet',
+            type: '1',
+            balance: 2240,
+          ),
+        ],
+        ledger: [],
+        ledgerLoadFailed: true,
+        ledgerErrorMessage: 'ระบบประวัติกระเป๋าปิดปรับปรุง',
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('ยอดเงินในกระเป๋า'), findsOneWidget);
+    expect(find.text('โหลดประวัติไม่สำเร็จ'), findsOneWidget);
+    expect(find.text('ระบบประวัติกระเป๋าปิดปรับปรุง'), findsOneWidget);
+    expect(find.text('กรุณาลองใหม่อีกครั้ง'), findsNothing);
+    expect(find.text('ยังไม่มีรายการเดินเงิน'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

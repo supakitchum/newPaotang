@@ -14,6 +14,7 @@ import '../../../shared/widgets/flexible_image.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 import '../data/topup_models.dart';
 import '../data/topup_repository.dart';
+import 'topup_error_message.dart';
 import 'topup_realtime_monitor.dart';
 
 const _topupBackPathFallback = '/my-wallet';
@@ -265,7 +266,7 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
       return true;
     } catch (error) {
       if (!mounted) return false;
-      final message = customerErrorMessage(error, l10n.topupCreateFailed);
+      final message = topupErrorMessage(error, l10n.topupCreateFailed);
       if (await handleCustomerOperationalError(
         ref: ref,
         context: context,
@@ -289,7 +290,7 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
       _showSnack(l10n.topupCancelled);
     } catch (error) {
       if (!mounted) return;
-      final message = customerErrorMessage(error, l10n.topupCancelFailed);
+      final message = topupErrorMessage(error, l10n.topupCancelFailed);
       if (await handleCustomerOperationalError(
         ref: ref,
         context: context,
@@ -402,7 +403,7 @@ class _TopupScreenState extends ConsumerState<TopupScreen> {
       _showSnack(l10n.topupSlipUploaded);
     } catch (error) {
       if (!mounted) return;
-      final message = customerErrorMessage(error, l10n.topupSlipUploadFailed);
+      final message = topupErrorMessage(error, l10n.topupSlipUploadFailed);
       if (await handleCustomerOperationalError(
         ref: ref,
         context: context,

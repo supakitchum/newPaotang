@@ -8,6 +8,7 @@ import 'package:customer_flutter/features/topup/data/topup_models.dart';
 import 'package:customer_flutter/features/topup/data/topup_repository.dart';
 import 'package:customer_flutter/features/topup/presentation/topup_realtime_monitor.dart';
 import 'package:customer_flutter/features/topup/presentation/topup_screen.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -513,6 +514,140 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('topup create API error uses server copy like Nuxt', (
+    tester,
+  ) async {
+    final repository = _FailingCreateTopupRepository(
+      _apiException('ระบบเติมเงินปิดปรับปรุง'),
+    );
+
+    await _pumpTopupScreen(
+      tester,
+      _emptyTopupOverview(),
+      repository: repository,
+    );
+
+    await tester.tap(find.text('QR Code'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'สร้าง QR Code'));
+    await tester.pumpAndSettle();
+
+    expect(repository.createCalls, 1);
+    expect(repository.createdChannel, TopupChannel.qr);
+    expect(find.text('ระบบเติมเงินปิดปรับปรุง'), findsOneWidget);
+    expect(
+      find.text('สร้างรายการเติมเงินไม่สำเร็จ กรุณาลองใหม่'),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('topup create internal error falls back to localized copy', (
+    tester,
+  ) async {
+    final repository = _FailingCreateTopupRepository(
+      StateError('internal topup create failed'),
+    );
+
+    await _pumpTopupScreen(
+      tester,
+      _emptyTopupOverview(),
+      repository: repository,
+    );
+
+    await tester.tap(find.text('QR Code'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'สร้าง QR Code'));
+    await tester.pumpAndSettle();
+
+    expect(repository.createCalls, 1);
+    expect(
+      find.text('สร้างรายการเติมเงินไม่สำเร็จ กรุณาลองใหม่'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('internal topup create failed'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('topup cancel API error uses server copy like Nuxt', (
+    tester,
+  ) async {
+    final repository = _CancelTopupRepository(
+      error: _apiException('ยกเลิกรายการนี้ไม่ได้'),
+    );
+
+    await _pumpTopupScreen(
+      tester,
+      _waitingTopupOverview(
+        const TopupRequestItem(
+          id: 'top_waiting_bank',
+          amount: 800,
+          bonusAmount: 0,
+          status: TopupStatus.pendingReview,
+          channel: TopupChannel.bankTransfer,
+          provider: 'manual',
+          transferAt: null,
+          createdAt: '2026-06-26T10:00:00+07:00',
+          slipUrl: '',
+          slipThumbUrl: '',
+          qrCode: '',
+          redirectUrl: '',
+          message: '',
+        ),
+      ),
+      repository: repository,
+    );
+
+    await _cancelWaitingTopup(tester);
+    await tester.tap(find.text('ยืนยันยกเลิก'));
+    await tester.pumpAndSettle();
+
+    expect(repository.cancelCalls, 1);
+    expect(repository.cancelledIds, ['top_waiting_bank']);
+    expect(find.text('ยกเลิกรายการนี้ไม่ได้'), findsOneWidget);
+    expect(find.text('ยกเลิกรายการไม่สำเร็จ'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('topup cancel internal error falls back to localized copy', (
+    tester,
+  ) async {
+    final repository = _CancelTopupRepository(
+      error: StateError('internal topup cancel failed'),
+    );
+
+    await _pumpTopupScreen(
+      tester,
+      _waitingTopupOverview(
+        const TopupRequestItem(
+          id: 'top_waiting_bank',
+          amount: 800,
+          bonusAmount: 0,
+          status: TopupStatus.pendingReview,
+          channel: TopupChannel.bankTransfer,
+          provider: 'manual',
+          transferAt: null,
+          createdAt: '2026-06-26T10:00:00+07:00',
+          slipUrl: '',
+          slipThumbUrl: '',
+          qrCode: '',
+          redirectUrl: '',
+          message: '',
+        ),
+      ),
+      repository: repository,
+    );
+
+    await _cancelWaitingTopup(tester);
+    await tester.tap(find.text('ยืนยันยกเลิก'));
+    await tester.pumpAndSettle();
+
+    expect(repository.cancelCalls, 1);
+    expect(find.text('ยกเลิกรายการไม่สำเร็จ'), findsOneWidget);
+    expect(find.textContaining('internal topup cancel failed'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('waiting topup asks for confirmation before cancelling', (
     tester,
   ) async {
@@ -590,6 +725,20 @@ void main() {
     expect(find.text('ยกเลิกรายการเติมเงินแล้ว'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+}
+
+Future<void> _cancelWaitingTopup(WidgetTester tester) async {
+  final cancelWaiting = find.widgetWithText(
+    OutlinedButton,
+    'ยกเลิกรายการเติมเงินนี้',
+  );
+  await Scrollable.ensureVisible(
+    tester.element(cancelWaiting),
+    alignment: 0.45,
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(cancelWaiting);
+  await tester.pumpAndSettle();
 }
 
 Future<void> _pumpTopupRoute(
@@ -742,8 +891,37 @@ TopupOverview _waitingTopupOverview(TopupRequestItem waiting) {
   );
 }
 
+class _FailingCreateTopupRepository extends TopupRepository {
+  _FailingCreateTopupRepository(this.error) : super(_testApiClient());
+
+  final Object error;
+  int createCalls = 0;
+  TopupChannel? createdChannel;
+
+  @override
+  Future<TopupRequestItem> create({
+    required TopupChannel channel,
+    required double amount,
+    DateTime? transferAt,
+    TopupSlipUpload? slip,
+  }) async {
+    createCalls++;
+    createdChannel = channel;
+    throw error;
+  }
+
+  @override
+  Future<TopupRequestItem> createCredit({required double amount}) async {
+    createCalls++;
+    createdChannel = TopupChannel.creditCard;
+    throw error;
+  }
+}
+
 class _CancelTopupRepository extends TopupRepository {
-  _CancelTopupRepository() : super(_testApiClient());
+  _CancelTopupRepository({this.error}) : super(_testApiClient());
+
+  final Object? error;
 
   int cancelCalls = 0;
   final cancelledIds = <String>[];
@@ -752,6 +930,8 @@ class _CancelTopupRepository extends TopupRepository {
   Future<TopupRequestItem> cancel(String id) async {
     cancelCalls++;
     cancelledIds.add(id);
+    final error = this.error;
+    if (error != null) throw error;
     return TopupRequestItem(
       id: id,
       amount: 800,
@@ -768,6 +948,19 @@ class _CancelTopupRepository extends TopupRepository {
       message: '',
     );
   }
+}
+
+DioException _apiException(String message, {String path = '/customer/topups'}) {
+  final requestOptions = RequestOptions(path: path);
+  return DioException(
+    requestOptions: requestOptions,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: requestOptions,
+      statusCode: 422,
+      data: {'message': message},
+    ),
+    type: DioExceptionType.badResponse,
+  );
 }
 
 ApiClient _testApiClient() {

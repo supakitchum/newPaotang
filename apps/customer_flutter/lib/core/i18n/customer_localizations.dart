@@ -947,6 +947,8 @@ class CustomerLocalizations {
   String get walletRefreshTooltip => _text('wallet.refresh_tooltip');
   String get walletLedgerLoading => _text('wallet.ledger.loading');
   String get walletLedgerLoadFailed => _text('wallet.ledger.load_failed');
+  String get walletLedgerLoadFailedMessage =>
+      _text('wallet.ledger.load_failed_message');
   String get walletEmptyLedgerTitle => _text('wallet.empty_ledger.title');
   String get walletEmptyLedgerSubtitle => _text('wallet.empty_ledger.subtitle');
   String walletBalanceAfter(String amount) {
@@ -2692,6 +2694,7 @@ const _localizedValues = <String, Map<String, String>>{
     'wallet.refresh_tooltip': 'โหลดรายการใหม่',
     'wallet.ledger.loading': 'กำลังโหลดรายการ...',
     'wallet.ledger.load_failed': 'โหลดประวัติไม่สำเร็จ',
+    'wallet.ledger.load_failed_message': 'กรุณาลองใหม่อีกครั้ง',
     'wallet.empty_ledger.title': 'ยังไม่มีรายการเดินเงิน',
     'wallet.empty_ledger.subtitle':
         'รายการเติมเงิน ชำระเงิน และรับเงินรางวัลจะแสดงที่นี่',
@@ -4038,6 +4041,7 @@ const _localizedValues = <String, Map<String, String>>{
     'wallet.refresh_tooltip': 'Refresh transactions',
     'wallet.ledger.loading': 'Loading transactions...',
     'wallet.ledger.load_failed': 'Could not load transaction history',
+    'wallet.ledger.load_failed_message': 'Please try again.',
     'wallet.empty_ledger.title': 'No wallet transactions yet',
     'wallet.empty_ledger.subtitle':
         'Topups, payments, and reward credits will appear here.',

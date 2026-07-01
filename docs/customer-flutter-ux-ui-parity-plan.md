@@ -102,18 +102,20 @@ Acceptance evidence for every screen group:
   compact mobile rendering, the previous-draw history navigation handoff, and
   Nuxt-style authenticated rights-first sorting while public/guest lists keep
   backend order. It also covers Nuxt-style current/history header back
-  navigation and current activity loading copy.
+  navigation, current activity loading copy, and API payload error copy with
+  localized fallback for current/history list failures.
 - `test/activity_detail_screen_test.dart` covers activity detail result gating:
   awards are hidden before results are announced and become claimable only after
   the result summary is announced, and bank-transfer claim setup preserves the
   current activity detail redirect when the customer needs to add a payout
   account. It also covers Nuxt-style activity-detail header back navigation to
   current activities or the selected history draw, detail loading/error/missing
-  states without generic async cards, Nuxt-style lucky-board grid range/legend,
-  Nuxt-style lucky-number confirmation modal and submit payload, Nuxt-style
-  activity claim sheet select copy, amount card, payout options, cancel/next
-  actions, PIN-step title/subtitle/progress, plus activity claim sheet biometric
-  assertion-token submission without plaintext PIN.
+  states without generic async cards, API payload error copy with localized
+  fallback for detail and lucky-number entry failures, Nuxt-style lucky-board
+  grid range/legend, Nuxt-style lucky-number confirmation modal and submit
+  payload, Nuxt-style activity claim sheet select copy, amount card, payout
+  options, cancel/next actions, PIN-step title/subtitle/progress, plus activity
+  claim sheet biometric assertion-token submission without plaintext PIN.
 - `test/tickets_screen_test.dart` covers current-ticket Nuxt-style search,
   draw/total summary, winning banner, current/history tabs, the Nuxt footer note
   explaining prize-result notifications in "สลากฯ ของฉัน", and ticket history
@@ -151,9 +153,13 @@ Acceptance evidence for every screen group:
 - `test/wallet_screen_test.dart` covers Wallet ledger parity: Nuxt-style
   section subtitle, refresh reload, wallet-specific loading copy, centered
   empty state, partial ledger failure with balance still visible and retry,
-  narrow mobile readability, wide page-body alignment, Nuxt-style header back
-  navigation to `/profile`, and realtime monitor invalidation updating the
-  visible ledger.
+  API payload error copy with localized fallback, narrow mobile readability,
+  wide page-body alignment, Nuxt-style header back navigation to `/profile`,
+  and realtime monitor invalidation updating the visible ledger.
+- `test/wallet_repository_test.dart` covers Wallet summary partial-failure
+  behavior: `/customer/wallet` balance remains usable when
+  `/customer/wallet/ledger` fails, backend ledger error messages are preserved,
+  and internal ledger exceptions are hidden behind localized UI fallback.
 - `test/topup_screen_test.dart` covers Topup channel visibility for disabled
   payment methods, channel-driven bottom-sheet opening, pending QR waiting-card
   slip upload affordance, Nuxt-style white waiting-card rendering with amount,
@@ -162,7 +168,8 @@ Acceptance evidence for every screen group:
   buttons, QR/credit deferred-slip notes, credit shared QR submit copy,
   bank-transfer transfer-time picker ordering/dialog handoff, slip-required
   validation, Nuxt-style pending-request blocking plus confirm-before-cancel
-  behavior for unfinished topup requests, realtime tick refresh of the waiting
+  behavior for unfinished topup requests, API payload error copy with localized
+  fallback for create/cancel failures, realtime tick refresh of the waiting
   request card, and `/topup?back=/checkout` allowlisted back navigation.
 - `test/topup_repository_test.dart` covers Topup create payload parity:
   slipless QR requests stay JSON while bank-transfer slip-at-create requests

@@ -18,6 +18,7 @@ import 'package:customer_flutter/features/activities/data/activity_repository.da
 import 'package:customer_flutter/features/activities/presentation/activity_detail_screen.dart';
 import 'package:customer_flutter/features/profile/data/profile_settings_models.dart';
 import 'package:customer_flutter/features/profile/data/profile_settings_repository.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -172,6 +173,24 @@ void main() {
     expect(find.byType(Card), findsNothing);
   });
 
+  testWidgets('ActivityDetailScreen detail error uses API copy when available',
+      (
+    tester,
+  ) async {
+    await _pumpDetail(
+      tester,
+      _ErrorActivityRepository(
+        error: _apiException('ระบบกิจกรรมปิดปรับปรุง'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('ระบบกิจกรรมปิดปรับปรุง'), findsOneWidget);
+    expect(find.text('โหลดรายละเอียดกิจกรรมไม่สำเร็จ'), findsNothing);
+    expect(find.text('ไม่พบกิจกรรม'), findsNothing);
+    expect(find.byType(Card), findsNothing);
+  });
+
   testWidgets('ActivityDetailScreen shows Nuxt missing state with CTA', (
     tester,
   ) async {
@@ -190,6 +209,37 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Activities route'), findsOneWidget);
+  });
+
+  testWidgets('ActivityDetailScreen entry error uses API copy when available', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _FakeActivityRepository(
+      resultAnnounced: false,
+      entryError: _apiException('เลขนี้ถูกเลือกแล้ว'),
+    );
+
+    await _pumpDetail(tester, repository);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('04'));
+    await tester.tap(find.text('04'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'ยืนยันเลือกเลข'));
+    await tester.pumpAndSettle();
+
+    expect(repository.createEntryCount, 1);
+    expect(find.text('เลขนี้ถูกเลือกแล้ว'), findsOneWidget);
+    expect(
+      find.text('ส่งเลขไม่สำเร็จ กรุณาตรวจสอบสิทธิ์แล้วลองใหม่'),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(
@@ -428,11 +478,15 @@ class _PendingActivityRepository extends ActivityRepository {
 }
 
 class _ErrorActivityRepository extends ActivityRepository {
-  _ErrorActivityRepository() : super(_testApiClient(), (value) => value);
+  _ErrorActivityRepository({Object? error})
+      : error = error ?? Exception('activity detail failed'),
+        super(_testApiClient(), (value) => value);
+
+  final Object error;
 
   @override
   Future<ActivityItem> detail(String slug, {bool authenticated = false}) async {
-    throw Exception('activity detail failed');
+    throw error;
   }
 }
 
@@ -586,10 +640,11 @@ class _FakeBiometricAuthService extends BiometricAuthService {
 }
 
 class _FakeActivityRepository extends ActivityRepository {
-  _FakeActivityRepository({required this.resultAnnounced})
+  _FakeActivityRepository({required this.resultAnnounced, this.entryError})
       : super(_testApiClient(), (value) => value);
 
   final bool resultAnnounced;
+  final Object? entryError;
   int awardsAllCount = 0;
   int createEntryCount = 0;
   final createdActivityIds = <String>[];
@@ -633,6 +688,8 @@ class _FakeActivityRepository extends ActivityRepository {
     createdActivityIds.add(activityId);
     createdPredictionTypes.add(predictionType);
     createdSelectedNumbers.add(selectedNumber);
+    final error = entryError;
+    if (error != null) throw error;
     return ActivityEntry(
       id: 'entry_created_$createEntryCount',
       predictionType: predictionType,
@@ -696,6 +753,19 @@ ActivityItem _activityFixture({required bool resultAnnounced}) {
             customerAwardAmount: 2000,
           )
         : null,
+  );
+}
+
+DioException _apiException(String message) {
+  final requestOptions = RequestOptions(path: '/customer/activities/act_lucky');
+  return DioException(
+    requestOptions: requestOptions,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: requestOptions,
+      statusCode: 422,
+      data: {'message': message},
+    ),
+    type: DioExceptionType.badResponse,
   );
 }
 

@@ -10,6 +10,7 @@ import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/features/activities/data/activity_models.dart';
 import 'package:customer_flutter/features/activities/data/activity_repository.dart';
 import 'package:customer_flutter/features/activities/presentation/activities_screen.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -68,6 +69,58 @@ void main() {
     await tester.pump();
 
     expect(find.text('กำลังโหลดกิจกรรม'), findsOneWidget);
+  });
+
+  testWidgets('ActivitiesScreen error uses API copy when available', (
+    tester,
+  ) async {
+    await _pumpActivities(
+      tester,
+      _FakeActivityRepository(
+        error: _apiException('ระบบกิจกรรมปิดปรับปรุง'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('ระบบกิจกรรมปิดปรับปรุง'), findsOneWidget);
+    expect(find.text('โหลดกิจกรรมไม่สำเร็จ'), findsNothing);
+    expect(find.text('ยังไม่มีกิจกรรมในงวดนี้'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ActivitiesScreen internal error falls back to localized copy', (
+    tester,
+  ) async {
+    await _pumpActivities(
+      tester,
+      _FakeActivityRepository(
+        error: StateError('internal activities failure'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('โหลดกิจกรรมไม่สำเร็จ'), findsOneWidget);
+    expect(find.textContaining('internal activities failure'), findsNothing);
+    expect(find.text('ยังไม่มีกิจกรรมในงวดนี้'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ActivitiesHistoryScreen error uses API copy when available', (
+    tester,
+  ) async {
+    await _pumpActivities(
+      tester,
+      _FakeActivityRepository(
+        error: _apiException('โหลดกิจกรรมงวดย้อนหลังไม่ได้'),
+      ),
+      initialLocation: '/activities/history',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('โหลดกิจกรรมงวดย้อนหลังไม่ได้'), findsOneWidget);
+    expect(find.text('โหลดกิจกรรมไม่สำเร็จ'), findsNothing);
+    expect(find.text('ยังไม่มีกิจกรรมย้อนหลัง'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('ActivitiesScreen keeps compact cards usable on small phones', (
@@ -228,12 +281,13 @@ Future<void> _pumpActivities(
 }
 
 class _FakeActivityRepository extends ActivityRepository {
-  _FakeActivityRepository({List<ActivityItem>? items})
+  _FakeActivityRepository({List<ActivityItem>? items, this.error})
       : _items = items ?? _activityFixtures,
         super(_testApiClient(), (value) => value);
 
   final calls = <_ActivityCall>[];
   final List<ActivityItem> _items;
+  final Object? error;
 
   @override
   Future<ActivityListPage> listPage({
@@ -250,6 +304,8 @@ class _FakeActivityRepository extends ActivityRepository {
         gameId: gameId,
       ),
     );
+    final error = this.error;
+    if (error != null) throw error;
     return ActivityListPage(
       items: _items,
       meta: const ActivityListMeta(
@@ -376,5 +432,18 @@ ApiClient _testApiClient([AuthTokenStore? tokenStore]) {
     ),
     tokenStore ?? AuthTokenStore(),
     localeTag: 'th-TH',
+  );
+}
+
+DioException _apiException(String message) {
+  final requestOptions = RequestOptions(path: '/customer/activities');
+  return DioException(
+    requestOptions: requestOptions,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: requestOptions,
+      statusCode: 503,
+      data: {'message': message},
+    ),
+    type: DioExceptionType.badResponse,
   );
 }
