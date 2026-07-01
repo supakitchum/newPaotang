@@ -811,10 +811,9 @@ class _StoreCartSelectionDock extends StatelessWidget {
                 );
                 final action = SizedBox(
                   height: 48,
-                  child: FilledButton.icon(
+                  child: FilledButton(
                     onPressed: onReview,
-                    icon: const Icon(Icons.shopping_cart_checkout),
-                    label: Text(l10n.cartSelectionReview),
+                    child: Text(l10n.cartSelectionReview),
                   ),
                 );
                 if (compact) {
@@ -999,15 +998,13 @@ class _StoreLotterySearchActions extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 380;
-        final searchButton = FilledButton.icon(
+        final searchButton = FilledButton(
           onPressed: onSearch,
-          icon: const Icon(Icons.search),
-          label: Text(l10n.lotterySearchButton),
+          child: Text(l10n.lotterySearchButton),
         );
-        final clearButton = OutlinedButton.icon(
+        final clearButton = OutlinedButton(
           onPressed: onClear,
-          icon: const Icon(Icons.refresh),
-          label: Text(l10n.lotteryClearButton),
+          child: Text(l10n.lotteryClearButton),
         );
 
         if (compact) {
@@ -1052,9 +1049,31 @@ class _LotteryTicketCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final digits = ticket.number.split('');
+    final colorScheme = Theme.of(context).colorScheme;
     final sellerName = ticket.sellerName.isEmpty
         ? l10n.storesFallbackStoreName
         : ticket.sellerName;
+    final actionLabel = busy
+        ? reserved
+            ? l10n.lotteryRemoving
+            : l10n.lotterySelecting
+        : reserved
+            ? l10n.lotteryRemove
+            : !ticket.isAvailable
+                ? l10n.lotterySoldOut
+                : canReserve
+                    ? l10n.lotterySelect
+                    : l10n.lotterySaleClosedAction;
+    final canToggle = reserved || (canReserve && ticket.isAvailable);
+    final actionButton = reserved
+        ? FilledButton(
+            onPressed: busy || !canToggle ? null : onToggle,
+            child: Text(actionLabel),
+          )
+        : OutlinedButton(
+            onPressed: busy || !canToggle ? null : onToggle,
+            child: Text(actionLabel),
+          );
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -1065,11 +1084,17 @@ class _LotteryTicketCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const LotteryProductBrandRow(),
+                  const SizedBox(height: 8),
                   Text(
                     sellerName,
+                    key: const ValueKey('lottery-stock-seller-row'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelMedium,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
@@ -1105,23 +1130,7 @@ class _LotteryTicketCard extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                FilledButton.tonal(
-                  onPressed: reserved || (canReserve && ticket.isAvailable)
-                      ? onToggle
-                      : null,
-                  child: busy
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(
-                          reserved
-                              ? l10n.lotteryRemove
-                              : canReserve
-                                  ? l10n.lotterySelect
-                                  : l10n.lotterySaleClosedAction,
-                        ),
-                ),
+                SizedBox(height: 42, child: actionButton),
                 const SizedBox(height: 8),
                 Text(
                   formatBaht(ticket.price),

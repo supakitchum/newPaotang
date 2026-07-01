@@ -321,6 +321,13 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(
+      find.descendant(
+        of: paymentDock,
+        matching: find.byIcon(Icons.check_circle_outline),
+      ),
+      findsNothing,
+    );
     expect(tester.takeException(), isNull);
 
     final topupButton = find.widgetWithText(OutlinedButton, 'เติมเงิน');
@@ -1982,6 +1989,12 @@ void main() {
     expect(find.textContaining('สูงสุด 20 ใบ'), findsOneWidget);
     expect(
       find.widgetWithText(OutlinedButton, 'เลือกสลากฯ เพิ่ม'),
+      findsNothing,
+    );
+    final addMoreButton = find.widgetWithText(FilledButton, 'เลือกสลากฯ เพิ่ม');
+    expect(addMoreButton, findsOneWidget);
+    expect(
+      find.descendant(of: addMoreButton, matching: find.byIcon(Icons.add)),
       findsOneWidget,
     );
     final paymentDock = find.byKey(const ValueKey('cart-payment-dock'));
@@ -1990,6 +2003,13 @@ void main() {
       find.descendant(
         of: paymentDock,
         matching: find.byIcon(Icons.timer_outlined),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: paymentDock,
+        matching: find.byIcon(Icons.payment),
       ),
       findsNothing,
     );
@@ -2139,8 +2159,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    final addMoreButton =
-        find.widgetWithText(OutlinedButton, 'เลือกสลากฯ เพิ่ม');
+    final addMoreButton = find.widgetWithText(FilledButton, 'เลือกสลากฯ เพิ่ม');
     await tester.ensureVisible(addMoreButton);
     await tester.pumpAndSettle();
     await tester.tap(addMoreButton);

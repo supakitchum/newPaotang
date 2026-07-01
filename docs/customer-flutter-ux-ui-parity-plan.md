@@ -203,7 +203,10 @@ Acceptance evidence for every screen group:
   digit filters and Nuxt-style `random_seed` query forwarding for Buy/search.
 - `test/store_lotteries_screen_test.dart` covers `/stores/lotteries` restoring
   Nuxt-style six-slot digit search, submitting populated store-scoped digit
-  filters, clearing the store search controls without losing context, and
+  filters, clearing the store search controls without losing context, keeping
+  search/clear form actions text-only without Flutter-only icons, and
+  rendering stock cards with Nuxt-style runtime product marker, product brand,
+  seller row, and text-only outline/remove action pills, and
   preserving the Nuxt sold-ticket dialog plus row removal after an authenticated
   store-scoped reservation race, and auto-loading the next stock page when
   customers scroll near the bottom while rendering Nuxt-style skeleton cards
@@ -213,7 +216,8 @@ Acceptance evidence for every screen group:
   the closed-sale store stock state: localized sale-closed notice, disabled new
   reservation button, and no reserve call when response-level availability
   blocks buying, plus the Nuxt-style selected-cart dock after store-scoped
-  reservations with `จำนวนที่เลือก`, countdown, and `/cart` routing.
+  reservations with `จำนวนที่เลือก`, countdown, `/cart` routing, and a
+  text-only review CTA without the Flutter-only cart icon.
 - `test/buy_store_segment_tabs_test.dart` covers the Nuxt-style segmented
   navigation between `/buy` all-ticket browsing and `/stores` store browsing,
   `/buy` using the Nuxt "ซื้อสลากดิจิทัล" header title, `/buy` digit boxes
@@ -226,14 +230,15 @@ Acceptance evidence for every screen group:
   title, Nuxt-style search form/result copy including the store-scoped
   "ค้นหาเลขสลากฯในร้านค้า" heading, current draw-date line, and "ค้นหาเลข"
   submit CTA, Nuxt-style search form actions with `ล้างค่า` as the header text
-  action and `ค้นหาเลข` as the single full-width primary action, Nuxt-style
-  initial-search loading where the CTA becomes `กำลังค้นหา` and search/clear
+  action and `ค้นหาเลข` as the single full-width text-only primary action,
+  Nuxt-style initial-search loading where the CTA becomes `กำลังค้นหา` and search/clear
   actions are disabled while skeleton result cards render, result refresh keeps
   the Nuxt `แสดงเลขใหม่` copy while disabled during that loading state,
   Nuxt-style clear/reset behavior that hides old results while preserving store context,
   search load API payload error copy with localized fallback for
   internal/client failures,
-  live cart select/remove state, `/buy` random browse
+  Nuxt-style stock card runtime product marker, product brand, seller row,
+  text-only more link, and outline/remove select state, live cart select/remove state, `/buy` random browse
   dedupe for repeated full numbers while exact search
   preserves duplicate full-number rows, `/buy` random refresh cooldown while
   exact search refresh remains available, Nuxt-style stock `random_seed`
@@ -254,7 +259,8 @@ Acceptance evidence for every screen group:
   parity: the Nuxt-style number-list header, no filter/more/refresh controls,
   unseeded same-number search, auto-loading the next same-number cursor page
   without introducing `random_seed`, no overflow exceptions, and stock-realtime
-  tick refresh of the visible search results.
+  tick refresh of the visible search results, plus the text-only selected-cart
+  dock review CTA matching Nuxt PaymentDock.
 - `test/cart_grouping_test.dart` covers Cart review grouping by lottery number
   across reservation IDs and keeps the earliest payment deadline for the group.
 - `test/checkout_screen_test.dart` covers Checkout success navigation with
@@ -290,7 +296,7 @@ Acceptance evidence for every screen group:
   countdown, fixed-bottom Cart payment dock with countdown, exact Nuxt total
   label, centered timer text without a
   Flutter-only timer icon, and Nuxt CTA copy, the Cart purchase-limit note and
-  add-more route back to `/buy`,
+  filled accent add-more pill with plus affordance back to `/buy`,
   Nuxt-style grouped cart remove confirmation copy, custom centered modal shell
   without the generic Flutter alert dialog, compact mobile modal bounds,
   in-flight "กำลังลบ" state with all reservation IDs released, and
@@ -299,7 +305,8 @@ Acceptance evidence for every screen group:
   plus stock-realtime tick refresh on Cart and Checkout so reserved
   cart/payment data reloads without leaving the payment surface.
   It also covers Nuxt-style direct-entry header back actions from Checkout to
-  `/cart` and from Cart to `/buy`.
+  `/cart` and from Cart to `/buy`, plus text-only Cart and Checkout payment dock
+  CTAs without Flutter-only payment/check icons.
 - `test/data_parsing_test.dart`, `test/deep_link_association_files_test.dart`,
   and `test/production_preflight_test.dart` cover success receipt/purchase
   history order parsing from legacy Nuxt-style `lotteries` arrays and

@@ -8,6 +8,7 @@ import 'package:customer_flutter/core/i18n/app_locale.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
 import 'package:customer_flutter/core/security/biometric_auth_service.dart';
+import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/features/lottery/data/lottery_models.dart';
 import 'package:customer_flutter/features/lottery/data/lottery_repository.dart';
@@ -36,6 +37,7 @@ void main() {
       ProviderScope(
         overrides: [
           appConfigProvider.overrideWithValue(_testConfig),
+          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
           authTokenStoreProvider.overrideWithValue(tokenStore),
           authControllerProvider.overrideWith((_) => authController),
           resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
@@ -65,11 +67,34 @@ void main() {
     expect(store.lastDigits, ['', '', '', '', '', '']);
     expect(find.byType(TextField), findsNWidgets(6));
     expect(find.text('เลือก'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('lottery-stock-brand-row')),
+      findsWidgets,
+    );
+    expect(
+      find.byKey(const ValueKey('lottery-stock-seller-row')),
+      findsWidgets,
+    );
+    expect(find.text('สลากกินแบ่งรัฐบาล'), findsWidgets);
+    expect(find.text('L6'), findsWidgets);
+    expect(find.text('ร้านทดสอบ'), findsWidgets);
+    final searchButton = find.widgetWithText(FilledButton, 'ค้นหาเลข');
+    expect(searchButton, findsOneWidget);
+    expect(
+      find.descendant(of: searchButton, matching: find.byIcon(Icons.search)),
+      findsNothing,
+    );
+    final clearButton = find.widgetWithText(OutlinedButton, 'ล้างค่า');
+    expect(clearButton, findsOneWidget);
+    expect(
+      find.descendant(of: clearButton, matching: find.byIcon(Icons.refresh)),
+      findsNothing,
+    );
 
     await tester.enterText(find.byType(TextField).at(0), '4');
     await tester.enterText(find.byType(TextField).at(2), '5');
     await tester.enterText(find.byType(TextField).at(5), '6');
-    await tester.tap(find.widgetWithText(FilledButton, 'ค้นหาเลข'));
+    await tester.tap(searchButton);
     await tester.pumpAndSettle();
 
     expect(store.searchCount, 2);
@@ -78,7 +103,7 @@ void main() {
     expect(store.lastDigits, ['4', '', '5', '', '', '6']);
     expect(find.text('เลือก'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'ล้างค่า'));
+    await tester.tap(clearButton);
     await tester.pumpAndSettle();
 
     expect(store.searchCount, 3);
@@ -108,6 +133,7 @@ void main() {
       ProviderScope(
         overrides: [
           appConfigProvider.overrideWithValue(_testConfig),
+          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
           authTokenStoreProvider.overrideWithValue(tokenStore),
           authControllerProvider.overrideWith((_) => authController),
           resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
@@ -172,6 +198,7 @@ void main() {
       ProviderScope(
         overrides: [
           appConfigProvider.overrideWithValue(_testConfig),
+          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
           authTokenStoreProvider.overrideWithValue(tokenStore),
           authControllerProvider.overrideWith((_) => authController),
           resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
@@ -244,6 +271,7 @@ void main() {
       ProviderScope(
         overrides: [
           appConfigProvider.overrideWithValue(_testConfig),
+          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
           authTokenStoreProvider.overrideWithValue(tokenStore),
           authControllerProvider.overrideWith((_) => authController),
           resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
@@ -285,6 +313,13 @@ void main() {
     final reviewButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'ตรวจสอบสลากฯ'),
     );
+    expect(
+      find.descendant(
+        of: find.widgetWithText(FilledButton, 'ตรวจสอบสลากฯ'),
+        matching: find.byIcon(Icons.shopping_cart_checkout),
+      ),
+      findsNothing,
+    );
     expect(reviewButton.onPressed, isNotNull);
     reviewButton.onPressed!();
     await tester.pumpAndSettle();
@@ -305,6 +340,7 @@ void main() {
       ProviderScope(
         overrides: [
           appConfigProvider.overrideWithValue(_testConfig),
+          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
           authTokenStoreProvider.overrideWithValue(tokenStore),
           authControllerProvider.overrideWith((_) => authController),
           resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
@@ -365,6 +401,7 @@ void main() {
       ProviderScope(
         overrides: [
           appConfigProvider.overrideWithValue(_testConfig),
+          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
           authTokenStoreProvider.overrideWithValue(tokenStore),
           authControllerProvider.overrideWith((_) => authController),
           resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
@@ -393,8 +430,8 @@ void main() {
 
     expect(find.text('ขณะนี้ไม่สามารถซื้อสลากได้'), findsOneWidget);
     expect(find.text('ปิดรับซื้อ'), findsOneWidget);
-    final reserveButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'ปิดรับซื้อ'),
+    final reserveButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'ปิดรับซื้อ'),
     );
     expect(reserveButton.onPressed, isNull);
     expect(lottery.reserveCount, 0);
@@ -414,6 +451,7 @@ void main() {
       ProviderScope(
         overrides: [
           appConfigProvider.overrideWithValue(_testConfig),
+          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
           authTokenStoreProvider.overrideWithValue(tokenStore),
           authControllerProvider.overrideWith((_) => authController),
           resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
@@ -466,6 +504,8 @@ void main() {
         ProviderScope(
           overrides: [
             appConfigProvider.overrideWithValue(_testConfig),
+            mobileBootstrapProvider
+                .overrideWith((_) async => _mobileBootstrap()),
             authTokenStoreProvider.overrideWithValue(tokenStore),
             authControllerProvider.overrideWith((_) => authController),
             resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
@@ -517,6 +557,7 @@ void main() {
       ProviderScope(
         overrides: [
           appConfigProvider.overrideWithValue(_testConfig),
+          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
           authTokenStoreProvider.overrideWithValue(tokenStore),
           authControllerProvider.overrideWith((_) => authController),
           resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
@@ -580,6 +621,8 @@ void main() {
         ProviderScope(
           overrides: [
             appConfigProvider.overrideWithValue(_testConfig),
+            mobileBootstrapProvider
+                .overrideWith((_) async => _mobileBootstrap()),
             authTokenStoreProvider.overrideWithValue(tokenStore),
             authControllerProvider.overrideWith((_) => authController),
             resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
@@ -633,6 +676,7 @@ void main() {
       ProviderScope(
         overrides: [
           appConfigProvider.overrideWithValue(_testConfig),
+          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
           authTokenStoreProvider.overrideWithValue(tokenStore),
           authControllerProvider.overrideWith((_) => authController),
           resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
@@ -671,6 +715,12 @@ const _testConfig = AppConfig(
   apiBaseUrl: 'https://partner.example.test/api/v1',
   defaultLocale: 'th-TH',
 );
+
+MobileBootstrap _mobileBootstrap() {
+  return MobileBootstrap.fromJson(const {
+    'mobile': {'lottery_product_label': 'L6'},
+  });
+}
 
 AuthController _unauthenticatedController(AuthTokenStore tokenStore) {
   final api = _testApiClient(tokenStore);

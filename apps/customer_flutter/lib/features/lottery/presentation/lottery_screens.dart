@@ -9,6 +9,7 @@ import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/i18n/app_locale.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/payment/checkout_payment_config.dart';
+import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../features/affiliate/data/affiliate_referral_repository.dart';
@@ -887,8 +888,21 @@ class _CartPurchaseLimitNotice extends StatelessWidget {
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.center,
-            child: OutlinedButton.icon(
+            child: FilledButton.icon(
               onPressed: onAddMore,
+              style: FilledButton.styleFrom(
+                backgroundColor: colorScheme.tertiary,
+                foregroundColor: colorScheme.onTertiary,
+                minimumSize: const Size(0, 48),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 22,
+                  vertical: 12,
+                ),
+                shape: const StadiumBorder(),
+                textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
               icon: const Icon(Icons.add),
               label: Text(l10n.cartAddMoreTickets),
             ),
@@ -1052,10 +1066,9 @@ class _CartPaymentDock extends StatelessWidget {
             const SizedBox(height: 14),
             SizedBox(
               height: 52,
-              child: FilledButton.icon(
+              child: FilledButton(
                 onPressed: canCheckout ? onCheckout : null,
-                icon: const Icon(Icons.payment),
-                label: Text(canCheckout ? l10n.cartCheckout : l10n.cartExpired),
+                child: Text(canCheckout ? l10n.cartCheckout : l10n.cartExpired),
               ),
             ),
           ],
@@ -2302,10 +2315,9 @@ class _CartSelectionDock extends StatelessWidget {
                 );
                 final action = SizedBox(
                   height: 48,
-                  child: FilledButton.icon(
+                  child: FilledButton(
                     onPressed: onReview,
-                    icon: const Icon(Icons.shopping_cart_checkout),
-                    label: Text(
+                    child: Text(
                       enabled ? l10n.cartSelectionReview : l10n.cartExpired,
                     ),
                   ),
@@ -2352,13 +2364,62 @@ class _LotterySearchActions extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       height: 50,
-      child: FilledButton.icon(
+      child: FilledButton(
         onPressed: searching ? null : onSearch,
-        icon: const Icon(Icons.search),
-        label: Text(
+        child: Text(
           searching ? l10n.lotterySearchLoading : l10n.lotterySearchButton,
         ),
       ),
+    );
+  }
+}
+
+class LotteryProductBrandRow extends ConsumerWidget {
+  const LotteryProductBrandRow({super.key, this.productMarker = ''});
+
+  final String productMarker;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final marker = ref.watch(mobileBootstrapProvider).maybeWhen(
+          data: (bootstrap) => bootstrap.lotteryProductLabel.trim(),
+          orElse: () => productMarker.trim(),
+        );
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      key: const ValueKey('lottery-stock-brand-row'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (marker.isNotEmpty) ...[
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Text(
+                marker,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+        ],
+        Flexible(
+          child: Text(
+            context.l10n.ticketLabelGovernmentLottery,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -2384,6 +2445,9 @@ class _LotteryStockCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
+    final sellerName = item.sellerName.trim().isEmpty
+        ? l10n.storesFallbackStoreName
+        : item.sellerName.trim();
     return DecoratedBox(
       decoration: BoxDecoration(
         color: reserved
@@ -2401,77 +2465,74 @@ class _LotteryStockCard extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final compact = constraints.maxWidth < 420;
+            final moreButton = morePath.isEmpty
+                ? null
+                : TextButton(
+                    onPressed: () => context.push(morePath),
+                    child: Text(l10n.lotteryViewMore),
+                  );
+            final brandHeader = compact
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const LotteryProductBrandRow(),
+                      if (moreButton != null) ...[
+                        const SizedBox(height: 4),
+                        moreButton,
+                      ],
+                    ],
+                  )
+                : Row(
+                    children: [
+                      const Expanded(child: LotteryProductBrandRow()),
+                      if (moreButton != null) moreButton,
+                    ],
+                  );
             final details = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.verified_outlined,
-                      size: 16,
-                      color: colorScheme.primary,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        item.sellerName.trim().isEmpty
-                            ? l10n.ticketLabelGovernmentLottery
-                            : item.sellerName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                    ),
-                  ],
-                ),
+                brandHeader,
                 const SizedBox(height: 10),
                 _LotteryNumber(number: item.number),
-                if (morePath.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: () => context.push(morePath),
-                      icon: const Icon(Icons.open_in_new, size: 16),
-                      label: Text(l10n.lotteryViewMore),
-                    ),
-                  ),
-                ],
+                const SizedBox(height: 8),
+                Text(
+                  sellerName,
+                  key: const ValueKey('lottery-stock-seller-row'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
               ],
             );
+            final actionLabel = busy
+                ? reserved
+                    ? l10n.lotteryRemoving
+                    : l10n.lotterySelecting
+                : reserved
+                    ? l10n.lotteryRemove
+                    : reserveDisabled
+                        ? l10n.lotterySaleClosedAction
+                        : item.isAvailable
+                            ? l10n.lotterySelect
+                            : l10n.lotterySoldOut;
+            final canToggle =
+                reserved || (item.isAvailable && !reserveDisabled);
+            final actionButton = reserved
+                ? FilledButton(
+                    onPressed: busy || !canToggle ? null : onReserve,
+                    child: Text(actionLabel),
+                  )
+                : OutlinedButton(
+                    onPressed: busy || !canToggle ? null : onReserve,
+                    child: Text(actionLabel),
+                  );
             final actions = Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                SizedBox(
-                  height: 42,
-                  child: FilledButton.tonalIcon(
-                    onPressed:
-                        reserved || (item.isAvailable && !reserveDisabled)
-                            ? onReserve
-                            : null,
-                    icon: busy
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(
-                            reserved
-                                ? Icons.remove_shopping_cart_outlined
-                                : Icons.add_shopping_cart_outlined,
-                            size: 18,
-                          ),
-                    label: Text(
-                      reserved
-                          ? l10n.lotteryRemove
-                          : reserveDisabled
-                              ? l10n.lotterySaleClosedAction
-                              : l10n.lotterySelect,
-                    ),
-                  ),
-                ),
+                SizedBox(height: 42, child: actionButton),
                 const SizedBox(height: 8),
                 Text(
                   formatBaht(item.price),
@@ -2487,7 +2548,7 @@ class _LotteryStockCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   details,
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       const Spacer(),
@@ -2847,15 +2908,9 @@ class _CheckoutConfirmDock extends StatelessWidget {
             ],
             SizedBox(
               height: 52,
-              child: FilledButton.icon(
+              child: FilledButton(
                 onPressed: submitting || !enabled ? null : onConfirm,
-                icon: submitting
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.check_circle_outline),
-                label: Text(label),
+                child: Text(label),
               ),
             ),
           ],

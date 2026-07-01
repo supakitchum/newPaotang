@@ -5,6 +5,7 @@ import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/app_locale.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
+import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/features/lottery/data/lottery_models.dart';
 import 'package:customer_flutter/features/lottery/data/lottery_repository.dart';
@@ -36,7 +37,12 @@ void main() {
     expect(find.textContaining('งวดวันที่'), findsOneWidget);
     expect(find.widgetWithText(TextButton, 'ล้างค่า'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, 'ล้างค่า'), findsNothing);
-    expect(find.widgetWithText(FilledButton, 'ค้นหาเลข'), findsOneWidget);
+    final searchButton = find.widgetWithText(FilledButton, 'ค้นหาเลข');
+    expect(searchButton, findsOneWidget);
+    expect(
+      find.descendant(of: searchButton, matching: find.byIcon(Icons.search)),
+      findsNothing,
+    );
     expect(find.text('ผลการค้นหาเลข'), findsOneWidget);
     expect(
       find.text('กดดูเลขนี้เพิ่มเติมเพื่อค้นหาเลขเดียวกันอีกครั้ง'),
@@ -65,6 +71,23 @@ void main() {
     expect(find.text('ลดราคา'), findsOneWidget);
     expect(find.text('ร้านค้าผู้พิการ'), findsOneWidget);
     expect(find.text('ร้านค้าหน่วยงาน'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('lottery-stock-brand-row')),
+      findsWidgets,
+    );
+    expect(
+      find.byKey(const ValueKey('lottery-stock-seller-row')),
+      findsWidgets,
+    );
+    expect(find.text('สลากกินแบ่งรัฐบาล'), findsWidgets);
+    expect(find.text('L6'), findsWidgets);
+    expect(find.text('ร้านทดสอบ'), findsWidgets);
+    final moreButton = find.widgetWithText(TextButton, 'ดูเลขนี้เพิ่มเติม');
+    expect(moreButton, findsOneWidget);
+    expect(
+      find.descendant(of: moreButton, matching: find.byIcon(Icons.open_in_new)),
+      findsNothing,
+    );
   });
 
   testWidgets('search clear resets filters and hides results like Nuxt', (
@@ -163,10 +186,18 @@ void main() {
       find.text('กดดูเลขนี้เพิ่มเติมเพื่อค้นหาเลขเดียวกันอีกครั้ง'),
       findsNothing,
     );
-    expect(find.text('เลือก'), findsOneWidget);
+    final selectButton = find.widgetWithText(OutlinedButton, 'เลือก');
+    expect(selectButton, findsOneWidget);
+    expect(
+      find.descendant(
+        of: selectButton,
+        matching: find.byIcon(Icons.add_shopping_cart_outlined),
+      ),
+      findsNothing,
+    );
     expect(find.text('เอาออก'), findsNothing);
 
-    await tester.tap(find.text('เลือก'));
+    await tester.tap(selectButton);
     await tester.pumpAndSettle();
 
     expect(lottery.reserveCount, 1);
@@ -178,6 +209,13 @@ void main() {
     await tester.pumpAndSettle();
 
     final removeButton = find.widgetWithText(FilledButton, 'เอาออก');
+    expect(
+      find.descendant(
+        of: removeButton,
+        matching: find.byIcon(Icons.remove_shopping_cart_outlined),
+      ),
+      findsNothing,
+    );
     await tester.ensureVisible(removeButton);
     await tester.tap(removeButton);
     await tester.pumpAndSettle();
@@ -209,6 +247,13 @@ void main() {
     expect(find.textContaining('กรุณาชำระเงินภายใน'), findsOneWidget);
 
     final reviewButton = find.widgetWithText(FilledButton, 'ตรวจสอบสลากฯ');
+    expect(
+      find.descendant(
+        of: reviewButton,
+        matching: find.byIcon(Icons.shopping_cart_checkout),
+      ),
+      findsNothing,
+    );
     await tester.ensureVisible(reviewButton);
     await tester.pumpAndSettle();
     await tester.tap(reviewButton);
@@ -231,8 +276,8 @@ void main() {
     expect(find.text('ขณะนี้ไม่สามารถซื้อสลากได้'), findsOneWidget);
     expect(find.text('ปิดรับซื้อ'), findsOneWidget);
 
-    final closedButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'ปิดรับซื้อ'),
+    final closedButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'ปิดรับซื้อ'),
     );
     expect(closedButton.onPressed, isNull);
     expect(lottery.reserveCount, 0);
@@ -663,6 +708,7 @@ Future<void> _pumpLotteryApp(
       overrides: [
         resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
         lotteryRepositoryProvider.overrideWithValue(lottery),
+        mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
       ],
       child: MaterialApp.router(
         locale: fallbackCustomerLocale,
@@ -678,6 +724,12 @@ Future<void> _pumpLotteryApp(
       ),
     ),
   );
+}
+
+MobileBootstrap _mobileBootstrap() {
+  return MobileBootstrap.fromJson(const {
+    'mobile': {'lottery_product_label': 'L6'},
+  });
 }
 
 Finder _lotteryStockSkeletons() {

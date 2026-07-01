@@ -3,6 +3,7 @@ import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/app_locale.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
+import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/features/lottery/data/lottery_models.dart';
 import 'package:customer_flutter/features/lottery/data/lottery_repository.dart';
@@ -262,7 +263,10 @@ Future<void> _pump(
 }) {
   return tester.pumpWidget(
     ProviderScope(
-      overrides: overrides,
+      overrides: [
+        mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
+        ...overrides,
+      ],
       child: MaterialApp.router(
         locale: fallbackCustomerLocale,
         supportedLocales: supportedCustomerLocales,
@@ -277,6 +281,12 @@ Future<void> _pump(
       ),
     ),
   );
+}
+
+MobileBootstrap _mobileBootstrap() {
+  return MobileBootstrap.fromJson(const {
+    'mobile': {'lottery_product_label': 'L6'},
+  });
 }
 
 class _FakeResultRepository extends ResultRepository {

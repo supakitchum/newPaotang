@@ -116,6 +116,8 @@ Recent verified work:
   - `/buy/search` now matches Nuxt's search form action layout more closely:
     `ล้างค่า` is a text action beside the search heading, while `ค้นหาเลข`
     remains the single full-width primary action under the digit boxes.
+  - `/buy/search` primary search CTA now matches Nuxt's text-only primary pill
+    and no longer shows a Flutter-only search icon.
   - `/buy/search` now matches Nuxt's initial search loading affordance: the
     primary search button switches to "กำลังค้นหา" and both search/clear
     actions are disabled while the first result load is in progress, while the
@@ -126,15 +128,26 @@ Recent verified work:
   - `/buy` and `/buy/search` stock/result headings now remove Flutter-only
     helper subtitles so the heading area matches Nuxt's title + refresh-action
     structure before the filter pills.
+  - Buy/search stock cards now restore the Nuxt LotteryItem information order:
+    product brand line above the lottery number, runtime bootstrap product
+    marker when configured, seller summary as its own muted row, text-only
+    "ดูเลขนี้เพิ่มเติม" link, outline select/sale-closed pills, and text-only
+    filled remove pills instead of Flutter cart/action icons.
   - `/stores/lotteries` now restores the Nuxt-style six-slot digit search
     controls for store stock, submits populated slots as `d1..d6` while keeping
     randomized store browsing, and clear resets the store-scoped search digits.
+  - `/stores/lotteries` search and clear actions now use text-only form
+    controls so store-scoped digit search does not introduce Flutter-only
+    search/refresh icons.
   - `/stores/lotteries` now auto-loads the next stock page when customers scroll
     near the bottom, matching Nuxt's store-scoped stock browsing while
     preserving the manual load-more fallback.
   - `/stores/lotteries` now shares the Nuxt-style lottery skeleton cards during
     initial and next-page stock loading instead of falling back to spinner-only
     loading states.
+  - `/stores/lotteries` stock cards now share the Buy/search Nuxt LotteryItem
+    structure with runtime product marker above seller, seller as a muted row,
+    and text-only outline/remove action pills.
   - `/stores/lotteries` now restores the Nuxt-style "แสดงเลขใหม่" action above
     store-scoped stock results, reloads the randomized store list, and applies
     the same 10-second anti-spam cooldown label used by Nuxt.
@@ -245,6 +258,9 @@ Recent verified work:
   - Cart review now restores the Nuxt-style purchase-limit note and
     "เลือกสลากฯ เพิ่ม" action between reserved items and the payment dock,
     returning customers to `/buy` without disturbing the checkout path.
+  - Cart "เลือกสลากฯ เพิ่ม" now uses a filled runtime-accent pill with the plus
+    affordance instead of the earlier Flutter outlined button, matching the
+    Nuxt green-pill action pattern while preserving runtime theming.
   - Cart remove confirmation now matches Nuxt copy more closely for single
     tickets and grouped same-number ticket sets, including the grouped
     "สลากฯ ชุดนี้" removal wording before releasing every reservation ID.
@@ -307,6 +323,9 @@ Recent verified work:
   - `/stores/lotteries` now shares the same Nuxt selected-cart dock behavior
     after store-scoped reservations, keeping the fixed review dock visible with
     `จำนวนที่เลือก`, countdown, and `/cart` routing.
+  - Selected-cart, Cart review, and Checkout payment dock CTAs now match the
+    Nuxt PaymentDock text-only pill style instead of showing Flutter-only
+    payment/check/cart icons.
   - Checkout summary now restores the Nuxt-style product row above the ticket
     count and total, using the runtime tenant brand/logo surface plus the
     localized government-lottery product label.

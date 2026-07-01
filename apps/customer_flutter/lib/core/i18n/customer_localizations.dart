@@ -534,12 +534,15 @@ class CustomerLocalizations {
       _text('lottery.stock.reservation_unavailable.action');
   String get lotteryViewMore => _text('lottery.stock.view_more');
   String get lotterySelect => _text('lottery.stock.select');
+  String get lotterySelecting => _text('lottery.stock.selecting');
+  String get lotterySoldOut => _text('lottery.stock.sold_out');
   String get lotterySaleClosedTitle => _text('lottery.stock.sale_closed.title');
   String get lotterySaleClosedMessage =>
       _text('lottery.stock.sale_closed.message');
   String get lotterySaleClosedAction =>
       _text('lottery.stock.sale_closed.action');
   String get lotteryRemove => _text('lottery.stock.remove');
+  String get lotteryRemoving => _text('lottery.stock.removing');
 
   String get cartTitle => _text('cart.title');
   String get cartReservedTitle => _text('cart.reserved_title');
@@ -2425,11 +2428,14 @@ const _localizedValues = <String, Map<String, String>>{
     'lottery.stock.reservation_unavailable.action': 'รับทราบ',
     'lottery.stock.view_more': 'ดูเลขนี้เพิ่มเติม',
     'lottery.stock.select': 'เลือก',
+    'lottery.stock.selecting': 'กำลังจอง',
+    'lottery.stock.sold_out': 'ขายหมดแล้ว',
     'lottery.stock.sale_closed.title': 'ขณะนี้ไม่สามารถซื้อสลากได้',
     'lottery.stock.sale_closed.message':
         'ระบบปิดรับการจองสลากสำหรับงวดนี้แล้ว คุณยังสามารถดูรายการหรือไปยังตะกร้าที่จองไว้ได้',
     'lottery.stock.sale_closed.action': 'ปิดรับซื้อ',
     'lottery.stock.remove': 'เอาออก',
+    'lottery.stock.removing': 'กำลังลบ',
     'cart.title': 'ตรวจสอบรายการสลากฯ',
     'cart.reserved_title': 'รายการที่จองไว้',
     'cart.empty_subtitle': 'ยังไม่มีสลากในตะกร้า',
@@ -3766,11 +3772,14 @@ const _localizedValues = <String, Map<String, String>>{
     'lottery.stock.reservation_unavailable.action': 'OK',
     'lottery.stock.view_more': 'View more like this',
     'lottery.stock.select': 'Select',
+    'lottery.stock.selecting': 'Reserving',
+    'lottery.stock.sold_out': 'Sold out',
     'lottery.stock.sale_closed.title': 'Lottery purchases are unavailable',
     'lottery.stock.sale_closed.message':
         'Reservations for this draw are closed. You can still review tickets or continue with reserved cart items.',
     'lottery.stock.sale_closed.action': 'Closed',
     'lottery.stock.remove': 'Remove',
+    'lottery.stock.removing': 'Removing',
     'cart.title': 'Lottery cart',
     'cart.reserved_title': 'Reserved items',
     'cart.empty_subtitle': 'No tickets in cart yet',
