@@ -82,12 +82,22 @@ void main() {
     expect(find.text('สลากกินแบ่งรัฐบาล'), findsWidgets);
     expect(find.text('L6'), findsWidgets);
     expect(find.text('ร้านทดสอบ'), findsWidgets);
-    final moreButton = find.widgetWithText(TextButton, 'ดูเลขนี้เพิ่มเติม');
+    final moreButton = find.widgetWithText(TextButton, 'ดูเลขนี้เพิ่ม');
     expect(moreButton, findsOneWidget);
     expect(
       find.descendant(of: moreButton, matching: find.byIcon(Icons.open_in_new)),
       findsNothing,
     );
+    final stockRow = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey('lottery-stock-row-local-stock-1')),
+    );
+    final stockDecoration = stockRow.decoration as BoxDecoration;
+    expect(stockDecoration.borderRadius, isNull);
+    final stockBorder = stockDecoration.border as Border;
+    expect(stockBorder.top.style, BorderStyle.none);
+    expect(stockBorder.left.style, BorderStyle.none);
+    expect(stockBorder.right.style, BorderStyle.none);
+    expect(stockBorder.bottom.style, BorderStyle.solid);
   });
 
   testWidgets('search clear resets filters and hides results like Nuxt', (
@@ -242,9 +252,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('คุณมีสลากฯ ที่เลือกไว้'), findsNothing);
+    final selectionDock = find.byKey(const ValueKey('cart-selection-dock'));
+    expect(selectionDock, findsOneWidget);
+    final selectionDockShape =
+        tester.widget<Card>(selectionDock).shape as RoundedRectangleBorder;
+    expect(selectionDockShape.borderRadius, BorderRadius.circular(8));
     expect(find.text('จำนวนที่เลือก'), findsOneWidget);
     expect(find.text('1 ใบ'), findsOneWidget);
-    expect(find.textContaining('กรุณาชำระเงินภายใน'), findsOneWidget);
+    expect(find.textContaining('กรุณาชำระเงินภายใน'), findsNothing);
 
     final reviewButton = find.widgetWithText(FilledButton, 'ตรวจสอบสลากฯ');
     expect(
@@ -253,6 +268,10 @@ void main() {
         matching: find.byIcon(Icons.shopping_cart_checkout),
       ),
       findsNothing,
+    );
+    expect(
+      find.descendant(of: reviewButton, matching: find.textContaining('นาที')),
+      findsOneWidget,
     );
     await tester.ensureVisible(reviewButton);
     await tester.pumpAndSettle();
@@ -718,7 +737,7 @@ void main() {
     expect(find.text('ลดราคา'), findsNothing);
     expect(find.text('ร้านค้าผู้พิการ'), findsNothing);
     expect(find.text('ร้านค้าหน่วยงาน'), findsNothing);
-    expect(find.widgetWithText(TextButton, 'ดูเลขนี้เพิ่มเติม'), findsNothing);
+    expect(find.widgetWithText(TextButton, 'ดูเลขนี้เพิ่ม'), findsNothing);
     expect(lottery.searchCount, 1);
     expect(lottery.lastStoreId, 'store_1');
     expect(lottery.lastRandomSeed, isEmpty);

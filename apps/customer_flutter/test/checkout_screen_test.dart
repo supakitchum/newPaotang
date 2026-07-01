@@ -304,6 +304,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('ช่องทางชำระเงิน'), findsOneWidget);
+    final summaryCard = find.byKey(const ValueKey('checkout-summary-card'));
+    expect(summaryCard, findsOneWidget);
+    final summaryShape =
+        tester.widget<Card>(summaryCard).shape as RoundedRectangleBorder;
+    expect(summaryShape.borderRadius, BorderRadius.circular(12));
     expect(find.text('สลากกินแบ่งรัฐบาล'), findsOneWidget);
     expect(find.text('จำนวนสลากฯ'), findsOneWidget);
     expect(find.text('ยอดชำระทั้งหมด'), findsOneWidget);
@@ -336,6 +341,23 @@ void main() {
       const ValueKey('checkout-payment-method-option-wallet'),
     );
     expect(walletOption, findsOneWidget);
+    final walletOptionCard = tester.widget<Card>(walletOption);
+    final walletOptionShape = walletOptionCard.shape as RoundedRectangleBorder;
+    expect(walletOptionShape.borderRadius, BorderRadius.circular(12));
+    final walletNote = tester.widget<Container>(
+      find.descendant(
+        of: walletOption,
+        matching: find.byKey(
+          const ValueKey('checkout-payment-method-note-wallet'),
+        ),
+      ),
+    );
+    final walletNoteDecoration = walletNote.decoration as BoxDecoration;
+    final walletTheme = Theme.of(tester.element(walletOption));
+    expect(
+      walletNoteDecoration.color,
+      walletTheme.colorScheme.primaryContainer.withValues(alpha: 0.42),
+    );
     expect(
       find.descendant(
         of: walletOption,
@@ -364,6 +386,12 @@ void main() {
 
     final paymentDock = find.byKey(const ValueKey('checkout-payment-dock'));
     expect(paymentDock, findsOneWidget);
+    final checkoutDockShape =
+        tester.widget<Card>(paymentDock).shape as RoundedRectangleBorder;
+    expect(
+      checkoutDockShape.borderRadius,
+      const BorderRadius.vertical(top: Radius.circular(16)),
+    );
     expect(find.byKey(const Key('customer_bottom_nav')), findsNothing);
     final dockBottom = tester.getBottomLeft(paymentDock).dy;
     expect(dockBottom, closeTo(640, 1));
@@ -2090,6 +2118,14 @@ void main() {
       find.ancestor(of: cartTicketRow, matching: find.byType(Card)),
       findsNothing,
     );
+    final cartRowDecoration =
+        tester.widget<DecoratedBox>(cartTicketRow).decoration as BoxDecoration;
+    expect(cartRowDecoration.borderRadius, isNull);
+    final cartRowBorder = cartRowDecoration.border as Border;
+    expect(cartRowBorder.top.style, BorderStyle.none);
+    expect(cartRowBorder.left.style, BorderStyle.none);
+    expect(cartRowBorder.right.style, BorderStyle.none);
+    expect(cartRowBorder.bottom.style, BorderStyle.solid);
     expect(find.text('สลากกินแบ่งรัฐบาล'), findsOneWidget);
     expect(
       find.descendant(of: cartTicketRow, matching: find.text('L6')),
@@ -2133,6 +2169,12 @@ void main() {
     );
     final paymentDock = find.byKey(const ValueKey('cart-payment-dock'));
     expect(paymentDock, findsOneWidget);
+    final cartDockShape =
+        tester.widget<Card>(paymentDock).shape as RoundedRectangleBorder;
+    expect(
+      cartDockShape.borderRadius,
+      const BorderRadius.vertical(top: Radius.circular(16)),
+    );
     final dockAmount = tester.widget<Text>(
       find.descendant(
         of: paymentDock,

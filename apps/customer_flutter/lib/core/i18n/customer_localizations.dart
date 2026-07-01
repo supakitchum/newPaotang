@@ -2426,7 +2426,7 @@ const _localizedValues = <String, Map<String, String>>{
     'lottery.stock.reservation_unavailable.message':
         'ขออภัย สลากที่ท่านเลือกมีคนซื้อแล้ว กรุณาเลือกสลากใบอื่น',
     'lottery.stock.reservation_unavailable.action': 'รับทราบ',
-    'lottery.stock.view_more': 'ดูเลขนี้เพิ่มเติม',
+    'lottery.stock.view_more': 'ดูเลขนี้เพิ่ม',
     'lottery.stock.select': 'เลือก',
     'lottery.stock.selecting': 'กำลังจอง',
     'lottery.stock.sold_out': 'ขายหมดแล้ว',

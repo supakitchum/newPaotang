@@ -216,9 +216,10 @@ Acceptance evidence for every screen group:
   and
   rendering card-free stock rows with Nuxt-style runtime product marker,
   product brand, runtime payload lottery image frame with pending-image
-  fallback, text-only more link, lottery number before the muted seller row,
-  no Flutter-only availability chip, text-only outline/remove action pills,
-  and safe store-scoped back-path handoff to `/buy/more`, and
+  fallback, exact Nuxt text-only "ดูเลขนี้เพิ่ม" link, lottery number before
+  the muted seller row, no Flutter-only availability chip, text-only
+  outline/remove action pills, and safe store-scoped back-path handoff to
+  `/buy/more`, and
   preserving the Nuxt sold-ticket dialog plus row removal after an authenticated
   store-scoped reservation race, and auto-loading the next stock page when
   customers scroll near the bottom while rendering Nuxt-style skeleton cards
@@ -232,8 +233,9 @@ Acceptance evidence for every screen group:
   the closed-sale store stock state: localized sale-closed notice, disabled new
   reservation button, and no reserve call when response-level availability
   blocks buying, plus the Nuxt-style selected-cart dock after store-scoped
-  reservations with `จำนวนที่เลือก`, countdown, `/cart` routing, and a
-  text-only review CTA without the Flutter-only cart icon.
+  reservations with `จำนวนที่เลือก`, PaymentDock selection radius, in-button
+  countdown, `/cart` routing, and a text-only review CTA without the
+  Flutter-only cart icon.
 - `test/buy_store_segment_tabs_test.dart` covers the Nuxt-style segmented
   navigation between `/buy` all-ticket browsing and `/stores` store browsing,
   `/buy` using the Nuxt "ซื้อสลากดิจิทัล" header title, `/buy` digit boxes
@@ -257,7 +259,9 @@ Acceptance evidence for every screen group:
   search load API payload error copy with localized fallback for
   internal/client failures,
   Nuxt-style stock card runtime product marker, product brand, seller row,
-  text-only more link, and outline/remove select state, live cart select/remove state, `/buy` random browse
+  exact "ดูเลขนี้เพิ่ม" text-only more link, card-free bottom-divider
+  lottery-row shell, and outline/remove select state, live cart
+  select/remove state, `/buy` random browse
   dedupe for repeated full numbers while exact search
   preserves duplicate full-number rows, `/buy` random refresh cooldown while
   exact search refresh remains available, Nuxt-style stock `random_seed`
@@ -269,8 +273,9 @@ Acceptance evidence for every screen group:
   and `/buy/search` while keeping them off `/buy/more`, plus stock pagination
   loading when the list is near the bottom. It also covers the
   Nuxt-style selected-cart dock after reservation with the `จำนวนที่เลือก`
-  review label, selected ticket count, shared reservation countdown, and `/cart`
-  review routing. It also covers
+  review label, selected ticket count, PaymentDock selection radius, shared
+  reservation countdown inside the review pill, and `/cart` review routing. It
+  also covers
   closed-sale stock state: localized alert, disabled new reservation button, and
   no reserve call when `bet_status`/`canReserve` blocks buying, plus the
   Nuxt-style `/buy/more` close action that restores a stacked search screen or
@@ -281,23 +286,25 @@ Acceptance evidence for every screen group:
   tick refresh of the visible search results, Nuxt-style sale-price realtime
   patching with temporary up/down trend affordances, availability realtime
   patching that disables sold rows immediately, plus the text-only selected-cart
-  dock review CTA matching Nuxt PaymentDock, and text-only outline fallback
-  stock pagination that still loads the next cursor page without Flutter-only
-  expand/spinner icons.
+  dock review CTA and in-button timer matching Nuxt PaymentDock, and text-only
+  outline fallback stock pagination that still loads the next cursor page
+  without Flutter-only expand/spinner icons.
 - `test/cart_grouping_test.dart` covers Cart review grouping by lottery number
   across reservation IDs and keeps the earliest payment deadline for the group.
 - `test/checkout_screen_test.dart` covers Checkout success navigation with
   nested order payloads, Nuxt-style payment preparation copy while checkout
   data loads, Nuxt-style Cart loading copy while reserved tickets refresh, the
   Nuxt-style product/tenant brand row and exact Nuxt row labels in the checkout summary,
-  split checkout-summary total amount/baht-unit rendering,
+  split checkout-summary total amount/baht-unit rendering, Nuxt summary-card
+  12px radius,
   the Nuxt-style Checkout summary/payment-only layout without repeated Cart
   ticket rows,
   the Nuxt-style wallet payment method card, wallet-summary loading scoped to
   that payment card without hiding the prepared checkout surface, wallet
   summary API payload error copy with localized fallback for internal/client
   failures, Nuxt-style selected check-circle and runtime-derived wallet mark
-  without Flutter radio controls or a generic wallet icon, the runtime
+  without Flutter radio controls or a generic wallet icon, Nuxt wallet-card
+  radius and runtime-primary wallet-note footer styling, the runtime
   checkout payment method selector, external payment provider selection and
   submission without wallet-balance or wallet-load blocking, Nuxt-style
   external-only checkout config without wallet/top-up affordances or wallet API
@@ -319,14 +326,15 @@ Acceptance evidence for every screen group:
   Nuxt-style Cart header count line without the Flutter-only reserved-item
   summary card, Nuxt-style runtime product marker plus product line above
   reserved ticket numbers without a Flutter-only ticket icon, Nuxt-style
-  card-free reserved ticket row, grouped count/seller/total row without nested
-  per-reservation ticket rows, runtime-themed gradient Nuxt-style remove pill,
-  no
+  card-free bottom-divider reserved ticket row, grouped count/seller/total row
+  without nested per-reservation ticket rows, runtime-themed gradient
+  Nuxt-style remove pill, no
   Flutter-only per-card
   countdown, fixed-bottom Cart payment dock with countdown, exact Nuxt total
-  label, split amount/baht-unit rendering, centered timer text without a
-  Flutter-only timer icon, and Nuxt CTA copy, the Cart purchase-limit note and
-  filled accent add-more pill with plus affordance back to `/buy`,
+  label, split amount/baht-unit rendering, Nuxt payment-dock 16px top radius,
+  centered timer text without a Flutter-only timer icon, and Nuxt CTA copy, the
+  Cart purchase-limit note and filled accent add-more pill with plus affordance
+  back to `/buy`,
   Nuxt-style grouped cart remove confirmation copy, custom centered modal shell
   without the generic Flutter alert dialog, compact mobile modal bounds,
   in-flight "กำลังลบ" state with all reservation IDs released, and

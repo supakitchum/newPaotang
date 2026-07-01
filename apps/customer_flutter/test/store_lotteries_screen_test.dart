@@ -109,10 +109,18 @@ void main() {
     expect(
       find.descendant(
         of: ticketRow,
-        matching: find.widgetWithText(TextButton, 'ดูเลขนี้เพิ่มเติม'),
+        matching: find.widgetWithText(TextButton, 'ดูเลขนี้เพิ่ม'),
       ),
       findsOneWidget,
     );
+    final rowDecoration =
+        tester.widget<DecoratedBox>(ticketRow).decoration as BoxDecoration;
+    expect(rowDecoration.borderRadius, isNull);
+    final rowBorder = rowDecoration.border as Border;
+    expect(rowBorder.top.style, BorderStyle.none);
+    expect(rowBorder.left.style, BorderStyle.none);
+    expect(rowBorder.right.style, BorderStyle.none);
+    expect(rowBorder.bottom.style, BorderStyle.solid);
     expect(
       find.descendant(of: ticketRow, matching: find.byType(Chip)),
       findsNothing,
@@ -558,9 +566,14 @@ void main() {
 
     expect(lottery.reserveCount, 1);
     expect(find.text('คุณมีสลากฯ ที่เลือกไว้'), findsNothing);
+    final selectionDock = find.byKey(const ValueKey('cart-selection-dock'));
+    expect(selectionDock, findsOneWidget);
+    final selectionDockShape =
+        tester.widget<Card>(selectionDock).shape as RoundedRectangleBorder;
+    expect(selectionDockShape.borderRadius, BorderRadius.circular(8));
     expect(find.text('จำนวนที่เลือก'), findsOneWidget);
     expect(find.text('1 ใบ'), findsOneWidget);
-    expect(find.textContaining('กรุณาชำระเงินภายใน'), findsOneWidget);
+    expect(find.textContaining('กรุณาชำระเงินภายใน'), findsNothing);
 
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
@@ -574,6 +587,13 @@ void main() {
         matching: find.byIcon(Icons.shopping_cart_checkout),
       ),
       findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: find.widgetWithText(FilledButton, 'ตรวจสอบสลากฯ'),
+        matching: find.textContaining('นาที'),
+      ),
+      findsOneWidget,
     );
     expect(reviewButton.onPressed, isNotNull);
     reviewButton.onPressed!();

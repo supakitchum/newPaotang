@@ -1037,7 +1037,7 @@ class _CartPaymentDock extends StatelessWidget {
       key: const ValueKey('cart-payment-dock'),
       margin: EdgeInsets.zero,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1441,6 +1441,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               : null,
           children: [
             Card(
+              key: const ValueKey('checkout-summary-card'),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(18),
                 child: Column(
@@ -2457,70 +2461,87 @@ class _CartSelectionDock extends StatelessWidget {
     final deadline = earliestActiveReservation(cart.reservations);
     final enabled = onReview != null;
     return Card(
+      key: const ValueKey('cart-selection-dock'),
       margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (deadline != null) ...[
-              Center(child: _ReservationCountdownText(reservation: deadline)),
-              const SizedBox(height: 12),
-            ],
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxWidth < 420;
-                final summary = Column(
-                  crossAxisAlignment: compact
-                      ? CrossAxisAlignment.stretch
-                      : CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.cartSelectionCountLabel,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w900,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n.ticketsCount(cart.itemCount),
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.w900,
-                          ),
-                    ),
-                  ],
-                );
-                final action = SizedBox(
-                  height: 48,
-                  child: FilledButton(
-                    onPressed: onReview,
-                    child: Text(
-                      enabled ? l10n.cartSelectionReview : l10n.cartExpired,
-                    ),
-                  ),
-                );
-                if (compact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      summary,
-                      const SizedBox(height: 12),
-                      action,
-                    ],
-                  );
-                }
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(child: summary),
-                    const SizedBox(width: 16),
-                    Flexible(child: action),
-                  ],
-                );
-              },
-            ),
-          ],
+        padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 16),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 420;
+            final summary = Column(
+              crossAxisAlignment: compact
+                  ? CrossAxisAlignment.stretch
+                  : CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.cartSelectionCountLabel,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  l10n.ticketsCount(cart.itemCount),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+              ],
+            );
+            final countdownStyle =
+                Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onPrimary.withValues(alpha: 0.92),
+                      fontWeight: FontWeight.w600,
+                    );
+            final action = ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 144, minHeight: 58),
+              child: SizedBox(
+                height: 58,
+                child: FilledButton(
+                  onPressed: onReview,
+                  child: enabled && deadline != null
+                      ? Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(l10n.cartSelectionReview),
+                            const SizedBox(height: 4),
+                            _ReservationCountdownText(
+                              reservation: deadline,
+                              countdownLabelBuilder: (l10n, time) =>
+                                  '$time ${l10n.countdownMinute}',
+                              textStyle: countdownStyle,
+                              activeColor:
+                                  colorScheme.onPrimary.withValues(alpha: 0.92),
+                              expiredColor: colorScheme.onPrimary,
+                            ),
+                          ],
+                        )
+                      : Text(l10n.cartExpired),
+                ),
+              ),
+            );
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  summary,
+                  const SizedBox(height: 12),
+                  action,
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: summary),
+                const SizedBox(width: 16),
+                Flexible(child: action),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -2627,19 +2648,17 @@ class _LotteryStockCard extends StatelessWidget {
         ? l10n.storesFallbackStoreName
         : item.sellerName.trim();
     return DecoratedBox(
+      key: ValueKey('lottery-stock-row-${item.localStockItemId}'),
       decoration: BoxDecoration(
-        color: reserved
-            ? colorScheme.primaryContainer.withValues(alpha: 0.32)
-            : colorScheme.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: reserved
-              ? colorScheme.primary.withValues(alpha: 0.28)
-              : colorScheme.outlineVariant.withValues(alpha: 0.55),
+        color: colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.75),
+          ),
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final compact = constraints.maxWidth < 420;
@@ -3107,7 +3126,7 @@ class _CheckoutConfirmDock extends StatelessWidget {
       key: const ValueKey('checkout-payment-dock'),
       margin: EdgeInsets.zero,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -3183,12 +3202,12 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
       key: ValueKey('checkout-payment-method-option-$method'),
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: borderColor, width: selected ? 1.5 : 1),
       ),
       child: InkWell(
         onTap: selected ? null : onSelected,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(12),
         child: Column(
           children: [
             Padding(
@@ -3334,11 +3353,14 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
               ),
             ),
             Container(
+              key: ValueKey('checkout-payment-method-note-$method'),
               width: double.infinity,
               decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest.withValues(
-                  alpha: selected ? 0.56 : 0.36,
-                ),
+                color: walletMethod
+                    ? colorScheme.primaryContainer.withValues(alpha: 0.42)
+                    : colorScheme.surfaceContainerHighest.withValues(
+                        alpha: selected ? 0.56 : 0.36,
+                      ),
               ),
               padding: const EdgeInsets.symmetric(
                 horizontal: 16,
@@ -3347,7 +3369,9 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
               child: Text(
                 note,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+                  color: walletMethod
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -3389,13 +3413,14 @@ class _CartTicketGroupCard extends StatelessWidget {
       key: ValueKey('cart-ticket-row-${group.key}'),
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.75),
+          ),
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -3722,10 +3747,16 @@ class _ReservationCountdownText extends StatefulWidget {
   const _ReservationCountdownText({
     required this.reservation,
     this.countdownLabelBuilder,
+    this.textStyle,
+    this.activeColor,
+    this.expiredColor,
   });
 
   final LotteryReservation reservation;
   final ReservationCountdownLabelBuilder? countdownLabelBuilder;
+  final TextStyle? textStyle;
+  final Color? activeColor;
+  final Color? expiredColor;
 
   @override
   State<_ReservationCountdownText> createState() =>
@@ -3781,14 +3812,18 @@ class _ReservationCountdownTextState extends State<_ReservationCountdownText> {
             l10n,
             formatReservationCountdown(remaining),
           );
+    final theme = Theme.of(context);
+    final baseStyle = widget.textStyle ?? theme.textTheme.bodySmall;
+    final isExpired = remaining.inSeconds <= 0;
+    final textColor = isExpired
+        ? (widget.expiredColor ?? theme.colorScheme.error)
+        : (widget.activeColor ?? baseStyle?.color ?? theme.colorScheme.primary);
     return Text(
       text,
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: remaining.inSeconds <= 0
-                ? Theme.of(context).colorScheme.error
-                : Theme.of(context).colorScheme.primary,
-            fontWeight: FontWeight.w800,
-          ),
+      style: baseStyle?.copyWith(
+        color: textColor,
+        fontWeight: widget.textStyle?.fontWeight ?? FontWeight.w800,
+      ),
     );
   }
 

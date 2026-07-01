@@ -131,8 +131,11 @@ Recent verified work:
   - Buy/search stock cards now restore the Nuxt LotteryItem information order:
     product brand line above the lottery number, runtime bootstrap product
     marker when configured, seller summary as its own muted row, text-only
-    "ดูเลขนี้เพิ่มเติม" link, outline select/sale-closed pills, and text-only
+    "ดูเลขนี้เพิ่ม" link, outline select/sale-closed pills, and text-only
     filled remove pills instead of Flutter cart/action icons.
+  - Buy/search stock rows now use the Nuxt `lottery-row` visual shell more
+    closely: no rounded card background, no all-around card border, only the
+    content-sheet row with a bottom divider and vertical row padding.
   - `/stores/lotteries` now restores the Nuxt-style six-slot digit search
     controls for store stock, submits populated slots as `d1..d6` while keeping
     randomized store browsing, and clear resets the store-scoped search digits.
@@ -160,8 +163,9 @@ Recent verified work:
     structure with runtime product marker above seller, seller as a muted row,
     and text-only outline/remove action pills.
   - `/stores/lotteries` stock rows now drop the Flutter Card/availability-chip
-    wrapper, restore the text-only "ดูเลขนี้เพิ่มเติม" link above the lottery
-    number, and carry a safe internal store-scoped back path into `/buy/more`.
+    wrapper and rounded card shell, restore the exact Nuxt text-only
+    "ดูเลขนี้เพิ่ม" link above the lottery number, and carry a safe internal
+    store-scoped back path into `/buy/more`.
   - `/stores/lotteries` stock rows now restore the Nuxt default lottery image
     frame with runtime `image_url`/thumbnail/status payloads and the localized
     pending/unavailable fallback instead of hardcoded provider artwork.
@@ -263,6 +267,8 @@ Recent verified work:
     page and hide the Flutter bottom navigation on those payment pages, matching
     Nuxt's focused fixed-dock checkout experience while leaving the rest of
     AppShell navigation unchanged.
+  - Cart and Checkout fixed payment docks now use the Nuxt payment-dock 16px
+    top radius rather than the earlier Flutter-only 18px Material radius.
   - Cart header now restores the Nuxt-style current-draw date line from
     `/public/games/current` while preserving the existing reserved-ticket count
     and total summary.
@@ -279,8 +285,8 @@ Recent verified work:
     closely: one lottery number, grouped count badge, seller summary, and group
     total instead of repeating each reserved item as a nested row.
   - Cart grouped ticket rows now drop the Material Card wrapper and render as a
-    Nuxt-style bordered lottery-row surface while keeping grouped remove and
-    summary behavior unchanged.
+    Nuxt-style bottom-divider lottery-row surface with no rounded card shell
+    while keeping grouped remove and summary behavior unchanged.
   - Cart reserved-ticket remove action now matches the Nuxt remove pill more
     closely by using a runtime-themed gradient text-only pill instead of a
     Flutter icon button.
@@ -367,11 +373,13 @@ Recent verified work:
     to be removed from the cart.
   - Buy/search stock lists now show a Nuxt-style selected-cart dock after a
     reservation is created or loaded from the cart, including selected ticket
-    count, the Nuxt review label `จำนวนที่เลือก`, shared reservation countdown,
+    count, the Nuxt review label `จำนวนที่เลือก`, Nuxt PaymentDock selection
+    radius/padding, the shared reservation countdown inside the review pill,
     and a review action that routes to `/cart`.
   - `/stores/lotteries` now shares the same Nuxt selected-cart dock behavior
     after store-scoped reservations, keeping the fixed review dock visible with
-    `จำนวนที่เลือก`, countdown, and `/cart` routing.
+    `จำนวนที่เลือก`, Nuxt selection dock radius, in-button countdown, and
+    `/cart` routing.
   - Selected-cart, Cart review, and Checkout payment dock CTAs now match the
     Nuxt PaymentDock text-only pill style instead of showing Flutter-only
     payment/check/cart icons.
@@ -384,6 +392,8 @@ Recent verified work:
   - Checkout summary total now mirrors Nuxt's emphasized amount plus separate
     localized baht unit instead of rendering the total as one combined money
     string.
+  - Checkout summary card now uses the Nuxt summary-card 12px radius instead
+    of inheriting the app-wide Flutter Card radius.
   - Checkout now matches Nuxt's focused payment layout more closely by keeping
     the payment page to summary, payment method selection, and the fixed
     payment dock instead of repeating the selected lottery rows from Cart.
@@ -416,6 +426,9 @@ Recent verified work:
   - Checkout wallet payment method card now uses the Nuxt-style selected
     check-circle and a runtime-derived wallet mark instead of Flutter radio
     controls and a generic wallet icon, avoiding a hardcoded provider badge.
+  - Checkout wallet payment method card now also follows the Nuxt wallet-card
+    surface more closely with a 12px radius and runtime-primary tinted
+    wallet-note footer instead of the Material-default rounded/neutral note.
   - Checkout wallet payment method card now has mobile regression coverage for
     long runtime wallet names so partner/backend-provided wallet labels do not
     overflow the compact payment layout or fixed payment dock.
