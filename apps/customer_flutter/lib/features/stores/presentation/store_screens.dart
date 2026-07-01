@@ -37,6 +37,7 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
   final _search = TextEditingController();
   final _scrollController = ScrollController();
   final _stores = <StoreItem>[];
+  LotteryCart _cart = LotteryCart.empty();
   String _cursor = '';
   bool _hasMore = false;
   bool _loading = true;
@@ -47,7 +48,10 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_handleScroll);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load(reset: true));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _load(reset: true);
+      _loadCart();
+    });
   }
 
   @override
@@ -61,96 +65,121 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final showCartDock = _storeCartSelectionReviewEnabled(_cart);
     return AppShell(
       title: l10n.storesTitle,
       currentPath: '/stores',
-      child: RefreshIndicator(
-        onRefresh: () => _load(reset: true),
-        child: ListView(
-          controller: _scrollController,
-          children: [
-            CustomerPageBody(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                await Future.wait([
+                  _load(reset: true),
+                  _loadCart(),
+                ]);
+              },
+              child: ListView(
+                controller: _scrollController,
                 children: [
-                  const LotteryStoreSegmentTabs(activePath: '/stores'),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _search,
-                    textInputAction: TextInputAction.search,
-                    decoration: InputDecoration(
-                      labelText: l10n.storesSearchLabel,
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: IconButton(
-                        onPressed: () {
-                          _search.clear();
-                          _load(reset: true);
-                        },
-                        icon: const Icon(Icons.close),
-                      ),
+                  CustomerPageBody(
+                    bottom: showCartDock ? 220 : 128,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const LotteryStoreSegmentTabs(activePath: '/stores'),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _search,
+                          textInputAction: TextInputAction.search,
+                          decoration: InputDecoration(
+                            labelText: l10n.storesSearchLabel,
+                            prefixIcon: const Icon(Icons.search),
+                            suffixIcon: IconButton(
+                              onPressed: () {
+                                _search.clear();
+                                _load(reset: true);
+                              },
+                              icon: const Icon(Icons.close),
+                            ),
+                          ),
+                          onSubmitted: (_) => _load(reset: true),
+                        ),
+                        const SizedBox(height: 20),
+                        CustomerSectionHeader(
+                          title: l10n.storesRecommendedTitle,
+                          leading: const Icon(Icons.storefront_outlined),
+                        ),
+                        const SizedBox(height: 16),
+                        if (_loading && _stores.isEmpty)
+                          const _StoreSkeletonRows()
+                        else if (_error.isNotEmpty && _stores.isEmpty)
+                          _StoreErrorCard(
+                            icon: Icons.error_outline,
+                            title: l10n.storesLoadFailedTitle,
+                            message: _error,
+                            actionLabel: l10n.commonRetry,
+                            onAction: () => _load(reset: true),
+                          )
+                        else if (_stores.isEmpty)
+                          _EmptyCard(
+                            icon: Icons.storefront_outlined,
+                            title: l10n.storesEmptyTitle,
+                            message: l10n.storesEmptyMessage,
+                          )
+                        else
+                          for (final store in _stores)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _StoreCard(store: store),
+                            ),
+                        if (_error.isNotEmpty && _stores.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          _StoreErrorCard(
+                            icon: Icons.error_outline,
+                            title: l10n.storesLoadFailedTitle,
+                            message: _error,
+                            actionLabel: l10n.commonRetry,
+                            onAction: () => _load(reset: false),
+                          ),
+                        ],
+                        if (_loadingMore) ...[
+                          const SizedBox(height: 8),
+                          const _StoreSkeletonRows(
+                            keyPrefix: 'store-list-skeleton-more',
+                          ),
+                        ] else if (_hasMore) ...[
+                          const SizedBox(height: 8),
+                          OutlinedButton(
+                            onPressed:
+                                _loadingMore ? null : () => _load(reset: false),
+                            child: Text(
+                              _loadingMore
+                                  ? l10n.commonLoadingMore
+                                  : l10n.commonLoadMore,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                    onSubmitted: (_) => _load(reset: true),
                   ),
-                  const SizedBox(height: 20),
-                  CustomerSectionHeader(
-                    title: l10n.storesRecommendedTitle,
-                    leading: const Icon(Icons.storefront_outlined),
-                  ),
-                  const SizedBox(height: 16),
-                  if (_loading && _stores.isEmpty)
-                    const _StoreSkeletonRows()
-                  else if (_error.isNotEmpty && _stores.isEmpty)
-                    _StoreErrorCard(
-                      icon: Icons.error_outline,
-                      title: l10n.storesLoadFailedTitle,
-                      message: _error,
-                      actionLabel: l10n.commonRetry,
-                      onAction: () => _load(reset: true),
-                    )
-                  else if (_stores.isEmpty)
-                    _EmptyCard(
-                      icon: Icons.storefront_outlined,
-                      title: l10n.storesEmptyTitle,
-                      message: l10n.storesEmptyMessage,
-                    )
-                  else
-                    for (final store in _stores)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _StoreCard(store: store),
-                      ),
-                  if (_error.isNotEmpty && _stores.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    _StoreErrorCard(
-                      icon: Icons.error_outline,
-                      title: l10n.storesLoadFailedTitle,
-                      message: _error,
-                      actionLabel: l10n.commonRetry,
-                      onAction: () => _load(reset: false),
-                    ),
-                  ],
-                  if (_loadingMore) ...[
-                    const SizedBox(height: 8),
-                    const _StoreSkeletonRows(
-                      keyPrefix: 'store-list-skeleton-more',
-                    ),
-                  ] else if (_hasMore) ...[
-                    const SizedBox(height: 8),
-                    OutlinedButton(
-                      onPressed:
-                          _loadingMore ? null : () => _load(reset: false),
-                      child: Text(
-                        _loadingMore
-                            ? l10n.commonLoadingMore
-                            : l10n.commonLoadMore,
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          if (showCartDock)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _StoreFixedPaymentDockContainer(
+                child: _StoreCartSelectionDock(
+                  cart: _cart,
+                  onReview: () => context.go('/cart'),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -197,6 +226,23 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
           _loadingMore = false;
         });
       }
+    }
+  }
+
+  Future<void> _loadCart() async {
+    final auth = ref.read(authControllerProvider);
+    if (!auth.isAuthenticated) {
+      if (mounted && _cart.reservationIds.isNotEmpty) {
+        setState(() => _cart = LotteryCart.empty());
+      }
+      return;
+    }
+    try {
+      final cart = await ref.read(lotteryRepositoryProvider).cart();
+      if (!mounted) return;
+      setState(() => _cart = cart);
+    } catch (_) {
+      // Store browsing remains usable even when the optional cart refresh fails.
     }
   }
 
@@ -915,85 +961,66 @@ class _StoreCartSelectionDock extends StatelessWidget {
     return Card(
       key: const ValueKey('cart-selection-dock'),
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 16),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 420;
-            final summary = Column(
-              crossAxisAlignment: compact
-                  ? CrossAxisAlignment.stretch
-                  : CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.cartSelectionCountLabel,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  l10n.ticketsCount(cart.itemCount),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: colorScheme.primary,
-                        fontWeight: FontWeight.w900,
-                      ),
-                ),
-              ],
-            );
-            final countdownStyle =
-                Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onPrimary.withValues(alpha: 0.92),
-                      fontWeight: FontWeight.w600,
-                    );
-            final action = ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 144, minHeight: 58),
-              child: SizedBox(
-                height: 58,
-                child: FilledButton(
-                  onPressed: onReview,
-                  child: deadline != null
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(l10n.cartSelectionReview),
-                            const SizedBox(height: 4),
-                            _StoreReservationCountdownText(
-                              reservation: deadline,
-                              countdownLabelBuilder: (l10n, time) =>
-                                  '$time ${l10n.countdownMinute}',
-                              textStyle: countdownStyle,
-                              activeColor:
-                                  colorScheme.onPrimary.withValues(alpha: 0.92),
-                              expiredColor: colorScheme.onPrimary,
-                            ),
-                          ],
-                        )
-                      : Text(l10n.cartExpired),
-                ),
+        padding: const EdgeInsets.fromLTRB(25, 27, 25, 27),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (deadline != null) ...[
+              Center(
+                child: _StoreReservationCountdownText(reservation: deadline),
               ),
-            );
-            if (compact) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  summary,
-                  const SizedBox(height: 12),
-                  action,
-                ],
-              );
-            }
-            return Row(
+              const SizedBox(height: 18),
+            ],
+            Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Expanded(child: summary),
-                const SizedBox(width: 16),
-                Flexible(child: action),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.cartSelectionCountLabel,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        l10n.ticketsCount(cart.itemCount),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 18),
+                Flexible(
+                  flex: 0,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minWidth: 144,
+                      maxWidth: 220,
+                      minHeight: 58,
+                    ),
+                    child: SizedBox(
+                      height: 58,
+                      child: FilledButton(
+                        onPressed: onReview,
+                        child: Text(l10n.cartSelectionReview),
+                      ),
+                    ),
+                  ),
+                ),
               ],
-            );
-          },
+            ),
+          ],
         ),
       ),
     );
@@ -1028,19 +1055,9 @@ class _StoreFixedPaymentDockContainer extends StatelessWidget {
 }
 
 class _StoreReservationCountdownText extends StatefulWidget {
-  const _StoreReservationCountdownText({
-    required this.reservation,
-    this.countdownLabelBuilder,
-    this.textStyle,
-    this.activeColor,
-    this.expiredColor,
-  });
+  const _StoreReservationCountdownText({required this.reservation});
 
   final LotteryReservation reservation;
-  final ReservationCountdownLabelBuilder? countdownLabelBuilder;
-  final TextStyle? textStyle;
-  final Color? activeColor;
-  final Color? expiredColor;
 
   @override
   State<_StoreReservationCountdownText> createState() =>
@@ -1093,22 +1110,15 @@ class _StoreReservationCountdownTextState
     );
     final text = remaining.inSeconds <= 0
         ? l10n.cartExpired
-        : (widget.countdownLabelBuilder ?? _storeDefaultCountdownLabel)(
-            l10n,
-            formatReservationCountdown(remaining),
-          );
-    final theme = Theme.of(context);
-    final baseStyle = widget.textStyle ?? theme.textTheme.bodySmall;
-    final isExpired = remaining.inSeconds <= 0;
-    final textColor = isExpired
-        ? (widget.expiredColor ?? theme.colorScheme.error)
-        : (widget.activeColor ?? baseStyle?.color ?? theme.colorScheme.primary);
+        : l10n.cartExpiresCountdown(formatReservationCountdown(remaining));
     return Text(
       text,
-      style: baseStyle?.copyWith(
-        color: textColor,
-        fontWeight: widget.textStyle?.fontWeight ?? FontWeight.w800,
-      ),
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: remaining.inSeconds <= 0
+                ? Theme.of(context).colorScheme.error
+                : Theme.of(context).colorScheme.primary,
+            fontWeight: FontWeight.w800,
+          ),
     );
   }
 
@@ -1131,10 +1141,6 @@ class _StoreReservationCountdownTextState
       if (mounted) setState(() {});
     });
   }
-}
-
-String _storeDefaultCountdownLabel(CustomerLocalizations l10n, String time) {
-  return l10n.cartExpiresCountdown(time);
 }
 
 String _storeLotteriesDrawDateLabel(

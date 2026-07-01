@@ -233,7 +233,7 @@ Acceptance evidence for every screen group:
   the closed-sale store stock state: localized sale-closed notice, disabled new
   reservation button, and no reserve call when response-level availability
   blocks buying, plus the Nuxt-style selected-cart dock after store-scoped
-  reservations with `จำนวนที่เลือก`, PaymentDock selection radius, in-button
+  reservations with `จำนวนที่เลือก`, PaymentDock review radius, centered
   countdown, `/cart` routing, and a text-only review CTA without the
   Flutter-only cart icon.
 - `test/buy_store_segment_tabs_test.dart` covers the Nuxt-style segmented
@@ -242,10 +242,11 @@ Acceptance evidence for every screen group:
   launching the dedicated Nuxt-style search page with the current draw date
   visible, plus the Nuxt-style recommended-store section heading and
   icon/name store rows without the Flutter-only Card/ListTile/code subtitle,
-  infinite-scroll next-page loading on the store list, Nuxt-style placeholder
-  store rows during initial and next-page loading, text-only outline fallback
-  pagination without Flutter-only expand/spinner icons, plus store-list load API
-  payload error copy with localized fallback for internal/client failures.
+  active-cart fixed review dock behavior on `/stores`, infinite-scroll
+  next-page loading on the store list, Nuxt-style placeholder store rows during
+  initial and next-page loading, text-only outline fallback pagination without
+  Flutter-only expand/spinner icons, plus store-list load API payload error
+  copy with localized fallback for internal/client failures.
 - `test/lottery_stock_card_test.dart` covers Buy/search digit-query restore
   into six Nuxt-style input boxes, the Nuxt "ซื้อสลากดิจิทัล" search-page
   title, Nuxt-style search form/result copy including the store-scoped
@@ -272,10 +273,10 @@ Acceptance evidence for every screen group:
   without Flutter-only helper subtitles, Nuxt-style stock filter pills on `/buy`
   and `/buy/search` while keeping them off `/buy/more`, plus stock pagination
   loading when the list is near the bottom. It also covers the
-  Nuxt-style selected-cart dock after reservation with the `จำนวนที่เลือก`
-  review label, selected ticket count, PaymentDock selection radius, shared
-  reservation countdown inside the review pill, and `/cart` review routing. It
-  also covers
+  fixed Nuxt-style selected-cart dock after reservation with the
+  `จำนวนที่เลือก` review label, selected ticket count, PaymentDock review
+  radius, shared reservation countdown above the review row, and `/cart`
+  review routing. It also covers
   closed-sale stock state: localized alert, disabled new reservation button, and
   no reserve call when `bet_status`/`canReserve` blocks buying, plus the
   Nuxt-style `/buy/more` close action that restores a stacked search screen or
@@ -286,7 +287,8 @@ Acceptance evidence for every screen group:
   tick refresh of the visible search results, Nuxt-style sale-price realtime
   patching with temporary up/down trend affordances, availability realtime
   patching that disables sold rows immediately, plus the text-only selected-cart
-  dock review CTA and in-button timer matching Nuxt PaymentDock, and text-only
+  dock review CTA and centered timer matching Nuxt PaymentDock, fixed-bottom
+  `/buy/more` dock behavior for Nuxt's `/buy/*` route family, and text-only
   outline fallback stock pagination that still loads the next cursor page
   without Flutter-only expand/spinner icons.
 - `test/cart_grouping_test.dart` covers Cart review grouping by lottery number

@@ -371,14 +371,21 @@ Recent verified work:
   - Buy/search stock cards now show a localized closed-sale alert and disable
     new reservations when sales are closed while still allowing reserved items
     to be removed from the cart.
-  - Buy/search stock lists now show a Nuxt-style selected-cart dock after a
-    reservation is created or loaded from the cart, including selected ticket
-    count, the Nuxt review label `จำนวนที่เลือก`, Nuxt PaymentDock selection
-    radius/padding, the shared reservation countdown inside the review pill,
-    and a review action that routes to `/cart`.
+  - Buy/search stock lists now show a fixed Nuxt-style selected-cart review
+    dock after a reservation is created or loaded from the cart, including
+    selected ticket count, the Nuxt review label `จำนวนที่เลือก`, Nuxt
+    PaymentDock review radius/padding, the shared reservation countdown as the
+    centered timer row, and a review action that routes to `/cart`.
+  - `/buy/more` now shares the same fixed Nuxt PaymentDock review behavior as
+    the rest of Nuxt's `/buy/*` routes while keeping same-number search
+    pagination unseeded.
+  - `/stores` now also follows Nuxt `MobileShell` active-cart behavior: when an
+    authenticated customer already has reserved tickets, the store-browsing
+    list shows the same fixed review dock without making cart refresh failures
+    block store browsing.
   - `/stores/lotteries` now shares the same Nuxt selected-cart dock behavior
     after store-scoped reservations, keeping the fixed review dock visible with
-    `จำนวนที่เลือก`, Nuxt selection dock radius, in-button countdown, and
+    `จำนวนที่เลือก`, Nuxt review dock radius, centered countdown, and
     `/cart` routing.
   - Selected-cart, Cart review, and Checkout payment dock CTAs now match the
     Nuxt PaymentDock text-only pill style instead of showing Flutter-only

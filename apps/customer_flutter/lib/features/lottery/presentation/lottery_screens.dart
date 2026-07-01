@@ -44,6 +44,7 @@ class BuyScreen extends ConsumerStatefulWidget {
 class _BuyScreenState extends ConsumerState<BuyScreen> {
   final _digits = List.generate(6, (_) => TextEditingController());
   late final Future<CurrentGame?> _currentGameFuture;
+  LotteryCart _cart = LotteryCart.empty();
 
   @override
   void initState() {
@@ -72,7 +73,15 @@ class _BuyScreenState extends ConsumerState<BuyScreen> {
           icon: const Icon(Icons.shopping_cart_outlined),
         ),
       ],
-      child: _LotteryPageList(
+      child: _LotteryDockedPage(
+        dock: _cart.reservationIds.isEmpty
+            ? null
+            : _CartSelectionDock(
+                cart: _cart,
+                onReview: _cartSelectionReviewEnabled(_cart)
+                    ? () => context.go('/cart')
+                    : null,
+              ),
         children: [
           const LotteryStoreSegmentTabs(activePath: '/buy'),
           const SizedBox(height: 16),
@@ -114,6 +123,7 @@ class _BuyScreenState extends ConsumerState<BuyScreen> {
           const SizedBox(height: 16),
           _LotteryStockList(
             title: l10n.lotteryStockTitle,
+            onCartChanged: _syncCart,
           ),
         ],
       ),
@@ -122,6 +132,11 @@ class _BuyScreenState extends ConsumerState<BuyScreen> {
 
   void _goSearch() {
     context.go('/buy/search');
+  }
+
+  void _syncCart(LotteryCart cart) {
+    if (_sameCartSummary(_cart, cart)) return;
+    setState(() => _cart = cart);
   }
 }
 
@@ -172,6 +187,7 @@ class _BuySearchScreenState extends ConsumerState<BuySearchScreen> {
   late final List<TextEditingController> _digits;
   late final Future<CurrentGame?> _currentGameFuture;
   late bool _showResults;
+  LotteryCart _cart = LotteryCart.empty();
   bool _searching = false;
 
   @override
@@ -226,7 +242,15 @@ class _BuySearchScreenState extends ConsumerState<BuySearchScreen> {
           icon: const Icon(Icons.shopping_cart_outlined),
         ),
       ],
-      child: _LotteryPageList(
+      child: _LotteryDockedPage(
+        dock: _cart.reservationIds.isEmpty
+            ? null
+            : _CartSelectionDock(
+                cart: _cart,
+                onReview: _cartSelectionReviewEnabled(_cart)
+                    ? () => context.go('/cart')
+                    : null,
+              ),
         children: [
           Card(
             child: Padding(
@@ -297,6 +321,7 @@ class _BuySearchScreenState extends ConsumerState<BuySearchScreen> {
               storeId: widget.query['store_id'] ?? '',
               returnPath: returnPath,
               showMoreLink: !exactSearch,
+              onCartChanged: _syncCart,
               onResetLoadingChanged: _setSearchLoading,
             ),
           ],
@@ -339,17 +364,32 @@ class _BuySearchScreenState extends ConsumerState<BuySearchScreen> {
     if (!mounted || _searching == value) return;
     setState(() => _searching = value);
   }
+
+  void _syncCart(LotteryCart cart) {
+    if (_sameCartSummary(_cart, cart)) return;
+    setState(() => _cart = cart);
+  }
 }
 
-class BuyMoreScreen extends StatelessWidget {
+class BuyMoreScreen extends ConsumerStatefulWidget {
   const BuyMoreScreen({super.key, required this.query});
 
   final Map<String, String> query;
 
   @override
+  ConsumerState<BuyMoreScreen> createState() => _BuyMoreScreenState();
+}
+
+class _BuyMoreScreenState extends ConsumerState<BuyMoreScreen> {
+  LotteryCart _cart = LotteryCart.empty();
+
+  @override
   Widget build(BuildContext context) {
-    final number = query['number'] ?? '';
-    final backPath = safeLotteryBackPath(query['back'] ?? '', fallback: '/buy');
+    final number = widget.query['number'] ?? '';
+    final backPath = safeLotteryBackPath(
+      widget.query['back'] ?? '',
+      fallback: '/buy',
+    );
     final l10n = context.l10n;
     return AppShell(
       title: l10n.lotteryMoreTitle,
@@ -366,19 +406,28 @@ class BuyMoreScreen extends StatelessWidget {
           icon: const Icon(Icons.shopping_cart_outlined),
         ),
       ],
-      child: _LotteryPageList(
+      child: _LotteryDockedPage(
+        dock: _cart.reservationIds.isEmpty
+            ? null
+            : _CartSelectionDock(
+                cart: _cart,
+                onReview: _cartSelectionReviewEnabled(_cart)
+                    ? () => context.go('/cart')
+                    : null,
+              ),
         children: [
           _LotteryMoreSummaryHeader(number: number),
           const SizedBox(height: 16),
           _LotteryStockList(
             title: l10n.lotteryMoreListTitle,
             number: number,
-            storeId: query['store_id'] ?? '',
+            storeId: widget.query['store_id'] ?? '',
             returnPath: backPath,
             showMoreLink: false,
             showFilterPills: false,
             showRefreshAction: false,
             useRandomSeed: false,
+            onCartChanged: _syncCart,
           ),
         ],
       ),
@@ -388,12 +437,17 @@ class BuyMoreScreen extends StatelessWidget {
   void _goBack(BuildContext context, String backPath) {
     if (shouldPopLotteryMoreBack(
       canPop: context.canPop(),
-      explicitBackPath: query['back'] ?? '',
+      explicitBackPath: widget.query['back'] ?? '',
     )) {
       context.pop();
       return;
     }
     context.go(backPath);
+  }
+
+  void _syncCart(LotteryCart cart) {
+    if (_sameCartSummary(_cart, cart)) return;
+    setState(() => _cart = cart);
   }
 }
 
@@ -1726,6 +1780,7 @@ class _LotteryStockList extends ConsumerStatefulWidget {
     this.showFilterPills = true,
     this.showRefreshAction = true,
     this.useRandomSeed = true,
+    this.onCartChanged,
     this.onResetLoadingChanged,
   });
 
@@ -1738,6 +1793,7 @@ class _LotteryStockList extends ConsumerStatefulWidget {
   final bool showFilterPills;
   final bool showRefreshAction;
   final bool useRandomSeed;
+  final ValueChanged<LotteryCart>? onCartChanged;
   final ValueChanged<bool>? onResetLoadingChanged;
 
   @override
@@ -1872,15 +1928,6 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
             child: _buildListContent(context, l10n),
           ),
         ),
-        if (_cart.reservationIds.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _CartSelectionDock(
-            cart: _cart,
-            onReview: _cartSelectionReviewEnabled(_cart)
-                ? () => context.go('/cart')
-                : null,
-          ),
-        ],
       ],
     );
   }
@@ -2022,6 +2069,7 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
             ),
           );
       });
+      widget.onCartChanged?.call(cart);
     } catch (error) {
       if (!mounted) return;
       setState(
@@ -2301,6 +2349,7 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
           ),
         );
     });
+    widget.onCartChanged?.call(cart);
   }
 
   void _attachScrollListener() {
@@ -2356,6 +2405,19 @@ bool _cartSelectionReviewEnabled(LotteryCart cart) {
   final deadline = earliestActiveReservation(cart.reservations);
   return cart.reservationIds.isNotEmpty &&
       (deadline == null || !reservationDeadlineExpired(deadline));
+}
+
+bool _sameCartSummary(LotteryCart current, LotteryCart next) {
+  if (current.itemCount != next.itemCount || current.total != next.total) {
+    return false;
+  }
+  final currentIds = current.reservationIds;
+  final nextIds = next.reservationIds;
+  if (currentIds.length != nextIds.length) return false;
+  for (var index = 0; index < currentIds.length; index++) {
+    if (currentIds[index] != nextIds[index]) return false;
+  }
+  return true;
 }
 
 int _stockRandomSeedCounter = 0;
@@ -2463,85 +2525,66 @@ class _CartSelectionDock extends StatelessWidget {
     return Card(
       key: const ValueKey('cart-selection-dock'),
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 16),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 420;
-            final summary = Column(
-              crossAxisAlignment: compact
-                  ? CrossAxisAlignment.stretch
-                  : CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.cartSelectionCountLabel,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  l10n.ticketsCount(cart.itemCount),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: colorScheme.primary,
-                        fontWeight: FontWeight.w900,
-                      ),
-                ),
-              ],
-            );
-            final countdownStyle =
-                Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onPrimary.withValues(alpha: 0.92),
-                      fontWeight: FontWeight.w600,
-                    );
-            final action = ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 144, minHeight: 58),
-              child: SizedBox(
-                height: 58,
-                child: FilledButton(
-                  onPressed: onReview,
-                  child: enabled && deadline != null
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(l10n.cartSelectionReview),
-                            const SizedBox(height: 4),
-                            _ReservationCountdownText(
-                              reservation: deadline,
-                              countdownLabelBuilder: (l10n, time) =>
-                                  '$time ${l10n.countdownMinute}',
-                              textStyle: countdownStyle,
-                              activeColor:
-                                  colorScheme.onPrimary.withValues(alpha: 0.92),
-                              expiredColor: colorScheme.onPrimary,
-                            ),
-                          ],
-                        )
-                      : Text(l10n.cartExpired),
-                ),
-              ),
-            );
-            if (compact) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  summary,
-                  const SizedBox(height: 12),
-                  action,
-                ],
-              );
-            }
-            return Row(
+        padding: const EdgeInsets.fromLTRB(25, 27, 25, 27),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (deadline != null) ...[
+              Center(child: _ReservationCountdownText(reservation: deadline)),
+              const SizedBox(height: 18),
+            ],
+            Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Expanded(child: summary),
-                const SizedBox(width: 16),
-                Flexible(child: action),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.cartSelectionCountLabel,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        l10n.ticketsCount(cart.itemCount),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 18),
+                Flexible(
+                  flex: 0,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minWidth: 144,
+                      maxWidth: 220,
+                      minHeight: 58,
+                    ),
+                    child: SizedBox(
+                      height: 58,
+                      child: FilledButton(
+                        onPressed: onReview,
+                        child: Text(
+                          enabled ? l10n.cartSelectionReview : l10n.cartExpired,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
-            );
-          },
+            ),
+          ],
         ),
       ),
     );
@@ -3747,16 +3790,10 @@ class _ReservationCountdownText extends StatefulWidget {
   const _ReservationCountdownText({
     required this.reservation,
     this.countdownLabelBuilder,
-    this.textStyle,
-    this.activeColor,
-    this.expiredColor,
   });
 
   final LotteryReservation reservation;
   final ReservationCountdownLabelBuilder? countdownLabelBuilder;
-  final TextStyle? textStyle;
-  final Color? activeColor;
-  final Color? expiredColor;
 
   @override
   State<_ReservationCountdownText> createState() =>
@@ -3812,18 +3849,14 @@ class _ReservationCountdownTextState extends State<_ReservationCountdownText> {
             l10n,
             formatReservationCountdown(remaining),
           );
-    final theme = Theme.of(context);
-    final baseStyle = widget.textStyle ?? theme.textTheme.bodySmall;
-    final isExpired = remaining.inSeconds <= 0;
-    final textColor = isExpired
-        ? (widget.expiredColor ?? theme.colorScheme.error)
-        : (widget.activeColor ?? baseStyle?.color ?? theme.colorScheme.primary);
     return Text(
       text,
-      style: baseStyle?.copyWith(
-        color: textColor,
-        fontWeight: widget.textStyle?.fontWeight ?? FontWeight.w800,
-      ),
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: remaining.inSeconds <= 0
+                ? Theme.of(context).colorScheme.error
+                : Theme.of(context).colorScheme.primary,
+            fontWeight: FontWeight.w800,
+          ),
     );
   }
 

@@ -238,6 +238,9 @@ void main() {
   testWidgets('stock list shows selected-cart dock after reservation', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     final lottery = _FakeLotteryRepository();
     final router = _lotteryRouter(
       initialLocation: '/buy/search?number=273707',
@@ -248,20 +251,37 @@ void main() {
 
     expect(find.text('จำนวนที่เลือก'), findsNothing);
 
-    await tester.tap(find.text('เลือก'));
+    final selectButton = find.widgetWithText(OutlinedButton, 'เลือก');
+    await tester.ensureVisible(selectButton);
+    await tester.pumpAndSettle();
+    await tester.tap(selectButton);
     await tester.pumpAndSettle();
 
     expect(find.text('คุณมีสลากฯ ที่เลือกไว้'), findsNothing);
     final selectionDock = find.byKey(const ValueKey('cart-selection-dock'));
     expect(selectionDock, findsOneWidget);
+    expect(
+      find.ancestor(of: selectionDock, matching: find.byType(ListView)),
+      findsNothing,
+    );
     final selectionDockShape =
         tester.widget<Card>(selectionDock).shape as RoundedRectangleBorder;
-    expect(selectionDockShape.borderRadius, BorderRadius.circular(8));
+    expect(
+      selectionDockShape.borderRadius,
+      const BorderRadius.vertical(top: Radius.circular(12)),
+    );
     expect(find.text('จำนวนที่เลือก'), findsOneWidget);
     expect(find.text('1 ใบ'), findsOneWidget);
-    expect(find.textContaining('กรุณาชำระเงินภายใน'), findsNothing);
+    expect(
+      find.descendant(
+        of: selectionDock,
+        matching: find.textContaining('กรุณาชำระเงินภายใน'),
+      ),
+      findsOneWidget,
+    );
 
     final reviewButton = find.widgetWithText(FilledButton, 'ตรวจสอบสลากฯ');
+    expect(tester.getSize(reviewButton).height, 58);
     expect(
       find.descendant(
         of: reviewButton,
@@ -271,10 +291,12 @@ void main() {
     );
     expect(
       find.descendant(of: reviewButton, matching: find.textContaining('นาที')),
-      findsOneWidget,
+      findsNothing,
     );
-    await tester.ensureVisible(reviewButton);
+    final dockBottom = tester.getBottomLeft(selectionDock).dy;
+    await tester.drag(find.byType(ListView), const Offset(0, -260));
     await tester.pumpAndSettle();
+    expect(tester.getBottomLeft(selectionDock).dy, closeTo(dockBottom, 1));
     await tester.tap(reviewButton);
     await tester.pumpAndSettle();
 
@@ -741,6 +763,31 @@ void main() {
     expect(lottery.searchCount, 1);
     expect(lottery.lastStoreId, 'store_1');
     expect(lottery.lastRandomSeed, isEmpty);
+    expect(find.byKey(const ValueKey('cart-selection-dock')), findsNothing);
+
+    final moreSelectButton = find.widgetWithText(OutlinedButton, 'เลือก').first;
+    await tester.ensureVisible(moreSelectButton);
+    await tester.pumpAndSettle();
+    await tester.tap(moreSelectButton);
+    await tester.pumpAndSettle();
+
+    final moreDock = find.byKey(const ValueKey('cart-selection-dock'));
+    expect(moreDock, findsOneWidget);
+    expect(
+      find.ancestor(of: moreDock, matching: find.byType(ListView)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: moreDock,
+        matching: find.textContaining('กรุณาชำระเงินภายใน'),
+      ),
+      findsOneWidget,
+    );
+    final moreDockBottom = tester.getBottomLeft(moreDock).dy;
+    await tester.drag(find.byType(ListView), const Offset(0, -260));
+    await tester.pumpAndSettle();
+    expect(tester.getBottomLeft(moreDock).dy, closeTo(moreDockBottom, 1));
     expect(tester.takeException(), isNull);
   });
 

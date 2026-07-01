@@ -570,16 +570,29 @@ void main() {
     expect(selectionDock, findsOneWidget);
     final selectionDockShape =
         tester.widget<Card>(selectionDock).shape as RoundedRectangleBorder;
-    expect(selectionDockShape.borderRadius, BorderRadius.circular(8));
+    expect(
+      selectionDockShape.borderRadius,
+      const BorderRadius.vertical(top: Radius.circular(12)),
+    );
     expect(find.text('จำนวนที่เลือก'), findsOneWidget);
     expect(find.text('1 ใบ'), findsOneWidget);
-    expect(find.textContaining('กรุณาชำระเงินภายใน'), findsNothing);
+    expect(
+      find.descendant(
+        of: selectionDock,
+        matching: find.textContaining('กรุณาชำระเงินภายใน'),
+      ),
+      findsOneWidget,
+    );
 
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
 
     final reviewButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'ตรวจสอบสลากฯ'),
+    );
+    expect(
+      tester.getSize(find.widgetWithText(FilledButton, 'ตรวจสอบสลากฯ')).height,
+      58,
     );
     expect(
       find.descendant(
@@ -593,7 +606,7 @@ void main() {
         of: find.widgetWithText(FilledButton, 'ตรวจสอบสลากฯ'),
         matching: find.textContaining('นาที'),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(reviewButton.onPressed, isNotNull);
     reviewButton.onPressed!();
