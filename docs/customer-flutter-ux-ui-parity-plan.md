@@ -235,7 +235,8 @@ Acceptance evidence for every screen group:
   blocks buying, plus the Nuxt-style selected-cart dock after store-scoped
   reservations with `จำนวนที่เลือก`, PaymentDock review radius, centered
   countdown, `/cart` routing, and a text-only review CTA without the
-  Flutter-only cart icon.
+  Flutter-only cart icon, plus guest selection redirecting to
+  `/login?redirect=<current store stock route>` without sending a reserve call.
 - `test/buy_store_segment_tabs_test.dart` covers the Nuxt-style segmented
   navigation between `/buy` all-ticket browsing and `/stores` store browsing,
   `/buy` using the Nuxt "ซื้อสลากดิจิทัล" header title, `/buy` digit boxes
@@ -279,6 +280,10 @@ Acceptance evidence for every screen group:
   review routing. It also covers
   closed-sale stock state: localized alert, disabled new reservation button, and
   no reserve call when `bet_status`/`canReserve` blocks buying, plus the
+  Nuxt-style guest booking handoff where unauthenticated Buy/search stock
+  selection routes to `/login?redirect=<current stock route>` without sending a
+  reserve call, guest stock browsing remains public without loading
+  `/customer/cart`, plus the
   Nuxt-style `/buy/more` close action that restores a stacked search screen or
   safely falls back to `/buy`. It also covers compact mobile `/buy/more` layout
   parity: the Nuxt-style number-list header, no filter/more/refresh controls,

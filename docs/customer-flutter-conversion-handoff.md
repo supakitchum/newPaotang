@@ -220,6 +220,13 @@ Recent verified work:
     sold-ticket handling: backend `reservation_unavailable` refreshes the cart
     quietly, shows the localized "สลากใบนี้ถูกซื้อแล้ว" acknowledgement dialog,
     and removes the unavailable row after the customer dismisses it.
+  - Guest reservation attempts from Buy/search/more-number stock and
+    `/stores/lotteries` now match Nuxt's booking handoff by routing to
+    `/login?redirect=<current stock route>` before any reserve API call is
+    sent.
+  - Buy/search/more-number guest browsing now stays on the public stock path
+    and skips `/customer/cart` until the customer is authenticated, matching
+    Nuxt's ability to browse stock before login.
   - `/buy` and `/buy/search` now restore the Nuxt-style horizontal stock filter
     pills for all numbers, discounts, accessible-store sellers, and
     agency-store sellers while keeping `/buy/more` focused on same-number

@@ -191,6 +191,73 @@ void main() {
     }
   });
 
+  testWidgets('guest store stock selection keeps Nuxt-style login redirect', (
+    tester,
+  ) async {
+    final store = _FakeStoreRepository();
+    final lottery = _CountingLotteryRepository();
+    final tokenStore = AuthTokenStore();
+    final authController = _unauthenticatedController(tokenStore);
+    final router = GoRouter(
+      initialLocation: '/stores/lotteries?store_id=store_1',
+      routes: [
+        GoRoute(
+          path: '/stores/lotteries',
+          builder: (context, state) => const StoreLotteriesScreen(
+            storeId: 'store_1',
+            storeName: 'ร้านทดสอบ',
+          ),
+        ),
+        GoRoute(
+          path: '/login',
+          builder: (context, state) => Scaffold(
+            body: Center(
+              child: Text(
+                'Login route ${state.uri.queryParameters['redirect'] ?? ''}',
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(_testConfig),
+          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
+          authTokenStoreProvider.overrideWithValue(tokenStore),
+          authControllerProvider.overrideWith((_) => authController),
+          resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
+          storeRepositoryProvider.overrideWithValue(store),
+          lotteryRepositoryProvider.overrideWithValue(lottery),
+        ],
+        child: MaterialApp.router(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'เลือก'));
+    await tester.pumpAndSettle();
+
+    expect(lottery.reserveCount, 0);
+    expect(
+      find.text('Login route /stores/lotteries?store_id=store_1'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('store lotteries refresh enters Nuxt-style cooldown', (
     tester,
   ) async {

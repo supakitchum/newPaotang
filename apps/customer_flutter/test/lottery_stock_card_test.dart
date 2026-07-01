@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'package:customer_flutter/core/auth/auth_controller.dart';
+import 'package:customer_flutter/core/auth/auth_repository.dart';
 import 'package:customer_flutter/core/auth/auth_token_store.dart';
 import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/app_locale.dart';
 import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
+import 'package:customer_flutter/core/security/biometric_auth_service.dart';
 import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/features/lottery/data/lottery_models.dart';
@@ -233,6 +236,36 @@ void main() {
     expect(lottery.releaseCount, 1);
     expect(find.text('เลือก'), findsOneWidget);
     expect(find.text('เอาออก'), findsNothing);
+  });
+
+  testWidgets('guest stock selection keeps Nuxt-style login redirect', (
+    tester,
+  ) async {
+    final lottery = _GuestBrowseLotteryRepository();
+    final tokenStore = AuthTokenStore();
+    final router = _lotteryRouter(
+      initialLocation: '/buy/search?number=273707',
+    );
+
+    await _pumpLotteryApp(
+      tester,
+      router: router,
+      lottery: lottery,
+      tokenStore: tokenStore,
+      authController: _unauthenticatedController(tokenStore),
+    );
+    await tester.pumpAndSettle();
+
+    expect(lottery.cartCount, 0);
+    expect(find.text('เลือก'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'เลือก'));
+    await tester.pumpAndSettle();
+
+    expect(lottery.cartCount, 0);
+    expect(lottery.reserveCount, 0);
+    expect(find.text('Login route /buy/search?number=273707'), findsOneWidget);
+    expect(find.text('เพิ่มสลากลงตะกร้าแล้ว'), findsNothing);
   });
 
   testWidgets('stock list shows selected-cart dock after reservation', (
@@ -870,6 +903,16 @@ GoRouter _lotteryRouter({required String initialLocation}) {
         builder: (context, state) =>
             const Scaffold(body: Center(child: Text('Cart route'))),
       ),
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => Scaffold(
+          body: Center(
+            child: Text(
+              'Login route ${state.uri.queryParameters['redirect'] ?? ''}',
+            ),
+          ),
+        ),
+      ),
     ],
   );
 }
@@ -878,10 +921,18 @@ Future<void> _pumpLotteryApp(
   WidgetTester tester, {
   required GoRouter router,
   required LotteryRepository lottery,
+  AuthTokenStore? tokenStore,
+  AuthController? authController,
 }) {
+  final effectiveTokenStore = tokenStore ?? AuthTokenStore();
+  final effectiveAuthController =
+      authController ?? _authenticatedController(effectiveTokenStore);
   return tester.pumpWidget(
     ProviderScope(
       overrides: [
+        appConfigProvider.overrideWithValue(_testConfig),
+        authTokenStoreProvider.overrideWithValue(effectiveTokenStore),
+        authControllerProvider.overrideWith((_) => effectiveAuthController),
         resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
         lotteryRepositoryProvider.overrideWithValue(lottery),
         mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
@@ -902,10 +953,37 @@ Future<void> _pumpLotteryApp(
   );
 }
 
+const _testConfig = AppConfig(
+  apiBaseUrl: 'https://partner.example.com/api/v1',
+  defaultLocale: 'th-TH',
+);
+
 MobileBootstrap _mobileBootstrap() {
   return MobileBootstrap.fromJson(const {
     'mobile': {'lottery_product_label': 'L6'},
   });
+}
+
+AuthController _authenticatedController(AuthTokenStore tokenStore) {
+  final api = _testApiClient(tokenStore);
+  return AuthController(
+    authRepository: AuthRepository(api: api, tokenStore: tokenStore),
+    tokenStore: tokenStore,
+    biometricAuth: BiometricAuthService(api),
+  )
+    ..isAuthenticated = true
+    ..pinRequired = false;
+}
+
+AuthController _unauthenticatedController(AuthTokenStore tokenStore) {
+  final api = _testApiClient(tokenStore);
+  return AuthController(
+    authRepository: AuthRepository(api: api, tokenStore: tokenStore),
+    tokenStore: tokenStore,
+    biometricAuth: BiometricAuthService(api),
+  )
+    ..isAuthenticated = false
+    ..pinRequired = false;
 }
 
 Finder _lotteryStockSkeletons() {
@@ -1068,6 +1146,14 @@ class _UnavailableReservationLotteryRepository extends _FakeLotteryRepository {
         },
       ),
     );
+  }
+}
+
+class _GuestBrowseLotteryRepository extends _FakeLotteryRepository {
+  @override
+  Future<LotteryCart> cart() async {
+    cartCount++;
+    throw StateError('Guest stock browse should not load customer cart.');
   }
 }
 
@@ -1293,13 +1379,10 @@ DioException _apiException(String message) {
   );
 }
 
-ApiClient _testApiClient() {
+ApiClient _testApiClient([AuthTokenStore? tokenStore]) {
   return ApiClient(
-    const AppConfig(
-      apiBaseUrl: 'https://partner.example.com/api/v1',
-      defaultLocale: 'th-TH',
-    ),
-    AuthTokenStore(),
+    _testConfig,
+    tokenStore ?? AuthTokenStore(),
     localeTag: 'th-TH',
   );
 }

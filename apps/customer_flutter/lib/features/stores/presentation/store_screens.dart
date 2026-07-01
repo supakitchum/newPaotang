@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/auth/auth_controller.dart';
 import '../../../core/i18n/app_locale.dart';
 import '../../../core/i18n/customer_localizations.dart';
+import '../../../core/navigation/customer_redirect.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../features/lottery/data/lottery_models.dart';
@@ -792,7 +793,9 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
     }
     final auth = ref.read(authControllerProvider);
     if (!auth.isAuthenticated) {
-      context.go('/login');
+      context.go(
+        customerLoginRouteForRedirect(GoRouterState.of(context).uri.toString()),
+      );
       return;
     }
 

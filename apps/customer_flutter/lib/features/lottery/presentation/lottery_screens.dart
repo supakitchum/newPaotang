@@ -5,9 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/auth/auth_controller.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/i18n/app_locale.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
+import '../../../core/navigation/customer_redirect.dart';
 import '../../../core/payment/checkout_payment_config.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/utils/api_errors.dart';
@@ -2032,6 +2034,7 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
         }
         return;
       }
+      final auth = ref.read(authControllerProvider);
       final results = await Future.wait([
         ref.read(lotteryRepositoryProvider).search(
               gameId: gameId,
@@ -2041,7 +2044,10 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
               cursor: reset ? '' : _cursor,
               randomSeed: _stockRandomSeed(),
             ),
-        ref.read(lotteryRepositoryProvider).cart(),
+        if (auth.isAuthenticated)
+          ref.read(lotteryRepositoryProvider).cart()
+        else
+          Future<LotteryCart>.value(LotteryCart.empty()),
       ]);
       final page = results[0] as LotteryStockPage;
       final cart = results[1] as LotteryCart;
@@ -2245,8 +2251,16 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
 
   Future<void> _toggleReservation(LotteryStockItem item) async {
     if (_busyStockId.isNotEmpty) return;
-    setState(() => _busyStockId = item.localStockItemId);
     final reservedId = _reservedByStockId[item.localStockItemId];
+    if ((reservedId == null || reservedId.isEmpty) &&
+        !ref.read(authControllerProvider).isAuthenticated) {
+      context.go(
+        customerLoginRouteForRedirect(GoRouterState.of(context).uri.toString()),
+      );
+      return;
+    }
+
+    setState(() => _busyStockId = item.localStockItemId);
     try {
       if (reservedId != null && reservedId.isNotEmpty) {
         final cart =
