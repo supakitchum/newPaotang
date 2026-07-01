@@ -283,10 +283,14 @@ Acceptance evidence for every screen group:
   nested order payloads, Nuxt-style payment preparation copy while checkout
   data loads, Nuxt-style Cart loading copy while reserved tickets refresh, the
   Nuxt-style product/tenant brand row and exact Nuxt row labels in the checkout summary,
+  split checkout-summary total amount/baht-unit rendering,
   the Nuxt-style Checkout summary/payment-only layout without repeated Cart
   ticket rows,
   the Nuxt-style wallet payment method card, wallet-summary loading scoped to
-  that payment card without hiding the prepared checkout surface, the runtime
+  that payment card without hiding the prepared checkout surface, wallet
+  summary API payload error copy with localized fallback for internal/client
+  failures, Nuxt-style selected check-circle and runtime-derived wallet mark
+  without Flutter radio controls or a generic wallet icon, the runtime
   checkout payment method selector, external payment provider selection and
   submission without wallet-balance or wallet-load blocking, Nuxt-style
   external-only checkout config without wallet/top-up affordances or wallet API
@@ -297,8 +301,8 @@ Acceptance evidence for every screen group:
   `/checkout/pending` waiting-payment state, focused no-bottom-nav pending
   loading surface, paid pending-order auto-continuation to `/success`, the
   failed/expired pending-payment states staying off the success receipt, the
-  no-order pending-payment recovery back to Buy, retry after pending-payment
-  status load failure, the
+  no-order pending-payment recovery back to Buy, API payload error copy plus
+  retry after pending-payment status load failure, the
   checkout submission API payload error copy with localized fallback for
   internal/client failures, the
   Cart/Checkout load failure API payload copy with localized fallback for
@@ -306,11 +310,14 @@ Acceptance evidence for every screen group:
   insufficient-balance disabled payment state, the
   Nuxt-style Cart/Checkout page titles, the Nuxt-style Cart current-draw date,
   Nuxt-style Cart header count line without the Flutter-only reserved-item
-  summary card, Nuxt-style product line above reserved ticket numbers,
-  Nuxt-style grouped count/seller/total row without nested per-reservation
-  ticket rows, text-only Nuxt-style remove pill, no Flutter-only per-card
+  summary card, Nuxt-style runtime product marker plus product line above
+  reserved ticket numbers without a Flutter-only ticket icon, Nuxt-style
+  card-free reserved ticket row, grouped count/seller/total row without nested
+  per-reservation ticket rows, runtime-themed gradient Nuxt-style remove pill,
+  no
+  Flutter-only per-card
   countdown, fixed-bottom Cart payment dock with countdown, exact Nuxt total
-  label, centered timer text without a
+  label, split amount/baht-unit rendering, centered timer text without a
   Flutter-only timer icon, and Nuxt CTA copy, the Cart purchase-limit note and
   filled accent add-more pill with plus affordance back to `/buy`,
   Nuxt-style grouped cart remove confirmation copy, custom centered modal shell

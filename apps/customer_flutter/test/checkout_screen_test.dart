@@ -221,6 +221,24 @@ void main() {
     );
   });
 
+  testWidgets('checkout wallet load failure shows API payload copy safely', (
+    tester,
+  ) async {
+    await _pumpCheckoutPaymentTest(
+      tester,
+      lottery: _CheckoutLotteryRepository(),
+      walletRepository: _FailingWalletRepository(
+        _apiException('ไม่สามารถโหลดกระเป๋าเงินสำหรับรายการนี้ได้'),
+      ),
+    );
+
+    expect(
+      find.text('ไม่สามารถโหลดกระเป๋าเงินสำหรับรายการนี้ได้'),
+      findsOneWidget,
+    );
+    expect(find.text('โหลดกระเป๋าเงินไม่สำเร็จ'), findsNothing);
+  });
+
   testWidgets('checkout shows the selected wallet payment method card', (
     tester,
   ) async {
@@ -289,6 +307,22 @@ void main() {
     expect(find.text('สลากกินแบ่งรัฐบาล'), findsOneWidget);
     expect(find.text('จำนวนสลากฯ'), findsOneWidget);
     expect(find.text('ยอดชำระทั้งหมด'), findsOneWidget);
+    final summaryTotalRow = find.byKey(
+      const ValueKey('checkout-summary-total-row'),
+    );
+    expect(summaryTotalRow, findsOneWidget);
+    final summaryTotalAmount = tester.widget<Text>(
+      find.byKey(const ValueKey('checkout-summary-total-amount')),
+    );
+    final summaryTotalUnit = tester.widget<Text>(
+      find.byKey(const ValueKey('checkout-summary-total-unit')),
+    );
+    expect(summaryTotalAmount.data, '80.00');
+    expect(summaryTotalUnit.data, 'บาท');
+    expect(
+      find.descendant(of: summaryTotalRow, matching: find.text('80.00 บาท')),
+      findsNothing,
+    );
     expect(find.text('273707'), findsNothing);
     expect(find.text('G Wallet'), findsOneWidget);
     expect(
@@ -298,6 +332,35 @@ void main() {
       findsOneWidget,
     );
     expect(find.widgetWithText(OutlinedButton, 'เติมเงิน'), findsOneWidget);
+    final walletOption = find.byKey(
+      const ValueKey('checkout-payment-method-option-wallet'),
+    );
+    expect(walletOption, findsOneWidget);
+    expect(
+      find.descendant(
+        of: walletOption,
+        matching: find.byIcon(Icons.check_circle),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: walletOption,
+        matching: find.byIcon(Icons.radio_button_checked),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: walletOption,
+        matching: find.byIcon(Icons.account_balance_wallet_outlined),
+      ),
+      findsNothing,
+    );
+    final walletMark = tester.widget<Text>(
+      find.byKey(const ValueKey('checkout-wallet-method-mark')),
+    );
+    expect(walletMark.data, 'G');
 
     final paymentDock = find.byKey(const ValueKey('checkout-payment-dock'));
     expect(paymentDock, findsOneWidget);
@@ -1194,7 +1257,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('checkout pending load error retries status fetch', (
+  testWidgets('checkout pending load error shows API payload and retries', (
     tester,
   ) async {
     var loads = 0;
@@ -1236,7 +1299,10 @@ void main() {
           purchaseHistoryDetailProvider('ord_retry').overrideWith((_) async {
             loads++;
             if (loads == 1) {
-              throw StateError('temporary payment status failure');
+              throw _apiException(
+                'ไม่สามารถตรวจสอบสถานะการชำระเงินได้',
+                path: '/customer/orders/ord_retry',
+              );
             }
             return PurchaseHistoryOrder.fromJson({
               'id': 'ord_retry',
@@ -1269,7 +1335,11 @@ void main() {
 
     expect(loads, 1);
     expect(find.text('โหลดข้อมูลไม่สำเร็จ'), findsOneWidget);
-    expect(find.text('กรุณาลองใหม่อีกครั้ง'), findsOneWidget);
+    expect(
+      find.text('ไม่สามารถตรวจสอบสถานะการชำระเงินได้'),
+      findsOneWidget,
+    );
+    expect(find.text('กรุณาลองใหม่อีกครั้ง'), findsNothing);
     expect(find.byKey(const Key('customer_bottom_nav')), findsNothing);
 
     await tester.tap(find.widgetWithText(OutlinedButton, 'ลองใหม่'));
@@ -1899,7 +1969,22 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(lottery.cartCount, 1);
-    expect(find.text('80.00 บาท'), findsWidgets);
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('checkout-summary-total-amount')),
+          )
+          .data,
+      '80.00',
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('checkout-summary-total-unit')),
+          )
+          .data,
+      'บาท',
+    );
 
     final container = ProviderScope.containerOf(
       tester.element(find.byType(CheckoutScreen)),
@@ -1910,7 +1995,22 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(lottery.cartCount, 2);
-    expect(find.text('80.00 บาท'), findsWidgets);
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('checkout-summary-total-amount')),
+          )
+          .data,
+      '80.00',
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('checkout-summary-total-unit')),
+          )
+          .data,
+      'บาท',
+    );
   });
 
   testWidgets('cart shows payment dock with countdown and routes to checkout', (
@@ -1953,6 +2053,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
           lotteryRepositoryProvider.overrideWithValue(lottery),
           resultRepositoryProvider.overrideWithValue(_CartResultRepository()),
         ],
@@ -1981,7 +2082,40 @@ void main() {
       find.byKey(const ValueKey('cart-ticket-product-row')),
       findsOneWidget,
     );
+    final cartTicketRow = find.byKey(
+      const ValueKey('cart-ticket-row-game_1:273707'),
+    );
+    expect(cartTicketRow, findsOneWidget);
+    expect(
+      find.ancestor(of: cartTicketRow, matching: find.byType(Card)),
+      findsNothing,
+    );
     expect(find.text('สลากกินแบ่งรัฐบาล'), findsOneWidget);
+    expect(
+      find.descendant(of: cartTicketRow, matching: find.text('L6')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: cartTicketRow,
+        matching: find.byIcon(Icons.confirmation_number_outlined),
+      ),
+      findsNothing,
+    );
+    final removePill = tester.widget<DecoratedBox>(
+      find.descendant(
+        of: cartTicketRow,
+        matching: find.byKey(const ValueKey('cart-ticket-remove-pill')),
+      ),
+    );
+    expect((removePill.decoration as BoxDecoration).gradient, isNotNull);
+    expect(
+      find.descendant(
+        of: cartTicketRow,
+        matching: find.byIcon(Icons.delete_outline),
+      ),
+      findsNothing,
+    );
     expect(find.textContaining('งวดวันที่'), findsOneWidget);
     expect(find.text('ยอดชำระทั้งหมด'), findsOneWidget);
     expect(find.text('80.00 บาท'), findsWidgets);
@@ -1999,6 +2133,24 @@ void main() {
     );
     final paymentDock = find.byKey(const ValueKey('cart-payment-dock'));
     expect(paymentDock, findsOneWidget);
+    final dockAmount = tester.widget<Text>(
+      find.descendant(
+        of: paymentDock,
+        matching: find.byKey(const ValueKey('cart-payment-dock-amount')),
+      ),
+    );
+    final dockUnit = tester.widget<Text>(
+      find.descendant(
+        of: paymentDock,
+        matching: find.byKey(const ValueKey('cart-payment-dock-unit')),
+      ),
+    );
+    expect(dockAmount.data, '80.00');
+    expect(dockUnit.data, 'บาท');
+    expect(
+      find.descendant(of: paymentDock, matching: find.text('80.00 บาท')),
+      findsNothing,
+    );
     expect(
       find.descendant(
         of: paymentDock,
@@ -2229,6 +2381,17 @@ void main() {
     expect(find.text('160.00 บาท'), findsWidgets);
     expect(find.text('80.00 บาท'), findsNothing);
 
+    final cartTicketRow = find.byKey(
+      const ValueKey('cart-ticket-row-game_1:273707'),
+    );
+    expect(cartTicketRow, findsOneWidget);
+    final removePill = tester.widget<DecoratedBox>(
+      find.descendant(
+        of: cartTicketRow,
+        matching: find.byKey(const ValueKey('cart-ticket-remove-pill')),
+      ),
+    );
+    expect((removePill.decoration as BoxDecoration).gradient, isNotNull);
     final removeButton = find.widgetWithText(FilledButton, 'เอาออก');
     expect(
       find.byKey(const ValueKey('cart-ticket-remove-action')),
@@ -2592,6 +2755,7 @@ Future<void> _pumpCartTest(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
         lotteryRepositoryProvider.overrideWithValue(lottery),
         resultRepositoryProvider.overrideWithValue(_CartResultRepository()),
       ],
@@ -2690,8 +2854,11 @@ Future<void> _submitCheckoutPayment(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-DioException _apiException(String message) {
-  final requestOptions = RequestOptions(path: '/customer/checkout');
+DioException _apiException(
+  String message, {
+  String path = '/customer/checkout',
+}) {
+  final requestOptions = RequestOptions(path: path);
   return DioException(
     requestOptions: requestOptions,
     response: Response<Map<String, dynamic>>(
@@ -2989,11 +3156,13 @@ class _CountingWalletRepository extends WalletRepository {
 }
 
 class _FailingWalletRepository extends WalletRepository {
-  _FailingWalletRepository() : super(_testApiClient());
+  _FailingWalletRepository([this.error]) : super(_testApiClient());
+
+  final Object? error;
 
   @override
   Future<WalletSummary> summary() async {
-    throw StateError('wallet unavailable');
+    throw error ?? StateError('wallet unavailable');
   }
 }
 
@@ -3025,6 +3194,7 @@ MobileBootstrap _mobileBootstrap() {
       'locale': 'th-TH',
     },
     'brand': {'logo_url': ''},
+    'mobile': {'lottery_product_label': 'L6'},
   });
 }
 

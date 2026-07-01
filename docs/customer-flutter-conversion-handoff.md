@@ -265,16 +265,27 @@ Recent verified work:
     Flutter-only reserved-item ListTile/card summary from the review surface.
   - Cart reserved-ticket cards now restore the Nuxt-style product/brand line
     above the lottery number while keeping the compact grouped review surface.
+  - Cart reserved-ticket product/brand line now uses the same runtime
+    bootstrap lottery product marker as stock cards, matching Nuxt's marker +
+    product-name row without hardcoded provider copy or a Flutter-only ticket
+    icon.
   - Cart grouped ticket cards now match Nuxt's single-row grouped surface more
     closely: one lottery number, grouped count badge, seller summary, and group
     total instead of repeating each reserved item as a nested row.
+  - Cart grouped ticket rows now drop the Material Card wrapper and render as a
+    Nuxt-style bordered lottery-row surface while keeping grouped remove and
+    summary behavior unchanged.
   - Cart reserved-ticket remove action now matches the Nuxt remove pill more
-    closely by using a text-only filled pill instead of a Flutter icon button.
+    closely by using a runtime-themed gradient text-only pill instead of a
+    Flutter icon button.
   - Cart reserved-ticket cards now avoid the Flutter-only per-card countdown;
     the shared reservation timer remains only in the fixed payment dock like
     Nuxt.
   - Cart payment dock label now matches Nuxt's default payment dock copy with
     `ยอดชำระทั้งหมด` beside the total amount.
+  - Cart payment dock total now matches Nuxt's amount/unit structure more
+    closely by rendering the emphasized amount separately from the localized
+    baht unit instead of one combined money string.
   - Cart payment dock countdown now matches Nuxt's centered timer text and no
     longer shows a Flutter-only leading timer icon.
   - Cart review now restores the Nuxt-style purchase-limit note and
@@ -354,6 +365,9 @@ Recent verified work:
   - Checkout summary labels now match the Nuxt copy exactly for the ticket
     count and total rows (`จำนวนสลากฯ`, `ยอดชำระทั้งหมด`), sharing the total
     label with the Cart payment dock where Nuxt also uses the full copy.
+  - Checkout summary total now mirrors Nuxt's emphasized amount plus separate
+    localized baht unit instead of rendering the total as one combined money
+    string.
   - Checkout now matches Nuxt's focused payment layout more closely by keeping
     the payment page to summary, payment method selection, and the fixed
     payment dock instead of repeating the selected lottery rows from Cart.
@@ -365,6 +379,9 @@ Recent verified work:
     cart/order data stays visible, the wallet option shows a wallet-load
     failure message, and configured external payment methods can still be
     selected and submitted.
+  - Checkout wallet summary failures now preserve backend API payload messages
+    inside the wallet payment option while internal/client exceptions still use
+    the localized wallet-load fallback copy.
   - Checkout wallet summary loading now stays scoped to the payment method
     card: once the reserved cart is ready, the Nuxt-style payment surface stays
     visible, the wallet option shows localized loading copy, wallet
@@ -380,6 +397,9 @@ Recent verified work:
   - Checkout now renders a Nuxt-style wallet payment method card with the
     runtime wallet name, balance, selected state, top-up return path, and wallet
     payment note.
+  - Checkout wallet payment method card now uses the Nuxt-style selected
+    check-circle and a runtime-derived wallet mark instead of Flutter radio
+    controls and a generic wallet icon, avoiding a hardcoded provider badge.
   - Checkout wallet payment method card now has mobile regression coverage for
     long runtime wallet names so partner/backend-provided wallet labels do not
     overflow the compact payment layout or fixed payment dock.
@@ -405,8 +425,8 @@ Recent verified work:
   - `/checkout/pending` now has no-order and load-error recovery coverage:
     missing `order_id` shows the focused no-order state and returns to `/buy`,
     while payment-status load failures keep the customer on the sensitive
-    pending-payment surface and retry by invalidating
-    `/customer/orders/{order_id}` status fetch state.
+    pending-payment surface, preserve backend API payload messages, and retry
+    by invalidating `/customer/orders/{order_id}` status fetch state.
   - External payment returns now normalize HTTPS app links and runtime
     custom-scheme links back to `/checkout/pending?order_id=...`; Android
     app-links, AASA generation, and production preflight include the checkout

@@ -568,6 +568,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     });
 
     final l10n = context.l10n;
+    final productMarker = ref.watch(mobileBootstrapProvider).maybeWhen(
+          data: (bootstrap) => bootstrap.lotteryProductLabel.trim(),
+          orElse: () => '',
+        );
     final groupedTickets = groupCartReservationsByNumber(_cart.reservations);
     final paymentDeadline = earliestActiveReservation(_cart.reservations);
     final drawDateLabel = _lotteryDrawDateLabel(l10n, _currentGame);
@@ -626,6 +630,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               for (final group in groupedTickets)
                 _CartTicketGroupCard(
                   group: group,
+                  productMarker: productMarker,
                   busy: _busy,
                   onRelease: () => _releaseGroup(group),
                 ),
@@ -809,6 +814,15 @@ String _lotteryDrawDateLabel(CustomerLocalizations l10n, CurrentGame? game) {
   return l10n.cartDrawDate(
     formatLocalizedShortDate(drawDate, localeTag(l10n.locale)),
   );
+}
+
+String _paymentAmountWithoutUnit(CustomerLocalizations l10n, num value) {
+  final formatted = l10n.formatBaht(value);
+  final unit = l10n.commonBahtSuffix.trim();
+  if (unit.isEmpty) return formatted;
+  return formatted
+      .replaceFirst(RegExp(r'\s*' + RegExp.escape(unit) + r'$'), '')
+      .trim();
 }
 
 class _CartHeaderSummary extends StatelessWidget {
@@ -1017,6 +1031,8 @@ class _CartPaymentDock extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
+    final amount = _paymentAmountWithoutUnit(l10n, total);
+    final bahtUnit = l10n.commonBahtSuffix;
     return Card(
       key: const ValueKey('cart-payment-dock'),
       margin: EdgeInsets.zero,
@@ -1052,13 +1068,32 @@ class _CartPaymentDock extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 Flexible(
-                  child: Text(
-                    formatBaht(total),
-                    textAlign: TextAlign.end,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.w900,
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    crossAxisAlignment: WrapCrossAlignment.end,
+                    spacing: 4,
+                    children: [
+                      Text(
+                        amount,
+                        key: const ValueKey('cart-payment-dock-amount'),
+                        textAlign: TextAlign.end,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                      if (bahtUnit.isNotEmpty)
+                        Text(
+                          bahtUnit,
+                          key: const ValueKey('cart-payment-dock-unit'),
+                          textAlign: TextAlign.end,
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: colorScheme.onSurface,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                         ),
+                    ],
                   ),
                 ),
               ],
@@ -1176,12 +1211,12 @@ class CheckoutPendingPaymentScreen extends ConsumerWidget {
             ),
           ],
         ),
-        error: (_, __) => _LotteryPageList(
+        error: (error, _) => _LotteryPageList(
           children: [
             _MessageCard(
               icon: Icons.error_outline,
               title: context.l10n.checkoutLoadFailedTitle,
-              message: context.l10n.cartGenericRetry,
+              message: _errorMessage(error, context.l10n.cartGenericRetry),
               actionLabel: context.l10n.commonRetry,
               onAction: () => ref.invalidate(purchaseHistoryDetailProvider(id)),
             ),
@@ -1424,9 +1459,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       label: l10n.checkoutTicketCount,
                       value: l10n.ticketsCount(_cart.itemCount),
                     ),
-                    _AmountRow(
+                    _CheckoutSummaryTotalRow(
                       label: l10n.checkoutSummaryTotal,
-                      value: formatBaht(_cart.total),
+                      total: _cart.total,
                     ),
                   ],
                 ),
@@ -1515,8 +1550,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     var walletError = '';
     try {
       walletSummary = await ref.read(walletRepositoryProvider).summary();
-    } catch (_) {
-      walletError = walletLoadFailed;
+    } catch (error) {
+      walletError = _errorMessage(error, walletLoadFailed);
     }
     if (!mounted) return;
     setState(() {
@@ -2952,13 +2987,11 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
     final note = walletMethod
         ? l10n.checkoutWalletPaymentNote
         : l10n.checkoutExternalPaymentNote;
-    final icon = walletMethod
-        ? Icons.account_balance_wallet_outlined
-        : Icons.payment_outlined;
     final borderColor = selected
         ? colorScheme.primary
         : colorScheme.outlineVariant.withValues(alpha: 0.7);
     return Card(
+      key: ValueKey('checkout-payment-method-option-$method'),
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
@@ -2975,9 +3008,8 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                 builder: (context, constraints) {
                   final compact = constraints.maxWidth < 420;
                   final selector = Icon(
-                    selected
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_unchecked,
+                    selected ? Icons.check_circle : Icons.circle_outlined,
+                    key: ValueKey('checkout-payment-method-selector-$method'),
                     color: selected
                         ? colorScheme.primary
                         : colorScheme.onSurfaceVariant,
@@ -3036,6 +3068,8 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                           label: Text(l10n.homeActionTopup),
                         )
                       : null;
+                  final markText =
+                      walletMethod ? _checkoutWalletMethodMark(walletName) : '';
                   final methodMark = DecoratedBox(
                     decoration: BoxDecoration(
                       color: selected
@@ -3045,13 +3079,26 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(14),
-                      child: Icon(
-                        icon,
-                        color: selected
-                            ? colorScheme.onPrimary
-                            : colorScheme.onSurfaceVariant,
-                        size: 28,
-                      ),
+                      child: walletMethod && markText.isNotEmpty
+                          ? Text(
+                              markText,
+                              key: const ValueKey(
+                                'checkout-wallet-method-mark',
+                              ),
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                color: selected
+                                    ? colorScheme.onPrimary
+                                    : colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            )
+                          : Icon(
+                              Icons.payment_outlined,
+                              color: selected
+                                  ? colorScheme.onPrimary
+                                  : colorScheme.onSurfaceVariant,
+                              size: 28,
+                            ),
                     ),
                   );
 
@@ -3123,14 +3170,22 @@ class _CheckoutPaymentMethodOptionCard extends StatelessWidget {
   }
 }
 
+String _checkoutWalletMethodMark(String walletName) {
+  final trimmed = walletName.trim();
+  if (trimmed.isEmpty) return '';
+  return String.fromCharCode(trimmed.runes.first).toUpperCase();
+}
+
 class _CartTicketGroupCard extends StatelessWidget {
   const _CartTicketGroupCard({
     required this.group,
+    required this.productMarker,
     required this.busy,
     required this.onRelease,
   });
 
   final CartTicketGroup group;
+  final String productMarker;
   final bool busy;
   final VoidCallback onRelease;
 
@@ -3141,43 +3196,33 @@ class _CartTicketGroupCard extends StatelessWidget {
     final storeName = group.primaryItem?.storeName.trim().isNotEmpty == true
         ? group.primaryItem!.storeName.trim()
         : l10n.storesFallbackStoreName;
-    return Card(
-      margin: EdgeInsets.zero,
+    return DecoratedBox(
+      key: ValueKey('cart-ticket-row-${group.key}'),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            KeyedSubtree(
               key: const ValueKey('cart-ticket-product-row'),
-              children: [
-                Icon(
-                  Icons.confirmation_number_outlined,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    l10n.ticketLabelGovernmentLottery,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                ),
-              ],
+              child: LotteryProductBrandRow(productMarker: productMarker),
             ),
             const SizedBox(height: 10),
             LayoutBuilder(
               builder: (context, constraints) {
                 final compact = constraints.maxWidth < 380;
                 final title = _LotteryNumber(number: group.number);
-                final releaseButton = FilledButton(
+                final releaseButton = _CartRemovePillButton(
                   key: const ValueKey('cart-ticket-remove-action'),
                   onPressed: busy ? null : onRelease,
-                  child: Text(l10n.lotteryRemove),
+                  label: l10n.lotteryRemove,
                 );
                 if (compact) {
                   return Column(
@@ -3256,6 +3301,61 @@ class _CartTicketGroupCard extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CartRemovePillButton extends StatelessWidget {
+  const _CartRemovePillButton({
+    required this.label,
+    required this.onPressed,
+    super.key,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+    final colorScheme = Theme.of(context).colorScheme;
+    final foreground =
+        enabled ? colorScheme.onPrimary : colorScheme.onSurfaceVariant;
+    final decoration = BoxDecoration(
+      gradient: enabled
+          ? LinearGradient(
+              colors: [
+                colorScheme.primary,
+                Color.lerp(colorScheme.primary, colorScheme.secondary, 0.55) ??
+                    colorScheme.primary,
+              ],
+            )
+          : null,
+      color: enabled ? null : colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(999),
+    );
+    return DecoratedBox(
+      key: const ValueKey('cart-ticket-remove-pill'),
+      decoration: decoration,
+      child: SizedBox(
+        height: 42,
+        child: FilledButton(
+          onPressed: onPressed,
+          style: FilledButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            disabledBackgroundColor: Colors.transparent,
+            foregroundColor: foreground,
+            disabledForegroundColor: foreground,
+            shadowColor: Colors.transparent,
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            shape: const StadiumBorder(),
+            textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          child: Text(label),
         ),
       ),
     );
@@ -3561,6 +3661,80 @@ class _MessageCard extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _CheckoutSummaryTotalRow extends StatelessWidget {
+  const _CheckoutSummaryTotalRow({
+    required this.label,
+    required this.total,
+  });
+
+  final String label;
+  final double total;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final amount = _paymentAmountWithoutUnit(l10n, total);
+    final unit = l10n.commonBahtSuffix;
+    final amountText = Text(
+      amount,
+      key: const ValueKey('checkout-summary-total-amount'),
+      textAlign: TextAlign.end,
+      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            color: colorScheme.primary,
+            fontWeight: FontWeight.w900,
+          ),
+    );
+    final unitText = unit.isEmpty
+        ? null
+        : Text(
+            unit,
+            key: const ValueKey('checkout-summary-total-unit'),
+            textAlign: TextAlign.end,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w800,
+                ),
+          );
+    final value = Wrap(
+      key: const ValueKey('checkout-summary-total-value'),
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.end,
+      spacing: 4,
+      children: [
+        amountText,
+        if (unitText != null) unitText,
+      ],
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 340) {
+            return Column(
+              key: const ValueKey('checkout-summary-total-row'),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(label),
+                const SizedBox(height: 2),
+                Align(alignment: Alignment.centerRight, child: value),
+              ],
+            );
+          }
+          return Row(
+            key: const ValueKey('checkout-summary-total-row'),
+            children: [
+              Expanded(child: Text(label)),
+              const SizedBox(width: 12),
+              Flexible(child: value),
+            ],
+          );
+        },
       ),
     );
   }
