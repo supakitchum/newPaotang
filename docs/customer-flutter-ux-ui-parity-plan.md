@@ -360,14 +360,19 @@ Acceptance evidence for every screen group:
   for HTTPS app links, runtime custom-scheme links, generated AASA paths,
   Android manifest app links, and production preflight checks.
 - `test/lottery_repository_test.dart` covers Checkout payload submission so the
-  configured payment method reaches `/customer/checkout`, unsupported methods
-  safely fall back to wallet, and reservation release sends an idempotency key
-  before refreshing `/customer/cart`.
+  configured payment method and grouped `reservation_ids` reach
+  `/customer/checkout`, unsupported methods safely fall back to wallet, and
+  reservation release sends an idempotency key before refreshing
+  `/customer/cart`.
 - `test/sale_closure_guard_test.dart` covers sale-window redirects using
   backend `close_at`/`server_time`, future sale countdown routing for Home,
   Nuxt's legacy `/search` alias, Buy, and store browsing, reward processing
   states, published-result routing with Nuxt's home-page exception, active cart
-  handoff from Home/search/Buy/store routes to Cart after sale close, and
+  handoff from Home/search/Buy/store routes to Cart after sale close only when
+  `/customer/cart` still has a non-expired active reservation countdown,
+  expired/deadline-less carts falling through to waiting-result, active-cart
+  reload after sale-route location changes to avoid stale cart loops,
+  cart-level `server_time` fallback when reservation rows omit timestamps, and
   sale-closed notice gating.
 - `test/customer_routes_test.dart` covers the Nuxt legacy `/search` alias for
   `/buy/search` in Flutter's route registry, localization keys, and router

@@ -10942,10 +10942,20 @@ components:
             $ref: "#/components/schemas/LocalStockItem"
     CheckoutRequest:
       type: object
-      required: [reservation_id, payment_method]
+      required: [payment_method]
+      anyOf:
+        - required: [reservation_id]
+        - required: [reservation_ids]
       properties:
         reservation_id:
           type: string
+          description: Legacy single reservation id. Use reservation_ids when checking out grouped cart reservations.
+        reservation_ids:
+          type: array
+          minItems: 1
+          description: One or more active reservation ids from the customer cart.
+          items:
+            type: string
         payment_method:
           type: string
           enum: [wallet, external_payment]

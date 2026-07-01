@@ -50,7 +50,7 @@ docs/api-conventions.md
 
 | Existing UI Action | Current Code Call | New platform-api Endpoint | Notes |
 | --- | --- | --- | --- |
-| app bootstrap | `GET /init` | `GET /public/site-config`, `GET /public/games/current`, `GET /customer/cart` when authenticated | Adapter combines responses into current init state shape; sale-window guards use `Game.close_at` and `server_time` across Home, legacy `/search`, Buy, store browsing, Cart, and Checkout routes |
+| app bootstrap | `GET /init` | `GET /public/site-config`, `GET /public/games/current`, `GET /customer/cart` when authenticated | Adapter combines responses into current init state shape; sale-window guards use `Game.close_at` and `server_time` across Home, legacy `/search`, Buy, store browsing, Cart, and Checkout routes; after sale close, cart handoff requires a non-expired active reservation countdown, matching Nuxt's `remainingMilliseconds > 0` check |
 | home reward summary | `GET /reward` | `GET /public/results/latest` | Adapter maps reward prizes to existing `rewards` array shape |
 | full result | `GET /reward` | `GET /public/results/{game_id}` | Keep result UI; only data source changes |
 | home news | `GET /news` | `GET /public/news` | Adapter maps `cover_url` to current `cover` if needed |
@@ -63,7 +63,7 @@ docs/api-conventions.md
 | cancel booking | `POST /lotteries/cancel_booking` | `POST /customer/reservations/{reservation_id}/release` | Adapter must retain reservation id/token mapping, send an idempotency key, and refresh `GET /customer/cart` so the server remains source of truth |
 | cart page | local cart state + init | `GET /customer/cart` | Server remains source of truth; Flutter preserves API payload messages on cart load failures while hiding internal/client exception text |
 | wallet load | `GET /wallet` | `GET /customer/wallet`, `GET /customer/wallet/ledger` | Adapter maps Money object to numeric balance for existing UI; Flutter treats ledger failure as a partial wallet state so balance remains visible, ledger can be retried, and API payload error messages are preserved; Checkout also treats wallet-summary loading/failure as non-fatal so cart/order data stays visible and external payment methods remain selectable/submittable; external-only Checkout runtime config skips wallet summary loading |
-| checkout payment | `POST /checkout` | `POST /customer/checkout` | Adapter maps existing `order_id` flow to reservation/order contract, submits the selected runtime-configured `payment_method` with wallet fallback, uses backend `redirect_url` for external payment handoff through the focused `/checkout/pending` state, and preserves API payload error messages on checkout load/payment failures |
+| checkout payment | `POST /checkout` | `POST /customer/checkout` | Adapter maps existing `order_id` flow to reservation/order contract, submits both legacy `reservation_id` and grouped `reservation_ids` when the cart contains multiple reservations, submits the selected runtime-configured `payment_method` with wallet fallback, uses backend `redirect_url` for external payment handoff through the focused `/checkout/pending` state, and preserves API payload error messages on checkout load/payment failures |
 | success receipt | `GET /checkout/success` | `GET /customer/orders/{order_id}` | Adapter maps Order to receipt fields and accepts Nuxt-style composite receipt wrappers with nested `order`, `game`, `wallet`, `count`, `total`, `reference`, and `paid_at` |
 | tickets list | `GET /lotteries` | `GET /customer/tickets` | Adapter maps cursor/page metadata to existing pagination shape; Flutter keeps current-ticket number search as client-side filtering until this endpoint exposes a documented number-search query and preserves API payload error messages on load failures |
 | ticket history/detail | ticket history/detail flow | `GET /customer/tickets/history`, `GET /customer/tickets/{ticket_id}` | Adapter maps TicketDetail to current ticket view state; Flutter `/tickets/history` keeps Nuxt's winning-only toggle as a client-side filter over loaded history rows, preserves API payload error messages on history load/load-more failures, and `/tickets/view` also resolves Nuxt query lookups from current/history ticket pages when only `number`, `order_id`, `game_id`, or `from=history` is present |
@@ -102,7 +102,7 @@ Examples:
 Money { amount, currency } -> numeric baht balance/total for existing UI
 LocalStockItem.id -> existing ticket.token
 LocalStockItem.full_number -> ticket.number/full_number
-Reservation.expires_at -> cart exp/timer
+Reservation.expires_at + reservation/cart server_time -> cart exp/timer
 Game.close_at + server_time -> buy/cart/checkout sale-window guard
 MobileBootstrap.payment.checkout_payment_methods -> visible Checkout payment selector
 MobileBootstrap.payment.checkout_payment_method -> default selected Checkout method

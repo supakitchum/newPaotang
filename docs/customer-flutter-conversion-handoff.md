@@ -477,9 +477,21 @@ Recent verified work:
   - Cart/Checkout realtime QA advanced: Cart and Checkout screens now have
     widget coverage that a stock realtime refresh tick reloads reserved cart
     data while keeping the payment review/confirmation surface visible.
+  - Sale-closure routing now matches Nuxt's active-cart check more closely:
+    closed-sale browsing routes go to `/cart` only when `/customer/cart`
+    contains an active reservation with a non-expired countdown; expired or
+    deadline-less cart rows route to `/waiting-result?sale_closed=1` instead.
+    The guard also reloads active-cart state after sale-route location changes
+    so a cart that expires or is released cannot loop customers back to
+    `/cart` from `/buy`, and it falls back to cart-level `server_time` when
+    reservation rows omit their own server timestamp.
   - Checkout payment method submission now comes from the selected runtime
     payment method, with wallet fallback matching the current Nuxt adapter and
     OpenAPI checkout contract.
+  - Checkout OpenAPI contract now documents grouped cart checkout explicitly:
+    `/customer/checkout` accepts `reservation_ids` alongside the legacy
+    `reservation_id`, matching the backend validator and Flutter repository
+    payload used for multi-reservation cart review.
   - Checkout payment failures now mirror Nuxt error-copy behavior: backend API
     payload messages are shown to the customer, while internal/client
     exceptions fall back to localized Flutter copy instead of leaking technical

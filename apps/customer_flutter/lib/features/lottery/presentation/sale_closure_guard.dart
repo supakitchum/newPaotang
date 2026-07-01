@@ -9,6 +9,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/app_alert.dart';
 import '../../results/data/result_models.dart';
 import '../../results/data/result_repository.dart';
+import '../data/lottery_models.dart';
 import '../data/lottery_repository.dart';
 
 const saleClosedNoticeQuery = 'sale_closed';
@@ -35,6 +36,7 @@ class _SaleClosureGuardState extends ConsumerState<SaleClosureGuard> {
   CurrentGame? _currentGame;
   DateTime? _currentGameFetchedAt;
   bool? _hasActiveCart;
+  String? _lastWatchedLocation;
   bool _loading = false;
   bool _saleClosedAlertShown = false;
 
@@ -76,7 +78,13 @@ class _SaleClosureGuardState extends ConsumerState<SaleClosureGuard> {
     if (!saleClosureShouldWatchPath(path)) {
       _timer?.cancel();
       _timer = null;
+      _lastWatchedLocation = null;
+      _hasActiveCart = null;
       return;
+    }
+    if (_lastWatchedLocation != location) {
+      _lastWatchedLocation = location;
+      _hasActiveCart = null;
     }
 
     _timer ??= Timer.periodic(
@@ -149,7 +157,7 @@ class _SaleClosureGuardState extends ConsumerState<SaleClosureGuard> {
   Future<bool> _loadHasActiveCart() async {
     try {
       final cart = await ref.read(lotteryRepositoryProvider).cart();
-      return !cart.isEmpty;
+      return saleClosureCartHasActiveReservations(cart);
     } catch (_) {
       return false;
     }
@@ -167,6 +175,26 @@ bool saleClosureShouldShowClosedNotice(String redirect) {
   if (uri == null) return false;
   return uri.path == waitingResultPath &&
       uri.queryParameters[saleClosedNoticeQuery] == '1';
+}
+
+bool saleClosureCartHasActiveReservations(
+  LotteryCart cart, {
+  DateTime? localNow,
+}) {
+  if (cart.items.isEmpty) return false;
+  final anchor = localNow ?? DateTime.now();
+  for (final reservation in cart.reservations) {
+    if (reservation.status != 'active' || reservation.items.isEmpty) continue;
+    if (!_saleClosureReservationHasDeadline(reservation)) continue;
+    if (!_saleClosureReservationDeadlineExpired(
+      reservation,
+      localNow: anchor,
+      fallbackServerTime: cart.serverTime,
+    )) {
+      return true;
+    }
+  }
+  return false;
 }
 
 String? saleClosureRedirectPath({
@@ -261,6 +289,53 @@ DateTime saleClosureNow({
   if (serverTime == null || gameFetchedAt == null) return fallbackNow;
   final elapsed = fallbackNow.difference(gameFetchedAt);
   return elapsed.isNegative ? serverTime : serverTime.add(elapsed);
+}
+
+bool _saleClosureReservationDeadlineExpired(
+  LotteryReservation reservation, {
+  required DateTime localNow,
+  Object? fallbackServerTime,
+}) {
+  final serverNow = localNow.add(
+    _saleClosureReservationServerTimeOffset(
+      reservation.serverTime ?? fallbackServerTime,
+      localNow: localNow,
+    ),
+  );
+  return _saleClosureReservationRemainingDuration(
+        reservation,
+        now: serverNow,
+      ).inSeconds <=
+      0;
+}
+
+Duration _saleClosureReservationServerTimeOffset(
+  Object? serverTime, {
+  required DateTime localNow,
+}) {
+  final serverNow = parseDateTime(serverTime);
+  if (serverNow == null) return Duration.zero;
+  return serverNow.difference(localNow);
+}
+
+Duration _saleClosureReservationRemainingDuration(
+  LotteryReservation reservation, {
+  required DateTime now,
+}) {
+  final expiresAt = parseDateTime(reservation.expiresAt);
+  if (expiresAt != null) {
+    final remaining = expiresAt.difference(now);
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
+  if (reservation.expiresInSeconds > 0) {
+    return Duration(seconds: reservation.expiresInSeconds);
+  }
+  return Duration.zero;
+}
+
+bool _saleClosureReservationHasDeadline(LotteryReservation reservation) {
+  return parseDateTime(reservation.expiresAt) != null ||
+      reservation.expiresInSeconds > 0;
 }
 
 const _openSaleStatuses = {
