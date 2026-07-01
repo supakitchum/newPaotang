@@ -655,9 +655,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           _currentGame = currentGame;
         }
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      setState(() => _error = context.l10n.cartGenericRetry);
+      setState(
+        () => _error = _errorMessage(error, context.l10n.cartGenericRetry),
+      );
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -1406,10 +1408,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     late final LotteryCart cart;
     try {
       cart = await ref.read(lotteryRepositoryProvider).cart();
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = context.l10n.cartGenericRetry;
+        _error = _errorMessage(error, context.l10n.cartGenericRetry);
         _loading = false;
         _walletLoading = false;
       });
@@ -1892,7 +1894,7 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
     } catch (error) {
       if (!mounted) return;
       setState(
-        () => _error = _errorMessage(error, context.l10n.cartGenericRetry),
+        () => _error = _errorMessage(error, context.l10n.lotteryLoadFailed),
       );
     } finally {
       if (mounted) {

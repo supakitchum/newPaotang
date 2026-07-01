@@ -207,18 +207,20 @@ Acceptance evidence for every screen group:
   preserving the Nuxt sold-ticket dialog plus row removal after an authenticated
   store-scoped reservation race, and auto-loading the next stock page when
   customers scroll near the bottom while rendering Nuxt-style skeleton cards
-  during initial and next-page loading. It also covers Nuxt-style store stock
-  refresh with a 10-second "รอ ... วิ" cooldown, plus the closed-sale store stock
-  state: localized sale-closed notice, disabled new reservation button, and no
-  reserve call when response-level availability blocks buying, plus the
-  Nuxt-style selected-cart dock after store-scoped reservations with
-  `จำนวนที่เลือก`, countdown, and `/cart` routing.
+  during initial and next-page loading. It also covers store-scoped stock load
+  API payload error copy with localized fallback for internal/client failures,
+  Nuxt-style store stock refresh with a 10-second "รอ ... วิ" cooldown, plus
+  the closed-sale store stock state: localized sale-closed notice, disabled new
+  reservation button, and no reserve call when response-level availability
+  blocks buying, plus the Nuxt-style selected-cart dock after store-scoped
+  reservations with `จำนวนที่เลือก`, countdown, and `/cart` routing.
 - `test/buy_store_segment_tabs_test.dart` covers the Nuxt-style segmented
   navigation between `/buy` all-ticket browsing and `/stores` store browsing,
   `/buy` using the Nuxt "ซื้อสลากดิจิทัล" header title, `/buy` digit boxes
   launching the dedicated Nuxt-style search page with the current draw date
   visible, plus the Nuxt-style recommended-store section heading and
-  infinite-scroll next-page loading on the store list.
+  infinite-scroll next-page loading on the store list, plus store-list load API
+  payload error copy with localized fallback for internal/client failures.
 - `test/lottery_stock_card_test.dart` covers Buy/search digit-query restore
   into six Nuxt-style input boxes, the Nuxt "ซื้อสลากดิจิทัล" search-page
   title, Nuxt-style search form/result copy including the store-scoped
@@ -229,6 +231,8 @@ Acceptance evidence for every screen group:
   actions are disabled while skeleton result cards render, result refresh keeps
   the Nuxt `แสดงเลขใหม่` copy while disabled during that loading state,
   Nuxt-style clear/reset behavior that hides old results while preserving store context,
+  search load API payload error copy with localized fallback for
+  internal/client failures,
   live cart select/remove state, `/buy` random browse
   dedupe for repeated full numbers while exact search
   preserves duplicate full-number rows, `/buy` random refresh cooldown while
@@ -274,6 +278,8 @@ Acceptance evidence for every screen group:
   no-order pending-payment recovery back to Buy, retry after pending-payment
   status load failure, the
   checkout submission API payload error copy with localized fallback for
+  internal/client failures, the
+  Cart/Checkout load failure API payload copy with localized fallback for
   internal/client failures, the
   insufficient-balance disabled payment state, the
   Nuxt-style Cart/Checkout page titles, the Nuxt-style Cart current-draw date,

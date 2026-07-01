@@ -12,6 +12,7 @@ import 'package:customer_flutter/features/results/data/result_repository.dart';
 import 'package:customer_flutter/features/stores/data/store_models.dart';
 import 'package:customer_flutter/features/stores/data/store_repository.dart';
 import 'package:customer_flutter/features/stores/presentation/store_screens.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -178,6 +179,80 @@ void main() {
     expect(repository.cursors, ['', 'cursor_1']);
     expect(find.text('ร้านถัดไป'), findsOneWidget);
   });
+
+  testWidgets('stores screen load failure shows API payload copy safely', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/stores',
+      routes: [
+        GoRoute(
+          path: '/stores',
+          builder: (context, state) => const StoresScreen(),
+        ),
+        GoRoute(
+          path: '/buy',
+          builder: (context, state) => const Scaffold(body: Text('Buy')),
+        ),
+      ],
+    );
+
+    await _pump(
+      tester,
+      router: router,
+      overrides: [
+        storeRepositoryProvider.overrideWithValue(
+          _FailingStoreRepository(
+            _apiException(
+              'ยังไม่สามารถโหลดร้านค้าได้ กรุณาลองใหม่',
+              path: '/public/stores',
+            ),
+          ),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('โหลดร้านค้าไม่สำเร็จ'), findsOneWidget);
+    expect(
+      find.text('ยังไม่สามารถโหลดร้านค้าได้ กรุณาลองใหม่'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('internal store list failure'), findsNothing);
+  });
+
+  testWidgets('stores screen load failure hides internal errors', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/stores',
+      routes: [
+        GoRoute(
+          path: '/stores',
+          builder: (context, state) => const StoresScreen(),
+        ),
+        GoRoute(
+          path: '/buy',
+          builder: (context, state) => const Scaffold(body: Text('Buy')),
+        ),
+      ],
+    );
+
+    await _pump(
+      tester,
+      router: router,
+      overrides: [
+        storeRepositoryProvider.overrideWithValue(
+          _FailingStoreRepository(StateError('internal store list failure')),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('โหลดร้านค้าไม่สำเร็จ'), findsOneWidget);
+    expect(find.text('กรุณาลองใหม่อีกครั้ง'), findsOneWidget);
+    expect(find.textContaining('internal store list failure'), findsNothing);
+  });
 }
 
 Future<void> _pump(
@@ -311,6 +386,33 @@ class _PaginatedStoreRepository extends StoreRepository {
       hasMore: true,
     );
   }
+}
+
+class _FailingStoreRepository extends StoreRepository {
+  _FailingStoreRepository(this.error) : super(_testApiClient());
+
+  final Object error;
+
+  @override
+  Future<StorePage> list({
+    String q = '',
+    String cursor = '',
+    int limit = 30,
+  }) async {
+    throw error;
+  }
+}
+
+DioException _apiException(String message, {required String path}) {
+  final request = RequestOptions(path: path);
+  return DioException(
+    requestOptions: request,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: request,
+      statusCode: 422,
+      data: {'message': message},
+    ),
+  );
 }
 
 ApiClient _testApiClient() {

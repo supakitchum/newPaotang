@@ -16,6 +16,7 @@ import '../../../features/lottery/presentation/lottery_screens.dart';
 import '../../../features/lottery/presentation/lottery_stock_realtime_monitor.dart';
 import '../../../features/lottery/presentation/lottery_stock_skeleton.dart';
 import '../../../features/lottery/presentation/lottery_store_segment_tabs.dart';
+import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../../../shared/widgets/customer_section_header.dart';
@@ -37,6 +38,7 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
   bool _hasMore = false;
   bool _loading = true;
   bool _loadingMore = false;
+  String _error = '';
 
   @override
   void initState() {
@@ -94,6 +96,14 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                   const SizedBox(height: 16),
                   if (_loading)
                     const Center(child: CircularProgressIndicator())
+                  else if (_error.isNotEmpty && _stores.isEmpty)
+                    _StoreErrorCard(
+                      icon: Icons.error_outline,
+                      title: l10n.storesLoadFailedTitle,
+                      message: _error,
+                      actionLabel: l10n.commonRetry,
+                      onAction: () => _load(reset: true),
+                    )
                   else if (_stores.isEmpty)
                     _EmptyCard(
                       icon: Icons.storefront_outlined,
@@ -106,6 +116,16 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                         padding: const EdgeInsets.only(bottom: 10),
                         child: _StoreCard(store: store),
                       ),
+                  if (_error.isNotEmpty && _stores.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _StoreErrorCard(
+                      icon: Icons.error_outline,
+                      title: l10n.storesLoadFailedTitle,
+                      message: _error,
+                      actionLabel: l10n.commonRetry,
+                      onAction: () => _load(reset: false),
+                    ),
+                  ],
                   if (_hasMore) ...[
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
@@ -140,6 +160,7 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
         _loading = true;
         _cursor = '';
         _stores.clear();
+        _error = '';
       } else {
         _loadingMore = true;
       }
@@ -154,6 +175,18 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
         _stores.addAll(page.items);
         _cursor = page.nextCursor;
         _hasMore = page.hasMore;
+        _error = '';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = customerErrorMessage(
+          error,
+          context.l10n.storesLoadFailedMessage,
+        );
+        if (reset) {
+          _hasMore = false;
+        }
       });
     } finally {
       if (mounted) {
@@ -214,6 +247,7 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
   bool _canReserve = true;
   bool _loading = true;
   bool _loadingMore = false;
+  String _error = '';
 
   @override
   void initState() {
@@ -327,6 +361,14 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                           ...lotteryStockSkeletonCards(
                             keyPrefix: 'store-lottery-stock-skeleton',
                           )
+                        else if (_error.isNotEmpty && _tickets.isEmpty)
+                          _StoreErrorCard(
+                            icon: Icons.error_outline,
+                            title: l10n.storesLotteriesLoadFailedTitle,
+                            message: _error,
+                            actionLabel: l10n.commonRetry,
+                            onAction: () => _load(reset: true),
+                          )
                         else if (_tickets.isEmpty)
                           _EmptyCard(
                             icon: Icons.confirmation_number_outlined,
@@ -380,6 +422,16 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                             ),
                           ),
                         ],
+                        if (_error.isNotEmpty && _tickets.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          _StoreErrorCard(
+                            icon: Icons.error_outline,
+                            title: l10n.storesLotteriesLoadFailedTitle,
+                            message: _error,
+                            actionLabel: l10n.commonRetry,
+                            onAction: () => _load(reset: false),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -411,6 +463,7 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
         _loading = true;
         _cursor = '';
         _tickets.clear();
+        _error = '';
       } else {
         _loadingMore = true;
       }
@@ -450,6 +503,18 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
         _canReserve = page.canReserve;
         if (page.sellerName.isNotEmpty) _storeName = page.sellerName;
         _syncReservedCart(cart);
+        _error = '';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = customerErrorMessage(
+          error,
+          context.l10n.storesLotteriesLoadFailedMessage,
+        );
+        if (reset) {
+          _hasMore = false;
+        }
       });
     } finally {
       if (mounted) {
@@ -1180,6 +1245,43 @@ class _EmptyCard extends StatelessWidget {
             Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
             const SizedBox(height: 4),
             Text(message, textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StoreErrorCard extends StatelessWidget {
+  const _StoreErrorCard({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final String actionLabel;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          children: [
+            Icon(icon, size: 42),
+            const SizedBox(height: 12),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+            const SizedBox(height: 4),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            OutlinedButton(onPressed: onAction, child: Text(actionLabel)),
           ],
         ),
       ),

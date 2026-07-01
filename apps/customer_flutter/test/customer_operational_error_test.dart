@@ -25,6 +25,10 @@ void main() {
       'Provider not configured.',
     );
     expect(customerErrorMessage({'ok': false}, 'fallback'), 'fallback');
+    expect(
+      customerErrorMessage(StateError('internal cart failed'), 'fallback'),
+      'fallback',
+    );
   });
 
   testWidgets('expired session operational errors logout and redirect to login',

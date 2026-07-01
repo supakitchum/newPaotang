@@ -155,6 +155,9 @@ Recent verified work:
   - `/stores` now auto-loads the next store page when customers scroll near the
     bottom, matching Nuxt's infinite store browsing while preserving the manual
     load-more fallback.
+  - `/stores` and `/stores/lotteries` load failures now preserve backend API
+    payload messages on customer recovery cards while internal/client
+    exceptions stay on localized retry fallback copy.
   - `/buy` random browse results now match Nuxt's number-normalization pass by
     removing repeated full numbers and arranging adjacent duplicate numbers
     before rendering, while exact search still preserves duplicate rows for
@@ -275,6 +278,9 @@ Recent verified work:
   - Stock search parsing now accepts legacy `result.lotteries`/`pagination`
     response shapes and maps `bet_status`/`can_buy` into a Flutter `canReserve`
     state.
+  - Buy/search stock load failures now preserve backend API payload messages on
+    the stock recovery card while internal/client exceptions stay on localized
+    stock-load fallback copy.
   - Buy/search stock cards now show a localized closed-sale alert and disable
     new reservations when sales are closed while still allowing reserved items
     to be removed from the cart.
@@ -358,6 +364,9 @@ Recent verified work:
     payload messages are shown to the customer, while internal/client
     exceptions fall back to localized Flutter copy instead of leaking technical
     exception text.
+  - Cart and Checkout load failures now use the same safe customer error-copy
+    behavior: backend API payload messages are shown on the recovery card while
+    internal/client exceptions stay on localized retry copy.
   - Success receipt now renders a Nuxt-style receipt header, product marker,
     emphasized total row, centered transaction/reference block, and save action
     that copies localized payment details to the clipboard; the tenant

@@ -106,6 +106,40 @@ void main() {
     expect(find.text('เลือก'), findsOneWidget);
   });
 
+  testWidgets('search load failure shows API payload copy safely', (
+    tester,
+  ) async {
+    final router = _lotteryRouter(initialLocation: '/buy/search?number=273707');
+
+    await _pumpLotteryApp(
+      tester,
+      router: router,
+      lottery: _FailingSearchLotteryRepository(
+        _apiException('ยังไม่สามารถค้นหาเลขได้ กรุณาลองใหม่'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('ยังไม่สามารถค้นหาเลขได้ กรุณาลองใหม่'), findsOneWidget);
+    expect(find.textContaining('internal search failure'), findsNothing);
+  });
+
+  testWidgets('search load failure hides internal errors', (tester) async {
+    final router = _lotteryRouter(initialLocation: '/buy/search?number=273707');
+
+    await _pumpLotteryApp(
+      tester,
+      router: router,
+      lottery: _FailingSearchLotteryRepository(
+        StateError('internal search failure'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('โหลดเลขสลากไม่สำเร็จ'), findsWidgets);
+    expect(find.textContaining('internal search failure'), findsNothing);
+  });
+
   testWidgets('stock card toggles select and remove from the live cart state', (
     tester,
   ) async {
@@ -809,6 +843,31 @@ class _UnavailableReservationLotteryRepository extends _FakeLotteryRepository {
   }
 }
 
+class _FailingSearchLotteryRepository extends _FakeLotteryRepository {
+  _FailingSearchLotteryRepository(this.error);
+
+  final Object error;
+
+  @override
+  Future<LotteryStockPage> search({
+    required String gameId,
+    List<String> digits = const [],
+    String number = '',
+    String storeId = '',
+    String cursor = '',
+    String randomSeed = '',
+    int limit = 20,
+  }) async {
+    searchCount++;
+    lastDigits = List<String>.from(digits);
+    lastStoreId = storeId;
+    lastCursor = cursor;
+    lastRandomSeed = randomSeed;
+    randomSeeds = [...randomSeeds, randomSeed];
+    throw error;
+  }
+}
+
 class _PaginatedLotteryRepository extends _FakeLotteryRepository {
   @override
   Future<LotteryStockPage> search({
@@ -992,6 +1051,18 @@ class _ClosedLotteryRepository extends _FakeLotteryRepository {
       canReserve: false,
     );
   }
+}
+
+DioException _apiException(String message) {
+  final request = RequestOptions(path: '/public/stock/search');
+  return DioException(
+    requestOptions: request,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: request,
+      statusCode: 422,
+      data: {'message': message},
+    ),
+  );
 }
 
 ApiClient _testApiClient() {

@@ -1,13 +1,16 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dio/dio.dart';
 
 import '../../core/auth/auth_controller.dart';
 import '../../core/utils/api_errors.dart';
 
 String customerErrorMessage(Object error, String fallback) {
   final message = ApiErrorInfo.fromObject(error).message.trim();
-  return message.isEmpty ? fallback : message;
+  if (message.isEmpty) return fallback;
+  if (error is DioException || error is Map) return message;
+  return fallback;
 }
 
 Future<bool> handleCustomerOperationalError({

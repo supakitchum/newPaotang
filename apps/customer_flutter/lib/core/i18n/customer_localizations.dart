@@ -1600,6 +1600,8 @@ class CustomerLocalizations {
   String get storesTitle => _text('stores.title');
   String get storesSearchLabel => _text('stores.search_label');
   String get storesRecommendedTitle => _text('stores.recommended.title');
+  String get storesLoadFailedTitle => _text('stores.load_failed.title');
+  String get storesLoadFailedMessage => _text('stores.load_failed.message');
   String get storesEmptyTitle => _text('stores.empty.title');
   String get storesEmptyMessage => _text('stores.empty.message');
   String get storesFallbackStoreName => _text('stores.fallback_store_name');
@@ -1609,6 +1611,10 @@ class CustomerLocalizations {
 
   String get storesLotteriesTitle => _text('stores.lotteries.title');
   String get storesLotteriesSubtitle => _text('stores.lotteries.subtitle');
+  String get storesLotteriesLoadFailedTitle =>
+      _text('stores.lotteries.load_failed.title');
+  String get storesLotteriesLoadFailedMessage =>
+      _text('stores.lotteries.load_failed.message');
   String get storesLotteriesEmptyTitle => _text('stores.lotteries.empty.title');
   String get storesLotteriesEmptyMessage =>
       _text('stores.lotteries.empty.message');
@@ -3067,12 +3073,16 @@ const _localizedValues = <String, Map<String, String>>{
     'stores.title': 'ร้านค้า',
     'stores.search_label': 'ค้นหาร้านค้า',
     'stores.recommended.title': 'ร้านสลากฯ แนะนำ',
+    'stores.load_failed.title': 'โหลดร้านค้าไม่สำเร็จ',
+    'stores.load_failed.message': 'กรุณาลองใหม่อีกครั้ง',
     'stores.empty.title': 'ไม่พบร้านค้า',
     'stores.empty.message': 'ลองเปลี่ยนคำค้นหา หรือกลับมาใหม่อีกครั้ง',
     'stores.fallback_store_name': 'ร้านสลากฯ',
     'stores.code': 'รหัสร้าน {code}',
     'stores.lotteries.title': 'สลากจากร้านค้า',
     'stores.lotteries.subtitle': 'ค้นหาเลขสลากฯ ในร้านค้า',
+    'stores.lotteries.load_failed.title': 'โหลดเลขสลากไม่สำเร็จ',
+    'stores.lotteries.load_failed.message': 'กรุณาลองใหม่อีกครั้ง',
     'stores.lotteries.empty.title': 'ยังไม่มีสลากให้เลือก',
     'stores.lotteries.empty.message':
         'ร้านค้านี้ยังไม่มีสลากที่พร้อมจำหน่ายในงวดปัจจุบัน',
@@ -4424,12 +4434,16 @@ const _localizedValues = <String, Map<String, String>>{
     'stores.title': 'Stores',
     'stores.search_label': 'Search stores',
     'stores.recommended.title': 'Recommended lottery stores',
+    'stores.load_failed.title': 'Could not load stores',
+    'stores.load_failed.message': 'Please try again.',
     'stores.empty.title': 'No stores found',
     'stores.empty.message': 'Try another keyword or check back later.',
     'stores.fallback_store_name': 'Lottery store',
     'stores.code': 'Store code {code}',
     'stores.lotteries.title': 'Store lottery tickets',
     'stores.lotteries.subtitle': 'Search lottery numbers in this store',
+    'stores.lotteries.load_failed.title': 'Could not load lottery numbers',
+    'stores.lotteries.load_failed.message': 'Please try again.',
     'stores.lotteries.empty.title': 'No tickets available',
     'stores.lotteries.empty.message':
         'This store has no tickets available for the current draw.',

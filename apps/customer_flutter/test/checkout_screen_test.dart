@@ -160,6 +160,67 @@ void main() {
     cartCompleter.complete(await _CheckoutLotteryRepository().cart());
   });
 
+  testWidgets('cart load failure shows API payload copy safely', (
+    tester,
+  ) async {
+    await _pumpCartTest(
+      tester,
+      lottery: _FailingCartLotteryRepository(
+        _apiException('ตะกร้าหมดอายุแล้ว กรุณาเลือกสลากใหม่'),
+      ),
+    );
+
+    expect(
+      find.text('ตะกร้าหมดอายุแล้ว กรุณาเลือกสลากใหม่'),
+      findsOneWidget,
+    );
+    expect(find.text('กรุณาลองใหม่อีกครั้ง'), findsNothing);
+  });
+
+  testWidgets('cart load failure hides internal errors', (tester) async {
+    await _pumpCartTest(
+      tester,
+      lottery: _FailingCartLotteryRepository(
+        StateError('internal cart refresh failure'),
+      ),
+    );
+
+    expect(find.text('โหลดตะกร้าไม่สำเร็จ'), findsOneWidget);
+    expect(find.textContaining('internal cart refresh failure'), findsNothing);
+  });
+
+  testWidgets('checkout load failure shows API payload copy safely', (
+    tester,
+  ) async {
+    await _pumpCheckoutPaymentTest(
+      tester,
+      lottery: _FailingCartLotteryRepository(
+        _apiException('ไม่พบรายการชำระเงิน กรุณาเลือกสลากใหม่'),
+      ),
+    );
+
+    expect(
+      find.text('ไม่พบรายการชำระเงิน กรุณาเลือกสลากใหม่'),
+      findsOneWidget,
+    );
+    expect(find.text('กรุณาลองใหม่อีกครั้ง'), findsNothing);
+  });
+
+  testWidgets('checkout load failure hides internal errors', (tester) async {
+    await _pumpCheckoutPaymentTest(
+      tester,
+      lottery: _FailingCartLotteryRepository(
+        StateError('internal checkout cart failure'),
+      ),
+    );
+
+    expect(find.text('โหลดข้อมูลไม่สำเร็จ'), findsOneWidget);
+    expect(
+      find.textContaining('internal checkout cart failure'),
+      findsNothing,
+    );
+  });
+
   testWidgets('checkout shows the selected wallet payment method card', (
     tester,
   ) async {
@@ -2405,6 +2466,59 @@ void main() {
   });
 }
 
+Future<void> _pumpCartTest(
+  WidgetTester tester, {
+  required _CheckoutLotteryRepository lottery,
+}) async {
+  final router = GoRouter(
+    initialLocation: '/cart',
+    routes: [
+      GoRoute(
+        path: '/cart',
+        builder: (context, state) => const CartScreen(),
+      ),
+      GoRoute(
+        path: '/buy',
+        builder: (context, state) => const Scaffold(body: Text('Buy')),
+      ),
+      GoRoute(
+        path: '/',
+        builder: (context, state) => const Scaffold(body: Text('Home')),
+      ),
+      GoRoute(
+        path: '/tickets',
+        builder: (context, state) => const Scaffold(body: Text('Tickets')),
+      ),
+      GoRoute(
+        path: '/profile',
+        builder: (context, state) => const Scaffold(body: Text('Profile')),
+      ),
+    ],
+  );
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        lotteryRepositoryProvider.overrideWithValue(lottery),
+        resultRepositoryProvider.overrideWithValue(_CartResultRepository()),
+      ],
+      child: MaterialApp.router(
+        locale: fallbackCustomerLocale,
+        supportedLocales: supportedCustomerLocales,
+        localizationsDelegates: const [
+          CustomerLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        theme: AppTheme.light(),
+        routerConfig: router,
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 Future<GoRouter> _pumpCheckoutPaymentTest(
   WidgetTester tester, {
   required _CheckoutLotteryRepository lottery,
@@ -2606,6 +2720,17 @@ class _CheckoutLotteryRepository extends LotteryRepository {
     releasedReservationIds = [...releasedReservationIds, reservationId];
     _released = true;
     return LotteryCart.empty();
+  }
+}
+
+class _FailingCartLotteryRepository extends _CheckoutLotteryRepository {
+  _FailingCartLotteryRepository(this.error);
+
+  final Object error;
+
+  @override
+  Future<LotteryCart> cart() async {
+    throw error;
   }
 }
 

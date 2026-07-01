@@ -569,6 +569,102 @@ void main() {
     );
     expect(find.text('ร้านถัดไป'), findsOneWidget);
   });
+
+  testWidgets(
+    'store lotteries load failure shows API payload copy safely',
+    (tester) async {
+      final tokenStore = AuthTokenStore();
+      final authController = _unauthenticatedController(tokenStore);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(_testConfig),
+            authTokenStoreProvider.overrideWithValue(tokenStore),
+            authControllerProvider.overrideWith((_) => authController),
+            resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
+            storeRepositoryProvider.overrideWithValue(
+              _FailingStoreLotteryRepository(
+                _apiException(
+                  'ยังไม่สามารถโหลดเลขสลากได้ กรุณาลองใหม่',
+                  path: '/public/stores/store_1/lotteries',
+                ),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            locale: fallbackCustomerLocale,
+            supportedLocales: supportedCustomerLocales,
+            localizationsDelegates: const [
+              CustomerLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            theme: AppTheme.light(),
+            home: const StoreLotteriesScreen(
+              storeId: 'store_1',
+              storeName: 'ร้านทดสอบ',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('โหลดเลขสลากไม่สำเร็จ'), findsOneWidget);
+      expect(
+        find.text('ยังไม่สามารถโหลดเลขสลากได้ กรุณาลองใหม่'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('internal store lottery failure'),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('store lotteries load failure hides internal errors', (
+    tester,
+  ) async {
+    final tokenStore = AuthTokenStore();
+    final authController = _unauthenticatedController(tokenStore);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(_testConfig),
+          authTokenStoreProvider.overrideWithValue(tokenStore),
+          authControllerProvider.overrideWith((_) => authController),
+          resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
+          storeRepositoryProvider.overrideWithValue(
+            _FailingStoreLotteryRepository(
+              StateError('internal store lottery failure'),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          home: const StoreLotteriesScreen(
+            storeId: 'store_1',
+            storeName: 'ร้านทดสอบ',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('โหลดเลขสลากไม่สำเร็จ'), findsOneWidget);
+    expect(find.text('กรุณาลองใหม่อีกครั้ง'), findsOneWidget);
+    expect(find.textContaining('internal store lottery failure'), findsNothing);
+  });
 }
 
 const _testConfig = AppConfig(
@@ -661,6 +757,27 @@ class _FakeStoreRepository extends StoreRepository {
       status: 'available',
       reservationId: '',
     );
+  }
+}
+
+class _FailingStoreLotteryRepository extends _FakeStoreRepository {
+  _FailingStoreLotteryRepository(this.error);
+
+  final Object error;
+
+  @override
+  Future<StoreLotteryPage> lotteries({
+    required String storeId,
+    required String gameId,
+    List<String> digits = const [],
+    String cursor = '',
+    int limit = 20,
+  }) async {
+    searchCount++;
+    lastStoreId = storeId;
+    lastGameId = gameId;
+    lastDigits = List<String>.from(digits);
+    throw error;
   }
 }
 
@@ -899,6 +1016,18 @@ class _CountingLotteryRepository extends LotteryRepository {
     reserveCount++;
     throw StateError('Reserve should stay disabled while sales are closed.');
   }
+}
+
+DioException _apiException(String message, {required String path}) {
+  final request = RequestOptions(path: path);
+  return DioException(
+    requestOptions: request,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: request,
+      statusCode: 422,
+      data: {'message': message},
+    ),
+  );
 }
 
 ApiClient _testApiClient([AuthTokenStore? tokenStore]) {
