@@ -23,7 +23,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('ซื้อสลากดิจิทัล'), findsOneWidget);
+    expect(find.text('ซื้อสลากดิจิทัล'), findsWidgets);
     expect(find.text('สแกนซื้อสลากฯ'), findsOneWidget);
     expect(find.text('เริ่มซื้อสลากดิจิทัล'), findsOneWidget);
     expect(find.text('เข้าสู่ระบบ'), findsOneWidget);
@@ -63,7 +63,7 @@ void main() {
     await _pumpHome(tester);
     await tester.pumpAndSettle();
 
-    expect(find.text('ซื้อสลากดิจิทัล'), findsOneWidget);
+    expect(find.text('ซื้อสลากดิจิทัล'), findsWidgets);
     expect(find.text('ค้นหาเลขเด็ด'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

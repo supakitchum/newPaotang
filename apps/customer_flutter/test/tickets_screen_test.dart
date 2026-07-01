@@ -75,13 +75,17 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(find.widgetWithText(FilledButton, 'ค้นหาเลขสลาก'), findsNothing);
 
     await tester.tap(find.byTooltip('ค้นหาเลขสลาก'));
     await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('ticket-search-clear')), findsNothing);
     await tester.enterText(
       find.byKey(const ValueKey('ticket-search-input')),
       '740000',
     );
+    await tester.pump();
+    expect(find.byKey(const ValueKey('ticket-search-clear')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('ticket-search-submit')));
     await tester.pumpAndSettle();
 
@@ -93,6 +97,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('880000'), findsOneWidget);
+    expect(find.byKey(const ValueKey('ticket-search-clear')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

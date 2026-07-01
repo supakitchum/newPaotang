@@ -34,6 +34,7 @@ class _TopupHistoryScreenState extends ConsumerState<TopupHistoryScreen> {
     return AppShell(
       title: l10n.topupHistoryTitle,
       currentPath: '/my-wallet',
+      backPath: '/topup',
       sensitive: true,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -47,9 +48,7 @@ class _TopupHistoryScreenState extends ConsumerState<TopupHistoryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _TopupHistoryHeader(
-                  onTopup: () => context.go('/topup'),
-                ),
+                const _TopupHistoryHeader(),
                 const SizedBox(height: 20),
                 history.when(
                   data: (overview) => _TopupHistoryContent(
@@ -381,9 +380,7 @@ class _HistoryBonusPill extends StatelessWidget {
 }
 
 class _TopupHistoryHeader extends StatelessWidget {
-  const _TopupHistoryHeader({required this.onTopup});
-
-  final VoidCallback onTopup;
+  const _TopupHistoryHeader();
 
   @override
   Widget build(BuildContext context) {
@@ -433,14 +430,6 @@ class _TopupHistoryHeader extends StatelessWidget {
                   ),
                 ],
               ),
-            ),
-            IconButton.filledTonal(
-              onPressed: onTopup,
-              style: IconButton.styleFrom(
-                backgroundColor: colorScheme.onPrimary.withValues(alpha: 0.14),
-                foregroundColor: colorScheme.onPrimary,
-              ),
-              icon: const Icon(Icons.add),
             ),
           ],
         ),

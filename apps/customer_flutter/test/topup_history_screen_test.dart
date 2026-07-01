@@ -261,6 +261,27 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('topup history header back returns to topup like Nuxt', (
+    tester,
+  ) async {
+    await _pumpTopupHistoryRoute(
+      tester,
+      _overview(
+        histories: [_topup(id: 'top_back_1', amount: 500)],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('รายการเติมเงินล่าสุด'), findsOneWidget);
+    expect(find.byIcon(Icons.add), findsNothing);
+
+    await tester.tap(find.byTooltip('ย้อนกลับ'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Topup route'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('topup history empty action returns to topup like Nuxt', (
     tester,
   ) async {

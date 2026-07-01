@@ -209,15 +209,9 @@ class _RewardClaimsContent extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 16),
             child: Center(
-              child: OutlinedButton.icon(
+              child: OutlinedButton(
                 onPressed: loadingMore ? null : onLoadMore,
-                icon: loadingMore
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.expand_more),
-                label: Text(
+                child: Text(
                   loadingMore
                       ? context.l10n.rewardClaimsLoadingMore
                       : context.l10n.rewardClaimsLoadMore,

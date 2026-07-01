@@ -118,8 +118,10 @@ Acceptance evidence for every screen group:
   claim sheet biometric assertion-token submission without plaintext PIN.
 - `test/tickets_screen_test.dart` covers current-ticket Nuxt-style search,
   draw/total summary, winning banner, current/history tabs, the Nuxt footer note
-  explaining prize-result notifications in "สลากฯ ของฉัน", and ticket history
-  infinite-scroll loading so older draw tickets appear without a manual page
+  explaining prize-result notifications in "สลากฯ ของฉัน", removal of the
+  Flutter-only bottom buy/search CTA, search clear visibility only after the
+  customer enters a query, and ticket history infinite-scroll loading so older
+  draw tickets appear without a manual page
   refresh, plus removal of the Flutter-only intro/header card before the
   current/history ticket content, plus the Nuxt-style history filter that
   toggles between all past tickets and winning tickets without another history
@@ -138,7 +140,8 @@ Acceptance evidence for every screen group:
   regression coverage, date-only row footer, loading/error/empty copy, retry
   behavior, empty-state navigation to winning ticket history, API payload error
   copy, paid/cancelled status labels, bank and wallet payout summaries,
-  load-more pagination, reward-specific detail receipt payout-channel copy,
+  text-only outline load-more pagination without Flutter-only icons,
+  reward-specific detail receipt payout-channel copy,
   Nuxt-style direct-entry detail loading/error copy without generic async
   cards, runtime bootstrap receipt watermark branding, plain white detail
   receipt rendering without the extra amount hero, compact detail payout-row
@@ -179,8 +182,9 @@ Acceptance evidence for every screen group:
   precedence, Nuxt-style dense rows with split amount/baht unit, compact bonus
   pills, circular page-button pagination, card-free history rendering,
   history-specific loading/error copy with retry, API payload error messages,
-  empty-state return to `/topup`, and compact mobile readability, plus realtime
-  tick refresh of the current history page.
+  empty-state return to `/topup`, direct-entry header back navigation to
+  `/topup` without a Flutter-only add shortcut, and compact mobile readability,
+  plus realtime tick refresh of the current history page.
 - `test/data_parsing_test.dart` covers Topup legacy numeric statuses and
   object/string `slip` payloads so waiting/history cards keep uploaded-slip and
   status state across old and new adapter shapes.

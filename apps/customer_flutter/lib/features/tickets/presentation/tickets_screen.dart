@@ -113,15 +113,6 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> {
           ),
           const SizedBox(height: 16),
           const _TicketFooterNote(),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 52,
-            child: FilledButton.icon(
-              onPressed: () => context.go('/buy'),
-              icon: const Icon(Icons.search),
-              label: Text(l10n.ticketsSearchNumbers),
-            ),
-          ),
         ],
       ),
     );
@@ -214,11 +205,17 @@ class _TicketSearchForm extends StatelessWidget {
                 onSubmitted: (_) => onSubmit(),
               ),
             ),
-            IconButton(
-              key: const ValueKey('ticket-search-clear'),
-              tooltip: l10n.ticketsSearchClear,
-              onPressed: onClear,
-              icon: const Icon(Icons.close),
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (context, value, _) {
+                if (value.text.isEmpty) return const SizedBox.shrink();
+                return IconButton(
+                  key: const ValueKey('ticket-search-clear'),
+                  tooltip: l10n.ticketsSearchClear,
+                  onPressed: onClear,
+                  icon: const Icon(Icons.close),
+                );
+              },
             ),
             FilledButton(
               key: const ValueKey('ticket-search-submit'),

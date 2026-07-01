@@ -50,6 +50,15 @@ void main() {
     );
     expect(find.textContaining('RWD-0001 •'), findsNothing);
     expect(find.byType(Card), findsNothing);
+    final loadMoreButton = find.widgetWithText(OutlinedButton, 'โหลดเพิ่มเติม');
+    expect(loadMoreButton, findsOneWidget);
+    expect(
+      find.descendant(
+        of: loadMoreButton,
+        matching: find.byIcon(Icons.expand_more),
+      ),
+      findsNothing,
+    );
 
     await tester.tap(find.text('โหลดเพิ่มเติม'));
     await tester.pumpAndSettle();

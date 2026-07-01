@@ -423,6 +423,9 @@ Recent verified work:
   - Current tickets now restore the Nuxt footer note explaining that the
     "สลากฯ ของฉัน" menu records purchased numbers and shows prize-result
     notifications on this page, with widget coverage to prevent copy loss.
+  - Current tickets now match Nuxt's search surface more closely by removing
+    the Flutter-only bottom buy/search CTA after the footer note and showing the
+    search clear action only after the customer enters a query.
   - Current and history ticket pages now remove the Flutter-only intro/header
     card between the page header and ticket content, so the surface starts with
     the Nuxt-style segment tabs followed by draw/list content.
@@ -504,6 +507,8 @@ Recent verified work:
   - Reward claim history now restores the Nuxt `force-back-to` list navigation:
     `/reward-claims` exposes a header back action that returns customers to
     `/profile`.
+  - Reward claim history load-more now matches Nuxt's text-only outline pill
+    instead of showing a Flutter-only expand/spinner icon.
   - Widget coverage now verifies reward claim history rows, empty-state
     navigation to winning ticket history, API error copy, payout summaries,
     load-more pagination, detail receipt payout channel, waived tax/fee rows,
@@ -551,6 +556,9 @@ Recent verified work:
     and empty-action coverage now keeps the history-specific loading copy,
     preserves API payload error messages with a localized fallback/retry on
     failure, and routes the empty primary action back to `/topup`.
+  - Topup history direct-entry navigation now matches Nuxt's header behavior:
+    the Flutter page exposes a back action to `/topup`, while the summary
+    header no longer shows the earlier Flutter-only add shortcut.
   - Waiting topup cancellation now matches Nuxt behavior by requiring a
     confirmation dialog with request id and amount before calling cancel.
   - Unfinished topups now block new topup creation like Nuxt: the form shows a
@@ -723,6 +731,11 @@ Recent verified work:
     direct/admin reset links submit `admin_reset_link`, missing tokens block
     submission, API payload error copy with internal-error fallback, and
     successful resets return customers to login.
+  - Full Flutter widget-test gate is green again after tightening the Home and
+    root security test harnesses: Home assertions now allow the Nuxt buy label
+    to appear on multiple intentional action surfaces, and CustomerApp security
+    tests isolate `SaleClosureGuard` with a no-op result repository so widget
+    tests do not leak real Dio timers/network work.
 
 ## Remaining Work By Area
 
@@ -816,6 +829,8 @@ flutter test test/activity_claims_screen_test.dart test/activity_claim_repositor
 flutter test test/customer_redirect_test.dart test/router_redirect_test.dart test/auth_redirect_flow_test.dart test/social_auth_screens_test.dart test/forgot_password_screen_test.dart test/reset_password_screen_test.dart test/pin_reset_flow_test.dart --reporter compact
 flutter test test/wallet_screen_test.dart --reporter compact
 flutter test test/wallet_screen_test.dart test/no_hardcoded_copy_test.dart --reporter compact
+flutter test test/home_screen_test.dart test/security_guard_test.dart --reporter compact
+flutter test --reporter compact
 dart run tool/production_preflight.dart --target all --check-files ...
 ```
 

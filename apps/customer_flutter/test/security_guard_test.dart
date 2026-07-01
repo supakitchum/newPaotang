@@ -15,6 +15,8 @@ import 'package:customer_flutter/core/tenant/mobile_runtime_policy.dart';
 import 'package:customer_flutter/features/monitoring/presentation/public_visit_monitor.dart';
 import 'package:customer_flutter/features/news/data/news_models.dart';
 import 'package:customer_flutter/features/news/data/news_repository.dart';
+import 'package:customer_flutter/features/results/data/result_models.dart';
+import 'package:customer_flutter/features/results/data/result_repository.dart';
 import 'package:customer_flutter/features/pin/presentation/pin_screen.dart';
 import 'package:customer_flutter/shared/widgets/app_shell.dart';
 import 'package:customer_flutter/shared/widgets/sensitive_screen_guard.dart';
@@ -77,6 +79,7 @@ void main() {
           ),
           authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
           newsRepositoryProvider.overrideWithValue(_NoopNewsRepository()),
+          resultRepositoryProvider.overrideWithValue(_NoopResultRepository()),
           publicVisitMonitorEnabledProvider.overrideWithValue(false),
           customerPlatformKeyProvider.overrideWithValue('android'),
           mobileBootstrapProvider.overrideWith(
@@ -175,6 +178,7 @@ void main() {
           ),
           authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
           newsRepositoryProvider.overrideWithValue(_NoopNewsRepository()),
+          resultRepositoryProvider.overrideWithValue(_NoopResultRepository()),
           publicVisitMonitorEnabledProvider.overrideWithValue(false),
           customerPlatformKeyProvider.overrideWithValue('web'),
           mobileBootstrapProvider.overrideWith(
@@ -235,6 +239,7 @@ void main() {
           ),
           authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
           newsRepositoryProvider.overrideWithValue(_NoopNewsRepository()),
+          resultRepositoryProvider.overrideWithValue(_NoopResultRepository()),
           publicVisitMonitorEnabledProvider.overrideWithValue(false),
           customerPlatformKeyProvider.overrideWithValue('web'),
           mobileBootstrapProvider.overrideWith(
@@ -294,6 +299,7 @@ void main() {
           ),
           authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
           newsRepositoryProvider.overrideWithValue(_NoopNewsRepository()),
+          resultRepositoryProvider.overrideWithValue(_NoopResultRepository()),
           publicVisitMonitorEnabledProvider.overrideWithValue(false),
           customerPlatformKeyProvider.overrideWithValue('web'),
           mobileBootstrapProvider.overrideWith(
@@ -351,6 +357,7 @@ void main() {
           ),
           authTokenStoreProvider.overrideWithValue(AuthTokenStore()),
           newsRepositoryProvider.overrideWithValue(_NoopNewsRepository()),
+          resultRepositoryProvider.overrideWithValue(_NoopResultRepository()),
           publicVisitMonitorEnabledProvider.overrideWithValue(false),
           mobileBootstrapProvider.overrideWith(
             (_) async => MobileBootstrap.fromJson(
@@ -577,6 +584,37 @@ class _NoopNewsRepository extends NewsRepository {
     int maxPages = NewsRepository.maxAutoPages,
   }) {
     return Future.value(const []);
+  }
+}
+
+class _NoopResultRepository extends ResultRepository {
+  _NoopResultRepository()
+      : super(
+          ApiClient(
+            const AppConfig(
+              apiBaseUrl: 'https://partner.example.com/api/v1',
+              defaultLocale: 'th-TH',
+            ),
+            AuthTokenStore(),
+            localeTag: 'th-TH',
+          ),
+        );
+
+  @override
+  Future<CurrentGame?> currentGame() async => null;
+
+  @override
+  Future<RewardResultGame?> latest({String? gameId, bool live = true}) async {
+    return null;
+  }
+
+  @override
+  Future<RewardResultBundle> current({String? gameId}) async {
+    return const RewardResultBundle(
+      currentGame: null,
+      selectedResult: null,
+      history: [],
+    );
   }
 }
 
