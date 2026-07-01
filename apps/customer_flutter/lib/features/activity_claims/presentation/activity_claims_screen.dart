@@ -9,6 +9,7 @@ import '../../../shared/widgets/customer_page_body.dart';
 import '../data/activity_claim_models.dart';
 import '../data/activity_claim_repository.dart';
 import '../../reward_claims/presentation/claim_realtime_monitor.dart';
+import 'activity_claim_error_message.dart';
 import 'activity_claim_localization.dart';
 
 class ActivityClaimsScreen extends ConsumerStatefulWidget {
@@ -129,9 +130,14 @@ class _ActivityClaimsScreenState extends ConsumerState<ActivityClaimsScreen> {
         _cursor = page.nextCursor;
         _hasMore = page.hasMore;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      setState(() => _error = context.l10n.activityClaimsLoadFailed);
+      setState(
+        () => _error = activityClaimErrorMessage(
+          error,
+          context.l10n.activityClaimsLoadFailed,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _loadingInitial = false);
     }
@@ -151,10 +157,17 @@ class _ActivityClaimsScreenState extends ConsumerState<ActivityClaimsScreen> {
         _cursor = page.nextCursor;
         _hasMore = page.hasMore;
       });
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.activityClaimsLoadMoreFailed)),
+          SnackBar(
+            content: Text(
+              activityClaimErrorMessage(
+                error,
+                context.l10n.activityClaimsLoadMoreFailed,
+              ),
+            ),
+          ),
         );
       }
     } finally {

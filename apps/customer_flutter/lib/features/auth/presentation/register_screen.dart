@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -412,8 +413,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           .read(affiliateReferralServiceProvider)
           .applyStored(registered: true);
       if (mounted) _goAfterRegistration();
-    } catch (_) {
-      _showSnack(failedMessage);
+    } catch (error) {
+      _showSnack(_registrationErrorMessage(error, failedMessage));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -481,6 +482,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _canRegisterWithoutOtp(Object error) {
     final info = ApiErrorInfo.fromObject(error);
     return info.isOptionalSmsOtpProviderMissing;
+  }
+
+  String _registrationErrorMessage(Object error, String fallback) {
+    final message = ApiErrorInfo.fromObject(error).message.trim();
+    if (message.isEmpty) return fallback;
+    if (error is DioException || error is Map) return message;
+    return fallback;
   }
 
   void _goAfterRegistration() {

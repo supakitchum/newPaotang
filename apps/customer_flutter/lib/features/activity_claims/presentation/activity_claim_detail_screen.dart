@@ -8,6 +8,7 @@ import '../../../shared/widgets/customer_page_body.dart';
 import '../data/activity_claim_models.dart';
 import '../data/activity_claim_repository.dart';
 import '../../reward_claims/presentation/claim_realtime_monitor.dart';
+import 'activity_claim_error_message.dart';
 import 'activity_claim_localization.dart';
 
 class ActivityClaimDetailScreen extends ConsumerWidget {
@@ -42,8 +43,11 @@ class ActivityClaimDetailScreen extends ConsumerWidget {
               loading: () => _ActivityClaimDetailState(
                 message: l10n.activityClaimDetailLoading,
               ),
-              error: (_, __) => _ActivityClaimDetailState(
-                message: l10n.activityClaimDetailLoadFailed,
+              error: (error, __) => _ActivityClaimDetailState(
+                message: activityClaimErrorMessage(
+                  error,
+                  l10n.activityClaimDetailLoadFailed,
+                ),
                 error: true,
               ),
             ),

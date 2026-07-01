@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -1490,7 +1491,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_errorMessage(error, context.l10n.checkoutFailed)),
+          content: Text(
+            _checkoutErrorMessage(error, context.l10n.checkoutFailed),
+          ),
         ),
       );
     } finally {
@@ -3499,6 +3502,13 @@ class _LoadingMessageCard extends StatelessWidget {
 
 String _errorMessage(Object error, String fallback) {
   return customerErrorMessage(error, fallback);
+}
+
+String _checkoutErrorMessage(Object error, String fallback) {
+  final message = ApiErrorInfo.fromObject(error).message.trim();
+  if (message.isEmpty) return fallback;
+  if (error is DioException || error is Map) return message;
+  return fallback;
 }
 
 bool _isReservationUnavailableError(Object error) {

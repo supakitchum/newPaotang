@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -75,8 +76,12 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> {
             ),
           ],
           const SizedBox(height: 12),
-          AsyncStateView(
-            value: tickets,
+          tickets.when(
+            loading: () => const _TicketLoadingList(),
+            error: (error, _) => _TicketErrorCard(
+              message: _ticketErrorMessage(error, l10n.ticketsLoadFailed),
+              onRetry: () => ref.invalidate(currentTicketsProvider),
+            ),
             data: (items) {
               final displayTickets = _filterTickets(items);
               final winningTicketCount = _winningTicketCount(items);
@@ -105,7 +110,6 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> {
                 ],
               );
             },
-            empty: const _EmptyTicketsCard(),
           ),
           const SizedBox(height: 16),
           const _TicketFooterNote(),
@@ -797,9 +801,14 @@ class _TicketHistoryScreenState extends ConsumerState<TicketHistoryScreen> {
         _hasMore = page.hasMore;
         _showOnlyWinning = false;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      setState(() => _error = context.l10n.ticketHistoryLoadFailed);
+      setState(
+        () => _error = _ticketErrorMessage(
+          error,
+          context.l10n.ticketHistoryLoadFailed,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _loadingInitial = false);
     }
@@ -819,10 +828,17 @@ class _TicketHistoryScreenState extends ConsumerState<TicketHistoryScreen> {
         _cursor = page.nextCursor;
         _hasMore = page.hasMore;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.ticketHistoryLoadMoreFailed)),
+        SnackBar(
+          content: Text(
+            _ticketErrorMessage(
+              error,
+              context.l10n.ticketHistoryLoadMoreFailed,
+            ),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _loadingMore = false);
@@ -1387,9 +1403,14 @@ class _TicketClaimScreenState extends ConsumerState<TicketClaimScreen> {
           _payoutMethod = 'bank_transfer';
         }
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      setState(() => _error = context.l10n.ticketClaimLoadFailed);
+      setState(
+        () => _error = _ticketErrorMessage(
+          error,
+          context.l10n.ticketClaimLoadFailed,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -1450,7 +1471,7 @@ class _TicketClaimScreenState extends ConsumerState<TicketClaimScreen> {
       });
       if (_pinError.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(failedMessage)),
+          SnackBar(content: Text(_ticketErrorMessage(error, failedMessage))),
         );
       }
     } finally {
@@ -2889,10 +2910,20 @@ class _TicketLoadingList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Card(
+    return Card(
       child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Center(child: CircularProgressIndicator()),
+        padding: const EdgeInsets.all(24),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 12),
+            Flexible(child: Text(context.l10n.ticketsLoading)),
+          ],
+        ),
       ),
     );
   }
@@ -2978,6 +3009,13 @@ Color _ticketStatusColor(BuildContext context, CustomerTicket ticket) {
   if (status == 'winning') return Colors.orange.shade800;
   if (status == 'non_winning') return Theme.of(context).colorScheme.outline;
   return Theme.of(context).colorScheme.primary;
+}
+
+String _ticketErrorMessage(Object error, String fallback) {
+  final message = ApiErrorInfo.fromObject(error).message.trim();
+  if (message.isEmpty) return fallback;
+  if (error is DioException || error is Map) return message;
+  return fallback;
 }
 
 String _payoutLabel(

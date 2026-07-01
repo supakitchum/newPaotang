@@ -125,12 +125,12 @@ Acceptance evidence for every screen group:
   `number`/`order_id`/`game_id` and history `from=history` detail navigation,
   Nuxt-style generated image preview fallback with runtime bootstrap product
   marker, runtime ticket-image watermark, and current-draw/digital-type metadata
-  chips, plus ticket-claim loading copy, unavailable reward messages, disabled
-  claim actions, existing-claim routing to reward-claim detail without duplicate
-  submission, waived tax/fee rows, Nuxt-style processing receipt rows for claim
-  method, draw date, draw/set metadata, prize lines, net amount, and the
-  PIN-to-processing transition, plus reward-claim biometric assertion-token
-  submission without plaintext PIN.
+  chips, plus current/history/claim API payload error copy, ticket-claim loading
+  copy, unavailable reward messages, disabled claim actions, existing-claim
+  routing to reward-claim detail without duplicate submission, waived tax/fee
+  rows, Nuxt-style processing receipt rows for claim method, draw date, draw/set
+  metadata, prize lines, net amount, and the PIN-to-processing transition, plus
+  reward-claim biometric assertion-token submission without plaintext PIN.
 - `test/reward_claims_screen_test.dart` covers Reward Claims history/detail
   parity: the dense Nuxt-style white history list with compact mobile
   regression coverage, date-only row footer, loading/error/empty copy, retry
@@ -181,10 +181,11 @@ Acceptance evidence for every screen group:
   parity: Nuxt-style claim row content, paid/cancelled status labels, bank and
   wallet payout summaries, load-more pagination, detail receipt payout channel,
   customer/admin notes, card-free detail receipt layout without the extra
-  amount hero, detail loading/error copy, net amount rows, and the direct-entry
-  detail back action returning to `/activity-claims`, realtime list/detail
-  refresh to paid state, plus the history-list header back action returning to
-  `/profile` and Nuxt-specific loading copy.
+  amount hero, detail loading/error copy, API payload error messages, net
+  amount rows, and the direct-entry detail back action returning to
+  `/activity-claims`, realtime list/detail refresh to paid state, plus the
+  history-list header back action returning to `/profile` and Nuxt-specific
+  loading copy.
 - `test/data_parsing_test.dart` covers Activity Claims backend and legacy
   payout variants including `payout_ledger_id`, top-level bank account fields,
   nested bank objects, wallet names, paid status mapping, masked bank accounts,
@@ -265,6 +266,8 @@ Acceptance evidence for every screen group:
   failed/expired pending-payment states staying off the success receipt, the
   no-order pending-payment recovery back to Buy, retry after pending-payment
   status load failure, the
+  checkout submission API payload error copy with localized fallback for
+  internal/client failures, the
   insufficient-balance disabled payment state, the
   Nuxt-style Cart/Checkout page titles, the Nuxt-style Cart current-draw date,
   Nuxt-style Cart header count line without the Flutter-only reserved-item
@@ -335,8 +338,8 @@ Acceptance evidence for every screen group:
 - `test/customer_redirect_test.dart`, `test/router_redirect_test.dart`, and
   `test/auth_redirect_flow_test.dart` cover Nuxt-style auth redirect parity:
   protected routes preserve a safe `redirect` through login, PIN-required
-  sessions route to `/pin?redirect=...`, and PIN unlock returns to the saved
-  checkout target.
+  sessions route to `/pin?redirect=...`, register preserves backend API payload
+  messages after OTP, and PIN unlock returns to the saved checkout target.
 - `test/forgot_password_screen_test.dart`,
   `test/reset_password_screen_test.dart`, and `test/pin_reset_flow_test.dart`
   cover Auth reset parity: tenant-configured LINE reset visibility, friendly

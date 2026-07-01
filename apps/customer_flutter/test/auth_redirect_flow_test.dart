@@ -12,6 +12,7 @@ import 'package:customer_flutter/features/auth/presentation/login_screen.dart';
 import 'package:customer_flutter/features/auth/presentation/register_screen.dart';
 import 'package:customer_flutter/features/monitoring/data/public_visit_id_store.dart';
 import 'package:customer_flutter/features/pin/presentation/pin_screen.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -97,6 +98,69 @@ void main() {
     );
   });
 
+  testWidgets('register shows API error copy after OTP like Nuxt', (
+    tester,
+  ) async {
+    final repo = _AuthRedirectRepository(
+      registerError: _apiException('เบอร์โทรศัพท์นี้ถูกใช้งานแล้ว'),
+    );
+    final router = _authRouter('/register?redirect=%2Fcheckout');
+
+    await tester.pumpWidget(_testApp(router: router, repo: repo));
+    await tester.pumpAndSettle();
+
+    await _fillRegisterForm(tester);
+    await tester.tap(find.byType(FilledButton));
+    await tester.pumpAndSettle();
+
+    expect(repo.requestOtpCalls, 1);
+    expect(find.textContaining('OTP'), findsWidgets);
+
+    await _enterRegisterOtp(tester, '123456');
+    await _tapRegisterSubmit(tester, 'Verify and create account');
+    await tester.pumpAndSettle();
+
+    expect(repo.lastVerifiedOtp, '123456');
+    expect(find.text('เบอร์โทรศัพท์นี้ถูกใช้งานแล้ว'), findsOneWidget);
+    expect(
+      find.text(
+        'Could not create account. Please check your details and try again.',
+      ),
+      findsNothing,
+    );
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/register?redirect=%2Fcheckout',
+    );
+  });
+
+  testWidgets('register falls back for internal errors', (
+    tester,
+  ) async {
+    final repo = _AuthRedirectRepository(
+      registerError: StateError('internal register failed'),
+    );
+    final router = _authRouter('/register?redirect=%2Fcheckout');
+
+    await tester.pumpWidget(_testApp(router: router, repo: repo));
+    await tester.pumpAndSettle();
+
+    await _fillRegisterForm(tester);
+    await tester.tap(find.byType(FilledButton));
+    await tester.pumpAndSettle();
+    await _enterRegisterOtp(tester, '123456');
+    await _tapRegisterSubmit(tester, 'Verify and create account');
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Could not create account. Please check your details and try again.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('internal register failed'), findsNothing);
+  });
+
   testWidgets('PIN verification returns to the saved checkout redirect', (
     tester,
   ) async {
@@ -137,6 +201,29 @@ void main() {
     );
     expect(find.text('checkout-flow'), findsOneWidget);
   });
+}
+
+Future<void> _fillRegisterForm(WidgetTester tester) async {
+  await tester.enterText(find.byType(TextField).at(0), 'Maneerat');
+  await tester.enterText(find.byType(TextField).at(1), 'Demo');
+  await tester.enterText(find.byType(TextField).at(2), '0812345678');
+  await tester.enterText(find.byType(TextField).at(3), 'secret1234');
+  await tester.enterText(find.byType(TextField).at(4), 'secret1234');
+  await tester.ensureVisible(find.byType(Checkbox));
+  await tester.tap(find.byType(Checkbox));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _enterRegisterOtp(WidgetTester tester, String otp) async {
+  final otpField = find.byType(TextField).at(5);
+  await tester.ensureVisible(otpField);
+  await tester.enterText(otpField, otp);
+}
+
+Future<void> _tapRegisterSubmit(WidgetTester tester, String label) async {
+  final submitButton = find.widgetWithText(FilledButton, label);
+  await tester.ensureVisible(submitButton);
+  await tester.tap(submitButton);
 }
 
 Widget _testApp({
@@ -228,14 +315,18 @@ class _AuthRedirectRepository extends AuthRepository {
       pinSetupRequired: false,
       customerId: 'cus_default',
     ),
+    this.registerError,
   }) : super(
           api: ApiClient(_testConfig, AuthTokenStore(), localeTag: 'en-US'),
           tokenStore: AuthTokenStore(),
         );
 
   final CustomerSession loginSession;
+  final Object? registerError;
   String lastLoginUsername = '';
   String lastVerifiedPin = '';
+  String lastVerifiedOtp = '';
+  int requestOtpCalls = 0;
 
   @override
   Future<CustomerSession> login({
@@ -243,6 +334,42 @@ class _AuthRedirectRepository extends AuthRepository {
     required String password,
   }) async {
     lastLoginUsername = username;
+    return loginSession;
+  }
+
+  @override
+  Future<OtpRequestResult> requestOtp({
+    required String phone,
+    required String purpose,
+  }) async {
+    requestOtpCalls++;
+    return const OtpRequestResult(
+      phoneMasked: '081xxx5678',
+      resendAfterSeconds: 0,
+    );
+  }
+
+  @override
+  Future<OtpVerifyResult> verifyOtp({
+    required String phone,
+    required String purpose,
+    required String otp,
+  }) async {
+    lastVerifiedOtp = otp;
+    return const OtpVerifyResult(verificationToken: 'otp_verified_register');
+  }
+
+  @override
+  Future<CustomerSession> register({
+    required String firstName,
+    required String lastName,
+    required String phone,
+    required String password,
+    required String passwordConfirmation,
+    String? otpVerificationToken,
+  }) async {
+    final error = registerError;
+    if (error != null) throw error;
     return loginSession;
   }
 
@@ -260,6 +387,18 @@ class _AuthRedirectRepository extends AuthRepository {
   Future<void> verifyPin(String pin) async {
     lastVerifiedPin = pin;
   }
+}
+
+DioException _apiException(String message) {
+  final requestOptions = RequestOptions(path: '/customer/auth/register');
+  return DioException(
+    requestOptions: requestOptions,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: requestOptions,
+      statusCode: 422,
+      data: {'message': message},
+    ),
+  );
 }
 
 class _NoopAffiliateReferralService extends AffiliateReferralService {

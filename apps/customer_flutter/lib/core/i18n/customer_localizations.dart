@@ -1696,6 +1696,8 @@ class CustomerLocalizations {
   }
 
   String get ticketsTitle => _text('tickets.title');
+  String get ticketsLoading => _text('tickets.loading');
+  String get ticketsLoadFailed => _text('tickets.load_failed');
   String get ticketsHistoryTooltip => _text('tickets.history_tooltip');
   String get ticketsCurrentDrawTitle => _text('tickets.current_draw.title');
   String get ticketsCurrentDrawSubtitle =>
@@ -3143,6 +3145,8 @@ const _localizedValues = <String, Map<String, String>>{
     'affiliate.status.reversed': 'กลับรายการ',
     'affiliate.status.rejected': 'ไม่อนุมัติ',
     'tickets.title': 'สลากฯ ของฉัน',
+    'tickets.loading': 'กำลังโหลดสลากฯ',
+    'tickets.load_failed': 'โหลดสลากฯ ไม่สำเร็จ',
     'tickets.history_tooltip': 'ประวัติสลาก',
     'tickets.current_draw.title': 'งวดปัจจุบัน',
     'tickets.current_draw.subtitle':
@@ -4501,6 +4505,8 @@ const _localizedValues = <String, Map<String, String>>{
     'affiliate.status.reversed': 'Reversed',
     'affiliate.status.rejected': 'Rejected',
     'tickets.title': 'My Tickets',
+    'tickets.loading': 'Loading tickets...',
+    'tickets.load_failed': 'Could not load tickets.',
     'tickets.history_tooltip': 'Ticket history',
     'tickets.current_draw.title': 'Current draw',
     'tickets.current_draw.subtitle':

@@ -354,6 +354,10 @@ Recent verified work:
   - Checkout payment method submission now comes from the selected runtime
     payment method, with wallet fallback matching the current Nuxt adapter and
     OpenAPI checkout contract.
+  - Checkout payment failures now mirror Nuxt error-copy behavior: backend API
+    payload messages are shown to the customer, while internal/client
+    exceptions fall back to localized Flutter copy instead of leaking technical
+    exception text.
   - Success receipt now renders a Nuxt-style receipt header, product marker,
     emphasized total row, centered transaction/reference block, and save action
     that copies localized payment details to the clipboard; the tenant
@@ -403,6 +407,11 @@ Recent verified work:
   - Ticket claim loading now matches Nuxt's reward-claim preparation state by
     showing the localized "กำลังโหลดข้อมูลรางวัล..." copy instead of a
     spinner-only page while ticket/reward/profile data is loading.
+  - Ticket current/history/claim error states now preserve backend API payload
+    messages like Nuxt, including current ticket load, history first-page and
+    load-more failures, claim preparation failures, and reward-claim submission
+    failures, while internal/client exceptions still use localized fallback
+    copy.
   - Ticket claim existing-claim state now has widget coverage: tickets that
     already have a reward claim show the Nuxt-style "มีรายการขึ้นเงินแล้ว"
     card, do not submit a duplicate claim, and route to the existing reward
@@ -540,6 +549,9 @@ Recent verified work:
     customers to `/profile`.
   - Activity claim history loading now uses the Nuxt-specific loading copy
     instead of a generic spinner-only card.
+  - Activity claim history/detail error states now preserve API payload
+    messages with localized fallbacks, matching Nuxt's `response.data.message`
+    behavior without leaking internal exceptions.
   - Activity claim parsing now accepts backend and legacy payout variants for
     `payout_ledger_id`, top-level bank names/account numbers, nested
     `bank_account`/`payout_bank_account`/`bank` objects, and
@@ -566,8 +578,9 @@ Recent verified work:
     pending rows/receipts to paid state without leaving the current screen.
   - Widget coverage now verifies activity claim history rows, load-more
     pagination, paid/cancelled status labels, bank/wallet payout summaries,
-    detail receipt payout channel, customer/admin notes, card-free receipt
-    layout, detail loading/error copy, net amount rows, and the direct-entry
+    API error copy, detail receipt payout channel, customer/admin notes,
+    card-free receipt layout, detail loading/error copy, net amount rows, and
+    the direct-entry
     detail back action returning to `/activity-claims`.
 - Activities Flutter parity advanced:
   - Activities current/history pages now expose Nuxt-style header back actions:
@@ -622,10 +635,13 @@ Recent verified work:
     safe redirect target instead of leaving the customer on the PIN screen.
   - Register terms now wraps the checkbox tile in its own `Material` layer so
     Flutter ink/background assertions do not break widget tests.
+  - Register submit now mirrors Nuxt error copy behavior by preserving backend
+    API payload messages after OTP verification while keeping localized fallback
+    copy for internal/client errors.
   - Widget coverage now verifies safe redirect sanitization, protected-route
     login handoff, password-login redirect return, PIN-required routing,
-    register login-link preservation, social link-phone continuation, and PIN
-    unlock return-to-checkout behavior.
+    register login-link preservation, register API error copy, social
+    link-phone continuation, and PIN unlock return-to-checkout behavior.
   - Reset-password deep-link coverage now verifies LINE password-reset
     callbacks submit the `line_login` source, direct/admin reset links submit
     `admin_reset_link`, missing tokens block submission, and successful resets
@@ -638,8 +654,8 @@ Recent verified work:
 | UX/UI parity overall | Match Nuxt customer screens, spacing, typography, responsive layout, empty/loading/error/auth states. | 70% |
 | Home | Finish hero parity, wallet alignment, activity/news rails, result card behavior on all breakpoints. | 35% |
 | Buy/Search | Finish exact visual spacing, store-lottery responsive screenshot review, final sale-closed screenshot review, and responsive polish. | 3% |
-| Cart/Checkout | Finish final sale-closed screenshot review, remaining receipt screenshot/device QA, and store-media/device QA. | 2% |
-| Tickets | Final detail image and processing receipt screenshot review plus final current/history responsive polish. | 29% |
+| Cart/Checkout | Finish final sale-closed screenshot review, remaining receipt screenshot/device QA, and store-media/device QA. | 1% |
+| Tickets | Final detail image and processing receipt screenshot review plus final current/history responsive polish. | 28% |
 | Wallet | Final responsive screenshot review, remaining realtime monitor/device QA, failed/error polish, and native/web sensitive-screen validation. | 34% |
 | Topup | Final modal/sheet screenshot polish, bank-transfer picker/device QA, QR/credit QR provider review, remaining history responsive screenshot review, and device QA. | 28% |
 | Reward Claims | Final responsive screenshot review, remaining failed/empty/error polish, and native/web sensitive-screen validation. | 45% |
@@ -647,7 +663,7 @@ Recent verified work:
 | Activity Claims | Final claim modal responsive screenshot review, remaining list failed/empty polish, device realtime QA, and native/web sensitive-screen validation. | 49% |
 | News/Announcements | Modal behavior, news list/detail parity, no repeated modal after detail navigation. | 45% |
 | Profile | Menu grouping, member code copy, LINE notifications, reward bank, auto reward, biometrics, account deletion. | 50% |
-| Auth | Forgot/reset/PIN reset final polish, OTP fallback QA, and screenshot review. | 39% |
+| Auth | Forgot/reset/PIN reset final polish, OTP fallback QA, and screenshot review. | 38% |
 | Social Login | LINE/Google/Apple provider config, callback, phone linking, store-compliant behavior, deep links. | 52% |
 | Face ID/Biometric | Native key generation, challenge signing, PIN assertion token, fallback/revoke/device management QA. | 65% |
 | Native screen security | Android FLAG_SECURE validation, iOS screenshot/recording lock overlay, native smoke. | 70% |

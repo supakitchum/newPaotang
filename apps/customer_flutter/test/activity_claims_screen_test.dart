@@ -12,6 +12,7 @@ import 'package:customer_flutter/features/activity_claims/data/activity_claim_re
 import 'package:customer_flutter/features/activity_claims/presentation/activity_claim_detail_screen.dart';
 import 'package:customer_flutter/features/activity_claims/presentation/activity_claims_screen.dart';
 import 'package:customer_flutter/features/reward_claims/presentation/claim_realtime_monitor.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -45,6 +46,22 @@ void main() {
 
     expect(find.text('กำลังโหลดประวัติขึ้นเงินกิจกรรม...'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
+  testWidgets('activity claims list error uses API copy like Nuxt', (
+    tester,
+  ) async {
+    await _pumpActivityClaims(tester, [
+      activityClaimRepositoryProvider.overrideWithValue(
+        _ActivityClaimApiMessageRepository('ระบบขึ้นเงินกิจกรรมปิดปรับปรุง'),
+      ),
+    ]);
+    await tester.pumpAndSettle();
+
+    expect(find.text('ระบบขึ้นเงินกิจกรรมปิดปรับปรุง'), findsOneWidget);
+    expect(find.text('โหลดประวัติขึ้นเงินกิจกรรมไม่สำเร็จ'), findsNothing);
+    expect(find.text('ลองใหม่'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('activity claims list renders payout rows and loads more', (
@@ -204,7 +221,30 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('โหลดรายการขึ้นเงินกิจกรรมไม่สำเร็จ'), findsOneWidget);
+    expect(find.text('not found'), findsNothing);
     expect(find.byType(Card), findsNothing);
+  });
+
+  testWidgets('activity claim detail error uses API copy like Nuxt', (
+    tester,
+  ) async {
+    const claimId = 'activity_claim_api_error';
+    final container = ProviderContainer(
+      overrides: [
+        activityClaimDetailProvider(claimId).overrideWith((_) async {
+          throw _apiException('ไม่พบรายการขึ้นเงินกิจกรรมนี้');
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await _pumpActivityClaimDetailWithContainer(tester, container, claimId);
+    await tester.pumpAndSettle();
+
+    expect(find.text('ไม่พบรายการขึ้นเงินกิจกรรมนี้'), findsOneWidget);
+    expect(find.text('โหลดรายการขึ้นเงินกิจกรรมไม่สำเร็จ'), findsNothing);
+    expect(find.byType(Card), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('activity claim detail refreshes on realtime tick', (
@@ -536,6 +576,29 @@ class _ActivityClaimRealtimeRepository extends ActivityClaimRepository {
       hasMore: false,
     );
   }
+}
+
+class _ActivityClaimApiMessageRepository extends ActivityClaimRepository {
+  _ActivityClaimApiMessageRepository(this.message) : super(_testApiClient());
+
+  final String message;
+
+  @override
+  Future<ActivityClaimPage> list({int limit = 20, String? cursor}) async {
+    throw _apiException(message);
+  }
+}
+
+DioException _apiException(String message) {
+  final requestOptions = RequestOptions(path: '/customer/activity-claims');
+  return DioException(
+    requestOptions: requestOptions,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: requestOptions,
+      statusCode: 503,
+      data: {'message': message},
+    ),
+  );
 }
 
 ApiClient _testApiClient() {

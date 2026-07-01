@@ -529,6 +529,50 @@ void main() {
     expect(find.text('success:ord_nested'), findsOneWidget);
   });
 
+  testWidgets('checkout shows API error copy on payment failure like Nuxt', (
+    tester,
+  ) async {
+    final lottery = _CheckoutLotteryRepository(
+      checkoutError: _apiException('รายการชำระเงินหมดอายุแล้ว'),
+    );
+    final router = await _pumpCheckoutPaymentTest(
+      tester,
+      lottery: lottery,
+    );
+
+    await _submitCheckoutPayment(tester);
+
+    expect(lottery.checkoutReservationIds, ['res_1']);
+    expect(find.text('รายการชำระเงินหมดอายุแล้ว'), findsOneWidget);
+    expect(find.text('ชำระเงินไม่สำเร็จ'), findsNothing);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/checkout',
+    );
+  });
+
+  testWidgets('checkout falls back for internal payment errors', (
+    tester,
+  ) async {
+    final lottery = _CheckoutLotteryRepository(
+      checkoutError: StateError('internal checkout failure'),
+    );
+    final router = await _pumpCheckoutPaymentTest(
+      tester,
+      lottery: lottery,
+    );
+
+    await _submitCheckoutPayment(tester);
+
+    expect(lottery.checkoutReservationIds, ['res_1']);
+    expect(find.text('ชำระเงินไม่สำเร็จ'), findsOneWidget);
+    expect(find.textContaining('internal checkout failure'), findsNothing);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/checkout',
+    );
+  });
+
   testWidgets(
       'checkout success keeps Nuxt-style receipt fallback on load error', (
     tester,
@@ -2361,6 +2405,96 @@ void main() {
   });
 }
 
+Future<GoRouter> _pumpCheckoutPaymentTest(
+  WidgetTester tester, {
+  required _CheckoutLotteryRepository lottery,
+  WalletRepository? walletRepository,
+  AffiliateReferralService? affiliateReferralService,
+}) async {
+  final router = GoRouter(
+    initialLocation: '/checkout',
+    routes: [
+      GoRoute(
+        path: '/checkout',
+        builder: (context, state) => const CheckoutScreen(),
+      ),
+      GoRoute(
+        path: '/success',
+        builder: (context, state) => Scaffold(
+          body: Center(
+            child: Text('success:${state.uri.queryParameters['order_id']}'),
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/topup',
+        builder: (context, state) => const Scaffold(body: Text('Topup')),
+      ),
+      GoRoute(
+        path: '/',
+        builder: (context, state) => const Scaffold(body: Text('Home')),
+      ),
+      GoRoute(
+        path: '/tickets',
+        builder: (context, state) => const Scaffold(body: Text('Tickets')),
+      ),
+      GoRoute(
+        path: '/profile',
+        builder: (context, state) => const Scaffold(body: Text('Profile')),
+      ),
+    ],
+  );
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
+        lotteryRepositoryProvider.overrideWithValue(lottery),
+        walletRepositoryProvider.overrideWithValue(
+          walletRepository ?? _WalletRepository(balance: 240),
+        ),
+        affiliateReferralServiceProvider.overrideWithValue(
+          affiliateReferralService ?? _NoopAffiliateReferralService(),
+        ),
+      ],
+      child: MaterialApp.router(
+        locale: fallbackCustomerLocale,
+        supportedLocales: supportedCustomerLocales,
+        localizationsDelegates: const [
+          CustomerLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        theme: AppTheme.light(),
+        routerConfig: router,
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return router;
+}
+
+Future<void> _submitCheckoutPayment(WidgetTester tester) async {
+  final confirmButton = find.widgetWithText(FilledButton, 'ยืนยันชำระเงิน');
+  await tester.ensureVisible(confirmButton);
+  await tester.pumpAndSettle();
+  await tester.tap(confirmButton);
+  await tester.pumpAndSettle();
+}
+
+DioException _apiException(String message) {
+  final requestOptions = RequestOptions(path: '/customer/checkout');
+  return DioException(
+    requestOptions: requestOptions,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: requestOptions,
+      statusCode: 422,
+      data: {'message': message},
+    ),
+  );
+}
+
 class _PendingCartLotteryRepository extends LotteryRepository {
   _PendingCartLotteryRepository(this.cartFuture) : super(_testApiClient());
 
@@ -2374,10 +2508,12 @@ class _CheckoutLotteryRepository extends LotteryRepository {
   _CheckoutLotteryRepository({
     this.expired = false,
     this.redirectUrl = '',
+    this.checkoutError,
   }) : super(_testApiClient());
 
   final bool expired;
   final String redirectUrl;
+  final Object? checkoutError;
 
   List<String> checkoutReservationIds = const [];
   String checkoutPaymentMethod = '';
@@ -2442,6 +2578,8 @@ class _CheckoutLotteryRepository extends LotteryRepository {
   }) async {
     checkoutReservationIds = List<String>.from(reservationIds);
     checkoutPaymentMethod = paymentMethod;
+    final error = checkoutError;
+    if (error != null) throw error;
     return LotteryCheckoutOrder.fromJson({
       'result': {
         'order': {

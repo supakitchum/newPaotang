@@ -14,6 +14,7 @@ import 'package:customer_flutter/features/profile/data/profile_settings_reposito
 import 'package:customer_flutter/features/tickets/data/ticket_models.dart';
 import 'package:customer_flutter/features/tickets/data/ticket_repository.dart';
 import 'package:customer_flutter/features/tickets/presentation/tickets_screen.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -95,6 +96,39 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('current tickets API error uses server copy like Nuxt', (
+    tester,
+  ) async {
+    final repository = _FailingTicketCurrentRepository(
+      _apiException(
+        '/customer/tickets',
+        'ไม่สามารถโหลดสลากงวดนี้ได้',
+      ),
+    );
+
+    await _pumpCurrent(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(repository.currentAllCalls, 1);
+    expect(find.text('ไม่สามารถโหลดสลากงวดนี้ได้'), findsOneWidget);
+    expect(find.text('ยังไม่มีสลากในงวดนี้'), findsNothing);
+    expect(find.text('โหลดสลากฯ ไม่สำเร็จ'), findsNothing);
+  });
+
+  testWidgets('current tickets internal error falls back to localized copy', (
+    tester,
+  ) async {
+    final repository = _FailingTicketCurrentRepository(
+      StateError('internal ticket load failed'),
+    );
+
+    await _pumpCurrent(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.text('โหลดสลากฯ ไม่สำเร็จ'), findsOneWidget);
+    expect(find.textContaining('internal ticket load failed'), findsNothing);
+  });
+
   testWidgets('ticket history auto-loads more tickets near the bottom', (
     tester,
   ) async {
@@ -125,6 +159,49 @@ void main() {
     expect(find.text('880000'), findsOneWidget);
     expect(find.text('โหลดเพิ่มเติม'), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ticket history API error uses server copy like Nuxt', (
+    tester,
+  ) async {
+    final repository = _FailingTicketHistoryRepository(
+      _apiException(
+        '/customer/tickets/history',
+        'ไม่สามารถโหลดสลากย้อนหลังได้',
+      ),
+    );
+
+    await _pumpHistory(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.text('ไม่สามารถโหลดสลากย้อนหลังได้'), findsOneWidget);
+    expect(find.text('โหลดประวัติสลากไม่สำเร็จ'), findsNothing);
+    expect(find.text('ยังไม่มีสลากย้อนหลัง'), findsNothing);
+  });
+
+  testWidgets('ticket history load more API error uses server copy like Nuxt', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 620);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _TicketHistoryRepository(
+      loadMoreError: _apiException(
+        '/customer/tickets/history',
+        'โหลดหน้าถัดไปจากระบบไม่สำเร็จ',
+      ),
+    );
+
+    await _pumpHistory(tester, repository);
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -1800));
+    await tester.pumpAndSettle();
+
+    expect(repository.historyCalls, 2);
+    expect(find.text('โหลดหน้าถัดไปจากระบบไม่สำเร็จ'), findsOneWidget);
+    expect(find.text('โหลดรายการเพิ่มเติมไม่สำเร็จ'), findsNothing);
   });
 
   testWidgets('ticket history filters winning tickets like Nuxt', (
@@ -316,6 +393,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('ticket claim load API error uses server copy like Nuxt', (
+    tester,
+  ) async {
+    final repository = _TicketClaimRepository(
+      ticket: _ticket('ticket_error', '123456'),
+      status: const TicketRewardStatus(
+        status: 'non_winning',
+        claimStatus: '',
+        claimable: false,
+        prizeType: '',
+        prizeNumber: '',
+        prizeAmount: 0,
+        prizes: [],
+        rewardClaimId: null,
+        payoutMethod: '',
+        adminNote: '',
+      ),
+      detailError: _apiException(
+        '/customer/tickets/ticket_error',
+        'โหลดข้อมูลขึ้นเงินจากระบบไม่สำเร็จ',
+      ),
+    );
+
+    await _pumpTicketClaim(
+      tester,
+      repository,
+      initialLocation: '/tickets/claim/ticket_error',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('โหลดข้อมูลขึ้นเงินจากระบบไม่สำเร็จ'), findsOneWidget);
+    expect(find.text('โหลดข้อมูลขึ้นเงินไม่สำเร็จ'), findsNothing);
+  });
+
   testWidgets('ticket claim shows unavailable reward status message', (
     tester,
   ) async {
@@ -504,6 +615,63 @@ void main() {
     expect(find.text('ลดให้ 5.00 บาท'), findsOneWidget);
     expect(find.text('ลดให้ 10.00 บาท'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ticket claim submit API error uses server copy like Nuxt', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 860);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _TicketClaimRepository(
+      ticket: _ticket('ticket_submit_error', '456789'),
+      status: const TicketRewardStatus(
+        status: 'winning',
+        claimStatus: '',
+        claimable: true,
+        prizeType: 'back3',
+        prizeNumber: '789',
+        prizeAmount: 1000,
+        prizes: [],
+        rewardClaimId: null,
+        payoutMethod: '',
+        adminNote: '',
+      ),
+      createError: _apiException(
+        '/customer/reward-claims',
+        'ไม่สามารถส่งรายการขึ้นเงินจากระบบได้',
+      ),
+    );
+
+    await _pumpTicketClaim(
+      tester,
+      repository,
+      initialLocation: '/tickets/claim/ticket_submit_error',
+    );
+    await tester.pumpAndSettle();
+
+    tester
+        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ถัดไป'))
+        .onPressed!();
+    await tester.pumpAndSettle();
+
+    tester
+        .widget<FilledButton>(find.widgetWithText(FilledButton, 'ยืนยัน'))
+        .onPressed!();
+    await tester.pumpAndSettle();
+
+    for (final digit in ['1', '2', '3', '4', '5', '6']) {
+      await tester.tap(find.widgetWithText(FilledButton, digit));
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+
+    expect(repository.createRewardClaimCalls, 1);
+    expect(find.text('ไม่สามารถส่งรายการขึ้นเงินจากระบบได้'), findsOneWidget);
+    expect(find.text('ส่งรายการไม่สำเร็จ กรุณาลองใหม่'), findsNothing);
+    expect(find.text('กำลังดำเนินการโอนเงินรางวัล'), findsNothing);
   });
 
   testWidgets('ticket claim submits biometric assertion token', (
@@ -890,8 +1058,25 @@ class _TicketCurrentRepository extends TicketRepository {
   }
 }
 
+class _FailingTicketCurrentRepository extends _TicketCurrentRepository {
+  _FailingTicketCurrentRepository(this.error) : super(const []);
+
+  final Object error;
+
+  @override
+  Future<List<CustomerTicket>> currentAll({
+    int limit = TicketRepository.defaultPageLimit,
+    int maxPages = TicketRepository.maxAutoPages,
+  }) async {
+    currentAllCalls++;
+    throw error;
+  }
+}
+
 class _TicketHistoryRepository extends TicketRepository {
-  _TicketHistoryRepository() : super(_testApiClient());
+  _TicketHistoryRepository({this.loadMoreError}) : super(_testApiClient());
+
+  final Object? loadMoreError;
 
   int historyCalls = 0;
   final cursors = <String?>[];
@@ -906,6 +1091,8 @@ class _TicketHistoryRepository extends TicketRepository {
     cursors.add(cursor);
 
     if (cursor == 'cursor_2') {
+      final error = loadMoreError;
+      if (error != null) throw error;
       return TicketPage(
         items: [_ticket('history_2', '880000')],
         nextCursor: null,
@@ -923,6 +1110,21 @@ class _TicketHistoryRepository extends TicketRepository {
       hasMore: true,
       total: 9,
     );
+  }
+}
+
+class _FailingTicketHistoryRepository extends TicketRepository {
+  _FailingTicketHistoryRepository(this.error) : super(_testApiClient());
+
+  final Object error;
+
+  @override
+  Future<TicketPage> history({
+    int limit = 20,
+    String? cursor,
+    String? gameId,
+  }) async {
+    throw error;
   }
 }
 
@@ -1024,10 +1226,14 @@ class _TicketClaimRepository extends TicketRepository {
   _TicketClaimRepository({
     required this.ticket,
     required this.status,
+    this.detailError,
+    this.createError,
   }) : super(_testApiClient());
 
   final CustomerTicket ticket;
   final TicketRewardStatus status;
+  final Object? detailError;
+  final Object? createError;
   int createRewardClaimCalls = 0;
   final createdTicketIds = <String>[];
   final createdPayoutMethods = <String>[];
@@ -1035,7 +1241,11 @@ class _TicketClaimRepository extends TicketRepository {
   final createdAssertionTokens = <String>[];
 
   @override
-  Future<CustomerTicket> detail(String id) async => ticket;
+  Future<CustomerTicket> detail(String id) async {
+    final error = detailError;
+    if (error != null) throw error;
+    return ticket;
+  }
 
   @override
   Future<TicketRewardStatus> rewardStatus(String id) async => status;
@@ -1053,6 +1263,8 @@ class _TicketClaimRepository extends TicketRepository {
     createdPayoutMethods.add(payoutMethod);
     createdPins.add(pin);
     createdAssertionTokens.add(pinAssertionToken);
+    final error = createError;
+    if (error != null) throw error;
     return const RewardClaimSubmission(
       id: 'claim_1',
       status: 'submitted',
@@ -1101,6 +1313,18 @@ class _FakeBiometricAuthService extends BiometricAuthService {
     purposes.add(purpose);
     return assertionToken;
   }
+}
+
+DioException _apiException(String path, String message) {
+  final requestOptions = RequestOptions(path: path);
+  return DioException(
+    requestOptions: requestOptions,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: requestOptions,
+      statusCode: 422,
+      data: {'message': message},
+    ),
+  );
 }
 
 CustomerTicket _ticket(
