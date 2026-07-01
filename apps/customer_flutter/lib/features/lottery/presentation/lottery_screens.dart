@@ -465,6 +465,8 @@ class CartTicketGroup {
 
   int get count => items.length;
 
+  LotteryStockItem? get primaryItem => items.isEmpty ? null : items.first;
+
   String get storeSummary {
     final stores = <String>[];
     for (final item in items) {
@@ -678,37 +680,17 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             final l10n = context.l10n;
-            return AlertDialog(
-              title: Text(
-                l10n.cartRemoveGroupTitle(group.number, group.count),
-                textAlign: TextAlign.center,
+            return _CartRemoveConfirmationDialog(
+              title: l10n.cartRemoveGroupTitle(group.number, group.count),
+              message: l10n.cartRemoveGroupMessage(group.count),
+              removing: removing,
+              onCancel: () => Navigator.of(context).pop(),
+              onConfirm: () => _confirmReleaseGroup(
+                group,
+                dialogContext: context,
+                setDialogState: setDialogState,
+                setRemoving: (value) => removing = value,
               ),
-              content: Text(
-                l10n.cartRemoveGroupMessage(group.count),
-                textAlign: TextAlign.center,
-              ),
-              actions: [
-                TextButton(
-                  onPressed:
-                      removing ? null : () => Navigator.of(context).pop(),
-                  child: Text(l10n.commonCancel),
-                ),
-                FilledButton(
-                  onPressed: removing
-                      ? null
-                      : () => _confirmReleaseGroup(
-                            group,
-                            dialogContext: context,
-                            setDialogState: setDialogState,
-                            setRemoving: (value) => removing = value,
-                          ),
-                  child: Text(
-                    removing
-                        ? l10n.cartRemoveGroupRemoving
-                        : l10n.cartRemoveGroupConfirm,
-                  ),
-                ),
-              ],
             );
           },
         );
@@ -917,6 +899,93 @@ class _CartPurchaseLimitNotice extends StatelessWidget {
   }
 }
 
+class _CartRemoveConfirmationDialog extends StatelessWidget {
+  const _CartRemoveConfirmationDialog({
+    required this.title,
+    required this.message,
+    required this.removing,
+    required this.onCancel,
+    required this.onConfirm,
+  });
+
+  final String title;
+  final String message;
+  final bool removing;
+  final VoidCallback onCancel;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Dialog(
+      key: const ValueKey('cart-remove-confirmation-dialog'),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+      backgroundColor: colorScheme.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 338),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 30, 24, 26),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  height: 1.25,
+                ),
+              ),
+              const SizedBox(height: 22),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w500,
+                  height: 1.55,
+                ),
+              ),
+              const SizedBox(height: 27),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 54,
+                      child: OutlinedButton(
+                        onPressed: removing ? null : onCancel,
+                        child: Text(l10n.commonCancel),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: SizedBox(
+                      height: 54,
+                      child: FilledButton(
+                        onPressed: removing ? null : onConfirm,
+                        child: Text(
+                          removing
+                              ? l10n.cartRemoveGroupRemoving
+                              : l10n.cartRemoveGroupConfirm,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _CartPaymentDock extends StatelessWidget {
   const _CartPaymentDock({
     required this.total,
@@ -946,19 +1015,12 @@ class _CartPaymentDock extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (deadline != null) ...[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.timer_outlined,
-                    color: colorScheme.primary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _ReservationCountdownText(reservation: deadline!),
-                  ),
-                ],
+              Center(
+                child: _ReservationCountdownText(
+                  reservation: deadline!,
+                  countdownLabelBuilder: (l10n, time) =>
+                      l10n.checkoutPaymentTimer(time),
+                ),
               ),
               const SizedBox(height: 12),
             ],
@@ -3026,6 +3088,10 @@ class _CartTicketGroupCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final storeName = group.primaryItem?.storeName.trim().isNotEmpty == true
+        ? group.primaryItem!.storeName.trim()
+        : l10n.storesFallbackStoreName;
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -3033,30 +3099,36 @@ class _CartTicketGroupCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Row(
+              key: const ValueKey('cart-ticket-product-row'),
+              children: [
+                Icon(
+                  Icons.confirmation_number_outlined,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    l10n.ticketLabelGovernmentLottery,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
             LayoutBuilder(
               builder: (context, constraints) {
                 final compact = constraints.maxWidth < 380;
-                final title = Column(
-                  crossAxisAlignment: compact
-                      ? CrossAxisAlignment.stretch
-                      : CrossAxisAlignment.start,
-                  children: [
-                    _LotteryNumber(number: group.number, compact: true),
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n.ticketsCount(group.count),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
-                  ],
-                );
-                final releaseButton = TextButton.icon(
+                final title = _LotteryNumber(number: group.number);
+                final releaseButton = FilledButton(
+                  key: const ValueKey('cart-ticket-remove-action'),
                   onPressed: busy ? null : onRelease,
-                  icon: const Icon(Icons.close),
-                  label: Text(l10n.lotteryRemove),
+                  child: Text(l10n.lotteryRemove),
                 );
                 if (compact) {
                   return Column(
@@ -3079,84 +3151,60 @@ class _CartTicketGroupCard extends StatelessWidget {
                 );
               },
             ),
-            if (group.deadlineReservation != null)
-              _ReservationCountdownText(
-                reservation: group.deadlineReservation!,
-              ),
-            const SizedBox(height: 8),
-            for (final item in group.items)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: _CompactLotteryTile(item: item),
-              ),
-            const Divider(),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                formatBaht(group.total),
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
+            const SizedBox(height: 10),
+            Row(
+              key: const ValueKey('cart-ticket-summary-row'),
+              children: [
+                if (group.count > 1) ...[
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer.withValues(
+                        alpha: 0.42,
+                      ),
+                      borderRadius: BorderRadius.circular(999),
                     ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CompactLotteryTile extends StatelessWidget {
-  const _CompactLotteryTile({required this.item});
-
-  final LotteryStockItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final storeName = item.storeName.trim().isEmpty
-        ? context.l10n.storesFallbackStoreName
-        : item.storeName;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.32),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _LotteryNumber(number: item.number, compact: true),
-                  const SizedBox(height: 4),
-                  Text(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      child: Text(
+                        '${l10n.ticketLabelCount} ${l10n.ticketsCount(group.count)}',
+                        style:
+                            Theme.of(context).textTheme.labelMedium?.copyWith(
+                                  color: colorScheme.primary,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  child: Text(
                     storeName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          color: colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w700,
                         ),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            Flexible(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerRight,
-                child: Text(
-                  formatBaht(item.price),
-                  style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      formatBaht(group.total),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -3166,16 +3214,15 @@ class _CompactLotteryTile extends StatelessWidget {
 }
 
 class _LotteryNumber extends StatelessWidget {
-  const _LotteryNumber({required this.number, this.compact = false});
+  const _LotteryNumber({required this.number});
 
   final String number;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final digits = number.split('');
     return Wrap(
-      spacing: compact ? 3 : 5,
+      spacing: 5,
       children: [
         for (final digit in digits)
           DecoratedBox(
@@ -3184,14 +3231,11 @@ class _LotteryNumber extends StatelessWidget {
               borderRadius: BorderRadius.circular(6),
             ),
             child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: compact ? 7 : 9,
-                vertical: compact ? 3 : 4,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
               child: Text(
                 digit,
-                style: TextStyle(
-                  fontSize: compact ? 15 : 18,
+                style: const TextStyle(
+                  fontSize: 18,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 0,
                 ),

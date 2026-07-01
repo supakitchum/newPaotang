@@ -1970,10 +1970,15 @@ void main() {
     expect(find.text('สลากฯ 1 ใบ'), findsOneWidget);
     expect(find.text('รายการที่จองไว้'), findsNothing);
     expect(find.text('1 ใบ • 80.00 บาท'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('cart-ticket-product-row')),
+      findsOneWidget,
+    );
+    expect(find.text('สลากกินแบ่งรัฐบาล'), findsOneWidget);
     expect(find.textContaining('งวดวันที่'), findsOneWidget);
     expect(find.text('ยอดชำระทั้งหมด'), findsOneWidget);
     expect(find.text('80.00 บาท'), findsWidgets);
-    expect(find.textContaining('กรุณาชำระเงินภายใน'), findsWidgets);
+    expect(find.textContaining('กรุณาชำระเงินภายใน'), findsOneWidget);
     expect(find.textContaining('สูงสุด 20 ใบ'), findsOneWidget);
     expect(
       find.widgetWithText(OutlinedButton, 'เลือกสลากฯ เพิ่ม'),
@@ -1981,6 +1986,22 @@ void main() {
     );
     final paymentDock = find.byKey(const ValueKey('cart-payment-dock'));
     expect(paymentDock, findsOneWidget);
+    expect(
+      find.descendant(
+        of: paymentDock,
+        matching: find.byIcon(Icons.timer_outlined),
+      ),
+      findsNothing,
+    );
+    final dockCountdown = find.descendant(
+      of: paymentDock,
+      matching: find.textContaining('กรุณาชำระเงินภายใน'),
+    );
+    expect(dockCountdown, findsOneWidget);
+    expect(
+      tester.getCenter(dockCountdown).dx,
+      closeTo(tester.getCenter(paymentDock).dx, 2),
+    );
     expect(find.byKey(const Key('customer_bottom_nav')), findsNothing);
     final dockBottom = tester.getBottomLeft(paymentDock).dy;
     expect(dockBottom, closeTo(640, 1));
@@ -2181,13 +2202,32 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('2 ใบ'), findsOneWidget);
+    expect(find.text('จำนวน 2 ใบ'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('cart-ticket-summary-row')),
+      findsOneWidget,
+    );
+    expect(find.text('160.00 บาท'), findsWidgets);
+    expect(find.text('80.00 บาท'), findsNothing);
 
-    final removeButton = find.widgetWithText(TextButton, 'เอาออก');
+    final removeButton = find.widgetWithText(FilledButton, 'เอาออก');
+    expect(
+      find.byKey(const ValueKey('cart-ticket-remove-action')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: removeButton, matching: find.byIcon(Icons.close)),
+      findsNothing,
+    );
     await tester.ensureVisible(removeButton);
     await tester.tap(removeButton);
     await tester.pumpAndSettle();
 
+    expect(
+      find.byKey(const ValueKey('cart-remove-confirmation-dialog')),
+      findsOneWidget,
+    );
+    expect(find.byType(AlertDialog), findsNothing);
     expect(
       find.text('คุณต้องการลบสลากฯ\n273707 จำนวน 2 ใบ หรือไม่'),
       findsOneWidget,
@@ -2196,11 +2236,45 @@ void main() {
       find.text('เมื่อยืนยัน สลากฯ ชุดนี้\nจะถูกลบออกจากรายการซื้อ'),
       findsOneWidget,
     );
+    expect(find.widgetWithText(OutlinedButton, 'ยกเลิก'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(FilledButton, 'ลบ'));
     await tester.pumpAndSettle();
 
     expect(lottery.releasedReservationIds, ['res_1', 'res_2']);
+  });
+
+  testWidgets('cart remove confirmation stays within compact mobile viewport', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await _pumpCartTest(
+      tester,
+      lottery: _GroupedCartLotteryRepository(),
+    );
+
+    final removeButton = find.widgetWithText(FilledButton, 'เอาออก');
+    await tester.ensureVisible(removeButton);
+    await tester.tap(removeButton);
+    await tester.pumpAndSettle();
+
+    final dialog = find.byKey(
+      const ValueKey('cart-remove-confirmation-dialog'),
+    );
+    expect(dialog, findsOneWidget);
+    final dialogRect = tester.getRect(dialog);
+    expect(dialogRect.left, greaterThanOrEqualTo(0));
+    expect(dialogRect.right, lessThanOrEqualTo(320));
+
+    final cancelButton = find.widgetWithText(OutlinedButton, 'ยกเลิก');
+    final confirmButton = find.widgetWithText(FilledButton, 'ลบ');
+    expect(cancelButton, findsOneWidget);
+    expect(confirmButton, findsOneWidget);
+    expect(tester.getRect(cancelButton).left, greaterThanOrEqualTo(0));
+    expect(tester.getRect(confirmButton).right, lessThanOrEqualTo(320));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('cart remove confirmation keeps Nuxt-style removing state', (
@@ -2256,7 +2330,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    final removeButton = find.widgetWithText(TextButton, 'เอาออก');
+    final removeButton = find.widgetWithText(FilledButton, 'เอาออก');
     await tester.ensureVisible(removeButton);
     await tester.tap(removeButton);
     await tester.pumpAndSettle();
@@ -2271,8 +2345,8 @@ void main() {
       find.widgetWithText(FilledButton, 'กำลังลบ'),
     );
     expect(removingButton.onPressed, isNull);
-    final cancelButton = tester.widget<TextButton>(
-      find.widgetWithText(TextButton, 'ยกเลิก'),
+    final cancelButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'ยกเลิก'),
     );
     expect(cancelButton.onPressed, isNull);
 
@@ -2336,7 +2410,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    final removeButton = find.widgetWithText(TextButton, 'เอาออก');
+    final removeButton = find.widgetWithText(FilledButton, 'เอาออก');
     await tester.ensureVisible(removeButton);
     await tester.tap(removeButton);
     await tester.pumpAndSettle();

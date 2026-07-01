@@ -228,14 +228,30 @@ Recent verified work:
   - Cart header summary now matches the Nuxt BlueHeader content more closely by
     using the "สลากฯ N ใบ" count line plus draw date and removing the
     Flutter-only reserved-item ListTile/card summary from the review surface.
+  - Cart reserved-ticket cards now restore the Nuxt-style product/brand line
+    above the lottery number while keeping the compact grouped review surface.
+  - Cart grouped ticket cards now match Nuxt's single-row grouped surface more
+    closely: one lottery number, grouped count badge, seller summary, and group
+    total instead of repeating each reserved item as a nested row.
+  - Cart reserved-ticket remove action now matches the Nuxt remove pill more
+    closely by using a text-only filled pill instead of a Flutter icon button.
+  - Cart reserved-ticket cards now avoid the Flutter-only per-card countdown;
+    the shared reservation timer remains only in the fixed payment dock like
+    Nuxt.
   - Cart payment dock label now matches Nuxt's default payment dock copy with
     `ยอดชำระทั้งหมด` beside the total amount.
+  - Cart payment dock countdown now matches Nuxt's centered timer text and no
+    longer shows a Flutter-only leading timer icon.
   - Cart review now restores the Nuxt-style purchase-limit note and
     "เลือกสลากฯ เพิ่ม" action between reserved items and the payment dock,
     returning customers to `/buy` without disturbing the checkout path.
   - Cart remove confirmation now matches Nuxt copy more closely for single
     tickets and grouped same-number ticket sets, including the grouped
     "สลากฯ ชุดนี้" removal wording before releasing every reservation ID.
+  - Cart remove confirmation now uses a Nuxt-style custom centered modal shell
+    with outline cancel and primary confirm actions instead of the generic
+    Flutter alert dialog, with compact mobile coverage to keep the modal and
+    actions inside the viewport.
   - Cart remove confirmation now keeps the dialog open during reservation
     release and switches the confirm action to the Nuxt-style "กำลังลบ" state
     until the backend release finishes.

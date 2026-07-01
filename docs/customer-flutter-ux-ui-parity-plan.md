@@ -284,14 +284,20 @@ Acceptance evidence for every screen group:
   insufficient-balance disabled payment state, the
   Nuxt-style Cart/Checkout page titles, the Nuxt-style Cart current-draw date,
   Nuxt-style Cart header count line without the Flutter-only reserved-item
-  summary card, fixed-bottom Cart payment dock with countdown, exact Nuxt total
-  label, and Nuxt CTA copy, the Cart purchase-limit note and add-more route back to `/buy`,
-  Nuxt-style grouped cart remove confirmation copy, in-flight "กำลังลบ" state
-  with all reservation IDs released, and release-failure retry state, long runtime
-  wallet-name rendering on compact mobile checkout, and expired Cart/Checkout
-  reservation release back to Buy, plus stock-realtime tick refresh on Cart and
-  Checkout so reserved cart/payment data reloads without leaving the payment
-  surface.
+  summary card, Nuxt-style product line above reserved ticket numbers,
+  Nuxt-style grouped count/seller/total row without nested per-reservation
+  ticket rows, text-only Nuxt-style remove pill, no Flutter-only per-card
+  countdown, fixed-bottom Cart payment dock with countdown, exact Nuxt total
+  label, centered timer text without a
+  Flutter-only timer icon, and Nuxt CTA copy, the Cart purchase-limit note and
+  add-more route back to `/buy`,
+  Nuxt-style grouped cart remove confirmation copy, custom centered modal shell
+  without the generic Flutter alert dialog, compact mobile modal bounds,
+  in-flight "กำลังลบ" state with all reservation IDs released, and
+  release-failure retry state, long runtime wallet-name rendering on compact
+  mobile checkout, and expired Cart/Checkout reservation release back to Buy,
+  plus stock-realtime tick refresh on Cart and Checkout so reserved
+  cart/payment data reloads without leaving the payment surface.
   It also covers Nuxt-style direct-entry header back actions from Checkout to
   `/cart` and from Cart to `/buy`.
 - `test/data_parsing_test.dart`, `test/deep_link_association_files_test.dart`,
