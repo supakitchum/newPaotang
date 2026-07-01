@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_controller.dart';
+import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_redirect.dart';
@@ -159,7 +160,10 @@ class _LineCallbackScreenState extends ConsumerState<LineCallbackScreen> {
         return;
       }
       setState(() {
-        _status = context.l10n.socialCallbackConnectFailed(providerLabel);
+        _status = authErrorMessage(
+          error,
+          context.l10n.socialCallbackConnectFailed(providerLabel),
+        );
       });
     }
   }
@@ -411,16 +415,11 @@ class _LineLinkPhoneScreenState extends ConsumerState<LineLinkPhoneScreen> {
       if (redirect != null) {
         context.go(redirect);
       } else {
-        _showSnack(_errorMessage(error) ?? failedMessage);
+        _showSnack(authErrorMessage(error, failedMessage));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
-  }
-
-  String? _errorMessage(Object error) {
-    final message = ApiErrorInfo.fromObject(error).message;
-    return message.trim().isEmpty ? null : message;
   }
 
   void _showSnack(String message) {

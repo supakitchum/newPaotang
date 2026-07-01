@@ -1,0 +1,261 @@
+import 'package:customer_flutter/core/auth/auth_token_store.dart';
+import 'package:customer_flutter/core/config/app_config.dart';
+import 'package:customer_flutter/core/i18n/app_locale.dart';
+import 'package:customer_flutter/core/i18n/customer_localizations.dart';
+import 'package:customer_flutter/core/network/api_client.dart';
+import 'package:customer_flutter/core/security/biometric_auth_service.dart';
+import 'package:customer_flutter/core/tenant/mobile_bootstrap_controller.dart';
+import 'package:customer_flutter/core/tenant/mobile_runtime_policy.dart';
+import 'package:customer_flutter/features/profile/data/biometric_device_models.dart';
+import 'package:customer_flutter/features/profile/data/biometric_device_repository.dart';
+import 'package:customer_flutter/features/profile/presentation/biometric_devices_screen.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  testWidgets('biometric devices load error uses API payload copy', (
+    tester,
+  ) async {
+    await _pumpScreen(
+      tester,
+      deviceRepository: _BiometricDeviceRepository(
+        loadError: _apiException(
+          'ยังไม่สามารถโหลดอุปกรณ์ biometric ได้',
+          path: '/customer/auth/biometric/devices',
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('ยังไม่สามารถโหลดอุปกรณ์ biometric ได้'), findsOneWidget);
+    expect(find.text('Could not load biometric devices.'), findsNothing);
+  });
+
+  testWidgets('biometric devices load hides internal errors', (tester) async {
+    await _pumpScreen(
+      tester,
+      deviceRepository: _BiometricDeviceRepository(
+        loadError: StateError('internal biometric device failure'),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Could not load biometric devices.'), findsOneWidget);
+    expect(
+      find.textContaining('internal biometric device failure'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('biometric enable uses API payload error copy', (tester) async {
+    await _pumpScreen(
+      tester,
+      biometricAuth: _BiometricAuthService(
+        registerError: _apiException(
+          'PIN ไม่ถูกต้อง กรุณาลองใหม่',
+          path: '/customer/auth/biometric/devices',
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Enable biometric'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '123456');
+    await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('PIN ไม่ถูกต้อง กรุณาลองใหม่'), findsOneWidget);
+    expect(
+      find.text(
+        'Could not enable biometric unlock. Please check your PIN or try again.',
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('biometric enable hides internal errors', (tester) async {
+    await _pumpScreen(
+      tester,
+      biometricAuth: _BiometricAuthService(
+        registerError: StateError('internal register failure'),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Enable biometric'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '123456');
+    await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Could not enable biometric unlock. Please check your PIN or try again.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('internal register failure'), findsNothing);
+  });
+
+  testWidgets('biometric revoke uses API payload error copy', (tester) async {
+    await _pumpScreen(
+      tester,
+      deviceRepository: _BiometricDeviceRepository(
+        devices: const [_activeDevice],
+        revokeError: _apiException(
+          'ไม่สามารถยกเลิกอุปกรณ์นี้ได้',
+          path: '/customer/auth/biometric/devices/bio_1',
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Revoke this device'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ไม่สามารถยกเลิกอุปกรณ์นี้ได้'), findsOneWidget);
+    expect(find.text('Could not revoke this device.'), findsNothing);
+  });
+}
+
+Future<void> _pumpScreen(
+  WidgetTester tester, {
+  _BiometricDeviceRepository? deviceRepository,
+  _BiometricAuthService? biometricAuth,
+}) {
+  tester.view.physicalSize = const Size(900, 1400);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
+  return tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        biometricDeviceRepositoryProvider.overrideWithValue(
+          deviceRepository ?? _BiometricDeviceRepository(),
+        ),
+        biometricAuthServiceProvider.overrideWithValue(
+          biometricAuth ?? _BiometricAuthService(),
+        ),
+        customerPlatformKeyProvider.overrideWithValue('ios'),
+        mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap),
+      ],
+      child: const MaterialApp(
+        locale: Locale('en', 'US'),
+        supportedLocales: supportedCustomerLocales,
+        localizationsDelegates: [
+          CustomerLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: BiometricDevicesScreen(),
+      ),
+    ),
+  );
+}
+
+final _mobileBootstrap = MobileBootstrap.fromJson(
+  const {
+    'mobile': {
+      'feature_flags': {'native_biometric_unlock': true},
+      'biometric': {
+        'enabled': true,
+        'platforms': {
+          'ios': ['local_auth'],
+          'android': ['biometric_prompt'],
+        },
+      },
+    },
+  },
+);
+
+const _activeDevice = BiometricDevice(
+  id: 'bio_1',
+  deviceId: 'device_1',
+  platform: 'ios',
+  deviceName: 'Supakit iPhone',
+  algorithm: 'ES256',
+  status: 'active',
+  registeredAt: '2026-07-01T10:00:00Z',
+  lastUsedAt: '',
+  revokedAt: '',
+);
+
+class _BiometricDeviceRepository extends BiometricDeviceRepository {
+  _BiometricDeviceRepository({
+    this.devices = const [],
+    this.loadError,
+    this.revokeError,
+  }) : super(_testApiClient());
+
+  final List<BiometricDevice> devices;
+  final Object? loadError;
+  final Object? revokeError;
+
+  @override
+  Future<List<BiometricDevice>> list() async {
+    final error = loadError;
+    if (error != null) throw error;
+    return devices;
+  }
+
+  @override
+  Future<void> revoke(String id) async {
+    final error = revokeError;
+    if (error != null) throw error;
+  }
+}
+
+class _BiometricAuthService extends BiometricAuthService {
+  _BiometricAuthService({this.registerError}) : super(_testApiClient());
+
+  final Object? registerError;
+
+  @override
+  Future<bool> canUseBiometric() async {
+    return true;
+  }
+
+  @override
+  Future<void> registerDevice({
+    required String pin,
+    required String platform,
+    String? deviceName,
+    String? appVersion,
+  }) async {
+    final error = registerError;
+    if (error != null) throw error;
+  }
+}
+
+DioException _apiException(String message, {required String path}) {
+  final request = RequestOptions(path: path);
+  return DioException(
+    requestOptions: request,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: request,
+      statusCode: 422,
+      data: {'message': message},
+    ),
+  );
+}
+
+ApiClient _testApiClient() {
+  return ApiClient(
+    const AppConfig(
+      apiBaseUrl: 'https://partner.example.com/api/v1',
+      defaultLocale: 'en-US',
+    ),
+    AuthTokenStore(),
+    localeTag: 'en-US',
+  );
+}

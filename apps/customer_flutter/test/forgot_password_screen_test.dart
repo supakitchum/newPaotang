@@ -39,6 +39,32 @@ void main() {
   });
 
   testWidgets(
+      'forgot password shows LINE reset for runtime LINE provider aliases',
+      (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson({
+              'mobile': {
+                'auth_providers': [
+                  {'provider': 'line_login', 'label': 'LINE', 'enabled': true},
+                ],
+              },
+            }),
+          ),
+        ],
+        child: const _ForgotPasswordTestApp(),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Reset with LINE'), findsWidgets);
+    expect(find.textContaining('If you have connected LINE'), findsOneWidget);
+  });
+
+  testWidgets(
       'forgot password hides LINE reset when tenant disables LINE login',
       (tester) async {
     await tester.pumpWidget(
@@ -65,31 +91,7 @@ void main() {
 
   testWidgets('forgot password shows friendly copy when SMS OTP is unavailable',
       (tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(
-            _ForgotPasswordRepository(),
-          ),
-          mobileBootstrapProvider.overrideWith(
-            (_) async => MobileBootstrap.fromJson(const {
-              'auth_providers': [],
-            }),
-          ),
-        ],
-        child: MaterialApp(
-          locale: fallbackCustomerLocale,
-          supportedLocales: supportedCustomerLocales,
-          localizationsDelegates: const [
-            CustomerLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          home: const ForgotPasswordScreen(),
-        ),
-      ),
-    );
+    await _pumpForgotPassword(tester, repository: _ForgotPasswordRepository());
 
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), '0801234567');
@@ -105,6 +107,141 @@ void main() {
     );
     expect(find.text('SMS OTP provider is not configured.'), findsNothing);
   });
+
+  testWidgets('forgot password shows API payload errors like Nuxt',
+      (tester) async {
+    await _pumpForgotPassword(
+      tester,
+      repository: _ForgotPasswordRepository(
+        requestOtpError: _apiException('ไม่พบเบอร์โทรศัพท์นี้ในระบบ'),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), '0801234567');
+    await tester.tap(find.widgetWithText(FilledButton, 'ส่งรหัส OTP'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ไม่พบเบอร์โทรศัพท์นี้ในระบบ'), findsOneWidget);
+    expect(
+      find.text('ดำเนินการไม่สำเร็จ กรุณาตรวจสอบข้อมูลแล้วลองใหม่'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('forgot password hides internal errors', (tester) async {
+    await _pumpForgotPassword(
+      tester,
+      repository: _ForgotPasswordRepository(
+        requestOtpError: StateError('internal forgot password failed'),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), '0801234567');
+    await tester.tap(find.widgetWithText(FilledButton, 'ส่งรหัส OTP'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('ดำเนินการไม่สำเร็จ กรุณาตรวจสอบข้อมูลแล้วลองใหม่'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('internal forgot password failed'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('forgot password LINE reset shows API payload errors like Nuxt',
+      (tester) async {
+    await _pumpForgotPassword(
+      tester,
+      repository: _ForgotPasswordRepository(
+        socialUrlError: _apiException('บัญชียังไม่ได้เชื่อมต่อ LINE'),
+      ),
+      lineEnabled: true,
+    );
+
+    await tester.pumpAndSettle();
+    final lineResetButton = find.widgetWithText(
+      OutlinedButton,
+      'รีเซ็ตด้วย LINE',
+    );
+    await tester.ensureVisible(lineResetButton);
+    await tester.tap(lineResetButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('บัญชียังไม่ได้เชื่อมต่อ LINE'), findsOneWidget);
+    expect(
+      find.text(
+        'รีเซ็ตด้วย LINE ไม่สำเร็จ บัญชีนี้อาจยังไม่ได้เชื่อมต่อ LINE หรือร้านค้ายังไม่ได้ตั้งค่า LINE',
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('forgot password LINE reset hides internal errors', (
+    tester,
+  ) async {
+    await _pumpForgotPassword(
+      tester,
+      repository: _ForgotPasswordRepository(
+        socialUrlError: StateError('internal line reset failed'),
+      ),
+      lineEnabled: true,
+    );
+
+    await tester.pumpAndSettle();
+    final lineResetButton = find.widgetWithText(
+      OutlinedButton,
+      'รีเซ็ตด้วย LINE',
+    );
+    await tester.ensureVisible(lineResetButton);
+    await tester.tap(lineResetButton);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'รีเซ็ตด้วย LINE ไม่สำเร็จ บัญชีนี้อาจยังไม่ได้เชื่อมต่อ LINE หรือร้านค้ายังไม่ได้ตั้งค่า LINE',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('internal line reset failed'), findsNothing);
+  });
+}
+
+Future<void> _pumpForgotPassword(
+  WidgetTester tester, {
+  required _ForgotPasswordRepository repository,
+  bool lineEnabled = false,
+}) {
+  return tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        authRepositoryProvider.overrideWithValue(repository),
+        mobileBootstrapProvider.overrideWith(
+          (_) async => MobileBootstrap.fromJson({
+            'mobile': {
+              'auth_providers': [
+                {'provider': 'line', 'label': 'LINE', 'enabled': lineEnabled},
+              ],
+            },
+          }),
+        ),
+      ],
+      child: MaterialApp(
+        locale: fallbackCustomerLocale,
+        supportedLocales: supportedCustomerLocales,
+        localizationsDelegates: const [
+          CustomerLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: const ForgotPasswordScreen(),
+      ),
+    ),
+  );
 }
 
 class _ForgotPasswordTestApp extends StatelessWidget {
@@ -127,8 +264,11 @@ class _ForgotPasswordTestApp extends StatelessWidget {
 }
 
 class _ForgotPasswordRepository extends AuthRepository {
-  _ForgotPasswordRepository()
-      : super(
+  _ForgotPasswordRepository({
+    Object? requestOtpError,
+    this.socialUrlError,
+  })  : requestOtpError = requestOtpError ?? _smsOtpProviderError(),
+        super(
           api: ApiClient(
             const AppConfig(
               apiBaseUrl: 'https://partner.example.com/api/v1',
@@ -140,13 +280,40 @@ class _ForgotPasswordRepository extends AuthRepository {
           tokenStore: AuthTokenStore(),
         );
 
+  final Object? requestOtpError;
+  final Object? socialUrlError;
+
   @override
   Future<OtpRequestResult> requestOtp({
     required String phone,
     required String purpose,
   }) async {
-    throw _smsOtpProviderError();
+    final error = requestOtpError;
+    if (error != null) throw error;
+    return const OtpRequestResult(
+      phoneMasked: '080xxx4567',
+      resendAfterSeconds: 0,
+    );
   }
+
+  @override
+  Future<String> socialLoginUrl(String provider, {String purpose = 'login'}) {
+    final error = socialUrlError;
+    if (error != null) throw error;
+    return Future.value('https://line.example.com/oauth');
+  }
+}
+
+DioException _apiException(String message) {
+  final request = RequestOptions(path: '/customer/auth/otp/request');
+  return DioException(
+    requestOptions: request,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: request,
+      statusCode: 422,
+      data: {'message': message},
+    ),
+  );
 }
 
 DioException _smsOtpProviderError() {

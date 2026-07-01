@@ -5,11 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
-import '../../../core/utils/api_errors.dart';
 import '../../../shared/widgets/tenant_brand_header.dart';
 
 enum _ForgotStep { phone, otp, password, done }
@@ -53,8 +53,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     final lineResetEnabled = ref.watch(mobileBootstrapProvider).maybeWhen(
           data: (data) => data.authProviders.any(
             (provider) =>
-                provider.enabled &&
-                provider.provider.trim().toLowerCase() == 'line',
+                provider.enabled && isLineSocialProvider(provider.provider),
           ),
           orElse: () => false,
         );
@@ -353,8 +352,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               );
       if (!opened) _showSnack(linkMissing);
     } catch (error) {
-      final message = ApiErrorInfo.fromObject(error).message;
-      _showSnack(message.trim().isEmpty ? failed : message);
+      _showSnack(authErrorMessage(error, failed));
     } finally {
       if (mounted) setState(() => _lineSubmitting = false);
     }
@@ -433,12 +431,11 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   }
 
   String _otpRecoveryErrorMessage(Object error, String fallback) {
-    final info = ApiErrorInfo.fromObject(error);
-    if (info.isSmsOtpProviderNotConfigured) {
-      return context.l10n.forgotPasswordOtpProviderUnavailable;
-    }
-    if (info.message.trim().isNotEmpty) return info.message;
-    return fallback;
+    return authOtpErrorMessage(
+      error: error,
+      fallback: fallback,
+      otpProviderUnavailable: context.l10n.forgotPasswordOtpProviderUnavailable,
+    );
   }
 
   void _showSnack(String message) {

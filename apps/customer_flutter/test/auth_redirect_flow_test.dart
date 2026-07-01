@@ -79,6 +79,56 @@ void main() {
     expect(find.text('pin-flow'), findsOneWidget);
   });
 
+  testWidgets('login shows API error copy like Nuxt', (
+    tester,
+  ) async {
+    final repo = _AuthRedirectRepository(
+      loginError: _apiException(
+        'เบอร์โทรศัพท์หรือรหัสผ่านไม่ถูกต้อง',
+        path: '/customer/auth/login',
+      ),
+    );
+    final router = _authRouter('/login?redirect=%2Fcheckout');
+
+    await tester.pumpWidget(_testApp(router: router, repo: repo));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), '0812345678');
+    await tester.enterText(find.byType(TextField).at(1), 'wrong-password');
+    await tester.tap(find.byType(FilledButton));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('เบอร์โทรศัพท์หรือรหัสผ่านไม่ถูกต้อง'),
+      findsOneWidget,
+    );
+    expect(find.text('Could not sign in'), findsNothing);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/login?redirect=%2Fcheckout',
+    );
+  });
+
+  testWidgets('login hides internal errors behind localized fallback', (
+    tester,
+  ) async {
+    final repo = _AuthRedirectRepository(
+      loginError: StateError('internal login failed'),
+    );
+    final router = _authRouter('/login?redirect=%2Fcheckout');
+
+    await tester.pumpWidget(_testApp(router: router, repo: repo));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), '0812345678');
+    await tester.enterText(find.byType(TextField).at(1), 'secret1234');
+    await tester.tap(find.byType(FilledButton));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Could not sign in'), findsOneWidget);
+    expect(find.textContaining('internal login failed'), findsNothing);
+  });
+
   testWidgets('register login link preserves checkout redirect', (
     tester,
   ) async {
@@ -315,6 +365,7 @@ class _AuthRedirectRepository extends AuthRepository {
       pinSetupRequired: false,
       customerId: 'cus_default',
     ),
+    this.loginError,
     this.registerError,
   }) : super(
           api: ApiClient(_testConfig, AuthTokenStore(), localeTag: 'en-US'),
@@ -322,6 +373,7 @@ class _AuthRedirectRepository extends AuthRepository {
         );
 
   final CustomerSession loginSession;
+  final Object? loginError;
   final Object? registerError;
   String lastLoginUsername = '';
   String lastVerifiedPin = '';
@@ -334,6 +386,8 @@ class _AuthRedirectRepository extends AuthRepository {
     required String password,
   }) async {
     lastLoginUsername = username;
+    final error = loginError;
+    if (error != null) throw error;
     return loginSession;
   }
 
@@ -389,8 +443,11 @@ class _AuthRedirectRepository extends AuthRepository {
   }
 }
 
-DioException _apiException(String message) {
-  final requestOptions = RequestOptions(path: '/customer/auth/register');
+DioException _apiException(
+  String message, {
+  String path = '/customer/auth/register',
+}) {
+  final requestOptions = RequestOptions(path: path);
   return DioException(
     requestOptions: requestOptions,
     response: Response<Map<String, dynamic>>(

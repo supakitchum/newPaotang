@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_controller.dart';
+import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
@@ -167,11 +168,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   String _errorMessage(Object error, String fallback) {
-    final message = ApiErrorInfo.fromObject(error).message;
-    if (message.trim().isNotEmpty) {
-      return message;
-    }
-    return fallback;
+    return authErrorMessage(error, fallback);
   }
 
   String _currentRedirect() {

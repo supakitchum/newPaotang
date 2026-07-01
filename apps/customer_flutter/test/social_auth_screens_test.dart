@@ -9,6 +9,7 @@ import 'package:customer_flutter/features/affiliate/data/affiliate_referral_repo
 import 'package:customer_flutter/features/auth/presentation/line_auth_screens.dart';
 import 'package:customer_flutter/features/auth/presentation/login_screen.dart';
 import 'package:customer_flutter/features/monitoring/data/public_visit_id_store.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,6 +47,80 @@ void main() {
     expect(find.text('Continue with Google'), findsOneWidget);
     expect(find.text('Continue with Apple ID'), findsOneWidget);
     expect(find.text('Continue with discord'), findsNothing);
+  });
+
+  testWidgets('login social launch shows API payload errors like Nuxt',
+      (tester) async {
+    final repository = _SocialAuthRepository(
+      callbackResult: _emptyCallback('line'),
+      socialLoginUrlError: _apiException(
+        'ร้านค้ายังไม่ได้ตั้งค่า LINE Login',
+        path: '/customer/auth/social/line/login',
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(repository),
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson({
+              'mobile': {
+                'auth_providers': [
+                  {'provider': 'line', 'label': 'LINE', 'enabled': true},
+                ],
+              },
+            }),
+          ),
+        ],
+        child: const _LoginTestApp(),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    final lineButton =
+        find.widgetWithText(OutlinedButton, 'Continue with LINE');
+    await tester.ensureVisible(lineButton);
+    await tester.tap(lineButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('ร้านค้ายังไม่ได้ตั้งค่า LINE Login'), findsOneWidget);
+    expect(find.text('Could not sign in with this provider'), findsNothing);
+  });
+
+  testWidgets('login social launch hides internal errors', (tester) async {
+    final repository = _SocialAuthRepository(
+      callbackResult: _emptyCallback('line'),
+      socialLoginUrlError: StateError('internal social launch failed'),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(repository),
+          mobileBootstrapProvider.overrideWith(
+            (_) async => MobileBootstrap.fromJson({
+              'mobile': {
+                'auth_providers': [
+                  {'provider': 'line', 'label': 'LINE', 'enabled': true},
+                ],
+              },
+            }),
+          ),
+        ],
+        child: const _LoginTestApp(),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    final lineButton =
+        find.widgetWithText(OutlinedButton, 'Continue with LINE');
+    await tester.ensureVisible(lineButton);
+    await tester.tap(lineButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Could not sign in with this provider'), findsOneWidget);
+    expect(find.textContaining('internal social launch failed'), findsNothing);
   });
 
   testWidgets(
@@ -136,6 +211,68 @@ void main() {
     expect(find.text('pin-flow'), findsOneWidget);
   });
 
+  testWidgets('generic social callback shows API payload errors like Nuxt',
+      (tester) async {
+    final repository = _SocialAuthRepository(
+      callbackResult: _emptyCallback('google'),
+      callbackError: _apiException(
+        'บัญชี Google นี้ถูกระงับชั่วคราว',
+        path: '/customer/auth/social/google/callback',
+      ),
+    );
+
+    final router = _router(initialLocation: '/social/google/callback?code=abc');
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(_testConfig),
+          authRepositoryProvider.overrideWithValue(repository),
+          affiliateReferralServiceProvider.overrideWithValue(
+            _NoopAffiliateReferralService(),
+          ),
+        ],
+        child: _TestApp(router: router),
+      ),
+    );
+
+    await _pumpCallbackWork(tester);
+
+    expect(find.text('บัญชี Google นี้ถูกระงับชั่วคราว'), findsOneWidget);
+    expect(
+      find.text('Could not connect to sign in with Google.'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('generic social callback hides internal errors', (tester) async {
+    final repository = _SocialAuthRepository(
+      callbackResult: _emptyCallback('google'),
+      callbackError: StateError('internal callback failed'),
+    );
+
+    final router = _router(initialLocation: '/social/google/callback?code=abc');
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(_testConfig),
+          authRepositoryProvider.overrideWithValue(repository),
+          affiliateReferralServiceProvider.overrideWithValue(
+            _NoopAffiliateReferralService(),
+          ),
+        ],
+        child: _TestApp(router: router),
+      ),
+    );
+
+    await _pumpCallbackWork(tester);
+
+    expect(
+      find.text('Could not connect to sign in with Google.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('internal callback failed'), findsNothing);
+  });
+
   testWidgets('generic social link-phone submits Google provider and signs in',
       (tester) async {
     final repository = _SocialAuthRepository(
@@ -193,6 +330,86 @@ void main() {
     expect(affiliate.applied, isTrue);
     expect(router.routerDelegate.currentConfiguration.uri.path, '/pin');
     expect(find.text('pin-flow'), findsOneWidget);
+  });
+
+  testWidgets('social link-phone shows API payload errors like Nuxt',
+      (tester) async {
+    final repository = _SocialAuthRepository(
+      callbackResult: _emptyCallback('google'),
+      linkError: _apiException(
+        'เบอร์โทรศัพท์นี้ถูกผูกกับบัญชีอื่น',
+        path: '/customer/auth/social/google/link-phone',
+      ),
+    );
+
+    final router = _router(
+      initialLocation:
+          '/social/google/link-phone?token=google-link-token&name=Ada%20Google',
+      useRealLinkPhoneScreen: true,
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(_testConfig),
+          authRepositoryProvider.overrideWithValue(repository),
+          affiliateReferralServiceProvider.overrideWithValue(
+            _NoopAffiliateReferralService(),
+          ),
+        ],
+        child: _TestApp(router: router),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), '0812345678');
+    await tester.enterText(find.byType(TextField).at(1), 'secret1234');
+    await tester.enterText(find.byType(TextField).at(2), 'secret1234');
+    await tester.ensureVisible(find.byType(FilledButton));
+    await tester.tap(find.byType(FilledButton));
+    await tester.pumpAndSettle();
+
+    expect(find.text('เบอร์โทรศัพท์นี้ถูกผูกกับบัญชีอื่น'), findsOneWidget);
+    expect(find.text('Could not link Google account.'), findsNothing);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      contains('/social/google/link-phone'),
+    );
+  });
+
+  testWidgets('social link-phone hides internal errors', (tester) async {
+    final repository = _SocialAuthRepository(
+      callbackResult: _emptyCallback('google'),
+      linkError: StateError('internal link failed'),
+    );
+
+    final router = _router(
+      initialLocation:
+          '/social/google/link-phone?token=google-link-token&name=Ada%20Google',
+      useRealLinkPhoneScreen: true,
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(_testConfig),
+          authRepositoryProvider.overrideWithValue(repository),
+          affiliateReferralServiceProvider.overrideWithValue(
+            _NoopAffiliateReferralService(),
+          ),
+        ],
+        child: _TestApp(router: router),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), '0812345678');
+    await tester.enterText(find.byType(TextField).at(1), 'secret1234');
+    await tester.enterText(find.byType(TextField).at(2), 'secret1234');
+    await tester.ensureVisible(find.byType(FilledButton));
+    await tester.tap(find.byType(FilledButton));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Could not link Google account.'), findsOneWidget);
+    expect(find.textContaining('internal link failed'), findsNothing);
   });
 
   testWidgets('social link-phone keeps content usable on narrow mobile screens',
@@ -349,6 +566,9 @@ const _testConfig = AppConfig(
 class _SocialAuthRepository extends AuthRepository {
   _SocialAuthRepository({
     required this.callbackResult,
+    this.socialLoginUrlError,
+    this.callbackError,
+    this.linkError,
     this.linkSession = const CustomerSession(
       accessToken: 'linked-access',
       refreshToken: 'linked-refresh',
@@ -369,8 +589,12 @@ class _SocialAuthRepository extends AuthRepository {
         );
 
   final SocialCallbackResult callbackResult;
+  final Object? socialLoginUrlError;
+  final Object? callbackError;
+  final Object? linkError;
   final CustomerSession linkSession;
   String? lastCallbackProvider;
+  String? lastSocialLoginProvider;
   Map<String, dynamic>? lastCallbackQuery;
   String? lastLinkProvider;
   String? lastLinkToken;
@@ -379,12 +603,22 @@ class _SocialAuthRepository extends AuthRepository {
   String? lastLinkPasswordConfirmation;
 
   @override
+  Future<String> socialLoginUrl(String provider, {String purpose = 'login'}) {
+    lastSocialLoginProvider = provider;
+    final error = socialLoginUrlError;
+    if (error != null) throw error;
+    return Future.value('https://social.example.com/oauth');
+  }
+
+  @override
   Future<SocialCallbackResult> socialCallback({
     required String provider,
     required Map<String, dynamic> query,
   }) async {
     lastCallbackProvider = provider;
     lastCallbackQuery = query;
+    final error = callbackError;
+    if (error != null) throw error;
     return callbackResult;
   }
 
@@ -401,8 +635,37 @@ class _SocialAuthRepository extends AuthRepository {
     lastLinkPhone = phone;
     lastLinkPassword = password;
     lastLinkPasswordConfirmation = passwordConfirmation;
+    final error = linkError;
+    if (error != null) throw error;
     return linkSession;
   }
+}
+
+SocialCallbackResult _emptyCallback(String provider) {
+  return SocialCallbackResult(
+    provider: provider,
+    code: 0,
+    lineLinkRequired: false,
+    linkToken: '',
+    displayName: '',
+    pictureUrl: '',
+    passwordResetReady: false,
+    passwordResetToken: '',
+    orderId: '',
+    message: '',
+  );
+}
+
+DioException _apiException(String message, {required String path}) {
+  final requestOptions = RequestOptions(path: path);
+  return DioException(
+    requestOptions: requestOptions,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: requestOptions,
+      statusCode: 422,
+      data: {'message': message},
+    ),
+  );
 }
 
 class _NoopAffiliateReferralService extends AffiliateReferralService {

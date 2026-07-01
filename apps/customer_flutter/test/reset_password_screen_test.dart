@@ -6,6 +6,7 @@ import 'package:customer_flutter/core/i18n/customer_localizations.dart';
 import 'package:customer_flutter/core/network/api_client.dart';
 import 'package:customer_flutter/core/theme/app_theme.dart';
 import 'package:customer_flutter/features/auth/presentation/reset_password_screen.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,6 +33,27 @@ void main() {
     expect(repository.token, 'line-token');
     expect(repository.password, 'P@ssword123');
     expect(repository.passwordConfirmation, 'P@ssword123');
+    expect(repository.source, 'line_login');
+    expect(find.text('login route'), findsOneWidget);
+  });
+
+  testWidgets('reset password treats LINE source aliases as LINE reset', (
+    tester,
+  ) async {
+    final repository = _ResetPasswordRepository();
+    await _pumpResetPasswordRoute(
+      tester,
+      repository,
+      '/reset-password?token=line-alias-token&source=line_login',
+    );
+
+    await tester.enterText(find.byType(TextField).at(0), 'P@ssword123');
+    await tester.enterText(find.byType(TextField).at(1), 'P@ssword123');
+    await tester.tap(find.widgetWithText(FilledButton, 'บันทึกรหัสผ่านใหม่'));
+    await tester.pumpAndSettle();
+
+    expect(repository.calls, 1);
+    expect(repository.token, 'line-alias-token');
     expect(repository.source, 'line_login');
     expect(find.text('login route'), findsOneWidget);
   });
@@ -75,6 +97,56 @@ void main() {
     expect(submit.onPressed, isNull);
     expect(repository.calls, 0);
   });
+
+  testWidgets('reset password shows API payload errors like Nuxt', (
+    tester,
+  ) async {
+    final repository = _ResetPasswordRepository(
+      error: _apiException('ลิงก์รีเซ็ตนี้หมดอายุแล้ว'),
+    );
+    await _pumpResetPasswordRoute(
+      tester,
+      repository,
+      '/reset-password?token=expired-token',
+    );
+
+    await _submitValidResetPassword(tester);
+
+    expect(repository.calls, 1);
+    expect(find.text('ลิงก์รีเซ็ตนี้หมดอายุแล้ว'), findsOneWidget);
+    expect(
+      find.text('ลิงก์อาจหมดอายุ กรุณาขอลิงก์ใหม่อีกครั้ง'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('reset password hides internal errors', (
+    tester,
+  ) async {
+    final repository = _ResetPasswordRepository(
+      error: StateError('internal reset failed'),
+    );
+    await _pumpResetPasswordRoute(
+      tester,
+      repository,
+      '/reset-password?token=internal-token',
+    );
+
+    await _submitValidResetPassword(tester);
+
+    expect(
+      find.text('ลิงก์อาจหมดอายุ กรุณาขอลิงก์ใหม่อีกครั้ง'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('internal reset failed'), findsNothing);
+  });
+}
+
+Future<void> _submitValidResetPassword(WidgetTester tester) async {
+  await tester.enterText(find.byType(TextField).at(0), 'P@ssword123');
+  await tester.enterText(find.byType(TextField).at(1), 'P@ssword123');
+  await tester.tap(find.widgetWithText(FilledButton, 'บันทึกรหัสผ่านใหม่'));
+  await tester.pumpAndSettle();
 }
 
 Future<void> _pumpResetPasswordRoute(
@@ -125,7 +197,7 @@ Future<void> _pumpResetPasswordRoute(
 }
 
 class _ResetPasswordRepository extends AuthRepository {
-  _ResetPasswordRepository()
+  _ResetPasswordRepository({this.error})
       : super(
           api: ApiClient(
             const AppConfig(
@@ -138,6 +210,7 @@ class _ResetPasswordRepository extends AuthRepository {
           tokenStore: AuthTokenStore(),
         );
 
+  final Object? error;
   int calls = 0;
   String token = '';
   String password = '';
@@ -156,5 +229,19 @@ class _ResetPasswordRepository extends AuthRepository {
     this.password = password;
     this.passwordConfirmation = passwordConfirmation;
     this.source = source;
+    final error = this.error;
+    if (error != null) throw error;
   }
+}
+
+DioException _apiException(String message) {
+  final request = RequestOptions(path: '/customer/auth/password/reset');
+  return DioException(
+    requestOptions: request,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: request,
+      statusCode: 422,
+      data: {'message': message},
+    ),
+  );
 }

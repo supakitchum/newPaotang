@@ -81,6 +81,38 @@ void main() {
     expect(find.text('SMS OTP provider is not configured.'), findsNothing);
   });
 
+  testWidgets('PIN reset shows API payload errors like Nuxt', (tester) async {
+    final repo = _PinResetRepository(
+      otpError: _apiException('ส่ง OTP เกินจำนวนครั้งที่กำหนด'),
+    );
+
+    await _pumpPinScreen(tester, repo);
+    await tester.tap(find.text('ลืม PIN?'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'ส่งรหัส OTP'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ส่ง OTP เกินจำนวนครั้งที่กำหนด'), findsOneWidget);
+    expect(find.text('ส่ง OTP ไม่สำเร็จ กรุณาลองใหม่'), findsNothing);
+  });
+
+  testWidgets('PIN reset hides internal errors', (tester) async {
+    final repo = _PinResetRepository(
+      otpError: StateError('internal pin reset failed'),
+    );
+
+    await _pumpPinScreen(tester, repo);
+    await tester.tap(find.text('ลืม PIN?'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'ส่งรหัส OTP'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ส่ง OTP ไม่สำเร็จ กรุณาลองใหม่'), findsOneWidget);
+    expect(find.textContaining('internal pin reset failed'), findsNothing);
+  });
+
   testWidgets('PIN reset uses keypad after OTP verification', (tester) async {
     final repo = _PinResetRepository();
     final tokenStore = AuthTokenStore();
@@ -157,6 +189,57 @@ void main() {
     expect(repo.confirmedPinConfirmation, '654321');
     expect(find.text('ตั้งค่า PIN ใหม่เรียบร้อยแล้ว'), findsOneWidget);
   });
+}
+
+Future<void> _pumpPinScreen(
+  WidgetTester tester,
+  _PinResetRepository repo,
+) async {
+  final tokenStore = AuthTokenStore();
+  final api = ApiClient(
+    const AppConfig(
+      apiBaseUrl: 'https://partner.example.com/api/v1',
+      defaultLocale: 'th-TH',
+    ),
+    tokenStore,
+    localeTag: 'th-TH',
+  );
+  final controller = AuthController(
+    authRepository: repo,
+    tokenStore: tokenStore,
+    biometricAuth: BiometricAuthService(api),
+  )
+    ..isAuthenticated = true
+    ..pinRequired = true
+    ..pinSetupRequired = false;
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        authRepositoryProvider.overrideWithValue(repo),
+        authControllerProvider.overrideWith((_) => controller),
+        mobileBootstrapProvider.overrideWith(
+          (_) async => MobileBootstrap.fromJson(const {
+            'mobile': {
+              'feature_flags': {'native_biometric_unlock': false},
+            },
+          }),
+        ),
+      ],
+      child: MaterialApp(
+        locale: fallbackCustomerLocale,
+        supportedLocales: supportedCustomerLocales,
+        localizationsDelegates: const [
+          CustomerLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: const PinScreen(),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
 }
 
 Future<void> _tapSheetPin(WidgetTester tester, String pin) async {
@@ -244,6 +327,18 @@ DioException _smsOtpProviderError() {
           'details': {'provider_required': true},
         },
       },
+    ),
+  );
+}
+
+DioException _apiException(String message) {
+  final request = RequestOptions(path: '/customer/auth/pin/reset/request-otp');
+  return DioException(
+    requestOptions: request,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: request,
+      statusCode: 422,
+      data: {'message': message},
     ),
   );
 }

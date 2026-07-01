@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
@@ -99,7 +100,8 @@ class _LineNotificationsScreenState
           ],
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => _ErrorState(
+        error: (error, __) => _ErrorState(
+          message: authErrorMessage(error, l10n.profileLineLoadFailed),
           onRetry: () => ref.invalidate(lineNotificationSettingsProvider),
         ),
       ),
@@ -112,8 +114,8 @@ class _LineNotificationsScreenState
     try {
       final url = await ref.read(authRepositoryProvider).socialLoginUrl('line');
       await _openUrl(url);
-    } catch (_) {
-      if (mounted) _showSnack(connectFailedMessage);
+    } catch (error) {
+      if (mounted) _showSnack(authErrorMessage(error, connectFailedMessage));
     } finally {
       if (mounted) setState(() => _connecting = false);
     }
@@ -127,8 +129,8 @@ class _LineNotificationsScreenState
           .read(lineNotificationRepositoryProvider)
           .updateNotificationEnabled(enabled);
       ref.invalidate(lineNotificationSettingsProvider);
-    } catch (_) {
-      if (mounted) _showSnack(saveFailedMessage);
+    } catch (error) {
+      if (mounted) _showSnack(authErrorMessage(error, saveFailedMessage));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -142,8 +144,8 @@ class _LineNotificationsScreenState
       await ref.read(lineNotificationRepositoryProvider).disconnect();
       ref.invalidate(lineNotificationSettingsProvider);
       if (mounted) _showSnack(disconnectedMessage);
-    } catch (_) {
-      if (mounted) _showSnack(disconnectFailedMessage);
+    } catch (error) {
+      if (mounted) _showSnack(authErrorMessage(error, disconnectFailedMessage));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -392,8 +394,9 @@ class _WarningCard extends StatelessWidget {
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.onRetry});
+  const _ErrorState({required this.message, required this.onRetry});
 
+  final String message;
   final VoidCallback onRetry;
 
   @override
@@ -406,7 +409,7 @@ class _ErrorState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(l10n.profileLineLoadFailed),
+              Text(message),
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: onRetry,

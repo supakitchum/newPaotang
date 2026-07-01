@@ -1,6 +1,6 @@
 # Customer Flutter Conversion Handoff
 
-Last updated: 2026-06-30
+Last updated: 2026-07-01
 
 ## Objective
 
@@ -652,14 +652,33 @@ Recent verified work:
   - Register submit now mirrors Nuxt error copy behavior by preserving backend
     API payload messages after OTP verification while keeping localized fallback
     copy for internal/client errors.
+  - Login, social provider launch, social callback, social phone-link,
+    forgot-password OTP/LINE reset, token reset-password, and PIN reset now
+    share safe Nuxt-style error copy: backend API payload messages are shown to
+    customers, while internal/client exceptions fall back to localized Flutter
+    copy instead of leaking technical exception text.
+  - Forgot-password LINE reset visibility and reset-password source handling
+    now normalize LINE provider aliases such as `line_login`, so runtime
+    bootstrap/provider callback values do not hide the LINE reset path or submit
+    a LINE reset as an admin reset link.
+  - Profile LINE notifications now preserve backend API payload messages for
+    settings load, LINE connect, notification toggle, and disconnect failures,
+    while internal/client exceptions fall back to localized Flutter copy.
+  - Profile biometric device management now preserves backend API payload
+    messages for device-list, enable/register, and revoke failures, keeps
+    internal/client exceptions on localized fallback copy, and moves the PIN
+    confirmation controller lifecycle into the dialog widget to avoid disposing
+    it during route animations.
   - Widget coverage now verifies safe redirect sanitization, protected-route
     login handoff, password-login redirect return, PIN-required routing,
-    register login-link preservation, register API error copy, social
+    password-login API error copy, register login-link preservation, register
+    API error copy, social provider/callback/link-phone API error copy, social
     link-phone continuation, and PIN unlock return-to-checkout behavior.
   - Reset-password deep-link coverage now verifies LINE password-reset
-    callbacks submit the `line_login` source, direct/admin reset links submit
-    `admin_reset_link`, missing tokens block submission, and successful resets
-    return customers to login.
+    callbacks and LINE source aliases submit the `line_login` source,
+    direct/admin reset links submit `admin_reset_link`, missing tokens block
+    submission, API payload error copy with internal-error fallback, and
+    successful resets return customers to login.
 
 ## Remaining Work By Area
 
@@ -676,10 +695,10 @@ Recent verified work:
 | Activities | Current draw/detail visual polish, lucky board grid screenshot review, cashback progress polish, awards, final claim modal/PIN screenshot polish, and device/realtime QA. | 44% |
 | Activity Claims | Final claim modal responsive screenshot review, remaining list failed/empty polish, device realtime QA, and native/web sensitive-screen validation. | 49% |
 | News/Announcements | Modal behavior, news list/detail parity, no repeated modal after detail navigation. | 45% |
-| Profile | Menu grouping, member code copy, LINE notifications, reward bank, auto reward, biometrics, account deletion. | 50% |
-| Auth | Forgot/reset/PIN reset final polish, OTP fallback QA, and screenshot review. | 38% |
-| Social Login | LINE/Google/Apple provider config, callback, phone linking, store-compliant behavior, deep links. | 52% |
-| Face ID/Biometric | Native key generation, challenge signing, PIN assertion token, fallback/revoke/device management QA. | 65% |
+| Profile | Menu grouping, member code copy, remaining reward bank/auto reward/biometric device QA/account deletion polish, and final LINE notification responsive/device QA. | 48% |
+| Auth | Forgot/reset/PIN reset final polish, OTP fallback QA, and screenshot review. | 37% |
+| Social Login | LINE/Google/Apple provider config, callback, phone linking, store-compliant behavior, deep links. | 51% |
+| Face ID/Biometric | Native key generation, challenge signing, PIN assertion token, fallback/revoke/device management QA. | 64% |
 | Native screen security | Android FLAG_SECURE validation, iOS screenshot/recording lock overlay, native smoke. | 70% |
 | Web security fallback | Sensitive-route privacy overlay, watermark/limited-mode validation. | 45% |
 | Partner theming | Test multiple bootstrap payloads, long names, logos, colors, hero/media, payment states. | 65% |

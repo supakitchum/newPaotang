@@ -6,12 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_controller.dart';
+import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_redirect.dart';
 import '../../../core/tenant/mobile_bootstrap_controller.dart';
 import '../../../core/tenant/mobile_runtime_policy.dart';
-import '../../../core/utils/api_errors.dart';
 import '../../../shared/utils/customer_operational_error.dart';
 
 class PinScreen extends ConsumerStatefulWidget {
@@ -353,12 +353,11 @@ class _PinScreenState extends ConsumerState<PinScreen> {
   }
 
   String _errorMessage(Object error, String fallback) {
-    final info = ApiErrorInfo.fromObject(error);
-    if (info.isSmsOtpProviderNotConfigured) {
-      return context.l10n.pinResetOtpProviderUnavailable;
-    }
-    if (info.message.trim().isNotEmpty) return info.message;
-    return fallback;
+    return authOtpErrorMessage(
+      error: error,
+      fallback: fallback,
+      otpProviderUnavailable: context.l10n.pinResetOtpProviderUnavailable,
+    );
   }
 
   void _showSnack(String message) {
@@ -856,12 +855,11 @@ class _PinResetSheetState extends ConsumerState<_PinResetSheet> {
   }
 
   String _errorMessage(Object error, String fallback) {
-    final info = ApiErrorInfo.fromObject(error);
-    if (info.isSmsOtpProviderNotConfigured) {
-      return context.l10n.pinResetOtpProviderUnavailable;
-    }
-    if (info.message.trim().isNotEmpty) return info.message;
-    return fallback;
+    return authOtpErrorMessage(
+      error: error,
+      fallback: fallback,
+      otpProviderUnavailable: context.l10n.pinResetOtpProviderUnavailable,
+    );
   }
 
   void _showSnack(String message) {

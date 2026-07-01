@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/auth/auth_error_message.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../shared/widgets/tenant_brand_header.dart';
-import '../../../shared/utils/customer_operational_error.dart';
 
 class ResetPasswordScreen extends ConsumerStatefulWidget {
   const ResetPasswordScreen({super.key, required this.token, this.source});
@@ -33,7 +33,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isLineSource = widget.source == 'line';
+    final isLineSource = _isLineResetSource;
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
@@ -214,14 +214,14 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
             token: widget.token,
             password: _password.text,
             passwordConfirmation: _confirmPassword.text,
-            source: widget.source == 'line' ? 'line_login' : 'admin_reset_link',
+            source: _isLineResetSource ? 'line_login' : 'admin_reset_link',
           );
       if (!mounted) return;
       _showSnack(successMessage);
       context.go('/login');
     } catch (error) {
       if (!mounted) return;
-      final message = customerErrorMessage(error, expiredMessage);
+      final message = authErrorMessage(error, expiredMessage);
       _showSnack(message);
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -232,6 +232,9 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
   }
+
+  bool get _isLineResetSource =>
+      normalizeSocialAuthProvider(widget.source ?? '') == 'line';
 }
 
 class _ResetPasswordBrandPanel extends StatelessWidget {

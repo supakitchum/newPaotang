@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/auth/auth_error_message.dart';
 import '../../../core/i18n/app_locale.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/security/biometric_auth_service.dart';
@@ -85,7 +86,11 @@ class _BiometricDevicesScreenState
                       padding: EdgeInsets.symmetric(vertical: 32),
                       child: Center(child: CircularProgressIndicator()),
                     ),
-                    error: (_, __) => _ErrorCard(
+                    error: (error, __) => _ErrorCard(
+                      message: authErrorMessage(
+                        error,
+                        l10n.profileBiometricLoadFailed,
+                      ),
                       onRetry: () => ref.invalidate(biometricDevicesProvider),
                     ),
                   ),
@@ -116,8 +121,8 @@ class _BiometricDevicesScreenState
           );
       ref.invalidate(biometricDevicesProvider);
       if (mounted) _showSnack(enabledMessage);
-    } catch (_) {
-      if (mounted) _showSnack(failedMessage);
+    } catch (error) {
+      if (mounted) _showSnack(authErrorMessage(error, failedMessage));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -152,48 +157,18 @@ class _BiometricDevicesScreenState
       await ref.read(biometricDeviceRepositoryProvider).revoke(device.id);
       ref.invalidate(biometricDevicesProvider);
       if (mounted) _showSnack(revokedMessage);
-    } catch (_) {
-      if (mounted) _showSnack(failedMessage);
+    } catch (error) {
+      if (mounted) _showSnack(authErrorMessage(error, failedMessage));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
   Future<String?> _askForPin() {
-    final l10n = context.l10n;
-    final controller = TextEditingController();
     return showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.profileBiometricPinDialogTitle),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          obscureText: true,
-          keyboardType: TextInputType.number,
-          maxLength: 6,
-          inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(6),
-          ],
-          decoration: const InputDecoration(
-            labelText: 'PIN',
-            counterText: '',
-          ),
-          onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n.commonCancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: Text(l10n.commonConfirm),
-          ),
-        ],
-      ),
-    ).whenComplete(controller.dispose);
+      builder: (context) => const _PinConfirmDialog(),
+    );
   }
 
   String _defaultDeviceName(CustomerLocalizations l10n, String platformKey) {
@@ -207,6 +182,57 @@ class _BiometricDevicesScreenState
   void _showSnack(String message) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _PinConfirmDialog extends StatefulWidget {
+  const _PinConfirmDialog();
+
+  @override
+  State<_PinConfirmDialog> createState() => _PinConfirmDialogState();
+}
+
+class _PinConfirmDialogState extends State<_PinConfirmDialog> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(l10n.profileBiometricPinDialogTitle),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        obscureText: true,
+        keyboardType: TextInputType.number,
+        maxLength: 6,
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+          LengthLimitingTextInputFormatter(6),
+        ],
+        decoration: const InputDecoration(
+          labelText: 'PIN',
+          counterText: '',
+        ),
+        onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+          child: Text(l10n.commonConfirm),
+        ),
+      ],
+    );
   }
 }
 
@@ -596,8 +622,9 @@ String _localizedDateTime(Object? value, CustomerLocalizations l10n) {
 }
 
 class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({required this.onRetry});
+  const _ErrorCard({required this.message, required this.onRetry});
 
+  final String message;
   final VoidCallback onRetry;
 
   @override
@@ -610,7 +637,7 @@ class _ErrorCard extends StatelessWidget {
           children: [
             const Icon(Icons.error_outline, size: 34),
             const SizedBox(height: 8),
-            Text(l10n.profileBiometricLoadFailed),
+            Text(message),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: onRetry,

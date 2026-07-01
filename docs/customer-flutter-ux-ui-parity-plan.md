@@ -345,14 +345,30 @@ Acceptance evidence for every screen group:
 - `test/customer_redirect_test.dart`, `test/router_redirect_test.dart`, and
   `test/auth_redirect_flow_test.dart` cover Nuxt-style auth redirect parity:
   protected routes preserve a safe `redirect` through login, PIN-required
-  sessions route to `/pin?redirect=...`, register preserves backend API payload
-  messages after OTP, and PIN unlock returns to the saved checkout target.
+  sessions route to `/pin?redirect=...`, login/register preserve backend API
+  payload messages with localized internal-error fallbacks, and PIN unlock
+  returns to the saved checkout target.
+- `test/social_auth_screens_test.dart` covers generic LINE/Google/Apple social
+  auth surfaces: runtime provider visibility, provider-launch error copy,
+  callback/link-phone continuation, PIN-required handoff, compact link-phone
+  rendering, and API payload error copy with localized fallback for
+  callback/link failures.
 - `test/forgot_password_screen_test.dart`,
   `test/reset_password_screen_test.dart`, and `test/pin_reset_flow_test.dart`
   cover Auth reset parity: tenant-configured LINE reset visibility, friendly
-  SMS OTP unavailable copy, reset-password source mapping for LINE versus
-  admin/direct links, missing-token submission blocking, and PIN reset OTP to
-  keypad handoff.
+  SMS OTP unavailable copy, forgot-password LINE provider aliases plus OTP and
+  LINE reset API error copy, reset-password source mapping for LINE aliases
+  versus admin/direct links, missing-token submission blocking, reset-password
+  API error copy, PIN reset API error copy, and PIN reset OTP to keypad
+  handoff.
+- `test/line_notifications_screen_test.dart` covers Profile LINE notification
+  parity: settings load failures, LINE connect failures, notification-toggle
+  failures, and disconnect failures preserve API payload messages while
+  internal/client failures fall back to localized copy.
+- `test/biometric_devices_screen_test.dart` covers Profile biometric device
+  parity: device-list failures, enable/register failures, and revoke failures
+  preserve API payload messages while internal/client failures fall back to
+  localized copy.
 
 ### Phase 3: Native Interaction Pass
 
