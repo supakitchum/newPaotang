@@ -98,6 +98,50 @@ void main() {
     expect(find.text('สลากกินแบ่งรัฐบาล'), findsWidgets);
     expect(find.text('L6'), findsWidgets);
     expect(find.text('ร้านทดสอบ'), findsWidgets);
+    final ticketRow = find.byKey(
+      const ValueKey('store-lottery-ticket-row-local_123123'),
+    );
+    expect(ticketRow, findsOneWidget);
+    expect(
+      find.ancestor(of: ticketRow, matching: find.byType(Card)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: ticketRow,
+        matching: find.widgetWithText(TextButton, 'ดูเลขนี้เพิ่มเติม'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: ticketRow, matching: find.byType(Chip)),
+      findsNothing,
+    );
+    expect(find.text('พร้อมขาย'), findsNothing);
+    expect(
+      find.descendant(
+        of: ticketRow,
+        matching:
+            find.byKey(const ValueKey('store-lottery-ticket-image-frame')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: ticketRow,
+        matching: find.byKey(const ValueKey('store-lottery-ticket-image')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: ticketRow,
+        matching: find.byKey(
+          const ValueKey('store-lottery-ticket-image-fallback'),
+        ),
+      ),
+      findsNothing,
+    );
     final searchButton = find.widgetWithText(FilledButton, 'ค้นหาเลข');
     expect(searchButton, findsOneWidget);
     expect(
@@ -207,6 +251,67 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('store lotteries shows Nuxt-style image fallback while pending', (
+    tester,
+  ) async {
+    final tokenStore = AuthTokenStore();
+    final authController = _unauthenticatedController(tokenStore);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(_testConfig),
+          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
+          authTokenStoreProvider.overrideWithValue(tokenStore),
+          authControllerProvider.overrideWith((_) => authController),
+          resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
+          storeRepositoryProvider.overrideWithValue(
+            _PendingImageStoreLotteryRepository(),
+          ),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          home: const StoreLotteriesScreen(
+            storeId: 'store_1',
+            storeName: 'ร้านทดสอบ',
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final ticketRow = find.byKey(
+      const ValueKey('store-lottery-ticket-row-local_123123'),
+    );
+    expect(ticketRow, findsOneWidget);
+    expect(
+      find.descendant(
+        of: ticketRow,
+        matching: find.byKey(
+          const ValueKey('store-lottery-ticket-image-fallback'),
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('รูปสลากกำลังเตรียมพร้อม'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: ticketRow,
+        matching: find.byKey(const ValueKey('store-lottery-ticket-image')),
+      ),
+      findsNothing,
+    );
+  });
+
   testWidgets('store lotteries refreshes stock on realtime tick', (
     tester,
   ) async {
@@ -259,6 +364,136 @@ void main() {
     expect(store.lastStoreId, 'store_1');
     expect(store.lastGameId, 'game_1');
     expect(find.text('เลือก'), findsOneWidget);
+  });
+
+  testWidgets('store lotteries price realtime patch shows Nuxt-style trend', (
+    tester,
+  ) async {
+    final store = _FakeStoreRepository();
+    final tokenStore = AuthTokenStore();
+    final authController = _unauthenticatedController(tokenStore);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(_testConfig),
+          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
+          authTokenStoreProvider.overrideWithValue(tokenStore),
+          authControllerProvider.overrideWith((_) => authController),
+          resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
+          storeRepositoryProvider.overrideWithValue(store),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          home: const StoreLotteriesScreen(
+            storeId: 'store_1',
+            storeName: 'ร้านทดสอบ',
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('80.00 บาท'), findsOneWidget);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(StoreLotteriesScreen)),
+      listen: false,
+    );
+    container.read(lotteryStockPricePatchProvider.notifier).state =
+        const LotteryStockPricePatch(
+      price: 70,
+      gameId: 'game_1',
+      flashKey: 7001,
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('70.00 บาท'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('store-lottery-ticket-price-trend-down')),
+      findsOneWidget,
+    );
+
+    await tester.pump(const Duration(seconds: 2));
+
+    expect(find.text('70.00 บาท'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('store-lottery-ticket-price-trend-down')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('store lotteries availability realtime patch disables sold rows',
+      (
+    tester,
+  ) async {
+    final store = _FakeStoreRepository();
+    final lottery = _CountingLotteryRepository();
+    final tokenStore = AuthTokenStore();
+    final authController = _authenticatedController(tokenStore);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(_testConfig),
+          mobileBootstrapProvider.overrideWith((_) async => _mobileBootstrap()),
+          authTokenStoreProvider.overrideWithValue(tokenStore),
+          authControllerProvider.overrideWith((_) => authController),
+          resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
+          storeRepositoryProvider.overrideWithValue(store),
+          lotteryRepositoryProvider.overrideWithValue(lottery),
+        ],
+        child: MaterialApp(
+          locale: fallbackCustomerLocale,
+          supportedLocales: supportedCustomerLocales,
+          localizationsDelegates: const [
+            CustomerLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.light(),
+          home: const StoreLotteriesScreen(
+            storeId: 'store_1',
+            storeName: 'ร้านทดสอบ',
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('เลือก'), findsOneWidget);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(StoreLotteriesScreen)),
+      listen: false,
+    );
+    container.read(lotteryStockAvailabilityPatchProvider.notifier).state =
+        const LotteryStockAvailabilityPatch(
+      number: '123123',
+      remainingCount: 0,
+      status: 'sold_out',
+      gameId: 'game_1',
+      flashKey: 1231,
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('เลือก'), findsNothing);
+    final soldOutButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'ขายหมดแล้ว'),
+    );
+    expect(soldOutButton.onPressed, isNull);
+    expect(lottery.reserveCount, 0);
   });
 
   testWidgets('store lotteries shows Nuxt-style selected-cart dock', (
@@ -874,6 +1109,9 @@ class _FakeStoreRepository extends StoreRepository {
   StoreLotteryTicket _ticket({
     required String number,
     String sellerName = 'ร้านทดสอบ',
+    String imageUrl = 'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=',
+    String thumbUrl = '',
+    String imageStatus = 'ready',
   }) {
     return StoreLotteryTicket(
       id: 'stock_$number',
@@ -887,6 +1125,10 @@ class _FakeStoreRepository extends StoreRepository {
       remainingCount: 1,
       status: 'available',
       reservationId: '',
+      imageUrl: imageUrl,
+      thumbUrl: thumbUrl,
+      imageStatus: imageStatus,
+      imageError: '',
     );
   }
 }
@@ -909,6 +1151,31 @@ class _FailingStoreLotteryRepository extends _FakeStoreRepository {
     lastGameId = gameId;
     lastDigits = List<String>.from(digits);
     throw error;
+  }
+}
+
+class _PendingImageStoreLotteryRepository extends _FakeStoreRepository {
+  @override
+  Future<StoreLotteryPage> lotteries({
+    required String storeId,
+    required String gameId,
+    List<String> digits = const [],
+    String cursor = '',
+    int limit = 20,
+  }) async {
+    searchCount++;
+    lastStoreId = storeId;
+    lastGameId = gameId;
+    lastDigits = List<String>.from(digits);
+    return StoreLotteryPage(
+      items: [
+        _ticket(number: '123123', imageUrl: '', imageStatus: 'pending_assets'),
+      ],
+      nextCursor: '',
+      hasMore: false,
+      gameId: gameId,
+      sellerName: 'ร้านทดสอบ',
+    );
   }
 }
 

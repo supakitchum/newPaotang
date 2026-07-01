@@ -13,6 +13,68 @@ final lotteryStockRealtimeEnabledProvider = Provider<bool>((_) => true);
 
 final lotteryStockRealtimeTickProvider = StateProvider<int>((_) => 0);
 
+const lotteryStockPriceTrendUp = 'up';
+const lotteryStockPriceTrendDown = 'down';
+
+final lotteryStockPricePatchProvider =
+    StateProvider<LotteryStockPricePatch?>((_) => null);
+
+final lotteryStockAvailabilityPatchProvider =
+    StateProvider<LotteryStockAvailabilityPatch?>((_) => null);
+
+int _lotteryStockPricePatchSequence = 0;
+int _lotteryStockAvailabilityPatchSequence = 0;
+
+class LotteryStockPricePatch {
+  const LotteryStockPricePatch({
+    required this.price,
+    required this.gameId,
+    required this.flashKey,
+  });
+
+  final double price;
+  final String gameId;
+  final int flashKey;
+
+  bool matchesGame(String currentGameId) {
+    final normalizedPatchGameId = gameId.trim();
+    final normalizedCurrentGameId = currentGameId.trim();
+    return normalizedPatchGameId.isEmpty ||
+        normalizedCurrentGameId.isEmpty ||
+        normalizedPatchGameId == normalizedCurrentGameId;
+  }
+}
+
+class LotteryStockAvailabilityPatch {
+  const LotteryStockAvailabilityPatch({
+    required this.number,
+    required this.remainingCount,
+    required this.status,
+    required this.gameId,
+    required this.flashKey,
+  });
+
+  final String number;
+  final int remainingCount;
+  final String status;
+  final String gameId;
+  final int flashKey;
+
+  bool matchesGame(String currentGameId) {
+    final normalizedPatchGameId = gameId.trim();
+    final normalizedCurrentGameId = currentGameId.trim();
+    return normalizedPatchGameId.isEmpty ||
+        normalizedCurrentGameId.isEmpty ||
+        normalizedPatchGameId == normalizedCurrentGameId;
+  }
+
+  bool matchesNumber(String candidate) {
+    final candidateDigits =
+        candidate.replaceAll(RegExp(r'\D'), '').padLeft(6, '0');
+    return number.isNotEmpty && candidateDigits.endsWith(number);
+  }
+}
+
 bool shouldRefreshLotteryStockFromRealtimeEvent({
   required CustomerRealtimeEvent event,
   required String gameId,
@@ -35,6 +97,84 @@ bool shouldRefreshLotteryStockFromRealtimeEvent({
   return payloadGameId.isEmpty ||
       normalizedGameId.isEmpty ||
       payloadGameId == normalizedGameId;
+}
+
+LotteryStockPricePatch? lotteryStockPricePatchFromRealtimeEvent(
+  CustomerRealtimeEvent event,
+) {
+  if (event.name != 'stock.price.updated') return null;
+  if (int.tryParse(event.payload['set_size']?.toString() ?? '1') != 1) {
+    return null;
+  }
+  final price = _realtimePriceDisplayAmount(event.payload);
+  if (price <= 0) return null;
+  _lotteryStockPricePatchSequence += 1;
+  return LotteryStockPricePatch(
+    price: price,
+    gameId: (event.payload['game_id'] ?? event.payload['gameId'] ?? '')
+        .toString()
+        .trim(),
+    flashKey: _lotteryStockPricePatchSequence,
+  );
+}
+
+LotteryStockAvailabilityPatch? lotteryStockAvailabilityPatchFromRealtimeEvent(
+  CustomerRealtimeEvent event,
+) {
+  if (event.name != 'stock.availability.updated') return null;
+  final number = _realtimeLotteryNumber(event.payload);
+  if (number.isEmpty) return null;
+  final remainingCount =
+      int.tryParse(event.payload['remaining_count']?.toString() ?? '') ??
+          int.tryParse(event.payload['available_count']?.toString() ?? '') ??
+          0;
+  final normalizedStatus = (event.payload['status'] ??
+          event.payload['availability_status'] ??
+          (remainingCount > 0 ? 'available' : 'sold_out'))
+      .toString()
+      .trim()
+      .toLowerCase();
+  _lotteryStockAvailabilityPatchSequence += 1;
+  return LotteryStockAvailabilityPatch(
+    number: number,
+    remainingCount: remainingCount,
+    status: normalizedStatus.isEmpty
+        ? (remainingCount > 0 ? 'available' : 'sold_out')
+        : normalizedStatus,
+    gameId: (event.payload['game_id'] ?? event.payload['gameId'] ?? '')
+        .toString()
+        .trim(),
+    flashKey: _lotteryStockAvailabilityPatchSequence,
+  );
+}
+
+String _realtimeLotteryNumber(Map<String, Object?> payload) {
+  final raw = (payload['full_number'] ??
+          payload['number'] ??
+          payload['lottery_number'] ??
+          payload['fullNumber'] ??
+          '')
+      .toString();
+  final digits = raw.replaceAll(RegExp(r'\D'), '');
+  if (digits.isEmpty) return '';
+  return digits.length <= 6
+      ? digits.padLeft(6, '0')
+      : digits.substring(digits.length - 6);
+}
+
+double _realtimePriceDisplayAmount(Map<String, Object?> payload) {
+  final price = payload['price'];
+  final rawAmount = price is Map
+      ? _numericPrice(price['amount'])
+      : _numericPrice(payload['price_amount'] ?? payload['amount']);
+  if (rawAmount == null || rawAmount <= 0) return 0;
+  return rawAmount >= 1000 ? rawAmount / 100 : rawAmount;
+}
+
+double? _numericPrice(Object? value) {
+  if (value is num && value.isFinite) return value.toDouble();
+  if (value is String) return double.tryParse(value);
+  return null;
 }
 
 class LotteryStockRealtimeMonitor extends ConsumerStatefulWidget {
@@ -155,6 +295,17 @@ class _LotteryStockRealtimeMonitorState
       gameId: gameId,
     )) {
       return;
+    }
+
+    final pricePatch = lotteryStockPricePatchFromRealtimeEvent(event);
+    if (pricePatch != null && pricePatch.matchesGame(gameId)) {
+      ref.read(lotteryStockPricePatchProvider.notifier).state = pricePatch;
+    }
+    final availabilityPatch =
+        lotteryStockAvailabilityPatchFromRealtimeEvent(event);
+    if (availabilityPatch != null && availabilityPatch.matchesGame(gameId)) {
+      ref.read(lotteryStockAvailabilityPatchProvider.notifier).state =
+          availabilityPatch;
     }
 
     if (_refreshThrottle?.isActive ?? false) return;

@@ -1745,7 +1745,9 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
   final _reservedByStockId = <String, String>{};
   ScrollPosition? _scrollPosition;
   Timer? _refreshCooldownTimer;
+  Timer? _priceTrendClearTimer;
   LotteryCart _cart = LotteryCart.empty();
+  LotteryStockPricePatch? _activePricePatch;
   String _gameId = '';
   String _cursor = '';
   String _randomSeed = '';
@@ -1789,6 +1791,7 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
   void dispose() {
     _scrollPosition?.removeListener(_handleParentScroll);
     _refreshCooldownTimer?.cancel();
+    _priceTrendClearTimer?.cancel();
     super.dispose();
   }
 
@@ -1804,6 +1807,24 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
         }
       });
     });
+    ref.listen<LotteryStockPricePatch?>(lotteryStockPricePatchProvider, (
+      previous,
+      next,
+    ) {
+      if (next == null || previous?.flashKey == next.flashKey) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _applyPricePatch(next);
+      });
+    });
+    ref.listen<LotteryStockAvailabilityPatch?>(
+      lotteryStockAvailabilityPatchProvider,
+      (previous, next) {
+        if (next == null || previous?.flashKey == next.flashKey) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _applyAvailabilityPatch(next);
+        });
+      },
+    );
 
     final l10n = context.l10n;
     final refreshCoolingDown = _isBrowseMode && _refreshCooldownSeconds > 0;
@@ -1973,9 +1994,11 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
       ]);
       final page = results[0] as LotteryStockPage;
       final cart = results[1] as LotteryCart;
-      final nextItems = _normalizeBrowseStockItems(
-        reset ? page.items : [..._items, ...page.items],
-        enabled: _isBrowseMode,
+      final nextItems = _itemsWithActivePricePatch(
+        _normalizeBrowseStockItems(
+          reset ? page.items : [..._items, ...page.items],
+          enabled: _isBrowseMode,
+        ),
       );
       if (!mounted) return;
       setState(() {
@@ -2035,6 +2058,113 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
       _randomSeed = _createStockRandomSeed();
     }
     return _randomSeed;
+  }
+
+  void _applyPricePatch(LotteryStockPricePatch patch) {
+    if (_items.isEmpty || !patch.matchesGame(_gameId)) return;
+    final patchedItems = _itemsWithPricePatch(_items, patch);
+    if (!_stockItemsChanged(_items, patchedItems)) return;
+    setState(() {
+      _activePricePatch = patch;
+      _items
+        ..clear()
+        ..addAll(patchedItems);
+    });
+    _schedulePriceTrendClear(patch.flashKey);
+  }
+
+  void _applyAvailabilityPatch(LotteryStockAvailabilityPatch patch) {
+    if (_items.isEmpty || !patch.matchesGame(_gameId)) return;
+    final patchedItems = [
+      for (final item in _items)
+        patch.matchesNumber(item.number)
+            ? item.copyWith(
+                remainingCount: patch.remainingCount,
+                status: patch.status,
+              )
+            : item,
+    ];
+    if (!_stockItemsChanged(_items, patchedItems)) return;
+    setState(() {
+      _items
+        ..clear()
+        ..addAll(patchedItems);
+    });
+  }
+
+  List<LotteryStockItem> _itemsWithActivePricePatch(
+    List<LotteryStockItem> items,
+  ) {
+    final patch = _activePricePatch;
+    if (patch == null || !patch.matchesGame(_gameId)) return items;
+    return _itemsWithPricePatch(items, patch);
+  }
+
+  List<LotteryStockItem> _itemsWithPricePatch(
+    List<LotteryStockItem> items,
+    LotteryStockPricePatch patch,
+  ) {
+    return [
+      for (final item in items) _itemWithPricePatch(item, patch),
+    ];
+  }
+
+  LotteryStockItem _itemWithPricePatch(
+    LotteryStockItem item,
+    LotteryStockPricePatch patch,
+  ) {
+    final existing = _matchingStockItem(item);
+    final existingTrend = existing?.priceFlashKey == patch.flashKey
+        ? existing?.priceTrend ?? ''
+        : '';
+    if (existingTrend.isNotEmpty) {
+      return item.copyWith(
+        price: patch.price,
+        priceTrend: existingTrend,
+        priceFlashKey: patch.flashKey,
+      );
+    }
+    if (!item.price.isFinite || item.price <= 0 || item.price == patch.price) {
+      return item.price == patch.price
+          ? item
+          : item.copyWith(price: patch.price);
+    }
+    return item.copyWith(
+      price: patch.price,
+      priceTrend: patch.price > item.price
+          ? lotteryStockPriceTrendUp
+          : lotteryStockPriceTrendDown,
+      priceFlashKey: patch.flashKey,
+    );
+  }
+
+  LotteryStockItem? _matchingStockItem(LotteryStockItem item) {
+    for (final existing in _items) {
+      if (existing.localStockItemId == item.localStockItemId ||
+          existing.token == item.token ||
+          existing.stockRef == item.stockRef) {
+        return existing;
+      }
+    }
+    return null;
+  }
+
+  void _schedulePriceTrendClear(int flashKey) {
+    _priceTrendClearTimer?.cancel();
+    _priceTrendClearTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      setState(() {
+        if (_activePricePatch?.flashKey == flashKey) {
+          _activePricePatch = null;
+        }
+        for (var index = 0; index < _items.length; index++) {
+          final item = _items[index];
+          if (item.priceFlashKey == flashKey) {
+            _items[index] = item.copyWith(priceTrend: '', priceFlashKey: 0);
+          }
+        }
+      });
+    });
   }
 
   void _startRefreshCooldown() {
@@ -2197,6 +2327,25 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
       _load(reset: false);
     }
   }
+}
+
+bool _stockItemsChanged(
+  List<LotteryStockItem> current,
+  List<LotteryStockItem> next,
+) {
+  if (current.length != next.length) return true;
+  for (var index = 0; index < current.length; index++) {
+    final currentItem = current[index];
+    final nextItem = next[index];
+    if (currentItem.price != nextItem.price ||
+        currentItem.remainingCount != nextItem.remainingCount ||
+        currentItem.status != nextItem.status ||
+        currentItem.priceTrend != nextItem.priceTrend ||
+        currentItem.priceFlashKey != nextItem.priceFlashKey) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool _cartSelectionReviewEnabled(LotteryCart cart) {
@@ -2563,12 +2712,7 @@ class _LotteryStockCard extends StatelessWidget {
               children: [
                 SizedBox(height: 42, child: actionButton),
                 const SizedBox(height: 8),
-                Text(
-                  formatBaht(item.price),
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                ),
+                _LotteryStockPriceText(item: item),
               ],
             );
 
@@ -2599,6 +2743,51 @@ class _LotteryStockCard extends StatelessWidget {
           },
         ),
       ),
+    );
+  }
+}
+
+class _LotteryStockPriceText extends StatelessWidget {
+  const _LotteryStockPriceText({required this.item});
+
+  final LotteryStockItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final priceTrend = item.priceTrend;
+    final trendColor = priceTrend == lotteryStockPriceTrendDown
+        ? colorScheme.error
+        : priceTrend == lotteryStockPriceTrendUp
+            ? colorScheme.tertiary
+            : colorScheme.onSurface;
+    final trendIcon = priceTrend == lotteryStockPriceTrendDown
+        ? Icons.arrow_downward
+        : priceTrend == lotteryStockPriceTrendUp
+            ? Icons.arrow_upward
+            : null;
+    return Row(
+      key: const ValueKey('lottery-stock-price-row'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (trendIcon != null) ...[
+          Icon(
+            trendIcon,
+            key: ValueKey('lottery-stock-price-trend-$priceTrend'),
+            size: 16,
+            color: trendColor,
+          ),
+          const SizedBox(width: 2),
+        ],
+        Text(
+          formatBaht(item.price),
+          key: const ValueKey('lottery-stock-price'),
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: trendColor,
+                fontWeight: FontWeight.w900,
+              ),
+        ),
+      ],
     );
   }
 }

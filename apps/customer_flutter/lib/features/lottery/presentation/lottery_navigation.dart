@@ -69,7 +69,10 @@ String safeLotteryBackPath(String value, {String fallback = '/buy'}) {
   if (trimmed.isEmpty) return fallback;
   final uri = Uri.tryParse(trimmed);
   if (uri == null || uri.hasScheme || uri.host.isNotEmpty) return fallback;
-  if (uri.path != '/buy' && !uri.path.startsWith('/buy/')) return fallback;
+  final safeLotteryPath = uri.path == '/buy' ||
+      uri.path.startsWith('/buy/') ||
+      uri.path == '/stores/lotteries';
+  if (!safeLotteryPath) return fallback;
   return uri.toString();
 }
 

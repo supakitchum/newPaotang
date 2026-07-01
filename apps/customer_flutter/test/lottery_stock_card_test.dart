@@ -342,6 +342,84 @@ void main() {
     expect(find.text('เลือก'), findsOneWidget);
   });
 
+  testWidgets('stock price realtime patch shows Nuxt-style trend', (
+    tester,
+  ) async {
+    final lottery = _FakeLotteryRepository();
+    final router = _lotteryRouter(initialLocation: '/buy/search?number=273707');
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    expect(find.text('80.00 บาท'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('lottery-stock-price-trend-up')),
+      findsNothing,
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(BuySearchScreen)),
+      listen: false,
+    );
+    container.read(lotteryStockPricePatchProvider.notifier).state =
+        const LotteryStockPricePatch(
+      price: 90,
+      gameId: 'game_1',
+      flashKey: 9001,
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('90.00 บาท'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('lottery-stock-price-trend-up')),
+      findsOneWidget,
+    );
+
+    await tester.pump(const Duration(seconds: 2));
+
+    expect(find.text('90.00 บาท'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('lottery-stock-price-trend-up')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('stock availability realtime patch disables sold rows like Nuxt',
+      (
+    tester,
+  ) async {
+    final lottery = _FakeLotteryRepository();
+    final router = _lotteryRouter(initialLocation: '/buy/search?number=273707');
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    expect(find.text('เลือก'), findsOneWidget);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(BuySearchScreen)),
+      listen: false,
+    );
+    container.read(lotteryStockAvailabilityPatchProvider.notifier).state =
+        const LotteryStockAvailabilityPatch(
+      number: '273707',
+      remainingCount: 0,
+      status: 'sold_out',
+      gameId: 'game_1',
+      flashKey: 2701,
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('เลือก'), findsNothing);
+    final soldOutButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'ขายหมดแล้ว'),
+    );
+    expect(soldOutButton.onPressed, isNull);
+    expect(lottery.reserveCount, 0);
+  });
+
   testWidgets('stock list loads the next page when it is near the bottom', (
     tester,
   ) async {

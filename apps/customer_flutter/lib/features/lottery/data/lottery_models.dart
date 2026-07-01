@@ -69,6 +69,8 @@ class LotteryStockItem {
     required this.imageUrl,
     required this.thumbUrl,
     required this.raw,
+    this.priceTrend = '',
+    this.priceFlashKey = 0,
   });
 
   factory LotteryStockItem.fromJson(Map<String, dynamic> json) {
@@ -124,6 +126,14 @@ class LotteryStockItem {
               '')
           .toString(),
       raw: Map<String, dynamic>.from(json),
+      priceTrend: (json['priceTrend'] ?? json['price_trend'] ?? '')
+          .toString()
+          .trim()
+          .toLowerCase(),
+      priceFlashKey: int.tryParse(
+            (json['priceFlashKey'] ?? json['price_flash_key'] ?? '').toString(),
+          ) ??
+          0,
     );
   }
 
@@ -143,6 +153,37 @@ class LotteryStockItem {
   final String imageUrl;
   final String thumbUrl;
   final Map<String, dynamic> raw;
+  final String priceTrend;
+  final int priceFlashKey;
+
+  LotteryStockItem copyWith({
+    double? price,
+    int? remainingCount,
+    String? status,
+    String? priceTrend,
+    int? priceFlashKey,
+  }) {
+    return LotteryStockItem(
+      id: id,
+      token: token,
+      localStockItemId: localStockItemId,
+      stockRef: stockRef,
+      number: number,
+      sellerName: sellerName,
+      storeName: storeName,
+      price: price ?? this.price,
+      remainingCount: remainingCount ?? this.remainingCount,
+      status: status ?? this.status,
+      reservationId: reservationId,
+      reservationExpiresAt: reservationExpiresAt,
+      serverTime: serverTime,
+      imageUrl: imageUrl,
+      thumbUrl: thumbUrl,
+      raw: raw,
+      priceTrend: priceTrend ?? this.priceTrend,
+      priceFlashKey: priceFlashKey ?? this.priceFlashKey,
+    );
+  }
 
   bool get isAvailable =>
       remainingCount > 0 &&

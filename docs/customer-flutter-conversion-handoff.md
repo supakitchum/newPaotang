@@ -159,6 +159,12 @@ Recent verified work:
   - `/stores/lotteries` stock cards now share the Buy/search Nuxt LotteryItem
     structure with runtime product marker above seller, seller as a muted row,
     and text-only outline/remove action pills.
+  - `/stores/lotteries` stock rows now drop the Flutter Card/availability-chip
+    wrapper, restore the text-only "ดูเลขนี้เพิ่มเติม" link above the lottery
+    number, and carry a safe internal store-scoped back path into `/buy/more`.
+  - `/stores/lotteries` stock rows now restore the Nuxt default lottery image
+    frame with runtime `image_url`/thumbnail/status payloads and the localized
+    pending/unavailable fallback instead of hardcoded provider artwork.
   - `/stores/lotteries` now restores the Nuxt-style "แสดงเลขใหม่" action above
     store-scoped stock results, reloads the randomized store list, and applies
     the same 10-second anti-spam cooldown label used by Nuxt.
@@ -335,6 +341,16 @@ Recent verified work:
     widget coverage for current-game channel subscription, unrelated-event
     filtering, sale-price game filtering, missing-current-game safety, and the
     throttled refresh tick used by Buy/search/store stock surfaces.
+  - Stock price realtime now matches Nuxt's immediate price-patch behavior more
+    closely: sale-price payloads parse both money-object and legacy amount
+    shapes, update visible Buy/search/store stock rows in place, show temporary
+    up/down trend affordances, and clear the trend after the Nuxt-style flash
+    window while preserving the refreshed price.
+  - Stock availability realtime now also patches visible Buy/search/store rows
+    in place like Nuxt: `stock.availability.updated` payloads map by lottery
+    number, update remaining/status state immediately, and disable sold rows
+    with the localized sold-out action while the existing refresh tick remains
+    as the server reconciliation path.
   - Buy/search/store stock realtime QA advanced: Buy search and store-scoped
     lottery lists now have screen-level coverage that a stock realtime refresh
     tick reloads the visible stock list. Store-scoped lotteries now listen to

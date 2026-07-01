@@ -14,6 +14,72 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('lottery stock realtime price patch parses Nuxt payload shapes', () {
+    final moneyPatch = lotteryStockPricePatchFromRealtimeEvent(
+      CustomerRealtimeEvent(
+        name: 'stock.price.updated',
+        channel: salePriceChannel(tenantId: 'ten_stock'),
+        payload: const {
+          'game_id': 'game_1',
+          'set_size': 1,
+          'price': {'amount': 9000},
+        },
+      ),
+    );
+
+    expect(moneyPatch, isNotNull);
+    expect(moneyPatch!.gameId, 'game_1');
+    expect(moneyPatch.price, 90);
+
+    final legacyPatch = lotteryStockPricePatchFromRealtimeEvent(
+      CustomerRealtimeEvent(
+        name: 'stock.price.updated',
+        channel: salePriceChannel(tenantId: 'ten_stock'),
+        payload: const {'price_amount': 7500},
+      ),
+    );
+
+    expect(legacyPatch, isNotNull);
+    expect(legacyPatch!.price, 75);
+
+    expect(
+      lotteryStockPricePatchFromRealtimeEvent(
+        CustomerRealtimeEvent(
+          name: 'stock.price.updated',
+          channel: salePriceChannel(tenantId: 'ten_stock'),
+          payload: const {'set_size': 2, 'price_amount': 9000},
+        ),
+      ),
+      isNull,
+    );
+  });
+
+  test('lottery stock realtime availability patch parses Nuxt payload', () {
+    final patch = lotteryStockAvailabilityPatchFromRealtimeEvent(
+      CustomerRealtimeEvent(
+        name: 'stock.availability.updated',
+        channel: stockAvailabilityChannel(
+          tenantId: 'ten_stock',
+          gameId: 'game_1',
+        ),
+        payload: const {
+          'game_id': 'game_1',
+          'full_number': '273707',
+          'remaining_count': 0,
+          'status': 'sold_out',
+        },
+      ),
+    );
+
+    expect(patch, isNotNull);
+    expect(patch!.number, '273707');
+    expect(patch.remainingCount, 0);
+    expect(patch.status, 'sold_out');
+    expect(patch.matchesGame('game_1'), isTrue);
+    expect(patch.matchesNumber('273707'), isTrue);
+    expect(patch.matchesNumber('999999'), isFalse);
+  });
+
   testWidgets(
     'lottery stock realtime monitor subscribes and ticks on stock availability',
     (tester) async {

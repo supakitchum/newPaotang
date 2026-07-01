@@ -214,8 +214,11 @@ Acceptance evidence for every screen group:
   restoring the Nuxt store-lottery page title plus shop-icon/status-dot/store-name/heart
   hero row without the earlier Flutter Card/ListTile duplicate-subtitle hero,
   and
-  rendering stock cards with Nuxt-style runtime product marker, product brand,
-  seller row, and text-only outline/remove action pills, and
+  rendering card-free stock rows with Nuxt-style runtime product marker,
+  product brand, runtime payload lottery image frame with pending-image
+  fallback, text-only more link, lottery number before the muted seller row,
+  no Flutter-only availability chip, text-only outline/remove action pills,
+  and safe store-scoped back-path handoff to `/buy/more`, and
   preserving the Nuxt sold-ticket dialog plus row removal after an authenticated
   store-scoped reservation race, and auto-loading the next stock page when
   customers scroll near the bottom while rendering Nuxt-style skeleton cards
@@ -224,6 +227,8 @@ Acceptance evidence for every screen group:
   store-scoped stock load
   API payload error copy with localized fallback for internal/client failures,
   Nuxt-style store stock refresh with a 10-second "รอ ... วิ" cooldown, plus
+  sale-price realtime patching with temporary up/down trend affordances, plus
+  availability realtime patching that disables sold rows immediately, plus
   the closed-sale store stock state: localized sale-closed notice, disabled new
   reservation button, and no reserve call when response-level availability
   blocks buying, plus the Nuxt-style selected-cart dock after store-scoped
@@ -273,7 +278,9 @@ Acceptance evidence for every screen group:
   parity: the Nuxt-style number-list header, no filter/more/refresh controls,
   unseeded same-number search, auto-loading the next same-number cursor page
   without introducing `random_seed`, no overflow exceptions, and stock-realtime
-  tick refresh of the visible search results, plus the text-only selected-cart
+  tick refresh of the visible search results, Nuxt-style sale-price realtime
+  patching with temporary up/down trend affordances, availability realtime
+  patching that disables sold rows immediately, plus the text-only selected-cart
   dock review CTA matching Nuxt PaymentDock, and text-only outline fallback
   stock pagination that still loads the next cursor page without Flutter-only
   expand/spinner icons.

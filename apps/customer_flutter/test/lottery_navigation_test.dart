@@ -63,7 +63,22 @@ void main() {
     expect(uri.queryParameters['back'], back);
   });
 
-  test('shouldPopLotteryMoreBack only restores stacked search routes', () {
+  test('lotteryMorePath carries safe store-scoped back path', () {
+    final uri = Uri.parse(
+      lotteryMorePath(
+        number: '273707',
+        storeId: 'store_1',
+        backPath: '/stores/lotteries?store_id=store_1',
+      ),
+    );
+
+    expect(uri.path, '/buy/more');
+    expect(uri.queryParameters['number'], '273707');
+    expect(uri.queryParameters['store_id'], 'store_1');
+    expect(uri.queryParameters['back'], '/stores/lotteries?store_id=store_1');
+  });
+
+  test('shouldPopLotteryMoreBack only restores stacked lottery routes', () {
     expect(
       shouldPopLotteryMoreBack(
         canPop: true,
@@ -88,6 +103,10 @@ void main() {
     expect(
       safeLotteryBackPath('/buy/search?number=123456&store_id=store_1'),
       '/buy/search?number=123456&store_id=store_1',
+    );
+    expect(
+      safeLotteryBackPath('/stores/lotteries?store_id=store_1'),
+      '/stores/lotteries?store_id=store_1',
     );
   });
 

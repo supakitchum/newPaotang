@@ -13,6 +13,7 @@ import '../../../features/lottery/data/lottery_models.dart';
 import '../../../features/lottery/data/lottery_repository.dart';
 import '../../../features/results/data/result_repository.dart';
 import '../../../features/lottery/presentation/lottery_digit_input_row.dart';
+import '../../../features/lottery/presentation/lottery_navigation.dart';
 import '../../../features/lottery/presentation/lottery_screens.dart';
 import '../../../features/lottery/presentation/lottery_stock_realtime_monitor.dart';
 import '../../../features/lottery/presentation/lottery_stock_skeleton.dart';
@@ -21,6 +22,7 @@ import '../../../shared/utils/customer_operational_error.dart';
 import '../../../shared/widgets/app_shell.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../../../shared/widgets/customer_section_header.dart';
+import '../../../shared/widgets/flexible_image.dart';
 import '../data/store_models.dart';
 import '../data/store_repository.dart';
 
@@ -238,6 +240,8 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
   final _reservedByStockId = <String, String>{};
   LotteryCart _cart = LotteryCart.empty();
   Timer? _refreshCooldownTimer;
+  Timer? _priceTrendClearTimer;
+  LotteryStockPricePatch? _activePricePatch;
   String _cursor = '';
   String _storeName = '';
   String _gameId = '';
@@ -263,6 +267,7 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
     _scrollController.removeListener(_handleScroll);
     _scrollController.dispose();
     _refreshCooldownTimer?.cancel();
+    _priceTrendClearTimer?.cancel();
     for (final controller in _digits) {
       controller.dispose();
     }
@@ -281,6 +286,24 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
         }
       });
     });
+    ref.listen<LotteryStockPricePatch?>(lotteryStockPricePatchProvider, (
+      previous,
+      next,
+    ) {
+      if (next == null || previous?.flashKey == next.flashKey) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _applyPricePatch(next);
+      });
+    });
+    ref.listen<LotteryStockAvailabilityPatch?>(
+      lotteryStockAvailabilityPatchProvider,
+      (previous, next) {
+        if (next == null || previous?.flashKey == next.flashKey) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _applyAvailabilityPatch(next);
+        });
+      },
+    );
 
     final l10n = context.l10n;
     final storeName =
@@ -379,6 +402,13 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                               padding: const EdgeInsets.only(bottom: 10),
                               child: _LotteryTicketCard(
                                 ticket: ticket,
+                                morePath: lotteryMorePath(
+                                  number: ticket.number,
+                                  storeId: widget.storeId,
+                                  backPath: _storeLotteriesBackPath(
+                                    widget.storeId,
+                                  ),
+                                ),
                                 canReserve: _canReserve,
                                 reserved: _reservedByStockId.containsKey(
                                   ticket.localStockItemId,
@@ -485,11 +515,16 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
       ]);
       final page = results[0] as StoreLotteryPage;
       final cart = results[1] as LotteryCart;
+      final nextGameId = page.gameId.isNotEmpty ? page.gameId : gameId;
+      final nextTickets = _ticketsWithActivePricePatch(
+        page.items,
+        gameId: nextGameId,
+      );
       if (!mounted) return;
       setState(() {
         _drawDateLabel = nextDrawDateLabel;
-        _gameId = page.gameId.isNotEmpty ? page.gameId : gameId;
-        _tickets.addAll(page.items);
+        _gameId = nextGameId;
+        _tickets.addAll(nextTickets);
         _cursor = page.nextCursor;
         _hasMore = page.hasMore;
         _canReserve = page.canReserve;
@@ -565,6 +600,119 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
       return l10n.lotteryRefreshCooldown(_refreshCooldownSeconds);
     }
     return l10n.lotteryShowNew;
+  }
+
+  void _applyPricePatch(LotteryStockPricePatch patch) {
+    if (_tickets.isEmpty || !patch.matchesGame(_gameId)) return;
+    final patchedTickets = _ticketsWithPricePatch(_tickets, patch);
+    if (!_storeLotteryTicketsChanged(_tickets, patchedTickets)) return;
+    setState(() {
+      _activePricePatch = patch;
+      _tickets
+        ..clear()
+        ..addAll(patchedTickets);
+    });
+    _schedulePriceTrendClear(patch.flashKey);
+  }
+
+  void _applyAvailabilityPatch(LotteryStockAvailabilityPatch patch) {
+    if (_tickets.isEmpty || !patch.matchesGame(_gameId)) return;
+    final patchedTickets = [
+      for (final ticket in _tickets)
+        patch.matchesNumber(ticket.number)
+            ? ticket.copyWith(
+                remainingCount: patch.remainingCount,
+                status: patch.status,
+              )
+            : ticket,
+    ];
+    if (!_storeLotteryTicketsChanged(_tickets, patchedTickets)) return;
+    setState(() {
+      _tickets
+        ..clear()
+        ..addAll(patchedTickets);
+    });
+  }
+
+  List<StoreLotteryTicket> _ticketsWithActivePricePatch(
+    List<StoreLotteryTicket> tickets, {
+    required String gameId,
+  }) {
+    final patch = _activePricePatch;
+    if (patch == null || !patch.matchesGame(gameId)) return tickets;
+    return _ticketsWithPricePatch(tickets, patch);
+  }
+
+  List<StoreLotteryTicket> _ticketsWithPricePatch(
+    List<StoreLotteryTicket> tickets,
+    LotteryStockPricePatch patch,
+  ) {
+    return [
+      for (final ticket in tickets) _ticketWithPricePatch(ticket, patch),
+    ];
+  }
+
+  StoreLotteryTicket _ticketWithPricePatch(
+    StoreLotteryTicket ticket,
+    LotteryStockPricePatch patch,
+  ) {
+    final existing = _matchingStoreTicket(ticket);
+    final existingTrend = existing?.priceFlashKey == patch.flashKey
+        ? existing?.priceTrend ?? ''
+        : '';
+    if (existingTrend.isNotEmpty) {
+      return ticket.copyWith(
+        price: patch.price,
+        priceTrend: existingTrend,
+        priceFlashKey: patch.flashKey,
+      );
+    }
+    if (!ticket.price.isFinite ||
+        ticket.price <= 0 ||
+        ticket.price == patch.price) {
+      return ticket.price == patch.price
+          ? ticket
+          : ticket.copyWith(price: patch.price);
+    }
+    return ticket.copyWith(
+      price: patch.price,
+      priceTrend: patch.price > ticket.price
+          ? lotteryStockPriceTrendUp
+          : lotteryStockPriceTrendDown,
+      priceFlashKey: patch.flashKey,
+    );
+  }
+
+  StoreLotteryTicket? _matchingStoreTicket(StoreLotteryTicket ticket) {
+    for (final existing in _tickets) {
+      if (existing.localStockItemId == ticket.localStockItemId ||
+          existing.token == ticket.token ||
+          existing.stockRef == ticket.stockRef) {
+        return existing;
+      }
+    }
+    return null;
+  }
+
+  void _schedulePriceTrendClear(int flashKey) {
+    _priceTrendClearTimer?.cancel();
+    _priceTrendClearTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      setState(() {
+        if (_activePricePatch?.flashKey == flashKey) {
+          _activePricePatch = null;
+        }
+        for (var index = 0; index < _tickets.length; index++) {
+          final ticket = _tickets[index];
+          if (ticket.priceFlashKey == flashKey) {
+            _tickets[index] = ticket.copyWith(
+              priceTrend: '',
+              priceFlashKey: 0,
+            );
+          }
+        }
+      });
+    });
   }
 
   Future<void> _refreshLotteries() async {
@@ -1211,6 +1359,7 @@ class _StoreLotterySearchActions extends StatelessWidget {
 class _LotteryTicketCard extends StatelessWidget {
   const _LotteryTicketCard({
     required this.ticket,
+    required this.morePath,
     required this.canReserve,
     required this.reserved,
     required this.busy,
@@ -1218,6 +1367,7 @@ class _LotteryTicketCard extends StatelessWidget {
   });
 
   final StoreLotteryTicket ticket;
+  final String morePath;
   final bool canReserve;
   final bool reserved;
   final bool busy;
@@ -1226,7 +1376,6 @@ class _LotteryTicketCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final digits = ticket.number.split('');
     final colorScheme = Theme.of(context).colorScheme;
     final sellerName = ticket.sellerName.isEmpty
         ? l10n.storesFallbackStoreName
@@ -1252,84 +1401,298 @@ class _LotteryTicketCard extends StatelessWidget {
             onPressed: busy || !canToggle ? null : onToggle,
             child: Text(actionLabel),
           );
-    return Card(
-      margin: EdgeInsets.zero,
+    return DecoratedBox(
+      key: ValueKey('store-lottery-ticket-row-${ticket.localStockItemId}'),
+      decoration: BoxDecoration(
+        color: reserved
+            ? colorScheme.primaryContainer.withValues(alpha: 0.32)
+            : colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: reserved
+              ? colorScheme.primary.withValues(alpha: 0.28)
+              : colorScheme.outlineVariant.withValues(alpha: 0.55),
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const LotteryProductBrandRow(),
-                  const SizedBox(height: 8),
-                  Text(
-                    sellerName,
-                    key: const ValueKey('lottery-stock-seller-row'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 5,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 420;
+            final moreButton = morePath.isEmpty
+                ? null
+                : TextButton(
+                    key: const ValueKey('store-lottery-more-link'),
+                    onPressed: () => context.push(morePath),
+                    child: Text(l10n.lotteryViewMore),
+                  );
+            final brandHeader = compact
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      for (final digit in digits)
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Colors.amber.shade50,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 9,
-                              vertical: 4,
-                            ),
-                            child: Text(
-                              digit,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0,
-                              ),
-                            ),
-                          ),
-                        ),
+                      const LotteryProductBrandRow(),
+                      if (moreButton != null) ...[
+                        const SizedBox(height: 4),
+                        moreButton,
+                      ],
                     ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Column(
+                  )
+                : Row(
+                    children: [
+                      const Expanded(child: LotteryProductBrandRow()),
+                      if (moreButton != null) moreButton,
+                    ],
+                  );
+            final details = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                brandHeader,
+                const SizedBox(height: 10),
+                Row(
+                  key: const ValueKey('store-lottery-ticket-display-row'),
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _StoreLotteryImageFrame(ticket: ticket),
+                    const SizedBox(width: 12),
+                    Expanded(child: _StoreLotteryNumber(number: ticket.number)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  sellerName,
+                  key: const ValueKey('lottery-stock-seller-row'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ],
+            );
+            final actions = Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 SizedBox(height: 42, child: actionButton),
                 const SizedBox(height: 8),
-                Text(
-                  formatBaht(ticket.price),
-                  style: const TextStyle(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 8),
-                Chip(
-                  label: Text(
-                    ticket.isAvailable
-                        ? l10n.storesTicketAvailable
-                        : l10n.storesTicketSoldOut,
-                  ),
-                  visualDensity: VisualDensity.compact,
-                ),
+                _StoreLotteryPriceText(ticket: ticket),
               ],
-            ),
-          ],
+            );
+
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  details,
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Spacer(),
+                      actions,
+                    ],
+                  ),
+                ],
+              );
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: details),
+                const SizedBox(width: 12),
+                actions,
+              ],
+            );
+          },
         ),
       ),
     );
   }
+}
+
+class _StoreLotteryImageFrame extends StatelessWidget {
+  const _StoreLotteryImageFrame({required this.ticket});
+
+  final StoreLotteryTicket ticket;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    final normalizedStatus = ticket.imageStatus.trim().toLowerCase();
+    final source = ticket.thumbUrl.trim().isNotEmpty
+        ? ticket.thumbUrl.trim()
+        : ticket.imageUrl.trim();
+    final canLoadImage = source.isNotEmpty &&
+        !{
+          'pending_assets',
+          'failed',
+          'missing',
+        }.contains(normalizedStatus);
+    final fallbackText = normalizedStatus == 'pending_assets'
+        ? l10n.ticketImagePreparing
+        : l10n.ticketImageUnavailable;
+    final fallbackIcon = normalizedStatus == 'pending_assets'
+        ? Icons.hourglass_top_outlined
+        : Icons.confirmation_number_outlined;
+    return DecoratedBox(
+      key: const ValueKey('store-lottery-ticket-image-frame'),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.65),
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: SizedBox(
+          width: 78,
+          height: 58,
+          child: canLoadImage
+              ? FlexibleImage(
+                  key: const ValueKey('store-lottery-ticket-image'),
+                  source: source,
+                  fit: BoxFit.cover,
+                  errorIcon: Icons.confirmation_number_outlined,
+                )
+              : Padding(
+                  key: const ValueKey('store-lottery-ticket-image-fallback'),
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        fallbackIcon,
+                        color: colorScheme.onSurfaceVariant,
+                        size: 18,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        fallbackText,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                              height: 1.1,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StoreLotteryPriceText extends StatelessWidget {
+  const _StoreLotteryPriceText({required this.ticket});
+
+  final StoreLotteryTicket ticket;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final priceTrend = ticket.priceTrend;
+    final trendColor = priceTrend == lotteryStockPriceTrendDown
+        ? colorScheme.error
+        : priceTrend == lotteryStockPriceTrendUp
+            ? colorScheme.tertiary
+            : colorScheme.onSurface;
+    final trendIcon = priceTrend == lotteryStockPriceTrendDown
+        ? Icons.arrow_downward
+        : priceTrend == lotteryStockPriceTrendUp
+            ? Icons.arrow_upward
+            : null;
+    return Row(
+      key: const ValueKey('store-lottery-ticket-price-row'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (trendIcon != null) ...[
+          Icon(
+            trendIcon,
+            key: ValueKey('store-lottery-ticket-price-trend-$priceTrend'),
+            size: 16,
+            color: trendColor,
+          ),
+          const SizedBox(width: 2),
+        ],
+        Text(
+          formatBaht(ticket.price),
+          key: const ValueKey('store-lottery-ticket-price'),
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: trendColor,
+                fontWeight: FontWeight.w900,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StoreLotteryNumber extends StatelessWidget {
+  const _StoreLotteryNumber({required this.number});
+
+  final String number;
+
+  @override
+  Widget build(BuildContext context) {
+    final digits = number.split('');
+    return Wrap(
+      spacing: 5,
+      children: [
+        for (final digit in digits)
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              child: Text(
+                digit,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+String _storeLotteriesBackPath(String storeId) {
+  final normalizedStoreId = storeId.trim();
+  return Uri(
+    path: '/stores/lotteries',
+    queryParameters:
+        normalizedStoreId.isEmpty ? null : {'store_id': normalizedStoreId},
+  ).toString();
+}
+
+bool _storeLotteryTicketsChanged(
+  List<StoreLotteryTicket> current,
+  List<StoreLotteryTicket> next,
+) {
+  if (current.length != next.length) return true;
+  for (var index = 0; index < current.length; index++) {
+    final currentTicket = current[index];
+    final nextTicket = next[index];
+    if (currentTicket.price != nextTicket.price ||
+        currentTicket.remainingCount != nextTicket.remainingCount ||
+        currentTicket.status != nextTicket.status ||
+        currentTicket.priceTrend != nextTicket.priceTrend ||
+        currentTicket.priceFlashKey != nextTicket.priceFlashKey) {
+      return true;
+    }
+  }
+  return false;
 }
 
 class _StoreSaleClosedNotice extends StatelessWidget {
@@ -1402,8 +1765,8 @@ LotteryStockItem _toLotteryStockItem(StoreLotteryTicket ticket) {
     reservationId: ticket.reservationId,
     reservationExpiresAt: null,
     serverTime: null,
-    imageUrl: '',
-    thumbUrl: '',
+    imageUrl: ticket.imageUrl,
+    thumbUrl: ticket.thumbUrl,
     raw: const {},
   );
 }

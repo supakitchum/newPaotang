@@ -57,6 +57,12 @@ class StoreLotteryTicket {
     required this.remainingCount,
     required this.status,
     required this.reservationId,
+    required this.imageUrl,
+    required this.thumbUrl,
+    required this.imageStatus,
+    required this.imageError,
+    this.priceTrend = '',
+    this.priceFlashKey = 0,
   });
 
   factory StoreLotteryTicket.fromJson(Map<String, dynamic> json) {
@@ -94,6 +100,27 @@ class StoreLotteryTicket {
           json['status']?.toString() ??
           'available',
       reservationId: json['reservation_id']?.toString() ?? '',
+      imageUrl: (json['image_url'] ??
+              json['image_full_url'] ??
+              json['preview_image_url'] ??
+              json['image'] ??
+              '')
+          .toString(),
+      thumbUrl: (json['image_thumb_url'] ??
+              json['thumb_url'] ??
+              json['thumbnail_url'] ??
+              '')
+          .toString(),
+      imageStatus: (json['image_status'] ?? '').toString(),
+      imageError: (json['image_error'] ?? '').toString(),
+      priceTrend: (json['priceTrend'] ?? json['price_trend'] ?? '')
+          .toString()
+          .trim()
+          .toLowerCase(),
+      priceFlashKey: int.tryParse(
+            (json['priceFlashKey'] ?? json['price_flash_key'] ?? '').toString(),
+          ) ??
+          0,
     );
   }
 
@@ -108,6 +135,44 @@ class StoreLotteryTicket {
   final int remainingCount;
   final String status;
   final String reservationId;
+  final String imageUrl;
+  final String thumbUrl;
+  final String imageStatus;
+  final String imageError;
+  final String priceTrend;
+  final int priceFlashKey;
+
+  StoreLotteryTicket copyWith({
+    double? price,
+    int? remainingCount,
+    String? status,
+    String? imageUrl,
+    String? thumbUrl,
+    String? imageStatus,
+    String? imageError,
+    String? priceTrend,
+    int? priceFlashKey,
+  }) {
+    return StoreLotteryTicket(
+      id: id,
+      token: token,
+      localStockItemId: localStockItemId,
+      stockRef: stockRef,
+      number: number,
+      sellerName: sellerName,
+      storeName: storeName,
+      price: price ?? this.price,
+      remainingCount: remainingCount ?? this.remainingCount,
+      status: status ?? this.status,
+      reservationId: reservationId,
+      imageUrl: imageUrl ?? this.imageUrl,
+      thumbUrl: thumbUrl ?? this.thumbUrl,
+      imageStatus: imageStatus ?? this.imageStatus,
+      imageError: imageError ?? this.imageError,
+      priceTrend: priceTrend ?? this.priceTrend,
+      priceFlashKey: priceFlashKey ?? this.priceFlashKey,
+    );
+  }
 
   bool get isAvailable =>
       remainingCount > 0 &&
