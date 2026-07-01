@@ -367,6 +367,38 @@ void main() {
     expect(find.text('เลือก'), findsNWidgets(2));
   });
 
+  testWidgets('stock list fallback load-more stays text-only like Nuxt', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final lottery = _PaginatedLotteryRepository();
+    final router = _lotteryRouter(initialLocation: '/buy/search?d1=2');
+
+    await _pumpLotteryApp(tester, router: router, lottery: lottery);
+    await tester.pumpAndSettle();
+
+    final loadMoreButton = find.widgetWithText(OutlinedButton, 'โหลดเพิ่มเติม');
+    expect(loadMoreButton, findsOneWidget);
+    expect(
+      find.descendant(
+        of: loadMoreButton,
+        matching: find.byIcon(Icons.expand_more),
+      ),
+      findsNothing,
+    );
+
+    await tester.tap(loadMoreButton);
+    await tester.pumpAndSettle();
+
+    expect(lottery.searchCount, 2);
+    expect(lottery.lastCursor, 'cursor_1');
+    expect(lottery.randomSeeds, hasLength(2));
+    expect(lottery.randomSeeds.last, lottery.randomSeeds.first);
+    expect(find.text('เลือก'), findsNWidgets(2));
+  });
+
   testWidgets('stock list renders Nuxt-style skeletons while initially loading',
       (
     tester,

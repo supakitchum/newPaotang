@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_controller.dart';
+import '../../../core/i18n/app_locale.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/utils/api_errors.dart';
 import '../../../core/utils/formatters.dart';
@@ -94,8 +95,8 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                     leading: const Icon(Icons.storefront_outlined),
                   ),
                   const SizedBox(height: 16),
-                  if (_loading)
-                    const Center(child: CircularProgressIndicator())
+                  if (_loading && _stores.isEmpty)
+                    const _StoreSkeletonRows()
                   else if (_error.isNotEmpty && _stores.isEmpty)
                     _StoreErrorCard(
                       icon: Icons.error_outline,
@@ -126,18 +127,17 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                       onAction: () => _load(reset: false),
                     ),
                   ],
-                  if (_hasMore) ...[
+                  if (_loadingMore) ...[
                     const SizedBox(height: 8),
-                    OutlinedButton.icon(
+                    const _StoreSkeletonRows(
+                      keyPrefix: 'store-list-skeleton-more',
+                    ),
+                  ] else if (_hasMore) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton(
                       onPressed:
                           _loadingMore ? null : () => _load(reset: false),
-                      icon: _loadingMore
-                          ? const SizedBox.square(
-                              dimension: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.expand_more),
-                      label: Text(
+                      child: Text(
                         _loadingMore
                             ? l10n.commonLoadingMore
                             : l10n.commonLoadMore,
@@ -241,6 +241,7 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
   String _cursor = '';
   String _storeName = '';
   String _gameId = '';
+  String _drawDateLabel = '';
   String _busyStockId = '';
   int _refreshCooldownSeconds = 0;
   bool _hasMore = false;
@@ -301,52 +302,42 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Card(
-                          margin: EdgeInsets.zero,
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Theme.of(context)
-                                  .colorScheme
-                                  .primaryContainer,
-                              child: const Icon(Icons.storefront_outlined),
+                        _StoreLotteriesHero(storeName: storeName),
+                        const SizedBox(height: 18),
+                        Column(
+                          key: const ValueKey('store-lotteries-search-panel'),
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l10n.storesLotteriesSubtitle,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.w900),
                             ),
-                            title: Text(
-                              storeName,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w900),
+                            if (_drawDateLabel.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                _drawDateLabel,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyLarge
+                                    ?.copyWith(fontWeight: FontWeight.w700),
+                              ),
+                            ],
+                            const SizedBox(height: 12),
+                            LotteryDigitInputRow(
+                              controllers: _digits,
+                              onSubmitted: _submitSearch,
                             ),
-                            subtitle: Text(l10n.storesLotteriesSubtitle),
-                          ),
+                            const SizedBox(height: 12),
+                            _StoreLotterySearchActions(
+                              onSearch: _submitSearch,
+                              onClear: _clearSearch,
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 12),
-                        Card(
-                          margin: EdgeInsets.zero,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  l10n.storesLotteriesSubtitle,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                LotteryDigitInputRow(
-                                  controllers: _digits,
-                                  onSubmitted: _submitSearch,
-                                ),
-                                const SizedBox(height: 12),
-                                _StoreLotterySearchActions(
-                                  onSearch: _submitSearch,
-                                  onClear: _clearSearch,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 18),
                         CustomerSectionHeader(
                           title: l10n.lotteryStockTitle,
                           action: TextButton.icon(
@@ -404,18 +395,10 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
                           ),
                         ] else if (_hasMore) ...[
                           const SizedBox(height: 8),
-                          OutlinedButton.icon(
+                          OutlinedButton(
                             onPressed:
                                 _loadingMore ? null : () => _load(reset: false),
-                            icon: _loadingMore
-                                ? const SizedBox.square(
-                                    dimension: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.expand_more),
-                            label: Text(
+                            child: Text(
                               _loadingMore
                                   ? l10n.commonLoadingMore
                                   : l10n.commonLoadMore,
@@ -458,6 +441,8 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
 
   Future<void> _load({required bool reset}) async {
     if (_loadingMore || (!reset && (_loading || !_hasMore))) return;
+    final l10n = context.l10n;
+    var nextDrawDateLabel = _drawDateLabel;
     setState(() {
       if (reset) {
         _loading = true;
@@ -473,9 +458,15 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
       if (gameId.isEmpty) {
         final game = await ref.read(resultRepositoryProvider).currentGame();
         gameId = game?.id ?? '';
+        nextDrawDateLabel = _storeLotteriesDrawDateLabel(l10n, game?.drawAt);
       }
       if (gameId.isEmpty) {
-        if (mounted) setState(() => _hasMore = false);
+        if (mounted) {
+          setState(() {
+            _drawDateLabel = nextDrawDateLabel;
+            _hasMore = false;
+          });
+        }
         return;
       }
       final repo = ref.read(storeRepositoryProvider);
@@ -496,6 +487,7 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
       final cart = results[1] as LotteryCart;
       if (!mounted) return;
       setState(() {
+        _drawDateLabel = nextDrawDateLabel;
         _gameId = page.gameId.isNotEmpty ? page.gameId : gameId;
         _tickets.addAll(page.items);
         _cursor = page.nextCursor;
@@ -508,9 +500,10 @@ class _StoreLotteriesScreenState extends ConsumerState<StoreLotteriesScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
+        _drawDateLabel = nextDrawDateLabel;
         _error = customerErrorMessage(
           error,
-          context.l10n.storesLotteriesLoadFailedMessage,
+          l10n.storesLotteriesLoadFailedMessage,
         );
         if (reset) {
           _hasMore = false;
@@ -959,6 +952,17 @@ class _StoreReservationCountdownTextState
   }
 }
 
+String _storeLotteriesDrawDateLabel(
+  CustomerLocalizations l10n,
+  Object? drawAt,
+) {
+  final drawDate = parseDateTime(drawAt);
+  if (drawDate == null) return '';
+  return l10n.cartDrawDate(
+    formatLocalizedShortDate(drawDate, localeTag(l10n.locale)),
+  );
+}
+
 class _StoreCard extends StatelessWidget {
   const _StoreCard({required this.store});
 
@@ -967,18 +971,192 @@ class _StoreCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
     final storeName =
         store.name.isEmpty ? l10n.storesFallbackStoreName : store.name;
-    return Card(
-      margin: EdgeInsets.zero,
-      child: ListTile(
-        leading: const CircleAvatar(child: Icon(Icons.storefront_outlined)),
-        title: Text(
-          storeName,
-          style: const TextStyle(fontWeight: FontWeight.w900),
+    return DecoratedBox(
+      key: ValueKey('store-list-row-${store.id}'),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.55),
         ),
-        subtitle: store.code.isEmpty ? null : Text(l10n.storeCode(store.code)),
       ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(11),
+                child: Icon(
+                  Icons.storefront_outlined,
+                  color: colorScheme.onPrimaryContainer,
+                  size: 22,
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                storeName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StoreLotteriesHero extends StatelessWidget {
+  const _StoreLotteriesHero({required this.storeName});
+
+  final String storeName;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      key: const ValueKey('store-lotteries-hero'),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.55),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Icon(
+                      Icons.storefront_outlined,
+                      color: colorScheme.onPrimaryContainer,
+                      size: 26,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 2,
+                  bottom: 1,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colorScheme.tertiary,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: colorScheme.surface,
+                        width: 2,
+                      ),
+                    ),
+                    child: const SizedBox.square(dimension: 12),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                storeName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Icon(
+              Icons.favorite_border,
+              key: const ValueKey('store-lotteries-hero-favorite'),
+              color: colorScheme.onSurfaceVariant,
+              size: 28,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StoreSkeletonRows extends StatelessWidget {
+  const _StoreSkeletonRows({
+    this.keyPrefix = 'store-list-skeleton',
+  });
+
+  final String keyPrefix;
+
+  @override
+  Widget build(BuildContext context) {
+    const count = 6;
+    final colorScheme = Theme.of(context).colorScheme;
+    final placeholderColor =
+        colorScheme.surfaceContainerHighest.withValues(alpha: 0.72);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var index = 0; index < count; index++)
+          Padding(
+            padding: EdgeInsets.only(bottom: index == count - 1 ? 0 : 10),
+            child: DecoratedBox(
+              key: ValueKey('$keyPrefix-$index'),
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.55),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                child: Row(
+                  children: [
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: placeholderColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const SizedBox.square(dimension: 42),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: placeholderColor,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: const SizedBox(height: 18),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

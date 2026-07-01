@@ -1885,15 +1885,9 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
           const SizedBox(height: 12),
           SizedBox(
             height: 48,
-            child: OutlinedButton.icon(
+            child: OutlinedButton(
               onPressed: _loadingMore ? null : () => _load(reset: false),
-              icon: _loadingMore
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.expand_more),
-              label: Text(
+              child: Text(
                 _loadingMore ? l10n.commonLoadingMore : l10n.commonLoadMore,
               ),
             ),

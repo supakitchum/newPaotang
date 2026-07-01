@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:customer_flutter/core/auth/auth_token_store.dart';
 import 'package:customer_flutter/core/config/app_config.dart';
 import 'package:customer_flutter/core/i18n/app_locale.dart';
@@ -132,11 +134,55 @@ void main() {
     expect(find.text('ร้านค้า'), findsWidgets);
     expect(find.text('ร้านสลากฯ แนะนำ'), findsOneWidget);
     expect(find.text('ร้านทดสอบ'), findsOneWidget);
+    expect(find.text('รหัสร้าน ST1'), findsNothing);
+    final storeRow = find.byKey(const ValueKey('store-list-row-store_1'));
+    expect(storeRow, findsOneWidget);
+    expect(
+      find.ancestor(of: storeRow, matching: find.byType(Card)),
+      findsNothing,
+    );
 
     await tester.tap(find.text('สลากฯ ทั้งหมด'));
     await tester.pumpAndSettle();
 
     expect(find.text('Buy'), findsOneWidget);
+  });
+
+  testWidgets('stores screen renders Nuxt-style skeleton rows while loading', (
+    tester,
+  ) async {
+    final repository = _DelayedInitialStoreRepository();
+    final router = GoRouter(
+      initialLocation: '/stores',
+      routes: [
+        GoRoute(
+          path: '/stores',
+          builder: (context, state) => const StoresScreen(),
+        ),
+        GoRoute(
+          path: '/buy',
+          builder: (context, state) => const Scaffold(body: Text('Buy')),
+        ),
+      ],
+    );
+
+    await _pump(
+      tester,
+      router: router,
+      overrides: [
+        storeRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    await tester.pump();
+
+    expect(_storeListSkeletons(), findsNWidgets(6));
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    repository.completeStores();
+    await tester.pumpAndSettle();
+
+    expect(_storeListSkeletons(), findsNothing);
+    expect(find.text('ร้านทดสอบ'), findsOneWidget);
   });
 
   testWidgets('stores screen auto-loads the next page near the bottom', (
@@ -174,6 +220,104 @@ void main() {
     expect(find.text('ร้านถัดไป'), findsNothing);
 
     await tester.drag(find.byType(ListView), const Offset(0, -1800));
+    await tester.pumpAndSettle();
+
+    expect(repository.listCount, 2);
+    expect(repository.cursors, ['', 'cursor_1']);
+    expect(find.text('ร้านถัดไป'), findsOneWidget);
+  });
+
+  testWidgets(
+      'stores screen appends Nuxt-style skeleton rows while loading more', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final repository = _DelayedNextStoreRepository();
+    final router = GoRouter(
+      initialLocation: '/stores',
+      routes: [
+        GoRoute(
+          path: '/stores',
+          builder: (context, state) => const StoresScreen(),
+        ),
+        GoRoute(
+          path: '/buy',
+          builder: (context, state) => const Scaffold(body: Text('Buy')),
+        ),
+      ],
+    );
+
+    await _pump(
+      tester,
+      router: router,
+      overrides: [
+        storeRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(repository.listCount, 1);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -1800));
+    await tester.pump();
+    await tester.pump();
+
+    expect(repository.listCount, 2);
+    expect(repository.cursors, ['', 'cursor_1']);
+    expect(find.text('ร้านหน้าแรก 01'), findsOneWidget);
+    expect(_storeListSkeletons('store-list-skeleton-more'), findsNWidgets(6));
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    repository.completeNextPage();
+    await tester.pumpAndSettle();
+
+    expect(_storeListSkeletons('store-list-skeleton-more'), findsNothing);
+    expect(find.text('ร้านถัดไป'), findsOneWidget);
+  });
+
+  testWidgets('stores screen fallback load-more stays text-only like Nuxt', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final repository = _ShortPaginatedStoreRepository();
+    final router = GoRouter(
+      initialLocation: '/stores',
+      routes: [
+        GoRoute(
+          path: '/stores',
+          builder: (context, state) => const StoresScreen(),
+        ),
+        GoRoute(
+          path: '/buy',
+          builder: (context, state) => const Scaffold(body: Text('Buy')),
+        ),
+      ],
+    );
+
+    await _pump(
+      tester,
+      router: router,
+      overrides: [
+        storeRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    final loadMoreButton = find.widgetWithText(OutlinedButton, 'โหลดเพิ่มเติม');
+    expect(loadMoreButton, findsOneWidget);
+    expect(
+      find.descendant(
+        of: loadMoreButton,
+        matching: find.byIcon(Icons.expand_more),
+      ),
+      findsNothing,
+    );
+
+    await tester.tap(loadMoreButton);
     await tester.pumpAndSettle();
 
     expect(repository.listCount, 2);
@@ -283,6 +427,13 @@ Future<void> _pump(
   );
 }
 
+Finder _storeListSkeletons([String keyPrefix = 'store-list-skeleton']) {
+  return find.byWidgetPredicate((widget) {
+    final key = widget.key;
+    return key is ValueKey<String> && key.value.startsWith('$keyPrefix-');
+  });
+}
+
 MobileBootstrap _mobileBootstrap() {
   return MobileBootstrap.fromJson(const {
     'mobile': {'lottery_product_label': 'L6'},
@@ -352,6 +503,38 @@ class _FakeStoreRepository extends StoreRepository {
   }
 }
 
+class _DelayedInitialStoreRepository extends StoreRepository {
+  _DelayedInitialStoreRepository() : super(_testApiClient());
+
+  final _storesCompleter = Completer<StorePage>();
+
+  void completeStores() {
+    if (_storesCompleter.isCompleted) return;
+    _storesCompleter.complete(
+      const StorePage(
+        items: [
+          StoreItem(
+            id: 'store_1',
+            name: 'ร้านทดสอบ',
+            code: 'ST1',
+          ),
+        ],
+        nextCursor: '',
+        hasMore: false,
+      ),
+    );
+  }
+
+  @override
+  Future<StorePage> list({
+    String q = '',
+    String cursor = '',
+    int limit = 30,
+  }) {
+    return _storesCompleter.future;
+  }
+}
+
 class _PaginatedStoreRepository extends StoreRepository {
   _PaginatedStoreRepository() : super(_testApiClient());
 
@@ -392,6 +575,103 @@ class _PaginatedStoreRepository extends StoreRepository {
           );
         },
       ),
+      nextCursor: 'cursor_1',
+      hasMore: true,
+    );
+  }
+}
+
+class _DelayedNextStoreRepository extends StoreRepository {
+  _DelayedNextStoreRepository() : super(_testApiClient());
+
+  final cursors = <String>[];
+  final _nextPageCompleter = Completer<StorePage>();
+
+  int get listCount => cursors.length;
+
+  void completeNextPage() {
+    if (_nextPageCompleter.isCompleted) return;
+    _nextPageCompleter.complete(
+      const StorePage(
+        items: [
+          StoreItem(
+            id: 'store_next',
+            name: 'ร้านถัดไป',
+            code: 'NEXT',
+          ),
+        ],
+        nextCursor: '',
+        hasMore: false,
+      ),
+    );
+  }
+
+  @override
+  Future<StorePage> list({
+    String q = '',
+    String cursor = '',
+    int limit = 30,
+  }) {
+    cursors.add(cursor);
+    if (cursor.isEmpty) {
+      return Future.value(
+        StorePage(
+          items: List.generate(
+            24,
+            (index) {
+              final ordinal = (index + 1).toString().padLeft(2, '0');
+              return StoreItem(
+                id: 'store_$ordinal',
+                name: 'ร้านหน้าแรก $ordinal',
+                code: 'FIRST$ordinal',
+              );
+            },
+          ),
+          nextCursor: 'cursor_1',
+          hasMore: true,
+        ),
+      );
+    }
+    return _nextPageCompleter.future;
+  }
+}
+
+class _ShortPaginatedStoreRepository extends StoreRepository {
+  _ShortPaginatedStoreRepository() : super(_testApiClient());
+
+  final cursors = <String>[];
+
+  int get listCount => cursors.length;
+
+  @override
+  Future<StorePage> list({
+    String q = '',
+    String cursor = '',
+    int limit = 30,
+  }) async {
+    cursors.add(cursor);
+    if (cursor == 'cursor_1') {
+      return const StorePage(
+        items: [
+          StoreItem(
+            id: 'store_next',
+            name: 'ร้านถัดไป',
+            code: 'NEXT',
+          ),
+        ],
+        nextCursor: '',
+        hasMore: false,
+      );
+    }
+
+    return const StorePage(
+      items: [
+        StoreItem(
+          id: 'store_first',
+          name: 'ร้านหน้าแรก',
+          code: 'FIRST',
+        ),
+      ],
       nextCursor: 'cursor_1',
       hasMore: true,
     );

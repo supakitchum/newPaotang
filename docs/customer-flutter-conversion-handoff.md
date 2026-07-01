@@ -136,12 +136,23 @@ Recent verified work:
   - `/stores/lotteries` now restores the Nuxt-style six-slot digit search
     controls for store stock, submits populated slots as `d1..d6` while keeping
     randomized store browsing, and clear resets the store-scoped search digits.
+  - `/stores/lotteries` search now shows the current draw date under the
+    "ค้นหาเลขสลากฯ ในร้านค้า" heading and removes the earlier Flutter card
+    wrapper around the search controls, matching Nuxt's content-sheet section
+    structure.
   - `/stores/lotteries` search and clear actions now use text-only form
     controls so store-scoped digit search does not introduce Flutter-only
     search/refresh icons.
+  - `/stores/lotteries` now restores the Nuxt page title
+    "ร้านสลากหกหลักแบบดิจิทัล" and the store hero row with shop icon, status
+    dot, store name, and heart marker instead of the earlier Flutter
+    Card/ListTile hero with duplicated subtitle copy.
   - `/stores/lotteries` now auto-loads the next stock page when customers scroll
     near the bottom, matching Nuxt's store-scoped stock browsing while
     preserving the manual load-more fallback.
+  - `/stores/lotteries` fallback pagination now matches the text-only Nuxt
+    direction by removing the Flutter-only expand/spinner icon while still
+    loading the next cursor page when auto-scroll is not triggered.
   - `/stores/lotteries` now shares the Nuxt-style lottery skeleton cards during
     initial and next-page stock loading instead of falling back to spinner-only
     loading states.
@@ -165,9 +176,16 @@ Recent verified work:
   - `/stores` now restores the Nuxt-style recommended-store section heading
     above the store rows so store browsing keeps the same visual structure as
     the Nuxt customer flow.
+  - `/stores` store rows now match the Nuxt icon/name row surface more closely
+    by removing the Flutter Card/ListTile wrapper and the Flutter-only store
+    code subtitle.
   - `/stores` now auto-loads the next store page when customers scroll near the
     bottom, matching Nuxt's infinite store browsing while preserving the manual
     load-more fallback.
+  - `/stores` now renders Nuxt-style placeholder store rows during initial and
+    next-page loading instead of a spinner-only store browsing state.
+  - `/stores` fallback pagination now uses the same text-only outline
+    "โหลดเพิ่มเติม" control without a Flutter-only expand/spinner icon.
   - `/stores` and `/stores/lotteries` load failures now preserve backend API
     payload messages on customer recovery cards while internal/client
     exceptions stay on localized retry fallback copy.
@@ -184,6 +202,10 @@ Recent verified work:
   - Buy/search stock result lists now render Nuxt-style lottery skeleton cards
     during initial and next-page loading instead of a spinner-only loading
     state.
+  - Buy/search stock list fallback pagination now uses a text-only outline
+    "โหลดเพิ่มเติม" control without the earlier Flutter-only expand/spinner
+    icon, while still loading the next cursor page when auto-scroll is not
+    triggered.
   - Buy/search and `/stores/lotteries` reservation races now match Nuxt's
     sold-ticket handling: backend `reservation_unavailable` refreshes the cart
     quietly, shows the localized "สลากใบนี้ถูกซื้อแล้ว" acknowledgement dialog,

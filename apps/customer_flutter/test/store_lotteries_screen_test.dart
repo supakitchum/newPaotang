@@ -64,6 +64,26 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(store.searchCount, 1);
+    expect(find.text('ร้านสลากหกหลักแบบดิจิทัล'), findsOneWidget);
+    final storeHero = find.byKey(const ValueKey('store-lotteries-hero'));
+    expect(storeHero, findsOneWidget);
+    expect(
+      find.ancestor(of: storeHero, matching: find.byType(Card)),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('store-lotteries-hero-favorite')),
+      findsOneWidget,
+    );
+    expect(find.text('ค้นหาเลขสลากฯ ในร้านค้า'), findsOneWidget);
+    expect(find.textContaining('งวดวันที่'), findsOneWidget);
+    final searchPanel =
+        find.byKey(const ValueKey('store-lotteries-search-panel'));
+    expect(searchPanel, findsOneWidget);
+    expect(
+      find.ancestor(of: searchPanel, matching: find.byType(Card)),
+      findsNothing,
+    );
     expect(store.lastDigits, ['', '', '', '', '', '']);
     expect(find.byType(TextField), findsNWidgets(6));
     expect(find.text('เลือก'), findsOneWidget);
@@ -494,6 +514,67 @@ void main() {
   });
 
   testWidgets(
+    'store lotteries fallback load-more stays text-only like Nuxt',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final store = _ShortPaginatedStoreLotteryRepository();
+      final tokenStore = AuthTokenStore();
+      final authController = _unauthenticatedController(tokenStore);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(_testConfig),
+            mobileBootstrapProvider
+                .overrideWith((_) async => _mobileBootstrap()),
+            authTokenStoreProvider.overrideWithValue(tokenStore),
+            authControllerProvider.overrideWith((_) => authController),
+            resultRepositoryProvider.overrideWithValue(_FakeResultRepository()),
+            storeRepositoryProvider.overrideWithValue(store),
+          ],
+          child: MaterialApp(
+            locale: fallbackCustomerLocale,
+            supportedLocales: supportedCustomerLocales,
+            localizationsDelegates: const [
+              CustomerLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            theme: AppTheme.light(),
+            home: const StoreLotteriesScreen(
+              storeId: 'store_1',
+              storeName: 'ร้านทดสอบ',
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      final loadMoreButton =
+          find.widgetWithText(OutlinedButton, 'โหลดเพิ่มเติม');
+      expect(loadMoreButton, findsOneWidget);
+      expect(
+        find.descendant(
+          of: loadMoreButton,
+          matching: find.byIcon(Icons.expand_more),
+        ),
+        findsNothing,
+      );
+
+      await tester.tap(loadMoreButton);
+      await tester.pumpAndSettle();
+
+      expect(store.searchCount, 2);
+      expect(store.cursors, ['', 'cursor_1']);
+      expect(find.text('ร้านถัดไป'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'store lotteries renders Nuxt-style skeletons while initially loading',
     (tester) async {
       final store = _DelayedInitialStoreLotteryRepository();
@@ -866,6 +947,41 @@ class _PaginatedStoreLotteryRepository extends _FakeStoreRepository {
       items: [
         _ticket(number: '999999', sellerName: 'ร้านถัดไป'),
       ],
+      nextCursor: '',
+      hasMore: false,
+      gameId: gameId,
+      sellerName: 'ร้านทดสอบ',
+    );
+  }
+}
+
+class _ShortPaginatedStoreLotteryRepository extends _FakeStoreRepository {
+  final cursors = <String>[];
+
+  @override
+  Future<StoreLotteryPage> lotteries({
+    required String storeId,
+    required String gameId,
+    List<String> digits = const [],
+    String cursor = '',
+    int limit = 20,
+  }) async {
+    searchCount++;
+    lastStoreId = storeId;
+    lastGameId = gameId;
+    lastDigits = List<String>.from(digits);
+    cursors.add(cursor);
+    if (cursor.isEmpty) {
+      return StoreLotteryPage(
+        items: [_ticket(number: '120001', sellerName: 'ร้านหน้าแรก')],
+        nextCursor: 'cursor_1',
+        hasMore: true,
+        gameId: gameId,
+        sellerName: 'ร้านทดสอบ',
+      );
+    }
+    return StoreLotteryPage(
+      items: [_ticket(number: '999999', sellerName: 'ร้านถัดไป')],
       nextCursor: '',
       hasMore: false,
       gameId: gameId,

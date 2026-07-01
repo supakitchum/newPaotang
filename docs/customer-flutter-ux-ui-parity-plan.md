@@ -208,13 +208,20 @@ Acceptance evidence for every screen group:
 - `test/store_lotteries_screen_test.dart` covers `/stores/lotteries` restoring
   Nuxt-style six-slot digit search, submitting populated store-scoped digit
   filters, clearing the store search controls without losing context, keeping
-  search/clear form actions text-only without Flutter-only icons, and
+  search/clear form actions text-only without Flutter-only icons, showing the
+  current draw date under the store search heading without the earlier
+  Flutter-only search card wrapper, and
+  restoring the Nuxt store-lottery page title plus shop-icon/status-dot/store-name/heart
+  hero row without the earlier Flutter Card/ListTile duplicate-subtitle hero,
+  and
   rendering stock cards with Nuxt-style runtime product marker, product brand,
   seller row, and text-only outline/remove action pills, and
   preserving the Nuxt sold-ticket dialog plus row removal after an authenticated
   store-scoped reservation race, and auto-loading the next stock page when
   customers scroll near the bottom while rendering Nuxt-style skeleton cards
-  during initial and next-page loading. It also covers store-scoped stock load
+  during initial and next-page loading, plus text-only outline fallback
+  pagination without Flutter-only expand/spinner icons. It also covers
+  store-scoped stock load
   API payload error copy with localized fallback for internal/client failures,
   Nuxt-style store stock refresh with a 10-second "รอ ... วิ" cooldown, plus
   the closed-sale store stock state: localized sale-closed notice, disabled new
@@ -227,7 +234,10 @@ Acceptance evidence for every screen group:
   `/buy` using the Nuxt "ซื้อสลากดิจิทัล" header title, `/buy` digit boxes
   launching the dedicated Nuxt-style search page with the current draw date
   visible, plus the Nuxt-style recommended-store section heading and
-  infinite-scroll next-page loading on the store list, plus store-list load API
+  icon/name store rows without the Flutter-only Card/ListTile/code subtitle,
+  infinite-scroll next-page loading on the store list, Nuxt-style placeholder
+  store rows during initial and next-page loading, text-only outline fallback
+  pagination without Flutter-only expand/spinner icons, plus store-list load API
   payload error copy with localized fallback for internal/client failures.
 - `test/lottery_stock_card_test.dart` covers Buy/search digit-query restore
   into six Nuxt-style input boxes, the Nuxt "ซื้อสลากดิจิทัล" search-page
@@ -264,7 +274,9 @@ Acceptance evidence for every screen group:
   unseeded same-number search, auto-loading the next same-number cursor page
   without introducing `random_seed`, no overflow exceptions, and stock-realtime
   tick refresh of the visible search results, plus the text-only selected-cart
-  dock review CTA matching Nuxt PaymentDock.
+  dock review CTA matching Nuxt PaymentDock, and text-only outline fallback
+  stock pagination that still loads the next cursor page without Flutter-only
+  expand/spinner icons.
 - `test/cart_grouping_test.dart` covers Cart review grouping by lottery number
   across reservation IDs and keeps the earliest payment deadline for the group.
 - `test/checkout_screen_test.dart` covers Checkout success navigation with
