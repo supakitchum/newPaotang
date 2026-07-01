@@ -774,7 +774,10 @@ function formatLivePrizeMoney(value: any) {
     return '-'
   }
 
-  return formatMoney(moneyAmount(value), moneyCurrency(value))
+  return formatMoney({
+    amount: moneyAmount(value),
+    currency: moneyCurrency(value),
+  })
 }
 
 function winnerTicketCount(prizeType: string) {

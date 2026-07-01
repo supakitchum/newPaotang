@@ -6,7 +6,7 @@
           <h6 class="mb-0">{{ group.label }}</h6>
           <span class="text-muted fs-12">{{ group.count }} number(s), {{ group.digits }} digits</span>
         </div>
-        <span class="badge bg-light text-default">{{ group.amount.toLocaleString('th-TH') }} THB</span>
+        <span class="badge bg-light text-default">{{ formatMoney({ amount: Number(group.amount || 0), currency: group.currency || 'THB' }) }}</span>
       </div>
       <div class="np-entry-number-grid" :style="{ '--np-entry-columns': group.digits === 6 ? 5 : 8 }">
         <input
@@ -26,6 +26,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatMoney } from '~/utils/format'
 import type { RewardPrizeGroupState } from '~/composables/useRewardPrizes'
 
 const props = withDefaults(defineProps<{
