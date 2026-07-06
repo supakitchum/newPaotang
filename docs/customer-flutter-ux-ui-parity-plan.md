@@ -1893,6 +1893,14 @@ Acceptance evidence for every screen group:
   submission, wallet/external payment behavior, pending polling, reservation
   release, and route handoff logic. This was a UX/UI-first visual shell slice
   under the test-light cadence, so no new widget/screenshot tests were added.
+- Current Revenue BlueHeader flow note: the shared expanded `AppShell`
+  BlueHeader now top-aligns the 42px title row and the 24px hero-content slot
+  like Nuxt `.blue-hero` instead of vertically centering hero content inside
+  tall headers. This brings `/stores`, store-scoped browsing, Cart, Checkout,
+  and other expanded-hero revenue pages closer to the Nuxt source structure.
+  Cart's empty state also now stays inside the white sheet as centered text
+  plus the Nuxt-style purchase-limit note/add-more pill instead of showing a
+  Flutter-only icon message card.
 - Current Revenue expanded-shell note: `/stores` now matches the Nuxt
   `BlueHeader` rhythm by keeping the store segment tab in the blue hero and the
   search/recommended-store rows in a rounded content sheet. Store-scoped
@@ -1963,6 +1971,15 @@ Acceptance evidence for every screen group:
   offset. Digit tap-to-search, cart checkout, countdown, wallet, activities,
   result, and news behavior were unchanged; no widget/screenshot tests were
   added.
+- Current Revenue Home hero top-row note: Home now mirrors the Nuxt hero
+  `BrandLogo`/price-badge row more closely by keeping the runtime brand lockup
+  on the left and positioning the 60px price badge toward the right with the
+  source `me-5` rhythm instead of centering it in a Flutter-only spacer row.
+  The Home hero brand mark now uses a Nuxt-like runtime logo/text lockup
+  without the generic Flutter rounded logo container, keeping runtime
+  `brand.logoUrl`, site name, and support phone inputs. Home hero data, digit
+  routing, wallet/activity/news/result loading, and cart dock behavior were
+  unchanged.
 - Current Revenue lottery-item shell note: public Buy/Search/More stock rows
   now follow Nuxt's no-image `LotteryItem` variant with runtime product marker
   rendered as the inline `lottery-six` style lockup, product/more header on the
@@ -2073,6 +2090,12 @@ Acceptance evidence for every screen group:
   skeleton. Store list loading rows now use the same Nuxt-like gradient
   placeholder tone for shop icon/name skeletons. Loading count, stock fetch,
   store routing, realtime refresh, and reservation behavior were unchanged.
+- Current revenue unavailable-row note: shared Buy/Search/More and store-scoped
+  stock rows now apply the Nuxt `LotteryItem.is-unavailable` visual state for
+  sold/unavailable tickets: the entire row fades to 58% opacity and renders
+  grayscale while keeping selected/reserved rows normal. Reservation toggles,
+  sale-closed disabled actions, realtime availability patching, and route
+  behavior were unchanged.
 - Current Buy/Search list-state note: the stock-list refresh action now uses a
   Nuxt-like `outline-pill` shape, empty lottery results render as centered
   muted sheet text like `empty-lottery-state` instead of a framed Flutter

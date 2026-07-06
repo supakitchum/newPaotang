@@ -249,7 +249,8 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
         secondary: colorScheme.secondary,
         child: Padding(
           padding: EdgeInsets.fromLTRB(20, topPadding, 20, 24),
-          child: Center(
+          child: Align(
+            alignment: Alignment.topCenter,
             child: ConstrainedBox(
               constraints: BoxConstraints(
                 maxWidth: customerContentMaxWidthFor(context),
@@ -280,7 +281,9 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
                               Theme.of(context).textTheme.titleMedium?.copyWith(
                                     color: Colors.white,
                                     fontSize: compactHeader ? 18 : 22,
-                                    fontWeight: FontWeight.w800,
+                                    fontWeight: compactHeader
+                                        ? FontWeight.w800
+                                        : FontWeight.w700,
                                     height: 1.15,
                                   ),
                         ),

@@ -8,6 +8,8 @@ import '../../../core/auth/auth_controller.dart';
 import '../../../core/i18n/app_locale.dart';
 import '../../../core/i18n/customer_localizations.dart';
 import '../../../core/navigation/customer_link_launcher.dart';
+import '../../../core/tenant/mobile_bootstrap_controller.dart';
+import '../../../core/utils/asset_url.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../features/activities/data/activity_models.dart';
 import '../../../features/activities/data/activity_repository.dart';
@@ -36,7 +38,7 @@ import '../../../shared/widgets/customer_loading_indicator.dart';
 import '../../../shared/widgets/customer_page_body.dart';
 import '../../../shared/widgets/customer_section_header.dart';
 import '../../../shared/widgets/customer_wallet_card.dart';
-import '../../../shared/widgets/tenant_brand_header.dart';
+import '../../../shared/widgets/flexible_image.dart';
 
 final _homeCartProvider = FutureProvider.autoDispose<LotteryCart>((ref) async {
   final auth = ref.watch(authControllerProvider);
@@ -588,29 +590,103 @@ class _HomeHeroTopRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         const SizedBox(
-          width: 64,
+          width: 96,
           child: Align(
             alignment: Alignment.centerLeft,
-            child: TenantBrandHeader(
-              showName: false,
-              size: 54,
-            ),
+            child: _HomeHeroBrandLockup(),
           ),
         ),
-        Expanded(
-          child: Center(
-            child: _HomePriceBadge(
-              amount: l10n.homePriceAmount,
-              unit: l10n.homePriceUnit,
-            ),
+        Padding(
+          padding: const EdgeInsets.only(right: 48),
+          child: _HomePriceBadge(
+            amount: l10n.homePriceAmount,
+            unit: l10n.homePriceUnit,
           ),
         ),
-        const SizedBox(width: 64),
       ],
     );
   }
+}
+
+class _HomeHeroBrandLockup extends ConsumerWidget {
+  const _HomeHeroBrandLockup();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final bootstrap = ref.watch(mobileBootstrapProvider);
+    return bootstrap.maybeWhen(
+      data: (data) {
+        final rawLogoUrl = data.brand.logoUrl.trim();
+        if (rawLogoUrl.isNotEmpty) {
+          return SizedBox(
+            width: 96,
+            height: 34,
+            child: FlexibleImage(
+              source: _resolveHomeBrandLogoUrl(ref, rawLogoUrl),
+              fit: BoxFit.contain,
+              errorIcon: Icons.confirmation_number_outlined,
+            ),
+          );
+        }
+        final siteName = data.siteName.trim();
+        final supportLabel = data.supportPhone.trim();
+        if (siteName.isEmpty && supportLabel.isEmpty) {
+          return const SizedBox(width: 96, height: 34);
+        }
+        return ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 96),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (siteName.isNotEmpty)
+                Text(
+                  siteName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: colorScheme.onPrimary,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        height: 0.92,
+                      ),
+                ),
+              if (supportLabel.isNotEmpty)
+                Text(
+                  supportLabel,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onPrimary.withValues(alpha: 0.9),
+                        fontSize: 6,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                      ),
+                ),
+            ],
+          ),
+        );
+      },
+      orElse: () => const SizedBox(width: 96, height: 34),
+    );
+  }
+}
+
+String _resolveHomeBrandLogoUrl(WidgetRef ref, String value) {
+  final trimmed = value.trim();
+  final uri = Uri.tryParse(trimmed);
+  if (uri != null &&
+      (uri.hasScheme ||
+          trimmed.startsWith('data:') ||
+          trimmed.startsWith('//'))) {
+    return trimmed;
+  }
+  return ref.watch(assetUrlResolverProvider)(trimmed);
 }
 
 class _HomePriceBadge extends StatelessWidget {
@@ -623,8 +699,8 @@ class _HomePriceBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      width: 62,
-      height: 62,
+      width: 60,
+      height: 60,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: colorScheme.tertiary,

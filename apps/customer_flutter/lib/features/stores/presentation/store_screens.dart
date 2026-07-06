@@ -1624,6 +1624,7 @@ class _LotteryTicketCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
+    final unavailable = !reserved && !ticket.isAvailable;
     final sellerName = ticket.sellerName.isEmpty
         ? l10n.storesFallbackStoreName
         : ticket.sellerName;
@@ -1663,90 +1664,93 @@ class _LotteryTicketCard extends StatelessWidget {
             ),
             child: Text(actionLabel),
           );
-    return DecoratedBox(
-      key: ValueKey('store-lottery-ticket-row-${ticket.localStockItemId}'),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.75),
+    return LotteryUnavailableRowVisualState(
+      unavailable: unavailable,
+      child: DecoratedBox(
+        key: ValueKey('store-lottery-ticket-row-${ticket.localStockItemId}'),
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          border: Border(
+            bottom: BorderSide(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.75),
+            ),
           ),
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: LayoutBuilder(
-          builder: (context, _) {
-            final moreButton = morePath.isEmpty
-                ? null
-                : TextButton(
-                    key: const ValueKey('store-lottery-more-link'),
-                    onPressed: () => context.push(morePath),
-                    style: _storeTextLinkButtonStyle(context),
-                    child: Text(l10n.lotteryViewMore),
-                  );
-            final brandHeader = Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Expanded(child: LotteryProductBrandRow()),
-                if (moreButton != null) ...[
-                  const SizedBox(width: 12),
-                  moreButton,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: LayoutBuilder(
+            builder: (context, _) {
+              final moreButton = morePath.isEmpty
+                  ? null
+                  : TextButton(
+                      key: const ValueKey('store-lottery-more-link'),
+                      onPressed: () => context.push(morePath),
+                      style: _storeTextLinkButtonStyle(context),
+                      child: Text(l10n.lotteryViewMore),
+                    );
+              final brandHeader = Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Expanded(child: LotteryProductBrandRow()),
+                  if (moreButton != null) ...[
+                    const SizedBox(width: 12),
+                    moreButton,
+                  ],
                 ],
-              ],
-            );
-            final ticketDisplay = Column(
-              key: const ValueKey('store-lottery-ticket-display-row'),
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _StoreLotteryImageFrame(ticket: ticket),
-                const SizedBox(height: 10),
-                _StoreLotteryNumber(number: ticket.number),
-              ],
-            );
-            final mainRow = Row(
-              key: const ValueKey('store-lottery-ticket-main-row'),
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(child: ticketDisplay),
-                const SizedBox(width: 12),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 96),
-                  child: SizedBox(height: 42, child: actionButton),
-                ),
-              ],
-            );
-            final bottomRow = Row(
-              key: const ValueKey('store-lottery-ticket-meta-price-row'),
-              children: [
-                Expanded(
-                  child: Text(
-                    sellerName,
-                    key: const ValueKey('lottery-stock-seller-row'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
+              );
+              final ticketDisplay = Column(
+                key: const ValueKey('store-lottery-ticket-display-row'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _StoreLotteryImageFrame(ticket: ticket),
+                  const SizedBox(height: 10),
+                  _StoreLotteryNumber(number: ticket.number),
+                ],
+              );
+              final mainRow = Row(
+                key: const ValueKey('store-lottery-ticket-main-row'),
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: ticketDisplay),
+                  const SizedBox(width: 12),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 96),
+                    child: SizedBox(height: 42, child: actionButton),
                   ),
-                ),
-                const SizedBox(width: 12),
-                _StoreLotteryPriceText(ticket: ticket),
-              ],
-            );
+                ],
+              );
+              final bottomRow = Row(
+                key: const ValueKey('store-lottery-ticket-meta-price-row'),
+                children: [
+                  Expanded(
+                    child: Text(
+                      sellerName,
+                      key: const ValueKey('lottery-stock-seller-row'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _StoreLotteryPriceText(ticket: ticket),
+                ],
+              );
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                brandHeader,
-                const SizedBox(height: 10),
-                mainRow,
-                const SizedBox(height: 8),
-                bottomRow,
-              ],
-            );
-          },
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  brandHeader,
+                  const SizedBox(height: 10),
+                  mainRow,
+                  const SizedBox(height: 8),
+                  bottomRow,
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

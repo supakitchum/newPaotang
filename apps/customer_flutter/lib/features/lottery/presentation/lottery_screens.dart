@@ -687,15 +687,13 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 actionLabel: l10n.commonRetry,
                 onAction: _load,
               )
-            else if (_cart.isEmpty || groupedTickets.isEmpty)
-              _MessageCard(
-                icon: Icons.confirmation_number_outlined,
+            else if (_cart.isEmpty || groupedTickets.isEmpty) ...[
+              _CartEmptySheetState(
                 title: l10n.cartEmptyTitle,
                 message: l10n.cartEmptyMessage,
-                actionLabel: l10n.cartFindTickets,
-                onAction: () => context.go('/buy'),
-              )
-            else ...[
+              ),
+              _CartPurchaseLimitNotice(onAddMore: () => context.go('/buy')),
+            ] else ...[
               if (_noticeMessage.isNotEmpty) ...[
                 _InlineNoticeCard(message: _noticeMessage),
                 const SizedBox(height: 12),
@@ -953,6 +951,48 @@ class _CartHeaderSummary extends StatelessWidget {
                   ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CartEmptySheetState extends StatelessWidget {
+  const _CartEmptySheetState({
+    required this.title,
+    required this.message,
+  });
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 52),
+      child: Column(
+        children: [
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  height: 1.35,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                  height: 1.45,
+                ),
+          ),
         ],
       ),
     );
@@ -3064,132 +3104,180 @@ class _LotteryStockCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
+    final unavailable = !reserved && !item.isAvailable;
     final sellerName = item.sellerName.trim().isEmpty
         ? l10n.storesFallbackStoreName
         : item.sellerName.trim();
-    return DecoratedBox(
-      key: ValueKey('lottery-stock-row-${item.localStockItemId}'),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.75),
+    return LotteryUnavailableRowVisualState(
+      unavailable: unavailable,
+      child: DecoratedBox(
+        key: ValueKey('lottery-stock-row-${item.localStockItemId}'),
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          border: Border(
+            bottom: BorderSide(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.75),
+            ),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: LayoutBuilder(
+            builder: (context, _) {
+              final moreButton = morePath.isEmpty
+                  ? null
+                  : TextButton(
+                      onPressed: () => context.push(morePath),
+                      style: _lotteryTextLinkButtonStyle(context),
+                      child: Text(l10n.lotteryViewMore),
+                    );
+              final brandHeader = Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Expanded(child: LotteryProductBrandRow()),
+                  if (moreButton != null) ...[
+                    const SizedBox(width: 12),
+                    moreButton,
+                  ],
+                ],
+              );
+              final actionLabel = busy
+                  ? reserved
+                      ? l10n.lotteryRemoving
+                      : l10n.lotterySelecting
+                  : reserved
+                      ? l10n.lotteryRemove
+                      : reserveDisabled
+                          ? l10n.lotterySaleClosedAction
+                          : item.isAvailable
+                              ? l10n.lotterySelect
+                              : l10n.lotterySoldOut;
+              final canToggle =
+                  reserved || (item.isAvailable && !reserveDisabled);
+              final actionButton = reserved
+                  ? FilledButton(
+                      onPressed: busy || !canToggle ? null : onReserve,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(96, 42),
+                        shape: const StadiumBorder(),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                      child: Text(actionLabel),
+                    )
+                  : OutlinedButton(
+                      onPressed: busy || !canToggle ? null : onReserve,
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(96, 42),
+                        shape: const StadiumBorder(),
+                        side: BorderSide(
+                          color: canToggle
+                              ? colorScheme.primary
+                              : colorScheme.outlineVariant,
+                        ),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                      child: Text(actionLabel),
+                    );
+              final ticketDisplay = Column(
+                key: const ValueKey('lottery-stock-ticket-display-row'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (showTicketImage) ...[
+                    _LotteryStockImageFrame(item: item),
+                    const SizedBox(height: 10),
+                  ],
+                  _LotteryNumber(number: item.number),
+                ],
+              );
+              final mainRow = Row(
+                key: const ValueKey('lottery-stock-main-row'),
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: ticketDisplay),
+                  const SizedBox(width: 12),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 96),
+                    child: SizedBox(height: 42, child: actionButton),
+                  ),
+                ],
+              );
+              final bottomRow = Row(
+                key: const ValueKey('lottery-stock-meta-price-row'),
+                children: [
+                  Expanded(
+                    child: Text(
+                      sellerName,
+                      key: const ValueKey('lottery-stock-seller-row'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _LotteryStockPriceText(item: item),
+                ],
+              );
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  brandHeader,
+                  const SizedBox(height: 10),
+                  mainRow,
+                  const SizedBox(height: 8),
+                  bottomRow,
+                ],
+              );
+            },
           ),
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: LayoutBuilder(
-          builder: (context, _) {
-            final moreButton = morePath.isEmpty
-                ? null
-                : TextButton(
-                    onPressed: () => context.push(morePath),
-                    style: _lotteryTextLinkButtonStyle(context),
-                    child: Text(l10n.lotteryViewMore),
-                  );
-            final brandHeader = Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Expanded(child: LotteryProductBrandRow()),
-                if (moreButton != null) ...[
-                  const SizedBox(width: 12),
-                  moreButton,
-                ],
-              ],
-            );
-            final actionLabel = busy
-                ? reserved
-                    ? l10n.lotteryRemoving
-                    : l10n.lotterySelecting
-                : reserved
-                    ? l10n.lotteryRemove
-                    : reserveDisabled
-                        ? l10n.lotterySaleClosedAction
-                        : item.isAvailable
-                            ? l10n.lotterySelect
-                            : l10n.lotterySoldOut;
-            final canToggle =
-                reserved || (item.isAvailable && !reserveDisabled);
-            final actionButton = reserved
-                ? FilledButton(
-                    onPressed: busy || !canToggle ? null : onReserve,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(96, 42),
-                      shape: const StadiumBorder(),
-                      textStyle: const TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                    child: Text(actionLabel),
-                  )
-                : OutlinedButton(
-                    onPressed: busy || !canToggle ? null : onReserve,
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(96, 42),
-                      shape: const StadiumBorder(),
-                      side: BorderSide(
-                        color: canToggle
-                            ? colorScheme.primary
-                            : colorScheme.outlineVariant,
-                      ),
-                      textStyle: const TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                    child: Text(actionLabel),
-                  );
-            final ticketDisplay = Column(
-              key: const ValueKey('lottery-stock-ticket-display-row'),
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (showTicketImage) ...[
-                  _LotteryStockImageFrame(item: item),
-                  const SizedBox(height: 10),
-                ],
-                _LotteryNumber(number: item.number),
-              ],
-            );
-            final mainRow = Row(
-              key: const ValueKey('lottery-stock-main-row'),
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(child: ticketDisplay),
-                const SizedBox(width: 12),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 96),
-                  child: SizedBox(height: 42, child: actionButton),
-                ),
-              ],
-            );
-            final bottomRow = Row(
-              key: const ValueKey('lottery-stock-meta-price-row'),
-              children: [
-                Expanded(
-                  child: Text(
-                    sellerName,
-                    key: const ValueKey('lottery-stock-seller-row'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                _LotteryStockPriceText(item: item),
-              ],
-            );
+    );
+  }
+}
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                brandHeader,
-                const SizedBox(height: 10),
-                mainRow,
-                const SizedBox(height: 8),
-                bottomRow,
-              ],
-            );
-          },
-        ),
+class LotteryUnavailableRowVisualState extends StatelessWidget {
+  const LotteryUnavailableRowVisualState({
+    required this.unavailable,
+    required this.child,
+    super.key,
+  });
+
+  final bool unavailable;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!unavailable) return child;
+    return Opacity(
+      opacity: 0.58,
+      child: ColorFiltered(
+        colorFilter: const ColorFilter.matrix(<double>[
+          0.2126,
+          0.7152,
+          0.0722,
+          0,
+          0,
+          0.2126,
+          0.7152,
+          0.0722,
+          0,
+          0,
+          0.2126,
+          0.7152,
+          0.0722,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]),
+        child: child,
       ),
     );
   }
