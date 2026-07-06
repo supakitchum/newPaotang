@@ -3081,7 +3081,7 @@ class _LotteryStockCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(child: ticketDisplay),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 ConstrainedBox(
                   constraints: const BoxConstraints(minWidth: 96),
                   child: SizedBox(height: 42, child: actionButton),
@@ -3474,7 +3474,7 @@ class _CheckoutDockedPage extends StatelessWidget {
             children: [
               _LotteryContentSheet(
                 flush: true,
-                maxWidth: 640,
+                maxWidth: 960,
                 bottom: dock == null ? 128 : 265,
                 children: children,
               ),
@@ -3498,7 +3498,7 @@ class _LotteryContentSheet extends StatelessWidget {
     required this.children,
     required this.bottom,
     this.flush = false,
-    this.maxWidth = 760,
+    this.maxWidth = 960,
   });
 
   final List<Widget> children;
@@ -3548,7 +3548,7 @@ class _FixedPaymentDockContainer extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: horizontal),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
+              constraints: const BoxConstraints(maxWidth: 960),
               child: child,
             ),
           ),
@@ -3654,7 +3654,7 @@ class _CheckoutProductSummary extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 16),
             Expanded(
               child: Text(
                 context.l10n.ticketLabelGovernmentLottery,
@@ -4261,28 +4261,35 @@ class _LotteryNumber extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final digits = number.split('');
-    return Wrap(
-      spacing: 5,
-      children: [
-        for (final digit in digits)
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.amber.shade50,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-              child: Text(
-                digit,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF9DF),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: SizedBox(
+        width: 154,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          child: Row(
+            children: [
+              for (final digit in digits)
+                Expanded(
+                  child: Text(
+                    digit,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFF030303),
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      height: 1,
+                      letterSpacing: 0,
+                    ),
+                  ),
                 ),
-              ),
-            ),
+            ],
           ),
-      ],
+        ),
+      ),
     );
   }
 }

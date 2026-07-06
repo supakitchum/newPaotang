@@ -20,7 +20,7 @@ class AppShell extends StatelessWidget {
     this.fullScreen = false,
     this.heroContent,
     this.heroMinHeight = 174,
-    this.heroSheetOverlap = 34,
+    this.heroSheetOverlap = _defaultHeroSheetOverlap,
     this.actions = const [],
   });
 
@@ -75,7 +75,8 @@ class AppShell extends StatelessWidget {
                 ),
               ),
               Positioned.fill(
-                top: (heroMinHeight - heroSheetOverlap).clamp(
+                top:
+                    (heroMinHeight - _effectiveHeroSheetOverlap(context)).clamp(
                   0,
                   double.infinity,
                 ),
@@ -132,7 +133,15 @@ class AppShell extends StatelessWidget {
           : null,
     );
   }
+
+  double _effectiveHeroSheetOverlap(BuildContext context) {
+    if (heroSheetOverlap >= 0) return heroSheetOverlap;
+    final width = MediaQuery.sizeOf(context).width;
+    return (width * 0.15).clamp(34.0, 64.0);
+  }
 }
+
+const double _defaultHeroSheetOverlap = -1;
 
 class _CustomerHeroAppBarBackground extends StatelessWidget {
   const _CustomerHeroAppBarBackground({
@@ -241,7 +250,7 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(20, topPadding, 20, 24),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 920),
+              constraints: const BoxConstraints(maxWidth: 960),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [

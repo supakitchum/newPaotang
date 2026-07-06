@@ -1952,11 +1952,12 @@ Acceptance evidence for every screen group:
   tests were added.
 - Current Revenue lottery-item shell note: public Buy/Search/More stock rows
   now follow Nuxt's no-image `LotteryItem` variant with product brand/more
-  header, number block, right-side select/remove pill, and seller/price footer.
-  Store-scoped lottery rows keep the Nuxt default image variant with the wide
-  lottery image card. Reservation toggles, sale-closed handling, realtime stock
-  refresh, image loading, and route behavior were unchanged; no
-  widget/screenshot tests were added.
+  header, single `ticket-number` block, right-side select/remove pill, and
+  seller/price footer. Store-scoped lottery rows keep the Nuxt default image
+  variant with the wide lottery image card and the same single number block.
+  Reservation toggles, sale-closed handling, realtime stock refresh, image
+  loading, and route behavior were unchanged; no widget/screenshot tests were
+  added.
 - Current Revenue Buy/Search action micro-parity note: `/buy/search` now uses
   a runtime-themed gradient primary-pill for the search CTA, and the clear plus
   "view more" actions share a Nuxt-like text-link style with zero horizontal
@@ -2018,6 +2019,21 @@ Acceptance evidence for every screen group:
   chevron back affordance instead of the earlier Flutter-tinted circular back
   button. Runtime colors, page-specific hero heights, and back routing were
   unchanged; no widget/screenshot tests were added.
+- Current shared content-sheet overlap note: expanded `AppShell` pages now use
+  Nuxt's responsive `content-sheet` lift (`clamp(-64px, -15vw, -34px)`) rather
+  than a fixed 34px overlap, so Store, Cart, Buy, Tickets, and other default
+  BlueHeader shells sit closer to the source structure. Page-specific overrides
+  such as Checkout flush and `/buy/more` remain unchanged.
+- Current revenue shell width note: expanded `AppShell` hero rows plus
+  shared `CustomerPageBody`, Store/Buy/Cart/Checkout content-sheet, and fixed
+  payment-dock helpers now use the Nuxt `--content-max: 960px` rhythm instead
+  of the narrower Flutter-only 640/720/760/920px caps. Mobile sheet padding and
+  payment behavior remain unchanged.
+- Current revenue lottery-number shell note: Buy/Search/More, Cart, and
+  store-scoped lottery rows now render the number as Nuxt's single
+  `ticket-number` block (154px wide, 7px radius, #fff9df background, 22px
+  digits) instead of six individual Flutter chips. Reservation, cart, more-link,
+  price, and image behavior were unchanged.
 - Current Buy/Search list-state note: the stock-list refresh action now uses a
   Nuxt-like `outline-pill` shape, empty lottery results render as centered
   muted sheet text like `empty-lottery-state` instead of a framed Flutter
@@ -3741,9 +3757,10 @@ screenshot capture tasks unless explicitly requested in the current turn.
   now starts from the revenue hero without a generic AppBar and shows the
   floating cart selection dock above bottom nav when active reservations exist.
 - Public Buy/Search/More stock rows follow Nuxt `LotteryItem`
-  `:show-image="false"` variant: brand/more header, number block, right-side
-  select/remove pill, and seller/price footer. Store-scoped lottery rows keep
-  the default Nuxt image variant with the wide lottery-image card.
+  `:show-image="false"` variant: brand/more header, single `ticket-number`
+  block, right-side select/remove pill, and seller/price footer. Store-scoped
+  lottery rows keep the default Nuxt image variant with the wide lottery-image
+  card and the same single number shell.
 - Floating/fixed revenue docks follow Nuxt `PaymentDock` rhythm: Home uses the
   selection dock CTA with timer inside the pill, browse/store routes use review
   dock spacing, and Cart/Checkout fixed docks keep the white surface through
@@ -3753,8 +3770,12 @@ screenshot capture tasks unless explicitly requested in the current turn.
   and 25px icons. It should no longer read as a floating rounded Flutter card.
 - Expanded Flutter `AppShell` BlueHeaders follow Nuxt row rhythm and back
   affordance: title row starts below the native status area like Nuxt's 58px
-  top padding, the back control reads as a transparent 42px chevron, and the
-  hero background includes both yellow and sky lower accents.
+  top padding, the back control reads as a transparent 42px chevron, the hero
+  background includes both yellow and sky lower accents, and default
+  content-sheet overlap follows Nuxt's responsive `clamp(-64px, -15vw, -34px)`
+  lift instead of a fixed 34px. Shared content bodies and revenue
+  hero/content/dock max widths now follow Nuxt's 960px content cap for tablet
+  and Web.
 - Buy/Search list states follow Nuxt sheet rhythm: refresh and fallback
   pagination are `outline-pill` controls, empty results are centered muted text
   in the list, and sale-closed state is a compact alert bar rather than a full

@@ -1599,6 +1599,25 @@ Recent verified work:
     used by Nuxt `BlueHeader`. Hero content, route back behavior, runtime
     colors, and page-specific hero heights were unchanged; no widget/screenshot
     tests were added.
+  - Shared content-sheet overlap parity advanced under the same UX/UI-first
+    cadence: expanded `AppShell` routes now use Nuxt's responsive
+    `content-sheet` overlap rhythm (`clamp(-64px, -15vw, -34px)`) instead of a
+    fixed 34px lift. This brings Buy, Stores, Cart, Tickets, and other default
+    BlueHeader/content-sheet pages closer to the source shell without changing
+    routes, providers, payment behavior, or page-specific custom overlaps such
+    as Checkout flush and `/buy/more`.
+  - Revenue shell width parity advanced: expanded `AppShell` hero rows plus
+    shared `CustomerPageBody`, Store/Buy/Cart/Checkout content-sheet, and fixed
+    dock helpers now use Nuxt's `--content-max: 960px` width instead of the
+    narrower Flutter-only 640/720/760/920px caps. Mobile spacing remains
+    governed by the existing 18px sheet padding; behavior, provider state, and
+    payment actions were unchanged.
+  - Revenue lottery-number shell parity advanced: Buy/Search/More, Cart, and
+    store-scoped lottery rows now render the six digits inside the same single
+    Nuxt `ticket-number` style block (154px wide, 7px radius, #fff9df
+    background, 22px tabular digits) instead of six separate Flutter chip boxes.
+    Reservation, cart, more-link, price, and store-image behavior were
+    unchanged.
   - Buy/Search list-state micro-parity advanced under the UX/UI-first
     test-light cadence: the stock refresh action now uses a Nuxt-like
     `outline-pill` treatment, empty lottery results now render as the centered

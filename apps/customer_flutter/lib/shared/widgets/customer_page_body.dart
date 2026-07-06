@@ -4,7 +4,7 @@ class CustomerPageBody extends StatelessWidget {
   const CustomerPageBody({
     required this.child,
     super.key,
-    this.maxWidth = 920,
+    this.maxWidth = 960,
     this.top = 16,
     this.bottom = 128,
     this.mobileHorizontal = 16,
