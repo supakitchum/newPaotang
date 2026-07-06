@@ -195,20 +195,22 @@ class _HomeFloatingCartDock extends StatelessWidget {
                       maxWidth: 176,
                       minHeight: 58,
                     ),
-                    child: FilledButton(
-                      onPressed: onCheckout,
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(144, 58),
-                        shape: const StadiumBorder(),
-                        textStyle: const TextStyle(fontWeight: FontWeight.w900),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(l10n.cartCheckout),
-                          if (deadline != null)
-                            _HomeCartCountdownText(deadline: deadline),
-                        ],
+                    child: DecoratedBox(
+                      decoration: _homeDockButtonDecoration(context),
+                      child: SizedBox(
+                        height: 58,
+                        child: FilledButton(
+                          onPressed: onCheckout,
+                          style: _homeDockButtonStyle(context),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(l10n.cartCheckout),
+                              if (deadline != null)
+                                _HomeCartCountdownText(deadline: deadline),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -274,8 +276,9 @@ class _HomeCartCountdownTextState extends State<_HomeCartCountdownText> {
           widget.deadline.expiresInSeconds > 0 ? _fallbackExpiresAt : null,
     );
     if (remaining.inSeconds <= 0) return const SizedBox.shrink();
+    final l10n = context.l10n;
     return Text(
-      formatReservationCountdown(remaining),
+      l10n.cartSelectionTimer(formatReservationCountdown(remaining)),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -1657,6 +1660,42 @@ BoxDecoration _homeSurfaceDecoration(
         offset: const Offset(0, 10),
       ),
     ],
+  );
+}
+
+BoxDecoration _homeDockButtonDecoration(BuildContext context) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return BoxDecoration(
+    gradient: LinearGradient(
+      colors: [
+        colorScheme.primary,
+        Color.lerp(colorScheme.primary, colorScheme.secondary, 0.55) ??
+            colorScheme.primary,
+      ],
+    ),
+    borderRadius: BorderRadius.circular(999),
+    boxShadow: [
+      BoxShadow(
+        color: colorScheme.primary.withValues(alpha: 0.22),
+        blurRadius: 20,
+        offset: const Offset(0, 10),
+      ),
+    ],
+  );
+}
+
+ButtonStyle _homeDockButtonStyle(BuildContext context) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return FilledButton.styleFrom(
+    backgroundColor: Colors.transparent,
+    foregroundColor: colorScheme.onPrimary,
+    shadowColor: Colors.transparent,
+    padding: const EdgeInsets.symmetric(horizontal: 18),
+    shape: const StadiumBorder(),
+    textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w900,
+          height: 1.1,
+        ),
   );
 }
 

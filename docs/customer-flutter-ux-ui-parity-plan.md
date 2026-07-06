@@ -1921,6 +1921,48 @@ Acceptance evidence for every screen group:
   right-side select/remove pill, and seller/price footer. Reservation toggles,
   sale-closed handling, realtime stock refresh, image loading, and route
   behavior were unchanged; no widget/screenshot tests were added.
+- Current Revenue payment-dock note: Buy/Search/More and store-scoped floating
+  review docks, Home's floating selection dock, Cart's fixed payment dock, and
+  Checkout's fixed confirm dock now track Nuxt `PaymentDock` structure more
+  closely with top-shadow direction, 58px gradient pill CTAs, 720px wide clamp,
+  safe-area padding inside the white dock surface, and localized small timer
+  copy inside the Home selection CTA. Reservation expiry, cart review,
+  checkout submit, payment handoff, and route behavior were unchanged; no
+  widget/screenshot tests were added.
+- Current shared BottomNav note: the shared Flutter bottom navigation now
+  follows Nuxt `BottomNav` structure rather than the earlier floating pill
+  card. It uses a 98px white bottom surface with 34px top radius, upward
+  shadow, native safe-area extension, active highlight slab, 14px labels, and
+  25px icons while preserving runtime feature gating and selected-route logic.
+  This was visual shell work only; no widget/screenshot tests were added.
+- Current shared BlueHeader note: expanded Flutter `AppShell` heroes now start
+  their title row at the Nuxt `BlueHeader` top rhythm, include the lower sky
+  accent circle behind the runtime gradient, and use the transparent 42px
+  chevron back affordance instead of the earlier Flutter-tinted circular back
+  button. Runtime colors, page-specific hero heights, and back routing were
+  unchanged; no widget/screenshot tests were added.
+- Current Buy/Search list-state note: the stock-list refresh action now uses a
+  Nuxt-like `outline-pill` shape, empty lottery results render as centered
+  muted sheet text like `empty-lottery-state` instead of a framed Flutter
+  message card, and sale-closed browsing status now uses a compact alert bar.
+  Stock skeletons, retry errors, reservation toggles, realtime refresh, cart
+  sync, and route behavior were unchanged; no widget/screenshot tests were
+  added.
+- Current Stores list-state note: `/stores` now restores the Nuxt filter-pill
+  rail below the recommended-store heading, empty store results use centered
+  muted sheet text, store-scoped lottery refresh uses the Nuxt-like
+  `outline-pill`, store lottery empty results use the same sheet empty rhythm,
+  and store sale-closed status uses the compact alert-bar treatment. Search,
+  pagination, skeletons, retry errors, reservation toggles, realtime refresh,
+  cart sync, and route behavior were unchanged; no widget/screenshot tests were
+  added.
+- Current Cart/Checkout sheet-helper note: Cart's purchase-limit helper now
+  follows Nuxt's centered muted-copy plus green-pill add-more rhythm more
+  closely, including the larger gap after ticket rows. Checkout's payment-method
+  heading now matches the Nuxt `fs-5`/bold/`mb-4` rhythm before the wallet card.
+  Cart grouping, remove confirmation, checkout methods, payment submission,
+  topup return path, and route behavior were unchanged; no widget/screenshot
+  tests were added.
 - Current Revenue contract-parity note: Checkout order parsing now accepts
   production recursive `data.resource` wrappers, camelCase `checkoutOrder` and
   `purchaseOrder` resources, checkout/purchase order id aliases,
@@ -3613,6 +3655,28 @@ screenshot capture tasks unless explicitly requested in the current turn.
 - Public Buy/Search stock rows and store-scoped lottery rows follow Nuxt
   `LotteryItem` ordering: brand/more header, wide lottery-image card, number
   block, right-side select/remove pill, and seller/price footer.
+- Floating/fixed revenue docks follow Nuxt `PaymentDock` rhythm: Home uses the
+  selection dock CTA with timer inside the pill, browse/store routes use review
+  dock spacing, and Cart/Checkout fixed docks keep the white surface through
+  safe-area with 58px gradient CTAs.
+- Shared bottom nav follows Nuxt `BottomNav`: anchored 98px bottom surface,
+  34px top radius, upward shadow, active slab from the top edge, 14px labels,
+  and 25px icons. It should no longer read as a floating rounded Flutter card.
+- Expanded Flutter `AppShell` BlueHeaders follow Nuxt row rhythm and back
+  affordance: title row starts below the native status area like Nuxt's 58px
+  top padding, the back control reads as a transparent 42px chevron, and the
+  hero background includes both yellow and sky lower accents.
+- Buy/Search list states follow Nuxt sheet rhythm: refresh is an `outline-pill`,
+  empty results are centered muted text in the list, and sale-closed state is a
+  compact alert bar rather than a full framed message card.
+- Stores list states follow Nuxt sheet rhythm: recommended-store filter pills
+  are present, empty store/lottery results are centered muted text in the sheet,
+  store lottery refresh is an `outline-pill`, and sale-closed state is a compact
+  alert bar.
+- Cart/Checkout helper sections follow Nuxt sheet rhythm: Cart add-more helper
+  is centered muted copy plus green pill below the list, and Checkout payment
+  method heading has the same bold `fs-5` scale and `mb-4` spacing before the
+  wallet card.
 - No clipped hero text on 360px, 390px, 430px, tablet, and desktop widths.
 - No bottom nav overlap with sticky action footers.
 - No horizontal scroll on modal sheets or activity grids.

@@ -161,6 +161,18 @@ class _CustomerHeroAppBarBackground extends StatelessWidget {
       child: Stack(
         children: [
           Positioned(
+            right: -76,
+            bottom: -138,
+            child: Container(
+              width: 340,
+              height: 340,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: secondary.withValues(alpha: 0.34),
+              ),
+            ),
+          ),
+          Positioned(
             right: 38,
             bottom: -48,
             child: Container(
@@ -217,6 +229,7 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final topInset = MediaQuery.paddingOf(context).top;
+    final topPadding = topInset + 14 < 58 ? 58.0 : topInset + 14;
     final l10n = context.l10n;
 
     return ConstrainedBox(
@@ -225,7 +238,7 @@ class _CustomerBlueHeroHeader extends StatelessWidget {
         primary: colorScheme.primary,
         secondary: colorScheme.secondary,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(20, topInset + 18, 20, 24),
+          padding: EdgeInsets.fromLTRB(20, topPadding, 20, 24),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 920),
@@ -300,12 +313,12 @@ class _HeroCircleButton extends StatelessWidget {
     return IconButton(
       tooltip: tooltip,
       onPressed: onPressed,
-      icon: Icon(icon, size: 22),
+      icon: Icon(icon, size: 31),
       color: Colors.white,
       style: IconButton.styleFrom(
         fixedSize: const Size.square(42),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        backgroundColor: Colors.white.withValues(alpha: 0.14),
+        backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         shape: const CircleBorder(),
       ),
@@ -325,13 +338,13 @@ class _CustomerBottomNav extends ConsumerWidget {
       path: '/',
       labelKey: _BottomNavLabel.home,
       icon: Icons.home_outlined,
-      selectedIcon: Icons.home,
+      selectedIcon: Icons.home_outlined,
     ),
     _BottomNavItem(
       path: '/tickets',
       labelKey: _BottomNavLabel.tickets,
-      icon: Icons.confirmation_number_outlined,
-      selectedIcon: Icons.confirmation_number,
+      icon: Icons.credit_card_outlined,
+      selectedIcon: Icons.credit_card_outlined,
     ),
     _BottomNavItem(
       path: '/profile',
@@ -352,47 +365,54 @@ class _CustomerBottomNav extends ConsumerWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        heightFactor: 1,
-        child: ConstrainedBox(
-          key: bottomNavKey,
-          constraints: const BoxConstraints(maxWidth: 920),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.10),
-                  blurRadius: 30,
-                  offset: const Offset(0, 12),
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+
+    return DecoratedBox(
+      key: bottomNavKey,
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: 0.96),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(34)),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.12),
+            blurRadius: 24,
+            offset: const Offset(0, -8),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        height: 98 + bottomInset,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final horizontal = constraints.maxWidth >= 768
+                  ? constraints.maxWidth * 0.08
+                  : 0.0;
+              return Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontal.clamp(0.0, 96.0),
                 ),
-              ],
-            ),
-            child: SizedBox(
-              height: 86,
-              child: Row(
-                children: [
-                  for (final item in visibleItems)
-                    Expanded(
-                      child: _CustomerBottomNavButton(
-                        item: item,
-                        selected: _isSelected(item, location),
-                        label: item.label(l10n),
-                        selectedColor: colorScheme.primary,
-                        unselectedColor: colorScheme.onSurfaceVariant,
-                        onTap: () {
-                          final target = item.path;
-                          if (target != location) context.go(target);
-                        },
+                child: Row(
+                  children: [
+                    for (final item in visibleItems)
+                      Expanded(
+                        child: _CustomerBottomNavButton(
+                          item: item,
+                          selected: _isSelected(item, location),
+                          label: item.label(l10n),
+                          selectedColor: colorScheme.primary,
+                          unselectedColor: colorScheme.onSurfaceVariant,
+                          onTap: () {
+                            final target = item.path;
+                            if (target != location) context.go(target);
+                          },
+                        ),
                       ),
-                    ),
-                ],
-              ),
-            ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -435,56 +455,64 @@ class _CustomerBottomNavButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final textStyle = Theme.of(context).textTheme.labelMedium?.copyWith(
           color: selected ? selectedColor : unselectedColor,
-          fontWeight: FontWeight.w800,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          height: 1.1,
         );
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Stack(
-          alignment: Alignment.topCenter,
-          clipBehavior: Clip.none,
-          children: [
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              top: selected ? -24 : 10,
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 180),
-                opacity: selected ? 1 : 0,
-                child: Container(
-                  width: 104,
-                  height: 104,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: selectedColor.withValues(alpha: 0.10),
-                  ),
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+        child: SizedBox(
+          height: 98,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final highlightWidth = constraints.maxWidth.clamp(108.0, 156.0);
+              return Stack(
+                alignment: Alignment.topCenter,
                 children: [
-                  Icon(
-                    selected ? item.selectedIcon : item.icon,
-                    color: selected ? selectedColor : unselectedColor,
-                    size: 26,
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 180),
+                    opacity: selected ? 1 : 0,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Container(
+                        width: highlightWidth,
+                        height: 98,
+                        decoration: BoxDecoration(
+                          color: selectedColor.withValues(alpha: 0.08),
+                          borderRadius: const BorderRadius.vertical(
+                            bottom: Radius.circular(70),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 7),
-                  Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: textStyle,
+                  Positioned.fill(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          selected ? item.selectedIcon : item.icon,
+                          color: selected ? selectedColor : unselectedColor,
+                          size: 25,
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: textStyle,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
-              ),
-            ),
-          ],
+              );
+            },
+          ),
         ),
       ),
     );

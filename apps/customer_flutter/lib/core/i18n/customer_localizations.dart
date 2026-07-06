@@ -683,6 +683,10 @@ class CustomerLocalizations {
   String get cartSelectionTitle => _text('cart.selection.title');
   String get cartSelectionCountLabel => _text('cart.selection.count_label');
   String get cartSelectionReview => _text('cart.selection.review');
+  String cartSelectionTimer(String time) {
+    return _text('cart.selection.timer').replaceAll('{time}', time);
+  }
+
   String get cartPurchaseLimitMessage => _text('cart.purchase_limit_message');
   String get cartAddMoreTickets => _text('cart.add_more_tickets');
   String get cartCheckout => _text('cart.checkout');
@@ -2922,6 +2926,7 @@ const _localizedValues = <String, Map<String, String>>{
     'cart.selection.title': 'คุณมีสลากฯ ที่เลือกไว้',
     'cart.selection.count_label': 'จำนวนที่เลือก',
     'cart.selection.review': 'ตรวจสอบสลากฯ',
+    'cart.selection.timer': '{time} นาที',
     'cart.purchase_limit_message':
         'คุณสามารถเลือกซื้อสลากฯ ได้สูงสุด 20 ใบ\nต่อการทำรายการซื้อ 1 ครั้ง',
     'cart.add_more_tickets': 'เลือกสลากฯ เพิ่ม',
@@ -4484,6 +4489,7 @@ const _localizedValues = <String, Map<String, String>>{
     'cart.selection.title': 'You have selected tickets',
     'cart.selection.count_label': 'Selected quantity',
     'cart.selection.review': 'Review tickets',
+    'cart.selection.timer': '{time} min',
     'cart.purchase_limit_message':
         'You can select up to 20 lottery tickets\nper checkout.',
     'cart.add_more_tickets': 'Add more tickets',

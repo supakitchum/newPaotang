@@ -104,7 +104,7 @@ Important Flutter primitives:
 | --- | ---: | ---: |
 | Flutter project foundation | 75% | 25% |
 | Routing registry and route parity foundation | 70% | 30% |
-| Shared shell/navigation/page body | 72% | 28% |
+| Shared shell/navigation/page body | 75% | 25% |
 | Shared wallet card | 82% | 18% |
 | Runtime bootstrap parsing | 74% | 26% |
 | Theme/localization foundation | 67% | 33% |
@@ -1564,6 +1564,56 @@ Recent verified work:
     seller/price footer. Reservation toggles, sale-closed handling, realtime
     stock refresh, image loading, and route behavior were unchanged; no
     widget/screenshot tests were added.
+  - Revenue payment-dock structural parity advanced under the UX/UI-first
+    test-light cadence: Buy/Search/More and store-scoped floating review docks,
+    Home's floating selection dock, Cart's fixed payment dock, and Checkout's
+    fixed confirm dock now share Nuxt-like `PaymentDock` rhythm with top-shadow
+    direction, 58px gradient pill CTAs, 720px wide layout clamp, safe-area
+    padding inside the white dock surface, and localized small timer copy in
+    the Home selection CTA. Reservation expiry, cart review, checkout submit,
+    and route handoff behavior were unchanged; no widget/screenshot tests were
+    added.
+  - Shared BottomNav structural parity advanced under the UX/UI-first
+    test-light cadence: Flutter's shared bottom navigation now follows the Nuxt
+    `BottomNav` shell instead of the earlier floating pill card. The bar is a
+    98px white bottom surface with 34px top radius, upward shadow, safe-area
+    extension, Nuxt-like active highlight slab, 14px labels, 25px icons, and
+    runtime route/feature gating preserved. Home, Tickets, Profile/Menu,
+    Success, and other bottom-nav surfaces keep their existing route behavior;
+    no widget/screenshot tests were added.
+  - Shared BlueHeader structural parity advanced under the UX/UI-first
+    test-light cadence: the expanded Flutter `AppShell` hero now starts its
+    header row at the Nuxt-like top rhythm, adds the missing lower sky accent
+    circle behind the runtime gradient, and changes the back affordance from a
+    Flutter-tinted circular button to the transparent 42px chevron treatment
+    used by Nuxt `BlueHeader`. Hero content, route back behavior, runtime
+    colors, and page-specific hero heights were unchanged; no widget/screenshot
+    tests were added.
+  - Buy/Search list-state micro-parity advanced under the UX/UI-first
+    test-light cadence: the stock refresh action now uses a Nuxt-like
+    `outline-pill` treatment, empty lottery results now render as the centered
+    muted `empty-lottery-state` style inside the sheet instead of a framed
+    Flutter message card, and sale-closed browsing notice now uses a compact
+    Nuxt-like alert bar. Stock loading skeletons, retry errors, reservation
+    toggles, realtime refresh, cart sync, and route behavior were unchanged; no
+    widget/screenshot tests were added.
+  - Stores list-state micro-parity advanced under the UX/UI-first test-light
+    cadence: `/stores` now restores the Nuxt `FilterPills` rail below the
+    recommended-store heading, store empty results render as centered muted
+    sheet text instead of a framed card, store-scoped lottery refresh uses the
+    Nuxt-like `outline-pill` treatment, store lottery empty results use the
+    same sheet empty rhythm, and store sale-closed status now uses the compact
+    alert-bar treatment. Store search, pagination, stock loading skeletons,
+    retry errors, reservation toggles, realtime refresh, cart sync, and route
+    behavior were unchanged; no widget/screenshot tests were added.
+  - Cart/Checkout sheet micro-parity advanced under the UX/UI-first test-light
+    cadence: Cart's purchase-limit helper now follows the Nuxt centered
+    muted-copy plus green-pill add-more rhythm more closely, with matching
+    spacing after ticket rows, and Checkout's payment-method heading now uses
+    Nuxt-like `fs-5` weight and bottom spacing before the wallet/payment card.
+    Cart grouping, remove confirmation, checkout methods, payment submission,
+    topup return path, and route behavior were unchanged; no widget/screenshot
+    tests were added.
   - Revenue recovery/loading panel polish advanced under the reduced-test
     cadence: the shared Buy/Search/Cart/Checkout message and loading surfaces
     now use the Nuxt-like 12px bordered/shadowed white panel rhythm, softer
@@ -4744,10 +4794,10 @@ Recent verified work:
 
 | Area | What remains | Remaining |
 | --- | --- | ---: |
-| UX/UI parity overall | Re-opened after owner visual feedback and source-level Nuxt comparison: removing raw Material widgets was not enough to prove structural parity. Flutter still needs a broader Nuxt-shell pass for `MobileShell`/`BlueHeader`/`content-sheet`/floating `PaymentDock`/`BottomNav` structure, page-level spacing, and manual device review across major screens. The revenue shell pass now covers Home, `/buy`, `/buy/search`, `/buy/more`, `/stores`, store-scoped lottery browsing, public/store lottery item row structure, Cart, Checkout, pending payment, Success receipt, and the Home floating cart dock structure. | 27% |
-| Home | Final manual device/browser visual signoff and any last responsive polish; Home now uses a full-screen Nuxt-like hero/sheet structure instead of the generic AppBar, the home sheet radius/padding and quick-action card rhythm are closer to Nuxt, and an authenticated Home floating cart dock now appears above the bottom nav when active reservations exist. Home hero, price/sale badges, digit focus, quick/guest/activity/news/result surfaces, activity/news fallback media, loading marks, and shared result summary surfaces remain runtime-theme driven. | 6% |
-| Buy/Search | Structural parity re-opened after comparing Nuxt `MobileShell`/`BlueHeader`/`content-sheet` against Flutter's generic AppBar flow. `/buy`, `/buy/search`, and `/buy/more` now use expanded Nuxt-style hero/content-sheet shells; `/stores` now keeps the store tab inside the blue hero and renders the search/recommended-store list inside a Nuxt-like content sheet; store-scoped lottery browsing now moves the store hero card into the blue hero and keeps search/stock rows inside the sheet; public and store lottery rows now follow Nuxt `LotteryItem` image/number/action/seller-price ordering. Remaining work is manual device/browser signoff and any final cart/dock/list spacing polish found there. | 6% |
-| Cart/Checkout | Cart/Checkout now use the expanded `AppShell` blue hero directly instead of a nested page hero, so Cart count/draw-date and Checkout summary-card structure match Nuxt `BlueHeader` + `content-sheet` more closely; pending payment now uses the same revenue title-hero/content-sheet pattern; Success now uses a Nuxt-like full-screen success background, receipt card, runtime-themed action pills, and Tickets bottom-nav target. Remaining work is manual owner/device signoff and any final responsive dock/receipt spacing polish. | 1% |
+| UX/UI parity overall | Re-opened after owner visual feedback and source-level Nuxt comparison: removing raw Material widgets was not enough to prove structural parity. Flutter still needs a broader Nuxt-shell pass for `MobileShell`/`BlueHeader`/`content-sheet`/floating `PaymentDock`/`BottomNav` structure, page-level spacing, and manual device review across major screens. The revenue shell pass now covers Home, `/buy`, `/buy/search`, `/buy/more`, `/stores`, store-scoped lottery browsing, public/store lottery item row structure, Cart, Checkout, pending payment, Success receipt, Home floating cart dock, browse review docks, fixed cart/checkout dock structure, shared BlueHeader rhythm, shared bottom navigation shell, Buy/Search/Stores empty/alert/filter/refresh list-state rhythm, and Cart/Checkout sheet helper spacing. | 21% |
+| Home | Final manual device/browser visual signoff and any last responsive polish; Home now uses a full-screen Nuxt-like hero/sheet structure instead of the generic AppBar, the home sheet radius/padding and quick-action card rhythm are closer to Nuxt, an authenticated Home floating cart dock now appears above the bottom nav with Nuxt-like selection dock pill/timer treatment when active reservations exist, and the shared bottom nav now follows Nuxt's anchored 98px shell. Home hero, price/sale badges, digit focus, quick/guest/activity/news/result surfaces, activity/news fallback media, loading marks, and shared result summary surfaces remain runtime-theme driven. | 4% |
+| Buy/Search | Structural parity re-opened after comparing Nuxt `MobileShell`/`BlueHeader`/`content-sheet` against Flutter's generic AppBar flow. `/buy`, `/buy/search`, and `/buy/more` now use expanded Nuxt-style hero/content-sheet shells; `/stores` now keeps the store tab inside the blue hero and renders the search/recommended-store list inside a Nuxt-like content sheet; store-scoped lottery browsing now moves the store hero card into the blue hero and keeps search/stock rows inside the sheet; public and store lottery rows now follow Nuxt `LotteryItem` image/number/action/seller-price ordering; browse review docks now align more closely with Nuxt `PaymentDock` spacing, gradient CTA, shadow, width clamp, and safe-area treatment; Buy/Search/Stores empty, filter, sale-closed, and refresh-action list states now follow Nuxt sheet rhythm more closely. Remaining work is manual device/browser signoff and any final cart/dock/list spacing polish found there. | 3% |
+| Cart/Checkout | Cart/Checkout now use the expanded `AppShell` blue hero directly instead of a nested page hero, so Cart count/draw-date and Checkout summary-card structure match Nuxt `BlueHeader` + `content-sheet` more closely; Cart add-more helper and Checkout payment-method heading spacing now follow Nuxt sheet rhythm more closely; pending payment now uses the same revenue title-hero/content-sheet pattern; Success now uses a Nuxt-like full-screen success background, receipt card, runtime-themed action pills, and Tickets bottom-nav target. Remaining work is manual owner/device signoff and any final responsive dock/receipt spacing polish. | 1% |
 | Tickets | Manual owner/device signoff only; implementation parity is otherwise closed for current known ticket current/history/detail/preview/reward-claim surfaces. Reward-claim handoff marker/link/badge accents, ticket prize labels, claim PIN keypad/dots/submitting mark, claim hero/confirm/processing receipt surfaces, current-ticket search/tabs/empty/error/detail/claim neutral surfaces, and ticket history/claim submit feedback now follow the converted Nuxt-style flow and runtime partner theme without transient SnackBars or Flutter Material progress bars. | 0% |
 | Wallet | Final manual responsive/device review, remaining provider realtime device smoke, remaining device failed/error review, and native/web sensitive-screen validation; nested wallet transaction/history payload aliases, object scalar wallet/ledger/customer-number rows, nested money value wrappers, and localized Thai cashback ledger titles are now covered in code, Wallet refresh failures stay inside the converted error surface, and Wallet card, ledger loading/error/empty/list, credit/debit/neutral row accents, and refresh/empty states now follow runtime partner `Theme.colorScheme` tokens. | 4% |
 | Topup | Manual provider/device/create-sheet signoff only; implementation parity is otherwise closed for current known Topup overview, waiting-payment, create-sheet, slip, bank-transfer, QR/credit redirect, cancel, history, realtime-refresh, and inline-status surfaces. Nested provider-session redirect links are covered in code, Topup loading no longer uses Flutter Material progress indicators, and Topup notice/status/history success-warning-error-neutral tones now derive from runtime `Theme.colorScheme` tokens. | 0% |

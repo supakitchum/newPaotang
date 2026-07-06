@@ -709,7 +709,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   busy: _busy,
                   onRelease: () => _releaseGroup(group),
                 ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 24),
               _CartPurchaseLimitNotice(onAddMore: () => context.go('/buy')),
             ],
           ],
@@ -970,7 +970,7 @@ class _CartPurchaseLimitNotice extends StatelessWidget {
     final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -979,30 +979,48 @@ class _CartPurchaseLimitNotice extends StatelessWidget {
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                   height: 1.45,
                 ),
           ),
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.center,
-            child: FilledButton.icon(
-              onPressed: onAddMore,
-              style: FilledButton.styleFrom(
-                backgroundColor: colorScheme.tertiary,
-                foregroundColor: colorScheme.onTertiary,
-                minimumSize: const Size(0, 47),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 22,
-                  vertical: 12,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    colorScheme.tertiary,
+                    Color.lerp(
+                          colorScheme.tertiary,
+                          colorScheme.primary,
+                          0.28,
+                        ) ??
+                        colorScheme.tertiary,
+                  ],
                 ),
-                shape: const StadiumBorder(),
-                textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                borderRadius: BorderRadius.circular(999),
               ),
-              icon: const Icon(Icons.add, size: 18),
-              label: Text(l10n.cartAddMoreTickets),
+              child: FilledButton.icon(
+                onPressed: onAddMore,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: colorScheme.onTertiary,
+                  shadowColor: Colors.transparent,
+                  minimumSize: const Size(0, 47),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 22,
+                    vertical: 12,
+                  ),
+                  shape: const StadiumBorder(),
+                  textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                icon: const Icon(Icons.add, size: 18),
+                label: Text(l10n.cartAddMoreTickets),
+              ),
             ),
           ),
         ],
@@ -1125,9 +1143,15 @@ class _CartPaymentDock extends StatelessWidget {
         borderColor: Colors.transparent,
         shadowAlpha: 0.12,
         blurRadius: 26,
+        shadowOffset: const Offset(0, -8),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(
+          18,
+          22,
+          18,
+          22 + MediaQuery.paddingOf(context).bottom,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1139,7 +1163,7 @@ class _CartPaymentDock extends StatelessWidget {
                       l10n.checkoutPaymentTimer(time),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
             ],
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -1186,11 +1210,19 @@ class _CartPaymentDock extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            SizedBox(
-              height: 52,
-              child: FilledButton(
-                onPressed: canCheckout ? onCheckout : null,
-                child: Text(canCheckout ? l10n.cartCheckout : l10n.cartExpired),
+            DecoratedBox(
+              decoration: _lotteryDockButtonDecoration(
+                context,
+                enabled: canCheckout,
+              ),
+              child: SizedBox(
+                height: 58,
+                child: FilledButton(
+                  onPressed: canCheckout ? onCheckout : null,
+                  style: _lotteryDockButtonStyle(context),
+                  child:
+                      Text(canCheckout ? l10n.cartCheckout : l10n.cartExpired),
+                ),
               ),
             ),
           ],
@@ -2094,11 +2126,24 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
         _LotterySectionHeading(
           title: widget.title,
           action: widget.showRefreshAction
-              ? TextButton.icon(
+              ? OutlinedButton.icon(
                   onPressed:
                       _loading || refreshCoolingDown ? null : _refreshStockList,
                   icon: const Icon(Icons.refresh, size: 18),
                   label: Text(refreshLabel),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                    shape: const StadiumBorder(),
+                    side: BorderSide(
+                      color: (_loading || refreshCoolingDown)
+                          ? Theme.of(context).colorScheme.outlineVariant
+                          : Theme.of(context).colorScheme.primary,
+                    ),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
                 )
               : null,
         ),
@@ -2129,11 +2174,7 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
       );
     }
     if (_items.isEmpty) {
-      return _MessageCard(
-        icon: Icons.confirmation_number_outlined,
-        title: l10n.lotteryNotFoundTitle,
-        message: l10n.lotteryNotFoundMessage,
-      );
+      return _LotteryEmptyState(message: l10n.lotteryNotFoundTitle);
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2148,10 +2189,8 @@ class _LotteryStockListState extends ConsumerState<_LotteryStockList> {
           const SizedBox(height: 12),
         ],
         if (!_canReserve) ...[
-          _MessageCard(
-            icon: Icons.lock_clock_outlined,
+          _LotteryStatusAlert(
             title: l10n.lotterySaleClosedTitle,
-            message: l10n.lotterySaleClosedMessage,
           ),
           const SizedBox(height: 12),
         ],
@@ -2714,9 +2753,15 @@ class _CartSelectionDock extends StatelessWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
         borderColor: Colors.transparent,
         shadowAlpha: 0.10,
+        shadowOffset: const Offset(0, -8),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(25, 27, 25, 27),
+        padding: EdgeInsets.fromLTRB(
+          25,
+          27,
+          25,
+          27 + MediaQuery.paddingOf(context).bottom,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -2732,10 +2777,10 @@ class _CartSelectionDock extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        l10n.cartSelectionCountLabel,
+                        l10n.checkoutSummaryTotal,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                               color: colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                             ),
                       ),
                       const SizedBox(height: 5),
@@ -2758,12 +2803,24 @@ class _CartSelectionDock extends StatelessWidget {
                       maxWidth: 220,
                       minHeight: 58,
                     ),
-                    child: SizedBox(
-                      height: 58,
-                      child: FilledButton(
-                        onPressed: onReview,
-                        child: Text(
-                          enabled ? l10n.cartSelectionReview : l10n.cartExpired,
+                    child: DecoratedBox(
+                      decoration: _lotteryDockButtonDecoration(
+                        context,
+                        enabled: enabled,
+                      ),
+                      child: SizedBox(
+                        height: 58,
+                        child: FilledButton(
+                          onPressed: onReview,
+                          style: _lotteryDockButtonStyle(
+                            context,
+                            fontSize: 20,
+                          ),
+                          child: Text(
+                            enabled
+                                ? l10n.cartSelectionReview
+                                : l10n.cartExpired,
+                          ),
                         ),
                       ),
                     ),
@@ -3425,22 +3482,19 @@ class _FixedPaymentDockContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final horizontal = constraints.maxWidth >= 720 ? 28.0 : 0.0;
-          return Padding(
-            padding: EdgeInsets.symmetric(horizontal: horizontal),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 760),
-                child: child,
-              ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final horizontal = constraints.maxWidth >= 720 ? 28.0 : 0.0;
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: horizontal),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: child,
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -3584,11 +3638,12 @@ class _CheckoutPaymentMethodCard extends StatelessWidget {
       children: [
         Text(
           l10n.checkoutPaymentMethodTitle,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontSize: 20,
                 fontWeight: FontWeight.w900,
               ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 24),
         for (final method in normalizedMethods) ...[
           _CheckoutPaymentMethodOptionCard(
             method: method,
@@ -3633,9 +3688,15 @@ class _CheckoutConfirmDock extends StatelessWidget {
         borderColor: Colors.transparent,
         shadowAlpha: 0.12,
         blurRadius: 26,
+        shadowOffset: const Offset(0, -8),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(
+          18,
+          22,
+          18,
+          22 + MediaQuery.paddingOf(context).bottom,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -3647,13 +3708,20 @@ class _CheckoutConfirmDock extends StatelessWidget {
                       l10n.checkoutPaymentTimer(time),
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
             ],
-            SizedBox(
-              height: 52,
-              child: FilledButton(
-                onPressed: submitting || !enabled ? null : onConfirm,
-                child: Text(label),
+            DecoratedBox(
+              decoration: _lotteryDockButtonDecoration(
+                context,
+                enabled: enabled && !submitting,
+              ),
+              child: SizedBox(
+                height: 58,
+                child: FilledButton(
+                  onPressed: submitting || !enabled ? null : onConfirm,
+                  style: _lotteryDockButtonStyle(context),
+                  child: Text(label),
+                ),
               ),
             ),
           ],
@@ -4384,6 +4452,72 @@ String _defaultCountdownLabel(CustomerLocalizations l10n, String time) {
   return l10n.cartExpiresCountdown(time);
 }
 
+class _LotteryEmptyState extends StatelessWidget {
+  const _LotteryEmptyState({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 52),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              height: 1.35,
+            ),
+      ),
+    );
+  }
+}
+
+class _LotteryStatusAlert extends StatelessWidget {
+  const _LotteryStatusAlert({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final foreground = colorScheme.onTertiaryContainer;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.tertiaryContainer.withValues(alpha: 0.56),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              color: colorScheme.tertiary,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: foreground,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      height: 1.25,
+                    ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MessageCard extends StatelessWidget {
   const _MessageCard({
     required this.icon,
@@ -4778,6 +4912,7 @@ BoxDecoration _lotterySurfaceDecoration(
   double borderWidth = 1,
   double shadowAlpha = 0.08,
   double blurRadius = 24,
+  Offset shadowOffset = const Offset(0, 10),
 }) {
   final colorScheme = Theme.of(context).colorScheme;
   return BoxDecoration(
@@ -4791,9 +4926,59 @@ BoxDecoration _lotterySurfaceDecoration(
       BoxShadow(
         color: colorScheme.primary.withValues(alpha: shadowAlpha),
         blurRadius: blurRadius,
-        offset: const Offset(0, 10),
+        offset: shadowOffset,
       ),
     ],
+  );
+}
+
+BoxDecoration _lotteryDockButtonDecoration(
+  BuildContext context, {
+  bool enabled = true,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return BoxDecoration(
+    gradient: enabled
+        ? LinearGradient(
+            colors: [
+              colorScheme.primary,
+              Color.lerp(colorScheme.primary, colorScheme.secondary, 0.55) ??
+                  colorScheme.primary,
+            ],
+          )
+        : null,
+    color: enabled ? null : colorScheme.surfaceContainerHighest,
+    borderRadius: BorderRadius.circular(999),
+    boxShadow: enabled
+        ? [
+            BoxShadow(
+              color: colorScheme.primary.withValues(alpha: 0.22),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ]
+        : null,
+  );
+}
+
+ButtonStyle _lotteryDockButtonStyle(
+  BuildContext context, {
+  double fontSize = 17,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return FilledButton.styleFrom(
+    backgroundColor: Colors.transparent,
+    disabledBackgroundColor: Colors.transparent,
+    foregroundColor: colorScheme.onPrimary,
+    disabledForegroundColor: colorScheme.onSurfaceVariant,
+    shadowColor: Colors.transparent,
+    padding: const EdgeInsets.symmetric(horizontal: 18),
+    shape: const StadiumBorder(),
+    textStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
+          fontSize: fontSize,
+          fontWeight: FontWeight.w900,
+          height: 1.1,
+        ),
   );
 }
 
